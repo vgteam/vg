@@ -747,6 +747,7 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01handle__t_01_4.html">wang_hash&lt; handle_t &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01handlegraph_1_1net__handle__t_01_4.html">wang_hash&lt; handlegraph::net_handle_t &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define <a class="el" href="structvg_1_1wang__hash.html">wang_hash</a> for net_handle_t's so that we can use a <a class="el" href="classvg_1_1hash__map.html">hash_map</a>.  <a href="structvg_1_1wang__hash_3_01handlegraph_1_1net__handle__t_01_4.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01net__identifier__t_01_4.html">wang_hash&lt; net_identifier_t &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2251,15 +2252,20 @@ Functions</h2></td></tr>
 <tr class="separator:ad7ec65dd3bb34f37cff811f49c1b9599"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a75bc48248af00118bc7cdacc00e37db1"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a75bc48248af00118bc7cdacc00e37db1">to_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> edge)</td></tr>
 <tr class="separator:a75bc48248af00118bc7cdacc00e37db1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abcbcd550b51078ae43f2b1d87941e1a0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abcbcd550b51078ae43f2b1d87941e1a0">minimum_distance</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos1, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos2, bool unoriented_distance, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
-<tr class="separator:abcbcd550b51078ae43f2b1d87941e1a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2585ca5d32927c59b1cd84f08d103a55"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2585ca5d32927c59b1cd84f08d103a55">minimum_distance</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos1, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos2, bool unoriented_distance=false, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph=nullptr)</td></tr>
+<tr class="memdesc:a2585ca5d32927c59b1cd84f08d103a55"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimum distance taking a pos instead of id/orientation/offset.  <a href="namespacevg.html#a2585ca5d32927c59b1cd84f08d103a55">More...</a><br /></td></tr>
+<tr class="separator:a2585ca5d32927c59b1cd84f08d103a55"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c0e0bb8a3a17e462472d1da8c6842a0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c0e0bb8a3a17e462472d1da8c6842a0">minimum_nontrivial_distance</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos1, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos2, size_t pos2_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a6c0e0bb8a3a17e462472d1da8c6842a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a004ed92d4db665ce8ec4e527f150a7c4">maximum_distance</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos1, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos2)</td></tr>
+<tr class="memdesc:a004ed92d4db665ce8ec4e527f150a7c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum distance taking a pos instead of id/orientation/offset.  <a href="namespacevg.html#a004ed92d4db665ce8ec4e527f150a7c4">More...</a><br /></td></tr>
 <tr class="separator:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac7b8c3e17638ecacbdf519c4095bc20e">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool only_top_level_chain_distances, bool silence_warnings)</td></tr>
 <tr class="separator:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae55954f00a00c8b34d20966f7d9fe72a">make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool only_top_level_chain_distances)</td></tr>
 <tr class="separator:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7c9f1f64df265187309db52705a1bef7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7c9f1f64df265187309db52705a1bef7">populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, pair&lt; SnarlDistanceIndex::temp_record_t, size_t &gt; snarl_index, size_t size_limit, bool only_top_level_chain_distances, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="memdesc:a7c9f1f64df265187309db52705a1bef7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fill in the temporary snarl record with distances.  <a href="namespacevg.html#a7c9f1f64df265187309db52705a1bef7">More...</a><br /></td></tr>
 <tr class="separator:a7c9f1f64df265187309db52705a1bef7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff8a7aca57dd525bc2def1369abae3fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff8a7aca57dd525bc2def1369abae3fe">subgraph_in_distance_range</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, size_t min_distance, size_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, bool look_forward)</td></tr>
 <tr class="separator:aff8a7aca57dd525bc2def1369abae3fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2839,18 +2845,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a796e339855648a7b8bdee41619eed23b"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a796e339855648a7b8bdee41619eed23b">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3">ZipCode::code_type_t</a> &amp;type)</td></tr>
 <tr class="memdesc:a796e339855648a7b8bdee41619eed23b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a code type to a stream.  <a href="namespacevg.html#a796e339855648a7b8bdee41619eed23b">More...</a><br /></td></tr>
 <tr class="separator:a796e339855648a7b8bdee41619eed23b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a48dec55a9705e1b2a636a90c7c9d9e9d"><td class="memItemLeft" align="right" valign="top">template void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a48dec55a9705e1b2a636a90c7c9d9e9d">ZipCodeTree::print_self&lt; MinimizerMapper::Minimizer &gt;</a> (const vector&lt; Seed &gt; *, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; *) const</td></tr>
-<tr class="separator:a48dec55a9705e1b2a636a90c7c9d9e9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afacdb481e4a38366ce65c39efcb5af49"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afacdb481e4a38366ce65c39efcb5af49">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1ZipCodeTree.html#ad2249d10c3c707b5433b916d388117ad">ZipCodeTree::tree_item_type_t</a> &amp;type)</td></tr>
 <tr class="memdesc:afacdb481e4a38366ce65c39efcb5af49"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print an item type to a stream.  <a href="namespacevg.html#afacdb481e4a38366ce65c39efcb5af49">More...</a><br /></td></tr>
 <tr class="separator:afacdb481e4a38366ce65c39efcb5af49"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a047b1758c707866aceb6c39b2503d5c6"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a047b1758c707866aceb6c39b2503d5c6">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1ZipCodeTree_1_1reverse__iterator.html#a7befe01ebe22c002ec95471a8800cb19">ZipCodeTree::reverse_iterator::State</a> &amp;state)</td></tr>
-<tr class="memdesc:a047b1758c707866aceb6c39b2503d5c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pritn an iterator state to a stream.  <a href="namespacevg.html#a047b1758c707866aceb6c39b2503d5c6">More...</a><br /></td></tr>
-<tr class="separator:a047b1758c707866aceb6c39b2503d5c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad4f0e6958b0bfd7c256ee10291a95925"><td class="memItemLeft" align="right" valign="top">template void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad4f0e6958b0bfd7c256ee10291a95925">ZipCodeForest::fill_in_forest&lt; MinimizerMapper::Minimizer &gt;</a> (const vector&lt; Seed &gt; &amp;, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;, const SnarlDistanceIndex &amp;, size_t, size_t)</td></tr>
-<tr class="separator:ad4f0e6958b0bfd7c256ee10291a95925"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a279d0eb09ed478cc7c6c98e3cbcd9864"><td class="memItemLeft" align="right" valign="top">template void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a279d0eb09ed478cc7c6c98e3cbcd9864">ZipCodeForest::get_cyclic_snarl_intervals&lt; MinimizerMapper::Minimizer &gt;</a> (forest_growing_state_t &amp;, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &amp;, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &amp;, const forward_list&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &gt; &amp;, forward_list&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &gt; &amp;) const</td></tr>
-<tr class="separator:a279d0eb09ed478cc7c6c98e3cbcd9864"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a66a3ab823a80de968b05a8cc9adb2885"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a66a3ab823a80de968b05a8cc9adb2885">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#aa62eb94739c4b9145d7d72c0818fdb9b">ZipCodeTree::distance_iterator::State</a> &amp;state)</td></tr>
+<tr class="memdesc:a66a3ab823a80de968b05a8cc9adb2885"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print an iterator state to a stream.  <a href="namespacevg.html#a66a3ab823a80de968b05a8cc9adb2885">More...</a><br /></td></tr>
+<tr class="separator:a66a3ab823a80de968b05a8cc9adb2885"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e9492318cb9d85232fd78bc4c677fcc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e9492318cb9d85232fd78bc4c677fcc">extract_subchain</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> end)</td></tr>
 <tr class="separator:a9e9492318cb9d85232fd78bc4c677fcc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1384531a1c8d8387bdd04961590bdf93"><td class="memTemplParams" colspan="2">template&lt;typename Result &gt; </td></tr>
@@ -3649,6 +3649,7 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Helper function for subgraph_containing_path_snarls Add all the nodes in the parent to the subgraph </p>
 
 </div>
 </div>
@@ -10006,19 +10007,19 @@ template&lt;class RandomIt &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>size_limit</em>, </td>
+          <td class="paramname"><em>size_limit</em> = <code>50000</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>only_top_level_chain_distances</em>, </td>
+          <td class="paramname"><em>only_top_level_chain_distances</em> = <code>false</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>silence_warnings</em>&#160;</td>
+          <td class="paramname"><em>silence_warnings</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -10027,6 +10028,7 @@ template&lt;class RandomIt &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Fill in the index size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances </p>
 
 </div>
 </div>
@@ -17124,6 +17126,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
       </table>
 </div><div class="memdoc">
 
+<p>Maximum distance taking a pos instead of id/orientation/offset. </p>
+
 </div>
 </div>
 <a id="a6eef175773ce8532826ba78eee0cece5"></a>
@@ -17660,8 +17664,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a id="abcbcd550b51078ae43f2b1d87941e1a0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abcbcd550b51078ae43f2b1d87941e1a0">&#9670;&nbsp;</a></span>minimum_distance()</h2>
+<a id="a2585ca5d32927c59b1cd84f08d103a55"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2585ca5d32927c59b1cd84f08d103a55">&#9670;&nbsp;</a></span>minimum_distance()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17703,6 +17707,55 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Minimum distance taking a pos instead of id/orientation/offset. </p>
+
+</div>
+</div>
+<a id="a6c0e0bb8a3a17e462472d1da8c6842a0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c0e0bb8a3a17e462472d1da8c6842a0">&#9670;&nbsp;</a></span>minimum_nontrivial_distance()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::minimum_nontrivial_distance </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td>
+          <td class="paramname"><em>pos1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td>
+          <td class="paramname"><em>pos2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>pos2_length</em> = <code>std::numeric_limits&lt;&#160;size_t&#160;&gt;::max()</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Minimum distance but if the positions are the same, a true self-loop distance is calculated (i.e. it doesn't default to 0, and may be infinite) This is assumed to always be directed The length of one node may be passed for a minor speed improvement </p>
 
 </div>
 </div>
@@ -19231,8 +19284,8 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a id="a047b1758c707866aceb6c39b2503d5c6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a047b1758c707866aceb6c39b2503d5c6">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[18/20]</span></h2>
+<a id="a66a3ab823a80de968b05a8cc9adb2885"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a66a3ab823a80de968b05a8cc9adb2885">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[18/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19246,7 +19299,7 @@ template&lt;typename Scalar &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeTree_1_1reverse__iterator.html#a7befe01ebe22c002ec95471a8800cb19">ZipCodeTree::reverse_iterator::State</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#aa62eb94739c4b9145d7d72c0818fdb9b">ZipCodeTree::distance_iterator::State</a> &amp;&#160;</td>
           <td class="paramname"><em>state</em>&#160;</td>
         </tr>
         <tr>
@@ -19257,7 +19310,7 @@ template&lt;typename Scalar &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Pritn an iterator state to a stream. </p>
+<p>Print an iterator state to a stream. </p>
 
 </div>
 </div>
@@ -21581,6 +21634,8 @@ template&lt;typename TracebackIterator &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Fill in the temporary snarl record with distances. </p>
 <p>Record the distance</p>
 <p>Add the next node to the priority queue</p>
 <p>Check the minimum length of the snarl passing through this node</p>
@@ -25316,6 +25371,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Add nodes to the subgraph if they are near the path in the snarl tree Walks up the snarl tree from either end of the path, then takes everything in between them </p>
 
 </div>
 </div>
@@ -25374,6 +25430,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Given an alignment to a graph and a range, find the set of nodes in the graph for which the minimum distance from the position to any position in the node is within the given distance range If look_forward is true, then start from the start of the path forward, otherwise start from the end going backward </p>
 
 </div>
 </div>
@@ -25429,7 +25486,7 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>min_distance</em>, </td>
+          <td class="paramname"><em>min_distane</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -25441,7 +25498,7 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>checked_loop</em>&#160;</td>
+          <td class="paramname"><em>checked_loop</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -25450,6 +25507,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Helper function for subgraph_in_distance_range Given a node that is a child of a chain and the distance to it, walk forward from the current child and add nodes to search_start_nodes </p>
 
 </div>
 </div>
@@ -25508,7 +25566,8 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Helper for subgraph_in_distance_range Given starting handles in the super graph and the distances to each handle (including the start position and </p>
+<p>Helper for subgraph_in_distance_range Given starting handles in the super graph and the distances to each handle (including the start position and</p>
+<p>Helper for subgraph_in_distance_range Given starting handles in the super graph and the distances to each handle (including the start position and the first position in the handle), add all nodes within the distance range, excluding nodes in seen_nodes traversal_start is the node that we started the search from, because we can traverse it a second time but we don't want to include a loop distance to any node after it </p>
 
 </div>
 </div>
@@ -29186,132 +29245,6 @@ template&lt;typename T &gt; </div>
           <td class="paramtype">const <a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;&#160;</td>
           <td class="paramname"><em>index</em></td><td>)</td>
           <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ad4f0e6958b0bfd7c256ee10291a95925"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad4f0e6958b0bfd7c256ee10291a95925">&#9670;&nbsp;</a></span>ZipCodeForest::fill_in_forest&lt; MinimizerMapper::Minimizer &gt;()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">template void <a class="el" href="classvg_1_1ZipCodeForest.html#abeea5f048e6e7711971b764591ee63ec">vg::ZipCodeForest::fill_in_forest</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; Seed &gt; &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname">&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a279d0eb09ed478cc7c6c98e3cbcd9864"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a279d0eb09ed478cc7c6c98e3cbcd9864">&#9670;&nbsp;</a></span>ZipCodeForest::get_cyclic_snarl_intervals&lt; MinimizerMapper::Minimizer &gt;()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">template void <a class="el" href="classvg_1_1ZipCodeForest.html#ad32664318549a51d8727204d665a2bc6">vg::ZipCodeForest::get_cyclic_snarl_intervals</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; </td>
-          <td>(</td>
-          <td class="paramtype">forest_growing_state_t &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const forward_list&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">forward_list&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">ZipCodeForest::interval_state_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname">&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a48dec55a9705e1b2a636a90c7c9d9e9d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a48dec55a9705e1b2a636a90c7c9d9e9d">&#9670;&nbsp;</a></span>ZipCodeTree::print_self&lt; MinimizerMapper::Minimizer &gt;()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">template void <a class="el" href="classvg_1_1ZipCodeTree.html#afe8400e287661b3a9525d99da5329770">vg::ZipCodeTree::print_self</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; Seed &gt; *&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; *&#160;</td>
-          <td class="paramname">&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">

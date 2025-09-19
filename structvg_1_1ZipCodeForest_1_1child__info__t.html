@@ -78,6 +78,7 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:aa03360bbe51a60b6da4dfe63e3f1acba"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#aa03360bbe51a60b6da4dfe63e3f1acba">child_info_t</a> (<a class="el" href="classvg_1_1ZipCodeTree.html#ad2249d10c3c707b5433b916d388117ad">ZipCodeTree::tree_item_type_t</a> <a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#af21cc2ebf18d65a28c08ef24db23eee1">type</a>, size_t <a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#a5d3fb39613dc2935ea316d87d2244f7b">value</a>)</td></tr>
+<tr class="memdesc:aa03360bbe51a60b6da4dfe63e3f1acba"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a> for type/value leaving all other fields as defaults.  <a href="structvg_1_1ZipCodeForest_1_1child__info__t.html#aa03360bbe51a60b6da4dfe63e3f1acba">More...</a><br /></td></tr>
 <tr class="separator:aa03360bbe51a60b6da4dfe63e3f1acba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
@@ -87,14 +88,16 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a4e096843dd1f83013634d54b4e498af6"><td class="memItemLeft" align="right" valign="top">std::pair&lt; std::unordered_map&lt; size_t, size_t &gt;, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#a4e096843dd1f83013634d54b4e498af6">distances</a></td></tr>
 <tr class="separator:a4e096843dd1f83013634d54b4e498af6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8523531191e2bcc417241927652a796"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#ac8523531191e2bcc417241927652a796">chain_component</a>: 26</td></tr>
+<tr class="memdesc:ac8523531191e2bcc417241927652a796"><td class="mdescLeft">&#160;</td><td class="mdescRight">If the item is a child of a chain, its chain component.  <a href="structvg_1_1ZipCodeForest_1_1child__info__t.html#ac8523531191e2bcc417241927652a796">More...</a><br /></td></tr>
 <tr class="separator:ac8523531191e2bcc417241927652a796"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af21cc2ebf18d65a28c08ef24db23eee1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1ZipCodeTree.html#ad2249d10c3c707b5433b916d388117ad">ZipCodeTree::tree_item_type_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#af21cc2ebf18d65a28c08ef24db23eee1">type</a>: 5</td></tr>
+<tr class="memdesc:af21cc2ebf18d65a28c08ef24db23eee1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Current item type.  <a href="structvg_1_1ZipCodeForest_1_1child__info__t.html#af21cc2ebf18d65a28c08ef24db23eee1">More...</a><br /></td></tr>
 <tr class="separator:af21cc2ebf18d65a28c08ef24db23eee1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4a9de3c328470293caa0d958094201e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#af4a9de3c328470293caa0d958094201e">is_reversed</a> = false</td></tr>
 <tr class="separator:af4a9de3c328470293caa0d958094201e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>For children of snarls, we need to remember the siblings and start bound that came before them so we can record their distances This holds the indices (into zip_code_tree) of each seed or start of a chain, and each start and child chain start of a snarl For the children of a chain, the value is the prefix sum in the chain (relative to the orientation of the top-level chain, not necessarily the chain itself) For the children of a snarl, the value is the index of the CHAIN_START in zip_code_tree. The first seed in the chain will need to be found by looping through zip_code_tree </p>
+<div class="textblock"><p>For children of snarls, we need to remember the siblings and start bound that came before them so we can record their distances This holds the indices (into zip_code_tree) of each seed or chain start, and each start and child chain start of a snarl For the children of a chain, the value is the prefix sum in the chain (relative to orientation of the top-level chain, not the chain itself) For the children of a snarl, the value is the index of the CHAIN_START First seed in the chain must be found by looping through zip_code_tree </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="aa03360bbe51a60b6da4dfe63e3f1acba"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa03360bbe51a60b6da4dfe63e3f1acba">&#9670;&nbsp;</a></span>child_info_t()</h2>
@@ -130,6 +133,8 @@ Public Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a> for type/value leaving all other fields as defaults. </p>
+
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
@@ -145,6 +150,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>If the item is a child of a chain, its chain component. </p>
+
 </div>
 </div>
 <a id="a4e096843dd1f83013634d54b4e498af6"></a>
@@ -158,6 +165,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>For children of snarls, distance to the left and right of the chain that gets added to edges in the snarl The first item is a map of {seed index : distance}, in case the first seed gets snipped off The second item is the distance to the rightmost seed in the chain </p>
 
 </div>
 </div>
@@ -172,6 +180,8 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Is the sibling reversed; only used for children of snarls, to indicate that the child is traversed backwards <br  />
+ </p>
 
 </div>
 </div>
@@ -187,6 +197,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>Current item type. </p>
+
 </div>
 </div>
 <a id="a5d3fb39613dc2935ea316d87d2244f7b"></a>
@@ -200,6 +212,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>A value associated with the item, offset in a chain or index of the snarl child start </p>
 
 </div>
 </div>

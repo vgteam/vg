@@ -88,6 +88,9 @@ Inheritance diagram for vg::ZipCodeTree::oriented_seed_t:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a61406a66f3e606b644680ff0c4533ca4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a61406a66f3e606b644680ff0c4533ca4">oriented_seed_t</a> (size_t seed_index, bool <a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a7cf9e56f672a9589899f5830bc10a9bb">is_reversed</a>)</td></tr>
+<tr class="memdesc:a61406a66f3e606b644680ff0c4533ca4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Raw value constructor.  <a href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a61406a66f3e606b644680ff0c4533ca4">More...</a><br /></td></tr>
+<tr class="separator:a61406a66f3e606b644680ff0c4533ca4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4483a326cb25512a552a1594232d3fdd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a4483a326cb25512a552a1594232d3fdd">operator==</a> (const <a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html">oriented_seed_t</a> &amp;other) const</td></tr>
 <tr class="memdesc:a4483a326cb25512a552a1594232d3fdd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compare to other instances. TODO: Use default when we get C++20.  <a href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a4483a326cb25512a552a1594232d3fdd">More...</a><br /></td></tr>
 <tr class="separator:a4483a326cb25512a552a1594232d3fdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -98,13 +101,54 @@ Public Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a38ffc441fe03ec44c1c089eba2b76ae2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a38ffc441fe03ec44c1c089eba2b76ae2">seed</a></td></tr>
+<tr class="memdesc:a38ffc441fe03ec44c1c089eba2b76ae2"><td class="mdescLeft">&#160;</td><td class="mdescRight">The index of the seed in the seeds vector.  <a href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a38ffc441fe03ec44c1c089eba2b76ae2">More...</a><br /></td></tr>
 <tr class="separator:a38ffc441fe03ec44c1c089eba2b76ae2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a54539368bfd495fe1ab7cbcd60f6d528"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a54539368bfd495fe1ab7cbcd60f6d528">is_reverse</a></td></tr>
-<tr class="separator:a54539368bfd495fe1ab7cbcd60f6d528"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7cf9e56f672a9589899f5830bc10a9bb"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a7cf9e56f672a9589899f5830bc10a9bb">is_reversed</a></td></tr>
+<tr class="memdesc:a7cf9e56f672a9589899f5830bc10a9bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is the seed traversed backwards in the tree?  <a href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html#a7cf9e56f672a9589899f5830bc10a9bb">More...</a><br /></td></tr>
+<tr class="separator:a7cf9e56f672a9589899f5830bc10a9bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Exposed type for a reference to an orientation of a seed. </p>
-</div><h2 class="groupheader">Member Function Documentation</h2>
+<div class="textblock"><p>Exposed type for a reference to an orientation of a seed </p>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a61406a66f3e606b644680ff0c4533ca4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a61406a66f3e606b644680ff0c4533ca4">&#9670;&nbsp;</a></span>oriented_seed_t()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::ZipCodeTree::oriented_seed_t::oriented_seed_t </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>seed_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_reversed</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Raw value constructor. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
 <a id="aced4d93ad8d1fb3b5b530ff0dd912912"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aced4d93ad8d1fb3b5b530ff0dd912912">&#9670;&nbsp;</a></span>operator!=()</h2>
 
@@ -162,17 +206,19 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a54539368bfd495fe1ab7cbcd60f6d528"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a54539368bfd495fe1ab7cbcd60f6d528">&#9670;&nbsp;</a></span>is_reverse</h2>
+<a id="a7cf9e56f672a9589899f5830bc10a9bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7cf9e56f672a9589899f5830bc10a9bb">&#9670;&nbsp;</a></span>is_reversed</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::ZipCodeTree::oriented_seed_t::is_reverse</td>
+          <td class="memname">bool vg::ZipCodeTree::oriented_seed_t::is_reversed</td>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Is the seed traversed backwards in the tree? </p>
 
 </div>
 </div>
@@ -187,6 +233,8 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>The index of the seed in the seeds vector. </p>
 
 </div>
 </div>

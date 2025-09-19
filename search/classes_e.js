@@ -1,13 +1,13 @@
 var searchData=
 [
-  ['option_7263',['Option',['../classvg_1_1Option.html',1,'vg']]],
-  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e_7264',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
-  ['optiongroup_7265',['OptionGroup',['../structvg_1_1subcommand_1_1OptionGroup.html',1,'vg::subcommand']]],
-  ['optioninterface_7266',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
-  ['optionvalueparser_7267',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
-  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e_7268',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
-  ['orderedgraph_7269',['OrderedGraph',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html',1,'vg::DozeuInterface']]],
-  ['oriented_5fseed_5ft_7270',['oriented_seed_t',['../structvg_1_1ZipCodeTree_1_1oriented__seed__t.html',1,'vg::ZipCodeTree']]],
-  ['orienteddistanceclusterer_7271',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
-  ['orienteddistancemeasurer_7272',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
+  ['option_7302',['Option',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e_7303',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
+  ['optiongroup_7304',['OptionGroup',['../structvg_1_1subcommand_1_1OptionGroup.html',1,'vg::subcommand']]],
+  ['optioninterface_7305',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
+  ['optionvalueparser_7306',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
+  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e_7307',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
+  ['orderedgraph_7308',['OrderedGraph',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html',1,'vg::DozeuInterface']]],
+  ['oriented_5fseed_5ft_7309',['oriented_seed_t',['../structvg_1_1ZipCodeTree_1_1oriented__seed__t.html',1,'vg::ZipCodeTree']]],
+  ['orienteddistanceclusterer_7310',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
+  ['orienteddistancemeasurer_7311',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
 ];

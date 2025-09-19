@@ -164,6 +164,9 @@ $(function() {
 <li>get_alignments()
 : <a class="el" href="structvg_1_1AugmentedGraph.html#ad92c283634470f6372777c38a9a70a79">vg::AugmentedGraph</a>
 </li>
+<li>get_all_seeds()
+: <a class="el" href="classvg_1_1ZipCodeTree.html#a1ba0ef9843d61c0b165d691797c85cac">vg::ZipCodeTree</a>
+</li>
 <li>get_allele()
 : <a class="el" href="classvg_1_1PhasedGenome.html#a6f89ab856a31dfb7258fd7487c051a5a">vg::PhasedGenome</a>
 </li>
@@ -257,6 +260,9 @@ $(function() {
 , <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a5dcd90a391b2382723f3b303687ca1c8">vg::ZipCode::snarl_code_t</a>
 , <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html#adc51b5f6e09b00eb41964c902d7eb033">vg::ZipCodeForest::sort_value_t</a>
 </li>
+<li>get_chain_numbers()
+: <a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a55df7ec18c8c789bd88d6af8ed686f0b">vg::ZipCodeTree::seed_iterator</a>
+</li>
 <li>get_child_count()
 : <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a315c9998b34918303feb08d5143fba7c">vg::ZipCode::snarl_code_t</a>
 </li>
@@ -299,9 +305,6 @@ $(function() {
 <li>get_context()
 : <a class="el" href="classvg_1_1Deconstructor.html#a049890802f6b6036a779eb3645bb1307">vg::Deconstructor</a>
 </li>
-<li>get_correlation()
-: <a class="el" href="classvg_1_1ZipCodeForest.html#ab939e5ee856a9ac2531d0d8ac14e7cbe">vg::ZipCodeForest</a>
-</li>
 <li>get_count()
 : <a class="el" href="classvg_1_1NoAlignmentInBandException.html#a4b5f7f90a2be571131fb12484a9b4c18">vg::NoAlignmentInBandException</a>
 </li>
@@ -316,9 +319,6 @@ $(function() {
 </li>
 <li>get_cut_segments()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aaa64dbf4207ebe2fe75044d60be1d07e">vg::MultipathAlignmentGraph</a>
-</li>
-<li>get_cyclic_snarl_intervals()
-: <a class="el" href="classvg_1_1ZipCodeForest.html#ad32664318549a51d8727204d665a2bc6">vg::ZipCodeForest</a>
 </li>
 <li>get_default_long_giraffe_indexes()
 : <a class="el" href="structvg_1_1VGIndexes.html#a8caf19bd7436cd7f9df4f9792aa86483">vg::VGIndexes</a>
@@ -401,6 +401,9 @@ $(function() {
 </li>
 <li>get_edge_length()
 : <a class="el" href="classvg_1_1TraversalSupportFinder.html#a4902b9dcdaa53f74f45a394265163311">vg::TraversalSupportFinder</a>
+</li>
+<li>get_edge_seeds()
+: <a class="el" href="classvg_1_1ZipCodeForest.html#a938f2d3c36ab09c5c7a80f33b9ac365c">vg::ZipCodeForest</a>
 </li>
 <li>get_edge_support()
 : <a class="el" href="classvg_1_1CachedPackedTraversalSupportFinder.html#a72ae391a14cf1625286d8c3aff3cd7a5">vg::CachedPackedTraversalSupportFinder</a>
@@ -556,6 +559,7 @@ $(function() {
 </li>
 <li>get_index()
 : <a class="el" href="classvg_1_1IndexRegistry.html#a3738a3916a17ca5a2716e7530b10c434">vg::IndexRegistry</a>
+, <a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a4d032d848857e8f7034bc3e77a47a513">vg::ZipCodeTree::seed_iterator</a>
 </li>
 <li>get_indexes()
 : <a class="el" href="classvg_1_1RewindPlanException.html#a80a898014c62738052c18e85a0403a24">vg::RewindPlanException</a>
@@ -572,6 +576,9 @@ $(function() {
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#ac33d15bc06e31045d07ecf22e018f0a8">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a1463f13c63b965a3663932e6fa87537e">vg::VG</a>
 , <a class="el" href="classxg_1_1XG.html#a841e1c50686d3ea941fb9a01d9639784">xg::XG</a>
+</li>
+<li>get_is_cyclic()
+: <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html#adbd31849af4c83d28969b42f9ceaf896">vg::ZipCodeTree::tree_item_t</a>
 </li>
 <li>get_is_looping_chain()
 : <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#ac917c5b03c10bd9e57b344a708c6b033">vg::ZipCode::chain_code_t</a>
@@ -818,6 +825,9 @@ $(function() {
 <li>get_offset_in_chain()
 : <a class="el" href="classvg_1_1ZipCode.html#a5d8b333ee954fa9a513b6190e1910843">vg::ZipCode</a>
 </li>
+<li>get_offset_to_seed()
+: <a class="el" href="classvg_1_1ZipCodeTree.html#a1f8cef3fdb0721e382bb9efcca89087a">vg::ZipCodeTree</a>
+</li>
 <li>get_on_strand_distance_tree()
 : <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a736cd908b11ed3a000698291c541bbc0">vg::OrientedDistanceClusterer</a>
 </li>
@@ -831,6 +841,9 @@ $(function() {
 </li>
 <li>get_options()
 : <a class="el" href="classvg_1_1Configurable.html#a553f14c4f4a19bb51d40ffb211945b3a">vg::Configurable</a>
+</li>
+<li>get_other_bound_offset()
+: <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html#a4c687492f0cfc9cd9ca9ae0e53e4f5fe">vg::ZipCodeTree::tree_item_t</a>
 </li>
 <li>get_overhang()
 : <a class="el" href="classvg_1_1ReadFilter.html#ab3bff405c9a8994993ea71e0c03b8772">vg::ReadFilter&lt; Read &gt;</a>
@@ -1076,6 +1089,9 @@ $(function() {
 <li>get_resolver()
 : <a class="el" href="classvg_1_1io_1_1Registry.html#a45f5ca692e2d85618f2081e7aa967730">vg::io::Registry</a>
 </li>
+<li>get_right_to_left()
+: <a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a5a7a015de6491cb89d43b96ce9a063c2">vg::ZipCodeTree::seed_iterator</a>
+</li>
 <li>get_root()
 : <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#af94fd9c82aaa2742123b25b0ec95311f">handlegraph::SnarlDecomposition</a>
 , <a class="el" href="classvg_1_1TreeSubgraph.html#a16b12e54e0c87d9a84f4d3a809a8171b">vg::TreeSubgraph</a>
@@ -1087,11 +1103,14 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#ada7fda320c3b28c0fb642d7e4a789045">handlegraph::PathMetadata</a>
 </li>
 <li>get_score()
-: <a class="el" href="classvg_1_1ReadFilter.html#af800d67aa469136b6318c02e282c5a30">vg::ReadFilter&lt; Read &gt;</a>
-, <a class="el" href="classvg_1_1Surjector.html#a4df48f23da07159bb99bc6577d992938">vg::Surjector</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">vg::ReadFilter&lt; Read &gt;</a>
+, <a class="el" href="classvg_1_1Surjector.html#aafe9672e0a82c6540c4d1360070725ec">vg::Surjector</a>
 </li>
 <li>get_scores()
 : <a class="el" href="structhaplo_1_1haplo__DP__column.html#a784a7e41856ad01f9bdd88ca59dfb146">haplo::haplo_DP_column</a>
+</li>
+<li>get_section_length()
+: <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html#ad74041f0bb02aa59fed8427fdfb63507">vg::ZipCodeTree::tree_item_t</a>
 </li>
 <li>get_seed_pos()
 : <a class="el" href="classvg_1_1SpliceRegion.html#ab79a29d07732a726cffffea140af98c4">vg::SpliceRegion</a>
@@ -1126,7 +1145,7 @@ $(function() {
 , <a class="el" href="classxg_1_1XG.html#ad748df5f6e521774c1d5871ab3519bd8">xg::XG</a>
 </li>
 <li>get_sequences()
-: <a class="el" href="classvg_1_1HaplotypePartitioner.html#a8bdd15927542e95eb536fc9e9bb69aa7">vg::HaplotypePartitioner</a>
+: <a class="el" href="classvg_1_1HaplotypePartitioner.html#af88d6e4839d697b5780c453441d3abb0">vg::HaplotypePartitioner</a>
 </li>
 <li>get_short()
 : <a class="el" href="classvg_1_1Version.html#a8105cc0ae9049ca2daf91fbce5efa5e9">vg::Version</a>
@@ -1340,7 +1359,7 @@ $(function() {
 : <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#aa815b9f84fdf80d9bf29c38d3d68408c">vg::algorithms::GFADuplicatePathError</a>
 </li>
 <li>GFAFormatError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#afdf6dea244cc33a30ae5d9446199bea2">vg::algorithms::GFAFormatError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#add2d72c679e2b69e1c9f9c481228e0fb">vg::algorithms::GFAFormatError</a>
 </li>
 <li>GFAHandleGraph()
 : <a class="el" href="classvg_1_1GFAHandleGraph.html#aeffc2278ffcad22cd6950f3fa831f60d">vg::GFAHandleGraph</a>
@@ -1391,7 +1410,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SparseUnionFind.html#aff34e4252e15a68b1e8e79c8cef27a66">vg::SparseUnionFind</a>
 </li>
 <li>GroupedOptionGroup()
-: <a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#af4f06c1eff0303d1c982b0c2d34c2b55">vg::subcommand::GroupedOptionGroup</a>
+: <a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#a6da6deb7ccf8697e84db1c266dd9180f">vg::subcommand::GroupedOptionGroup</a>
 </li>
 <li>Growth()
 : <a class="el" href="structvg_1_1FlowSort_1_1Growth.html#aa156ae24695e73aee936d00a7ef70d22">vg::FlowSort::Growth</a>
@@ -1400,7 +1419,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#ab45f7399b68bdc980499d4384515b9b7">vg::GSSWAligner</a>
 </li>
 <li>GSSWAligner()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a6c3f1338e6a66850b779e8331a65a61c">vg::GSSWAligner</a>
 </li>
 </ul>
 </div><!-- contents -->
