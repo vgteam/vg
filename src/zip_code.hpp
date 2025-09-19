@@ -71,6 +71,22 @@ class ZipCode {
         //Fill in an empty zipcode using the information that was stored in a payload
         void fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload); 
 
+        // Classic payload: just forward.
+        inline void fill_zipcode_from_any_payload(ZipCode& zc,
+                                                const gbwtgraph::Payload& p) {
+            zc.fill_in_zipcode_from_payload(p);
+        }
+
+        // XL payload: down-convert to classic (keep only first/second).
+        inline void fill_zipcode_from_any_payload(ZipCode& zc,
+                                                const gbwtgraph::PayloadXL& pxl) {
+            gbwtgraph::Payload p;
+            p.first  = pxl.first;
+            p.second = pxl.second;
+            zc.fill_in_zipcode_from_payload(p);
+        }
+
+
         //Get the exact minimum distance between two positions and their zip codes
         //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance
         //will be greater than the distance limit

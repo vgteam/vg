@@ -190,26 +190,6 @@ void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std
     save_gbwtgraph(gbz.graph, graph_name, show_progress);
 }
 
-void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress) {
-    if (show_progress) {
-        std::cerr << "Saving MinimizerIndex to " << filename << std::endl;
-    }
-
-    // This mimics Simple-SDS serialization.
-    try {
-        std::ofstream out(filename, std::ios_base::binary);
-        if (!out) {
-            throw sdsl::simple_sds::CannotOpenFile(filename, true);
-        }
-        out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-        index.serialize(out);
-        out.close();
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [save_minimizer()] cannot save MinimizerIndex to " << filename << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
-
 //------------------------------------------------------------------------------
 
 /// Return a mapping of the original segment ids to a list of chopped node ids
