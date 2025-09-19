@@ -298,7 +298,13 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
 
     //Surject the alignment onto the reference paths
     Surjector surjector(graph);
-    surjector.surject(mapped.front(), reference_paths, ref_name, ref_offset, ref_rev);
+    vector<tuple<string, int64_t, bool>> positions;
+    surjector.surject(mapped.front(), reference_paths, positions);
+    if (positions.size() != 1) {
+        cerr << "error: Primer filter could not contiguously map sequence " << seq << " on the reference" << endl;
+        return std::make_pair(ref_name, std::numeric_limits<size_t>::max());
+    }
+    tie(ref_name, ref_offset, ref_rev) = positions.front();
 
     //TODO: Double check that this is correct. idk why ref_offset is an int and not a size_t
     if (ref_rev) {

@@ -772,6 +772,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "                                during linear format realignment" << endl
              << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
+             << "      --supplementary           report supplementary alignments in HTSlib output" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination" << endl
@@ -829,7 +830,8 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_SHOW_WORK = 1010;
     constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
-    constexpr int OPT_COMMENTS_AS_TAGS = 1113;
+    constexpr int OPT_COMMENTS_AS_TAGS = 1013;
+    constexpr int OPT_SUPPLEMENTARY = 1014;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
@@ -871,6 +873,8 @@ int main_giraffe(int argc, char** argv) {
     bool paired = false;
     // True if the FASTQ's name line comments are SAM-style tags that we want to preserve
     bool comments_as_tags = false;
+    // True if we want to produce supplementary alignments in HTSLib output
+    bool report_supplementary = false;
     string param_preset = "default";
     // Attempt up to this many rescues of reads with no pairs
     bool forced_rescue_attempts = false;
@@ -1200,6 +1204,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"prune-low-cplx", no_argument, 0, 'P'},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
+        {"supplementary", no_argument, 0, OPT_SUPPLEMENTARY},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
@@ -1439,6 +1444,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
                 add_graph_alignment = true;
+                break;
+                
+            case OPT_SUPPLEMENTARY:
+                report_supplementary = true;
                 break;
 
             case 'n':
@@ -1946,6 +1955,7 @@ int main_giraffe(int argc, char** argv) {
         report_flag("interleaved", interleaved);
         report_flag("prune-low-cplx", prune_anchors);
         report_flag("add-graph-aln", add_graph_alignment);
+        report_flag("supplementary", report_supplementary);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
         report_flag("track-provenance", track_provenance);
@@ -2071,6 +2081,10 @@ int main_giraffe(int argc, char** argv) {
                 if (add_graph_alignment) {
                     // When surjecting, add the graph alignment tag
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG;
+                }
+                if (report_supplementary) {
+                    // When surjecting, also report supplementary alignments
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
