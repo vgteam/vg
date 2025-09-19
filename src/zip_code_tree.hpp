@@ -345,7 +345,7 @@ public:
      * 
      * ## Iteration flow
      * 
-     * Each seed is visited in from left to right, in the same order as
+     * Each seed is visited from left to right, in the same order as
      * get_all_seeds() would return them.
      * 
      * The first time any given seed is visited, right_to_left is true,
