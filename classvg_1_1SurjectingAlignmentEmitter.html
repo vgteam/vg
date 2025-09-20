@@ -90,8 +90,8 @@ Inheritance diagram for vg::SurjectingAlignmentEmitter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5da88bc9d52c6067edfefda239eeea51"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5da88bc9d52c6067edfefda239eeea51">SurjectingAlignmentEmitter</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a3193ef16804780255b9d0bbcef8dc6ca">paths</a>, unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;<a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f">backing</a>, bool prune_suspicious_anchors=false, bool add_graph_alignment_tag=false)</td></tr>
-<tr class="separator:a5da88bc9d52c6067edfefda239eeea51"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae3a1a92a35d394ef9a9bb75d13c1dd39"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#ae3a1a92a35d394ef9a9bb75d13c1dd39">SurjectingAlignmentEmitter</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a3193ef16804780255b9d0bbcef8dc6ca">paths</a>, unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;<a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f">backing</a>, bool prune_suspicious_anchors=false, bool add_graph_alignment_tag=false, bool report_supplementary=false)</td></tr>
+<tr class="separator:ae3a1a92a35d394ef9a9bb75d13c1dd39"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">emit_singles</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln_batch)</td></tr>
 <tr class="memdesc:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of Alignments.  <a href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">More...</a><br /></td></tr>
 <tr class="separator:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -129,8 +129,11 @@ Public Attributes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
 <tr class="memitem:a5ba8aab649ae5f31c64be2c5461c743c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5ba8aab649ae5f31c64be2c5461c743c">surject_alignments_in_place</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns) const</td></tr>
-<tr class="memdesc:a5ba8aab649ae5f31c64be2c5461c743c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Surject alignments in place.  <a href="classvg_1_1SurjectingAlignmentEmitter.html#a5ba8aab649ae5f31c64be2c5461c743c">More...</a><br /></td></tr>
+<tr class="memdesc:a5ba8aab649ae5f31c64be2c5461c743c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Surject unpaired alignments in place.  <a href="classvg_1_1SurjectingAlignmentEmitter.html#a5ba8aab649ae5f31c64be2c5461c743c">More...</a><br /></td></tr>
 <tr class="separator:a5ba8aab649ae5f31c64be2c5461c743c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d19d7e9552ed779bd429fbd099dae8c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5d19d7e9552ed779bd429fbd099dae8c">surject_paired_alignments_in_place</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns1, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns2, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;supplementary_alns) const</td></tr>
+<tr class="memdesc:a5d19d7e9552ed779bd429fbd099dae8c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Surject paired alignments in place and separate out supplementary alignments.  <a href="classvg_1_1SurjectingAlignmentEmitter.html#a5d19d7e9552ed779bd429fbd099dae8c">More...</a><br /></td></tr>
+<tr class="separator:a5d19d7e9552ed779bd429fbd099dae8c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -147,8 +150,8 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>An AlignmentEmitter implementation that surjects alignments before emitting them via a backing AlignmentEmitter, which it owns. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a5da88bc9d52c6067edfefda239eeea51"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5da88bc9d52c6067edfefda239eeea51">&#9670;&nbsp;</a></span>SurjectingAlignmentEmitter()</h2>
+<a id="ae3a1a92a35d394ef9a9bb75d13c1dd39"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae3a1a92a35d394ef9a9bb75d13c1dd39">&#9670;&nbsp;</a></span>SurjectingAlignmentEmitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -181,7 +184,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>add_graph_alignment_tag</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>add_graph_alignment_tag</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>report_supplementary</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -411,7 +420,51 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Surject alignments in place. </p>
+<p>Surject unpaired alignments in place. </p>
+
+</div>
+</div>
+<a id="a5d19d7e9552ed779bd429fbd099dae8c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5d19d7e9552ed779bd429fbd099dae8c">&#9670;&nbsp;</a></span>surject_paired_alignments_in_place()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SurjectingAlignmentEmitter::surject_paired_alignments_in_place </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_alns</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Surject paired alignments in place and separate out supplementary alignments. </p>
 
 </div>
 </div>

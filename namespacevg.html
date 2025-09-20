@@ -905,7 +905,8 @@ Enumerations</h2></td></tr>
 <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5ad2539e657e6f87051e9f12489f9bb557">ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS</a> = 4, 
 <br />
 &#160;&#160;<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a3ea893f3dade371704d31df4070e95fd">ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES</a> = 8, 
-<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a28cc430ca9be87cf88ee7221e5d0a2f7">ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG</a> = 16
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a28cc430ca9be87cf88ee7221e5d0a2f7">ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG</a> = 16, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5aee143399f813f8eb61b67fb77b7b17cc">ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY</a> = 32
 <br />
  }</td></tr>
 <tr class="separator:a43fe994695e911cc22e05195e327f5b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -984,8 +985,8 @@ Functions</h2></td></tr>
 <tr class="memitem:ab55dcc8a50b26b55f7fc142678b7ce63"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:ab55dcc8a50b26b55f7fc142678b7ce63"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab55dcc8a50b26b55f7fc142678b7ce63">write_array_to_aux</a> (bam1_t *bam, const char *tag_name, const string &amp;arr_string)</td></tr>
 <tr class="separator:ab55dcc8a50b26b55f7fc142678b7ce63"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a815420ed5a7dce52d484c346271fbd71"><td class="memItemLeft" align="right" valign="top">bam1_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a815420ed5a7dce52d484c346271fbd71">alignment_to_bam_internal</a> (bam_hdr_t *header, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const string &amp;refseq, const int32_t refpos, const bool refrev, const vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar, const string &amp;mateseq, const int32_t matepos, bool materev, const int32_t tlen, bool paired, const int32_t tlen_max)</td></tr>
-<tr class="separator:a815420ed5a7dce52d484c346271fbd71"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2b7e4d268ccc39fa341fd01a735655f"><td class="memItemLeft" align="right" valign="top">bam1_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af2b7e4d268ccc39fa341fd01a735655f">alignment_to_bam_internal</a> (bam_hdr_t *header, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const string &amp;refseq, const int32_t refpos, const bool refrev, const vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar, const string &amp;mateseq, int32_t matepos, bool materev, const int32_t tlen, bool paired, const int32_t tlen_max)</td></tr>
+<tr class="separator:af2b7e4d268ccc39fa341fd01a735655f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b59157d021eca5f39da96ca23f33f08"><td class="memItemLeft" align="right" valign="top">bam1_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1b59157d021eca5f39da96ca23f33f08">alignment_to_bam</a> (bam_hdr_t *bam_header, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const string &amp;refseq, const int32_t refpos, const bool refrev, const vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar, const string &amp;mateseq, const int32_t matepos, bool materev, const int32_t tlen, const int32_t tlen_max)</td></tr>
 <tr class="separator:a1b59157d021eca5f39da96ca23f33f08"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d064f9483fe862fe937abc9e7474e57"><td class="memItemLeft" align="right" valign="top">bam1_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0d064f9483fe862fe937abc9e7474e57">alignment_to_bam</a> (bam_hdr_t *bam_header, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const string &amp;refseq, const int32_t refpos, const bool refrev, const vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar)</td></tr>
@@ -1002,6 +1003,8 @@ Functions</h2></td></tr>
 <tr class="separator:ad2e7730a993652e18d80ca77dac73713"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a43ac2d1903fa51a20a2366a865f5f0a4"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4">cigar_against_path</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool on_reverse_strand, int64_t &amp;pos, size_t path_len, size_t softclip_suppress)</td></tr>
 <tr class="separator:a43ac2d1903fa51a20a2366a865f5f0a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a731242c04cdcf7b40f97f0d36ff5c480"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a731242c04cdcf7b40f97f0d36ff5c480">spliced_cigar_against_path</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const string &amp;path_name, int64_t pos, bool rev, int64_t min_splice_length)</td></tr>
+<tr class="separator:a731242c04cdcf7b40f97f0d36ff5c480"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a553c3fcfd7de2e51f41a6f174c313947"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a553c3fcfd7de2e51f41a6f174c313947">simplify_cigar</a> (vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar)</td></tr>
 <tr class="separator:a553c3fcfd7de2e51f41a6f174c313947"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a70d7a2a9f4f8a1804e21c353fb0dcb48"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a70d7a2a9f4f8a1804e21c353fb0dcb48">graph_cigar</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool rev_strand)</td></tr>
@@ -1068,6 +1071,14 @@ Functions</h2></td></tr>
 <tr class="separator:a947760b26fa8669d55f2f420174a578c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea6555abe5bce03f31937fe74e096aef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aea6555abe5bce03f31937fe74e096aef">is_perfect</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:aea6555abe5bce03f31937fe74e096aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae9721e2b32c96499e0f54d3db8ed76f4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae9721e2b32c96499e0f54d3db8ed76f4">is_supplementary</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:ae9721e2b32c96499e0f54d3db8ed76f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7718d0846787f35750e7e938489452ff"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7718d0846787f35750e7e938489452ff">aligned_interval</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a7718d0846787f35750e7e938489452ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9aa530cac70a2d1e3b2e7c8de29bc092"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9aa530cac70a2d1e3b2e7c8de29bc092">mate_info</a> (const string &amp;path, int32_t pos, bool rev_strand, bool is_read1)</td></tr>
+<tr class="separator:a9aa530cac70a2d1e3b2e7c8de29bc092"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f0565d89010f49aa7b2cdaf1a2b0d2e"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, int32_t, bool, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f0565d89010f49aa7b2cdaf1a2b0d2e">parse_mate_info</a> (const string &amp;info)</td></tr>
+<tr class="separator:a4f0565d89010f49aa7b2cdaf1a2b0d2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7ec3caf67f452b89874e2fb106bf7d5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa7ec3caf67f452b89874e2fb106bf7d5">is_mapped</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:aa7ec3caf67f452b89874e2fb106bf7d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acffe466a3ca83097eceac30a09b9a010"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acffe466a3ca83097eceac30a09b9a010">query_overlap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
@@ -1903,6 +1914,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a3f65013661cfc322222585843c30773a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3f65013661cfc322222585843c30773a">contains_connection</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:a3f65013661cfc322222585843c30773a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if any subpath has a connection adjacency.  <a href="namespacevg.html#a3f65013661cfc322222585843c30773a">More...</a><br /></td></tr>
 <tr class="separator:a3f65013661cfc322222585843c30773a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af35057cc47b94420af61d6f2444f5d45"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af35057cc47b94420af61d6f2444f5d45">is_supplementary</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:af35057cc47b94420af61d6f2444f5d45"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> is annotated as supplementary.  <a href="namespacevg.html#af35057cc47b94420af61d6f2444f5d45">More...</a><br /></td></tr>
+<tr class="separator:af35057cc47b94420af61d6f2444f5d45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9d71371be6972c8284b267d42fac754"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa9d71371be6972c8284b267d42fac754">search_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;graph_pos, int64_t seq_pos)</td></tr>
 <tr class="separator:aa9d71371be6972c8284b267d42fac754"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83257be63a821ae991e1b332b62facd4"><td class="memItemLeft" align="right" valign="top">pair&lt; tuple&lt; int64_t, int64_t, int64_t &gt;, vector&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a83257be63a821ae991e1b332b62facd4">trace_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx, bool search_left, int64_t search_limit)</td></tr>
@@ -3541,6 +3555,8 @@ Variables</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5a28cc430ca9be87cf88ee7221e5d0a2f7"></a>ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG&#160;</td><td class="fielddoc"><p>When surjecting, annotate HTSlib records with a cs-style difference string that expresses the alignment in graph space in the "GR" tag </p>
 </td></tr>
+<tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5aee143399f813f8eb61b67fb77b7b17cc"></a>ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY&#160;</td><td class="fielddoc"><p>When surjecting, produce and report supplementary alignments. </p>
+</td></tr>
 </table>
 
 </div>
@@ -4148,8 +4164,26 @@ template&lt;typename Iter &gt; </div>
 
 </div>
 </div>
+<a id="a7718d0846787f35750e7e938489452ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7718d0846787f35750e7e938489452ff">&#9670;&nbsp;</a></span>aligned_interval() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; int64_t, int64_t &gt; vg::aligned_interval </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a3b337b4ea1b6ad514093ce1b9d44b598"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3b337b4ea1b6ad514093ce1b9d44b598">&#9670;&nbsp;</a></span>aligned_interval()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b337b4ea1b6ad514093ce1b9d44b598">&#9670;&nbsp;</a></span>aligned_interval() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4657,8 +4691,8 @@ template&lt;typename Iter &gt; </div>
 
 </div>
 </div>
-<a id="a815420ed5a7dce52d484c346271fbd71"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a815420ed5a7dce52d484c346271fbd71">&#9670;&nbsp;</a></span>alignment_to_bam_internal()</h2>
+<a id="af2b7e4d268ccc39fa341fd01a735655f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af2b7e4d268ccc39fa341fd01a735655f">&#9670;&nbsp;</a></span>alignment_to_bam_internal()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4708,7 +4742,7 @@ template&lt;typename Iter &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const int32_t&#160;</td>
+          <td class="paramtype">int32_t&#160;</td>
           <td class="paramname"><em>matepos</em>, </td>
         </tr>
         <tr>
@@ -14190,6 +14224,44 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
+<a id="ae9721e2b32c96499e0f54d3db8ed76f4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae9721e2b32c96499e0f54d3db8ed76f4">&#9670;&nbsp;</a></span>is_supplementary() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::is_supplementary </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af35057cc47b94420af61d6f2444f5d45"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af35057cc47b94420af61d6f2444f5d45">&#9670;&nbsp;</a></span>is_supplementary() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::is_supplementary </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> is annotated as supplementary. </p>
+
+</div>
+</div>
 <a id="a92c923774a6526b7bfc7f06ae4ae7a18"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a92c923774a6526b7bfc7f06ae4ae7a18">&#9670;&nbsp;</a></span>isATGC()</h2>
 
@@ -16917,6 +16989,46 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1HaplotypePartitioner.html">HaplotypePartitioner</a> &amp;&#160;</td>
           <td class="paramname"><em>partitioner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9aa530cac70a2d1e3b2e7c8de29bc092"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9aa530cac70a2d1e3b2e7c8de29bc092">&#9670;&nbsp;</a></span>mate_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::mate_info </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_read1</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -20462,6 +20574,24 @@ template&lt;typename Result &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Parse regions from the given GFF file into the given vector. Does <em>not</em> write them to standard output. </p>
+
+</div>
+</div>
+<a id="a4f0565d89010f49aa7b2cdaf1a2b0d2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f0565d89010f49aa7b2cdaf1a2b0d2e">&#9670;&nbsp;</a></span>parse_mate_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; string, int32_t, bool, bool &gt; vg::parse_mate_info </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>info</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -24921,6 +25051,59 @@ template&lt;class RandomIt , class Compare &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a731242c04cdcf7b40f97f0d36ff5c480"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a731242c04cdcf7b40f97f0d36ff5c480">&#9670;&nbsp;</a></span>spliced_cigar_against_path()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; pair&lt; int, char &gt; &gt; vg::spliced_cigar_against_path </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_splice_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Convert a spliced alignment against a path to a cigar. The alignment must be colinear along a path and contain only mappings on the path, but it can have deletions relative to the path that follow edges in the graph. </p>
 
 </div>
 </div>

@@ -163,8 +163,6 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:ac837e6ec08c270afb4f6d231e4f58473"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html#ac837e6ec08c270afb4f6d231e4f58473">convert_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar, bool &amp;pos_rev, int64_t &amp;pos, string &amp;path_name) const</td></tr>
 <tr class="memdesc:ac837e6ec08c270afb4f6d231e4f58473"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override for convert alignment that converts splices implicitly.  <a href="classvg_1_1SplicedHTSAlignmentEmitter.html#ac837e6ec08c270afb4f6d231e4f58473">More...</a><br /></td></tr>
 <tr class="separator:ac837e6ec08c270afb4f6d231e4f58473"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac447d6f996b11f12c3b8b2267ff4110e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html#ac447d6f996b11f12c3b8b2267ff4110e">spliced_cigar_against_path</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const string &amp;path_name, int64_t pos, bool rev) const</td></tr>
-<tr class="separator:ac447d6f996b11f12c3b8b2267ff4110e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -353,55 +351,6 @@ Additional Inherited Members</h2></td></tr>
 <p>Override for convert alignment that converts splices implicitly. </p>
 
 <p>Reimplemented from <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a5cfe9918348db19fc8b8a153a953715b">vg::HTSAlignmentEmitter</a>.</p>
-
-</div>
-</div>
-<a id="ac447d6f996b11f12c3b8b2267ff4110e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac447d6f996b11f12c3b8b2267ff4110e">&#9670;&nbsp;</a></span>spliced_cigar_against_path()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; pair&lt; int, char &gt; &gt; vg::SplicedHTSAlignmentEmitter::spliced_cigar_against_path </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>path_name</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Convert a spliced alignment against a path to a cigar. The alignment must be colinear along a path and contain only mappings on the path, but it can have deletions relative to the path that follow edges in the graph. </p>
 
 </div>
 </div>

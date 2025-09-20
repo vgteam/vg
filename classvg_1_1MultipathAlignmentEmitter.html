@@ -103,11 +103,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa6e3289654a2ebe8ed2b934a1fcd6d40"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#aa6e3289654a2ebe8ed2b934a1fcd6d40">set_min_splice_length</a> (int64_t <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a38e7b3d9a6dca8b5601add1a6d9023e4">min_splice_length</a>)</td></tr>
 <tr class="separator:aa6e3289654a2ebe8ed2b934a1fcd6d40"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7467c3e0ce1525f32e27f4f99d00c8b5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a7467c3e0ce1525f32e27f4f99d00c8b5">emit_pairs</a> (const string &amp;name_1, const string &amp;name_2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;&amp;mp_aln_pairs, vector&lt; pair&lt; tuple&lt; string, bool, int64_t &gt;, tuple&lt; string, bool, int64_t &gt;&gt;&gt; *path_positions=nullptr, vector&lt; int64_t &gt; *tlen_limits=nullptr)</td></tr>
-<tr class="memdesc:a7467c3e0ce1525f32e27f4f99d00c8b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit paired read mappings as interleaved protobuf messages.  <a href="classvg_1_1MultipathAlignmentEmitter.html#a7467c3e0ce1525f32e27f4f99d00c8b5">More...</a><br /></td></tr>
+<tr class="memdesc:a7467c3e0ce1525f32e27f4f99d00c8b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit paired read mappings as interleaved protobuf messages or HTSLib output.  <a href="classvg_1_1MultipathAlignmentEmitter.html#a7467c3e0ce1525f32e27f4f99d00c8b5">More...</a><br /></td></tr>
 <tr class="separator:a7467c3e0ce1525f32e27f4f99d00c8b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a923124cdc8bdc96e95db68281bb79fcd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a923124cdc8bdc96e95db68281bb79fcd">emit_singles</a> (const string &amp;name, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;mp_alns, vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *path_positions=nullptr)</td></tr>
-<tr class="memdesc:a923124cdc8bdc96e95db68281bb79fcd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit read mappings as protobuf messages.  <a href="classvg_1_1MultipathAlignmentEmitter.html#a923124cdc8bdc96e95db68281bb79fcd">More...</a><br /></td></tr>
+<tr class="memdesc:a923124cdc8bdc96e95db68281bb79fcd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit read mappings as protobuf messages or HTSLib output.  <a href="classvg_1_1MultipathAlignmentEmitter.html#a923124cdc8bdc96e95db68281bb79fcd">More...</a><br /></td></tr>
 <tr class="separator:a923124cdc8bdc96e95db68281bb79fcd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a23c4ca7251359d176598b732b8aac721"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a23c4ca7251359d176598b732b8aac721">emit_paired_independent</a> (const string &amp;name_1, const string &amp;name_2, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;mp_alns_1, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;mp_alns_2, vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *path_positions_1=nullptr, vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *path_positions_2=nullptr)</td></tr>
+<tr class="memdesc:a23c4ca7251359d176598b732b8aac721"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit unpaired independent or supplementary alignments for paired reads.  <a href="classvg_1_1MultipathAlignmentEmitter.html#a23c4ca7251359d176598b732b8aac721">More...</a><br /></td></tr>
+<tr class="separator:a23c4ca7251359d176598b732b8aac721"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1HTSWriter"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1HTSWriter')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1HTSWriter.html">vg::HTSWriter</a></td></tr>
 <tr class="memitem:a3797ff445359e9052869f9191310fe54 inherit pub_methods_classvg_1_1HTSWriter"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a3797ff445359e9052869f9191310fe54">HTSWriter</a> (const string &amp;filename, const string &amp;<a class="el" href="classvg_1_1HTSWriter.html#a4c549b347cd3dba4710e1a195445a8b0">format</a>, const <a class="el" href="namespacevg.html#a1ff0e710c53111ed4cd2a7389df9c945">SequenceDictionary</a> &amp;<a class="el" href="classvg_1_1HTSWriter.html#aa8b10018f815be414e59bafe13cc2528">sequence_dictionary</a>, const unordered_map&lt; string, size_t &gt; &amp;<a class="el" href="classvg_1_1HTSWriter.html#a4aba698bf7c64bb42342b5461614dc32">subpath_to_index</a>, size_t max_threads)</td></tr>
 <tr class="separator:a3797ff445359e9052869f9191310fe54 inherit pub_methods_classvg_1_1HTSWriter"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -140,21 +143,27 @@ Private Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
+<tr class="memitem:ac67349fcbb6b5e21fe34adeccbe0ec19"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#ac67349fcbb6b5e21fe34adeccbe0ec19">emit_singles_internal</a> (const string &amp;name, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;mp_alns, vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *path_positions, const string *mate_name, bool is_read_1)</td></tr>
+<tr class="memdesc:ac67349fcbb6b5e21fe34adeccbe0ec19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit read mappings as protobuf messages or HTSLib output.  <a href="classvg_1_1MultipathAlignmentEmitter.html#ac67349fcbb6b5e21fe34adeccbe0ec19">More...</a><br /></td></tr>
+<tr class="separator:ac67349fcbb6b5e21fe34adeccbe0ec19"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a968d8ce848da6dfda8ef0493f6044625"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a968d8ce848da6dfda8ef0493f6044625">convert_to_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const string *prev_name=nullptr, const string *next_name=nullptr) const</td></tr>
 <tr class="memdesc:a968d8ce848da6dfda8ef0493f6044625"><td class="mdescLeft">&#160;</td><td class="mdescRight">make a GAM alignment from a multipath alignment  <a href="classvg_1_1MultipathAlignmentEmitter.html#a968d8ce848da6dfda8ef0493f6044625">More...</a><br /></td></tr>
 <tr class="separator:a968d8ce848da6dfda8ef0493f6044625"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3316b8a1a84bdc728bdfe9cf2064f727"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a3316b8a1a84bdc728bdfe9cf2064f727">create_alignment_shim</a> (const string &amp;name, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;shim, const string *prev_name=nullptr, const string *next_name=nullptr) const</td></tr>
 <tr class="memdesc:a3316b8a1a84bdc728bdfe9cf2064f727"><td class="mdescLeft">&#160;</td><td class="mdescRight">store the data in an Algnment that is used in the conversion to bam1_t  <a href="classvg_1_1MultipathAlignmentEmitter.html#a3316b8a1a84bdc728bdfe9cf2064f727">More...</a><br /></td></tr>
 <tr class="separator:a3316b8a1a84bdc728bdfe9cf2064f727"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a47ac4acd24f69e0d8427a136e29b872f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a47ac4acd24f69e0d8427a136e29b872f">convert_to_hts_unpaired</a> (const string &amp;name, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, const string &amp;ref_name, bool ref_rev, int64_t ref_pos, bam_hdr_t *header, vector&lt; bam1_t * &gt; &amp;dest) const</td></tr>
-<tr class="memdesc:a47ac4acd24f69e0d8427a136e29b872f"><td class="mdescLeft">&#160;</td><td class="mdescRight">store a bam1_t object with the indicated data in the dest vector  <a href="classvg_1_1MultipathAlignmentEmitter.html#a47ac4acd24f69e0d8427a136e29b872f">More...</a><br /></td></tr>
-<tr class="separator:a47ac4acd24f69e0d8427a136e29b872f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a65f8a1205282f2680566c24c6ce0e216"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a65f8a1205282f2680566c24c6ce0e216">convert_to_hts_unpaired</a> (const string &amp;name, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, const string &amp;ref_name, bool ref_rev, int64_t ref_pos, bam_hdr_t *header, vector&lt; bam1_t * &gt; &amp;dest, const string *mate_name=nullptr) const</td></tr>
+<tr class="memdesc:a65f8a1205282f2680566c24c6ce0e216"><td class="mdescLeft">&#160;</td><td class="mdescRight">store a bam1_t object with the indicated data in the dest vector  <a href="classvg_1_1MultipathAlignmentEmitter.html#a65f8a1205282f2680566c24c6ce0e216">More...</a><br /></td></tr>
+<tr class="separator:a65f8a1205282f2680566c24c6ce0e216"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff86d0fed6f025e037468c9f94dc47d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#aff86d0fed6f025e037468c9f94dc47d7">convert_to_hts_paired</a> (const string &amp;name_1, const string &amp;name_2, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln_1, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln_2, const string &amp;ref_name_1, bool ref_rev_1, int64_t ref_pos_1, const string &amp;ref_name_2, bool ref_rev_2, int64_t ref_pos_2, int64_t tlen_limit, bam_hdr_t *header, vector&lt; bam1_t * &gt; &amp;dest) const</td></tr>
 <tr class="memdesc:aff86d0fed6f025e037468c9f94dc47d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">store two paired bam1_t objects with the indicated data in the dest vector  <a href="classvg_1_1MultipathAlignmentEmitter.html#aff86d0fed6f025e037468c9f94dc47d7">More...</a><br /></td></tr>
 <tr class="separator:aff86d0fed6f025e037468c9f94dc47d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9d0b6648ef4cfb2ffb72227891ebc7fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a9d0b6648ef4cfb2ffb72227891ebc7fd">add_annotations</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, bam1_t *bam) const</td></tr>
 <tr class="memdesc:a9d0b6648ef4cfb2ffb72227891ebc7fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">transfer the allelic mapq, group mapq, and secondary annotations to a BAM record  <a href="classvg_1_1MultipathAlignmentEmitter.html#a9d0b6648ef4cfb2ffb72227891ebc7fd">More...</a><br /></td></tr>
 <tr class="separator:a9d0b6648ef4cfb2ffb72227891ebc7fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa3ded01051416d537a46ebbd79aef7e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#aaa3ded01051416d537a46ebbd79aef7e">canonicalize_subrange</a> (string &amp;path_name, int32_t &amp;pos) const</td></tr>
+<tr class="memdesc:aaa3ded01051416d537a46ebbd79aef7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">take subrange info out of the path name and adjust the position for the subrange start  <a href="classvg_1_1MultipathAlignmentEmitter.html#aaa3ded01051416d537a46ebbd79aef7e">More...</a><br /></td></tr>
+<tr class="separator:aaa3ded01051416d537a46ebbd79aef7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -367,6 +376,44 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="aaa3ded01051416d537a46ebbd79aef7e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa3ded01051416d537a46ebbd79aef7e">&#9670;&nbsp;</a></span>canonicalize_subrange()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentEmitter::canonicalize_subrange </td>
+          <td>(</td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>take subrange info out of the path name and adjust the position for the subrange start </p>
+
+</div>
+</div>
 <a id="a968d8ce848da6dfda8ef0493f6044625"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a968d8ce848da6dfda8ef0493f6044625">&#9670;&nbsp;</a></span>convert_to_alignment()</h2>
 
@@ -521,8 +568,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a47ac4acd24f69e0d8427a136e29b872f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a47ac4acd24f69e0d8427a136e29b872f">&#9670;&nbsp;</a></span>convert_to_hts_unpaired()</h2>
+<a id="a65f8a1205282f2680566c24c6ce0e216"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a65f8a1205282f2680566c24c6ce0e216">&#9670;&nbsp;</a></span>convert_to_hts_unpaired()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -570,7 +617,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">vector&lt; bam1_t * &gt; &amp;&#160;</td>
-          <td class="paramname"><em>dest</em>&#160;</td>
+          <td class="paramname"><em>dest</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string *&#160;</td>
+          <td class="paramname"><em>mate_name</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -645,6 +698,60 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a23c4ca7251359d176598b732b8aac721"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a23c4ca7251359d176598b732b8aac721">&#9670;&nbsp;</a></span>emit_paired_independent()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentEmitter::emit_paired_independent </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>name_1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>name_2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>mp_alns_1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>mp_alns_2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *&#160;</td>
+          <td class="paramname"><em>path_positions_1</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *&#160;</td>
+          <td class="paramname"><em>path_positions_2</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Emit unpaired independent or supplementary alignments for paired reads. </p>
+
+</div>
+</div>
 <a id="a7467c3e0ce1525f32e27f4f99d00c8b5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7467c3e0ce1525f32e27f4f99d00c8b5">&#9670;&nbsp;</a></span>emit_pairs()</h2>
 
@@ -689,7 +796,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Emit paired read mappings as interleaved protobuf messages. </p>
+<p>Emit paired read mappings as interleaved protobuf messages or HTSLib output. </p>
 
 </div>
 </div>
@@ -725,7 +832,63 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Emit read mappings as protobuf messages. </p>
+<p>Emit read mappings as protobuf messages or HTSLib output. </p>
+
+</div>
+</div>
+<a id="ac67349fcbb6b5e21fe34adeccbe0ec19"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac67349fcbb6b5e21fe34adeccbe0ec19">&#9670;&nbsp;</a></span>emit_singles_internal()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentEmitter::emit_singles_internal </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>mp_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, bool, int64_t &gt;&gt; *&#160;</td>
+          <td class="paramname"><em>path_positions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string *&#160;</td>
+          <td class="paramname"><em>mate_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_read_1</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Emit read mappings as protobuf messages or HTSLib output. </p>
 
 </div>
 </div>
