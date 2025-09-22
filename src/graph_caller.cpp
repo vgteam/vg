@@ -448,7 +448,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                                    const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
-                                   function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string) {
+                                   function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string,
+                                   const vector<pair<string, string>>& info_tags) {
     
 #ifdef debug
     cerr << "emitting variant for " << pb2json(snarl) << endl;
@@ -580,6 +581,11 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 
     // add some support info
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
+
+    // add the info
+    for (const pair<string, string>& info_tag : info_tags) {
+        out_variant.info[info_tag.first].push_back(info_tag.second);
+    }
 
     // if genotype_snarls, then we only flatten up to the snarl endpoints
     // (this is when we are in genotyping mode and want consistent calls regardless of the sample)
@@ -1827,13 +1833,24 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
     vector<SnarlTraversal> travs;
     FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
+    vector<pair<string, string>> extra_info_tags;
+    int64_t site_allele_count = -1;
     if (flow_trav_finder != nullptr) {
         // find the max flow traversals using specialized interface that accepts avg heurstic toggle
         pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow);
         travs = std::move(weighted_travs.first);
     } else {
-        // find the traversals using the generic interface
-        travs = traversal_finder.find_traversals(snarl);
+        // find the traversals with the gbwt.  also count the haplotypes in the site and remember it
+        // for a VCF tag (GAN)
+        GBWTTraversalFinder* gbwt_trav_finder = dynamic_cast<GBWTTraversalFinder*>(&traversal_finder);
+        if (gbwt_trav_finder != nullptr) {
+            pair<vector<SnarlTraversal>, vector<gbwt::size_type>> gbwt_path_travs = gbwt_trav_finder->find_path_traversals(snarl);
+            travs = std::move(gbwt_path_travs.first);
+            extra_info_tags.push_back(make_pair("GAN", std::to_string(gbwt_trav_finder->count_haplotypes(gbwt_path_travs.second))));
+        } else {
+            // find the traversals using the generic interface
+            travs = traversal_finder.find_traversals(snarl);
+        }
     }
 
     if (travs.empty()) {
@@ -1893,7 +1910,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
         bool added = true;
         if (!gaf_output) {
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                                 ref_offsets[ref_path_name], genotype_snarls, ploidy);
+                                 ref_offsets[ref_path_name], genotype_snarls, ploidy, nullptr, extra_info_tags);
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
@@ -1908,6 +1925,9 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
     string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
+    if (dynamic_cast<GBWTTraversalFinder*>(&this->traversal_finder) != nullptr) {
+        header+=  "##INFO=<ID=GAN,Number=1,Type=Integer,Description=\"Number of haplotypes going through site in the graph\">\n";
+    }    
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
