@@ -50,24 +50,6 @@ namespace vg {
 
 using namespace std;
 
-// MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-//     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-//     SnarlDistanceIndex* distance_index, 
-//     const ZipCodeCollection* zipcodes, 
-//     const PathPositionHandleGraph* path_graph) :
-//     path_graph(path_graph), minimizer_index(minimizer_index),
-//     distance_index(distance_index),  
-//     zipcodes(zipcodes),
-//     clusterer(distance_index, &graph),
-//     gbwt_graph(graph),
-//     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
-//     choose_band_padding(algorithms::pad_band_random_walk()),
-//     fragment_length_distr(1000,1000,0.95) {
-    
-//     // The GBWTGraph needs a GBWT
-//     crash_unless(graph.index != nullptr);
-// }
-
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const DefaultIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
