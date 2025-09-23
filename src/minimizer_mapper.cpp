@@ -86,12 +86,15 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     fragment_length_distr(1000,1000,0.95)
 {   
     crash_unless(graph.index != nullptr);
-    with_index([&](const auto& idx) {
-        // Initialize the k, w, and syncmer use
-        k = static_cast<int32_t>(idx.k());
-        w = static_cast<int32_t>(idx.w());
-        uses_syncmers = idx.uses_syncmers();
-    });
+    if ((index_kind == IndexKind::S  && minimizer_index_s  == nullptr) || (index_kind == IndexKind::XL && minimizer_index_xl == nullptr)) {
+        k = 0; w = 0; uses_syncmers = false;
+    } else {
+        with_index([&](const auto& idx){
+            k = (int32_t)idx.k();
+            w = (int32_t)idx.w();
+            uses_syncmers = idx.uses_syncmers();
+        });
+    }
 }
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
@@ -112,12 +115,15 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     fragment_length_distr(1000,1000,0.95)
 {
     crash_unless(graph.index != nullptr);
-    with_index([&](const auto& idx) {
-        // Initialize the k, w, and syncmer use
-        k = static_cast<int32_t>(idx.k());
-        w = static_cast<int32_t>(idx.w());
-        uses_syncmers = idx.uses_syncmers();
-    });
+    if ((index_kind == IndexKind::S  && minimizer_index_s  == nullptr) || (index_kind == IndexKind::XL && minimizer_index_xl == nullptr)) {
+        k = 0; w = 0; uses_syncmers = false;
+    } else {
+        with_index([&](const auto& idx){
+            k = (int32_t)idx.k();
+            w = (int32_t)idx.w();
+            uses_syncmers = idx.uses_syncmers();
+        });
+    }
 }
 
 void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {

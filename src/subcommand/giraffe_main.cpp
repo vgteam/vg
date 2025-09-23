@@ -535,14 +535,14 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "rec-chain-penalty",
         &MinimizerMapper::rec_penalty_chain,
         MinimizerMapper::default_rec_penalty_chain,
-        "penalty for a recombination when chaining (TEMP)",
+        "penalty for a recombination when chaining, requires -E (TEMP)",
         int_is_nonnegative
     );
     chaining_opts.add_range(
         "rec-frag-penalty",
         &MinimizerMapper::rec_penalty_fragm,
         MinimizerMapper::default_rec_penalty_fragm,
-        "penalty for a recombination when fragmenting (TEMP)",
+        "penalty for a recombination when fragmenting, requires -E (TEMP)",
         int_is_nonnegative
     );
     chaining_opts.add_range(
@@ -942,7 +942,7 @@ int main_giraffe(int argc, char** argv) {
     // Are we mapping long reads or short reads? According to the parameter preset
     bool map_long_reads = false;
     
-    // If recombination penalties are set, we are using PathMinimizer, else standard Giraffe.
+    // If recombination mode is set, we are using PathMinimizer, else standard Giraffe.
     bool use_path_minimizer = false;
 
     // Map algorithm names to rescue algorithms

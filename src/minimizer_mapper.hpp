@@ -39,6 +39,7 @@ class MinimizerMapper : public AlignerClient {
     using XLIndex      = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
                         gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>>;
 
+    using DefaultMinimizerIndex = DefaultIndex;
     /**
      * Construct a new MinimizerMapper using the given indexes.
      * The PathPositionHandleGraph can be nullptr, as we only use it for correctness tracking.
@@ -703,8 +704,10 @@ protected:
     {
         if (index_kind == IndexKind::S) {
             return fn(*minimizer_index_s);
-        } else {
+        } else if (index_kind == IndexKind::XL) {
             return fn(*minimizer_index_xl);
+        } else {
+            throw std::runtime_error("MinimizerMapper::with_index: unknown index kind");
         }
     }
     //const gbwtgraph::DefaultMinimizerIndex& minimizer_index;

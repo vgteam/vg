@@ -30,7 +30,7 @@ void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
          << "  -p, --progress       show progress" << endl
-         << "  -r, --rec-pen INT    set recombination penalty (default: 0)" << endl
+         << "  -r, --recombination-penalty INT    set recombination penalty (default: 0)" << endl
          << "  -h, --help           print this help message to stderr and exit" << endl;
 }
 
