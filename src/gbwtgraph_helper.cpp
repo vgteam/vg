@@ -133,6 +133,24 @@ void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& 
     }
 }
 
+void load_minimizer(gbwtgraph::MinimizerIndexXL& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading MinimizerIndexXL from " << filename << std::endl;
+    }
+    try {
+        std::ifstream in(filename, std::ios_base::binary);
+        if (!in) {
+            throw sdsl::simple_sds::CannotOpenFile(filename, false);
+        }
+        in.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
+        index.deserialize(in);
+        in.close();
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [load_minimizer()] cannot load MinimizerIndexXL " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Saving GBWTGraph to " << filename << std::endl;

@@ -46,6 +46,10 @@ void load_gbz(gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string&
 /// Load a minimizer index from the file.
 void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
 
+/// Load a minimizerXL index from the file.
+void load_minimizer(gbwtgraph::MinimizerIndexXL& index, const std::string& filename, bool show_progress = false);
+
+
 /// Save GBWTGraph to the file.
 void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
 
