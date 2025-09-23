@@ -29,6 +29,7 @@
 #include "../utility.hpp"
 
 #include <bdsg/hash_graph.hpp>
+#include <crash.hpp>
 
 namespace vg {
 namespace algorithms {
@@ -37,7 +38,8 @@ using namespace std;
 
 // Make sure all of vg's print operators are available.
 using vg::operator<<;
-
+using path_flags_t = uint64_t;
+static constexpr int MAX_PATHS = 64;
 //#define debug_chaining
 
 /**
@@ -46,6 +48,7 @@ using vg::operator<<;
  */
 class Anchor {
 public:
+   
     /// Get the start position in the read of this anchor's match.
     inline size_t read_start() const {
         return start;
@@ -148,29 +151,14 @@ public:
 
     /// Set the haplotypes supported by this anchor
     /// Maximum number limited to 64 for now
-    inline void set_paths() {
+    inline void clear_paths() {
         start_paths = 0;
         end_paths = 0;
     }
 
-    inline void set_paths(const size_t& anchor_paths) {
+    inline void set_paths(const path_flags_t anchor_paths) {
         start_paths = anchor_paths;
         end_paths = anchor_paths;
-    }
-
-    inline void set_paths(const std::vector<size_t>& anchor_paths) {
-        for (size_t path : anchor_paths) {
-            set_path(path);
-        }
-    }
-
-    inline void set_path(size_t path) {
-        if (path >= 64) {
-            cerr << "" << endl;
-            exit(1);
-        }
-        start_paths |= (1UL << path);
-        end_paths |= (1UL << path);
     }
 
     inline void set_paths(size_t anchor_start_paths, size_t anchor_end_paths) {
@@ -178,59 +166,92 @@ public:
         end_paths = anchor_end_paths;
     }
 
+    inline void set_paths(const std::vector<size_t>& anchor_paths) {
+        clear_paths();
+        for (size_t path : anchor_paths) {
+            add_path(path);
+        }
+    }
+    
+    inline void add_paths(const std::vector<size_t>& anchor_paths) {
+        for (size_t path : anchor_paths) {
+            add_path(path);
+        }
+    }
+
+    inline void add_path(size_t path) {
+        crash_unless(path < MAX_PATHS);
+        start_paths |= (1UL << path);
+        end_paths |= (1UL << path);
+    }
+
+    
+
 
     /// Get the supported paths, as a 64 bit integer, where each bit is set to 1 if the respective path is supported
-    inline const std::pair<size_t, size_t> anchor_paths() const {
+    inline const std::pair<path_flags_t, path_flags_t> anchor_paths() const {
         return {start_paths, end_paths};
     }
 
-    inline size_t anchor_start_paths() const {
+    inline path_flags_t anchor_start_paths() const {
         return start_paths;
     }
 
-    inline size_t anchor_end_paths() const {
+    inline path_flags_t anchor_end_paths() const {
         return end_paths;
     }
 
     /// Update supported haplotypes
-    inline void update_paths(const size_t& new_paths) {
+    inline void update_paths(const path_flags_t& new_paths) {
         start_paths &= new_paths;
         end_paths &= new_paths;
     }
 
     inline void update_paths(const std::vector<size_t>& haplotypes) {
-        size_t new_paths = 0;
+        path_flags_t new_paths = 0;
         for (size_t haplotype : haplotypes) {
             new_paths |= (1UL << haplotype);
         }
         update_paths(new_paths);
     }
 
-    /// Find and set the haplotypes supported by this anchor
-    /// i.e. haplotypes both in start_pos and end_pos nodes
-    // TODO: remove this and use the updateted minimizer index
-    void find_set_paths(const gbwt::GBWT* gbwt_index) {
-        size_t start_id = id(graph_start()) * 2 + is_rev(graph_start());
-        size_t end_id = id(graph_end()) * 2 + is_rev(graph_end());
-        auto start_paths = gbwt_index->locate(gbwt_index->find(start_id));
-        set_paths(start_paths);
-        update_paths(gbwt_index->locate(gbwt_index->find(end_id)));
-    }
-
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCode* hint = nullptr, size_t hint_start = 0, bool skippable = false, size_t paths = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_zip(hint), end_zip(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after), skippable(skippable), start_paths(paths) , end_paths(paths) {
-        // Nothing to do!
-    }
+    inline Anchor(size_t read_start, const pos_t &graph_start, size_t length,
+              size_t margin_before, size_t margin_after, int score,
+              size_t seed_number = std::numeric_limits<size_t>::max(),
+              ZipCode *hint = nullptr, size_t hint_start = 0,
+              bool skippable = false, path_flags_t paths = 0)
+    : start(read_start), size(length), margin_before(margin_before),
+      margin_after(margin_after), start_pos(graph_start),
+      end_pos(advance(graph_start, length)), points(score),
+      start_seed(seed_number), end_seed(seed_number), start_zip(hint),
+      end_zip(hint), start_offset(hint_start), end_offset(length - hint_start),
+      seed_length(margin_before + length + margin_after), skippable(skippable),
+      start_paths(paths), end_paths(paths) {
+    // Nothing to do!
+}
+
 
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_zip(first.start_hint()), end_zip(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2), skippable(first.is_skippable() || last.is_skippable()), start_paths(first.start_paths), end_paths(last.end_paths) {
-        // Nothing to do!
-    }
+    inline Anchor(const Anchor &first, const Anchor &last,
+              size_t extra_margin_before, size_t extra_margin_after, int score)
+    : start(first.read_start()), size(last.read_end() - first.read_start()),
+      margin_before(first.margin_before + extra_margin_before),
+      margin_after(last.margin_after + extra_margin_after),
+      start_pos(first.graph_start()), end_pos(last.graph_end()), points(score),
+      start_seed(first.seed_start()), end_seed(last.seed_end()),
+      start_zip(first.start_hint()), end_zip(last.end_hint()),
+      start_offset(first.start_offset), end_offset(last.end_offset),
+      seed_length((first.base_seed_length() + last.base_seed_length()) / 2),
+      skippable(first.is_skippable() || last.is_skippable()),
+      start_paths(first.start_paths), end_paths(last.end_paths) {
+    // Nothing to do!
+}
 
     // Act like data
     Anchor() = default;
@@ -255,8 +276,8 @@ protected:
     size_t end_offset;
     size_t seed_length;
     bool skippable;
-    size_t start_paths;
-    size_t end_paths;
+    path_flags_t start_paths;
+    path_flags_t end_paths;
 };
 
 /// Explain an Anchor to the given stream
@@ -320,7 +341,7 @@ public:
     // Index of source score among possibilities/traceback pointer
     size_t source;
     // Supported paths
-    size_t paths;
+    path_flags_t paths;
 };
 
 }
