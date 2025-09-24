@@ -29,9 +29,9 @@ using namespace vg::subcommand;
 void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
-         << "  -p, --progress       show progress" << endl
+         << "  -p, --progress                     show progress" << endl
          << "  -r, --recombination-penalty INT    set recombination penalty (default: 0)" << endl
-         << "  -h, --help           print this help message to stderr and exit" << endl;
+         << "  -h, --help                         print this help message to stderr and exit" << endl;
 }
 
 int main_chain(int argc, char** argv) {
@@ -45,7 +45,7 @@ int main_chain(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"progress", no_argument, 0, 'p'},
-                {"rec-pen", required_argument, 0, 'r'},
+                {"recombination-penalty", required_argument, 0, 'r'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };

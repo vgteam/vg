@@ -96,7 +96,7 @@ void help_minimizer(char** argv) {
     std::cerr << "  -l, --load-index FILE      load this index and insert the new kmers into it" << std::endl;
     std::cerr << "                             (overrides minimizer / weighted minimizer options)" << std::endl;
     std::cerr << "  -g, --gbwt-name FILE       use this GBWT index (required with a non-GBZ graph)" << std::endl;
-    std::cerr << "  -E, --rec-mode             use PathMinimizerIndex, for recombination-aware mappings" << std::endl;
+    std::cerr << "  -E, --rec-mode             use recombination-aware MinimizerIndex" << std::endl;
     std::cerr << "  -p, --progress             show progress information" << std::endl;
     std::cerr << "  -t, --threads N            use N threads for index construction "
                                            << "[" << get_default_threads() << "]" << std::endl;
