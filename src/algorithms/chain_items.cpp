@@ -61,23 +61,23 @@ TracedScore TracedScore::add_points(int adjustment) const {
     return {this->score + adjustment, this->source};
 }
 
-TracedScore TracedScore::add_points_and_paths(int adjustment, std::pair<size_t, size_t> paths_to_add) {
+TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {
     size_t updated_paths;
-    if(paths_to_add.first == paths_to_add.second) {
+    if(new_paths.first == new_paths.second) {
        // if the paths are the same, there is no recombination inside the anchor. check if there is a recombination between anchors now
-        if ((this->paths & paths_to_add.first) == 0) {
+        if ((this->paths & new_paths.first) == 0) {
            // there is a recombination between anchors, so we "reset" the current paths
-            updated_paths = paths_to_add.first;
+            updated_paths = new_paths.first;
         } else {
             // there is no recombination between anchors, so we update the current paths
-            updated_paths = this->paths & paths_to_add.first;
+            updated_paths = this->paths & new_paths.first;
         }
     } else {
         // Otherwise, we have a recombinant anchor, we don't care about the recombination inside the anchor, we just "reset" the current paths
-        updated_paths = paths_to_add.second;
+        updated_paths = new_paths.second;
     }
     return {
-        this->score + adjustment,
+        this->score,
         this->source,
         updated_paths
     };
@@ -657,7 +657,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             TracedScore source_score = TracedScore::score_from(chain_scores, from_anchor);
             
             // And the score with the transition and the points from the item
-            TracedScore from_source_score = source_score.add_points_and_paths(jump_points + item_points, here.anchor_paths());
+            TracedScore from_source_score = source_score.add_points(jump_points + item_points)
+                                                        .set_shared_paths(here.anchor_paths());
             
             // Remember that we could make this jump
             chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);

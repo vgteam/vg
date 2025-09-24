@@ -202,6 +202,14 @@ public:
         end_paths &= new_paths;
     }
 
+    inline void update_paths(const std::vector<size_t>& haplotypes) {
+        path_flags_t new_paths = 0;
+        for (size_t haplotype : haplotypes) {
+            new_paths |= (1UL << haplotype);
+        }
+        update_paths(new_paths);
+    }
+
     /// Get the supported paths, as a 64 bit integer, where each bit is set to 1 if the respective path is supported
     inline const std::pair<path_flags_t, path_flags_t> anchor_paths() const {
         return {start_paths, end_paths};
@@ -213,20 +221,6 @@ public:
 
     inline path_flags_t anchor_end_paths() const {
         return end_paths;
-    }
-
-    /// Update supported haplotypes
-    inline void update_paths(const path_flags_t& new_paths) {
-        start_paths &= new_paths;
-        end_paths &= new_paths;
-    }
-
-    inline void update_paths(const std::vector<size_t>& haplotypes) {
-        path_flags_t new_paths = 0;
-        for (size_t haplotype : haplotypes) {
-            new_paths |= (1UL << haplotype);
-        }
-        update_paths(new_paths);
     }
 
     // Construction
@@ -322,8 +316,8 @@ public:
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
     
-    /// Add points and merge paths along a route to somewhere. Return a modified copy.
-    TracedScore add_points_and_paths(int adjustment, std::pair<size_t,size_t> paths_to_add);
+    /// Update the paths supported by this score and return a modified copy
+    TracedScore set_shared_paths(const std::pair<size_t,size_t>& new_paths) const;
 
     /// Compare for equality
     inline bool operator==(const TracedScore& other) const {
@@ -354,7 +348,7 @@ public:
     int score;
     // Index of source score among possibilities/traceback pointer
     size_t source;
-    // Supported paths
+    /// Supported paths
     path_flags_t paths;
 };
 
