@@ -4062,39 +4062,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // minimizers which we also took.
 
             // Locate the hits.
-            // for (size_t j = 0; j < minimizer.hits; j++) {
-            //     pos_t hit = minimizer.occs[j].position.decode();
-            //     // Reverse the hits for a reverse minimizer
-            //     if (minimizer.value.is_reverse) {
-            //         size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
-            //         hit = reverse_base_pos(hit, node_length);
-            //     }
-            //     // Extract component id and offset in the root chain, if we have them for this seed.
-            //     seeds.emplace_back();
-            //     seeds.back().pos = hit;
-            //     seeds.back().source = i;
-            //     seeds.back().paths = gbwtgraph::get_paths_or_zero(minimizer.occs[j].payload);
-            //     //Get the zipcode
-            //     if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
-            //         //If the zipcocde wasn't saved, then calculate it
-            //         seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-            //         seeds.back().zipcode.fill_in_full_decoder();
-            //     } else if (minimizer.occs[j].payload.first == 0) {
-            //         //If the minimizer stored the index into a list of zipcodes
-            //         if (!this->zipcodes->empty()) {
-            //             //If we have the oversized zipcodes
-            //             seeds.back().zipcode = zipcodes->at(minimizer.occs[j].payload.second);
-            //         } else {
-            //             //If we don't have the oversized payloads, then fill in the zipcode using the pos
-            //             seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-            //             seeds.back().zipcode.fill_in_full_decoder();
-            //         }
-            //     } else {
-            //         //If the zipcode was saved in the payload
-            //         seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
-            //     }
-
-            // }
             if (index_kind == IndexKind::XL) {
                 // XL index: occs points to PositionPayload<PayloadXL>; payload is not used for paths/zipcode.
                 const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>*>(minimizer.occs);
