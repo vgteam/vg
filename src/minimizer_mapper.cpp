@@ -264,7 +264,7 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
         
         // added info of supported paths
         exp.key("paths");
-        exp.value(anchors[index].anchor_start_paths());
+        exp.value(static_cast<std::size_t>(anchors[index].anchor_start_paths()));
         exp.object_end();
     }
     exp.array_end();
