@@ -3538,7 +3538,6 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
             auto h = idx.find(get<0>(m));
             return std::pair<const void*, size_t>(
                 static_cast<const void*>(h.first), h.second);
-            //return idx.find(get<0>(m));
         });
         if (hits.second > 0) {
             if (hits.second <= this->hard_hit_cap) {
