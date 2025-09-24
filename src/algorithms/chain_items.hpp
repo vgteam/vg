@@ -149,12 +149,14 @@ public:
     
     // Paths information
 
-    /// Set the haplotypes supported by this anchor
-    /// Maximum number limited to 64 for now
     inline void clear_paths() {
         start_paths = 0;
         end_paths = 0;
     }
+
+    /// Set the haplotypes supported by this anchor
+    /// Maximum number limited to 64 for now
+    
 
     inline void set_paths(const path_flags_t anchor_paths) {
         start_paths = anchor_paths;
@@ -173,6 +175,7 @@ public:
         }
     }
     
+    /// Add new paths to the supported haplotypes
     inline void add_paths(const std::vector<size_t>& anchor_paths) {
         for (size_t path : anchor_paths) {
             add_path(path);
@@ -185,8 +188,19 @@ public:
         end_paths |= (1UL << path);
     }
 
-    
+    /// Update the paths supported by an anchor
+    inline void update_paths(const path_flags_t& new_paths) {
+        update_start_paths(new_paths);
+        update_end_paths(new_paths);
+    }
 
+    inline void update_start_paths(const path_flags_t& new_paths) {
+        start_paths &= new_paths;
+    }
+
+    inline void update_end_paths(const path_flags_t& new_paths) {
+        end_paths &= new_paths;
+    }
 
     /// Get the supported paths, as a 64 bit integer, where each bit is set to 1 if the respective path is supported
     inline const std::pair<path_flags_t, path_flags_t> anchor_paths() const {

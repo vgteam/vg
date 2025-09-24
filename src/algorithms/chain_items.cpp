@@ -522,17 +522,6 @@ int score_chain_rec(const TracedScore& from, const Anchor& to) {
     }
 }
 
-// int score_chain_rec_jaccard(const TracedScore& from, const Anchor& to, int rec_penalty) {
-//     size_t intersection = __builtin_popcountll(from.paths & to.anchor_start_paths());
-//     size_t union_count = __builtin_popcountll(from.paths | to.anchor_start_paths());
-//     if (union_count == 0) {
-//         return 0;
-//     } else {
-//         float penalty = rec_penalty * (1 - (float)intersection / union_count);
-//         return (int)penalty;
-//     }
-// }
-
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
