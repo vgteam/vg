@@ -97,7 +97,7 @@
 	url = https://github.com/vgteam/xg.git
 [submodule "deps/gbwtgraph"]
 	path = deps/gbwtgraph
-	url = https://github.com/dcmonti/gbwtgraph.git
+	url = https://github.com/jltsiren/gbwtgraph.git
 [submodule "deps/ips4o"]
 	path = deps/ips4o
 	url = https://github.com/vgteam/ips4o.git
