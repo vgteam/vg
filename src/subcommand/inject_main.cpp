@@ -24,11 +24,13 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg inject]";
+
 void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject -x graph.xg [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE        use this graph or xg index (required, non-XG okay)" << endl
+         << "  -x, --xg-name FILE        use this graph or XG index (required, non-XG okay)" << endl
          << "  -i, --add-identity        calculate & add 'identity' statistic to output GAM" << endl
          << "  -r, --rescore             re-score alignments" << endl
          << "  -o, --output-format NAME  output alignment format {gam / gaf / json} [gam]" << endl
@@ -74,19 +76,16 @@ int main_inject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(context, optarg);
             break;
         
         case 'o':
-            {
-                output_format = optarg;
-                for (char& c : output_format) {
-                    c = std::toupper(c);
-                }
-                if (output_formats.find(output_format) == output_formats.end()) {
-                    std::cerr << "error: [vg inject] Invalid output format: " << optarg << std::endl;
-                    std::exit(1);
-                }
+            output_format = optarg;
+            for (char& c : output_format) {
+                c = std::toupper(c);
+            }
+            if (output_formats.find(output_format) == output_formats.end()) {
+                fatal_error(context) << "Invalid output format: " << output_format << endl;
             }
             break;
 
@@ -99,28 +98,25 @@ int main_inject(int argc, char** argv) {
             break;
 
         case 't':
-          threads = parse<int>(optarg);
-          break;
+            threads = set_thread_count(context, optarg);
+            break;
 
         case 'h':
         case '?':
-          help_inject(argv);
-          exit(1);
-          break;
+            help_inject(argv);
+            exit(1);
+            break;
 
         default:
-          abort ();
+            abort ();
         }
     }
     
-    omp_set_num_threads(threads);
-
     string file_name = get_input_file_name(optind, argc, argv);
 
     // We require an XG index
     if (xg_name.empty()) {
-        cerr << "error[vg inject]: Graph (-x) is required" << endl;
-        exit(1);
+        fatal_error(context) << "Graph (-x) is required" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;

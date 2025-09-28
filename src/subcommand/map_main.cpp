@@ -15,17 +15,20 @@
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg map]";
+
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] -d idxbase -f in1.fq [-f in2.fq] >aln.gam" << endl
          << "Align reads to a graph." << endl
          << endl
          << "graph/index:" << endl
-         << "  -d, --base-name BASE             use BASE.xg and BASE.gcsa as input indexes" << endl
-         << "  -x, --xg-name FILE               use this xg index or graph [<graph>.vg.xg]" << endl
+         << "  -d, --base-name BASE             use indexes BASE.xg, BASE.gcsa, and BASE.gbwt" << endl
+         << "                                   (overrides all other inputs)" << endl
+         << "  -x, --xg-name FILE               use this XG index or graph [<graph>.vg.xg]" << endl
          << "  -g, --gcsa-name FILE             use this GCSA2 index "
                                             << "[<graph>" << gcsa::GCSA::EXTENSION << "]" << endl
          << "  -1, --gbwt-name FILE             use this GBWT haplotype index "
-                                            << "[<graph>"<<gbwt::GBWT::EXTENSION << "]" << endl
+                                            << "[<graph>"<< gbwt::GBWT::EXTENSION << "]" << endl
          << "algorithm:" << endl
          << "  -t, --threads N                  number of compute threads to use" << endl
          << "  -k, --min-mem INT                minimum MEM length (if 0 estimate via -e) [0]" << endl
@@ -345,18 +348,21 @@ int main_map(int argc, char** argv) {
 
         case 'd':
             db_name = optarg;
+            require_exists(context, db_name + ".xg");
+            require_exists(context, db_name + gcsa::GCSA::EXTENSION);
+            // GBWT is optional
             break;
 
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(context, optarg);
             break;
 
         case 'g':
-            gcsa_name = optarg;
+            gcsa_name = require_exists(context, optarg);
             break;
             
         case '1':
-            gbwt_name = optarg;
+            gbwt_name = require_exists(context, optarg);
             break;
 
         case 'V':
@@ -413,7 +419,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'T':
-            read_file = optarg;
+            read_file = require_exists(context, optarg);
             break;
 
         case 'R':
@@ -425,7 +431,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'b':
-            hts_file = optarg;
+            hts_file = require_exists(context, optarg);
             break;
 
         case 'K':
@@ -437,13 +443,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'f':
-            if (fastq1.empty()) fastq1 = optarg;
-            else if (fastq2.empty()) fastq2 = optarg;
-            else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
+            assign_fastq_files(context, optarg, fastq1, fastq2);
             break;
 
         case 'F':
-            fasta_file = optarg;
+            fasta_file = require_exists(context, optarg);
             break;
 
         case 'i':
@@ -451,7 +455,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            set_thread_count(context, optarg);
             break;
 
         case 'D':
@@ -475,7 +479,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'G':
-            gam_input = optarg;
+            gam_input = require_exists(context, optarg);
             break;
 
         case 'j':
@@ -544,11 +548,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = optarg;
-            if (matrix_file_name.empty()) {
-                cerr << "error:[vg map] Must provide matrix file with --matrix-file." << endl;
-                exit(1);
-            }
+            matrix_file_name = require_exists(context, optarg);
             break;
 
         case 'o':
@@ -583,13 +583,12 @@ int main_map(int argc, char** argv) {
                 c = toupper(c);
             }
             if (output_format != "SAM" && output_format != "BAM" && output_format != "CRAM") {
-                cerr << "error [vg map] illegal surjection type " << optarg << endl;
-                return 1;
+                fatal_error(context) << "illegal surjection type " << output_format << endl;
             }
             break;
             
         case OPT_REF_PATHS:
-            ref_paths_name = optarg;
+            ref_paths_name = require_exists(context, optarg);
             break;
 
         case OPT_REF_NAME:
@@ -612,8 +611,7 @@ int main_map(int argc, char** argv) {
                 convert(parts[3], fragment_orientation);
                 convert(parts[4], fragment_direction);
             } else {
-                cerr << "error [vg map] expected five :-delimited numbers to --fragment" << endl;
-                return 1;
+                fatal_error(context) << "expected five :-delimited numbers to --fragment" << endl;
             }
         }
         break;
@@ -665,8 +663,7 @@ int main_map(int argc, char** argv) {
 
 
         default:
-            cerr << "Unimplemented option " << (char) c << endl;
-            exit(1);
+            fatal_error(context) << "Unimplemented option " << (char) c << endl;
         }
     }
 
@@ -674,25 +671,23 @@ int main_map(int argc, char** argv) {
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
 
     if (!ref_paths_name.empty() && !hts_output) {
-        cerr << "warning:[vg map] Reference path file (--ref-paths) is only used when output format "
-             << "(--surject-to) is SAM, BAM, or CRAM." << endl;
+        warning(context) << "Reference path file (--ref-paths) is only used when output format "
+                         << "(--surject-to) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
     if (!reference_assembly_names.empty() && !hts_output) {
-        cerr << "warning:[vg map] Reference assembly names (--ref-name) are only used when output format "
-             << "(--surject-to) is SAM, BAM, or CRAM." << endl;
+        warning(context) << "Reference assembly names (--ref-name) are only used when output format "
+                         << "(--surject-to) is SAM, BAM, or CRAM." << endl;
         reference_assembly_names.clear();
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty()
         && gam_input.empty() && fasta_file.empty()) {
-        cerr << "error:[vg map] A sequence or read file is required when mapping." << endl;
-        return 1;
+        fatal_error(context) << "A sequence or read file is required when mapping." << endl;
     }
 
     if (!qual.empty() && (seq.length() != qual.length())) {
-        cerr << "error:[vg map] Sequence and base quality string must be the same length." << endl;
-        return 1;
+        fatal_error(context) << "Sequence and base quality string must be the same length." << endl;
     }
 
     if (qual_adjust_alignments &&
@@ -700,8 +695,7 @@ int main_map(int argc, char** argv) {
          || (!seq.empty() && qual.empty()) // can't provide sequence without quality
          || !read_file.empty()))           // can't provide sequence list without qualities
     {
-        cerr << "error:[vg map] Quality adjusted alignments require base quality scores for all sequences." << endl;
-        return 1;
+        fatal_error(context) << "Quality adjusted alignments require base quality scores for all sequences." << endl;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
     
@@ -749,31 +743,22 @@ int main_map(int argc, char** argv) {
     // One of them may be used to provide haplotype scores
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     
-    if(!xg_name.empty()) {
-        // We have an xg index!
-
-        // We try opening the file, and then see if it worked
-        ifstream xg_stream(xg_name);
-        if (!xg_stream) {
-            cerr << "Error[vg map]: Unable to open xg file \"" << xg_name << "\"" << endl;
-            exit(1);
-        }
-        xg_stream.close();
-        
+    if (!xg_name.empty()) {
+        // We have an XG index!
         // TODO: tell when the user asked for an XG vs. when we guessed one,
         // and error when the user asked for one and we can't find it.
-        if(debug) {
-            cerr << "Loading xg index " << xg_name << "..." << endl;
+        if (debug) {
+            basic_log(context) << "Loading XG index " << xg_name << "..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
 
     ifstream gcsa_stream(gcsa_name);
-    if(gcsa_stream) {
+    if (gcsa_stream) {
         // We have a GCSA index too!
-        if(debug) {
-            cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
+        if (debug) {
+            basic_log(context) << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
         gcsa = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
@@ -781,17 +766,17 @@ int main_map(int argc, char** argv) {
     string lcp_name = gcsa_name + ".lcp";
     ifstream lcp_stream(lcp_name);
     if (lcp_stream) {
-        if(debug) {
-            cerr << "Loading LCP index " << lcp_name << "..." << endl;
+        if (debug) {
+            basic_log(context) << "Loading LCP index " << lcp_name << "..." << endl;
         }
         lcp = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
     
     ifstream gbwt_stream(gbwt_name);
-    if(gbwt_stream) {
+    if (gbwt_stream) {
         // We have a GBWT index too!
-        if(debug) {
-            cerr << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
+        if (debug) {
+            basic_log(context) << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
         
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -802,11 +787,7 @@ int main_map(int argc, char** argv) {
 
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
-      matrix_stream.open(matrix_file_name);
-      if (!matrix_stream) {
-          cerr << "error:[vg map] Cannot open scoring matrix file " << matrix_file_name << endl;
-          exit(1);
-      }
+        matrix_stream.open(matrix_file_name);
     }
 
     thread_count = vg::get_thread_count();
@@ -856,7 +837,7 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = nullptr;
-        if(xgidx && gcsa.get() && lcp.get()) {
+        if (xgidx && gcsa.get() && lcp.get()) {
             // We have the xg and GCSA indexes, so use them
             m = new Mapper(xgidx, gcsa.get(), lcp.get(), haplo_score_provider);
         } else {
@@ -879,9 +860,9 @@ int main_map(int argc, char** argv) {
         m->min_cluster_length = min_cluster_length;
         m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
         if (debug && i == 0) {
-            cerr << "[vg map] : min_mem_length = " << m->min_mem_length
-                 << ", mem_reseed_length = " << m->mem_reseed_length
-                 << ", min_cluster_length = " << m->min_cluster_length << endl;
+            basic_log(context) << "min_mem_length = " << m->min_mem_length
+                               << ", mem_reseed_length = " << m->mem_reseed_length
+                               << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = true; // This used to be an option, but no more
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
@@ -945,7 +926,7 @@ int main_map(int argc, char** argv) {
                                                                 band_overlap,
                                                                 xdrop_alignment);
 
-        if(alignments.size() == 0 && !exclude_unaligned) {
+        if (alignments.size() == 0 && !exclude_unaligned) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
@@ -1042,7 +1023,7 @@ int main_map(int argc, char** argv) {
 
     if (!hts_file.empty()) {
         function<void(Alignment&)> lambda = [&](Alignment& alignment) {
-            if(alignment.is_secondary() && !keep_secondary) {
+            if (alignment.is_secondary() && !keep_secondary) {
                 // Skip over secondary alignments in the input;
                 // we don't want several output mappings for each input *mapping*.
                 return;
@@ -1320,7 +1301,7 @@ int main_map(int argc, char** argv) {
             // we've calculated our fragment size, so print it and bail out
             cout << mapper[0]->frag_stats.fragment_model_str() << endl;
         } else {
-            cerr << "[vg map] Error: could not calculate fragment model" << endl;
+            fatal_error(context) << "Could not calculate fragment model." << endl;
         }
     }
 
@@ -1332,7 +1313,7 @@ int main_map(int argc, char** argv) {
     std::chrono::duration<double> mapping_seconds = end - init;
     std::chrono::duration<double> index_load_seconds = init - launch;
 
-    if (log_time){
+    if (log_time) {
 
         size_t total_reads_mapped = 0;
         for (auto& reads_mapped : reads_mapped_by_thread) {
@@ -1340,9 +1321,10 @@ int main_map(int argc, char** argv) {
         }
     
         double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
-        cerr << "Index load time: " << index_load_seconds.count() << endl;
-        cerr << "Mapped " << total_reads_mapped << " reads" << endl;
-        cerr << "Mapping speed: " << reads_per_second_per_thread << " reads per second per thread" << endl; 
+        basic_log(context) << "Index load time: " << index_load_seconds.count() << endl;
+        basic_log(context) << "Mapped " << total_reads_mapped << " reads" << endl;
+        basic_log(context) << "Mapping speed: " << reads_per_second_per_thread
+                           << " reads per second per thread" << endl; 
     }
     
     cout.flush();

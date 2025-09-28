@@ -27,6 +27,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg ids]";
+
 void help_ids(char** argv) {
     cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
          << "options:" << endl
@@ -97,7 +99,7 @@ int main_ids(int argc, char** argv) {
                 break;
 
             case 'm':
-                mapping_name = optarg;
+                mapping_name = ensure_writable(context, optarg);
                 break;
 
             case 's':
@@ -184,12 +186,8 @@ int main_ids(int argc, char** argv) {
         if (!mapping_name.empty()) {
             gcsa::NodeMapping mapping(max_node_id + 1);
             std::ofstream out(mapping_name, std::ios_base::binary);
-            if (!out) {
-                std::cerr << "[vg ids]: cannot create node mapping file " << mapping_name << std::endl;
-            } else {
-                mapping.serialize(out);
-                out.close();
-            }
+            mapping.serialize(out);
+            out.close();
         }
     }
 

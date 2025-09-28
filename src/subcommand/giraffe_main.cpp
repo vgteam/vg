@@ -63,6 +63,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg giraffe]";
+
 /// Options struct for options for the Giraffe driver (i.e. this file)
 struct GiraffeMainOptions {
     /// How long should we wait while mapping a read before complaining, in seconds.
@@ -1254,14 +1256,8 @@ int main_giraffe(int argc, char** argv) {
         switch (c)
         {
             case 'Z':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide GBZ file with -Z." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open GBZ file " << optarg << endl;
-                    exit(1);
-                }
+                // All provided_indexes are later validated
+                // with require_exists()
                 provided_indexes.emplace_back("Giraffe GBZ", optarg);
 
                 // If we have a GBZ we probably want to use its name as the base name.
@@ -1271,31 +1267,15 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'x':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide graph file with -x." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open graph file " << optarg << endl;
-                    exit(1); 
-                }
                 provided_indexes.emplace_back("XG", optarg);
                 
-                // If we have an xg we probably want to use its name as the base name.
+                // If we have an XG we probably want to use its name as the base name.
                 // But see -g.
                 index_basename = split_ext(optarg).first;
                 
                 break;
 
             case 'g':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide GBWTGraph file with -g." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open GBWTGraph file " << optarg << endl;
-                    exit(1); 
-                }
                 provided_indexes.emplace_back("GBWTGraph", optarg);
                 
                 // But if we have a GBWTGraph we probably want to use *its* name as the base name.
@@ -1305,51 +1285,19 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'H':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide GBWT file with -H." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open GBWT file " << optarg << endl;
-                    exit(1); 
-                }
                 provided_indexes.emplace_back("Giraffe GBWT", optarg);
                 break;
                 
             case 'm':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open minimizer file " << optarg << endl;
-                    exit(1); 
-                }
                 provided_indexes.emplace_back("Long Read Minimizers", optarg);
                 provided_indexes.emplace_back("Short Read Minimizers", optarg);
                 break;
                 
             case 'z':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide zipcode index file with -z." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open zipcode index file " << optarg << endl;
-                    exit(1); 
-                }
                 provided_indexes.emplace_back("Long Read Zipcodes", optarg);
                 provided_indexes.emplace_back("Short Read Zipcodes", optarg);
                 break;
             case 'd':
-                if (!optarg || !*optarg) {
-                    cerr << "error: [vg giraffe] Must provide distance index file with -d." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error: [vg giraffe] Couldn't open distance index file " << optarg << endl;
-                    exit(1); 
-                }
                 provided_indexes.emplace_back("Giraffe Distance Index", optarg);
                 break;
 
@@ -1368,31 +1316,13 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'G':
-                gam_filename = optarg;
-                if (gam_filename.empty()) {
-                    cerr << "error: [vg giraffe] Must provide GAM file with -G." << endl;
-                    exit(1);
-                }
+                gam_filename = require_exists(context, optarg);
                 break;
             
             case 'f':
-                if (fastq_filename_1.empty()) {
-                    fastq_filename_1 = optarg;
-                    if (fastq_filename_1.empty()) {
-                        cerr << "error: [vg giraffe] Must provide FASTQ file with -f." << endl;
-                        exit(1);
-                    }
-                }
-                else if (fastq_filename_2.empty()) {
-                    fastq_filename_2 = optarg;
-                    if (fastq_filename_2.empty()) {
-                        cerr << "error: [vg giraffe] Must provide FASTQ file with -f." << endl;
-                        exit(1);
-                    }
+                assign_fastq_files(context, optarg, fastq_filename_1, fastq_filename_2);
+                if (!fastq_filename_2.empty()) {
                     paired = true;
-                } else {
-                    cerr << "error: [vg giraffe] Cannot specify more than two FASTQ files." << endl;
-                    exit(1);
                 }
                 break;
 
@@ -1420,8 +1350,7 @@ int main_giraffe(int argc, char** argv) {
                         c = std::toupper(c);
                     }
                     if (output_formats.find(output_format) == output_formats.end()) {
-                        std::cerr << "error: [vg giraffe] Invalid output format: " << optarg << std::endl;
-                        std::exit(1);
+                        fatal_error(context) << "Invalid output format: " << output_format << std::endl;
                     }
                 }
                 break;
@@ -1463,7 +1392,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case OPT_REPORT_NAME:
-                report_name = optarg;
+                report_name = ensure_writable(context, optarg);
                 break;
 
             case 'b':
@@ -1472,8 +1401,7 @@ int main_giraffe(int argc, char** argv) {
                     auto found = presets.find(param_preset);
                     if (found == presets.end()) {
                         // Complain this isn't a preset.
-                        std::cerr << "error: [vg giraffe] invalid parameter preset: " << param_preset << std::endl;
-                        exit(1);
+                        fatal_error(context) << "invalid parameter preset: " << param_preset << std::endl;
                     } else {
                         // Apply the preset values.
                         // Order of processing doesn't matter; preset values
@@ -1494,8 +1422,7 @@ int main_giraffe(int argc, char** argv) {
                     }
                     auto iter = rescue_algorithms.find(algo_name);
                     if (iter == rescue_algorithms.end()) {
-                        std::cerr << "error: [vg giraffe] Invalid rescue algorithm: " << optarg << std::endl;
-                        std::exit(1);
+                        fatal_error(context) << "Invalid rescue algorithm: " << algo_name << std::endl;
                     }
                     rescue_algorithm = iter->second;
                 }
@@ -1536,14 +1463,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
                 
             case 't':
-            {
-                int num_threads = parse<int>(optarg);
-                if (num_threads <= 0) {
-                    cerr << "error: [vg giraffe] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                    exit(1);
-                }
-                omp_set_num_threads(num_threads);
-            }
+                set_thread_count(context, optarg);
                 break;
                 
             case 'h':
@@ -1567,8 +1487,7 @@ int main_giraffe(int argc, char** argv) {
             fasta_parts = split_ext(fasta_parts.first);
         }
         if (fasta_parts.second != "fa" && fasta_parts.second != "fasta" && fasta_parts.second != "fna") {
-            cerr << "error: [vg giraffe] FASTA file " << fasta_filename << " is not named like a FASTA" << endl;
-            exit(1);
+            fatal_error(context) << "FASTA file " << fasta_filename << " is not named like a FASTA" << std::endl;
         }
         
         provided_indexes.emplace_back("Reference FASTA", fasta_filename);
@@ -1586,8 +1505,7 @@ int main_giraffe(int argc, char** argv) {
                 vcf_parts = split_ext(vcf_parts.first);
             }
             if (vcf_parts.second != "vcf") {
-                cerr << "error: [vg giraffe] VCF file " << vcf_filename << " is not named like a VCF" << endl;
-                exit(1);
+                fatal_error(context) << "VCF file " << vcf_filename << " is not named like a VCF" << std::endl;
             }
             
             // Determine if it is phased or not
@@ -1606,56 +1524,59 @@ int main_giraffe(int argc, char** argv) {
     }
     
     // Now all the arguments are parsed, so see if they make sense
+
+    for (const auto& filename : provided_indexes) {
+        require_exists(context, filename.second);
+    }
     
     // Decide if we are outputting to an htslib format
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
     
     if (!ref_paths_name.empty() && !hts_output) {
-        cerr << "warning: [vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
-        ref_paths_name = "";
+        warning(context) << "Reference path file (--ref-paths) is only used "
+                         << "when output format (-o) is SAM, BAM, or CRAM." << std::endl;
     }
     if (!reference_assembly_names.empty() && !hts_output) {
-        cerr << "warning: [vg giraffe] Reference assembly names (--ref-name) are only used when output format (-o) is SAM, BAM, or CRAM." << endl;
-        reference_assembly_names.clear();
+        warning(context) << "Reference assembly names (--ref-name) are only used "
+                         << "when output format (-o) is SAM, BAM, or CRAM." << std::endl;
     }
     
     if (output_format != "GAM" && !output_basename.empty()) {
-        cerr << "error: [vg giraffe] Using an output basename (--output-basename) only makes sense for GAM format (-o)" << endl;
-        exit(1);
+        fatal_error(context) << "Using an output basename (--output-basename) "
+                             << "only makes sense for GAM format (-o GAM)." << std::endl;
     }
     
     if (interleaved && !fastq_filename_2.empty()) {
-        cerr << "error: [vg giraffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
-        exit(1);
+        fatal_error(context) << "Cannot designate both interleaved paired ends (-i) "
+                             << "and separate paired end file (-f)." << std::endl;
     }
 
     if (!fastq_filename_1.empty() && !gam_filename.empty()) {
-        cerr << "error: [vg giraffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
-        exit(1);
+        fatal_error(context) << "Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << std::endl;
     }
     
     if (have_input_file(optind, argc, argv)) {
         // TODO: work out how to interpret additional files as reads.
-        cerr << "error: [vg giraffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
-        exit(1);
+        fatal_error(context) << "Extraneous input file: " << get_input_file_name(optind, argc, argv) << std::endl;
     }
 
     if ((forced_mean && ! forced_stdev) || (!forced_mean && forced_stdev)) {
-        cerr << "warning: [vg giraffe] Both a mean and standard deviation must be specified for the fragment length distribution" << endl;
-        cerr << "                   Detecting fragment length distribution automatically" << endl;
+        warning(context) << "Both a mean and standard deviation must be specified "
+                         << "for the fragment length distribution. "
+                         << "Detecting fragment length distribution automatically" << std::endl;
         forced_mean = false;
         forced_stdev = false;
         fragment_mean = 0.0;
         fragment_stdev = 0.0;
     }
     if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
-        cerr << "warning: [vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
+        warning(context) << "Attempting to set paired-end parameters but running in single-end mode" << std::endl;
     }
 
     if (parser->get_option_value<bool>("align-from-chains") && paired) {
         // TODO: Implement chaining for paired-end alignment
-        cerr << "error: [vg giraffe] Paired-end alignment is not yet implemented for --align-from-chains or chaining-based presets" << endl;
-        exit(1);
+        fatal_error(context) << "Paired-end alignment is not yet implemented "
+                             << "for --align-from-chains or chaining-based presets" << std::endl;
     }
 
     bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
@@ -1708,10 +1629,11 @@ int main_giraffe(int argc, char** argv) {
                 // A file with the appropriate name exists and we can read it.
                 if (haplotype_sampling) {
                     // If we did haplotype sampling, we are going to overwrite existing indexes.
-                    cerr << "warning: [vg giraffe] " << inferred_filename << " exists and will be overwritten" << endl;
+                    warning(context) << inferred_filename << " exists and will be overwritten" << endl;
                 } else {
                     // Report it because this may not be desired behavior.
-                    cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions->first << endl;
+                    basic_log(context) << "Guessing that " << inferred_filename
+                                       << " is " << index_and_extensions->first << endl;
                     registry.provide(index_and_extensions->first, inferred_filename);
                     found = true;
                 }
@@ -1755,34 +1677,32 @@ int main_giraffe(int argc, char** argv) {
 
 #ifdef debug
     for (auto& needed : index_targets) {
-        cerr << "Want index: " << needed << endl;
+        basic_log(context) << "Want index: " << needed << endl;
     }
 #endif
     
     try {
         if (show_progress) {
-            cerr << "Preparing Indexes" << endl;
+            basic_log(context) << "Preparing Indexes" << endl;
         }
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
-        cerr << "error: [vg giraffe] Input is not sufficient to create indexes" << endl;
-        cerr << ex.what();
-        return 1;
+        fatal_error(context) << "Input is not sufficient to create indexes\n" << ex.what() << endl;
     }
    
 #ifdef debug
     for (auto& completed : registry.completed_indexes()) {
-        cerr << "Have index: " << completed << endl;
+        basic_log(context) << "Have index: " << completed << endl;
         for (auto& filename : registry.require(completed)) {
-            cerr << "\tAt: " << filename << endl;
+            basic_log(context) << "\tAt: " << filename << endl;
         }
     }
 #endif
     
     // Grab the minimizer index
     if (show_progress) {
-        cerr << "Loading Minimizer Index" << endl;
+        basic_log(context) << "Loading Minimizer Index" << endl;
     }
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     if (map_long_reads) {
@@ -1793,7 +1713,7 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the zipcodes
     if (show_progress) {
-        cerr << "Loading Zipcodes" << endl;
+        basic_log(context) << "Loading Zipcodes" << endl;
     }
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
@@ -1809,18 +1729,18 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the GBZ
     if (show_progress) {
-        cerr << "Loading GBZ" << endl;
+        basic_log(context) << "Loading GBZ" << endl;
     }
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
     if (show_progress) {
-        cerr << "Loading Distance Index v2" << endl;
+        basic_log(context) << "Loading Distance Index v2" << endl;
     }
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     if (show_progress) {
-        cerr << "Paging in Distance Index v2" << endl;
+        basic_log(context) << "Paging in Distance Index v2" << endl;
     }
     std::chrono::time_point<std::chrono::system_clock> preload_start = std::chrono::system_clock::now();
     // Make sure the distance index is paged in from disk.
@@ -1843,7 +1763,7 @@ int main_giraffe(int argc, char** argv) {
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
         if (registry.available("XG")) {
             if (show_progress) {
-                cerr << "Loading XG Graph" << endl;
+                basic_log(context) << "Loading XG Graph" << endl;
             }
             xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
             base_graph = xg_graph.get();
@@ -1851,14 +1771,14 @@ int main_giraffe(int argc, char** argv) {
     
         // Apply the overlay if needed.
         if (show_progress) {
-            cerr << "Applying overlay" << endl;
+            basic_log(context) << "Applying overlay" << endl;
         }
         path_position_graph = overlay_helper.apply(base_graph);
     }
 
     // Set up the mapper
     if (show_progress) {
-        cerr << "Initializing MinimizerMapper" << endl;
+        basic_log(context) << "Initializing MinimizerMapper" << endl;
     }
     MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &oversized_zipcodes, path_position_graph);
     if (forced_mean && forced_stdev) {
@@ -1868,8 +1788,10 @@ int main_giraffe(int argc, char** argv) {
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
     if (show_progress) {
-        cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
-        cerr << "Of which Distance Index v2 paging: " << di2_preload_seconds.count() << " seconds" << endl;
+        basic_log(context) << "Loading and initialization: "
+                           << init_seconds.count() << " seconds" << endl;
+        basic_log(context) << "Of which Distance Index v2 paging: "
+                           << di2_preload_seconds.count() << " seconds" << endl;
     }
     
     // Set up to write a report of mapping speed if requested, instead of just dumping to stderr.
@@ -1877,12 +1799,6 @@ int main_giraffe(int argc, char** argv) {
     if (!report_name.empty()) {
         // Open the report
         report.open(report_name);
-        if (!report) {
-            // Make sure it worked
-            cerr << "error[vg giraffe]: Could not open report file " << report_name << endl;
-            exit(1);
-        }
-        
         // Add a header
         report << "#file\treads/second/thread" << endl;
     }
@@ -1910,9 +1826,10 @@ int main_giraffe(int argc, char** argv) {
     
         if (show_progress) {
             if (discard_alignments) {
-                cerr << "Discarding output alignments" << endl;
+                basic_log(context) << "Discarding output alignments" << endl;
             } else {
-                cerr << "Mapping reads to \"" << output_filename << "\" (" << output_format << ")" << endl;
+                basic_log(context) << "Mapping reads to \"" << output_filename
+                                   << "\" (" << output_format << ")" << endl;
             }
         }
 
@@ -1925,7 +1842,7 @@ int main_giraffe(int argc, char** argv) {
         parser->apply(scoring_options);
 
         // Make a line of JSON about our command line options.
-        // We may embed it int he output file later.
+        // We may embed it in the output file later.
         std::stringstream params_json;
         params_json << "{";
         parser->print_options(params_json, OptionFormat::JSON);
@@ -2019,7 +1936,8 @@ int main_giraffe(int argc, char** argv) {
         perf_fds[omp_get_thread_num()] = perf_event_open(&perf_config, 0, -1, -1, 0);
         if (show_progress && perf_fds[omp_get_thread_num()] == -1) {
             int problem = errno;
-            cerr << "Not counting CPU instructions because perf events are unavailable: " << strerror(problem) << endl;
+            basic_log(context) << "Not counting CPU instructions because perf events are unavailable: "
+                               << strerror(problem) << endl;
             perf_fds.clear();
         }
         
@@ -2141,8 +2059,9 @@ int main_giraffe(int argc, char** argv) {
                             // Report that it is now ready
                             #pragma omp critical (cerr)
                             {
-                                cerr << "Using fragment length estimate: " << minimizer_mapper.get_fragment_length_mean()
-                                     << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
+                                basic_log(context) << "Using fragment length estimate: "
+                                                   << minimizer_mapper.get_fragment_length_mean()
+                                                   << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
                             }
                         }
                         
@@ -2154,12 +2073,14 @@ int main_giraffe(int argc, char** argv) {
 
                 // Define a way to force the distribution ready
                 auto require_distribution_finalized = [&]() {
-                    if (!minimizer_mapper.fragment_distr_is_finalized()){
-                        cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
-                        cerr << "                      mapped " << minimizer_mapper.get_fragment_length_sample_size() 
-                             << " reads single ended with " << ambiguous_pair_buffer.size() << " pairs of reads left unmapped" << endl;
-                        cerr << "                      mean: " << minimizer_mapper.get_fragment_length_mean() << ", stdev: " 
-                             << minimizer_mapper.get_fragment_length_stdev() << endl;
+                    if (!minimizer_mapper.fragment_distr_is_finalized()) {
+                        warning(context) << "Finalizing fragment length distribution "
+                                         << "before reaching maximum sample size.\nmapped"
+                                         << minimizer_mapper.get_fragment_length_sample_size()
+                                         << " reads single ended with" << ambiguous_pair_buffer.size()
+                                         << " pairs of reads left unmapped.\nmean: "
+                                         << minimizer_mapper.get_fragment_length_mean() << ", stdev: "
+                                         << minimizer_mapper.get_fragment_length_stdev() << endl;
                         minimizer_mapper.finalize_fragment_length_distr();
                     }
                 };
@@ -2179,7 +2100,8 @@ int main_giraffe(int argc, char** argv) {
                         }
                         if (main_options.log_reads) {
                             #pragma omp critical (cerr)
-                            std::cerr << "Thread " << thread_num << " now mapping " << aln1.name() << ", " << aln2.name() << std::endl;
+                            basic_log(context) << "Thread " << thread_num << " now mapping "
+                                               << aln1.name() << ", " << aln2.name() << std::endl;
                         }
                         
 
@@ -2212,10 +2134,11 @@ int main_giraffe(int argc, char** argv) {
                         
                         if (!minimizer_mapper.fragment_distr_is_finalized() && ambiguous_pair_buffer.size() >= MAX_BUFFERED_PAIRS) {
                             // We risk running out of memory if we keep this up.
-                            cerr << "warning[vg::giraffe]: Encountered " << ambiguous_pair_buffer.size() << " ambiguously-paired reads before finding enough" << endl
-                                 << "                      unambiguously-paired reads to learn fragment length distribution. Are you sure" << endl
-                                 << "                      your reads are paired and your graph is not a hairball?" << endl;
-                            require_distribution_finalized();
+                            warning(context) << "Encountered " << ambiguous_pair_buffer.size()
+                                             << " ambiguously-paired reads before finding enough "
+                                             << "unambiguously-paired reads to learn fragment length distribution. "
+                                             << "Are you sure your reads are paired "
+                                             << "and your graph is not a hairball?" << std::endl;
                         }
                         
                         if (watchdog) {
@@ -2292,7 +2215,8 @@ int main_giraffe(int argc, char** argv) {
                         }
                         if (main_options.log_reads) {
                             #pragma omp critical (cerr)
-                            std::cerr << "Thread " << thread_num << " now mapping " << aln.name() << std::endl;
+                            basic_log(context) << "Thread " << thread_num
+                                               << " now mapping " << aln.name() << std::endl;
                         }
                         
                         check_quality_length(aln);
@@ -2372,12 +2296,13 @@ int main_giraffe(int argc, char** argv) {
                 long long thread_instructions;
                 if (read(perf_fd, &thread_instructions, sizeof(long long)) != sizeof(long long)) {
                     // Read failed for some reason.
-                    cerr << "warning: [vg giraffe] Could not count CPU instructions executed" << endl;
+                    warning(context) << "Could not count CPU instructions executed" << std::endl;
                     thread_instructions = 0;
                 }
                 if (close(perf_fd)) {
                     int problem = errno;
-                    cerr << "warning: [vg giraffe] Error closing perf event instruction counter: " << strerror(problem) << endl;
+                    warning(context) << "Error closing perf event instruction counter:\n"
+                                     << strerror(problem) << std::endl;
                 }
                 total_instructions += thread_instructions;
             }
@@ -2398,25 +2323,27 @@ int main_giraffe(int argc, char** argv) {
         
         if (show_progress) {
             // Log to standard error
-            cerr << "Mapped " << total_reads_mapped << " reads across "
-                << thread_count << " threads in "
-                << all_threads_seconds.count() << " seconds with " 
-                << first_thread_additional_seconds.count() << " additional single-threaded seconds." << endl;
-            cerr << "Mapping speed: " << reads_per_second_per_thread
-                << " reads per second per thread" << endl;
+            basic_log(context) << "Mapped " << total_reads_mapped << " reads across "
+                               << thread_count << " threads in "
+                               << all_threads_seconds.count() << " seconds with " 
+                               << first_thread_additional_seconds.count()
+                               << " additional single-threaded seconds." << endl;
+            basic_log(context) << "Mapping speed: " << reads_per_second_per_thread
+                               << " reads per second per thread" << endl;
             
-            cerr << "Used " << cpu_seconds << " CPU-seconds (including output)." << endl;
-            cerr << "Achieved " << reads_per_cpu_second
-                << " reads per CPU-second (including output)" << endl;
+            basic_log(context) << "Used " << cpu_seconds << " CPU-seconds (including output)." << endl;
+            basic_log(context) << "Achieved " << reads_per_cpu_second
+                               << " reads per CPU-second (including output)" << endl;
             
             if (total_instructions != 0) {
-                cerr << "Used " << total_instructions << " CPU instructions (not including output)." << endl;
-                cerr << "Mapping slowness: " << mega_instructions_per_read
-                    << " M instructions per read at " << mega_instructions_per_second
-                    << " M mapping instructions per inclusive CPU-second" << endl;
+                basic_log(context) << "Used " << total_instructions
+                                   << " CPU instructions (not including output)." << endl;
+                basic_log(context) << "Mapping slowness: " << mega_instructions_per_read
+                                   << " M instructions per read at " << mega_instructions_per_second
+                                   << " M mapping instructions per inclusive CPU-second" << endl;
             }
 
-            cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
+            basic_log(context) << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
         
         
@@ -2438,13 +2365,12 @@ std::string sample_haplotypes(
     bool progress
 ) {
     if (progress) {
-        std::cerr << "Sampling haplotypes" << std::endl;
+        basic_log(context) << "Sampling haplotypes" << std::endl;
     }
 
     // Sanity checks.
     if (haplotype_file.empty() || kff_file.empty()) {
-        std::cerr << "error: [vg giraffe] Haplotype sampling requires --haplotype-name and --kff-name." << std::endl;
-        std::exit(EXIT_FAILURE);
+        fatal_error(context) << "Haplotype sampling requires --haplotype-name and --kff-name." << std::endl;
     }
 
     // Determine output name.
@@ -2452,11 +2378,12 @@ std::string sample_haplotypes(
     if (sample.empty()) {
         sample = file_base_name(kff_file);
         if (progress) {
-            std::cerr << "Guessing from " << kff_file << " that sample name is " << sample << std::endl;
+            basic_log(context) << "Guessing from " << kff_file
+                               << " that sample name is " << sample << std::endl;
         }
     }
     if (sample == "giraffe") {
-        std::cerr << "warning: [vg giraffe] Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
+        warning(context) << "Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
     }
     std::string output_name = basename + "." + sample + ".gbz";
 
@@ -2469,24 +2396,25 @@ std::string sample_haplotypes(
     } else if (indexes.size() == 2 && indexes[0].first == "GBWTGraph" && indexes[1].first == "Giraffe GBWT") {
         load_gbz(gbz, indexes[1].second, indexes[0].second, progress);
     } else {
-        std::cerr << "error: [vg giraffe] Haplotype sampling requires either -Z or (-g and -H) with no other indexes." << std::endl;
-        std::exit(EXIT_FAILURE);
+        fatal_error(context) << "Haplotype sampling requires either -Z or (-g and -H) with no other indexes." << std::endl;
     }
 
     // Override reference samples if necessary.
     if (!reference_samples.empty()) {
         if (progress) {
-            std::cerr << "Updating reference samples" << std::endl;
+            basic_log(context) << "Updating reference samples" << std::endl;
         }
         size_t present = gbz.set_reference_samples(reference_samples);
         if (present != reference_samples.size()) {
-            std::cerr << "warning: [vg giraffe] Only " << present << " out of " << reference_samples.size() << " reference samples are present" << std::endl;
+            warning(context) << "Only " << present << " out of " << reference_samples.size()
+                             << " reference samples are present" << std::endl;
         }
     }
 
     // Load haplotype information.
     if (progress) {
-        std::cerr << "Loading haplotype information from " << haplotype_file << std::endl;
+        basic_log(context) << "Loading haplotype information from "
+                           << haplotype_file << std::endl;
     }
     Haplotypes haplotypes;
     haplotypes.load_from(haplotype_file);
@@ -2499,13 +2427,12 @@ std::string sample_haplotypes(
     try {
         sampled_gbwt = recombinator.generate_haplotypes(kff_file, parameters);
     } catch (const std::runtime_error& e) {
-        std::cerr << "error: [vg giraffe] Haplotype sampling failed: " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
+        fatal_error(context) << "Haplotype sampling failed: " << e.what() << std::endl;
     }
 
     // Create GBWTGraph and save GBZ.
     if (progress) {
-        std::cerr << "Building GBWTGraph" << std::endl;
+        basic_log(context) << "Building GBWTGraph" << std::endl;
     }
     gbwtgraph::GBWTGraph sampled_graph = gbz.graph.subgraph(sampled_gbwt);
     save_gbz(sampled_gbwt, sampled_graph, output_name, progress);

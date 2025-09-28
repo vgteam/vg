@@ -22,10 +22,11 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg autoindex]";
+
 int64_t parse_memory_usage(const string& mem_arg) {
     if (mem_arg.empty()) {
-        cerr << "error:[vg autoindex] target memory usage arg is empty" << endl;
-        exit(1);
+        fatal_error(context) << "target memory usage arg is empty" << endl;
     }
     string mem = mem_arg;
     if (mem.back() == 'B') {
@@ -48,8 +49,8 @@ int64_t parse_memory_usage(const string& mem_arg) {
         base = 1;
     }
     else {
-        cerr << "error:[vg autoindex] unrecognized unit for target memory usage: " << mem.back() << endl;
-        exit(1);
+        fatal_error(context) << "unrecognized unit " << mem.back()
+                             << " for target memory usage: " << mem_arg << endl;
     }
     return parse<int64_t>(mem) * base;
 }
@@ -80,8 +81,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
     
     size_t i = str.find(':');
     if (i >= str.size()) {
-        cerr << "error: Couldn't parse index provide string: " << str << endl;
-        exit(1);
+        fatal_error(context) << "Couldn't parse index provide string: " << str << endl;
     }
     return_val.first = str.substr(0, i);
     while (i < str.size()) {
@@ -90,8 +90,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
         i = end;
     }
     if (return_val.second.empty()) {
-        cerr << "error: Couldn't parse index provide string: " << str << endl;
-        exit(1);
+        fatal_error(context) << "Couldn't parse index provide string:" << str << endl;
     }
     return return_val;
 }
@@ -233,34 +232,25 @@ int main_autoindex(int argc, char** argv) {
                     }
                 }
                 else {
-                    cerr << "error: Unrecognized workflow (-w): " << optarg << endl;
-                    return 1;
+                    fatal_error(context) << "Unrecognized workflow (-w) \"" << optarg << "\"" << endl;
                 }
                 break;
             case 'r':
-                if (ends_with(optarg, vg::GZ_SUFFIX)) {
-                        cerr << "[autoindex] ERROR: FASTA file " << optarg
-                             << " appears to be gzipped. Decompress it before use." << endl;    
-                    return 1;
-                }
+                require_non_gzipped(context, optarg);
                 registry.provide("Reference FASTA", optarg);
                 break;
             case 'v':
-                vcf_names.push_back(optarg);
+                vcf_names.push_back(require_exists(context, optarg));
                 break;
             case 'i':
-                if (ends_with(optarg, vg::GZ_SUFFIX)) {
-                        cerr << "[autoindex] ERROR: FASTA file " << optarg
-                             << " appears to be gzipped. Decompress it before use." << endl;    
-                    return 1;
-                }
+                require_non_gzipped(context, optarg);
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
-                gfa_name = optarg;
+                gfa_name = require_exists(context, optarg);
                 break;
             case 'G':
-                gbz_name = optarg;
+                gbz_name = require_exists(context, optarg);
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);
@@ -284,7 +274,7 @@ int main_autoindex(int argc, char** argv) {
                 break;
             }
             case 'R':
-                targets.emplace_back(optarg);
+                targets.emplace_back(ensure_writable(context, optarg));
                 break;
             case 'M':
                 target_mem_usage = parse_memory_usage(optarg);
@@ -296,14 +286,14 @@ int main_autoindex(int argc, char** argv) {
                 temp_file::set_dir(optarg);
                 break;
             case 't':
-                omp_set_num_threads(parse<int>(optarg));
+                set_thread_count(context, optarg);
                 break;
             case 'V':
             {
                 int verbosity = parse<int>(optarg);
                 if (verbosity < IndexingParameters::None || verbosity > IndexingParameters::Debug) {
-                    cerr << "error: Verbosity (-V) must be integer in {0, 1, 2}: " << optarg << endl;
-                    return 1;
+                    fatal_error(context) << "Verbosity (-V) must be integer in {0, 1, 2}, not \""
+                                         << optarg << "\"" << endl;
                 }
                 IndexingParameters::verbosity = (IndexingParameters::Verbosity) verbosity;
                 break;
@@ -332,7 +322,7 @@ int main_autoindex(int argc, char** argv) {
     }
     
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        cerr << "[vg autoindex] Executing command:";
+        basic_log(context) << "Executing command:";
         for (int i = 0; i < argc; ++i) {
             cerr << " " << argv[i];
         }
@@ -401,7 +391,7 @@ int main_autoindex(int argc, char** argv) {
                 vector<string> inferred_file_names = registry.get_possible_filenames(target);
                 for (const string& filename : inferred_file_names) {
                     if (ifstream(filename).is_open()) {
-                        cerr << "[vg autoindex] Guessing that " << filename << " is " << target << endl;
+                        basic_log(context) << "Guessing that " << filename << " is " << target << endl;
                         registry.provide(target, filename);
                         break;
                     }
@@ -414,9 +404,7 @@ int main_autoindex(int argc, char** argv) {
         registry.make_indexes(targets);
     }
     catch (InsufficientInputException ex) {
-        cerr << "error:[vg autoindex] Input is not sufficient to create indexes" << endl;
-        cerr << ex.what();
-        return 1;
+        fatal_error(context) << "Input is not sufficient to create indexes\n" << string(ex.what()) << endl;
     }
     
     return 0;

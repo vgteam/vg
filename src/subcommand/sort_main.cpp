@@ -23,6 +23,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg sort]";
+
 void help_sort(char** argv) {
     cerr << "usage: " << argv[0] << " sort [options] > sorted.vg " << endl
          << "options: " << endl
@@ -87,7 +89,7 @@ int main_sort(int argc, char *argv[]) {
             without_grooming = true;
             break;
         case 'I':
-            sorted_index_filename = optarg;
+            sorted_index_filename = ensure_writable(context, optarg);
             break;
         case 'h':
         case '?':
@@ -108,25 +110,23 @@ int main_sort(int argc, char *argv[]) {
     // Validate the algorithm selection and option combination
     if (algorithm == "id" || algorithm == "topo") {
         if (!reference_name.empty()) {
-            cerr << "error[vg sort]: Reference name not used with " << algorithm << " sort algorithm" << endl;
-            exit(1);
+            fatal_error(context) << "Reference name not used with "
+                                 << algorithm << " sort algorithm" << endl;
         }
         if (without_grooming) {
-            cerr << "error[vg sort]: Not sensible to turn off grooming with " << algorithm << " sort algorithm" << endl;
-            exit(1);
+            fatal_error(context) << "Not sensible to turn off grooming with "
+                                 << algorithm << " sort algorithm" << endl;
         }
     } else if (algorithm == "max-flow" || algorithm == "eades") {
         if (reference_name.empty()) {
-            cerr << "error[vg sort]: Reference name required with " << algorithm << " sort algorithm" << endl;
-            exit(1);
+            fatal_error(context) << "Reference name required with "
+                                 << algorithm << " sort algorithm" << endl;
         }
     } else {
-        cerr << "error[vg sort]: Unrecognized sort algorithm " << algorithm << endl;
-        exit(1);
+        fatal_error(context) << "Unrecognized sort algorithm: " << algorithm << endl;
     }
     if (!sorted_index_filename.empty() && algorithm != "id") {
-        cerr << "error[vg sort]: Sorted VG index can only be produced when sorting by ID" << endl;
-        exit(1);
+        fatal_error(context) << "Sorted VG index can only be produced when sorting by ID" << endl;
     }
     
     // With the input graph file
