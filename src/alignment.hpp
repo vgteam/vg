@@ -22,7 +22,9 @@ namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
-// htslib-based alignment read functions
+// htslib-based alignment read functions.
+// When encountering read records that don't agree with the graph (i.e. go off
+// path ends, etc.), these stop the program and print a useful error message.
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
@@ -99,11 +101,15 @@ string mapping_string(const string& source, const Mapping& mapping);
 
 void cigar_mapping(const bam1_t *b, Mapping& mapping);
 
+/// Convert a BAM record to an Alignment.
+/// May throw AlignmentEmbeddingError if the BAM record is inconsistent with
+/// the provided graph.
 Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
                            const map<int, path_handle_t>& tid_path_handle,
                            const bam_hdr_t *bh,
                            const PathPositionHandleGraph* graph);
+/// Convert a BAM record to an Alignment without a graph.
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
 // the CIGAR string of the graph alignment
@@ -404,15 +410,43 @@ struct AlignmentValidity {
 /// node lengths or ids. Result can be used like a bool or inspected for
 /// further details. Does not log anything itself about bad alignments.
 AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence = false);
-    
+
+/**
+ * Represents a problem when trying to find a path region in a graph as an
+ * Alignment, or when trying to inject a linear CIGAR-based alignment into the
+ * graph along an embedded path.
+ *
+ * This could be a problem like the alignment trying to go out of range on the
+ * embedded linear path/reference, or trying to go across the junction of a
+ * path that isn't really circular.
+ *
+ * We expect the user to be able to cause this with bad inputs, so this
+ * exception should be handled and reported in a helpful way, rather than as a
+ * crash.
+ */
+class AlignmentEmbeddingError : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
 /// Make an Alignment corresponding to a subregion of a stored path.
 /// Positions are 0-based, and pos2 is excluded.
 /// Respects path circularity, so pos2 < pos1 is not a problem.
 /// If pos1 == pos2, returns an empty alignment.
+///
+/// Throws AlignmentEmbeddingError if the region goes out of range, or tries to
+/// go across the junction of a non-circular path. Despite taking 0-based
+/// coordinates, error messages will describe 1-based coordinates.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse);
 /// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
+///
+/// Throws AlignmentEmbeddingError if the region goes out of range, or tries to
+/// go across the junction of a non-circular path, or if cigar_mapping
+/// describes edits that are impossible, like matches past the end of the
+/// described region. Despite taking 0-based coordinates, error messages will
+/// describe 1-based coordinates.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
 
