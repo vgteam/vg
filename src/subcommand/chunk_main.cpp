@@ -76,7 +76,7 @@ void help_chunk(char** argv) {
          << "  -r, --node-range N:M          write the chunk for this node range to stdout" << endl
          << "  -R, --node-ranges FILE        write the chunk for each node range in" << endl
          << "                                (newline or whitespace separated) file" << endl
-         << "  -n, --n-chunks N              generate N id-range chunks, determined via xg" << endl
+         << "  -n, --n-chunks N              generate N id-range chunks, determined via XG" << endl
          << "simple alignment chunking:" << endl
          << "  -m, --aln-split-size N        split alignments (-a, sort/index not required)" << endl
          << "                                up into chunks with at most N reads each" << endl
@@ -90,7 +90,7 @@ void help_chunk(char** argv) {
          << "  -s, --chunk-size N            create chunks spanning N bases" << endl
          << "                                (or nodes with -r/-R) for all input regions." << endl
          << "  -o, --overlap N               overlap between chunks when using -s [0]" << endl        
-         << "  -E, --output-bed FILE         write all created chunks to a bed file" << endl
+         << "  -E, --output-bed FILE         write all created chunks to a BED file" << endl
          << "  -b, --prefix BASENAME         write output chunk files [" << DEFAULT_CHUNK_PREFIX << "]" << endl
          << "                                Files for chunk i will be named" << endl
          << "                                <BASENAME>-<i>-<name>-<start>-<length>.<ext> " << endl
@@ -707,7 +707,7 @@ int main_chunk(int argc, char** argv) {
 
     // because we are expanding context, and not cutting nodes, our output
     // chunks are going to cover larger regions that what was asked for.
-    // we return this in a bed file. 
+    // we return this in a BED file. 
     vector<Region> output_regions(num_regions);
 
     // initialize chunkers
@@ -965,7 +965,7 @@ int main_chunk(int argc, char** argv) {
         }
     }
         
-    // write a bed file if asked giving a more explicit linking of chunks to files
+    // write a BED file if asked giving a more explicit linking of chunks to files
     if (!out_bed_file.empty()) {
         ofstream obed(out_bed_file);
         for (int i = 0; i < num_regions; ++i) {

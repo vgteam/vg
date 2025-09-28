@@ -506,19 +506,19 @@ std::string get_name(const std::string& graph_name, const std::string& extension
 void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, HaplotypesConfig& config) {
     double start = gbwt::readTimer();
     if (config.verbosity >= Haplotypes::verbosity_basic) {
-        basic_log(context) << ": Generating haplotype information" << std::endl;
+        basic_log(context) << "Generating haplotype information" << std::endl;
     }
 
     // Distance index.
     if (config.distance_name.empty()) {
         config.distance_name = get_name(config.graph_name, ".dist");
         if (config.verbosity >= Haplotypes::verbosity_basic) {
-            basic_log(context) << ": Guessing that distance index is " << config.distance_name << std::endl;
+            basic_log(context) << "Guessing that distance index is " << config.distance_name << std::endl;
         }
     }
     SnarlDistanceIndex distance_index;
     if (config.verbosity >= Haplotypes::verbosity_basic) {
-        basic_log(context) << ": Loading distance index from " << config.distance_name << std::endl;
+        basic_log(context) << "Loading distance index from " << config.distance_name << std::endl;
     }
     distance_index.deserialize(config.distance_name);
     size_t expected_chains = 0;
@@ -531,12 +531,12 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     {
         double minimizer = gbwt::readTimer();
         if (config.verbosity >= Haplotypes::verbosity_basic) {
-            basic_log(context) << ": Building minimizer index" << std::endl;
+            basic_log(context) << "Building minimizer index" << std::endl;
         }
         gbwtgraph::index_haplotypes(gbz.graph, minimizer_index);
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             double seconds = gbwt::readTimer() - minimizer;
-            basic_log(context) << ": Built the minimizer index in " << seconds << " seconds" << std::endl;
+            basic_log(context) << "Built the minimizer index in " << seconds << " seconds" << std::endl;
         }
     }
 
@@ -544,7 +544,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     if (config.r_index_name.empty()) {
         config.r_index_name = get_name(config.graph_name, gbwt::FastLocate::EXTENSION);
         if (config.verbosity >= Haplotypes::verbosity_basic) {
-            basic_log(context) << ": Guessing that r-index is " << config.r_index_name << std::endl;
+            basic_log(context) << "Guessing that r-index is " << config.r_index_name << std::endl;
         }
     }
     gbwt::FastLocate r_index;
@@ -561,7 +561,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     }
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
-        basic_log(context) << ": Generated haplotype information in "
+        basic_log(context) << "Generated haplotype information in "
                            << seconds << " seconds" << std::endl;
     }
 
@@ -576,10 +576,10 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
 void set_reference_samples(gbwtgraph::GBZ& gbz, const HaplotypesConfig& config) {
     omp_set_num_threads(config.threads);
     if (config.verbosity >= Haplotypes::verbosity_basic) {
-        basic_log(context) << ": Updating reference samples" << std::endl;
+        basic_log(context) << "Updating reference samples" << std::endl;
     }
     if (config.verbosity >= Haplotypes::verbosity_debug) {
-        basic_log(context) << ": Reference samples:";
+        basic_log(context) << "Reference samples:";
         for (const std::string& sample : config.reference_samples) {
             std::cerr << " " << sample;
         }
@@ -595,7 +595,7 @@ void set_reference_samples(gbwtgraph::GBZ& gbz, const HaplotypesConfig& config) 
 
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
-        basic_log(context) << ": Updated reference samples in " << seconds << " seconds" << std::endl;
+        basic_log(context) << "Updated reference samples in " << seconds << " seconds" << std::endl;
     }
 }
 
@@ -621,13 +621,13 @@ void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, 
 
     // Build and serialize GBWTGraph.
     if (config.verbosity >= Haplotypes::verbosity_basic) {
-        basic_log(context) << ": Building GBWTGraph" << std::endl;
+        basic_log(context) << "Building GBWTGraph" << std::endl;
     }
     double checkpoint = gbwt::readTimer();
     gbwtgraph::GBWTGraph output_graph = gbz.graph.subgraph(merged);
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
-        basic_log(context) << ": Built the GBWTGraph in " << seconds << " seconds" << std::endl;
+        basic_log(context) << "Built the GBWTGraph in " << seconds << " seconds" << std::endl;
     }
     save_gbz(merged, output_graph, config.gbz_output, config.verbosity >= Haplotypes::verbosity_basic);
 
@@ -1164,7 +1164,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
                          size_t expected_chains,
                          HaplotypePartitioner::Verbosity verbosity) {
     if (verbosity >= Haplotypes::verbosity_basic) {
-        basic_log(context) << ": Validating the haplotype information" << std::endl;
+        basic_log(context) << "Validating the haplotype information" << std::endl;
     }
     double start = gbwt::readTimer();
 
@@ -1204,7 +1204,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
 
     // Haplotype information is valid
     if (verbosity >= HaplotypePartitioner::Verbosity::verbosity_detailed) {
-        basic_log(context) << ": Validating subchains, sequences, and kmers" << std::endl;
+        basic_log(context) << "Validating subchains, sequences, and kmers" << std::endl;
     }
     gbwt::FragmentMap fragment_map(graph.index->metadata, false);
     #pragma omp parallel for schedule(dynamic, 1)
@@ -1216,7 +1216,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
     // in a subchain, the middle fragment(s) may actually overlap other subchains. Additionally,
     // because the kmers we use are minimizers, they could occur elsewhere as non-minimizers.
     if (verbosity >= HaplotypePartitioner::Verbosity::verbosity_detailed) {
-        basic_log(context) << ": Validating kmer specificity" << std::endl;
+        basic_log(context) << "Validating kmer specificity" << std::endl;
     }
     hash_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
     size_t collisions = 0, total_kmers = 0;
@@ -1247,7 +1247,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
 
     if (verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
-        basic_log(context) << ": Validated the haplotype information in "
+        basic_log(context) << "Validated the haplotype information in "
                            << seconds << " seconds" << std::endl;
     }
 }
@@ -1279,7 +1279,7 @@ void validate_edges(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGrap
 
 void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, HaplotypePartitioner::Verbosity verbosity) {
     if (verbosity >= Haplotypes::verbosity_basic) {
-        basic_log(context) << ": Validating the output subgraph" << std::endl;
+        basic_log(context) << "Validating the output subgraph" << std::endl;
     }
     double start = gbwt::readTimer();
 
@@ -1290,7 +1290,7 @@ void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTG
 
     if (verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
-        basic_log(context) << ": Validated the subgraph in " << seconds << " seconds" << std::endl;
+        basic_log(context) << "Validated the subgraph in " << seconds << " seconds" << std::endl;
     }
 }
 

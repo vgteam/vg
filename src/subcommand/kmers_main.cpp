@@ -123,8 +123,10 @@ int main_kmers(int argc, char** argv) {
             case 'e':
                 fatal_error(context) << "Option --edge-max is obsolete. "
                                      << "Use vg prune to prune the graph instead." << endl;
+                break;
             case 'F':
                 fatal_error(context) << "Option --forward-only is obsolete" << endl;
+                break;
 
             case 'h':
             case '?':

@@ -24,7 +24,7 @@ void help_map(char** argv) {
          << "graph/index:" << endl
          << "  -d, --base-name BASE             use indexes BASE.xg, BASE.gcsa, and BASE.gbwt" << endl
          << "                                   (overrides all other inputs)" << endl
-         << "  -x, --xg-name FILE               use this xg index or graph [<graph>.vg.xg]" << endl
+         << "  -x, --xg-name FILE               use this XG index or graph [<graph>.vg.xg]" << endl
          << "  -g, --gcsa-name FILE             use this GCSA2 index "
                                             << "[<graph>" << gcsa::GCSA::EXTENSION << "]" << endl
          << "  -1, --gbwt-name FILE             use this GBWT haplotype index "
@@ -744,11 +744,11 @@ int main_map(int argc, char** argv) {
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     
     if (!xg_name.empty()) {
-        // We have an xg index!
+        // We have an XG index!
         // TODO: tell when the user asked for an XG vs. when we guessed one,
         // and error when the user asked for one and we can't find it.
         if (debug) {
-            basic_log(context) << ": Loading XG index " << xg_name << "..." << endl;
+            basic_log(context) << "Loading XG index " << xg_name << "..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
@@ -758,7 +758,7 @@ int main_map(int argc, char** argv) {
     if (gcsa_stream) {
         // We have a GCSA index too!
         if (debug) {
-            basic_log(context) << ": Loading GCSA2 index " << gcsa_name << "..." << endl;
+            basic_log(context) << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
         gcsa = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
@@ -767,7 +767,7 @@ int main_map(int argc, char** argv) {
     ifstream lcp_stream(lcp_name);
     if (lcp_stream) {
         if (debug) {
-            basic_log(context) << ": Loading LCP index " << lcp_name << "..." << endl;
+            basic_log(context) << "Loading LCP index " << lcp_name << "..." << endl;
         }
         lcp = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -776,7 +776,7 @@ int main_map(int argc, char** argv) {
     if (gbwt_stream) {
         // We have a GBWT index too!
         if (debug) {
-            basic_log(context) << ": Loading GBWT haplotype index " << gbwt_name << "..." << endl;
+            basic_log(context) << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
         
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -860,7 +860,7 @@ int main_map(int argc, char** argv) {
         m->min_cluster_length = min_cluster_length;
         m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
         if (debug && i == 0) {
-            basic_log(context) << ": min_mem_length = " << m->min_mem_length
+            basic_log(context) << "min_mem_length = " << m->min_mem_length
                                << ", mem_reseed_length = " << m->mem_reseed_length
                                << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
@@ -1321,9 +1321,9 @@ int main_map(int argc, char** argv) {
         }
     
         double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
-        basic_log(context) << " Index load time: " << index_load_seconds.count() << endl;
-        basic_log(context) << " Mapped " << total_reads_mapped << " reads" << endl;
-        basic_log(context) << " Mapping speed: " << reads_per_second_per_thread
+        basic_log(context) << "Index load time: " << index_load_seconds.count() << endl;
+        basic_log(context) << "Mapped " << total_reads_mapped << " reads" << endl;
+        basic_log(context) << "Mapping speed: " << reads_per_second_per_thread
                            << " reads per second per thread" << endl; 
     }
     

@@ -335,7 +335,7 @@ int main_deconstruct(int argc, char** argv){
     if (!snarl_file_name.empty()) {
         ifstream snarl_file(snarl_file_name.c_str());
         if (show_progress) {
-            basic_log(context) << ": Loading snarls" << endl;
+            basic_log(context) << "Loading snarls" << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {

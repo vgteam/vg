@@ -25,7 +25,7 @@ const string context = "[vg annotate]";
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl
          << "graph annotation options:" << endl
-         << "  -x, --xg-name FILE     xg index or graph to annotate (required)" << endl
+         << "  -x, --xg-name FILE     XG index or graph to annotate (required)" << endl
          << "  -b, --bed-name FILE    BED file to convert to GAM (may repeat)" << endl
          << "  -f, --gff-name FILE    GFF3 file to convert to GAM (may repeat)" << endl
          << "  -g, --ggff             output GGFF subgraph annotation file" << endl
@@ -34,7 +34,7 @@ void help_annotate(char** argv) {
          << "  -s, --snarls FILE      snarls to expand GFF intervals into" << endl
          << "alignment annotation options:" << endl
          << "  -a, --gam FILE         alignments to annotate (required)" << endl
-         << "  -x, --xg-name FILE     xg index of the graph against which the" << endl
+         << "  -x, --xg-name FILE     XG index of the graph against which the" << endl
          << "                         alignments are aligned (required)" << endl
          << "  -p, --positions        annotate alignments with reference positions" << endl
          << "  -m, --multi-position   annotate alignments with multiple reference positions" << endl
@@ -224,14 +224,14 @@ int main_annotate(int argc, char** argv) {
         }
         xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
-        fatal_error(context) << "no xg index provided" << std::endl;
+        fatal_error(context) << "no XG index provided" << std::endl;
     }
     
     
     unique_ptr<SnarlManager> snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         if (show_progress) {
-            basic_log(context) << ": Load snarls" << std::endl;
+            basic_log(context) << "Load snarls" << std::endl;
         }
         get_input_file(snarls_name, [&](istream& snarl_stream) {
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);

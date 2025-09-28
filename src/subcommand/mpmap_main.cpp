@@ -90,8 +90,9 @@ pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstr
 static void error_if_negative(double value, const string& longform,
                               const string& description, bool also_ban_zero = false,
                               bool zero_will_disable = false) {
-    if (value < 0 || also_ban_zero && value == 0) {
-        string requirement = also_ban_zero || zero_will_disable ? "positive" : "nonnegative";
+    if (value < 0 || (also_ban_zero && value == 0)) {
+        string requirement = (also_ban_zero || zero_will_disable) ? "positive" 
+                                                                  : "nonnegative";
         string disable_text = zero_will_disable ? " or 0 to disable" : "";
         fatal_error(context) << description << " (" << longform << ") must be " << requirement
                              << disable_text << "; you passed " << value << endl;
@@ -1277,9 +1278,9 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (max_rescue_attempts > max_single_end_mappings_for_rescue) {
-        warning(context) << "Maximum number of rescue attempts (--max-rescues) set to " << max_rescue_attempts
-                         << ", which is greater than the number of mapping attempts for rescue ("
-                         << max_single_end_mappings_for_rescue << ")." << endl;
+        warning(context) << "Maximum number of rescue attempts (--max-rescues) of " << max_rescue_attempts
+                         << " is greater than the number of mapping attempts for rescue "
+                         << max_single_end_mappings_for_rescue << endl;
     }
     
     if ((reseed_diff <= 0 || reseed_diff >= 1.0) && reseed_length != 0) {
@@ -1332,7 +1333,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (use_min_dist_clusterer && distance_index_name.empty()) {
-        fatal_error(context) << "The Minimum Distance clusterer (--min-dist-cluster) "
+        fatal_error(context) << "The minimum distance clusterer (--min-dist-cluster) "
                              << "requires a distance index (-d)." << endl;
     }
     
@@ -1369,7 +1370,7 @@ int main_mpmap(int argc, char** argv) {
     
     if (no_splice_log_odds <= 0.0) {
         warning(context) << "Log odds against splicing (--splice-odds) set to " << no_splice_log_odds
-                         << ", non-positive values can lead to spurious identification of spliced alignments." << endl;
+                         << "; non-positive values can lead to spurious identification of spliced alignments." << endl;
     }
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) 
@@ -1404,12 +1405,6 @@ int main_mpmap(int argc, char** argv) {
 #endif
     
     // create in-memory objects
-    
-    ifstream graph_stream(graph_name);
-    if (!graph_stream) {
-        fatal_error(context) << "Cannot open graph file: " << graph_name << endl;
-    }
-    graph_stream.close();
     
     ifstream gcsa_stream(gcsa_name);
     if (!gcsa_stream) {
@@ -1498,7 +1493,7 @@ int main_mpmap(int argc, char** argv) {
                     }
                 }
             }
-            basic_log(context) << ": elapsed time " << strm.str() << ": " << progress << endl;
+            basic_log(context) << "elapsed time " << strm.str() << ": " << progress << endl;
             progress_mutex.unlock();
         }
     };

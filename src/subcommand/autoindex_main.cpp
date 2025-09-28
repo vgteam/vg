@@ -322,7 +322,7 @@ int main_autoindex(int argc, char** argv) {
     }
     
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        basic_log(context) << ": Executing command\n\t";
+        basic_log(context) << "Executing command:";
         for (int i = 0; i < argc; ++i) {
             cerr << " " << argv[i];
         }
@@ -404,7 +404,7 @@ int main_autoindex(int argc, char** argv) {
         registry.make_indexes(targets);
     }
     catch (InsufficientInputException ex) {
-        fatal_error(context) << "Input is not sufficient to create indexes " << string(ex.what()) << endl;
+        fatal_error(context) << "Input is not sufficient to create indexes\n" << string(ex.what()) << endl;
     }
     
     return 0;

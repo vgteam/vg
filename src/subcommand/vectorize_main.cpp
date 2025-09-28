@@ -31,7 +31,7 @@ void help_vectorize(char** argv) {
          << "Vectorize a set of alignments to a variety of vector formats." << endl
          << endl
          << "options: " << endl
-         << "  -x, --xg FILE              an xg index or graph of interest" << endl
+         << "  -x, --xg FILE              an XG index or graph of interest" << endl
          << "  -g, --gcsa FILE            a GCSA2 index to use if generating MEM sketches" << endl
          << "  -l, --aln-label LABEL      output all alignments with name LABEL" << endl
          << "  -f, --format               tab-delimit output so it can be used in R." << endl
@@ -177,7 +177,7 @@ int main_vectorize(int argc, char** argv){
     if (!gcsa_name.empty()) {
         gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         
-        // default LCP is the gcsa base name +.lcp
+        // default LCP is the GCSA base name +.lcp
         string lcp_name = gcsa_name + ".lcp";
         lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }

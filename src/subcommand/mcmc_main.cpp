@@ -238,7 +238,7 @@ int main_mcmc(int argc, char** argv) {
     // Write header to ofstream  
     vcf_file_out << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths);
     
-    //current implimentation is writing vcf record after each variant processed
+    //current implimentation is writing VCF record after each variant processed
     mcmc_caller.call_top_level_snarls();
 
     // mcmc_caller.write_variants(cerr);

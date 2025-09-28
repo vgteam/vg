@@ -1099,28 +1099,28 @@ void validate_gbwt_config(GBWTConfig& config) {
         switch(format.sense) {
         case PathSense::GENERIC:
             if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
-                fatal_error(context) << "path name fields do not set required contig for regex\n" 
-                                     << format.regex << "\nand fields " << format.fields << std::endl;
+                fatal_error(context) << "path name fields do not set required contig for regex" 
+                                     << format.regex << "and fields " << format.fields << std::endl;
             }
             if (format.fields.find("S") != std::string::npos || format.fields.find("s") != std::string::npos) {
-                fatal_error(context) << "path name fields set unusable sample for regex\n" 
-                                     << format.regex << "\nand fields " << format.fields << std::endl;
+                fatal_error(context) << "path name fields set unusable sample for regex" 
+                                     << format.regex << "and fields " << format.fields << std::endl;
             }
             if (format.fields.find("H") != std::string::npos || format.fields.find("h") != std::string::npos) {
-                fatal_error(context) << "path name fields set unusable haplotype for regex\n" 
-                                     << format.regex << "\nand fields " << format.fields << std::endl;
+                fatal_error(context) << "path name fields set unusable haplotype for regex" 
+                                     << format.regex << "and fields " << format.fields << std::endl;
             }
             break;
         case PathSense::HAPLOTYPE:
             if (format.fields.find("S") == std::string::npos && format.fields.find("s") == std::string::npos) {
-                fatal_error(context) << "path name fields do not set required sample for regex\n" 
-                                     << format.regex << "\nand fields " << format.fields << std::endl;
+                fatal_error(context) << "path name fields do not set required sample for regex" 
+                                     << format.regex << "and fields " << format.fields << std::endl;
             }
             // Fall-through because haplotypes also need contigs.
         case PathSense::REFERENCE: 
             if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
-                fatal_error(context) << "path name fields do not set required contig for regex\n" 
-                                     << format.regex << "\nand fields " << format.fields << std::endl;
+                fatal_error(context) << "path name fields do not set required contig for regex" 
+                                     << format.regex << "and fields " << format.fields << std::endl;
             }
             break;
         default:
@@ -1276,7 +1276,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts,
         if (show_progress) {
             #pragma omp critical
             {
-                basic_log(context) << " Job " << i << ": Saving the GBWT to " << temp << std::endl;
+                basic_log(context) << "Job " << i << ": Saving the GBWT to " << temp << std::endl;
             }
         }
         save_gbwt(*index, temp, false);
@@ -1287,7 +1287,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts,
 void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Building input GBWTs" << std::endl;
+        basic_log(context) << "Building input GBWTs" << std::endl;
     }
     gbwts.unbacked(); // We will build a new GBWT.
     if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz 
@@ -1297,7 +1297,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
 
     if (config.build == GBWTConfig::build_vcf) {
         if (config.show_progress) {
-            basic_log(context) << " Input type: VCF" << std::endl;
+            basic_log(context) << "Input type: VCF" << std::endl;
         }
         omp_set_num_threads(config.build_jobs);
         // Process each VCF contig corresponding to a non-alt path.
@@ -1307,7 +1307,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         }
         std::vector<std::vector<std::string>> vcf_parses(jobs.size());
         if (config.show_progress) {
-            basic_log(context) << ": Parsing " << jobs.size() << " VCF files using up to " 
+            basic_log(context) << "Parsing " << jobs.size() << " VCF files using up to " 
                                << config.build_jobs << " parallel jobs" << std::endl;
         }
         #pragma omp parallel for schedule(dynamic, 1)
@@ -1316,7 +1316,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             if (config.show_progress) {
                 #pragma omp critical
                 {
-                    basic_log(context) << " " << job_name << ": File "
+                    basic_log(context) << job_name << ": File "
                                        << jobs[i].filename << ", paths {";
                     for (path_handle_t handle : jobs[i].paths) {
                         std::cerr << " " << graphs.path_graph->get_path_name(handle);
@@ -1331,7 +1331,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         if (!config.parse_only) {
             std::vector<std::string> gbwt_files(vcf_parses.size(), "");
             if (config.show_progress) {
-                basic_log(context) << ": Building " << vcf_parses.size() << " GBWTs using up to " 
+                basic_log(context) << "Building " << vcf_parses.size() << " GBWTs using up to " 
                                    << config.build_jobs << " parallel jobs" << std::endl;
             }
             #pragma omp parallel for schedule(dynamic, 1)
@@ -1346,7 +1346,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         }
     } else if (config.build == GBWTConfig::build_gfa) {
         if(config.show_progress) {
-            basic_log(context) << " Input type: GFA" << std::endl;
+            basic_log(context) << "Input type: GFA" << std::endl;
         }
         auto result = gbwtgraph::gfa_to_gbwt(config.input_filenames.front(), config.gfa_parameters);
         if (result.first.get() == nullptr || result.second.get() == nullptr) {
@@ -1356,23 +1356,23 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         graphs.use(result.second);
     } else if (config.build == GBWTConfig::build_gbz) {
         if(config.show_progress) {
-            basic_log(context) << " Input type: GBZ" << std::endl;
+            basic_log(context) << "Input type: GBZ" << std::endl;
         }
         graphs.load_gbz(gbwts, config);
     } else if (config.build == GBWTConfig::build_gbwtgraph) {
         if(config.show_progress) {
-            basic_log(context) << " Input type: GBWTGraph" << std::endl;
+            basic_log(context) << "Input type: GBWTGraph" << std::endl;
         }
         graphs.load_gbwtgraph(gbwts, config);
     } else if (config.build == GBWTConfig::build_paths) {
         if(config.show_progress) {
-            basic_log(context) << " Input type: embedded paths" << std::endl;
+            basic_log(context) << "Input type: embedded paths" << std::endl;
         }
         std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph));
         gbwts.use(*temp);
     } else if (config.build == GBWTConfig::build_alignments) {
         if (config.show_progress) {
-            basic_log(context) << " Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
+            basic_log(context) << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
         }
         std::unique_ptr<gbwt::GBWT> temp =
             config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, 
@@ -1398,7 +1398,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
         } else if (config.merge == GBWTConfig::merge_parallel) {
             algo_name = "parallel";
         }
-        basic_log(context) << ": Merging " << config.input_filenames.size()
+        basic_log(context) << "Merging " << config.input_filenames.size()
                            << " input GBWTs (" << algo_name << " algorithm)" << std::endl;
     }
 
@@ -1408,7 +1408,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
             load_gbwt(indexes[i], config.input_filenames[i], config.show_progress);
         }
         if (config.show_progress) {
-            basic_log(context) << ": Merging the GBWTs" << std::endl;
+            basic_log(context) << "Merging the GBWTs" << std::endl;
         }
         gbwt::GBWT merged(indexes);
         gbwts.use(merged);
@@ -1419,11 +1419,11 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
             gbwt::GBWT next;
             load_gbwt(next, config.input_filenames[i], config.show_progress);
             if (next.size() > 2 * gbwts.dynamic.size()) {
-                warning(context) << "merging " << config.input_filenames[i] << " into a substantially smaller index"
-                                 << "\nmerging would be faster in another order" << std::endl;
+                warning(context) << "merging " << config.input_filenames[i] << " into a substantially smaller index; "
+                                 << "merging would be faster in another order" << std::endl;
             }
             if (config.show_progress) {
-                basic_log(context) << ": Inserting " << next.sequences()
+                basic_log(context) << "Inserting " << next.sequences()
                                    << " sequences of total length " << next.size() << std::endl;
             }
             gbwts.dynamic.merge(next);
@@ -1436,11 +1436,11 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
             gbwt::DynamicGBWT next;
             load_gbwt(next, config.input_filenames[i], config.show_progress);
             if (next.size() > 2 * gbwts.dynamic.size()) {
-                warning(context) << "merging " << config.input_filenames[i] << " into a substantially smaller index"
-                                 << "\nmerging would be faster in another order" << std::endl;
+                warning(context) << "merging " << config.input_filenames[i] << " into a substantially smaller index; "
+                                 << "merging would be faster in another order" << std::endl;
             }
             if (config.show_progress) {
-                basic_log(context) << ": Inserting " << next.sequences()
+                basic_log(context) << "Inserting " << next.sequences()
                                    << " sequences of total length " << next.size() << std::endl;
             }
             gbwts.dynamic.merge(next, config.merge_parameters);
@@ -1459,7 +1459,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
 void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Removing " << config.to_remove.size()
+        basic_log(context) << "Removing " << config.to_remove.size()
                            << " sample(s) from the index" << std::endl;
     }
 
@@ -1482,7 +1482,7 @@ void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
             continue;
         }
         if (config.show_progress) {
-            basic_log(context) << ": Removing " << path_ids.size()
+            basic_log(context) << "Removing " << path_ids.size()
                                << " paths for sample " << sample_name << std::endl;
         }
         gbwts.dynamic.remove(path_ids);
@@ -1495,7 +1495,7 @@ void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
 void set_tags(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Setting " << config.tags_to_set.size()
+        basic_log(context) << "Setting " << config.tags_to_set.size()
                            << " tags on the GBWT" << std::endl;
     }
     
@@ -1533,7 +1533,7 @@ void step_3_alter_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
 void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Finding a " << config.num_paths
+        basic_log(context) << "Finding a " << config.num_paths
                            << "-path cover with context length " << config.context_length << std::endl;
     }
 
@@ -1548,7 +1548,7 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
     
     if (config.path_cover == GBWTConfig::path_cover_greedy) {
         if (config.show_progress) {
-            basic_log(context) << " Algorithm: greedy" << std::endl;
+            basic_log(context) << "Algorithm: greedy" << std::endl;
         }
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(
             *graph, config.path_cover_parameters(),
@@ -1558,13 +1558,13 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
         gbwts.use(cover);
     } else if (config.path_cover == GBWTConfig::path_cover_augment) {
         if (config.show_progress) {
-            basic_log(context) << " Algorithm: augment" << std::endl;
+            basic_log(context) << "Algorithm: augment" << std::endl;
         }
         gbwts.use_dynamic();
         gbwtgraph::augment_gbwt(*graph, gbwts.dynamic, config.path_cover_parameters());
     } else {
         if (config.show_progress) {
-            basic_log(context) << " Algorithm: local haplotypes" << std::endl;
+            basic_log(context) << "Algorithm: local haplotypes" << std::endl;
         }
         gbwts.use_compressed();
         gbwt::GBWT cover = gbwtgraph::local_haplotypes(
@@ -1584,7 +1584,7 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
 void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Building GBWTGraph" << std::endl;
+        basic_log(context) << "Building GBWTGraph" << std::endl;
     }
 
     gbwts.use_compressed();
@@ -1597,7 +1597,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
     } else {
         graphs.get_graph(config);
         if (config.show_progress) {
-            basic_log(context) << ": Starting the construction" << std::endl;
+            basic_log(context) << "Starting the construction" << std::endl;
         }
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph), 
                                      vg::algorithms::find_translation(graphs.path_graph.get()));
@@ -1616,13 +1616,13 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
 void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Building r-index" << std::endl;
+        basic_log(context) << "Building r-index" << std::endl;
     }
 
     omp_set_num_threads(config.search_threads);
     gbwts.use_compressed();
     if (config.show_progress) {
-        basic_log(context) << ": Starting the construction" << std::endl;
+        basic_log(context) << "Starting the construction" << std::endl;
     }
     gbwt::FastLocate r_index(gbwts.compressed);
     save_r_index(r_index, config.r_index_name, config.show_progress);
@@ -1715,11 +1715,11 @@ void step_8_paths(GBWTHandler& gbwts, GBWTConfig& config) {
     if (!config.path_output.empty()) {
         double start = gbwt::readTimer();
         if (config.show_progress) {
-            basic_log(context) << ": Extracting paths to " << config.path_output << std::endl;
+            basic_log(context) << "Extracting paths to " << config.path_output << std::endl;
         }
         gbwts.use_compressed();
         if (config.show_progress) {
-            basic_log(context) << ": Starting the extraction" << std::endl;
+            basic_log(context) << "Starting the extraction" << std::endl;
         }
         gbwt::size_type node_width = gbwt::bit_length(gbwts.compressed.sigma() - 1);
         gbwt::text_buffer_type out(config.path_output, std::ios::out, gbwt::MEGABYTE, node_width);
@@ -1757,7 +1757,7 @@ void GraphHandler::get_graph(const GBWTConfig& config) {
         return;
     } else {
         if (config.show_progress) {
-            basic_log(context) << ": Loading input graph from " << config.graph_name << std::endl;
+            basic_log(context) << "Loading input graph from " << config.graph_name << std::endl;
         }
         this->clear();
         this->path_graph = vg::io::VPKG::load_one<PathHandleGraph>(config.graph_name);
@@ -1817,7 +1817,7 @@ void GraphHandler::clear() {
 void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        basic_log(context) << ": Serializing segment to node translation to "
+        basic_log(context) << "Serializing segment to node translation to "
                            << config.segment_translation << std::endl;
     }
     std::ofstream out(config.segment_translation, std::ios_base::binary);
@@ -1853,7 +1853,7 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
 void report_time_memory(const std::string& what, double start_time, const GBWTConfig& config) {
     if (config.show_progress) {
         double seconds = gbwt::readTimer() - start_time;
-        basic_log(context) << ": " << what << " in " << seconds << " seconds, "
+        basic_log(context) << "" << what << " in " << seconds << " seconds, "
                            << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
         std::cerr << std::endl;
     }

@@ -220,7 +220,7 @@ int main_genotype(int argc, char** argv) {
     }
 
     if (show_progress) {
-        basic_log(context) << ": Reading input graph..." << endl;
+        basic_log(context) << "Reading input graph..." << endl;
     }
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
@@ -269,7 +269,7 @@ int main_genotype(int argc, char** argv) {
     vector<Alignment> alignments;
 
     if (show_progress) {
-        basic_log(context) << ": Loading reads..." << endl;
+        basic_log(context) << "Loading reads..." << endl;
     }
 
     function<bool(const Alignment&)> alignment_contained = [&graph](const Alignment& alignment) {
@@ -292,7 +292,7 @@ int main_genotype(int argc, char** argv) {
     });
     
     if (show_progress) {
-        basic_log(context) << ": Loaded " << alignments.size() << " alignments" << endl;
+        basic_log(context) << "Loaded " << alignments.size() << " alignments" << endl;
     }
     
     // Make a Genotyper to do the genotyping

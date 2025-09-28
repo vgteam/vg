@@ -88,7 +88,7 @@ vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& h
 
 void help_sim(char** argv) {
     cerr << "usage: " << argv[0] << " sim [options]" << endl
-         << "Samples sequences from the xg-indexed graph." << endl
+         << "Samples sequences from an XG-indexed graph." << endl
          << endl
          << "basic options:" << endl
          << "  -h, --help                  print this help message to stderr and exit" << endl
@@ -435,7 +435,7 @@ int main_sim(int argc, char** argv) {
 
     if (!rsem_file_name.empty()) {
         if (progress) {
-            basic_log(context) << ": Reading transcription profile from "
+            basic_log(context) << "Reading transcription profile from "
                                << rsem_file_name << std::endl;
         }
         ifstream rsem_in(rsem_file_name);
@@ -444,7 +444,7 @@ int main_sim(int argc, char** argv) {
     
     if (!haplotype_transcript_file_name.empty()) {
         if (progress) {
-            basic_log(context) << ": Reading haplotype transcript file "
+            basic_log(context) << "Reading haplotype transcript file "
                                << haplotype_transcript_file_name << std::endl;
         }
         ifstream haplo_tx_in(haplotype_transcript_file_name);
@@ -452,7 +452,7 @@ int main_sim(int argc, char** argv) {
     }
 
     if (progress) {
-        basic_log(context) << ": Loading graph " << xg_name << std::endl;
+        basic_log(context) << "Loading graph " << xg_name << std::endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     
@@ -468,7 +468,7 @@ int main_sim(int argc, char** argv) {
     // Deal with path names. Do this before we create paths to represent threads.
     if (any_path) {
         if (progress) {
-            basic_log(context) << ": Selecting all " << path_handle_graph->get_path_count()
+            basic_log(context) << "Selecting all " << path_handle_graph->get_path_count()
                                << " paths" << std::endl;
         }
         if (path_handle_graph->get_path_count() == 0) {
@@ -485,7 +485,7 @@ int main_sim(int argc, char** argv) {
         });
     } else if (!path_names.empty()) {
         if (progress) {
-            basic_log(context) << ": Checking " << path_names.size() << " selected paths" << std::endl;
+            basic_log(context) << "Checking " << path_names.size() << " selected paths" << std::endl;
         }
         for (auto& path_name : path_names) {
             if (path_handle_graph->has_path(path_name) == false) {
@@ -510,7 +510,7 @@ int main_sim(int argc, char** argv) {
         
         // We actually want to visit them, so we have to find them
         if (progress) {
-            basic_log(context) << ": Inventorying contigs" << std::endl;
+            basic_log(context) << "Inventorying contigs" << std::endl;
         }
         // We assume the generic paths in the graph are contigs ("chr1", "chr2", etc.)
         path_handle_graph->for_each_path_of_sense(PathSense::GENERIC, [&](const path_handle_t& handle) {
@@ -525,7 +525,7 @@ int main_sim(int argc, char** argv) {
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
         if (progress) {
-            basic_log(context) << ": Loading GBWT index " << gbwt_name << std::endl;
+            basic_log(context) << "Loading GBWT index " << gbwt_name << std::endl;
         }
         std::unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
         if (!(gbwt_index->hasMetadata()) || !(gbwt_index->metadata.hasSampleNames()) 
@@ -539,7 +539,7 @@ int main_sim(int argc, char** argv) {
         if (!sample_names.empty()) {
             // we're consulting the provided sample names to determine which threads to include
             if (progress) {
-                basic_log(context) << ": Checking " << sample_names.size() << " samples" << std::endl;
+                basic_log(context) << "Checking " << sample_names.size() << " samples" << std::endl;
             }
             for (std::string& sample_name : sample_names) {
                 gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
@@ -575,7 +575,7 @@ int main_sim(int argc, char** argv) {
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {
-            basic_log(context) << ": Inserting " << sample_id_to_idx.size()
+            basic_log(context) << "Inserting " << sample_id_to_idx.size()
                                << " GBWT threads into the graph" << std::endl;
         }
         
@@ -611,7 +611,7 @@ int main_sim(int argc, char** argv) {
             }
         }
         if (progress) {
-            basic_log(context) << ": Inserted " << inserted_path_names.size()
+            basic_log(context) << "Inserted " << inserted_path_names.size()
                                << " paths" << std::endl;
         }
     } else {
@@ -631,7 +631,7 @@ int main_sim(int argc, char** argv) {
             }
 
             if (progress) {
-                basic_log(context) << ": Finding matching paths for "
+                basic_log(context) << "Finding matching paths for "
                                    << sample_name_set.size() << " samples" << std::endl;
             }
 
@@ -666,7 +666,7 @@ int main_sim(int argc, char** argv) {
             }
 
             if (progress) {
-                basic_log(context) << ": Using " << sample_path_count
+                basic_log(context) << "Using " << sample_path_count
                                    << " sample paths" << std::endl;
             }
         }
@@ -681,7 +681,7 @@ int main_sim(int argc, char** argv) {
             path_ploidies.push_back(consult_ploidy_rules(name));
         }
         if (progress) {
-            basic_log(context) << ": Also sampling from " << unvisited_contigs.size()
+            basic_log(context) << "Also sampling from " << unvisited_contigs.size()
                                << " paths representing unvisited contigs" << std::endl;
         }
     }
@@ -689,7 +689,7 @@ int main_sim(int argc, char** argv) {
     if (haplotype_transcript_file_name.empty()) {
         if (!transcript_expressions.empty()) {
             if (progress) {
-                basic_log(context) << ": Checking " << transcript_expressions.size()
+                basic_log(context) << "Checking " << transcript_expressions.size()
                                    << " transcripts" << std::endl;
             }
             for (auto& transcript_expression : transcript_expressions) {
@@ -704,7 +704,7 @@ int main_sim(int argc, char** argv) {
     }
     else {
         if (progress) {
-            basic_log(context) << ": Checking " << haplotype_transcripts.size()
+            basic_log(context) << "Checking " << haplotype_transcripts.size()
                                << " haplotype transcripts" << std::endl;
         }
         for (auto& haplotype_transcript : haplotype_transcripts) {
@@ -716,7 +716,7 @@ int main_sim(int argc, char** argv) {
     }
     
     if (progress) {
-        basic_log(context) << ": Creating path position overlay" << std::endl;
+        basic_log(context) << "Creating path position overlay" << std::endl;
     }
     
     bdsg::ReferencePathVectorizableOverlayHelper overlay_helper;
@@ -737,7 +737,7 @@ int main_sim(int argc, char** argv) {
     unordered_set<path_handle_t> inserted_path_handles;
     if (!inserted_path_names.empty()) {
         if (progress) {
-            basic_log(context) << ": Finding inserted paths" << std::endl;
+            basic_log(context) << "Finding inserted paths" << std::endl;
         }
         for (auto& name : inserted_path_names) {
             inserted_path_handles.insert(xgidx->get_path_handle(name));
@@ -753,7 +753,7 @@ int main_sim(int argc, char** argv) {
     // Otherwise we're just dumping sequence strings; leave it null.
     
     if (progress) {
-        basic_log(context) << ": Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
+        basic_log(context) << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
         std::cerr << "--num-reads " << num_reads << std::endl;
         std::cerr << "--read-length " << read_length << std::endl;
         if (align_out) {

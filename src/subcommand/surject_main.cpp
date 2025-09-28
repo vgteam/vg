@@ -39,7 +39,7 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE        use this graph or xg index (required)" << endl
+         << "  -x, --xg-name FILE        use this graph or XG index (required)" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -p, --into-path NAME      surject into this path or its subpaths (may repeat)" << endl
          << "                            default: reference, then non-alt generic" << endl
@@ -94,9 +94,12 @@ void help_surject(char** argv) {
 static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGraph& graph) {
     AlignmentValidity validity = alignment_is_valid(aln, &graph);
     if (!validity) {
+        #pragma omp critical (cerr)
+        {
         fatal_error(context) << "Alignment " << aln.name() << " cannot be interpreted against this graph:\n" 
                              << validity.message
                              << "\nMake sure that you are using the same graph that the reads were mapped to!" << endl;
+        }
     }
 }
 
@@ -110,11 +113,14 @@ static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const H
             nid_t node_id = mapping.position().node_id();
             if (!graph.has_node(node_id)) {
                 // Something is wrong with this alignment.
+                #pragma omp critical (cerr)
+                {
                 fatal_error(context) << "MultipathAlignment " << aln.name() 
                                      << " cannot be interpreted against this graph: node "
                                      << node_id << " does not exist!"
                                      << "\nMake sure that you are using"
                                      << "the same graph that the reads were mapped to!" << endl;
+                }
             }
             // TODO: Check edge existence. It's possible to have an alignment
             // have all the nodes but still not really belong to the graph,
@@ -375,11 +381,11 @@ int main_surject(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
         if (show_progress) {
-            basic_log(context) << ": Loading graph..." << endl;
+            basic_log(context) << "Loading graph..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         if (show_progress) {
-            basic_log(context) << ": Applying overlay..." << endl;
+            basic_log(context) << "Applying overlay..." << endl;
         }
         xgidx = overlay_helper.apply(path_handle_graph.get());
     } else {
@@ -388,7 +394,7 @@ int main_surject(int argc, char** argv) {
     }
     
     if (show_progress) {
-        basic_log(context) << ": Finding paths..." << endl;
+        basic_log(context) << "Finding paths..." << endl;
     }
 
     // Get the paths to surject into and their length information, either from
@@ -405,7 +411,7 @@ int main_surject(int argc, char** argv) {
     }
 
     if (show_progress) {
-        basic_log(context) << ": Building Surjector for " << paths.size() << " paths..." << endl;
+        basic_log(context) << "Building Surjector for " << paths.size() << " paths..." << endl;
     }
 
     // Make a single thread-safe Surjector.
@@ -447,7 +453,7 @@ int main_surject(int argc, char** argv) {
     std::atomic<size_t> total_reads_surjected(0);
 
     if (show_progress) {
-        basic_log(context) << ": Surjecting on " << thread_count << " threads..." << endl;
+        basic_log(context) << "Surjecting on " << thread_count << " threads..." << endl;
     }
 
     clock_t cpu_time_before = clock();
@@ -457,11 +463,14 @@ int main_surject(int argc, char** argv) {
         // Give helpful warning if someone tries to surject an un-surjectable GAF
         auto check_gaf_aln = [&](const Alignment& src) {
             if (src.has_path() && src.sequence().empty()) {
+                #pragma omp critical (cerr)
+                {
                 fatal_error(context) << "Read " << src.name() <<" is aligned but "
                                      << "does not have a sequence and therefore cannot be surjected. "
                                      << "Was it derived from a GAF without a base-level alignment? "
                                      << "Or a GAF with a CIGAR string in the 'cg' tag (which does not "
                                      << "provide enough information to reconstruct the sequence)?" << endl;
+                }
             }
         };
         
@@ -840,10 +849,10 @@ int main_surject(int argc, char** argv) {
 
     if (show_progress) {
         // Log to standard error
-        basic_log(context) << ": Surjected " << total_reads_surjected << " reads in "
+        basic_log(context) << "Surjected " << total_reads_surjected << " reads in "
                            << cpu_seconds << " CPU-seconds" << endl;
         if (cpu_seconds > 0) {
-            basic_log(context) << ": Surjected at " << total_reads_surjected / cpu_seconds
+            basic_log(context) << "Surjected at " << total_reads_surjected / cpu_seconds
                                << " RPS per thread" << endl;
         }
     }

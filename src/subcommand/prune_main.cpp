@@ -310,11 +310,11 @@ int main_prune(int argc, char** argv) {
 
     // Dry run.
     if (dry_run) {
-        basic_log(context) << " Pruning mode:   " << mode_name(mode) << std::endl;
-        basic_log(context) << " Parameters:     --kmer-length " << kmer_length
+        basic_log(context) << "Pruning mode:   " << mode_name(mode) << std::endl;
+        basic_log(context) << "Parameters:     --kmer-length " << kmer_length
                            << " --edge-max " << edge_max << " --subgraph-min " << subgraph_min
                            << " --max-degree " << max_degree << std::endl;
-        basic_log(context) << " Options:        --threads " << threads;
+        basic_log(context) << "Options:        --threads " << threads;
         if (verify_paths) {
             std::cerr << " --verify-paths";
         }
@@ -349,8 +349,8 @@ int main_prune(int argc, char** argv) {
     
     vg::id_t max_node_id = graph->max_node_id();
     if (show_progress) {
-        basic_log(context) << " Original graph " << vg_name << ": " << graph->get_node_count() 
-                  << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        basic_log(context) << "Original graph " << vg_name << ": " << graph->get_node_count() 
+                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
     // Remove the paths and build an XG index if needed.
@@ -366,7 +366,7 @@ int main_prune(int argc, char** argv) {
         }
         xg_index.from_path_handle_graph(*graph);
         if (show_progress) {
-            basic_log(context) << " Built a temporary XG index" << std::endl;
+            basic_log(context) << "Built a temporary XG index" << std::endl;
         }
     }
     
@@ -380,14 +380,14 @@ int main_prune(int argc, char** argv) {
     }
     
     if (show_progress) {
-        basic_log(context) << " Removed all paths" << std::endl;
+        basic_log(context) << "Removed all paths" << std::endl;
     }
 
     // Remove high-degree nodes.
     if (max_degree > 0) {
         algorithms::remove_high_degree_nodes(*graph, max_degree);
         if (show_progress) {
-            basic_log(context) << " Removed high-degree nodes: " << graph->get_node_count()
+            basic_log(context) << "Removed high-degree nodes: " << graph->get_node_count()
                                << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
         }
     }
@@ -395,12 +395,12 @@ int main_prune(int argc, char** argv) {
     // Prune the graph.
     algorithms::prune_complex_with_head_tail(*graph, kmer_length, edge_max);
     if (show_progress) {
-        basic_log(context) << " Pruned complex regions: " << graph->get_node_count()
+        basic_log(context) << "Pruned complex regions: " << graph->get_node_count()
                            << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
     algorithms::prune_short_subgraphs(*graph, subgraph_min);
     if (show_progress) {
-        basic_log(context) << " Removed small subgraphs: " << graph->get_node_count()
+        basic_log(context) << "Removed small subgraphs: " << graph->get_node_count()
                            << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
@@ -452,7 +452,7 @@ int main_prune(int argc, char** argv) {
     
     vg::io::save_handle_graph(graph.get(), std::cout);
     if (show_progress) {
-        basic_log(context) << " Serialized the graph: " << graph->get_node_count()
+        basic_log(context) << "Serialized the graph: " << graph->get_node_count()
                            << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 

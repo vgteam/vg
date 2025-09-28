@@ -181,7 +181,7 @@ int main_simplify(int argc, char** argv) {
     // Do preliminary options checks
     if (!bed_out_filename.empty() && bed_in_filename.empty()) {
         // Don't allow writing out a BED without reading one
-        fatal_error(context) << "Cannot output a bed (-B) unless a BED is read in first (-b)" << endl;
+        fatal_error(context) << "Cannot output a BED (-B) unless a BED is read in first (-b)" << endl;
     }
     
     if (algorithm != "small" && !ref_path_prefix.empty()) {

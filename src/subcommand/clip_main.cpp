@@ -236,7 +236,7 @@ int main_clip(int argc, char** argv) {
     }
 
     if ((max_deletion >= 0 || stub_clipping || stubbify_reference) && (snarl_option || out_bed)) {
-        fatal_error(context) << "bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L, -A) "
+        fatal_error(context) << "BED output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L, -A) "
                              << "cannot be used with -D, -s or -S" << endl;
     }
 
@@ -279,37 +279,37 @@ int main_clip(int argc, char** argv) {
     // need snarls if input regions are provided, or doing snarl based clipping
     bool need_snarls = snarl_option || !bed_path.empty();
 
-    // TodO: FIX!!  shouldn't need pp without bed coordinates
+    // TodO: FIX!!  shouldn't need pp without BED coordinates
     need_pp = need_pp || need_snarls;
 
     if (need_pp) {
         pp_graph = overlay_helper.apply(graph.get());
         if (verbose) {
-            basic_log(context) << ": Computed path position overlay of input graph" << endl;
+            basic_log(context) << "Computed path position overlay of input graph" << endl;
         }
     }
 
     if (need_snarls) {
-        // Load or compute the snarls which are required for targetting bed regions
+        // Load or compute the snarls which are required for targetting BED regions
         if (!snarls_path.empty()) {
             ifstream snarl_file(snarls_path.c_str());
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
             if (verbose) {
-                basic_log(context) << ": Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
+                basic_log(context) << "Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
             }
         } else {
             IntegratedSnarlFinder finder(*graph);
             snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
             if (verbose) {
-                basic_log(context) << ": Computed " << snarl_manager->num_snarls() << " snarls" << endl;
+                basic_log(context) << "Computed " << snarl_manager->num_snarls() << " snarls" << endl;
             }
         }
         
-        // load the bed file
+        // load the BED file
         if (!bed_path.empty()) {
             parse_bed_regions(bed_path, bed_regions);
             if (verbose) {
-                basic_log(context) << ": Loaded " << bed_regions.size() << " BED regions" << endl;
+                basic_log(context) << "Loaded " << bed_regions.size() << " BED regions" << endl;
             }
             // contig names left in this set are *not* in the graph
             unordered_set<string> contig_set;
@@ -331,7 +331,7 @@ int main_clip(int argc, char** argv) {
             }
             if (bed_regions_in_graph.size() != bed_regions.size()) {
                 if (verbose) {
-                    basic_log(context) << ": Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) 
+                    basic_log(context) << "Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) 
                                        << " BED regions whose sequence names "
                                        << "do not correspond to paths in the graph" << endl;
                 }
@@ -344,7 +344,7 @@ int main_clip(int argc, char** argv) {
         } else {
             assert(need_pp);
             assert(!ref_prefixes.empty());
-            // load the bed regions from the reference path prefix
+            // load the BED regions from the reference path prefix
             pp_graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
                     subrange_t subrange;
@@ -359,7 +359,7 @@ int main_clip(int argc, char** argv) {
                     }
                 });
             if (verbose) {
-                basic_log(context) << ": Inferred " << bed_regions.size() 
+                basic_log(context) << "Inferred " << bed_regions.size() 
                                    << " BED regions from paths in the graph" << endl;
             }
         }

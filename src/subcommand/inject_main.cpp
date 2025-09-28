@@ -30,7 +30,7 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject -x graph.xg [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE        use this graph or xg index (required, non-XG okay)" << endl
+         << "  -x, --xg-name FILE        use this graph or XG index (required, non-XG okay)" << endl
          << "  -i, --add-identity        calculate & add 'identity' statistic to output GAM" << endl
          << "  -r, --rescore             re-score alignments" << endl
          << "  -o, --output-format NAME  output alignment format {gam / gaf / json} [gam]" << endl

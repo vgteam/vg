@@ -102,7 +102,7 @@ int main_chain(int argc, char** argv) {
     assert(json_is_object(problem_json));
     
     if (show_progress) {
-        basic_log(context) << ": Loaded problem from " << problem_filename << std::endl;
+        basic_log(context) << "Loaded problem from " << problem_filename << std::endl;
     }
     
     // Populate the graph.
@@ -127,7 +127,7 @@ int main_chain(int argc, char** argv) {
                         graph.create_handle(sequence, vg::parse<nid_t>(node_id));
                     } else {
                         warning(context) << "Unreadable node object at index "
-                                         << i << "\n" << json_error.text << std::endl;
+                                         << i << ": " << json_error.text << std::endl;
                     }
                 } else {
                     warning(context) << "No node object at index " << i << std::endl;
@@ -159,7 +159,7 @@ int main_chain(int argc, char** argv) {
                         graph.create_edge(from_handle, to_handle);
                     } else {
                         warning(context) << "Unreadable edge object at index " << i
-                                         << "\n" << json_error.text << std::endl;
+                                         << ": " << json_error.text << std::endl;
                     }
                 } else {
                     warning(context) << "No edge object at index " << i << std::endl;
@@ -172,7 +172,7 @@ int main_chain(int argc, char** argv) {
         warning(context) << "No graph" << std::endl;
     }
     if (show_progress) {
-        basic_log(context) << ": Reconstructed " << graph.get_node_count()
+        basic_log(context) << "Reconstructed " << graph.get_node_count()
                            << " nodes and " << graph.get_edge_count() << " edges" << std::endl;
     }
     
@@ -185,7 +185,7 @@ int main_chain(int argc, char** argv) {
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     if (show_progress) {
-        basic_log(context) << ": Built distance index" << std::endl;
+        basic_log(context) << "Built distance index" << std::endl;
     }
     
     // Decide how to score alignments
@@ -253,7 +253,7 @@ int main_chain(int argc, char** argv) {
                                        vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
                 } else {
                     warning(context) << "Unreadable item object at index " 
-                                     << i << ":\n" << json_error.text << std::endl;
+                                     << i << ":" << json_error.text << std::endl;
                 }
             } else {
                 warning(context) << "No item object at index " << i << std::endl;
@@ -263,7 +263,7 @@ int main_chain(int argc, char** argv) {
         warning(context) << "No items" << std::endl;
     }
     if (show_progress) {
-        basic_log(context) << ": Reconstructed " << items.size() << " chainable items" << std::endl;
+        basic_log(context) << "Reconstructed " << items.size() << " chainable items" << std::endl;
     }
     
     // Now we have parsed the JSON, so throw it out.
@@ -279,8 +279,7 @@ int main_chain(int argc, char** argv) {
     std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(
         items, distance_index, graph, scorer.gap_open, scorer.gap_extension);
     
-    std::cout << context << ": Best chain gets score "
-              << score_and_chain.first << std::endl;
+    basic_log(context) << "Best chain gets score " << score_and_chain.first << std::endl;
     
     return 0;
 }

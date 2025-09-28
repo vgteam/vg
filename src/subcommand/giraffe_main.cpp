@@ -1264,7 +1264,7 @@ int main_giraffe(int argc, char** argv) {
             case 'x':
                 provided_indexes.emplace_back("XG", optarg);
                 
-                // If we have an xg we probably want to use its name as the base name.
+                // If we have an XG we probably want to use its name as the base name.
                 // But see -g.
                 index_basename = split_ext(optarg).first;
                 
@@ -1538,7 +1538,7 @@ int main_giraffe(int argc, char** argv) {
     }
     
     if (interleaved && !fastq_filename_2.empty()) {
-        fatal_error(context) << "Cannot specify both interleaved paired ends (-i) "
+        fatal_error(context) << "Cannot designate both interleaved paired ends (-i) "
                              << "and separate paired end file (-f)." << std::endl;
     }
 
@@ -1668,13 +1668,13 @@ int main_giraffe(int argc, char** argv) {
 
 #ifdef debug
     for (auto& needed : index_targets) {
-        basic_log(context) << " Want index: " << needed << endl;
+        basic_log(context) << "Want index: " << needed << endl;
     }
 #endif
     
     try {
         if (show_progress) {
-            basic_log(context) << ": Preparing Indexes" << endl;
+            basic_log(context) << "Preparing Indexes" << endl;
         }
         registry.make_indexes(index_targets);
     }
@@ -1684,16 +1684,16 @@ int main_giraffe(int argc, char** argv) {
    
 #ifdef debug
     for (auto& completed : registry.completed_indexes()) {
-        basic_log(context) << " Have index: " << completed << endl;
+        basic_log(context) << "Have index: " << completed << endl;
         for (auto& filename : registry.require(completed)) {
-            basic_log(context) << " \tAt: " << filename << endl;
+            basic_log(context) << "\tAt: " << filename << endl;
         }
     }
 #endif
     
     // Grab the minimizer index
     if (show_progress) {
-        basic_log(context) << ": Loading Minimizer Index" << endl;
+        basic_log(context) << "Loading Minimizer Index" << endl;
     }
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     if (map_long_reads) {
@@ -1704,7 +1704,7 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the zipcodes
     if (show_progress) {
-        basic_log(context) << ": Loading Zipcodes" << endl;
+        basic_log(context) << "Loading Zipcodes" << endl;
     }
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
@@ -1720,18 +1720,18 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the GBZ
     if (show_progress) {
-        basic_log(context) << ": Loading GBZ" << endl;
+        basic_log(context) << "Loading GBZ" << endl;
     }
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
     if (show_progress) {
-        basic_log(context) << ": Loading Distance Index v2" << endl;
+        basic_log(context) << "Loading Distance Index v2" << endl;
     }
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     if (show_progress) {
-        basic_log(context) << ": Paging in Distance Index v2" << endl;
+        basic_log(context) << "Paging in Distance Index v2" << endl;
     }
     std::chrono::time_point<std::chrono::system_clock> preload_start = std::chrono::system_clock::now();
     // Make sure the distance index is paged in from disk.
@@ -1754,7 +1754,7 @@ int main_giraffe(int argc, char** argv) {
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
         if (registry.available("XG")) {
             if (show_progress) {
-                basic_log(context) << ": Loading XG Graph" << endl;
+                basic_log(context) << "Loading XG Graph" << endl;
             }
             xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
             base_graph = xg_graph.get();
@@ -1762,14 +1762,14 @@ int main_giraffe(int argc, char** argv) {
     
         // Apply the overlay if needed.
         if (show_progress) {
-            basic_log(context) << ": Applying overlay" << endl;
+            basic_log(context) << "Applying overlay" << endl;
         }
         path_position_graph = overlay_helper.apply(base_graph);
     }
 
     // Set up the mapper
     if (show_progress) {
-        basic_log(context) << ": Initializing MinimizerMapper" << endl;
+        basic_log(context) << "Initializing MinimizerMapper" << endl;
     }
     MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &oversized_zipcodes, path_position_graph);
     if (forced_mean && forced_stdev) {
@@ -1779,9 +1779,9 @@ int main_giraffe(int argc, char** argv) {
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
     if (show_progress) {
-        basic_log(context) << " Loading and initialization: "
+        basic_log(context) << "Loading and initialization: "
                            << init_seconds.count() << " seconds" << endl;
-        basic_log(context) << " Of which Distance Index v2 paging: "
+        basic_log(context) << "Of which Distance Index v2 paging: "
                            << di2_preload_seconds.count() << " seconds" << endl;
     }
     
@@ -1817,9 +1817,9 @@ int main_giraffe(int argc, char** argv) {
     
         if (show_progress) {
             if (discard_alignments) {
-                basic_log(context) << ": Discarding output alignments" << endl;
+                basic_log(context) << "Discarding output alignments" << endl;
             } else {
-                basic_log(context) << ": Mapping reads to \"" << output_filename
+                basic_log(context) << "Mapping reads to \"" << output_filename
                                    << "\" (" << output_format << ")" << endl;
             }
         }
@@ -1833,7 +1833,7 @@ int main_giraffe(int argc, char** argv) {
         parser->apply(scoring_options);
 
         // Make a line of JSON about our command line options.
-        // We may embed it int he output file later.
+        // We may embed it in the output file later.
         std::stringstream params_json;
         params_json << "{";
         parser->print_options(params_json, OptionFormat::JSON);
@@ -1926,7 +1926,7 @@ int main_giraffe(int argc, char** argv) {
         perf_fds[omp_get_thread_num()] = perf_event_open(&perf_config, 0, -1, -1, 0);
         if (show_progress && perf_fds[omp_get_thread_num()] == -1) {
             int problem = errno;
-            basic_log(context) << " Not counting CPU instructions because perf events are unavailable: "
+            basic_log(context) << "Not counting CPU instructions because perf events are unavailable: "
                                << strerror(problem) << endl;
             perf_fds.clear();
         }
@@ -2045,7 +2045,7 @@ int main_giraffe(int argc, char** argv) {
                             // Report that it is now ready
                             #pragma omp critical (cerr)
                             {
-                                basic_log(context) << " Using fragment length estimate: "
+                                basic_log(context) << "Using fragment length estimate: "
                                                    << minimizer_mapper.get_fragment_length_mean()
                                                    << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
                             }
@@ -2086,7 +2086,7 @@ int main_giraffe(int argc, char** argv) {
                         }
                         if (main_options.log_reads) {
                             #pragma omp critical (cerr)
-                            basic_log(context) << ": Thread " << thread_num << " now mapping "
+                            basic_log(context) << "Thread " << thread_num << " now mapping "
                                                << aln1.name() << ", " << aln2.name() << std::endl;
                         }
                         
@@ -2201,7 +2201,7 @@ int main_giraffe(int argc, char** argv) {
                         }
                         if (main_options.log_reads) {
                             #pragma omp critical (cerr)
-                            basic_log(context) << ": Thread " << thread_num
+                            basic_log(context) << "Thread " << thread_num
                                                << " now mapping " << aln.name() << std::endl;
                         }
                         
@@ -2309,27 +2309,27 @@ int main_giraffe(int argc, char** argv) {
         
         if (show_progress) {
             // Log to standard error
-            basic_log(context) << " Mapped " << total_reads_mapped << " reads across "
+            basic_log(context) << "Mapped " << total_reads_mapped << " reads across "
                                << thread_count << " threads in "
                                << all_threads_seconds.count() << " seconds with " 
                                << first_thread_additional_seconds.count()
                                << " additional single-threaded seconds." << endl;
-            basic_log(context) << " Mapping speed: " << reads_per_second_per_thread
+            basic_log(context) << "Mapping speed: " << reads_per_second_per_thread
                                << " reads per second per thread" << endl;
             
-            basic_log(context) << " Used " << cpu_seconds << " CPU-seconds (including output)." << endl;
-            basic_log(context) << " Achieved " << reads_per_cpu_second
+            basic_log(context) << "Used " << cpu_seconds << " CPU-seconds (including output)." << endl;
+            basic_log(context) << "Achieved " << reads_per_cpu_second
                                << " reads per CPU-second (including output)" << endl;
             
             if (total_instructions != 0) {
-                basic_log(context) << " Used " << total_instructions
+                basic_log(context) << "Used " << total_instructions
                                    << " CPU instructions (not including output)." << endl;
-                basic_log(context) << " Mapping slowness: " << mega_instructions_per_read
+                basic_log(context) << "Mapping slowness: " << mega_instructions_per_read
                                    << " M instructions per read at " << mega_instructions_per_second
                                    << " M mapping instructions per inclusive CPU-second" << endl;
             }
 
-            basic_log(context) << " Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
+            basic_log(context) << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
         
         
@@ -2351,7 +2351,7 @@ std::string sample_haplotypes(
     bool progress
 ) {
     if (progress) {
-        basic_log(context) << " Sampling haplotypes" << std::endl;
+        basic_log(context) << "Sampling haplotypes" << std::endl;
     }
 
     // Sanity checks.
@@ -2364,7 +2364,7 @@ std::string sample_haplotypes(
     if (sample.empty()) {
         sample = file_base_name(kff_file);
         if (progress) {
-            basic_log(context) << " Guessing from " << kff_file
+            basic_log(context) << "Guessing from " << kff_file
                                << " that sample name is " << sample << std::endl;
         }
     }
@@ -2388,7 +2388,7 @@ std::string sample_haplotypes(
     // Override reference samples if necessary.
     if (!reference_samples.empty()) {
         if (progress) {
-            basic_log(context) << " Updating reference samples" << std::endl;
+            basic_log(context) << "Updating reference samples" << std::endl;
         }
         size_t present = gbz.set_reference_samples(reference_samples);
         if (present != reference_samples.size()) {
@@ -2399,7 +2399,7 @@ std::string sample_haplotypes(
 
     // Load haplotype information.
     if (progress) {
-        basic_log(context) << " Loading haplotype information from "
+        basic_log(context) << "Loading haplotype information from "
                            << haplotype_file << std::endl;
     }
     Haplotypes haplotypes;
@@ -2418,7 +2418,7 @@ std::string sample_haplotypes(
 
     // Create GBWTGraph and save GBZ.
     if (progress) {
-        basic_log(context) << " Building GBWTGraph" << std::endl;
+        basic_log(context) << "Building GBWTGraph" << std::endl;
     }
     gbwtgraph::GBWTGraph sampled_graph = gbz.graph.subgraph(sampled_gbwt);
     save_gbz(sampled_gbwt, sampled_graph, output_name, progress);

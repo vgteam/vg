@@ -42,7 +42,7 @@ void help_zipcode(char** argv) {
     << endl
     << "basic options:" << endl
     << "  -h, --help                    print this help message to stderr and exit" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
+    << "  -x, --xg-name FILE            use this XG index or graph (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -d, --dist-name FILE          use this distance index (required)" << endl
     << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl

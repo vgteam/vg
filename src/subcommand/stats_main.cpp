@@ -963,7 +963,7 @@ int main_stats(int argc, char** argv) {
             }
         });
         if (show_progress) {
-            basic_log(context) << ": Destroy per-thread data structures" << std::endl;
+            basic_log(context) << "Destroy per-thread data structures" << std::endl;
         }
         // This can take a long time because we need to deallocate all this
         // stuff allocated by other threads, such as per-node count maps.
@@ -993,7 +993,7 @@ int main_stats(int argc, char** argv) {
 
         if (graph != nullptr) {
             if (show_progress) {
-                basic_log(context) << ": Account for graph" << std::endl;
+                basic_log(context) << "Account for graph" << std::endl;
             }
 
             // Calculate stats about the reads per allele data
@@ -1069,7 +1069,7 @@ int main_stats(int argc, char** argv) {
         }
 
         if (show_progress) {
-            basic_log(context) << ": Print report" << std::endl;
+            basic_log(context) << "Print report" << std::endl;
         }
 
         cout << "Total alignments: " << combined.total_alignments << endl;
@@ -1181,7 +1181,7 @@ int main_stats(int argc, char** argv) {
         if (snarl_stats) {
             // TSV header
             if (!snarl_sample.empty()) {
-                // optionally prefix with bed-like refpath coordinates if --snarl-sample given
+                // optionally prefix with BED-like refpath coordinates if --snarl-sample given
                 cout <<"Contig\tStartPos\tEndPos\t";
                 
                 if (pp_graph == nullptr) {

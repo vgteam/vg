@@ -874,7 +874,7 @@ int main_find(int argc, char** argv) {
         
         // Open it
         auto gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_in);
-        // default LCP is the gcsa base name +.lcp
+        // default LCP is the GCSA base name +.lcp
         auto lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_in + ".lcp");
         
         //range_type find(const char* pattern, size_type length) const;
@@ -891,7 +891,7 @@ int main_find(int argc, char** argv) {
                 }
             }
         } else {
-            // for mems we need to load up the gcsa and lcp structures into the mapper
+            // for MEMs we need to load up the GCSA and LCP structures into the mapper
             Mapper mapper(xindex, gcsa_index.get(), lcp_index.get());
             mapper.fast_reseed = use_fast_reseed;
             // get the mems

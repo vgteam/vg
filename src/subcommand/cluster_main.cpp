@@ -47,7 +47,7 @@ void help_cluster(char** argv) {
          << endl
          << "basic options:" << endl
          << "  -h, --help                    print this help message to stderr and exit" << endl
-         << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
+         << "  -x, --xg-name FILE            use this XG index or graph (required)" << endl
          << "  -f, --gbz-format              input graph is GBZ format (has graph & GBWT)" << endl
          << "  -g, --gcsa-name FILE          use FILE & FILE.lcp GCSA2/LCP index pair" << endl
          << "  -G, --gbwt-name FILE          use this GBWT" << endl

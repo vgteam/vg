@@ -381,7 +381,7 @@ int main_convert(int argc, char** argv) {
                     graph_to_xg_adjusting_paths(input_path_graph, xg_graph, ref_samples, 
                                                hap_locus, new_sample, drop_haplotypes);
                 } else {
-                    // No paths, just convert to xg without paths
+                    // No paths, just convert to XG without paths
                     xg_graph->from_handle_graph(*input_graph);
                 }
             }
@@ -433,7 +433,7 @@ int main_convert(int argc, char** argv) {
             const gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
             if (gbwt_graph == nullptr) {
                 fatal_error(context) << "input graph does not have a GBWTGraph, "
-                                     << "so GBWTGraph library GFA conversion algorithm cannot be used" << endl;
+                                     << "so GBWTGraph library GFA conversion algorithm cannot be used." << endl;
             }
             
             gbwtgraph::GFAExtractionParameters parameters;
@@ -661,7 +661,7 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output,
                                                                PathMetadata::NO_PHASE_BLOCK,
                                                                subrange);
                 
-                // Copy out to the xg
+                // Copy out to the XG
                 copy_path(path, new_name);
             });
         }
@@ -690,7 +690,7 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output,
                                                                haplotype,
                                                                phase_block,
                                                                subrange);
-                // Copy out to the xg
+                // Copy out to the XG
                 copy_path(path, new_name);
             });
         }

@@ -233,7 +233,7 @@ int main_sift(int argc, char** argv) {
     }
     alignment_file = argv[optind];
 
-    basic_log(context) << ": Filtering  " << alignment_file << endl;
+    basic_log(context) << "Filtering  " << alignment_file << endl;
 
     vg::VG* graph;
     if (!graph_name.empty()) {
@@ -568,7 +568,7 @@ int main_sift(int argc, char** argv) {
         // }
 
         if (is_paired) {
-            basic_log(context) << ": Processing..." << endl;
+            basic_log(context) << "Processing..." << endl;
             vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{

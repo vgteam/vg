@@ -505,7 +505,7 @@ int main_view(int argc, char** argv) {
                     // We match the tag, so dump this message.
                     if ((*it).second.get() != nullptr) {
                         if (verbose) {
-                            basic_log(context) << ": Message of " << (*it).second->size() 
+                            basic_log(context) << "Message of " << (*it).second->size() 
                                                << " bytes in matches tag to extract" << endl;
                         }
                         cout << *((*it).second.get());
@@ -515,25 +515,25 @@ int main_view(int argc, char** argv) {
                         }
                     } else {
                         if (verbose) {
-                            basic_log(context) << ": Messageless tag matching tag to extract" << endl;
+                            basic_log(context) << "Messageless tag matching tag to extract" << endl;
                         }
                     }
                 } else {
                     if ((*it).second.get() != nullptr) {
                         if (verbose) {
-                            basic_log(context) << ": Message of " << (*it).second->size()
+                            basic_log(context) << "Message of " << (*it).second->size()
                                                << " bytes does not match tag; skip" << endl;
                         }
                     } else {
                         if (verbose) {
-                            basic_log(context) << ": Messageless tag not matching tag to extract" << endl;
+                            basic_log(context) << "Messageless tag not matching tag to extract" << endl;
                         }
                     }
                 }
                 ++it;
             }
             if (verbose) {
-                basic_log(context) << ": Iterator no longer has messages" << endl;
+                basic_log(context) << "Iterator no longer has messages" << endl;
             }
         });
         return 0;
@@ -571,9 +571,9 @@ int main_view(int argc, char** argv) {
                                                  nullptr,
                                                  0); // set rgfa path rank to 0 to be consistent with vg convert's default logic
         } catch (vg::algorithms::GFAFormatError& e) {
-            fatal_error(context) << "Input GFA is not acceptable\n" << string(e.what()) << endl;
+            fatal_error(context) << "Input GFA is not acceptable\n" << e.what() << endl;
         } catch (std::ios_base::failure& e) {
-            fatal_error(context) << "IO error processing input GFA\n" << string(e.what()) << endl;
+            fatal_error(context) << "IO error processing input GFA\n" << e.what() << endl;
         }
         
         // GFA can convert to any of the graph formats, so keep going

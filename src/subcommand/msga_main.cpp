@@ -478,7 +478,7 @@ int main_msga(int argc, char** argv) {
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
-        if (debug) basic_log(context) << ": loading " << fasta_file_name << endl;
+        if (debug) basic_log(context) << "loading " << fasta_file_name << endl;
         for (auto& name : ref.index->sequenceNames) {
             if (!seq_names.empty() && seq_names.count(name) == 0) continue;
             // only use the sequence if we have whitelisted it
@@ -494,7 +494,7 @@ int main_msga(int argc, char** argv) {
         }
     }
 
-    // read in our bed file of positions for the input sequences    
+    // read in our BED file of positions for the input sequences    
     unordered_map<string, Region> position_hints;
     if (!position_bed_file.empty()) {
         vector<Region> regions;
@@ -529,7 +529,7 @@ int main_msga(int argc, char** argv) {
 
     // align, include, repeat
 
-    if (debug) basic_log(context) << ": preparing initial graph" << endl;
+    if (debug) basic_log(context) << "preparing initial graph" << endl;
 
     size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
     // limit max node size
@@ -599,11 +599,11 @@ int main_msga(int argc, char** argv) {
             return;
         }
 
-        if (debug) basic_log(context) << ": building xg index" << endl;
+        if (debug) basic_log(context) << "building XG index" << endl;
         xgidx = new xg::XG();
         xgidx->from_path_handle_graph(*graph);
 
-        if (debug) basic_log(context) << ": building GCSA2 index" << endl;
+        if (debug) basic_log(context) << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
@@ -622,7 +622,7 @@ int main_msga(int argc, char** argv) {
             Region out_region;
             PathChunker chunker(xgidx);
             if (debug) {
-                basic_log(context) << ": Subsetting graph to " << region.seq << ":" << region.start
+                basic_log(context) << "Subsetting graph to " << region.seq << ":" << region.start
                                    << "-" << region.end << " for sequence " << names_in_order[name_idx]
                                    << " using " << context_steps << " context steps." << endl;
             }
@@ -692,7 +692,7 @@ int main_msga(int argc, char** argv) {
             mapper->min_cluster_length = min_cluster_length;
             mapper->mem_reseed_length = round(mem_reseed_factor * mapper->min_mem_length);
             if (debug) {
-                basic_log(context) << ": min_mem_length = " << mapper->min_mem_length
+                basic_log(context) << "min_mem_length = " << mapper->min_mem_length
                                    << ", mem_reseed_length = " << mapper->mem_reseed_length
                                    << ", min_cluster_length = " << mapper->min_cluster_length << endl;
             }
@@ -734,14 +734,14 @@ int main_msga(int argc, char** argv) {
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) {
-                basic_log(context) << " " << name << ": adding to graph "
+                basic_log(context) << name << ": adding to graph "
                                    << i << "/" << names_in_order.size() << endl;
             }
             vector<Path> paths;
             int j = 0;
             // align to the graph
             if (debug) {
-                basic_log(context) << " " << name << ": aligning " << seq.size()
+                basic_log(context) << name << ": aligning " << seq.size()
                                    << "bp -> g:" << graph->length() << "bp " << "n:"
                                    << graph->node_count() << " " << "e:" << graph->edge_count() << endl;
             }
@@ -750,7 +750,7 @@ int main_msga(int argc, char** argv) {
             if (aln.path().mapping_size()) {
                 auto aln_seq = vg::algorithms::path_string(*graph, aln.path());
                 if (aln_seq != seq) {
-                    basic_log(context) << ": alignment corrupted, failed to obtain correct banded alignment "
+                    basic_log(context) << "alignment corrupted, failed to obtain correct banded alignment "
                                        << "(alignment seq != input seq)" << endl;
                     cerr << "expected " << seq << endl;
                     cerr << "got      " << aln_seq << endl;
@@ -780,7 +780,7 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             // now take the alignment and modify the graph with it
-            if (debug) basic_log(context) << " " << name << ": editing graph" << endl;
+            if (debug) basic_log(context) << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             // Modify graph and embed paths
             graph->edit(paths, nullptr, true);
@@ -790,13 +790,13 @@ int main_msga(int argc, char** argv) {
             handlealgs::chop(*graph, node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
-            if (debug) basic_log(context) << " " << name << ": sorting and compacting ids" << endl;
+            if (debug) basic_log(context) << name << ": sorting and compacting ids" << endl;
             graph->sort();
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
-            graph->compact_ids(); // xg can't work unless IDs are compacted.
+            graph->compact_ids(); // XG can't work unless IDs are compacted.
             //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
             if (circularize) {
-                if (debug) basic_log(context) << " " << name << ": circularizing" << endl;
+                if (debug) basic_log(context) << name << ": circularizing" << endl;
                 graph->circularize({name});
                 //graph->serialize_to_file(name + "-post-circularize.vg");
             }
@@ -818,7 +818,7 @@ int main_msga(int argc, char** argv) {
             auto path_seq = vg::algorithms::path_string(*graph, graph->paths.path(name));
             incomplete = !(path_seq == seq) || !is_valid;
             if (incomplete) {
-                basic_log(context) << ": failed to include alignment, retrying " << endl
+                basic_log(context) << "failed to include alignment, retrying " << endl
                                    << "expected " << seq << endl
                                    << "got      " << path_seq << endl
                                    << pb2json(aln.path()) << endl
@@ -866,7 +866,7 @@ int main_msga(int argc, char** argv) {
     //      };
 
     if (normalize) {
-        if (debug) basic_log(context) << ": normalizing graph" << endl;
+        if (debug) basic_log(context) << "normalizing graph" << endl;
         if (graph_files.empty()) {
             // shouldn't be any reason to do this, but if we are going to do it,
             // only try if graph was made entirely of msga'd sequences.
@@ -907,7 +907,6 @@ int main_msga(int argc, char** argv) {
         }
         ss << ".vg";
         graph->serialize_to_file(ss.str());
-        error_msg << "in output graph" << endl;
     }
 
     // return the graph

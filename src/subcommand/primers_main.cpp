@@ -18,10 +18,10 @@ void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-path FILE               use this xg graph (required)" << endl
+         << "  -x, --xg-path FILE               use this XG graph (required)" << endl
          << "  -d, --dist-index FILE            use this distance index (required)" << endl
          << "  -r, --r-index FILE               use this r index (required)" << endl
-         << "  -g, --gbz FILE                   use this gbz file (required)" << endl
+         << "  -g, --gbz FILE                   use this GBZ file (required)" << endl
          << "  -M, --minimizers FILE            use this minimizer file for mapping" << endl
          << "                                   the template sequence, if necessary" << endl
          << "  -Z, --zipcodes FILE              use this zipcode file for mapping" << endl

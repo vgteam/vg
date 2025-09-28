@@ -457,7 +457,7 @@ int execute_in_fork(const function<void(void)>& exec) {
     } else {
         // This is the parent
         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-            basic_log(context) << ": Forked into child process with PID "
+            basic_log(context) << "Forked into child process with PID "
                                << pid << "." << endl;
         }
     }
@@ -1048,7 +1048,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            basic_log(context) << ": Chunking VCF(s)." << endl;
+            basic_log(context) << "Chunking VCF(s)." << endl;
         }
         
         // open all of the input VCF files
@@ -1367,7 +1367,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             
                             if (copy_from_idx >= 0) {
 #ifdef debug_index_registry_recipes
-                                cerr << "direct copying " + vcf_filenames[copy_from_idx] + " to " + output_vcf_names[copy_to_idx] + "\n";
+                                cerr << "direct copying " << vcf_filenames[copy_from_idx] << " to " << output_vcf_names[copy_to_idx] << "\n";
 #endif
                                 // we can copy an entire file on this iteration instead of parsing
                                 copy_file(vcf_filenames[copy_from_idx], output_vcf_names[copy_to_idx]);
@@ -2470,8 +2470,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             (vcf_filenames.size() != 1 && graph_filenames.size() != vcf_filenames.size())) {
             fatal_error(context) << "When constructing GBWT from multiple graphs and multiple VCFs, "
                                  << "the graphs and the VCFs must be matched 1-to-1, but input contains " 
-                                 << graph_filenames.size() + " graphs and " 
-                                 << vcf_filenames.size() + " VCF files." << endl;
+                                 << graph_filenames.size() << " graphs and " 
+                                 << vcf_filenames.size() << " VCF files." << endl;
         }
         if (vcf_filenames.size() == 1 && graph_filenames.size() != 1) {
             // FIXME: it should at least try to join the graph chunks together
@@ -4553,7 +4553,7 @@ void IndexRegistry::provide(const IndexName& identifier, const string& filename)
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-        basic_log(context) << ": Provided: " << identifier << endl;
+        basic_log(context) << "Provided: " << identifier << endl;
     }
     if (!index_registry.count(identifier)) {
         fatal_error(context) << "cannot provide unregistered index: " << identifier << endl;
@@ -4951,7 +4951,7 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                     }
                 } else {
                     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                        basic_log(context) << ": GFA path " << path_name 
+                        basic_log(context) << "GFA path " << path_name 
                                            << " has no sample and so cannot be a haplotype." << endl;
                     }
                 }

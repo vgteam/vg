@@ -191,21 +191,27 @@ int main_mod(int argc, char** argv) {
 
         case 'i':
             fatal_error(context) << "vg mod -i is deprecated.  please switch to vg augment" << endl;
+            break;
 
         case 'q':
             fatal_error(context) << "vg mod -q is deprecated.  please switch to vg augment -l" << endl;
+            break;
 
         case 'Q':
             fatal_error(context) << "vg mod -Q is deprecated.  please switch to vg augment -L" << endl;
+            break;
 
         case 'Z':
             fatal_error(context) << "vg mod -Z is deprecated.  please switch to vg augment -Z" << endl;
+            break;
 
         case 'D':
             fatal_error(context) << "vg mod -D is deprecated.  please switch to vg paths -d" << endl;
+            break;
 
         case 'r':
             fatal_error(context) << "vg mod -r is deprecated.  please switch to vg paths -r" << endl;
+            break;
 
         case 'I':
             fatal_error(context) << "vg mod -I is deprecated.  please switch to vg paths -d" << endl;
@@ -494,7 +500,7 @@ int main_mod(int argc, char** argv) {
                 // same path without this node.
                 paths_to_remove.emplace(graph->get_path_handle_of_step(s));
 #ifdef debug
-                basic_log(context) << ": Node " << node_id << " was on path "
+                basic_log(context) << "Node " << node_id << " was on path "
                                    << graph->get_path_name(graph->get_path_handle_of_step(s)) << endl;
 #endif
             });

@@ -1,4 +1,4 @@
-// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, and distance indexes
+// index.cpp: define the "vg index" subcommand, which makes XG, GCSA2, and distance indexes
 
 #include <omp.h>
 #include <unistd.h>
@@ -47,7 +47,7 @@ void help_index(char** argv) {
          << "xg options:" << endl
          << "  -x, --xg-name FILE        use this file to store a succinct, queryable version" << endl
          << "                            of graph(s), or read for GCSA or distance indexing" << endl
-         << "  -L, --xg-alts             include alt paths in xg" << endl
+         << "  -L, --xg-alts             include alt paths in XG" << endl
          << "gcsa options:" << endl
          << "  -g, --gcsa-out FILE       output GCSA2 (FILE) & LCP (FILE.lcp) indexes" << endl
        //<< "  -i, --dbg-in FILE         use kmers from FILE instead of input VG (may repeat)" << endl
@@ -349,18 +349,19 @@ int main_index(int argc, char** argv) {
 
     // Build XG. Include alt paths in the XG if requested with -L.
     if (build_xg) {
+        ensure_writable(context, xg_name);
         if (file_names.empty()) {
             // VGset or something segfaults when we feed it no graphs.
             fatal_error(context) << "at least one graph is required to build an XG index" << endl;
         }
         if (show_progress) {
-            basic_log(context) << ": Building XG index" << endl;
+            basic_log(context) << "Building XG index" << endl;
         }
         xg::XG xg_index;
         VGset graphs(file_names);
         graphs.to_xg(xg_index, (xg_alts ? [](const string&) {return false;} : Paths::is_alt), nullptr);
         if (show_progress) {
-            basic_log(context) << ": Saving XG index to " << xg_name << endl;
+            basic_log(context) << "Saving XG index to " << xg_name << endl;
         }
         // Save the XG.
         vg::io::save_handle_graph(&xg_index, xg_name);
@@ -380,7 +381,7 @@ int main_index(int argc, char** argv) {
         bool delete_kmer_files = false;
         if (dbg_names.empty()) {
             if (show_progress) {
-                basic_log(context) << ": Generating kmer files..." << endl;
+                basic_log(context) << "Generating kmer files..." << endl;
             }
             
             if (!file_names.empty()) {
@@ -394,6 +395,7 @@ int main_index(int argc, char** argv) {
                 // Get the kmers from an XG or other single graph
                 
                 // Load the graph
+                require_exists(context, xg_name);
                 auto single_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
                 
                 auto make_kmers_for_component = [&](const HandleGraph* g) {
@@ -415,7 +417,7 @@ int main_index(int argc, char** argv) {
                 };
                 
                 if (show_progress) {
-                    basic_log(context) << ": Finding connected components..." << endl;
+                    basic_log(context) << "Finding connected components..." << endl;
                 }
                 
                 // Get all the components in the graph, which we can process separately to save memory.
@@ -425,7 +427,7 @@ int main_index(int argc, char** argv) {
                 if (components.size() == 1) {
                     // Only one component
                     if (show_progress) {
-                        basic_log(context) << ": Processing single component graph..." << endl;
+                        basic_log(context) << "Processing single component graph..." << endl;
                     }
                     make_kmers_for_component(single_graph.get());
                 } else {
@@ -434,7 +436,7 @@ int main_index(int argc, char** argv) {
                         // Don't run in parallel or size limit tracking won't work.
                 
                         if (show_progress) {
-                            basic_log(context) << ": Selecting component " 
+                            basic_log(context) << "Selecting component " 
                                                << i << "/" << components.size() << "..." << endl;
                         }
                         
@@ -454,22 +456,22 @@ int main_index(int argc, char** argv) {
                     }
                 }
             } else {
-                fatal_error(context) << "cannot generate GCSA index without either a vg or an XG" << endl;
+                fatal_error(context) << "cannot generate GCSA index without either a VG or an XG" << endl;
             }
         }
 
         // Build the index
         if (show_progress) {
-            basic_log(context) << ": Building the GCSA2 index..." << endl;
+            basic_log(context) << "Building the GCSA2 index..." << endl;
         }
         gcsa::InputGraph input_graph(dbg_names, true, params, gcsa::Alphabet(), mapping_name);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
         if (show_progress) {
             double seconds = gcsa::readTimer() - start;
-            basic_log(context) << ": GCSA2 index built in " << seconds << " seconds, "
+            basic_log(context) << "GCSA2 index built in " << seconds << " seconds, "
                                << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-            basic_log(context) << ": I/O volume:" << gcsa::inGigabytes(gcsa::readVolume()) << " GB read, "
+            basic_log(context) << "I/O volume:" << gcsa::inGigabytes(gcsa::readVolume()) << " GB read, "
                                << gcsa::inGigabytes(gcsa::writeVolume()) << " GB write" << endl;
         }
 
@@ -480,7 +482,7 @@ int main_index(int argc, char** argv) {
         // Verify the index
         if (verify_gcsa) {
             if (show_progress) {
-                basic_log(context) << ": Verifying the index..." << endl;
+                basic_log(context) << "Verifying the index..." << endl;
             }
             if (!gcsa::verifyIndex(gcsa_index, &lcp_array, input_graph)) {
                 warning(context) << "GCSA2 index verification failed" << endl;
@@ -597,7 +599,7 @@ int main_index(int argc, char** argv) {
 
     }
     if (show_progress) {
-        basic_log(context) << ": Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+        basic_log(context) << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }
     return 0;
 }

@@ -260,7 +260,7 @@ int main_construct(int argc, char** argv) {
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
                     if (constructor.show_progress) {
-                        basic_log(context) << ": Restricting to " << seq_name << " from " 
+                        basic_log(context) << "Restricting to " << seq_name << " from " 
                                            << start_pos << " to " << stop_pos << endl;
                     }
                     constructor.allowed_vcf_names.insert(seq_name);
@@ -268,7 +268,7 @@ int main_construct(int argc, char** argv) {
                     constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
                 } else if (start_pos < 0 && stop_pos < 0) {
                     // We just got a name
-                    basic_log(context) << ": Restricting to " << seq_name << " from 1 to end" << endl;
+                    basic_log(context) << "Restricting to " << seq_name << " from 1 to end" << endl;
                     constructor.allowed_vcf_names.insert(seq_name);
                 } else {
                     // This doesn't make sense. Does it have like one coordinate?
@@ -276,7 +276,7 @@ int main_construct(int argc, char** argv) {
                 }
             } else {
                 // We have been told not to parse the region
-                basic_log(context) << ": Restricting to " << region << " from 1 to end" << endl;
+                basic_log(context) << "Restricting to " << region << " from 1 to end" << endl;
                 constructor.allowed_vcf_names.insert(region);
             }
         }
