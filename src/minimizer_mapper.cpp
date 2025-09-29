@@ -4062,10 +4062,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // minimizers which we also took.
 
             // Locate the hits.
-            if (index_kind == IndexKind::XL) {
-                // XL index: occs points to PositionPayload<PayloadXL>; payload is not used for paths/zipcode.
-                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>*>(minimizer.occs);
-
+            // Lambda to process occurrences, regardless of payload type
+            auto process_occurrences = [&](const auto* occs, auto get_payload_fn) {
                 for (size_t j = 0; j < minimizer.hits; j++) {
                     const auto& occ = occs[j];
 
@@ -4080,41 +4078,20 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     seeds.emplace_back();
                     seeds.back().pos = hit;
                     seeds.back().source = i;
-                    seeds.back().paths = gbwtgraph::get_paths_or_zero(occ.payload);
+                    
+                    // Get the payload using the provided function
+                    auto payload = get_payload_fn(occ);
+                    seeds.back().paths = gbwtgraph::get_paths_or_zero(payload);
 
-                    // XL mode: zipcode does not use PayloadXL, workaround: we create a dummy payload.
-                    seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-                    seeds.back().zipcode.fill_in_full_decoder();
-                }
-            } else {
-                // Classic index: occs points to PositionPayload<Payload>; payload drives paths/zipcode as before.
-                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
-
-                for (size_t j = 0; j < minimizer.hits; j++) {
-                    const auto& occ = occs[j];
-
-                    pos_t hit = occ.position.decode();
-                    // Reverse the hits for a reverse minimizer
-                    if (minimizer.value.is_reverse) {
-                        size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
-                        hit = reverse_base_pos(hit, node_length);
-                    }
-
-                    // Extract component id and offset in the root chain, if we have them for this seed.
-                    seeds.emplace_back();
-                    seeds.back().pos = hit;
-                    seeds.back().source = i;
-                    seeds.back().paths = gbwtgraph::get_paths_or_zero(occ.payload);
-
-                    // Classic mode: zipcode logic based on payload content, with fallbacks.
-                    if (occ.payload == MIPayload::NO_CODE) {
+                    // Handle zipcode
+                    if (payload.first == 0 && payload.second == 0) {
                         // No zipcode saved; compute it from position.
                         seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
                         seeds.back().zipcode.fill_in_full_decoder();
-                    } else if (occ.payload.first == 0) {
+                    } else if (payload.first == 0) {
                         // Payload stores an index into the oversized zipcodes list.
                         if (!this->zipcodes->empty()) {
-                            seeds.back().zipcode = zipcodes->at(occ.payload.second);
+                            seeds.back().zipcode = zipcodes->at(payload.second);
                         } else {
                             // Oversized payloads not available; compute from position.
                             seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
@@ -4122,9 +4099,23 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                         }
                     } else {
                         // Zipcode was saved directly in the payload.
-                        seeds.back().zipcode.fill_in_zipcode_from_payload(occ.payload);
+                        seeds.back().zipcode.fill_in_zipcode_from_payload(payload);
                     }
                 }
+            };
+
+            if (index_kind == IndexKind::XL) {
+                // XL index: convert PayloadXL to standard Payload
+                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>*>(minimizer.occs);
+                process_occurrences(occs, [](const auto& occ) {
+                    return gbwtgraph::Payload{occ.payload.first, occ.payload.second};
+                });
+            } else {
+                // Classic index: use Payload directly
+                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
+                process_occurrences(occs, [](const auto& occ) {
+                    return occ.payload;
+                });
             }
 
             if (this->track_provenance) {

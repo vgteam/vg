@@ -593,7 +593,11 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
             }
             return {0, zip_index, 0};
         } else {
-            static_assert(always_false<PayloadType>::value, "Unhandled PayloadType in minimizer construction");
+            static_assert(
+                std::is_same<PayloadType, gbwtgraph::Payload>::value ||
+                std::is_same<PayloadType, gbwtgraph::PayloadXL>::value,
+                "PayloadType must be gbwtgraph::Payload or gbwtgraph::PayloadXL"
+            );
         }
     };
     gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
