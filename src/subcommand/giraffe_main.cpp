@@ -1812,11 +1812,12 @@ int main_giraffe(int argc, char** argv) {
     if (map_long_reads) {
         if (use_path_minimizer) {
             // FIXME: This is a temporary hack to load the path minimizers, I can't find a way to use VPKG to load them.
-            auto path = registry.require("Long Read PathMinimizers").at(0);
-            ifstream path_in(path, std::ios::binary);
-            if(!path_in) throw std::runtime_error("cannot open " + path);
-            path_minimizer_index->deserialize(path_in);
-            path_in.close();
+            // auto path = registry.require("Long Read PathMinimizers").at(0);
+            // ifstream path_in(path, std::ios::binary);
+            // if(!path_in) throw std::runtime_error("cannot open " + path);
+            // path_minimizer_index->deserialize(path_in);
+            // path_in.close();
+            path_minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndexXL>(registry.require("Long Read PathMinimizers").at(0));
         } else {
             // Use the long read minimizers
             minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));

@@ -36,6 +36,27 @@ void register_loader_saver_minimizer() {
     });
 }
 
+void register_loader_saver_minimizer_paths() {
+    std::uint32_t magic_number = gbwtgraph::MinimizerHeader::TAG;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
+
+    Registry::register_bare_loader_saver_with_magic<gbwtgraph::MinimizerIndexXL>("MinimizerIndexXL", magic_string, [](istream& input) -> void* {
+        gbwtgraph::MinimizerIndexXL* index = new gbwtgraph::MinimizerIndexXL();
+
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
+        index->deserialize(input);
+
+        return reinterpret_cast<void*>(index);
+    }, [](const void* index_void, ostream& output) {
+        // This will fail silently if writing to the output stream fails.
+        assert(index_void != nullptr);
+        static_cast<const gbwtgraph::MinimizerIndexXL*>(index_void)->serialize(output);
+    });
+}
+
 }
 
 }
