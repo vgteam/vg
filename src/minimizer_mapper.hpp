@@ -596,8 +596,7 @@ class MinimizerMapper : public AlignerClient {
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
-        //const typename gbwtgraph::DefaultMinimizerIndex::value_type* occs;
-        const void* occs = nullptr;
+        const void* occs = nullptr; // Pointer to the occurrences of the minimizer in the index, void in order to be agnostic to index type.
 
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
