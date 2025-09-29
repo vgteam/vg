@@ -646,7 +646,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 
             // add recombination penalty if necessary 
             jump_points -= score_chain_rec(chain_scores[from_anchor], here) * recomb_penalty;
-            //jump_points -= score_chain_rec_jaccard(chain_scores[from_anchor], here, recomb_penalty);
 
             // We can also account for the non-indel material, which we assume will have some identity in it.
             jump_points += possible_match_length * points_per_possible_match;
