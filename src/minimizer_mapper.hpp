@@ -710,7 +710,6 @@ protected:
             throw std::runtime_error("MinimizerMapper::with_index: unknown index kind");
         }
     }
-    //const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
