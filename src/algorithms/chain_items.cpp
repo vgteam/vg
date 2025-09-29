@@ -514,7 +514,7 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
 }
 
 /// If the current anchor shares paths with the chain, pay a penalty.
-int score_chain_rec(const TracedScore& from, const Anchor& to) {
+int check_recombination(const TracedScore& from, const Anchor& to) {
     if ((from.paths & to.anchor_start_paths()) == 0) {
         return 1;
     } else {
@@ -528,13 +528,13 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           int recomb_penalty,
                            const transition_iterator& for_each_transition,
                            int item_bonus,
                            double item_scale,
                            double gap_scale,
                            double points_per_possible_match,
                            size_t max_indel_bases,
+                           int recomb_penalty,
                            bool show_work) {
     
 #ifdef debug_chaining
@@ -644,8 +644,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // here.
             jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
 
-            // add recombination penalty if necessary 
-            jump_points -= score_chain_rec(chain_scores[from_anchor], here) * recomb_penalty;
+            // add recombination penalty if necessary
+            jump_points -= check_recombination(chain_scores[from_anchor], here) * recomb_penalty;
 
             // We can also account for the non-indel material, which we assume will have some identity in it.
             jump_points += possible_match_length * points_per_possible_match;
@@ -855,13 +855,13 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
-                                                             recomb_penalty,
                                                              for_each_transition,
                                                              item_bonus,
                                                              item_scale,
                                                              gap_scale,
                                                              points_per_possible_match,
                                                              max_indel_bases,
+                                                             recomb_penalty,
                                                              show_work);
     // Then do the tracebacks
     vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(

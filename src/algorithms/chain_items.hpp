@@ -485,14 +485,15 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           int recomb_penalty = 0,
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            int item_bonus = 0,
                            double item_scale = 1.0,
                            double gap_scale = 1.0,
                            double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
-                           bool show_work = false);
+                           bool show_work = false,
+                           int recomb_penalty = 0
+                        );
 
 /**
  * Trace back through in the given DP table from the best chain score.
@@ -576,8 +577,10 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 /// This produces a penalty (positive number).
 int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
 
-/// Apply a recombination penalty if two consecutive anchors are not sharing a common haplotype
-int score_chain_rec(const Anchor& from, const Anchor& to);
+/// Determine if adding the new anchor would cause a recombination event
+/// with respect to the old anchor, given their supported paths.
+/// Returns 0 if no recombination, or 1 if there is a recombination.
+int check_recombination(const Anchor& from, const Anchor& to);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
