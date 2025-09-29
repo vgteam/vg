@@ -491,8 +491,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            double gap_scale = 1.0,
                            double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
-                           bool show_work = false,
-                           int recomb_penalty = 0
+                           int recomb_penalty = 0,
+                           bool show_work = false
                         );
 
 /**

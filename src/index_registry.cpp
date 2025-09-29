@@ -524,7 +524,7 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     auto dist_filename = dist_filenames.front();
     auto gbz_filename = gbz_filenames.front();
 
-    assert(constructing.size() == 2 || constructing.size() == 3);
+    assert(constructing.size() == 2);
     vector<vector<string>> all_outputs(constructing.size());
     auto minimizer_output = *constructing.begin();
     auto zipcode_output = *constructing.rbegin();
