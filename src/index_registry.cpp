@@ -507,9 +507,11 @@ int execute_in_fork(const function<void(void)>& exec) {
 #endif
 }
 
+// Internal helper for constructing minimizer indexes with different payload types
+// PayloadType should be one of gbwtgraph::Payload, gbwtgraph::PayloadXL
 template<typename PayloadType>
-std::vector<std::vector<std::string>>
-construct_minimizers_dispatch(const vector<const IndexFile*>& inputs,
+static std::vector<std::vector<std::string>>
+construct_minimizers_impl(const vector<const IndexFile*>& inputs,
                               const IndexingPlan* plan,
                               const IndexGroup& constructing,
                               int minimizer_k, int minimizer_w, bool minimizer_W) {
@@ -4218,10 +4220,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
 
         if (use_payload_xl) {
-            return construct_minimizers_dispatch<gbwtgraph::PayloadXL>(inputs, plan, constructing,
+            return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing,
                                                     minimizer_k, minimizer_w, minimizer_W);
         } else {
-            return construct_minimizers_dispatch<gbwtgraph::Payload>(inputs, plan, constructing,
+            return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing,
                                                 minimizer_k, minimizer_w, minimizer_W);
         }
     };
