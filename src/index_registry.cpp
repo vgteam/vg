@@ -578,8 +578,7 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
                 }
                 return {0, zip_index}; // extended encoding
             }
-        } else {
-            // Assume PayloadType == PayloadXL
+        } else if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
             zip.fill_in_full_decoder();
             size_t zip_index;
             #pragma omp critical
@@ -593,6 +592,8 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
                 }
             }
             return {0, zip_index, 0};
+        } else {
+            static_assert(always_false<PayloadType>::value, "Unhandled PayloadType in minimizer construction");
         }
     };
     gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
