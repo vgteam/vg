@@ -1053,10 +1053,14 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 ref_info.parent_allele = 0;
                 ref_info.parent_len = v.alleles[0].length();
                 ref_info.parent_ref_len = v.alleles[0].length();
+                ref_info.parent_path_interval = trav_steps[ref_trav_idx];
+                ref_info.parent_ref_interval = trav_steps[ref_trav_idx];
+                ref_info.lv0_ref_name = v.sequenceName;
                 ref_info.lv0_ref_name = v.sequenceName;
                 ref_info.lv0_ref_start = v.position;
                 ref_info.lv0_ref_len = v.alleles[0].length();
                 ref_info.lv0_alt_len = v.alleles[ref_info.parent_allele].length();
+                ref_info.lv = 0;
             }            
             v.info["PA"].push_back(std::to_string(ref_info.parent_allele));
             v.info["PL"].push_back(std::to_string(ref_info.parent_len));
@@ -1101,6 +1105,12 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                     }
                 }
             }
+            // update the path cover
+#pragma omp critical (off_ref_info)                
+            {
+                this->update_path_cover(trav_steps, trav_clusters, in_nesting_info->has_ref ? *in_nesting_info : ref_info);
+            }
+            
             // remember the reference path of this variant site
             // for fasta output, along with information about its parent
             int64_t ref_trav = ref_travs[i];
@@ -1108,7 +1118,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             if (!this->ref_paths.count(graph->get_path_name(graph->get_path_handle_of_step(ref_path_interval.first)))) {
 #pragma omp critical (off_ref_info)                
             {
-                this->off_ref_sequences[ref_path_interval] = *in_nesting_info;
+                //this->off_ref_sequences[ref_path_interval] = *in_nesting_info;
             }
             }
         }
@@ -1480,6 +1490,62 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     write_variants(cout, snarl_manager);
 }
 
+void Deconstructor::update_path_cover(const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
+                                      const vector<vector<int>>& traversal_clusters,
+                                      const NestingInfo& nesting_info) const {
+    // for every cluster, add off-reference sequences
+    // todo: are these in the best order? 
+    for (const vector<int>& trav_cluster : traversal_clusters) {
+        if (trav_cluster[0] >= trav_steps.size()) {
+            assert(this->star_allele);
+            continue;
+        }
+        const PathInterval& path_interval = trav_steps.at(trav_cluster[0]);
+        int64_t start = graph->get_position_of_step(path_interval.first);
+        int64_t end = graph->get_position_of_step(path_interval.second);
+        bool reversed = start > end;
+        
+        // scan the interval storing any uncovered sub-intervals
+        vector<PathInterval> sub_intervals;
+        bool open_interval = false;
+        step_handle_t prev_step;
+        string prev_name;
+        for (step_handle_t step = path_interval.first; step != path_interval.second;
+             step = (reversed ? graph->get_previous_step(step) : graph->get_next_step(step))) {
+            if (this->node_cover.count(graph->get_id(graph->get_handle_of_step(step)))) {
+                if (open_interval) {
+                    if (!this->ref_paths.count(prev_name)) {
+                        // expects inclusive interval
+                        step_handle_t end_step = reversed ? graph->get_next_step(step) : graph->get_previous_step(step);
+                        sub_intervals.push_back(make_pair(prev_step, end_step));
+                    }
+                    open_interval = false;
+                }
+            } else {
+                if (open_interval == false) {
+                    prev_step = step;
+                    prev_name = graph->get_path_name(graph->get_path_handle_of_step(prev_step));
+                    open_interval = true;
+                }
+                this->node_cover.insert(graph->get_id(graph->get_handle_of_step(step)));
+            }
+        }
+        
+        if (open_interval && !this->ref_paths.count(prev_name)) {
+            // expects inclusive interval
+            step_handle_t end_step = reversed ? graph->get_next_step(path_interval.second) :
+                graph->get_previous_step(path_interval.second);            
+            sub_intervals.push_back(make_pair(prev_step, end_step));
+        }
+
+        // update the path cover
+        for (const PathInterval& interval : sub_intervals) {
+            // todo: store something
+            this->off_ref_sequences[interval] = nesting_info;
+        }
+    }
+}           
+                                      
 static string resolve_path_name(const PathPositionHandleGraph* graph,
                                 const PathInterval& path_interval,
                                 int64_t& out_start,
@@ -1615,11 +1681,10 @@ void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) con
                                                          graph->get_handle_of_step(nesting_info.parent_ref_interval.second));
 
         
-        out_metadata_file << path_name << "\t"
+        out_metadata_file << Paths::strip_subrange(path_name) << "\t"
+                          << pos1 << "\t"
+                          << pos2 << "\t"
                           << snarl_name << "\t"
-                          << par_path_name << "\t"
-                          << par_snarl_name << "\t"
-                          << nesting_info.lv << "\t"
                           << nesting_info.lv0_ref_name << "\t"
                           << nesting_info.lv0_ref_start << "\t"
                           << (nesting_info.lv0_ref_start + nesting_info.lv0_ref_len) << "\t"

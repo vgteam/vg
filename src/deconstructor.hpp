@@ -142,6 +142,12 @@ private:
                                               const vector<string>& trav_to_name,
                                               const vector<int>& gbwt_phases) const;
 
+    // update off-ref path cover
+    void update_path_cover(const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
+                           const vector<vector<int>>& traversal_clusters,
+                           const NestingInfo& nesting_info) const;
+
+
     // the underlying context-getter
     vector<nid_t> get_context(
         step_handle_t start_step,
@@ -217,6 +223,9 @@ private:
 
     // keep track of off-reference reference sequences to print to fasta at the end
     mutable unordered_map<PathInterval, NestingInfo> off_ref_sequences;
+
+    // keep track of path cover for computing off_ref_sequences
+    mutable unordered_set<nid_t> node_cover;
 };
 
 
