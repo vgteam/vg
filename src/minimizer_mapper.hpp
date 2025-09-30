@@ -368,8 +368,8 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
     /// Recombination penalty for fragmenting. This is added to the score of a transition if there are no shared hapotypes.
-    static constexpr int default_rec_penalty_fragm = 0;
-    int rec_penalty_fragm = default_rec_penalty_fragm;
+    static constexpr int default_rec_penalty_fragment = 0;
+    int rec_penalty_fragment = default_rec_penalty_fragment;
     /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared hapotypes.
     static constexpr int default_rec_penalty_chain = 0;
     int rec_penalty_chain = default_rec_penalty_chain;

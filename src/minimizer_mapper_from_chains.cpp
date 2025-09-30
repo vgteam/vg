@@ -1449,7 +1449,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
-                this->rec_penalty_fragm,
+                this->rec_penalty_fragment,
                 this->max_fragments,
                 for_each_transition,
                 this->item_bonus,

@@ -532,17 +532,17 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
-        "rec-chain-penalty",
+        "rec-penalty-chain",
         &MinimizerMapper::rec_penalty_chain,
         MinimizerMapper::default_rec_penalty_chain,
-        "penalty for a recombination when chaining, requires -E (TEMP)",
+        "penalty for a recombination when chaining, requires -E (ALPHA)",
         int_is_nonnegative
     );
     chaining_opts.add_range(
-        "rec-frag-penalty",
-        &MinimizerMapper::rec_penalty_fragm,
-        MinimizerMapper::default_rec_penalty_fragm,
-        "penalty for a recombination when fragmenting, requires -E (TEMP)",
+        "rec-penalty-fragm",
+        &MinimizerMapper::rec_penalty_fragment,
+        MinimizerMapper::default_rec_penalty_fragment,
+        "penalty for a recombination when fragmenting, requires -E (ALPHA)",
         int_is_nonnegative
     );
     chaining_opts.add_range(
