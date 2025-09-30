@@ -1670,7 +1670,11 @@ int main_giraffe(int argc, char** argv) {
         cerr << "error: [vg giraffe] Paired-end alignment is not yet implemented for --align-from-chains or chaining-based presets" << endl;
         exit(1);
     }
-
+    if (use_path_minimizer && !map_long_reads) {
+        // We don't have file paths to load defined for recombination-aware short-read minimizers.
+        cerr << "error: [vg giraffe] Path minimizers cannot be used with short reads." << endl;
+        return 1;
+    }
     bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
     if (!index_basename_override.empty()) {
         index_basename = index_basename_override;
@@ -1812,15 +1816,9 @@ int main_giraffe(int argc, char** argv) {
         cerr << "Loading Minimizer Index" << endl;
     }
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
-    unique_ptr<gbwtgraph::MinimizerIndexXL> path_minimizer_index(new gbwtgraph::MinimizerIndexXL());
+    unique_ptr<gbwtgraph::MinimizerIndexXL> path_minimizer_index;
     if (map_long_reads) {
         if (use_path_minimizer) {
-            // FIXME: This is a temporary hack to load the path minimizers, I can't find a way to use VPKG to load them.
-            // auto path = registry.require("Long Read PathMinimizers").at(0);
-            // ifstream path_in(path, std::ios::binary);
-            // if(!path_in) throw std::runtime_error("cannot open " + path);
-            // path_minimizer_index->deserialize(path_in);
-            // path_in.close();
             path_minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndexXL>(registry.require("Long Read PathMinimizers").at(0));
         } else {
             // Use the long read minimizers
@@ -1909,11 +1907,13 @@ int main_giraffe(int argc, char** argv) {
     unique_ptr<MinimizerMapper> minimizer_mapper_ptr;
 
     if (use_path_minimizer) {
+        crash_unless(path_minimizer_index);
         minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
             gbz->graph, *path_minimizer_index, distance_index.get(),
             &oversized_zipcodes, path_position_graph
         );
     } else {
+        crash_unless(minimizer_index);
         minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
             gbz->graph, *minimizer_index, distance_index.get(),
             &oversized_zipcodes, path_position_graph
