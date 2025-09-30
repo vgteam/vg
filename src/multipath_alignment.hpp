@@ -337,6 +337,9 @@ namespace vg {
     /// Returns true if any subpath has a connection adjacency
     bool contains_connection(const multipath_alignment_t& multipath_aln);
 
+    /// Returns true if the multipath_alignment_t is annotated as supplementary
+    bool is_supplementary(const multipath_alignment_t& multipath_aln);
+
     /// Returns all of the positions where a given sequence index occurs at a given graph
     /// graph position (if any), where positions are represented as tuples of
     /// (subpath index, mapping index, edit index, index within edit)

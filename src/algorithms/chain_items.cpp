@@ -26,7 +26,8 @@ ostream& operator<<(ostream& out, const Anchor& anchor) {
     if (margin_left) {
         out << "(" << margin_left << ")";
     }
-    out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
+    out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() 
+        << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
     if (margin_right) {
         out << "(" << margin_right << ")";
     }
@@ -98,7 +99,8 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
         // destination item, in the read. Then when we look for possible
         // predecessors of the destination item, we can start just before there and
         // look left.
-        vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Anchor& a, const Anchor& b) {
+        vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(),
+        [&](const Anchor& a, const Anchor& b) {
             return a.read_end() < b.read_end();
         });
         // We use first overlapping instead of last non-overlapping because we can
@@ -129,7 +131,9 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 #endif
 
 #ifdef debug_chaining
-            cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
+            cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start()
+                 << " is #" << *first_overlapping_it << " past-ending at "
+                 << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
 #endif
             
             // Set up lookback control algorithm.
@@ -168,7 +172,8 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                     if (read_distance > max_lookback_bases) {
                         // This is further in the read than the real hard limit.
 #ifdef debug_chaining
-                    cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
+                        cerr << "\t\tDisregard due to read distance " << read_distance 
+                             << " over limit " << max_lookback_bases << endl;
 #endif
                         break;
                     } 
@@ -176,8 +181,10 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                 
                 // Now it's safe to make a distance query
                 
-                // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
-                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
+                // How far do we go in the graph?
+                // Don't bother finding out exactly if it is too much longer than in the read.
+                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, 
+                                                           read_distance + max_indel_bases);
                 
                 std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
                 if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
@@ -205,7 +212,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         const transition_iteratee& callback
     ) {
 
-        // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about. So we need to index the anchors by leading/trailing seed.
+        // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about.
+        // So we need to index the anchors by leading/trailing seed.
         // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
         std::unordered_map<size_t, size_t> seed_to_starting;
         std::unordered_map<size_t, size_t> seed_to_ending;
@@ -214,186 +222,255 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             seed_to_ending[to_chain[anchor_num].seed_end()] = anchor_num;
         }
 
-        // Emit a transition between a source and destination anchor, or skip if actually unreachable.
-        auto handle_transition = [&](size_t source_anchor_index, size_t dest_anchor_index, size_t graph_distance) {
-            
-            auto& source_anchor = to_chain[source_anchor_index];
-            auto& dest_anchor = to_chain[dest_anchor_index];
-
-#ifdef debug_transition
-            std::cerr << "Handle transition #" << source_anchor_index << " " << source_anchor << " to #" << dest_anchor_index << " " << dest_anchor << std::endl;
-#endif
-
-            if (graph_distance == std::numeric_limits<size_t>::max()) {
-                // Not reachable in graph (somehow)
-                // TODO: Should never happen!
-#ifdef debug_transition
-                std::cerr << "\tNot reachable in graph!" << std::endl;
-#endif
-                return;
-            }
-
-            size_t read_distance = get_read_distance(source_anchor, dest_anchor);
-            if (read_distance == std::numeric_limits<size_t>::max()) {
-                // Not reachable in read
-#ifdef debug_transition
-                std::cerr << "\tNot reachable in read." << std::endl;
-#endif
-                return;
-            }
-
-            if (read_distance > max_read_lookback_bases) {
-                // Too far in read to consider
-#ifdef debug_transition
-                std::cerr << "\tToo far apart in read (" << read_distance << "/" << max_read_lookback_bases << ")." << std::endl;
-#endif
-                return;
-            }
-
-            if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
-                // The actual core anchor part is reachable in the read, but we cut these down from overlapping minimizers.
-#ifdef debug_transition
-                std::cerr << "\tOriginally overlapped in read." << std::endl;
-#endif
-                return;
-            }
-
-            // The zipcode tree is about point positions, but we need distances between whole anchors.
-            // The stored zipcode positions will be at distances from the start/end of the associated anchor.
-            
-            // If the offset between the zip code point and the start of the destination is 0, and between the zip code point and the end of the source is 0, we subtract 0 from the measured distance. Otherwise we need to subtract something.
-            size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
-
-#ifdef debug_transition
-            std::cerr << "\tZip code tree sees " << graph_distance << " but we should back out " << distance_to_remove << std::endl;
-#endif
-
-            if (distance_to_remove > graph_distance) {
-                // We actually end further along the graph path to the next
-                // thing than where the next thing starts, so we can't actually
-                // get there.
-                return;
-            }
-            // Consume the length. 
-            graph_distance -= distance_to_remove;
-
-#ifdef debug_transition
-            std::cerr << "\tZip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart" << std::endl;
-#endif
-
-#ifdef double_check_distances
-
-            auto from_pos = source_anchor.graph_end();
-            auto to_pos = dest_anchor.graph_start();
-            size_t check_distance = distance_index.minimum_distance(
-                id(from_pos), is_rev(from_pos), offset(from_pos),
-                id(to_pos), is_rev(to_pos), offset(to_pos),
-                false, &graph);
-            if (check_distance != graph_distance) {
-                #pragma omp critical (cerr)
-                std::cerr << "\tZip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart but they are actually " << check_distance << " apart" << std::endl;
-                crash_unless(check_distance == graph_distance);
-            }
-
-#endif
-
-            // Send it along.
-            callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
-        };
-
         // If we find we are actually walking through the graph in opposition
         // to the read, we need to defer transitions from source on the read
         // forward strand to dest on the read forward strand, so we can go them
         // in order along the read forward strand.
         // This holds source, dest, and graph distance.
         // We will fill it all in and then sort it by destination read position.
-        std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
+        std::vector<std::tuple<size_t, size_t, size_t>> all_transitions = 
+            generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+                                          seed_to_starting, seed_to_ending);
 
-        for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
-            // For each destination seed left to right
-            ZipCodeTree::oriented_seed_t dest_seed = *dest;
+        std::vector<std::tuple<size_t, size_t, size_t, size_t>> filtered_transitions =
+            calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
 
+        // Sort the transitions so we handle them in an allowed order for dynamic programming.
+        std::sort(filtered_transitions.begin(), filtered_transitions.end(), 
+            [&](const std::tuple<size_t, size_t, size_t, size_t>& a, const std::tuple<size_t, size_t, size_t, size_t>& b) {
+            // Return true if a's destination seed is before b's in the read, and false otherwise.
+            return to_chain[get<1>(a)].read_start() < to_chain[get<1>(b)].read_start();
+        });
 
+        for (auto& transition : filtered_transitions) {
+            // Emit a transition between a source and destination anchor, or skip if actually unreachable.
+            size_t source_anchor_index = std::get<0>(transition);
+            size_t dest_anchor_index = std::get<1>(transition);
+            size_t graph_distance = std::get<3>(transition);
+            size_t read_distance = std::get<2>(transition);
+            // Send it along.
+            callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
+        }
+    };
+}
 
-            // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
-            std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
+std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    const ZipCodeTree& zip_code_tree,
+    size_t max_graph_lookback_bases,
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending) {
 
-            if (found_dest_anchor == (dest_seed.is_reverse ? seed_to_ending.end() : seed_to_starting.end())) {
-                // We didn't find an anchor for this seed, maybe it lives in a different cluster. Skip it.
-                continue;
+    std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
+
+    for (auto seed_itr = zip_code_tree.begin(); seed_itr != zip_code_tree.end(); ++seed_itr) {
+        // For each destination seed left to right
+        vector<ZipCodeTree::oriented_seed_t> dest = *seed_itr;
+
+        // Might be the start of an anchor if forward relative to the read,
+        // or the end of an anchor if reverse relative to the read
+        unordered_map<ZipCodeTree::oriented_seed_t, size_t> dest_anchors;
+        for (const auto& dest_seed : dest) {
+            auto anchor = dest_seed.is_reversed ? seed_to_ending.find(dest_seed.seed)
+                                                : seed_to_starting.find(dest_seed.seed);
+            if (anchor != (dest_seed.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
+                dest_anchors[dest_seed] = anchor->second;
             }
+        }
+
+        if (dest_anchors.empty()) {
+            // Only find transitions if we find an anchor for this seed
+            continue;
+        }
 
 #ifdef debug_transition
-            std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << found_dest_anchor->second << std::endl;
+        std::cerr << "Destination seed";
+        if (dest_anchors.size() > 1) {
+            std::cerr << "s";
+        }
+        pos_t cur_pos;
+        string rev_string = "";
+        for (const auto& cur_dest_anchor : dest_anchors) {
+            auto dest_seed = cur_dest_anchor.first;
+            std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_dest_anchor.second << ")";
+            cur_pos = seeds[dest_seed.seed].pos;
+            rev_string = dest_seed.is_reversed ? "rev" : "";
+        }
+        std::cerr  << " at " << cur_pos << rev_string << std::endl;
 #endif
 
-            for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_graph_lookback_bases); source != zip_code_tree.rend(); ++source) {
-                // For each source seed right to left
-                ZipCodeTree::seed_result_t source_seed = *source;
-
+        for (auto source = zip_code_tree.find_distances(seed_itr, max_graph_lookback_bases); 
+             !source.done(); ++source) {
+            // For each source seed right to left
+            ZipCodeTree::seed_result_t source_seed = *source;
+            for (const auto& cur_dest_anchor : dest_anchors) {
 #ifdef debug_transition
-                std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_graph_lookback_bases;
+                std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos 
+                          << (source_seed.is_reversed ? "rev" : "") << " at distance " << source_seed.distance
+                            << "/" << max_graph_lookback_bases;
 #endif
-
-                if (!source_seed.is_reverse && !dest_seed.is_reverse) {
-                    // Both of these are in the same orientation relative to
-                    // the read, and we're going through the graph in the
-                    // read's forward orientation as assigned by these seeds.
-                    // So we can just visit this transition.
-
+                if (!source_seed.is_reversed && !cur_dest_anchor.first.is_reversed) {
+                    // Both were traversed in the same orientation as the read.
                     // They might not be at anchor borders though, so check.
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_source_anchor != seed_to_ending.end()) {
-                        // We can transition between these seeds without jumping to/from the middle of an anchor.
+                        // We can transition between these seeds
+                        // without jumping to/from the middle of an anchor.
 #ifdef debug_transition
                         std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-                        std::cerr << "\t\tFound transition from #" << found_source_anchor->second << " to #" << found_dest_anchor->second << std::endl;
+                        std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
+                                  << " to #" << cur_dest_anchor.second << std::endl;
 #endif
-                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
+                        all_transitions.emplace_back(found_source_anchor->second, cur_dest_anchor.second,
+                                                     source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
 #endif
                     }
-                } else if (source_seed.is_reverse && dest_seed.is_reverse) {
-                    // Both of these are in the same orientation but it is opposite to the read.
-                    // We need to find source as an anchor *started*, and then save them flipped for later.
+                } else if (source_seed.is_reversed && cur_dest_anchor.first.is_reversed) {
+                    // Both were traversed in the opposite orientation as the read.
+                    // We need to save them flipped for later.
                     auto found_source_anchor = seed_to_starting.find(source_seed.seed);
                     if (found_source_anchor != seed_to_starting.end()) {
-                        // We can transition between these seeds without jumping to/from the middle of an anchor.
+                        // We can transition between these seeds
+                        // without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
-                        
+                            
 #ifdef debug_transition
                         std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-                        std::cerr << "\t\tFound backward transition from #" << found_dest_anchor->second << " to #" << found_source_anchor->second << std::endl;
+                        std::cerr << "\t\tFound backward transition from #" << cur_dest_anchor.second << " to #"
+                                  << found_source_anchor->second << std::endl;
 #endif
-
-                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
+                        all_transitions.emplace_back(cur_dest_anchor.second, found_source_anchor->second,
+                                                     source_seed.distance);
                     } else {
 #ifdef debug_transition
-                        std::cerr << " is in the wrong relative orientation." << std::endl;
+                        std::cerr << " does not represent an anchor." << std::endl;
 #endif
                     }
                 } else {
-                    // We have a transition between different orientations relative to the read. Don't show that.
-                    continue;
+                    // We have a transition between different orientations
+                    // relative to the read. That shouldn't happen.
+                    crash_unless(source_seed.is_reversed == cur_dest_anchor.first.is_reversed);
                 }
             }
         }
+    }
 
-        // Sort the transitions so we handle them in an allowed order for dynamic programming.
-        // TODO: Should we drop things obviously not reachable in the read before sorting to save time?
-        std::sort(all_transitions.begin(), all_transitions.end(), [&](const std::tuple<size_t, size_t, size_t>& a, const std::tuple<size_t, size_t, size_t>& b) {
-            // Return true if a's destination seed is before b's in the read, and false otherwise.
-            return to_chain[get<1>(a)].read_start() < to_chain[get<1>(b)].read_start();
-        });
+    return all_transitions;
+}
 
-        for (auto& transition : all_transitions) {
-            // And handle all of them.
-            // TODO: Inline this now-useless lambda that we call once.
-            handle_transition(std::get<0>(transition), std::get<1>(transition), std::get<2>(transition));
+std::vector<std::tuple<size_t, size_t, size_t, size_t>> calculate_transition_read_distances(
+    const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
+    const VectorView<Anchor>& to_chain,
+    size_t max_read_lookback_bases) {
+
+    std::vector<std::tuple<size_t, size_t, size_t, size_t>> filtered_transitions;
+
+    for (auto& transition : all_transitions) {
+        // Emit a transition between a source and destination anchor, or skip if actually unreachable.
+        size_t source_anchor_index = std::get<0>(transition);
+        size_t dest_anchor_index = std::get<1>(transition);
+        size_t graph_distance = std::get<2>(transition);
+        auto& source_anchor = to_chain[source_anchor_index];
+        auto& dest_anchor = to_chain[dest_anchor_index];
+
+#ifdef debug_transition
+        std::cerr << "Handle transition #" << source_anchor_index << " " << source_anchor
+                  << " to #" << dest_anchor_index << " " << dest_anchor << std::endl;
+#endif
+
+        if (graph_distance == std::numeric_limits<size_t>::max()) {
+            // Not reachable in graph (somehow)
+            // TODO: Should never happen!
+#ifdef debug_transition
+            std::cerr << "\tNot reachable in graph!" << std::endl;
+#endif
+            continue;
         }
-    };
+
+        size_t read_distance = get_read_distance(source_anchor, dest_anchor);
+        if (read_distance == std::numeric_limits<size_t>::max()) {
+            // Not reachable in read
+#ifdef debug_transition
+            std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+            continue;
+        }
+
+        if (read_distance > max_read_lookback_bases) {
+            // Too far in read to consider
+#ifdef debug_transition
+            std::cerr << "\tToo far apart in read (" << read_distance 
+                      << "/" << max_read_lookback_bases << ")." << std::endl;
+#endif
+            continue;
+        }
+
+        if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
+            // The actual core anchor part is reachable in the read,
+            // but we cut these down from overlapping minimizers.
+#ifdef debug_transition
+            std::cerr << "\tOriginally overlapped in read." << std::endl;
+#endif
+            continue;
+        }
+
+        // The zipcode tree is about point positions,
+        // but we need distances between whole anchors.
+        // The stored zipcode positions will be at distances
+        // from the start/end of the associated anchor.
+        
+        // If the offset between the zip code point
+        // and the start of the destination is 0,
+        // and between the zip code point and the end of the source is 0,
+        // we subtract 0 from the measured distance.
+        // Otherwise we need to subtract something.
+        size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
+
+#ifdef debug_transition
+        std::cerr << "\tZip code tree sees " << graph_distance
+                  << " but we should back out " << distance_to_remove << std::endl;
+#endif
+
+        if (distance_to_remove > graph_distance) {
+            // We actually end further along the graph path to the next
+            // thing than where the next thing starts, so we can't actually
+            // get there.
+            continue;
+        }
+        // Consume the length. 
+        graph_distance -= distance_to_remove;
+
+#ifdef debug_transition
+        std::cerr << "\tZip code tree sees " << source_anchor << " and "
+                  << dest_anchor << " as " << graph_distance << " apart" << std::endl;
+#endif
+
+#ifdef double_check_distances
+
+        auto from_pos = source_anchor.graph_end();
+        auto to_pos = dest_anchor.graph_start();
+        size_t check_distance = distance_index.minimum_distance(
+            id(from_pos), is_rev(from_pos), offset(from_pos),
+            id(to_pos), is_rev(to_pos), offset(to_pos),
+            false, &graph);
+        if (check_distance != graph_distance) {
+            #pragma omp critical (cerr)
+            std::cerr << "\tZip code tree sees " << source_anchor << " and " 
+                      << dest_anchor << " as " << graph_distance 
+                      << " apart but they are actually " << check_distance << " apart" << std::endl;
+            crash_unless(check_distance == graph_distance);
+        }
+
+#endif
+
+        // Send it along.
+        filtered_transitions.emplace_back(source_anchor_index, dest_anchor_index, graph_distance, read_distance);
+    }
+
+    return filtered_transitions;
 }
 
 /// Compute a gap score like minimap2.
@@ -501,7 +578,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         size_t possible_match_length = std::min(read_distance, graph_distance);
         
         if (show_work) {
-            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << ((read_distance > graph_distance) ? " seems plausible" : " would be required") << endl;
+            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance
+                 << " an indel of length " << indel_length
+                 << ((read_distance > graph_distance) ? " seems plausible" : " would be required") << endl;
         }
 
         if (indel_length > max_indel_bases) {
@@ -548,7 +627,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);
                                            
             if (show_work) {
-                cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
+                cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points
+                     << " from transition + " << item_points << " from item = " << from_source_score << endl;
             }
             
             if (diagram) {
@@ -557,7 +637,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                     // won't let local score go negative
                     
                     std::string source_gvnode = "i" + std::to_string(from_anchor);
-                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                    // Suggest that we have an edge, where the edges that are
+                    // the best routes here are the most likely to actually show up.
                     diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
                         {"label", std::to_string(jump_points)},
                         {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
@@ -586,7 +667,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[to_anchor];
 
         if (show_work) {
-            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
+            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
+                 << " is " << chain_scores[to_anchor] << endl;
         }
         
         if (diagram) {
@@ -594,7 +676,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             auto item_points = here.score() * item_scale + item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
-            label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
+            label_stream << "#" << to_anchor << " " << here << " = " << item_points
+                         << "/" << chain_scores[to_anchor].score;
             diagram.add_node(here_gvnode, {
                 {"label", label_stream.str()}
             });
@@ -607,9 +690,12 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // Show the item as connected to its source graph node
             diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
             // Make the next graph node along the same strand
-            std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
+            std::string graph_gvnode2 = ("n" + std::to_string(id(graph_start) 
+                                         + (is_rev(graph_start) ? -1 : 1))
+                                         + (is_rev(graph_start) ? "r" : "f"));
             diagram.ensure_node(graph_gvnode2, {
-                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) 
+                                         + (is_rev(graph_start) ? "-" : "+")},
                 {"shape", "box"}
             });
             // And show them as connected. 
@@ -692,7 +778,8 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
     }
     
     // Sort the tracebacks by penalty, ascending
-    std::sort(tracebacks.begin(), tracebacks.end(), [](const std::pair<std::vector<size_t>, int>& a, const std::pair<std::vector<size_t>, int>& b) {
+    std::sort(tracebacks.begin(), tracebacks.end(), 
+    [](const std::pair<std::vector<size_t>, int>& a, const std::pair<std::vector<size_t>, int>& b) {
         // Return true if a has the smaller penalty and belongs first
         return a.second < b.second;
     });
@@ -739,7 +826,8 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              max_indel_bases,
                                                              show_work);
     // Then do the tracebacks
-    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
+    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(
+        chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -786,14 +874,16 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
     ).front();
 }
 
-int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension) {
+int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, 
+                     const HandleGraph& graph, int gap_open, int gap_extension) {
     
     if (to_chain.empty()) {
         return 0;
     } else {
         // Do the DP but without the traceback.
         vector<TracedScore> chain_scores;
-        TracedScore winner = algorithms::chain_items_dp(chain_scores, to_chain, distance_index, graph, gap_open, gap_extension);
+        TracedScore winner = algorithms::chain_items_dp(
+            chain_scores, to_chain, distance_index, graph, gap_open, gap_extension);
         return winner.score;
     }
 }
@@ -803,7 +893,8 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 //#define double_check_distances
 //#define stop_on_mismatch
 //#define replace_on_mismatch
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
+size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index,
+                          const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
@@ -871,7 +962,8 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
             false, &graph);
     }
     if (distance > distance_limit) {
-        // Zip code logic can have to compute a number over the limit, and in that case will return it.
+        // Zip code logic can have to compute a number over the limit,
+        // and in that case will return it.
         // Cut it off here.
         distance = std::numeric_limits<size_t>::max();
     }

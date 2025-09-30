@@ -283,14 +283,15 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
     sdsl::bit_vector covered(seq_length, 0);
 
     vector<size_t> tree_seeds;
-    for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[i]) {
+    for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[i].get_all_seeds()) {
         if (this->track_provenance) {
             // Remember the seeds
             tree_seeds.push_back(found.seed);
         }
         // For each seed in the tree, find what minimizer it comes from
         if (found.seed >= seeds.size()) {
-            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed) + " but we only have " + std::to_string(seeds.size()) + " seeds");
+            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed)
+                                    + " but we only have " + std::to_string(seeds.size()) + " seeds");
         }
         size_t source = seeds.at(found.seed).source;
         if (!present.contains(source)) {
@@ -633,16 +634,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Make them into a zip code tree
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
-    zip_code_forest.fill_in_forest(seeds, minimizers, *distance_index, 
-                                   max_graph_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
+    zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            std::cerr << log_name() << "Zip code forest:";
-            zip_code_forest.print_self(&seeds, &minimizers);
-        }
+    #pragma omp critical (cerr)
+    {
+        std::cerr << log_name() << "Zip code forest:" << std::endl;
+        zip_code_forest.print_self(&seeds);
     }
 #endif
     // Turn all the seeds into anchors. Either we'll fragment them directly or
@@ -1176,11 +1174,9 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             //Make sure that each seed gets added only once
             vector<bool> added_seed (seeds.size(), false);
             vector<size_t> selected_seeds;
-            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
-                if (!added_seed[found.seed]) {
-                    selected_seeds.push_back(found.seed);
-                    added_seed[found.seed] = true;
-                }
+            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num].get_all_seeds()) {
+                selected_seeds.push_back(found.seed);
+                added_seed[found.seed] = true;
             }
             
             if (show_work) {
@@ -2106,8 +2102,8 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
         
         // Find all the seeds in its zip tree
         vector<size_t> involved_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num)) {
-            involved_seeds.push_back(found.seed);   
+        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
+            involved_seeds.push_back(found.seed);
         }
 
         // Start making a list of things to show. 

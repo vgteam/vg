@@ -2718,6 +2718,15 @@ namespace vg {
         return !no_connection;
     }
 
+    bool is_supplementary(const multipath_alignment_t& multipath_aln) {
+        if (!multipath_aln.has_annotation("supplementary")) {
+            return false;
+        }
+        else {
+            return *((bool*) multipath_aln.get_annotation("supplementary").second);
+        }
+    }
+
     vector<tuple<int64_t, int64_t, int64_t, int64_t>>
     search_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                const pos_t& graph_pos, int64_t seq_pos) {
