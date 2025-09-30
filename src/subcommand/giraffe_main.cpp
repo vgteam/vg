@@ -1916,7 +1916,6 @@ int main_giraffe(int argc, char** argv) {
         );
     }
     MinimizerMapper& minimizer_mapper = *minimizer_mapper_ptr;
-    //MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &oversized_zipcodes, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
