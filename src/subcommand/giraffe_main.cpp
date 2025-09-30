@@ -1769,13 +1769,17 @@ int main_giraffe(int argc, char** argv) {
     // Don't try and use all the memory.
     // TODO: add memory options like autoindex?
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
-    auto index_targets = VGIndexes::get_default_short_giraffe_indexes();
-    if (map_long_reads) {
-        index_targets = use_path_minimizer
-                      ? VGIndexes::get_default_long_path_giraffe_indexes()
-                      : VGIndexes::get_default_long_giraffe_indexes();
-    }
 
+    std::vector<std::string> index_targets;
+    if (!map_long_reads) {
+        index_targets = VGIndexes::get_default_short_giraffe_indexes();
+    } else {
+        if (use_path_minimizer) {
+            index_targets = VGIndexes::get_default_long_path_giraffe_indexes();
+        } else {
+            index_targets = VGIndexes::get_default_long_giraffe_indexes();
+        }
+    }
 #ifdef debug
     for (auto& needed : index_targets) {
         cerr << "Want index: " << needed << endl;
