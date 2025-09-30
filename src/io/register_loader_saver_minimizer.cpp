@@ -23,7 +23,7 @@ void register_loader_saver_minimizer() {
         gbwtgraph::DefaultMinimizerIndex* index = new gbwtgraph::DefaultMinimizerIndex();
 
         // Load it. In case of a failure, this will:
-        // * Throw an exception if sanity checks fail.
+        // * Throw an exception if data is unacceptable.
         // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         index->deserialize(input);
@@ -44,7 +44,7 @@ void register_loader_saver_minimizer_paths() {
         gbwtgraph::MinimizerIndexXL* index = new gbwtgraph::MinimizerIndexXL();
 
         // Load it. In case of a failure, this will:
-        // * Throw an exception if sanity checks fail.
+        // * Throw an exception if data is unacceptable.
         // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         index->deserialize(input);
