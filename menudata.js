@@ -204,7 +204,8 @@ var menudata={children:[
 {text:"s",url:"functions_type.html#index_s"},
 {text:"t",url:"functions_type.html#index_t"},
 {text:"v",url:"functions_type.html#index_v"},
-{text:"w",url:"functions_type.html#index_w"}]},
+{text:"w",url:"functions_type.html#index_w"},
+{text:"x",url:"functions_type.html#index_x"}]},
 {text:"Enumerations",url:"functions_enum.html",children:[
 {text:"a",url:"functions_enum.html#index_a"},
 {text:"b",url:"functions_enum.html#index_b"},

@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['indexingplan_14527',['IndexingPlan',['../classvg_1_1IndexRegistry.html#a490f2f891225b54cb14e32d593f30f5c',1,'vg::IndexRegistry']]],
-  ['indexregistry_14528',['IndexRegistry',['../classvg_1_1IndexingPlan.html#a77ea72c93e5f6c8a5e65279ae52aec32',1,'vg::IndexingPlan']]]
+  ['indexingplan_14593',['IndexingPlan',['../classvg_1_1IndexRegistry.html#a490f2f891225b54cb14e32d593f30f5c',1,'vg::IndexRegistry']]],
+  ['indexregistry_14594',['IndexRegistry',['../classvg_1_1IndexingPlan.html#a77ea72c93e5f6c8a5e65279ae52aec32',1,'vg::IndexingPlan']]]
 ];

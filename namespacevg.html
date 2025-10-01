@@ -1501,6 +1501,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a649b144d7ce85a247af73055577c4d91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a649b144d7ce85a247af73055577c4d91">load_minimizer</a> (gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:a649b144d7ce85a247af73055577c4d91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a minimizer index from the file.  <a href="namespacevg.html#a649b144d7ce85a247af73055577c4d91">More...</a><br /></td></tr>
 <tr class="separator:a649b144d7ce85a247af73055577c4d91"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee65426d2a4778e352a031b130435651"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aee65426d2a4778e352a031b130435651">load_minimizer</a> (gbwtgraph::MinimizerIndexXL &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:aee65426d2a4778e352a031b130435651"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a minimizerXL index from the file.  <a href="namespacevg.html#aee65426d2a4778e352a031b130435651">More...</a><br /></td></tr>
+<tr class="separator:aee65426d2a4778e352a031b130435651"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea7640260b1c70795335439f3d6c2eac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aea7640260b1c70795335439f3d6c2eac">save_gbwtgraph</a> (const gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:aea7640260b1c70795335439f3d6c2eac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBWTGraph to the file.  <a href="namespacevg.html#aea7640260b1c70795335439f3d6c2eac">More...</a><br /></td></tr>
 <tr class="separator:aea7640260b1c70795335439f3d6c2eac"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1513,9 +1516,6 @@ Functions</h2></td></tr>
 <tr class="memitem:af7669e457f62e6f197f3120086a091e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
 <tr class="memdesc:af7669e457f62e6f197f3120086a091e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to separate GBWT / GBWTGraph files.  <a href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">More...</a><br /></td></tr>
 <tr class="separator:af7669e457f62e6f197f3120086a091e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af7885143ca20185816afadc669813f12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7885143ca20185816afadc669813f12">save_minimizer</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
-<tr class="memdesc:af7885143ca20185816afadc669813f12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a minimizer index to the file.  <a href="namespacevg.html#af7885143ca20185816afadc669813f12">More...</a><br /></td></tr>
-<tr class="separator:af7885143ca20185816afadc669813f12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a709e93bb1c0dbdcdbc928960e42688ec"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a709e93bb1c0dbdcdbc928960e42688ec">load_translation_map</a> (const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
 <tr class="memdesc:a709e93bb1c0dbdcdbc928960e42688ec"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a mapping of the original segment ids to a list of chopped node ids.  <a href="namespacevg.html#a709e93bb1c0dbdcdbc928960e42688ec">More...</a><br /></td></tr>
 <tr class="separator:a709e93bb1c0dbdcdbc928960e42688ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1528,6 +1528,10 @@ Functions</h2></td></tr>
 <tr class="memitem:a93282dbd7c3a7daaf92b75f77c28dc29"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a93282dbd7c3a7daaf92b75f77c28dc29">to_string_gbwtgraph</a> (gbwt::node_type node)</td></tr>
 <tr class="memdesc:a93282dbd7c3a7daaf92b75f77c28dc29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a string representation of a GBWTGraph node.  <a href="namespacevg.html#a93282dbd7c3a7daaf92b75f77c28dc29">More...</a><br /></td></tr>
 <tr class="separator:a93282dbd7c3a7daaf92b75f77c28dc29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0abd377f83634edf9faceb9e13a7a950"><td class="memTemplParams" colspan="2">template&lt;typename IndexType &gt; </td></tr>
+<tr class="memitem:a0abd377f83634edf9faceb9e13a7a950"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0abd377f83634edf9faceb9e13a7a950">save_minimizer</a> (const IndexType &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a0abd377f83634edf9faceb9e13a7a950"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a minimizer index to the file.  <a href="namespacevg.html#a0abd377f83634edf9faceb9e13a7a950">More...</a><br /></td></tr>
+<tr class="separator:a0abd377f83634edf9faceb9e13a7a950"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8811548042613f9e65545d1ed377643e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8811548042613f9e65545d1ed377643e">empty_gbwtgraph_handle</a> ()</td></tr>
 <tr class="memdesc:a8811548042613f9e65545d1ed377643e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns an empty GBWTGraph handle corresponding to the GBWT endmarker.  <a href="namespacevg.html#a8811548042613f9e65545d1ed377643e">More...</a><br /></td></tr>
 <tr class="separator:a8811548042613f9e65545d1ed377643e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2240,8 +2244,8 @@ Functions</h2></td></tr>
 <tr class="separator:acc85734af557e4a1047554706a9b4580"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee40bdeb4216e0bf79124b25d1823ae4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aee40bdeb4216e0bf79124b25d1823ae4">add_path</a> (const gbwt::GBWT &amp;source, gbwt::size_type path_id, gbwt::GBWTBuilder &amp;builder, gbwtgraph::MetadataBuilder &amp;metadata)</td></tr>
 <tr class="separator:aee40bdeb4216e0bf79124b25d1823ae4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa81f31f29a47e669812c3ef57bd1aab6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa81f31f29a47e669812c3ef57bd1aab6">recombinator_sanity_checks</a> (const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
-<tr class="separator:aa81f31f29a47e669812c3ef57bd1aab6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae1461feeef45e4431c30f3f33ad01f43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae1461feeef45e4431c30f3f33ad01f43">validate_recombinator_parameters</a> (const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
+<tr class="separator:ae1461feeef45e4431c30f3f33ad01f43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aba3f6bc9cc27f9c6bb91dc27c7fb28b8"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aba3f6bc9cc27f9c6bb91dc27c7fb28b8">get_or_estimate_coverage</a> (const <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;counts, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Haplotypes::Verbosity</a> verbosity)</td></tr>
 <tr class="separator:aba3f6bc9cc27f9c6bb91dc27c7fb28b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab79dc273687fd5360cc145ce18aed912"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">Recombinator::kmer_presence</a>, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab79dc273687fd5360cc145ce18aed912">classify_kmers</a> (const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;kmer_counts, double coverage, <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html">Recombinator::Statistics</a> *statistics, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
@@ -15335,7 +15339,7 @@ template&lt;typename T , typename U &gt; </div>
 </div>
 </div>
 <a id="a649b144d7ce85a247af73055577c4d91"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a649b144d7ce85a247af73055577c4d91">&#9670;&nbsp;</a></span>load_minimizer()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a649b144d7ce85a247af73055577c4d91">&#9670;&nbsp;</a></span>load_minimizer() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -15367,6 +15371,42 @@ template&lt;typename T , typename U &gt; </div>
 </div><div class="memdoc">
 
 <p>Load a minimizer index from the file. </p>
+
+</div>
+</div>
+<a id="aee65426d2a4778e352a031b130435651"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee65426d2a4778e352a031b130435651">&#9670;&nbsp;</a></span>load_minimizer() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_minimizer </td>
+          <td>(</td>
+          <td class="paramtype">gbwtgraph::MinimizerIndexXL &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load a minimizerXL index from the file. </p>
 
 </div>
 </div>
@@ -22343,24 +22383,6 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="aa81f31f29a47e669812c3ef57bd1aab6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa81f31f29a47e669812c3ef57bd1aab6">&#9670;&nbsp;</a></span>recombinator_sanity_checks()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::recombinator_sanity_checks </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;&#160;</td>
-          <td class="paramname"><em>parameters</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="aab16fbb8659a66f16f2004fcc3e8f9db"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aab16fbb8659a66f16f2004fcc3e8f9db">&#9670;&nbsp;</a></span>regress()</h2>
 
@@ -23708,16 +23730,18 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="af7885143ca20185816afadc669813f12"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af7885143ca20185816afadc669813f12">&#9670;&nbsp;</a></span>save_minimizer()</h2>
+<a id="a0abd377f83634edf9faceb9e13a7a950"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0abd377f83634edf9faceb9e13a7a950">&#9670;&nbsp;</a></span>save_minimizer()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<div class="memtemplate">
+template&lt;typename IndexType &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">void vg::save_minimizer </td>
           <td>(</td>
-          <td class="paramtype">const gbwtgraph::DefaultMinimizerIndex &amp;&#160;</td>
+          <td class="paramtype">const IndexType &amp;&#160;</td>
           <td class="paramname"><em>index</em>, </td>
         </tr>
         <tr>
@@ -23730,7 +23754,7 @@ template&lt;class Decoder &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>show_progress</em>&#160;</td>
+          <td class="paramname"><em>show_progress</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -28265,6 +28289,24 @@ template&lt;class Alignment1 , class Alignment2 &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Debugging function to check that multipath alignment meets the formalism's basic invariants. Returns true if multipath alignment is valid, else false. Does not validate alignment score. </p>
+
+</div>
+</div>
+<a id="ae1461feeef45e4431c30f3f33ad01f43"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae1461feeef45e4431c30f3f33ad01f43">&#9670;&nbsp;</a></span>validate_recombinator_parameters()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::validate_recombinator_parameters </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

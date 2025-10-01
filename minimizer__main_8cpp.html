@@ -97,6 +97,9 @@ Functions</h2></td></tr>
 <tr class="separator:a2f3588cd2c21ddbe85727345718e9ca3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45dc67f0fe9ce978202fda58585b6b52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a45dc67f0fe9ce978202fda58585b6b52">help_minimizer</a> (char **argv)</td></tr>
 <tr class="separator:a45dc67f0fe9ce978202fda58585b6b52"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac85098d9e3a2b6d3dd6d52072adbc316"><td class="memTemplParams" colspan="2">template&lt;typename PayloadType &gt; </td></tr>
+<tr class="memitem:ac85098d9e3a2b6d3dd6d52072adbc316"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#ac85098d9e3a2b6d3dd6d52072adbc316">construct_minimizer_dispatch</a> (const gbwtgraph::GBZ *gbz, const std::string &amp;distance_name, const std::string &amp;load_index, const std::string &amp;zipcode_name, const std::string &amp;output_name, size_t hash_table_size, size_t threshold, size_t iterations, double start, bool space_efficient_counting, bool weighted, bool use_syncmers, bool progress)</td></tr>
+<tr class="separator:ac85098d9e3a2b6d3dd6d52072adbc316"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a43d1ef287159cce46f07df1b8b088d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a5a43d1ef287159cce46f07df1b8b088d">main_minimizer</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a5a43d1ef287159cce46f07df1b8b088d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a82ed012045f022c7d023ef32c84a9df3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a82ed012045f022c7d023ef32c84a9df3">trailing_zeros</a> (size_t value)</td></tr>
@@ -126,6 +129,102 @@ Variables</h2></td></tr>
 <li>Extract all k'-mers from the subgraph and use them to determine where the minimizers can start. </li>
 </ul>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="ac85098d9e3a2b6d3dd6d52072adbc316"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac85098d9e3a2b6d3dd6d52072adbc316">&#9670;&nbsp;</a></span>construct_minimizer_dispatch()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename PayloadType &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void construct_minimizer_dispatch </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ *&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>distance_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>load_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>zipcode_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>output_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>hash_table_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>threshold</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>iterations</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>space_efficient_counting</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>weighted</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>use_syncmers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a2f3588cd2c21ddbe85727345718e9ca3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2f3588cd2c21ddbe85727345718e9ca3">&#9670;&nbsp;</a></span>estimate_hash_table_size()</h2>
 

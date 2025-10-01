@@ -68,7 +68,9 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1SnarlDistanceIndexClusterer-members.html">List of all members</a>  </div>
@@ -97,6 +99,11 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1SnarlTreeNodeProblem.html">SnarlTreeNodeProblem</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a10a34c1dddda795b9e18f969cd66f3f8"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a10a34c1dddda795b9e18f969cd66f3f8">paths_flags_t</a> = uint64_t</td></tr>
+<tr class="separator:a10a34c1dddda795b9e18f969cd66f3f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a0333d80b03665df71c7d448b7cfb0b06"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a0333d80b03665df71c7d448b7cfb0b06">SnarlDistanceIndexClusterer</a> (const SnarlDistanceIndex &amp;<a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#aa3ee07e1c0cbacde2d5d524d65a03204">distance_index</a>, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a49cfcfdb9e2c378e973dd8a883e154df">graph</a>)</td></tr>
@@ -111,6 +118,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a210ee5c625ead0e415f2276d1d20bb05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a37e825d3d82904c3bda0598ac1093326"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Cluster.html">Cluster</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a37e825d3d82904c3bda0598ac1093326">cluster_seeds</a> (const vector&lt; vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">Seed</a> &gt;&gt; &amp;all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const</td></tr>
 <tr class="separator:a37e825d3d82904c3bda0598ac1093326"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:ac1f773e0a3a0e6135653cbd45a12c130"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#ac1f773e0a3a0e6135653cbd45a12c130">MAX_PATHS</a> = 64</td></tr>
+<tr class="separator:ac1f773e0a3a0e6135653cbd45a12c130"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -153,7 +165,22 @@ Private Attributes</h2></td></tr>
 <p>The clustering algorithm is based on the snarl tree Clusters are formed on nodes of the snarl tree, which represent nodes/snarls/chains Each node/snarl/chain represents a subgraph of the variation graph A clustered snarl tree node contains all seeds that occur on its subgraph, and the seeds have been partitioned into clusters Each cluster knows the shortest distance from any seed it contains to both ends of the snarl tree node containing it Clustering is done progressively by walking up the snarl tree and forming clusters on each snarl tree node (only visiting nodes that have seeds on them) At each snarl tree node, assume that its children have already been clustered. The clusters of the children are compared to each other, and any pair that are close enough are combined to produce clusters on the parent The distances from each cluster to the ends of the parent are updated</p>
 <p>The algorithm starts by assigning each seed to its node on the snarl tree Since nodes are all on chains, this fills in all the children of chains that are nodes It then walks up the snarl tree, level by level, and clusters each snarl tree node that contains seeds At a given level, first cluster each chain in the level. After clustering a chain, assign it to its parent snarl. Then, go through each of the snarls that have just been given children, and cluster the snarls. Each snarl then gets assigned to its parent chain This completes one level of the snarl tree. Each chain in the next level has just been populated by the snarls from this level, and already knew about its nodes from the first step, so it is ready to be clustered</p>
 <p>Every time the clusterer is run, a <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1ClusteringProblem.html">ClusteringProblem</a> is made to store information about the state of the clusterer The <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1ClusteringProblem.html">ClusteringProblem</a> keeps track of which level of the snarl tree is currently being clustered, and keeps track of the children of the current and next level of the snarl tree. Each snarl tree node that contains seeds is represented by a <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1SnarlTreeNodeProblem.html">SnarlTreeNodeProblem</a>. The <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1SnarlTreeNodeProblem.html">SnarlTreeNodeProblem</a> represents the problem of clustering one snarl tree node. It knows the identities of its children and keeps track of its cluster heads </p>
-</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+</div><h2 class="groupheader">Member Typedef Documentation</h2>
+<a id="a10a34c1dddda795b9e18f969cd66f3f8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10a34c1dddda795b9e18f969cd66f3f8">&#9670;&nbsp;</a></span>paths_flags_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a10a34c1dddda795b9e18f969cd66f3f8">vg::SnarlDistanceIndexClusterer::paths_flags_t</a> =  uint64_t</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a0333d80b03665df71c7d448b7cfb0b06"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0333d80b03665df71c7d448b7cfb0b06">&#9670;&nbsp;</a></span>SnarlDistanceIndexClusterer() <span class="overload">[1/4]</span></h2>
 
@@ -991,6 +1018,28 @@ Private Attributes</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac1f773e0a3a0e6135653cbd45a12c130"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac1f773e0a3a0e6135653cbd45a12c130">&#9670;&nbsp;</a></span>MAX_PATHS</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const static size_t vg::SnarlDistanceIndexClusterer::MAX_PATHS = 64</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
