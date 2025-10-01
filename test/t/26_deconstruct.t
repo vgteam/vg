@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 37
+plan tests 40
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -223,6 +223,22 @@ diff nested_snp_in_ins_cycle.tsv nested_snp_in_ins_cycle_truth.tsv
 is "$?" 0 "nested deconstruction handles cycle"
 
 rm -f nested_snp_in_ins_cycle.vcf nested_snp_in_ins_cycle_truth.tsv nested_snp_in_ins_cycle_truth.tsv
+
+vg snarls nesting/mnp.gfa --algorithm cactus > mnp.snarls
+vg deconstruct nesting/mnp.gfa -r mnp.snarls -p x -n -f mnp.fa > mnp.vcf
+printf "x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
+grep -v ^# mnp.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > mnp.tsv
+diff  mnp_truth.tsv mnp.tsv
+is "$?" 0 "nested deconstruction handles mnp"
+printf "a#1#y0#0\t2\t6\t>8>11\tx\t2\t6\n" > mnp.nesting.truth.tsv
+diff mnp.fa.nesting.tsv mnp.nesting.truth.tsv
+is "$?" 0 "nested deconstruction makes correct mnp tsv"
+printf ">a#1#y0#0[2-6]\nATTT\n"  > mnp.fa.truth
+diff mnp.fa mnp.fa.truth
+is "$?" 0 "nested deconstruction makes correct fasta"
+
+rm -f mnp.snarls  mnp.vcf mnp_truth.tsv mnp.tsv mnp.nesting.truth.tsv  mnp.fa.truth
+
 
 
 
