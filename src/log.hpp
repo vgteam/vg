@@ -36,25 +36,21 @@ namespace vg {
 // https://stackoverflow.com/a/25615354/
 class cerrWrapper {
 private:
-    std::ostream* str;
     bool exit_on_destruct;
 
 public:
     cerrWrapper(bool exit_on_destruct) :
         exit_on_destruct(exit_on_destruct) {
-        this->str = &std::cerr;
     }
 
     template <typename T>
     cerrWrapper& operator<<(const T& t) {
-        if (str) {
-            *str << t;
-        }
+        std::cerr << t;
         return *this;
     }
 
     cerrWrapper& operator<<(std::ostream& (*manip)(std::ostream&)) {
-        *str << manip;
+        std::cerr << manip;
         return *this;
     }
 
