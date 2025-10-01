@@ -147,6 +147,8 @@ private:
                            const vector<vector<int>>& traversal_clusters,
                            const NestingInfo& nesting_info) const;
 
+    // second pass to add non-traversal fragments to cover
+    void fill_cover_second_pass(const SnarlManager* snarl_manager, const Snarl* snarl) const;
 
     // the underlying context-getter
     vector<nid_t> get_context(
@@ -226,6 +228,9 @@ private:
 
     // keep track of path cover for computing off_ref_sequences
     mutable unordered_set<nid_t> node_cover;
+
+    // keep track of top-level reference traversals for second pass of cover
+    mutable unordered_map<handle_t, PathInterval> top_level_ref_intervals;
 };
 
 

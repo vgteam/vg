@@ -783,6 +783,12 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 #endif
         return false;
     }    
+
+    // remember the reference traversal of top-level snarls for doing second pass of cover computation
+    if (in_nesting_info != nullptr && !in_nesting_info->has_ref) {
+#pragma omp critical (top_level_intervals)
+        this->top_level_ref_intervals[snarl_start] = trav_steps[ref_travs.at(0)];
+    }
     
     // there's not alt path through the snarl, so we can't make an interesting variant
     if (travs.size() < 2) {
@@ -1109,6 +1115,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 #pragma omp critical (off_ref_info)                
             {
                 this->update_path_cover(trav_steps, trav_clusters, in_nesting_info->has_ref ? *in_nesting_info : ref_info);
+
+                
             }
             
             // remember the reference path of this variant site
@@ -1428,6 +1436,15 @@ void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
             process_snarl(cur_queue[i].first, cur_queue[i].second);
         }
     }
+
+    
+    // if we are computing a cover, do a pass and scrape up everything we coudln't find in travesals
+    if (this->nested_decomposition) {
+        // note: not parallel since we'll be banging away at the same coverage map
+        for (const auto& top_level_snarl : top_level_snarls) {
+            fill_cover_second_pass(snarl_manager, top_level_snarl.first);
+        }
+    }
 }
 
 /**
@@ -1544,8 +1561,8 @@ void Deconstructor::update_path_cover(const vector<pair<step_handle_t, step_hand
             this->off_ref_sequences[interval] = nesting_info;
         }
     }
-}           
-                                      
+}
+
 static string resolve_path_name(const PathPositionHandleGraph* graph,
                                 const PathInterval& path_interval,
                                 int64_t& out_start,
@@ -1576,10 +1593,8 @@ static string resolve_path_name(const PathPositionHandleGraph* graph,
     size_t phase_block;
     subrange_t subrange;
     PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
-    if (step1 == graph->path_begin(path_handle) &&
-        step2 == graph->path_back(path_handle)) {
-        subrange = PathMetadata::NO_SUBRANGE;
-    } else if (subrange == PathMetadata::NO_SUBRANGE) {
+    
+    if (subrange == PathMetadata::NO_SUBRANGE) {
         subrange.first = out_start;
         subrange.second = out_end;
     } else {
@@ -1589,6 +1604,87 @@ static string resolve_path_name(const PathPositionHandleGraph* graph,
     path_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
 
     return path_name;    
+}
+
+void Deconstructor::fill_cover_second_pass(const SnarlManager* snarl_manager, const Snarl* snarl) const {
+    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager->deep_contents(snarl, *graph, false);
+
+    // this is a simple brute-force way to fill in nodes that aren't covered by traversals, using
+    // path-name sort as sole metric
+    // todo: use someting more clever?
+
+    handle_t snarl_start = graph->get_handle(snarl->start().node_id(), snarl->start().backward());
+    if (!this->top_level_ref_intervals.count(snarl_start)) {
+        return;
+    }
+    
+    // collect all the candidate nodes
+    unordered_set<nid_t> uncovered_nodes;    
+    // collect all the candidate paths
+    map<string, path_handle_t> path_map;
+    for (id_t node_id : contents.first) {
+        if (!this->node_cover.count(node_id)) {
+            vector<pair<path_handle_t, string>> step_paths;
+            graph->for_each_step_on_handle(graph->get_handle(node_id), [&](step_handle_t step) {
+                path_handle_t path_handle = graph->get_path_handle_of_step(step);
+                string path_name = graph->get_path_name(path_handle);
+                if (this->ref_paths.count(path_name)) {
+                    step_paths.clear();
+                    return false;
+                } else {
+                    step_paths.push_back(make_pair(path_handle, path_name));
+                }
+                return true;
+            });
+            if (!step_paths.empty()) {
+                uncovered_nodes.insert(node_id);
+                this->node_cover.insert(node_id);
+            }
+            for (const auto& step_path : step_paths) {
+                path_map[step_path.second] = step_path.first;
+            }
+        }
+    }
+
+    if (!uncovered_nodes.empty()) {
+        // fill up the reference metadata we need for the output table
+        NestingInfo nesting_info;
+        nesting_info.parent_ref_interval = this->top_level_ref_intervals[snarl_start];
+        int64_t ref_start, ref_end;
+        bool ref_reversed;
+        string ref_path_name = resolve_path_name(graph,  nesting_info.parent_ref_interval,
+                          ref_start, ref_end, ref_reversed);
+        nesting_info.lv0_ref_start = ref_start;
+        nesting_info.lv0_ref_len = ref_end - ref_start;  // todo : check
+        nesting_info.lv0_ref_name = Paths::strip_subrange(ref_path_name);
+        
+        // greedily add the paths by name, using similar logic to first pass
+        for (const auto& name_path : path_map) {
+            bool open_interval = false;
+            step_handle_t prev_step;
+            graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
+                if (uncovered_nodes.count(graph->get_id(graph->get_handle_of_step(step)))) {
+                    if (open_interval == false) {
+                        open_interval = true;
+                        prev_step = step;
+                    }
+                    uncovered_nodes.erase(graph->get_id(graph->get_handle_of_step(step)));
+                } else {
+                    if (open_interval == true) {
+                        this->off_ref_sequences[make_pair(prev_step, graph->get_previous_step(step))] = nesting_info;
+                        open_interval = false;
+                    }
+                }            
+            });
+            if (open_interval) {
+                this->off_ref_sequences[make_pair(prev_step, graph->path_back(name_path.second))] = nesting_info;
+            }
+            if (uncovered_nodes.empty()) {
+                break;
+            }
+        }
+    }
+    assert(uncovered_nodes.empty());
 }
 
 void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) const {
@@ -1604,7 +1700,7 @@ void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) con
         cerr << "[deconstruct] error: Unable to open " << metadata_filename << " for writing" << endl;
         exit(1);
     }
-
+    
     // sort the sequences by name / pos
     vector<unordered_map<PathInterval, NestingInfo>::const_iterator> sorted_map;
     for (unordered_map<PathInterval, NestingInfo>::const_iterator i = this->off_ref_sequences.begin();
@@ -1675,19 +1771,15 @@ void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) con
         int64_t par_pos1;
         int64_t par_pos2;
         bool par_reversed;
-        string par_path_name = resolve_path_name(this->graph, nesting_info.parent_ref_interval, par_pos1, par_pos2, par_reversed);
 
-        string par_snarl_name = graph_interval_to_string(graph, graph->get_handle_of_step(nesting_info.parent_ref_interval.first),
-                                                         graph->get_handle_of_step(nesting_info.parent_ref_interval.second));
-
-        
+        // note: we subtract 1 below to convert from 1-based vcf to 0-based bed
         out_metadata_file << Paths::strip_subrange(path_name) << "\t"
                           << pos1 << "\t"
                           << pos2 << "\t"
                           << snarl_name << "\t"
                           << nesting_info.lv0_ref_name << "\t"
-                          << nesting_info.lv0_ref_start << "\t"
-                          << (nesting_info.lv0_ref_start + nesting_info.lv0_ref_len) << "\t"
+                          << (nesting_info.lv0_ref_start -1) << "\t" 
+                          << (nesting_info.lv0_ref_start + nesting_info.lv0_ref_len -1)
                           << endl;
         
     }
