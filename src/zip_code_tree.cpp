@@ -14,8 +14,13 @@ using namespace std;
 namespace vg {
 
 void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
+    tree_item_type_t last_type = CHAIN_START;
     for (const tree_item_t item : zip_code_tree) {
         if (item.get_type() == SEED) {
+            if (last_type == SEED) {
+                // need an extra space because no edges to do padding
+                cerr << " ";
+            }
             cerr << seeds->at(item.get_value()).pos;
             if (item.get_is_reversed()) {
                 cerr << "rev";
@@ -50,6 +55,7 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
             throw std::runtime_error("[zip tree]: Trying to print a zip tree item of unsupported type: " 
                                      + std::to_string(item.get_type()));
         }
+        last_type = item.get_type();
     }
     cerr << endl;
 }
@@ -2177,7 +2183,7 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
         } else {
 #ifdef DEBUG_ZIP_CODE_SORTING
             cerr << "\tThis is a snarl, so return the rank in the snarl: " 
-                << seed.zipcode.get_rank_in_snarl(interval.depth+1) << endl;
+                 << seed.zipcode.get_rank_in_snarl(interval.depth+1) << endl;
 #endif
             // The ranks of children in irregular snarls are in
             // a topological order, so sort on the ranks
@@ -2369,6 +2375,7 @@ void ZipCodeForest::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order,
     // Radix sort the interval of zipcode_sort_order in the given interval
 #ifdef DEBUG_ZIP_CODE_SORTING
     cerr << "\tradix sort" << endl;
+    cerr << "\tis rev: " << reverse_order << endl;
 #endif
 
     // Mostly copied from Jordan Eizenga
