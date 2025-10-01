@@ -187,9 +187,6 @@ private:
     // keep track of the non-ref paths as they will be our samples
     set<string> sample_names;
 
-    // map the path name to the sample in the vcf
-    const unordered_map<string, pair<string, int>>* path_to_sample_phase;
-
     // the sample ploidys given in the phases in our path names
     unordered_map<string, int> sample_ploidys;
 

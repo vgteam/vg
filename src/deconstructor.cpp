@@ -298,7 +298,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
-    if (show_path_info && path_to_sample_phase) {
+    if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
         v.format.push_back("PI");
     }
     if (this->cluster_threshold < 1.0) {
@@ -350,7 +350,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             for (int i = 0; i < chosen_travs.size(); ++i) {
                 if (i > 0) {
                     // TODO check flag for phasing
-                    genotype += (path_to_sample_phase || gbwt_trav_finder.get())  ? "|" : "/";
+                    genotype += (!gbwt_sample_to_phase_range.empty() || gbwt_trav_finder.get())  ? "|" : "/";
                 }
                 genotype += (chosen_travs[i] != -1 && (!conflict || keep_conflicted_genotypes))
                     ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
@@ -368,7 +368,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 }
             }
             v.samples[sample_name]["GT"] = {genotype};
-            if (show_path_info && path_to_sample_phase) {
+            if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
                 for (auto trav : travs) {
                     auto allele = trav_to_allele[trav];
                     if (allele != -1) {
@@ -390,7 +390,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 }
             }
             v.samples[sample_name]["GT"] = {blank_gt};
-            if (show_path_info && path_to_sample_phase) {
+            if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
                 v.samples[sample_name]["PI"] = {blank_gt};
             }
         }
@@ -446,12 +446,11 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     // try to pull out unique phases if available
     bool has_phasing = gbwt_sample_to_phase_range.count(sample_name) &&
         std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
-    //|| path_to_sample_phase;
     bool phasing_conflict = false;
     int sample_ploidy = 1;
     int min_phase = 1;
     int max_phase = 1;
-    if (has_phasing || path_to_sample_phase) {
+    if (has_phasing || !gbwt_sample_to_phase_range.empty()) {
         if (has_phasing) {
             // override ploidy with information about all phases found in input
             std::tie(min_phase, max_phase) = gbwt_sample_to_phase_range.at(sample_name);
@@ -499,7 +498,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
             }
             swap(padded_travs, most_frequent_travs);
         }
-    } else if (path_to_sample_phase) {
+    } else if (!gbwt_sample_to_phase_range.empty()) {
         std::sort(most_frequent_travs.begin(), most_frequent_travs.end(),
                   [&](int t1, int t2) {return gbwt_phases.at(t1) < gbwt_phases.at(t2);});
         vector<int> padded_travs(sample_ploidy, -1);
@@ -1241,17 +1240,17 @@ string Deconstructor::get_vcf_header() {
     stringstream stream;
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-    if (show_path_info && path_to_sample_phase) {
+    if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
         stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
     }
-    if (path_to_sample_phase || gbwt) {
+    if (!gbwt_sample_to_phase_range.empty() || gbwt) {
         stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles";
         if (!gbwt && show_path_info) {
             stream << " (details in PI field)";
         }
         stream << "\">" << endl;
     }
-    if (path_to_sample_phase && cluster_threshold < 1) {
+    if (!gbwt_sample_to_phase_range.empty() && cluster_threshold < 1) {
         stream << "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the sample's actual path and its allele\">"
                << endl;
         stream << "##FORMAT=<ID=TL,Number=1,Type=Integer,Description=\"Length difference between the sample's actual path and its allele\">"
