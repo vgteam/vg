@@ -532,6 +532,20 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
+        "rec-penalty-chain",
+        &MinimizerMapper::rec_penalty_chain,
+        MinimizerMapper::default_rec_penalty_chain,
+        "penalty for a recombination when chaining, requires -E (ALPHA)",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "rec-penalty-fragment",
+        &MinimizerMapper::rec_penalty_fragment,
+        MinimizerMapper::default_rec_penalty_fragment,
+        "penalty for a recombination when fragmenting, requires -E (ALPHA)",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
         "points-per-possible-match",
         &MinimizerMapper::points_per_possible_match,
         MinimizerMapper::default_points_per_possible_match,
@@ -783,6 +797,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 
     if (full_help) {
         cerr << "Giraffe parameters:" << endl
+             << "  -E, --rec-mode                activate giraffe recombination-aware mode" << endl
              << "  -A, --rescue-algorithm NAME   use this rescue algorithm [dozeu]" << endl
              << "                                {none / dozeu / gssw}" << endl
              << "      --fragment-mean FLOAT     force fragment length distribution to have this" << endl
@@ -799,6 +814,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --track-position          coarsely track linear reference positions of" << endl
              << "                                good intermediate alignment candidates" << endl
              << "                                (implies --track-provenance)" << endl;
+             
 
         auto helps = parser.get_help();
         print_table(helps, cerr);
@@ -929,6 +945,9 @@ int main_giraffe(int argc, char** argv) {
 
     // Are we mapping long reads or short reads? According to the parameter preset
     bool map_long_reads = false;
+    
+    // If recombination mode is set, we are using PathMinimizer, else standard Giraffe.
+    bool use_path_minimizer = false;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -1210,6 +1229,7 @@ int main_giraffe(int argc, char** argv) {
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
         {"parameter-preset", required_argument, 0, 'b'},
+        {"rec-mode", no_argument, 0, 'E'},
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
@@ -1223,7 +1243,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:Pnb:t:A:";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:Pnb:t:A:E";
     parser->make_short_options(short_options);
 
     if (argc == 2) {
@@ -1485,7 +1505,9 @@ int main_giraffe(int argc, char** argv) {
                     map_long_reads = true;
                 }
                 break;
-
+            case 'E':
+                use_path_minimizer = true;
+                break;
             case 'A':
                 {
                     std::string algo_name = optarg;
@@ -1657,7 +1679,11 @@ int main_giraffe(int argc, char** argv) {
         cerr << "error: [vg giraffe] Paired-end alignment is not yet implemented for --align-from-chains or chaining-based presets" << endl;
         exit(1);
     }
-
+    if (use_path_minimizer && !map_long_reads) {
+        // We don't have file paths to load defined for recombination-aware short-read minimizers.
+        cerr << "error: [vg giraffe] Path minimizers cannot be used with short reads." << endl;
+        return 1;
+    }
     bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
     if (!index_basename_override.empty()) {
         index_basename = index_basename_override;
@@ -1688,12 +1714,18 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe Distance Index", {"dist"}}
     };
     if (map_long_reads) {
-        indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.withzip.min","withzip.min", "min"}));
-        indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
+        if (use_path_minimizer) {
+            indexes_and_extensions.emplace(std::string("Long Read PathMinimizers"), std::vector<std::string>({"longread.path.min","path.min", "min"}));
+            indexes_and_extensions.emplace(std::string("Long Read PathZipcodes"), std::vector<std::string>({"longread.path.zipcodes", "path.zipcodes", "zipcodes"}));
+        } else {
+            indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.withzip.min","withzip.min", "min"}));
+            indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
+        }
     } else {
         indexes_and_extensions.emplace(std::string("Short Read Minimizers"), std::vector<std::string>({"shortread.withzip.min","withzip.min", "min"}));
         indexes_and_extensions.emplace(std::string("Short Read Zipcodes"), std::vector<std::string>({"shortread.zipcodes", "zipcodes"}));
     }
+    
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
@@ -1729,12 +1761,14 @@ int main_giraffe(int argc, char** argv) {
     }
 
     //If we're making new zipcodes, we should rebuild the minimizers too
-    if (!indexes_and_extensions.count(std::string("Long Read Minimizers")) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+    if (!(indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         cerr << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Long Read Minimizers"));
-    } else if (indexes_and_extensions.count(std::string("Long Read Minimizers")) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+        registry.reset(std::string("Long Read PathMinimizers"));
+    } else if ((indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         cerr << "Rebuilding zipcodes index to match new minimizers" << endl;
         registry.reset(std::string("Long Read Zipcodes"));
+        registry.reset(std::string("Long Read PathZipcodes"));
     } else if (!indexes_and_extensions.count(std::string("Short Read Minimizers")) && indexes_and_extensions.count(std::string("Short Read Zipcodes"))) {
         cerr << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Short Read Minimizers"));
@@ -1748,11 +1782,17 @@ int main_giraffe(int argc, char** argv) {
     // Don't try and use all the memory.
     // TODO: add memory options like autoindex?
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
-    
-    auto index_targets = map_long_reads
-                       ? VGIndexes::get_default_long_giraffe_indexes()
-                       : VGIndexes::get_default_short_giraffe_indexes();
 
+    std::vector<std::string> index_targets;
+    if (!map_long_reads) {
+        index_targets = VGIndexes::get_default_short_giraffe_indexes();
+    } else {
+        if (use_path_minimizer) {
+            index_targets = VGIndexes::get_default_long_path_giraffe_indexes();
+        } else {
+            index_targets = VGIndexes::get_default_long_giraffe_indexes();
+        }
+    }
 #ifdef debug
     for (auto& needed : index_targets) {
         cerr << "Want index: " << needed << endl;
@@ -1785,8 +1825,14 @@ int main_giraffe(int argc, char** argv) {
         cerr << "Loading Minimizer Index" << endl;
     }
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
+    unique_ptr<gbwtgraph::MinimizerIndexXL> path_minimizer_index;
     if (map_long_reads) {
-        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));
+        if (use_path_minimizer) {
+            path_minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndexXL>(registry.require("Long Read PathMinimizers").at(0));
+        } else {
+            // Use the long read minimizers
+            minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));
+        }
     } else {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Short Read Minimizers").at(0));
     }
@@ -1797,9 +1843,16 @@ int main_giraffe(int argc, char** argv) {
     }
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
-        ifstream zip_in (registry.require("Long Read Zipcodes").at(0));
-        oversized_zipcodes.deserialize(zip_in);
-        zip_in.close();
+        if (use_path_minimizer) {
+            ifstream zip_in (registry.require("Long Read PathZipcodes").at(0));
+            oversized_zipcodes.deserialize(zip_in);
+            zip_in.close();
+        } else {
+            ifstream zip_in (registry.require("Long Read Zipcodes").at(0));
+            oversized_zipcodes.deserialize(zip_in);
+            zip_in.close();
+        }
+        
     } else {
         ifstream zip_in (registry.require("Short Read Zipcodes").at(0));
         oversized_zipcodes.deserialize(zip_in);
@@ -1860,7 +1913,22 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &oversized_zipcodes, path_position_graph);
+    unique_ptr<MinimizerMapper> minimizer_mapper_ptr;
+
+    if (use_path_minimizer) {
+        crash_unless(path_minimizer_index);
+        minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
+            gbz->graph, *path_minimizer_index, distance_index.get(),
+            &oversized_zipcodes, path_position_graph
+        );
+    } else {
+        crash_unless(minimizer_index);
+        minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
+            gbz->graph, *minimizer_index, distance_index.get(),
+            &oversized_zipcodes, path_position_graph
+        );
+    }
+    MinimizerMapper& minimizer_mapper = *minimizer_mapper_ptr;
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }

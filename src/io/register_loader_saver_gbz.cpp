@@ -23,7 +23,7 @@ void register_loader_saver_gbz() {
         gbwtgraph::GBZ* result = new gbwtgraph::GBZ();
 
         // Load it. In case of a failure, this will:
-        // * Throw an exception if sanity checks fail.
+        // * Throw an exception if data is unacceptable.
         // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         result->simple_sds_load(input);

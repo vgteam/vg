@@ -2996,7 +2996,7 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
         visit->set_backward(graph.get_is_reverse(end_handle));
     }
 
-    // sanity check: we compare the output to something gotten directly from the
+    // consistency check: we compare the output to something gotten directly from the
     // path index when doing the reference haplotype.
     if (all_of(haplotype.begin(), haplotype.end(), [] (int i) {return i == 0;})) { 
         SnarlTraversal ref_trav;

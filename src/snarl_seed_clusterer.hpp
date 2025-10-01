@@ -53,7 +53,8 @@ class SnarlDistanceIndexClusterer {
 
 
     public:
-
+        using paths_flags_t = uint64_t;
+        const static size_t MAX_PATHS = 64;
         /// Seed information used in Giraffe.
         struct Seed {
             /// Position of the seed.
@@ -74,6 +75,9 @@ class SnarlDistanceIndexClusterer {
             // Clustering requires that the zipcode and its decoder are filled in
             ZipCode zipcode; 
 
+            // Paths present in the seed
+            paths_flags_t paths = 0;
+
             Seed() = default;
             Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
                 zipcode.fill_in_full_decoder();
@@ -83,13 +87,15 @@ class SnarlDistanceIndexClusterer {
             Seed (Seed&& other) :
                 pos(std::move(other.pos)),
                 source(std::move(other.source)),
-                zipcode(std::move(other.zipcode)){}
+                zipcode(std::move(other.zipcode)),
+                paths(std::move(other.paths)){}
 
             //Move assignment operator
             Seed& operator=(Seed&& other) {
                 pos = std::move(other.pos);
                 source = std::move(other.source);
                 zipcode = std::move(other.zipcode);
+                paths = std::move(other.paths);
                 return *this;
             }
         };

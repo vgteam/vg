@@ -410,7 +410,7 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
                 if (prev_trans->second.first == i->second.first && node_id != prev_node_id) {
                     // here is a case where we have two consecutive nodes that map back to
                     // the same source node.
-                    // todo: sanity check! (could verify if translation node properly covered)
+                    // todo: check if translation node properly covered
                     skip = true;
                 }
             }

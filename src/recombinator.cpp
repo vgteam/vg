@@ -1673,29 +1673,29 @@ void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuild
 
 //------------------------------------------------------------------------------
 
-void recombinator_sanity_checks(const Recombinator::Parameters& parameters) {
+void validate_recombinator_parameters(const Recombinator::Parameters& parameters) {
     if (parameters.num_haplotypes == 0) {
-        std::string msg = "recombinator_sanity_checks(): number of haplotypes cannot be 0";
+        std::string msg = "validate_recombinator_parameters(): number of haplotypes cannot be 0";
         throw std::runtime_error(msg);
     }
     if (parameters.badness_threshold <= 0.0) {
-        std::string msg = "recombinator_sanity_checks(): badness threshold must be positive";
+        std::string msg = "validate_recombinator_parameters(): badness threshold must be positive";
         throw std::runtime_error(msg);
     }
     if (parameters.diploid_sampling && parameters.num_haplotypes < 2) {
-        std::string msg = "recombinator_sanity_checks(): diploid sampling requires at least 2 haplotypes";
+        std::string msg = "validate_recombinator_parameters(): diploid sampling requires at least 2 haplotypes";
         throw std::runtime_error(msg);
     }
     if (parameters.present_discount < 0.0 || parameters.present_discount > 1.0) {
-        std::string msg = "recombinator_sanity_checks(): present discount must be between 0.0 and 1.0";
+        std::string msg = "validate_recombinator_parameters(): present discount must be between 0.0 and 1.0";
         throw std::runtime_error(msg);
     }
     if (parameters.het_adjustment < 0.0) {
-        std::string msg = "recombinator_sanity_checks(): het adjustment must be non-negative";
+        std::string msg = "validate_recombinator_parameters(): het adjustment must be non-negative";
         throw std::runtime_error(msg);
     }
     if (parameters.absent_score < 0.0) {
-        std::string msg = "recombinator_sanity_checks(): absent score must be non-negative";
+        std::string msg = "validate_recombinator_parameters(): absent score must be non-negative";
         throw std::runtime_error(msg);
     }
 }
@@ -1769,8 +1769,8 @@ double get_or_estimate_coverage(
 
 gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const Parameters& parameters) const {
 
-    // Sanity checks (may throw).
-    recombinator_sanity_checks(parameters);
+    // Input validation (may throw).
+    validate_recombinator_parameters(parameters);
 
     if (this->verbosity >= Haplotypes::verbosity_detailed) {
         parameters.print(std::cerr);

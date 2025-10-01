@@ -29,15 +29,15 @@ using namespace vg::subcommand;
 void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
-         << "  -p, --progress       show progress" << endl
-         << "  -h, --help           print this help message to stderr and exit" << endl;
+         << "  -p, --progress                     show progress" << endl
+         << "  -r, --recombination-penalty INT    set recombination penalty (default: 0)" << endl
+         << "  -h, --help                         print this help message to stderr and exit" << endl;
 }
 
 int main_chain(int argc, char** argv) {
 
     bool show_progress = false;
-    
-    
+    int recomb_penalty = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -45,12 +45,13 @@ int main_chain(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"progress", no_argument, 0, 'p'},
+                {"recombination-penalty", required_argument, 0, 'r'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "ph?",
+        c = getopt_long (argc, argv, "pr:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -63,7 +64,11 @@ int main_chain(int argc, char** argv) {
         case 'p':
             show_progress = true;
             break;
-            
+
+        case 'r':
+            recomb_penalty = atof(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -212,14 +217,16 @@ int main_chain(int argc, char** argv) {
                 int graph_end_is_reverse = 0;
                 const char* read_exclusion_start = nullptr;
                 const char* read_exclusion_end = nullptr;
-                if (json_unpack_ex(item_json, &json_error, 0, "{s:s, s:s, s?i, s:o, s:o, s:s, s:s}",
+                const char* paths = nullptr;
+                if (json_unpack_ex(item_json, &json_error, 0, "{s:s, s:s, s?i, s:o, s:o, s:s, s:s, s:s}",
                                    "read_start", &read_start, 
                                    "read_end", &read_end,
                                    "score", &score,
                                    "graph_start", &graph_start,
                                    "graph_end", &graph_end,
                                    "read_exclusion_start", &read_exclusion_start, 
-                                   "read_exclusion_end", &read_exclusion_end) == 0 &&
+                                   "read_exclusion_end", &read_exclusion_end,
+                                   "paths", &paths) == 0 &&
                     json_unpack_ex(graph_start, &json_error, 0, "{s:s, s?s, s?b}",
                                    "node_id", &graph_start_id, "offset", &graph_start_offset, 
                                    "is_reverse", &graph_start_is_reverse) == 0 &&
@@ -246,9 +253,11 @@ int main_chain(int argc, char** argv) {
                     size_t margin_left = start - vg::parse<size_t>(read_exclusion_start);
                     size_t margin_right = vg::parse<size_t>(read_exclusion_start) - (start + length);
                     
+                    size_t anchor_paths = vg::parse<size_t>(paths);
                     // Pack up into an item
-                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, 
-                                       vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
+                    auto anchor = vg::algorithms::Anchor(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
+                    anchor.set_paths(anchor_paths);
+                    items.emplace_back(anchor);
                 } else {
                     std::cerr << "warning:[vg chain] Unreadable item object at index " 
                               << i << ": " << json_error.text << std::endl;
@@ -274,8 +283,7 @@ int main_chain(int argc, char** argv) {
 #endif
 
     // Do the chaining. We assume items is already sorted right.
-    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(
-        items, distance_index, graph, scorer.gap_open, scorer.gap_extension);
+    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.gap_open, scorer.gap_extension, recomb_penalty);
     
     std::cout << "Best chain gets score " << score_and_chain.first << std::endl;
     

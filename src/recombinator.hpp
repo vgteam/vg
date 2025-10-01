@@ -264,7 +264,7 @@ public:
 
     /// Loads the object from a stream in the Simple-SDS format.
     /// I/O errors can be detected by checking the stream state.
-    /// Throws `sdsl::simple_sds::InvalidData` if sanity checks fail.
+    /// Throws `sdsl::simple_sds::InvalidData` if data is unacceptable.
     void simple_sds_load(std::istream& in);
 
     /// Loads the object from a file in the Simple-SDS format.
