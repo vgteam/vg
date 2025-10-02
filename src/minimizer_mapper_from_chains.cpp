@@ -2602,7 +2602,8 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
             return chain_score_estimates.at(chain_number);
         } else {
             // Use base-level alignment score to rank alignments
-            return alignments.at(alignment_number).score();
+            // Tiebreak by identity (always > 0 and <= 1)
+            return alignments.at(alignment_number).score() + identity(alignments.at(alignment_number).path());
         }
     };
     
