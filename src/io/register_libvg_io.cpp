@@ -42,6 +42,7 @@ bool register_libvg_io() {
     register_loader_saver_gcsa();
     register_loader_saver_lcp();
     register_loader_saver_minimizer();
+    register_loader_saver_minimizer_paths();
     register_loader_saver_snarl_manager();
     register_loader_saver_vg();
     register_loader_saver_gfa();

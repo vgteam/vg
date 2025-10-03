@@ -182,10 +182,12 @@ void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& n
             for (size_t i = 0; i < mp_aln_pairs.size(); ++i) {
                 string ref_name_1, ref_name_2;
                 bool ref_rev_1, ref_rev_2;
-                int64_t ref_pos_1, ref_pos_2;
+                int32_t ref_pos_1, ref_pos_2;
                 tie(ref_name_1, ref_rev_1, ref_pos_1) = path_positions->at(i).first;
                 tie(ref_name_2, ref_rev_2, ref_pos_2) = path_positions->at(i).second;
-                int64_t tlen_limit = 0;
+                canonicalize_subrange(ref_name_1, ref_pos_1);
+                canonicalize_subrange(ref_name_2, ref_pos_2);
+                int32_t tlen_limit = 0;
                 if (tlen_limits) {
                     tlen_limit = tlen_limits->at(i);
                 }
@@ -204,8 +206,25 @@ void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& n
     }
 }
 
+void MultipathAlignmentEmitter::emit_paired_independent(const string& name_1, const string& name_2,
+                                                        vector<multipath_alignment_t>&& mp_alns_1,
+                                                        vector<multipath_alignment_t>&& mp_alns_2,
+                                                        vector<tuple<string, bool, int64_t>>* path_positions_1,
+                                                        vector<tuple<string, bool, int64_t>>* path_positions_2) {
+    
+    emit_singles_internal(name_1, std::move(mp_alns_1), path_positions_1, &name_2, true);
+    emit_singles_internal(name_2, std::move(mp_alns_2), path_positions_2, &name_1, false);
+}
+
 void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipath_alignment_t>&& mp_alns,
                                              vector<tuple<string, bool, int64_t>>* path_positions) {
+    
+    emit_singles_internal(name, std::move(mp_alns), path_positions, nullptr, false);
+}
+
+void MultipathAlignmentEmitter::emit_singles_internal(const string& name, vector<multipath_alignment_t>&& mp_alns,
+                                                      vector<tuple<string, bool, int64_t>>* path_positions,
+                                                      const string* mate_name, bool is_read_1) {
     
     int thread_number = omp_get_thread_num();
     
@@ -217,6 +236,10 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
                 MultipathAlignment& mp_aln_out = mp_alns_out[i];
                 to_proto_multipath_alignment(mp_alns[i], mp_aln_out);
                 mp_aln_out.set_name(name);
+                if (mate_name) {
+                    // this is an unpaired supplementary alignment for a paired read
+                    mp_aln_out.set_paired_read_name(*mate_name);
+                }
                 if (!sample_name.empty()) {
                     mp_aln_out.set_sample_name(sample_name);
                 }
@@ -241,7 +264,7 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
             vector<Alignment> alns_out(mp_alns.size());
             for (size_t i = 0; i < mp_alns.size(); ++i) {
                 Alignment& aln_out = alns_out[i];
-                convert_to_alignment(mp_alns[i], aln_out);
+                convert_to_alignment(mp_alns[i], aln_out, is_read_1 ? nullptr : mate_name, is_read_1 ? mate_name : nullptr);
                 aln_out.set_name(name);
                 if (!sample_name.empty()) {
                     aln_out.set_sample_name(sample_name);
@@ -279,9 +302,11 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
             for (size_t i = 0; i < mp_alns.size(); ++i) {
                 string ref_name;
                 bool ref_rev;
-                int64_t ref_pos;
+                int32_t ref_pos;
                 tie(ref_name, ref_rev, ref_pos) = path_positions->at(i);
-                convert_to_hts_unpaired(name, mp_alns[i], ref_name, ref_rev, ref_pos, header, records);
+                canonicalize_subrange(ref_name, ref_pos);
+                convert_to_hts_unpaired(name, mp_alns[i], ref_name, ref_rev, ref_pos, header, records,
+                                        mate_name);
             }
             
             save_records(header, records, thread_number);
@@ -342,17 +367,44 @@ void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const 
         // and we'll also communicate the alignment score
         shim.set_score(optimal_alignment_score(mp_aln, true));
     }
-    
+    if (mp_aln.has_annotation("secondary")) {
+        auto anno = mp_aln.get_annotation("secondary");
+        assert(anno.first == multipath_alignment_t::Bool);
+        shim.set_is_secondary(*((bool*) anno.second));
+    }
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                                         const string& ref_name, bool ref_rev, int64_t ref_pos,
-                                                        bam_hdr_t* header, vector<bam1_t*>& dest) const {
+                                                        bam_hdr_t* header, vector<bam1_t*>& dest,
+                                                        const string* mate_name) const {
     
     auto cigar = cigar_against_path(mp_aln, ref_name, ref_rev, ref_pos, *graph, min_splice_length);
+
+    // we need to get relevant info about the mate from an annotation if this is a supplementary of one in a pair
+    // or a non-proper pair
+    string mate_ref_name;
+    int32_t mate_pos = -1;
+    bool mate_ref_rev = false;
+    bool mate_is_read1 = false;
+    bool has_mate_info = mp_aln.has_annotation("mate_info");
+    assert(has_mate_info == (mate_name != nullptr));
+    if (has_mate_info) {
+        auto anno = mp_aln.get_annotation("mate_info");
+        assert(anno.first == multipath_alignment_t::String);
+        tie(mate_ref_name, mate_pos, mate_ref_rev, mate_is_read1) = parse_mate_info(*((const string*) anno.second));
+    }
     Alignment shim;
-    create_alignment_shim(name, mp_aln, shim);
-    auto bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar);
+    create_alignment_shim(name, mp_aln, shim, mate_is_read1 ? mate_name : nullptr, mate_is_read1 ? nullptr : mate_name);
+    bam1_t* bam;
+    if (mate_name) {
+        // give it an unattainable tlen limit to mark as not properly paired
+        bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar,
+                               mate_ref_name, mate_pos, mate_ref_rev, 0, 0);
+    }
+    else {
+        bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar);
+    }
     add_annotations(mp_aln, bam);
     dest.push_back(bam);
 }
@@ -414,26 +466,25 @@ void MultipathAlignmentEmitter::add_annotations(const multipath_alignment_t& mp_
         int64_t group_mapq = *((double*) anno.second);
         bam_aux_update_int(bam, "GM", group_mapq);
     }
-    if (mp_aln.has_annotation("secondary")) {
-        auto anno = mp_aln.get_annotation("secondary");
-        assert(anno.first == multipath_alignment_t::Bool);
-        bool secondary = *((bool*) anno.second);
-        if (secondary) {
-            bam->core.flag |= BAM_FSECONDARY;
-        }
-    }
     if (mp_aln.has_annotation("proper_pair")) {
         // we've annotated proper pairing, let this override the tlen limit
         auto anno = mp_aln.get_annotation("proper_pair");
         assert(anno.first == multipath_alignment_t::Bool);
-        bool proper_pair = *((bool*) anno.second);
         // we assume proper pairing applies to both reads
-        if (proper_pair) {
+        if (*((bool*) anno.second)) {
             bam->core.flag |= BAM_FPROPER_PAIR;
         }
         else {
             bam->core.flag &= ~BAM_FPROPER_PAIR;
         }
+    }
+}
+
+void MultipathAlignmentEmitter::canonicalize_subrange(string& path_name, int32_t& pos) const {
+    subrange_t subrange;
+    path_name = Paths::strip_subrange(path_name, &subrange);
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        pos += subrange.first;
     }
 }
 

@@ -507,6 +507,118 @@ int execute_in_fork(const function<void(void)>& exec) {
 #endif
 }
 
+// Internal helper for constructing minimizer indexes with different payload types
+// PayloadType should be one of gbwtgraph::Payload, gbwtgraph::PayloadXL
+template<typename PayloadType>
+static std::vector<std::vector<std::string>>
+construct_minimizers_impl(const vector<const IndexFile*>& inputs,
+                              const IndexingPlan* plan,
+                              const IndexGroup& constructing,
+                              int minimizer_k, int minimizer_w, bool minimizer_W) {
+    
+    if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
+            cerr << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") << "payload type " << (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value ? "XL" : "Standard") << endl;
+    }
+
+    assert(inputs.size() == 2);
+    auto dist_filenames = inputs[0]->get_filenames();
+    auto gbz_filenames = inputs[1]->get_filenames();
+    assert(dist_filenames.size() == 1);
+    assert(gbz_filenames.size() == 1);
+    auto dist_filename = dist_filenames.front();
+    auto gbz_filename = gbz_filenames.front();
+
+    assert(constructing.size() == 2);
+    vector<vector<string>> all_outputs(constructing.size());
+    auto minimizer_output = *constructing.begin();
+    auto zipcode_output = *constructing.rbegin();
+    auto& output_name_minimizer = all_outputs[0];
+    auto& output_name_zipcodes = all_outputs[1];
+
+    ifstream infile_gbz;
+    init_in(infile_gbz, gbz_filename);
+    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
+
+    ifstream infile_dist;
+    init_in(infile_dist, dist_filename);
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
+
+    using IndexType = gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::PositionPayload<PayloadType>>;
+    IndexType minimizers(minimizer_k,
+                         IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
+                         IndexingParameters::use_bounded_syncmers);
+
+    if (minimizer_W) {
+        auto frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
+            gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold,
+            IndexingParameters::space_efficient_counting
+        );
+    }
+
+    ZipCodeCollection oversized_zipcodes;
+    hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
+
+    std::function<PayloadType(const pos_t&)> payload_lambda =
+    [&](const pos_t& pos) -> PayloadType {
+        ZipCode zip;
+        zip.fill_in_zipcode(*distance_index, pos);
+        auto payload = zip.get_payload_from_zip();
+
+        if constexpr (std::is_same<PayloadType, gbwtgraph::Payload>::value) {
+            if (payload != MIPayload::NO_CODE) {
+                return payload; // small payload
+            } else {
+                zip.fill_in_full_decoder();
+                size_t zip_index;
+                #pragma omp critical
+                {
+                    if (node_id_to_zipcode_index.count(id(pos))) {
+                        zip_index = node_id_to_zipcode_index.at(id(pos));
+                    } else {
+                        oversized_zipcodes.emplace_back(zip);
+                        zip_index = oversized_zipcodes.size() - 1;
+                        node_id_to_zipcode_index.emplace(id(pos), zip_index);
+                    }
+                }
+                return {0, zip_index}; // extended encoding
+            }
+        } else if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
+            zip.fill_in_full_decoder();
+            size_t zip_index;
+            #pragma omp critical
+            {
+                if (node_id_to_zipcode_index.count(id(pos))) {
+                    zip_index = node_id_to_zipcode_index.at(id(pos));
+                } else {
+                    oversized_zipcodes.emplace_back(zip);
+                    zip_index = oversized_zipcodes.size() - 1;
+                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
+                }
+            }
+            return {0, zip_index, 0};
+        } else {
+            static_assert(
+                std::is_same<PayloadType, gbwtgraph::Payload>::value ||
+                std::is_same<PayloadType, gbwtgraph::PayloadXL>::value,
+                "PayloadType must be gbwtgraph::Payload or gbwtgraph::PayloadXL"
+            );
+        }
+    };
+    gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
+    string output_name = plan->output_filepath(minimizer_output);
+    save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+    output_name_minimizer.push_back(output_name);
+
+    string zipcodes_output_name = plan->output_filepath(zipcode_output);
+    ofstream zip_out(zipcodes_output_name);
+    oversized_zipcodes.serialize(zip_out);
+    zip_out.close();
+    output_name_zipcodes.push_back(zipcodes_output_name);
+
+    return all_outputs;
+}
+
 IndexRegistry VGIndexes::get_vg_index_registry() {
     
     IndexRegistry registry;
@@ -579,7 +691,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
     registry.register_index("Long Read Minimizers", "longread.withzip.min");
     registry.register_index("Long Read Zipcodes", "longread.zipcodes");
-    
+
+    registry.register_index("Long Read PathMinimizers", "longread.path.min");
+    registry.register_index("Long Read PathZipcodes", "longread.path.zipcodes");
     /*********************
      * Register all recipes
      ***********************/
@@ -4105,131 +4219,37 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
 
     // meta-recipe for Minimizer indexing
-    auto construct_minimizers = [](const vector<const IndexFile*>& inputs,
-                             const IndexingPlan* plan,
-                             const IndexGroup& constructing,
-                             int minimizer_k, int minimizer_w, bool minimizer_W) {
-        if (IndexingParameters::verbosity != IndexingParameters::None) {
-                cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
-                cerr << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") << endl;
-            }
-            
-            // TODO: should the distance index input be a joint simplification to avoid serializing it?
-            
-            assert(inputs.size() == 2);
-            auto dist_filenames = inputs[0]->get_filenames();
-            auto gbz_filenames = inputs[1]->get_filenames();
-            assert(dist_filenames.size() == 1);
-            assert(gbz_filenames.size() == 1);
-            auto dist_filename = dist_filenames.front();
-            auto gbz_filename = gbz_filenames.front();
-                    
-            assert(constructing.size() == 2);
-            vector<vector<string>> all_outputs(constructing.size());
-            auto minimizer_output = *constructing.begin();
-            auto zipcode_output = *constructing.rbegin();
-            auto& output_name_minimizer = all_outputs[0];
-            auto& output_name_zipcodes = all_outputs[1];
-
-            //TODO: This doesn't work because everything is const and the compiler doesn't like it
-            //Make sure that we're writing both the minimizers and zipcodes
-            //assert(!plan->registry->get_index(minimizer_output)->was_provided_directly() && !plan->registry->get_index(zipcode_output)->was_provided_directly());
-            
-
-            ifstream infile_gbz;
-            init_in(infile_gbz, gbz_filename);
-            auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
-            
-            ifstream infile_dist;
-            init_in(infile_dist, dist_filename);
-            auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
-            gbwtgraph::DefaultMinimizerIndex minimizers(minimizer_k,
-                                                        IndexingParameters::use_bounded_syncmers ?
-                                                            IndexingParameters::minimizer_s :
-                                                            minimizer_w,
-                                                        IndexingParameters::use_bounded_syncmers);
-
-
-            // Find frequent kmers.
-            std::vector<gbwtgraph::Key64> frequent_kmers;
-            //TODO: maybe we want to add this too? I left it as the default
-            if (minimizer_W) {
-                double checkpoint = gbwt::readTimer();
-                if (IndexingParameters::verbosity != IndexingParameters::None) {
-                    std::string algorithm = (IndexingParameters::space_efficient_counting ? "space-efficient" : "fast");
-                    std::cerr << "[IndexRegistry]: Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
-                }
-                frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-                    gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold, IndexingParameters::space_efficient_counting
-                );
-                if (IndexingParameters::verbosity != IndexingParameters::None) {
-                    std::cerr << "[IndexRegistry]: Found " << frequent_kmers.size() << " kmers with more than " << IndexingParameters::minimizer_downweight_threshold << " hits" << std::endl;
-                }
-            }
-                    
-            //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
-            ZipCodeCollection oversized_zipcodes;
-            
-            //oversized_zipcodes will be made as zipcodes are found in minimizers, so there may be duplicates that
-            //only get stored once. This maps node id to the index in oversized_zipcodes
-            hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
-
-            gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::Payload {
-                ZipCode zip;
-                zip.fill_in_zipcode(*distance_index, pos);
-
-                auto payload = zip.get_payload_from_zip();
-                if (payload != MIPayload::NO_CODE) {
-                    //If the zipcode is small enough to store in the payload
-                    return payload;
-                } else {
-                    //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
-                    //And remember the zipcode
-                
-                    //Fill in the decoder to be saved too
-                    zip.fill_in_full_decoder();
-                
-                
-                    size_t zip_index;
-                    #pragma omp critical
-                    {
-                    if (node_id_to_zipcode_index.count(id(pos))) {
-                        zip_index = node_id_to_zipcode_index.at(id(pos));
-                    } else {
-                        oversized_zipcodes.emplace_back(zip);
-                        zip_index = oversized_zipcodes.size() - 1;
-                        node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                    }
-                    }
-                    return {0, zip_index};
-                }
-
-
-            });
-            
-            string output_name = plan->output_filepath(minimizer_output);
-            save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-
-            string zipcodes_output_name = plan->output_filepath(zipcode_output);
-            //Write the larger zipcodes to a file
-            ofstream zip_out (zipcodes_output_name);
-            oversized_zipcodes.serialize(zip_out);
-            zip_out.close();
-            
-            output_name_minimizer.push_back(output_name);
-            output_name_zipcodes.push_back(zipcodes_output_name);
-            return all_outputs;
-
+    auto construct_minimizers = [&]<typename PayloadT>(const vector<const IndexFile*>& inputs,
+        const IndexingPlan* plan,
+        const IndexGroup& constructing,
+        int minimizer_k, int minimizer_w, bool minimizer_W, bool use_payload_xl) {
+        if (use_payload_xl) {
+            return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing,
+                                                    minimizer_k, minimizer_w, minimizer_W);
+        } else {
+            return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing,
+                                                minimizer_k, minimizer_w, minimizer_W);
+        }
     };
 
+    
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
+    registry.register_recipe({"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k,
+                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
+    });
+    
     registry.register_recipe({"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
-        return construct_minimizers(inputs, plan, constructing, IndexingParameters::short_read_minimizer_k, 
+        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::short_read_minimizer_k, 
                                     IndexingParameters::short_read_minimizer_w, IndexingParameters::short_read_minimizer_W);
     });
 
@@ -4238,9 +4258,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
-        return construct_minimizers(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
+        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
                                     IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
     });
+
     
     return registry;
 }
@@ -4289,6 +4310,16 @@ vector<IndexName> VGIndexes::get_default_long_giraffe_indexes() {
         "Giraffe GBZ",
         "Long Read Minimizers",
         "Long Read Zipcodes"
+    };
+    return indexes;
+}
+
+vector<IndexName> VGIndexes::get_default_long_path_giraffe_indexes() {
+    vector<IndexName> indexes{
+        "Giraffe Distance Index",
+        "Giraffe GBZ",
+        "Long Read PathMinimizers",
+        "Long Read PathZipcodes",
     };
     return indexes;
 }
@@ -4415,7 +4446,6 @@ void IndexRegistry::set_intermediate_file_keeping(bool keep_intermediates) {
 }
 
 void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
-    
     // figure out the best plan to make the objectives from the inputs
     IndexGroup identifier_group(identifiers.begin(), identifiers.end());
     auto plan = make_plan(identifier_group);
@@ -5203,6 +5233,10 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         
         // map dependency priority to requesters
         map<size_t, set<size_t>, greater<size_t>> queue;
+
+        // To help the user, we track index identifiers that, if we had them,
+        // we would have been able to make a deeper plan.
+        set<IndexGroup> missing_index_sets;
         
         auto num_recipes = [&](const IndexGroup& indexes) {
             int64_t num = 0;
@@ -5371,6 +5405,9 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
                 cerr << "index " << to_string(index_group) << " cannot be made from existing inputs, need to backtrack" << endl;
 #endif
+
+                // Remember that if we had had this, we could have proceeded.
+                missing_index_sets.insert(index_group);
                 
                 // prune to requester and advance to its next recipe, as many times as necessary until
                 // requester has remaining un-tried recipes
@@ -5380,7 +5417,7 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
                     
                     if (get<1>(plan_path.back()).empty()) {
                         // this is the product of the plan path, and we're out of recipes for it
-                        throw InsufficientInputException(product, *this);
+                        throw InsufficientInputException(product, *this, missing_index_sets);
                     }
                     
                     // remove items off the plan path until we get to the first index that requested
@@ -5745,16 +5782,34 @@ vector<pair<IndexName, vector<IndexName>>> AliasGraph::non_intermediate_aliases(
 }
 
 InsufficientInputException::InsufficientInputException(const IndexName& target,
-                                                       const IndexRegistry& registry) noexcept :
-    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes())
+                                                       const IndexRegistry& registry,
+                                                       const set<IndexGroup>& missing_index_sets) noexcept :
+    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes()), missing_index_sets(missing_index_sets)
 {
     // nothing else to do
     stringstream ss;
-    ss << "Inputs" << endl;
-    for (const auto& input : inputs) {
-        ss << "\t" << input << endl;
+    ss << "Inputs:" << endl;
+    if (inputs.empty()) {
+        ss << "\t<no inputs provided!>" << endl;
+    } else {
+        for (const auto& input : inputs) {
+            ss << "\t" << input << endl;
+        }
     }
-    ss << "are insufficient to create target index " << target << endl;
+    ss << "are insufficient to create target index " << target << "." << endl;
+    if (!missing_index_sets.empty()) {
+        ss << "Hint: more progress would be possible if you provided one of these:" << endl;
+        for (auto& index_set : missing_index_sets) {
+            ss << "\t";
+            for (auto name_iter = index_set.begin(); name_iter != index_set.end(); ++name_iter) {
+                if (name_iter != index_set.begin()) {
+                    ss << ", ";
+                }
+                ss << *name_iter;
+            }
+            ss << endl;
+        }
+    }
     msg = ss.str();
 }
 
