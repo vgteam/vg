@@ -251,27 +251,6 @@ void load_subchain_kmers_present(Haplotypes::Subchain& subchain, std::istream& i
     }
 }
 
-void Haplotypes::Subchain::load_v1(std::istream& in) {
-    load_subchain_header(*this, in);
-
-    // Kmer and sequence information must be converted to a more compact format.
-    auto kmers_counts = sdsl::simple_sds::load_vector<std::pair<kmer_type, size_t>>(in);
-    auto seqs = sdsl::simple_sds::load_vector<sequence_type>(in);
-    this->kmers = std::vector<kmer_type>(kmers_counts.size());
-    this->kmer_counts = sdsl::int_vector<0>(kmers_counts.size(), 0, sdsl::bits::length(this->sequences.size()));
-    for (size_t i = 0; i < kmers_counts.size(); i++) {
-        this->kmers[i] = kmers_counts[i].first;
-        this->kmer_counts[i] = kmers_counts[i].second;
-    }
-    this->sequences = std::vector<compact_sequence_type>(seqs.size());
-    for (size_t i = 0; i < seqs.size(); i++) {
-        this->sequences[i].first = seqs[i].first;
-        this->sequences[i].second = seqs[i].second;
-    }
-
-    load_subchain_kmers_present(*this, in);
-}
-
 void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
     load_subchain_header(*this, in);
 
@@ -312,28 +291,6 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
     }
 }
 
-void Haplotypes::TopLevelChain::load_v1(std::istream& in) {
-    this->offset = sdsl::simple_sds::load_value<size_t>(in);
-    this->job_id = sdsl::simple_sds::load_value<size_t>(in);
-    this->contig_name = "component_" + std::to_string(this->offset);
-    size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
-    this->subchains.resize(subchain_count);
-    for (size_t i = 0; i < subchain_count; i++) {
-        this->subchains[i].load_v1(in);
-    }
-}
-
-void Haplotypes::TopLevelChain::load_v2(std::istream& in) {
-    this->offset = sdsl::simple_sds::load_value<size_t>(in);
-    this->job_id = sdsl::simple_sds::load_value<size_t>(in);
-    this->contig_name = sdsl::simple_sds::load_string(in);
-    size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
-    this->subchains.resize(subchain_count);
-    for (size_t i = 0; i < subchain_count; i++) {
-        this->subchains[i].load_v1(in);
-    }
-}
-
 size_t Haplotypes::TopLevelChain::simple_sds_size() const {
     size_t result = 3 * sdsl::simple_sds::value_size<size_t>();
     result += sdsl::simple_sds::string_size(this->contig_name);
@@ -345,7 +302,7 @@ size_t Haplotypes::TopLevelChain::simple_sds_size() const {
 
 void Haplotypes::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<Header>(this->header, out);
-    sdsl::simple_sds::serialize_vector(this->jobs_for_cached_paths, out);
+    sdsl::simple_sds::serialize_vector(this->jobs_for_paths, out);
     for (auto& chain : this->chains) {
         chain.simple_sds_serialize(out);
     }
@@ -372,17 +329,11 @@ void Haplotypes::simple_sds_load(std::istream& in) {
         throw sdsl::simple_sds::InvalidData(msg);
     }
 
-    this->jobs_for_cached_paths = sdsl::simple_sds::load_vector<size_t>(in);
+    this->jobs_for_paths = sdsl::simple_sds::load_vector<size_t>(in);
 
     this->chains.resize(this->header.top_level_chains);
     for (auto& chain : this->chains) {
-        if (this->header.version >= 3) {
-            chain.simple_sds_load(in);
-        } else if (this->header.version == 2) {
-            chain.load_v2(in);
-        } else {
-            chain.load_v1(in);
-        }
+        chain.simple_sds_load(in);
     }
 
     // Update to the current version.
@@ -400,72 +351,33 @@ void Haplotypes::load_from(const std::string& filename) {
 
 size_t Haplotypes::simple_sds_size() const {
     size_t result = sdsl::simple_sds::value_size<Header>();
-    result += sdsl::simple_sds::vector_size(this->jobs_for_cached_paths);
+    result += sdsl::simple_sds::vector_size(this->jobs_for_paths);
     for (auto& chain : this->chains) {
         result += chain.simple_sds_size();
     }
     return result;
 }
 
-std::vector<size_t> Haplotypes::assign_reference_paths(const gbwtgraph::GBZ& gbz, const gbwt::FragmentMap& fragment_map, Verbosity verbosity) const {
+std::vector<size_t> Haplotypes::assign_reference_paths(const gbwtgraph::GBZ& gbz, Verbosity verbosity) const {
     if (verbosity >= verbosity_basic) {
         std::cerr << "Assigning reference paths to GBWT construction jobs" << std::endl;
     }
     double start = gbwt::readTimer();
 
-    // All paths are initially unassigned.
-    std::vector<size_t> result (gbz.named_paths(), this->jobs());
-
-    auto path_id_to_named_path_offset = [&](gbwt::size_type path_id) -> size_t {
-        path_handle_t handle = gbz.graph.path_to_handle(path_id);
-        size_t as_integer = handlegraph::as_integer(handle);
-        if (as_integer >= gbz.named_paths()) {
-            return std::numeric_limits<size_t>::max();
-        } else {
-            return as_integer;
-        }
-    };
-
-    // We do a lot of redundant work here. We iterate over every sequence in every subchain
-    // and top-level chain. If the sequence is a cached (generic or reference) path, we
-    // assign it to the job corresponding to the top-level chain.
-    for (const TopLevelChain& chain : this->chains) {
-        size_t job = chain.job_id;
-        for (const Subchain& subchain : chain.subchains) {
-            for (const compact_sequence_type& sequence : subchain.sequences) {
-                gbwt::size_type path_id = gbwt::Path::id(sequence.first);
-                size_t offset = path_id_to_named_path_offset(path_id);
-                if (offset < gbz.named_paths()) {
-                    result[offset] = job;
-                }
-            }
-        }
+    if (this->jobs_for_paths.size() != gbz.index.metadata.paths()) {
+        std::string msg = "Haplotypes::assign_reference_paths(): Haplotype information was built for "
+            + std::to_string(this->jobs_for_paths.size()) + " paths, but the graph contains "
+            + std::to_string(gbz.index.metadata.paths()) + " paths";
+        throw std::runtime_error(msg);
     }
 
-    // TODO: Fragment map could provide an iterator.
-    // If some paths were left unassigned because they are located within a subchain, we
-    // try to use the fragment map to rescue them.
+    // All paths are initially unassigned.
+    std::vector<size_t> result (gbz.named_paths(), this->jobs());
     size_t unassigned = 0;
-    for (size_t i = 0; i < result.size(); i++) {
-        if (result[i] < this->jobs()) {
-            continue;
-        }
-        gbwt::size_type first = gbz.graph.named_paths[i].id;
-        while (true) {
-            gbwt::size_type prev = fragment_map.prev(first);
-            if (prev == gbwt::invalid_sequence()) {
-                break;
-            }
-            first = prev;
-        }
-        for (gbwt::size_type curr = first; curr != gbwt::invalid_sequence(); curr = fragment_map.next(curr)) {
-            size_t offset = path_id_to_named_path_offset(curr);
-            if (offset < gbz.named_paths() && result[offset] < this->jobs()) {
-                result[i] = result[offset];
-                break;
-            }
-        }
-        if (result[i] > this->jobs()) {
+    for (size_t i = 0; i < gbz.named_paths(); i++) {
+        gbwt::size_type path_id = gbz.graph.named_paths[i].id;
+        result[i] = this->jobs_for_paths[path_id];
+        if (result[i] >= this->jobs()) {
             unassigned++;
         }
     }
@@ -579,20 +491,15 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         }
     }
 
-    // Assign named and reference paths to jobs.
-    result.jobs_for_cached_paths = std::vector<size_t>(this->gbz.named_paths(), result.jobs());
-    // Again, we do not use a path filter, because a GBZ graph should not contain alt paths.
-    auto assignments = gbwtgraph::assign_paths(this->gbz.graph, jobs, nullptr, nullptr);
-    for (size_t job = 0; job < assignments.size(); job++) {
-        for (const path_handle_t& path : assignments[job]) {
-            // We know that GBWTGraph path handles for reference/generic paths are offsets in named_paths.
-            size_t path_id = handlegraph::as_integer(path);
-            if (path_id >= result.jobs_for_cached_paths.size()) {
-                std::string msg = "HaplotypePartitioner::partition_haplotypes(): path " + std::to_string(path_id) + " is not a reference/generic path";
-                throw std::runtime_error(msg);
-            }
-            result.jobs_for_cached_paths[path_id] = job;
-        }
+    // Assign paths to construction jobs. We do this for all paths, as reference status
+    // is not a fixed property of a path.
+    size_t total_paths = this->gbz.index.metadata.paths();
+    result.jobs_for_paths = std::vector<size_t>(total_paths, result.jobs());
+    for (size_t path_id = 0; path_id < total_paths; path_id++) {
+        gbwt::size_type gbwt_seq_id = gbwt::Path::encode(path_id, false);
+        gbwt::edge_type start = this->gbz.index.start(gbwt_seq_id);
+        nid_t node_id = gbwt::Node::id(start.first);
+        result.jobs_for_paths[path_id] = jobs.job(node_id);
     }
 
     jobs = gbwtgraph::ConstructionJobs(); // Save memory.
@@ -1613,7 +1520,7 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
         std::cerr << "Recombinator: " << this->gbz.index.metadata.paths() << " fragments for " << this->fragment_map.size() << " haplotype sequences" << std::endl;
     }
 
-    this->jobs_for_cached_paths = this->haplotypes.assign_reference_paths(this->gbz, this->fragment_map, this->verbosity);
+    this->jobs_for_cached_paths = this->haplotypes.assign_reference_paths(this->gbz, this->verbosity);
 }
 
 //------------------------------------------------------------------------------
