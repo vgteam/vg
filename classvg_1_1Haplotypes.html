@@ -138,15 +138,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ac0ebaa605235ee2b6f62c084cfdc6126">simple_sds_size</a> () const</td></tr>
 <tr class="memdesc:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size of the object in elements.  <a href="classvg_1_1Haplotypes.html#ac0ebaa605235ee2b6f62c084cfdc6126">More...</a><br /></td></tr>
 <tr class="separator:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae19f4782a92fc322806cf178beabdda6"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ae19f4782a92fc322806cf178beabdda6">assign_reference_paths</a> (const gbwtgraph::GBZ &amp;gbz, const gbwt::FragmentMap &amp;fragment_map, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
-<tr class="separator:ae19f4782a92fc322806cf178beabdda6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68d4b34e9075418b258faefd221c71ed"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a68d4b34e9075418b258faefd221c71ed">assign_reference_paths</a> (const gbwtgraph::GBZ &amp;gbz, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
+<tr class="separator:a68d4b34e9075418b258faefd221c71ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:ac2671cb0e5d0cdf19a8aa849ec9a2577"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Haplotypes_1_1Header.html">Header</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ac2671cb0e5d0cdf19a8aa849ec9a2577">header</a></td></tr>
 <tr class="separator:ac2671cb0e5d0cdf19a8aa849ec9a2577"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5974594af8a92b2e030163a5359a7265"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a5974594af8a92b2e030163a5359a7265">jobs_for_cached_paths</a></td></tr>
-<tr class="separator:a5974594af8a92b2e030163a5359a7265"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f3d8db67fd1488075960f77b361c161"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a9f3d8db67fd1488075960f77b361c161">jobs_for_paths</a></td></tr>
+<tr class="separator:a9f3d8db67fd1488075960f77b361c161"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabf788ef8783a229fa095209bf61d7eb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">TopLevelChain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aabf788ef8783a229fa095209bf61d7eb">chains</a></td></tr>
 <tr class="separator:aabf788ef8783a229fa095209bf61d7eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -157,6 +157,7 @@ Public Attributes</h2></td></tr>
 <p>NOTE: This assumes that the top-level chains are linear, not cyclical.</p>
 <p>Versions:</p>
 <ul>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 5: Every path in the graph is assigned to a construction job. This allows including reference paths that do not visit any snarls in the sampled graph. Not compatible with earlier versions.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 4: Subchains can have fragmented haplotypes instead of a single GBWT sequence always crossing from start to end. Compatible with version 3.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 3: Subchains use smaller integers when possible. Compatible with version 2.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 2: Top-level chains include a contig name. Compatible with version 1.</li>
@@ -225,8 +226,8 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="ae19f4782a92fc322806cf178beabdda6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae19f4782a92fc322806cf178beabdda6">&#9670;&nbsp;</a></span>assign_reference_paths()</h2>
+<a id="a68d4b34e9075418b258faefd221c71ed"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68d4b34e9075418b258faefd221c71ed">&#9670;&nbsp;</a></span>assign_reference_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -236,12 +237,6 @@ Public Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
           <td class="paramname"><em>gbz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwt::FragmentMap &amp;&#160;</td>
-          <td class="paramname"><em>fragment_map</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -523,14 +518,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a5974594af8a92b2e030163a5359a7265"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5974594af8a92b2e030163a5359a7265">&#9670;&nbsp;</a></span>jobs_for_cached_paths</h2>
+<a id="a9f3d8db67fd1488075960f77b361c161"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f3d8db67fd1488075960f77b361c161">&#9670;&nbsp;</a></span>jobs_for_paths</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;size_t&gt; vg::Haplotypes::jobs_for_cached_paths</td>
+          <td class="memname">std::vector&lt;size_t&gt; vg::Haplotypes::jobs_for_paths</td>
         </tr>
       </table>
 </div><div class="memdoc">

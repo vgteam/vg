@@ -341,7 +341,7 @@ var searchData=
   ['assign_5fchild_5fsnarls_5fto_5ftraversals_373',['assign_child_snarls_to_traversals',['../namespacevg.html#a1ac7d2a0833215a0628a25c8195a70ab',1,'vg']]],
   ['assign_5fconstructed_374',['assign_constructed',['../classvg_1_1IndexFile.html#ac3bf2966b1a530956e099f225208395e',1,'vg::IndexFile']]],
   ['assign_5fnew_5fsequence_5fid_375',['assign_new_sequence_id',['../classvg_1_1algorithms_1_1GFAParser.html#aa7d65677018149472a7924da28b6633b',1,'vg::algorithms::GFAParser']]],
-  ['assign_5freference_5fpaths_376',['assign_reference_paths',['../classvg_1_1Haplotypes.html#ae19f4782a92fc322806cf178beabdda6',1,'vg::Haplotypes']]],
+  ['assign_5freference_5fpaths_376',['assign_reference_paths',['../classvg_1_1Haplotypes.html#a68d4b34e9075418b258faefd221c71ed',1,'vg::Haplotypes']]],
   ['assume_5facyclic_377',['assume_acyclic',['../classvg_1_1BaseMapper.html#a7127a75ac293b9b05093134ee8e51cd2',1,'vg::BaseMapper']]],
   ['at_378',['at',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a613f2b4b5f02b68f1868830e3213ffe2',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::at(size_t i)'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a8e8fb7dad7fb3274f9dae3e11be2ed5c',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::at(size_t i) const'],['../classvg_1_1ZipCodeCollection.html#a872b6e4393de003c61621d883cac4efb',1,'vg::ZipCodeCollection::at()']]],
   ['at_5fdead_5fend_379',['at_dead_end',['../classvg_1_1WFATree.html#a98b3e5f4f226261068acfa268ec416ae',1,'vg::WFATree']]],
