@@ -1217,8 +1217,9 @@ void validate_haplotypes(const Haplotypes& haplotypes,
     }
 
     // Cached paths.
-    if (haplotypes.jobs_for_cached_paths.size() != graph.named_paths.size()) {
-        validate_error("cached paths", expected_got(graph.named_paths.size(), haplotypes.jobs_for_cached_paths.size()));
+    size_t expected_paths = graph.index->metadata.paths();
+    if (haplotypes.jobs_for_paths.size() != expected_paths) {
+        validate_error("cached paths", expected_got(expected_paths, haplotypes.jobs_for_paths.size()));
     }
 
     // Haplotype information is valid

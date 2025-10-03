@@ -37,6 +37,10 @@ namespace vg {
  *
  * Versions:
  *
+ * * Version 5: Every path in the graph is assigned to a construction job.
+ *   This allows including reference paths that do not visit any snarls in the
+ *   sampled graph. Not compatible with earlier versions.
+ *
  * * Version 4: Subchains can have fragmented haplotypes instead of a single
  *   GBWT sequence always crossing from start to end. Compatible with version 3.
  *
@@ -70,8 +74,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 4;
-        constexpr static std::uint32_t MIN_VERSION = 1;
+        constexpr static std::uint32_t VERSION = 5;
+        constexpr static std::uint32_t MIN_VERSION = 5;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
         /// A magic number that identifies the file.
@@ -138,7 +142,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<compact_sequence_type> sequences;
 
-        // TODO v5: Use an extra bit for each sequence to mark whether the presence for that sequence
+        // TODO v6: Use an extra bit for each sequence to mark whether the presence for that sequence
         // is stored explicitly or relative to the last explicit sequence.
         // We need to cluster the sequences by similarity and store the clusters consecutively.
         // And then use sd_vector for the sequences with relative presence.
@@ -183,9 +187,6 @@ public:
         /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
-        /// Loads a less space-efficient version 1 or 2 subchain.
-        void load_v1(std::istream& in);
-
         /// Loads the object from a stream in the Simple-SDS format.
         void simple_sds_load(std::istream& in);
 
@@ -213,12 +214,6 @@ public:
         /// Loads the object from a stream in the Simple-SDS format.
         void simple_sds_load(std::istream& in);
 
-        /// Loads a version 1 chain without a contig name.
-        void load_v1(std::istream& in);
-
-        /// Loads a less space-efficient version 2 chain.
-        void load_v2(std::istream& in);
-
         /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
     };
@@ -237,10 +232,8 @@ public:
 
     Header header;
 
-    // TODO v5: Remove this.
-    // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
-    // This is no longer in use.
-    std::vector<size_t> jobs_for_cached_paths;
+    // Job ids for each path in the GBWTGraph, or `jobs()` if the path is empty.
+    std::vector<size_t> jobs_for_paths;
 
     std::vector<TopLevelChain> chains;
 
@@ -280,7 +273,7 @@ public:
      * For each path handle from 0 to gbz.named_paths() - 1, we assign the path to
      * the given construction job, or jobs() if the path is empty.
      */
-    std::vector<size_t> assign_reference_paths(const gbwtgraph::GBZ& gbz, const gbwt::FragmentMap& fragment_map, Verbosity verbosity) const;
+    std::vector<size_t> assign_reference_paths(const gbwtgraph::GBZ& gbz, Verbosity verbosity) const;
 };
 
 //------------------------------------------------------------------------------
@@ -642,8 +635,10 @@ public:
     gbwt::FragmentMap fragment_map;
     Verbosity verbosity;
 
-    // This used to be in the Haplotypes object. For each path handle from 0 to gbz.named_paths() - 1,
-    // this stores the job id for the corresponding generic/reference path.
+    // A Haplotypes object contains a mapping from path ids to job ids.
+    // This is a subset of the mapping for path handles / cached path offsets
+    // corresponding to generic / reference paths in the current graph.
+    // If the path is empty, the job id is haplotypes.jobs().
     std::vector<size_t> jobs_for_cached_paths;
 
 private:
