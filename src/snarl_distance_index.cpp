@@ -1490,8 +1490,7 @@ void populate_snarl_index(
         temp_index.max_index_size -= (temp_snarl_record.children.size() * SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord::get_max_record_length());
     }
 
-    temp_index.max_bits = 22 + bit_width(temp_snarl_record.children.size()); 
-
+    temp_index.max_bits = std::max(temp_index.max_bits, 22 + SnarlDistanceIndex::bit_width(temp_snarl_record.children.size())); 
 
 }
 
