@@ -32,7 +32,7 @@ namespace vg {
     }
 
     multipath_alignment_t::multipath_alignment_t(multipath_alignment_t&& other) {
-        *this = move(other);
+        *this = std::move(other);
     }
 
     multipath_alignment_t& multipath_alignment_t::operator=(const multipath_alignment_t& other) {
@@ -66,12 +66,12 @@ namespace vg {
 
     multipath_alignment_t& multipath_alignment_t::operator=(multipath_alignment_t&& other) {
         if (this != &other) {
-            _sequence = move(other._sequence);
-            _quality = move(other._quality);
-            _subpath = move(other._subpath);
-            _mapping_quality = move(other._mapping_quality);
-            _start = move(other._start);
-            _annotation = move(other._annotation);
+            _sequence = std::move(other._sequence);
+            _quality = std::move(other._quality);
+            _subpath = std::move(other._subpath);
+            _mapping_quality = std::move(other._mapping_quality);
+            _start = std::move(other._start);
+            _annotation = std::move(other._annotation);
             other._annotation.clear();
         }
         return *this;
@@ -264,7 +264,7 @@ namespace vg {
                         ++edits_removed;
                     }
                     else if (edits_removed != 0) {
-                        *mapping->mutable_edit(k - edits_removed) = move(*edit);
+                        *mapping->mutable_edit(k - edits_removed) = std::move(*edit);
                     }
                 }
                 mapping->mutable_edit()->resize(mapping->edit_size() - edits_removed);
@@ -272,7 +272,7 @@ namespace vg {
                     ++mappings_removed;
                 }
                 else if (mappings_removed != 0) {
-                    *path->mutable_mapping(j - mappings_removed) = move(*mapping);
+                    *path->mutable_mapping(j - mappings_removed) = std::move(*mapping);
                 }
             }
             path->mutable_mapping()->resize(path->mapping_size() - mappings_removed);
@@ -418,7 +418,7 @@ namespace vg {
                 }
                 
                 if (removed_so_far[i] > 0) {
-                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
+                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = std::move(*multipath_aln.mutable_subpath(i));
                 }
             }
             
@@ -945,7 +945,7 @@ namespace vg {
                 
                 if (removed_so_far[i]) {
                     // move it up in the vector through all the deleted subpaths
-                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*subpath);
+                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = std::move(*subpath);
                 }
                 
                 removed_so_far[i + 1] = removed_so_far[i];
@@ -2136,13 +2136,13 @@ namespace vg {
         // add reversed edges
         for (uint32_t i = 0, j = last; i < multipath_aln->subpath_size(); i++, j--) {
             subpath_t* subpath = multipath_aln->mutable_subpath(i);
-            *subpath->mutable_next() = move(reverse_edge_lists[j]);
-            *subpath->mutable_connection() = move(reverse_connection_lists[j]);
+            *subpath->mutable_next() = std::move(reverse_edge_lists[j]);
+            *subpath->mutable_connection() = std::move(reverse_connection_lists[j]);
         }
         
         // if we had starts labeled before, label them again
         if (multipath_aln->start_size() > 0) {
-            *multipath_aln->mutable_start() = move(reverse_starts);
+            *multipath_aln->mutable_start() = std::move(reverse_starts);
         }
     }
 
@@ -2482,14 +2482,14 @@ namespace vg {
                     
                     // append rest of the edits
                     for (; edit_idx < first_mapping->edit_size(); edit_idx++) {
-                        *final_mapping->add_edit() = move(*first_mapping->mutable_edit(edit_idx));
+                        *final_mapping->add_edit() = std::move(*first_mapping->mutable_edit(edit_idx));
                     }
                     
                     mapping_idx++;
                 }
                 
                 for (; mapping_idx < merge_path->mapping_size(); mapping_idx++) {
-                    *path->add_mapping() = move(*merge_path->mutable_mapping(mapping_idx));
+                    *path->add_mapping() = std::move(*merge_path->mutable_mapping(mapping_idx));
                 }
                 
                 last = j;
@@ -2523,7 +2523,7 @@ namespace vg {
             
             if (removed_so_far[i]) {
                 // move it up in the vector past the removed subpaths
-                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
+                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = std::move(*multipath_aln.mutable_subpath(i));
             }
         }
         
@@ -2716,6 +2716,15 @@ namespace vg {
             no_connection = multipath_aln.subpath(i).connection().empty();
         }
         return !no_connection;
+    }
+
+    bool is_supplementary(const multipath_alignment_t& multipath_aln) {
+        if (!multipath_aln.has_annotation("supplementary")) {
+            return false;
+        }
+        else {
+            return *((bool*) multipath_aln.get_annotation("supplementary").second);
+        }
     }
 
     vector<tuple<int64_t, int64_t, int64_t, int64_t>>
@@ -3633,7 +3642,7 @@ namespace vg {
                     }
                 }
                 
-                curr_runs = move(next_runs);
+                curr_runs = std::move(next_runs);
             }
         }
         

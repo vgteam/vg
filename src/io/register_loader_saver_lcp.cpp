@@ -24,7 +24,7 @@ void register_loader_saver_lcp() {
         gcsa::LCPArray* index = new gcsa::LCPArray();
         
         // Load it. In case of a failure, this will:
-        // * Throw std::runtime_error if sanity checks fail.
+        // * Throw std::runtime_error if data is unacceptable.
         // * Fail silently if reading the input fails.
         index->load(input);
         

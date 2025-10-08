@@ -51,21 +51,61 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    const DefaultIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
     const ZipCodeCollection* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph), minimizer_index(minimizer_index),
+    path_graph(path_graph),
+    minimizer_index_s(&minimizer_index),
+    minimizer_index_xl(nullptr),
+    index_kind(IndexKind::S),
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
     choose_band_padding(algorithms::pad_band_random_walk()),
-    fragment_length_distr(1000,1000,0.95) {
-    
-    // The GBWTGraph needs a GBWT
+    fragment_length_distr(1000,1000,0.95)
+{   
     crash_unless(graph.index != nullptr);
+    if ((index_kind == IndexKind::S  && minimizer_index_s  == nullptr) || (index_kind == IndexKind::XL && minimizer_index_xl == nullptr)) {
+        k = 0; w = 0; uses_syncmers = false;
+    } else {
+        with_index([&](const auto& idx){
+            k = (int32_t)idx.k();
+            w = (int32_t)idx.w();
+            uses_syncmers = idx.uses_syncmers();
+        });
+    }
+}
+
+MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+    const XLIndex& minimizer_index,
+    SnarlDistanceIndex* distance_index, 
+    const ZipCodeCollection* zipcodes, 
+    const PathPositionHandleGraph* path_graph) :
+    path_graph(path_graph),
+    minimizer_index_s(nullptr),
+    minimizer_index_xl(&minimizer_index),
+    index_kind(IndexKind::XL),
+    distance_index(distance_index),  
+    zipcodes(zipcodes),
+    clusterer(distance_index, &graph),
+    gbwt_graph(graph),
+    extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
+    choose_band_padding(algorithms::pad_band_random_walk()),
+    fragment_length_distr(1000,1000,0.95)
+{
+    crash_unless(graph.index != nullptr);
+    if ((index_kind == IndexKind::S  && minimizer_index_s  == nullptr) || (index_kind == IndexKind::XL && minimizer_index_xl == nullptr)) {
+        k = 0; w = 0; uses_syncmers = false;
+    } else {
+        with_index([&](const auto& idx){
+            k = (int32_t)idx.k();
+            w = (int32_t)idx.w();
+            uses_syncmers = idx.uses_syncmers();
+        });
+    }
 }
 
 void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
@@ -222,6 +262,9 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
         exp.key("read_exclusion_end");
         exp.value(anchors[index].read_exclusion_start());
         
+        // added info of supported paths
+        exp.key("paths");
+        exp.value(static_cast<std::size_t>(anchors[index].anchor_start_paths()));
         exp.object_end();
     }
     exp.array_end();
@@ -621,7 +664,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
-
+  
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
@@ -3353,7 +3396,8 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const VectorVie
     std::sort(sorted_ids.begin(), sorted_ids.end());
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
-        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
+        const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
+        gbwtgraph::hits_in_subgraph<gbwtgraph::Payload>(minimizer.hits, occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
             if (minimizer.value.is_reverse) {
                 size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
                 pos = reverse_base_pos(pos, node_length);
@@ -3482,11 +3526,19 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     double base_score = 1.0 + std::log(this->hard_hit_cap);
     // Get minimizers and their window agglomeration starts and lengths
     // Starts and lengths are all 0 if we are using syncmers.
-    vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
-        this->minimizer_index.minimizer_regions(sequence);
+    using minimizer_t = gbwtgraph::DefaultMinimizerIndex::minimizer_type;
+    std::vector<std::tuple<minimizer_t, size_t, size_t>> minimizers =
+        with_index([&](const auto& idx)
+            -> std::vector<std::tuple<minimizer_t, size_t, size_t>> {
+                return idx.minimizer_regions(sequence);
+            });
     for (auto& m : minimizers) {
         double score = 0.0;
-        auto hits = this->minimizer_index.find(get<0>(m));
+        auto hits = with_index([&](const auto& idx) {
+            auto h = idx.find(get<0>(m));
+            return std::pair<const void*, size_t>(
+                static_cast<const void*>(h.first), h.second);
+        });
         if (hits.second > 0) {
             if (hits.second <= this->hard_hit_cap) {
                 score = base_score - std::log(hits.second);
@@ -3496,14 +3548,13 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
         }
         
         // Length of the match from this minimizer or syncmer
-        int32_t match_length = (int32_t) minimizer_index.k();
+        int32_t match_length = this->k;
         // Number of candidate kmers that this minimizer is minimal of
-        int32_t candidate_count = this->minimizer_index.uses_syncmers() ? 1 : (int32_t) minimizer_index.w();
-        
+        int32_t candidate_count = this->uses_syncmers ? 1 : this->w;
         auto& value = std::get<0>(m);
         size_t agglomeration_start = std::get<1>(m);
         size_t agglomeration_length = std::get<2>(m);
-        if (this->minimizer_index.uses_syncmers()) {
+        if (this->uses_syncmers) {
             // The index says the start and length are 0. Really they should be where the k-mer is.
             // So start where the k-mer is on the forward strand
             agglomeration_start = value.is_reverse ? (value.offset - (match_length - 1)) : value.offset;
@@ -3523,7 +3574,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     
     if (this->track_provenance) {
         // Record how many we found, as new lines.
-        // THey are going to be numbered in score order, not read order. Probably...
+        // They are going to be numbered in score order, not read order. Probably...
         funnel.introduce(result.size());
     }
 
@@ -3939,7 +3990,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // they would have to be created in the read no matter where we say it came
     // from, and because adding more of them should lower the MAPQ cap, whereas
     // locating more of the minimizers that are present and letting them pass
-    // to the enxt stage should raise the cap.
+    // to the next stage should raise the cap.
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (this->track_provenance) {
             // Say we're working on it
@@ -4011,40 +4062,62 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // minimizers which we also took.
 
             // Locate the hits.
-            for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = minimizer.occs[j].position.decode();
-                // Reverse the hits for a reverse minimizer
-                if (minimizer.value.is_reverse) {
-                    size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
-                    hit = reverse_base_pos(hit, node_length);
-                }
-                // Extract component id and offset in the root chain, if we have them for this seed.
-                seeds.emplace_back();
-                seeds.back().pos = hit;
-                seeds.back().source = i;
+            // Lambda to process occurrences, regardless of payload type
+            auto process_occurrences = [&](const auto* occs, auto get_payload_fn) {
+                for (size_t j = 0; j < minimizer.hits; j++) {
+                    const auto& occ = occs[j];
 
-                //Get the zipcode
-                if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
-                    //If the zipcocde wasn't saved, then calculate it
-                    seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-                    seeds.back().zipcode.fill_in_full_decoder();
-                } else if (minimizer.occs[j].payload.first == 0) {
-                    //If the minimizer stored the index into a list of zipcodes
-                    if (!this->zipcodes->empty()) {
-                        //If we have the oversized zipcodes
-                        seeds.back().zipcode = zipcodes->at(minimizer.occs[j].payload.second);
-                    } else {
-                        //If we don't have the oversized payloads, then fill in the zipcode using the pos
+                    pos_t hit = occ.position.decode();
+                    // Reverse the hits for a reverse minimizer
+                    if (minimizer.value.is_reverse) {
+                        size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
+                        hit = reverse_base_pos(hit, node_length);
+                    }
+
+                    // Extract component id and offset in the root chain, if we have them for this seed.
+                    seeds.emplace_back();
+                    seeds.back().pos = hit;
+                    seeds.back().source = i;
+                    
+                    // Get the payload using the provided function
+                    auto payload = get_payload_fn(occ);
+                    seeds.back().paths = gbwtgraph::get_paths_or_zero(payload);
+
+                    // Handle zipcode
+                    if (payload.first == 0 && payload.second == 0) {
+                        // No zipcode saved; compute it from position.
                         seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
                         seeds.back().zipcode.fill_in_full_decoder();
+                    } else if (payload.first == 0) {
+                        // Payload stores an index into the oversized zipcodes list.
+                        if (!this->zipcodes->empty()) {
+                            seeds.back().zipcode = zipcodes->at(payload.second);
+                        } else {
+                            // Oversized payloads not available; compute from position.
+                            seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
+                            seeds.back().zipcode.fill_in_full_decoder();
+                        }
+                    } else {
+                        // Zipcode was saved directly in the payload.
+                        seeds.back().zipcode.fill_in_zipcode_from_payload(payload);
                     }
-                } else {
-                    //If the zipcode was saved in the payload
-                    seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
+            };
 
+            if (index_kind == IndexKind::XL) {
+                // XL index: convert PayloadXL to standard Payload
+                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>*>(minimizer.occs);
+                process_occurrences(occs, [](const auto& occ) {
+                    return gbwtgraph::Payload{occ.payload.first, occ.payload.second};
+                });
+            } else {
+                // Classic index: use Payload directly
+                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
+                process_occurrences(occs, [](const auto& occ) {
+                    return occ.payload;
+                });
             }
-            
+
             if (this->track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
                 funnel.expand(i, minimizer.hits);
@@ -4093,10 +4166,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
 
     const size_t MAX_CORRECT_DISTANCE = 200;
    
-    // Organize the alignment's refpos entries by path
+    // Organize the alignment's refpos entries by path name.
+    // Since refpos annotations are all in base path names, these will be base path names.
     std::unordered_map<std::string, std::vector<const Position*>> refpos_by_path;
     // And keep track of the nodes that are on any of those paths near the
-    // refpos positions. We only cherck seeds on those nodes to see if they are
+    // refpos positions. We only check seeds on those nodes to see if they are
     // correct, because checking all seeds is too slow.
     std::unordered_set<nid_t> eligible_nodes;
     if (this->track_correctness && aln.refpos_size() != 0) {
@@ -4104,28 +4178,39 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             refpos_by_path[refpos.name()].push_back(&refpos); 
         }
         for (auto& kv : refpos_by_path) {
+            // There can't be any empty entries in the map.
+
             // Sort the reference positions by coordinate for easy scanning to find near matches.
             std::sort(kv.second.begin(), kv.second.end(), [&](const Position* a, const Position* b) {
                 return a->offset() < b->offset();
             });
-            
-            if (this->path_graph->has_path(kv.first) && !kv.second.empty()) {
-                // Find the path
-                path_handle_t path = this->path_graph->get_path_handle(kv.first);
-                
-                // Find the bounding offsets
-                size_t lowest_offset = kv.second.front()->offset();
-                size_t highest_offset = kv.second.back()->offset();
 
-                // Find the bounding steps on the path
-                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, lowest_offset);
-                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, highest_offset);
+            // Find the bounding offsets
+            size_t lowest_offset = kv.second.front()->offset();
+            size_t highest_offset = kv.second.back()->offset();
+            
+            // Look for all subpaths of that base path that we have in this base path region.
+            Region target_region {kv.first, (int64_t) lowest_offset, (int64_t) highest_offset};
+            for_each_overlapping_subpath(*this->path_graph, target_region, [&](const path_handle_t& path, size_t start_offset, size_t past_end_offset) {
+                if (past_end_offset <= start_offset) {
+                    // This range is empty somehow, so skip it.
+                    return true;
+                }
+
+#ifdef debug
+                std::cerr << "Path " << this->path_graph->get_path_name(path) << " overlaps " << target_region << " from " << start_offset << " to " << past_end_offset << " and has length " << this->path_graph->get_path_length(path) << std::endl;
+#endif
+
+                // Find the bounding steps on the subpath range
+                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, start_offset);
+                // If the range is nonempty, the past_end_offset is at least 1.
+                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, past_end_offset - 1);
                 
-                // It must be an actual path range we have or we can't do this
+                // It must be an actual path range because we were given it to iterate over
                 crash_unless(lowest_offset_step != this->path_graph->path_end(path));
                 crash_unless(highest_offset_step != this->path_graph->path_end(path));
 
-                // Advance one handle to be the past-end for the range. This might hit the path)end sentinel.
+                // Advance one handle to be the past-end for the range. This might hit the path_end sentinel.
                 step_handle_t end_step = this->path_graph->get_next_step(highest_offset_step);
 
                 for (step_handle_t here = lowest_offset_step; here != end_step; here = this->path_graph->get_next_step(here)) {
@@ -4162,7 +4247,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                     // And record the distance traveled
                     range_visited += this->path_graph->get_length(here_handle);
                 }
-            }
+                
+                // Continue with the next region of the base path that
+                // intersects the read's interval on it.
+                return true;
+            });
         }
     }
 
@@ -4181,14 +4270,17 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             if (aln.refpos_size() != 0) {
                 // It might be correct
                 for (auto& handle_and_positions : offsets) {
-                    // For every path we have positions on
-                    // See if we have any refposes on that path
-                    auto found = refpos_by_path.find(this->path_graph->get_path_name(handle_and_positions.first));
+                    // For every subpath handle we have positions on
+                    // See if we have any refposes on the corresponding base path
+                    auto found = refpos_by_path.find(get_path_base_name(*this->path_graph, handle_and_positions.first));
                     if (found != refpos_by_path.end()) {
-                        // We do have reference positiions on this path.
+                        // We do have reference positions on this base path.
                         std::vector<const Position*>& refposes = found->second;
                         // And we have to check them against these mapped positions on the path.
-                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second; 
+                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second;
+                        // Which are on a subpath that starts at this offset along the base path
+                        size_t subpath_offset = get_path_base_offset(*this->path_graph, handle_and_positions.first); 
+
                         // Sort the positions we mapped to by coordinate also
                         std::sort(mapped_positions.begin(), mapped_positions.end(), [&](const std::pair<size_t, bool>& a, const std::pair<size_t, bool>& b) {
                             return a.first < b.first;
@@ -4201,13 +4293,13 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                         auto mapped_it = mapped_positions.begin();
                         while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
                             // As long as they are both in their collections, compare them
-                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < MAX_CORRECT_DISTANCE) {
+                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) (mapped_it->first + subpath_offset)) < MAX_CORRECT_DISTANCE) {
                                 // If they are close enough, we have a match
                                 tag = Funnel::State::CORRECT;
                                 break;
                             }
                             // Otherwise, advance the one with the lower coordinate.
-                            if ((*ref_it)->offset() < mapped_it->first) {
+                            if ((*ref_it)->offset() < (mapped_it->first + subpath_offset)) {
                                 ++ref_it;
                             } else {
                                 ++mapped_it;
@@ -4961,7 +5053,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 right_frontier.push_back(pareto_point(seq_len - extension.mismatch_positions.back() - 1, right_penalty));
             }
         }
-        size_t window_length = this->minimizer_index.uses_syncmers() ? this->minimizer_index.k() : (this->minimizer_index.k() + this->minimizer_index.w() - 1);
+        size_t window_length = this->uses_syncmers ? this->k : (this->k + this->w - 1);
         left_frontier.push_back(pareto_point(window_length - 1, 0));
         right_frontier.push_back(pareto_point(window_length - 1, 0));
     }
@@ -5592,6 +5684,7 @@ double MinimizerMapper::distance_to_annotation(int64_t distance) const {
     double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
     return max(min((double) distance, max_int_double), -max_int_double);
 }
+
 
 }
 

@@ -28,47 +28,68 @@ void help_filter(char** argv) {
          << "Filter alignments by properties." << endl
          << endl
          << "options:" << endl
-         << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
-         << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
-         << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
-         << "    -e, --exact-name           match read names exactly instead of by prefix" << endl
-         << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
-         << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
-         << "    -p, --proper-pairs         keep reads that are annotated as being properly paired" << endl
-         << "    -P, --only-mapped          keep reads that are mapped" << endl
-         << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
-         << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
-         << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
-         << "    -r, --min-primary N        minimum score to keep primary alignment" << endl
-         << "    -L, --max-length N         drop reads with length > N" << endl
-         << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
-         << "    -f, --frac-score           normalize score based on length" << endl
-         << "    -u, --substitutions        use substitution count instead of score" << endl
-         << "    -o, --max-overhang N       drop reads whose alignments begin or end with an insert > N [default=99999]" << endl
-         << "    -m, --min-end-matches N    drop reads that don't begin with at least N matches on each end" << endl
-         << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
-         << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
-         << "    -v, --verbose              print out statistics on numbers of reads dropped by what." << endl
-         << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
-         << "    -T, --tsv-out FIELD[;FIELD] do not write filtered gam but a tsv of the given fields" << endl
-         << "                                See \"Getting alignment statistics with ‐‐tsv‐out\" wiki page" << endl
-         << "    -q, --min-mapq N           drop alignments with mapping quality < N" << endl
-         << "    -E, --repeat-ends N        drop reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
-         << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
-         << "    -d, --downsample S.P       drop all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
-         << "    -R, --max-reads N          drop all but N reads. Nondeterministic on multiple threads." << endl
-         << "    -i, --interleaved          assume interleaved input. both ends will be dropped if either fails filter" << endl
-         << "    -I, --interleaved-all      assume interleaved input. both ends will be dropped if *both* fail filters" << endl
-         << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
-         << "    -G, --annotation K[:V]     keep reads if the annotation is present and not false or empty. If a value is given, keep reads if the values are equal" << endl
-         << "                               similar to running jq 'select(.annotation.K==V)' on the json" << endl 
-         << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
-         << "    -l, --first-alignment      keep only the first alignment for each read. Must be run with 1 thread" << endl
-         << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
-         << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
-         << "    -t, --threads N            number of threads [1]" << endl
-         << "        --progress             show progress" << endl;
+         << "  -M, --input-mp-alns          input is multipath alignments (GAMP), not GAM" << endl
+         << "  -n, --name-prefix NAME       keep only reads with this name prefix ['']" << endl
+         << "  -N, --name-prefixes FILE     keep reads with names with any of these prefixes," << endl
+         << "                               one per nonempty line" << endl
+         << "  -e, --exact-name             match read names exactly instead of by prefix" << endl
+         << "  -a, --subsequence NAME       keep reads that contain this subsequence" << endl
+         << "  -A, --subsequences FILE      keep reads that contain one of these subsequences" << endl
+         << "                               one per nonempty line" << endl
+         << "  -p, --proper-pairs           keep reads annotated as being properly paired" << endl
+         << "  -P, --only-mapped            keep reads that are mapped" << endl
+         << "  -X, --exclude-contig REGEX   drop reads with refpos annotations on contigs" << endl
+         << "                               matching the given regex (may repeat)" << endl
+         << "  -F, --exclude-feature NAME   drop reads with the given feature" << endl
+         << "                               in the \"features\" annotation (may repeat)" << endl
+         << "  -s, --min-secondary N        minimum score to keep secondary alignment" << endl
+         << "  -r, --min-primary N          minimum score to keep primary alignment" << endl
+         << "  -L, --max-length N           drop reads with length > N" << endl
+         << "  -O, --rescore                re-score reads using default parameters" << endl
+         << "                               and only alignment information" << endl
+         << "  -f, --frac-score             normalize score based on length" << endl
+         << "  -u, --substitutions          use substitution count instead of score" << endl
+         << "  -W, --overwrite-score        replace stored GAM score with computed/normalized" << endl
+         << "                               score" << endl
+         << "  -o, --max-overhang N         drop reads whose alignments begin or end" << endl
+         << "                               with an insert > N [99999]" << endl
+         << "  -m, --min-end-matches N      drop reads without >=N matches on each end" << endl
+         << "  -S, --drop-split             remove split reads taking nonexistent edges" << endl
+         << "  -x, --xg-name FILE           use this xg index/graph (required for -S and -D)" << endl
+         << "  -v, --verbose                print out statistics on numbers of reads dropped" << endl
+         << "  -V, --no-output              print out -v statistics and do not write the GAM" << endl
+         << "  -T, --tsv-out FIELD[;FIELD]  write TSV of given fields instead of filtered GAM" << endl
+         << "                               See wiki page:" << endl
+         << "                               \"Getting alignment statistics with vg filter\"" << endl
+         << "  -q, --min-mapq N             drop alignments with mapping quality < N" << endl
+         << "  -E, --repeat-ends N          drop reads with tandem repeat (motif size <= 2N," << endl
+         << "                               spanning >= N bases) at either end" << endl
+         << "  -D, --defray-ends N          clip back the ends of ambiguously aligned reads" << endl
+         << "                               up to N bases" << endl
+         << "  -C, --defray-count N         stop defraying after N nodes visited" << endl
+         << "                               (used to keep runtime in check) [99999]" << endl
+         << "  -d, --downsample S.P         drop all but the given portion 0.P of the reads." << endl
+         << "                               S may be an integer seed as in SAMtools" << endl
+         << "  -R, --max-reads N            drop all but N reads. Use on a single thread" << endl
+         << "  -i, --interleaved            both ends will be dropped if either fails filter" << endl
+         << "                               assume interleaved input" << endl
+         << "  -I, --interleaved-all        both ends will be dropped if *both* fail filters" << endl
+         << "                               assume interleaved input" << endl
+         << "  -b, --min-base-quality Q:F   drop reads with where fewer than fraction F bases" << endl
+         << "                               have base quality >= PHRED score Q." << endl
+         << "  -G, --annotation K[:V]       keep reads if the annotation is present and " << endl
+         << "                               not false/empty. If a value is given, keep reads" << endl
+         << "                               if the values are equal similar to running" << endl 
+         << "                               jq 'select(.annotation.K==V)' on the json" << endl
+         << "  -c, --correctly-mapped       keep only reads marked as correctly-mapped" << endl
+         << "  -l, --first-alignment        keep only the first alignment for each read" << endl
+         << "                               Must be run with 1 thread" << endl
+         << "  -U, --complement             apply opposite of the filter from other arguments" << endl
+         << "  -B, --batch-size N           work in batches of N reads " 
+                                         << "[" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
+         << "  -t, --threads N              number of threads [1]" << endl
+         << "      --progress               show progress" << endl
+         << "  -h, --help                   print this help message to stderr and exit" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -92,6 +113,7 @@ int main_filter(int argc, char** argv) {
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
+    bool overwrite_score = false;
     bool set_max_overhang = false;
     int max_overhang;
     bool set_min_end_matches = false;
@@ -151,8 +173,9 @@ int main_filter(int argc, char** argv) {
                 {"min-primary", required_argument, 0, 'r'},
                 {"max-length", required_argument, 0, 'L'},
                 {"rescore", no_argument, 0, 'O'},
-                {"frac-score", required_argument, 0, 'f'},
-                {"substitutions", required_argument, 0, 'u'},
+                {"frac-score", no_argument, 0, 'f'},
+                {"substitutions", no_argument, 0, 'u'},
+                {"overwrite-score", no_argument, 0, 'W'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -176,11 +199,12 @@ int main_filter(int argc, char** argv) {
                 {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
                 {"progress", no_argument, 0, OPT_PROGRESS},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Od:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:OfuWo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -259,6 +283,9 @@ int main_filter(int argc, char** argv) {
         case 'u':
             sub_score = true;
             break;
+        case 'W':
+            overwrite_score = true;
+            break;
         case 'o':
             set_max_overhang = true;
             max_overhang = parse<int>(optarg);
@@ -269,6 +296,7 @@ int main_filter(int argc, char** argv) {
             break;            
         case 'S':
             drop_split = true;
+            break;
         case 'x':
             xg_name = optarg;
             break;
@@ -399,6 +427,32 @@ int main_filter(int argc, char** argv) {
         std::cerr << "warning [vg filter]: setting --threads 1 because --first-alignment requires one thread." << std::endl;
         omp_set_num_threads(1);
     }
+    if (!input_gam && overwrite_score) {
+        std::cerr << "error [vg filter]: -W/--overwrite-score cannot be used with multipath alignments "
+            << "(-M/--input-mp-aln), which do not directly store a score." << std::endl;
+        return 1;
+    }
+    if (rescore && sub_score) {
+        std::cerr << "error [vg filter]: you asked to rescore reads (-O/--rescore), but also to use "
+            << "the substitution count as the score (-u/--substitutions). Pick one or the other." << std::endl;
+        return 1;
+    }
+    if ((!set_min_secondary && !set_min_primary && !overwrite_score) &&
+        (rescore || sub_score || frac_score)) {
+        // Scores are not being used, but we were tols how to get them. Suspicious.
+        std::cerr << "error [vg filter]: you asked to ";
+        if (rescore) {
+            std::cerr << "rescore reads (-O/--rescore)";
+        } else if (sub_score) {
+            std::cerr << "use the substitution count as the score (-u/--substitutions)";
+        } else if (frac_score) {
+            std::cerr << "normalize scores by read length (-f/--frac-score)";
+        }
+        std::cerr << ", but did not say to do anything with the scores. Remove that option "
+            << "or add one of -s/--min-secondary, -r/--min-primary, or -W/--overwrite-score." << std::endl;
+        return 1;
+    }
+    
 
     // What should our return code be?
     int error_code = 0;
@@ -433,6 +487,7 @@ int main_filter(int argc, char** argv) {
         filter.rescore = rescore;
         filter.frac_score = frac_score;
         filter.sub_score = sub_score;
+        filter.overwrite_score = overwrite_score;
         if (set_max_overhang){
             filter.max_overhang = max_overhang;
         }
@@ -521,5 +576,5 @@ int main_filter(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_filter("filter", "filter reads", main_filter);
+static Subcommand vg_filter("filter", "filter reads and get statistics by read", main_filter);
 

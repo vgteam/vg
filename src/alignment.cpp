@@ -21,7 +21,16 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda, const Path
     parse_tid_path_handle_map(hdr, graph, tid_path_handle);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+        Alignment a;
+        try {
+            a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+        } catch (AlignmentEmbeddingError& e) {
+            #pragma omp critical (cerr)
+            std::cerr << "[vg::alignment.cpp] error: Input file " << filename 
+                << " contains an uninterpretable read and may not actually be in the correct coordinate space for the graph. "
+                << e.what() << std::endl;
+            exit(1);
+        }
         lambda(a);
     }
     bam_destroy1(b);
@@ -69,7 +78,16 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
             }
             // Now we're outside the critical section so we can only rely on our own variables.
             if (got_read) {
-                Alignment a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+                Alignment a;
+                try {
+                    a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+                } catch (AlignmentEmbeddingError& e) {
+                    #pragma omp critical (cerr)
+                    std::cerr << "[vg::alignment.cpp] error: Input file " << filename 
+                        << " contains an uninterpretable read and may not actually be in the correct coordinate space for the graph. "
+                        << e.what() << std::endl;
+                    exit(1);
+                }
                 lambda(a);
             }
         }
@@ -384,6 +402,113 @@ size_t fastq_paired_two_files_for_each(const string& file1, const string& file2,
 
 }
 
+void for_each_gaf_record_in_ranges(htsFile* gaf_fp, tbx_t* gaf_tbx, const vector<pair<vg::id_t, vg::id_t>>& ranges, const std::function<void(const std::string&)>& iteratee) {
+    // If we just query each range, we get duplicate reads when a read overlaps
+    // multiple ranges. We want to use an htslib multi-region iterator instead.
+    //
+    // According to
+    // <https://github.com/samtools/htslib/issues/785#issuecomment-433869384>,
+    // "If the target regions overlap, hts_itr_t visits the overlapping section
+    // twice, while hts_itr_multi_t removes this overlap.". And according to
+    // <https://github.com/samtools/htslib/issues/785#issuecomment-464135842>,
+    // "a read will only be output once even if it covers more than one
+    // region".
+    //
+    // But, htslib multi-region iterators don't support tabix files yet. See
+    // <https://github.com/samtools/htslib/issues/1913>. So we have to fake it
+    // with single-region iterators until that's fixed.
+    
+    // To hack around the duplicate entries from the query, we keep all the GAF
+    // records around as strings in memory.
+    std::unordered_set<std::string> seen_records;
+
+    // TODO: If this becomes a memory usage problem before htslib implements
+    // the multi-iterator, switch to keeping the records organized by their
+    // ending node ID in an ordered map of sets. Then we could throw out all
+    // earlier sets when we start a range that begins after their end point,
+    // and we can still check membership with a lookup on endpoint and then a
+    // lookup in the set. 
+
+    for (auto range : ranges) {
+        std::stringstream query_stream;
+        query_stream << "{node}:" << range.first << "-" << range.second;
+        std::string query_string(std::move(query_stream.str()));
+        hts_itr_t *itr = tbx_itr_querys(gaf_tbx, query_string.c_str());
+        if (!itr) {
+            // Can't visit this range. Nothing there?
+            // TODO: Is there an error to be handled here?
+            continue;
+        }
+        // We need a kstring_t to hold each result line from the tabix iterator.
+        kstring_t str;
+        ks_initialize(&str);
+        try {
+            while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
+                // The iterator will allocate/expand/overwrite the kstring_t
+                // storage, but we need to free it later.
+    
+                // Store the record as a C++ string.
+                std::string record_string(ks_str(&str));
+
+                // Parse the GAF record we got from the index
+                gafkluge::GafRecord record;
+                gafkluge::parse_gaf_record(record_string, record);
+
+                // We also have to account for how, even if a GAF record
+                // overlaps a tabix ID range, that just means it has a node ID
+                // before the range start and a node ID after the range end. It
+                // doesn't guarantee that those are ever the *same* ID; the GAF
+                // record might completely skip all the IDs in the range.
+                if (!gaf_record_intersects_range(record, range)) {
+                    // We don't actually intersect the range, so skip this record.
+                    continue;
+                }
+
+                auto found = seen_records.find(record_string);
+                if (found == seen_records.end()) {
+                    // This is a novel record.
+                    //
+                    // TODO: Handle GAF files that repeat the same record
+                    // multiple times, where we actually want to keep the
+                    // repeats.
+
+                    // Handle the record
+                    iteratee(record_string);
+
+                    // Mark it as handled and move it into the set.
+                    seen_records.emplace_hint(found, std::move(record_string));
+                }
+            }
+
+            // Make sure the iterator and kstring_t are cleaned up.
+            tbx_itr_destroy(itr);
+            // This is safe to do even if the kstring_t's buffer is not
+            // allocated.
+            ks_free(&str);
+        } catch(...) {
+            tbx_itr_destroy(itr);
+            ks_free(&str);
+            throw;
+        }
+    }
+}
+
+bool gaf_record_intersects_range(const gafkluge::GafRecord& record, const std::pair<nid_t, nid_t>& range) {
+    for (const gafkluge::GafStep& step : record.path) {
+        if (step.is_stable) {
+            // We can't parse the name field as a node ID, it's a path name.
+            throw std::runtime_error("Cannot parse GAF record with stable step on: " + step.name);
+        }
+        nid_t node_id = std::stol(step.name);
+        if (node_id >= range.first && node_id < range.second) {
+            // Found an intersection
+            return true;
+        }
+    }
+    // No intersection was ever found
+    return false;
+}
+
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split_delims(header, "\n");
@@ -489,6 +614,8 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  bool paired,
                                  const int32_t tlen_max) {
     
+    
+
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
     
@@ -566,8 +693,12 @@ int32_t determine_flag(const Alignment& alignment,
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
     
-    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
-    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
+    // We've observed some reads with the unmapped flag set and also a CIGAR
+    // string set, which is allowed by the SAM spec but which we are not
+    // supposed to generate.
+    //
+    // We will check for this. The CIGAR string will only be set in the output
+    // if the alignment has a path.
     assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
     
     if (!((bool)(flags & BAM_FUNMAP)) && paired && !refseq.empty() && refseq == mateseq) {
@@ -598,6 +729,10 @@ int32_t determine_flag(const Alignment& alignment,
     if (paired && materev) {
         // Set the flag for the mate being reversed
         flags |= BAM_FMREVERSE;
+    }
+    
+    if (is_supplementary(alignment)) {
+        flags |= BAM_FSUPPLEMENTARY;
     }
     
     return flags;
@@ -680,7 +815,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                                   const bool refrev,
                                   const vector<pair<int, char>>& cigar,
                                   const string& mateseq,
-                                  const int32_t matepos,
+                                  int32_t matepos,
                                   bool materev,
                                   const int32_t tlen,
                                   bool paired,
@@ -882,13 +1017,18 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         bam_aux_append(bam, "SS", 'Z', all_scores.size() + 1, (uint8_t*) all_scores.c_str());
     }
     
+    if (has_annotation(alignment, "graph_cigar")) {
+        string graph_cigar = get_annotation<string>(alignment, "graph_cigar");
+        bam_aux_append(bam, "GR", 'Z', graph_cigar.size() + 1, (uint8_t*) graph_cigar.c_str());
+    }
+    
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {
         // encode the alignments SAM tags
         auto parsed_tags = parse_sam_tags(get_annotation<string>(alignment, "tags"));
         for (const auto& tag : parsed_tags) {
             
-            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS") {
+            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS" || get<0>(tag) == "GR") {
                 // we handle these tags separately
                 continue;
             }
@@ -1164,7 +1304,10 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, const path_hand
     Mapping mapping;
 
     int64_t length = cigar_mapping(b, &mapping);
-
+    
+    // The BAM core.pos has already been converted from SAM-file 1-based
+    // coordinates to 0-based coordinates by HTSlib. So we can use it as
+    // 0-based here.
     Alignment aln = target_alignment(graph, path, b->core.pos, b->core.pos + length, alignment.name(), on_reverse_strand, mapping);
 
     *alignment.mutable_path() = aln.path();
@@ -1229,6 +1372,131 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
     return cigar;
 }
 
+vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const PathPositionHandleGraph& graph, const string& path_name, 
+                                                   int64_t pos, bool rev, int64_t min_splice_length) {
+    // the return value
+    vector<pair<int, char>> cigar;
+    
+    if (aln.has_path() && aln.path().mapping_size() > 0) {
+        // the read is aligned to the path
+        
+        path_handle_t path_handle = graph.get_path_handle(path_name);
+        step_handle_t step = graph.get_step_at_position(path_handle, pos);
+        
+        // to indicate whether we've found the edit that corresponds to the BAM position
+        bool found_pos = false;
+        
+        const Path& path = aln.path();
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            
+            // we traverse backwards on a reverse strand mapping
+            const Mapping& mapping = path.mapping(rev ? path.mapping_size() - 1 - i : i);
+            
+            for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                                
+                // we traverse backwards on a reverse strand mapping
+                const Edit& edit = mapping.edit(rev ? mapping.edit_size() - 1 - j : j);
+                
+                if (!found_pos) {
+                    // we may still be searching through an initial softclip to find
+                    // the edit that corresponds to the BAM position
+                    if (edit.to_length() > 0 && edit.from_length() == 0) {
+                        append_cigar_operation(edit.to_length(), 'S', cigar);
+                        // skip the main block where we assign cigar operations
+                        continue;
+                    }
+                    else {
+                        found_pos = true;
+                    }
+                }
+                
+                // identify the cigar operation
+                char cigar_code;
+                int length;
+                if (edit.from_length() == edit.to_length()) {
+                    cigar_code = 'M';
+                    length = edit.from_length();
+                }
+                else if (edit.from_length() > 0 && edit.to_length() == 0) {
+                    cigar_code = 'D';
+                    length = edit.from_length();
+                }
+                else if (edit.to_length() > 0 && edit.from_length() == 0) {
+                    cigar_code = 'I';
+                    length = edit.to_length();
+                }
+                else {
+                    throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
+                }
+                
+                append_cigar_operation(length, cigar_code, cigar);
+            } // close loop over edits
+            
+            if (found_pos && i + 1 < path.mapping_size()) {
+                // we're anchored on the path by the annotated position, and we're transitioning between
+                // two mappings, so we should check for a deletion/splice edge
+                
+                step_handle_t next_step = graph.get_next_step(step);
+                
+                handle_t next_handle = graph.get_handle_of_step(next_step);
+                const Position& next_pos = path.mapping(rev ? path.mapping_size() - 2 - i : i + 1).position();
+                if (graph.get_id(next_handle) != next_pos.node_id()
+                    || (graph.get_is_reverse(next_handle) != next_pos.is_reverse()) != rev) {
+                    
+                    // the next mapping in the alignment is not the next mapping on the path, so we must have
+                    // taken a deletion
+                    
+                    // find the closest step that is further along the path than the current one
+                    // and matches the next position (usually there will only be one)
+                    size_t curr_offset = graph.get_position_of_step(step);
+                    size_t nearest_offset = numeric_limits<size_t>::max();
+                    graph.for_each_step_on_handle(graph.get_handle(next_pos.node_id()),
+                                                  [&](const step_handle_t& candidate) {
+                        
+                        if (graph.get_path_handle_of_step(candidate) == path_handle) {
+                            size_t candidate_offset = graph.get_position_of_step(candidate);
+                            if (candidate_offset < nearest_offset && candidate_offset > curr_offset) {
+                                nearest_offset = candidate_offset;
+                                next_step = candidate;
+                            }
+                        }
+                    });
+                    
+                    if (nearest_offset == numeric_limits<size_t>::max()) {
+                        throw std::runtime_error("Spliced BAM conversion could not find path steps that match alignment");
+                    }
+                    
+                    // the gap between the current step and the next one along the path
+                    size_t deletion_length = (nearest_offset - curr_offset -
+                                              graph.get_length(graph.get_handle_of_step(step)));
+                    
+                    // add to the cigar
+                    if (deletion_length >= min_splice_length) {
+                        // long enough to be a splice
+                        append_cigar_operation(deletion_length, 'N', cigar);
+                    }
+                    else if (deletion_length) {
+                        // create or extend a deletion
+                        append_cigar_operation(deletion_length, 'D', cigar);
+                    }
+                }
+                
+                // iterate along the path
+                step = next_step;
+            }
+        } // close loop over mappings
+        
+        if (cigar.back().second == 'I') {
+            // the final insertion is actually a softclip
+            cigar.back().second = 'S';
+        }
+    }
+    
+    simplify_cigar(cigar);
+    
+    return cigar;
+}
+
 void simplify_cigar(vector<pair<int, char>>& cigar) {
     
     size_t removed = 0;
@@ -1277,6 +1545,177 @@ void simplify_cigar(vector<pair<int, char>>& cigar) {
         }
     }
     cigar.resize(cigar.size() - removed);
+}
+
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand) {
+    vector<pair<int, char>> cigar;
+    const auto& path = aln.path();
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        const auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            char op;
+            int len;
+            if (edit.from_length() == edit.to_length()) {
+                if (!edit.sequence().empty()) {
+                    op = 'X';
+                }
+                else {
+                    op = '=';
+                }
+                len = edit.from_length();
+            }
+            else if (edit.from_length() != 0) {
+                op = 'D';
+                len = edit.from_length();
+            }
+            else {
+                if ((i == 0 && j == 0) ||
+                    (i + 1 == path.mapping_size() && j + 1 == mapping.edit_size())) {
+                    op = 'S';
+                }
+                else {
+                    op = 'I';
+                }
+                len = edit.to_length();
+            }
+            
+            if (!cigar.empty() && cigar.back().second == op) {
+                cigar.back().first += len;
+            }
+            else {
+                cigar.emplace_back(len, op);
+            }
+        }
+    }
+    
+    // TODO: use this for the I/D merging, but it's overkill for the
+    // adjacent operations
+    simplify_cigar(cigar);
+    
+    if (rev_strand) {
+        reverse(cigar.begin(), cigar.end());
+    }
+    
+    return cigar;
+}
+
+string graph_CS_cigar_internal(const Alignment& aln, const HandleGraph& graph, bool rev_strand, bool verbose_format) {
+    
+    // states that can be extended across edits (except null)
+    enum Operation {Null, Match, Insert, Delete};
+        
+    stringstream strm;
+    
+    const auto& path = aln.path();
+    const auto& seq = aln.sequence();
+    
+    Operation curr_op = Null;
+    size_t read_idx = rev_strand ? seq.size() : 0;
+    size_t match_len = 0;
+    int64_t incr = rev_strand ? -1 : 1;
+    for (int64_t i = rev_strand ? aln.path().mapping_size() - 1 : 0; i < aln.path().mapping_size() && i >= 0; i += incr) {
+        const auto& mapping = path.mapping(i);
+        const auto& pos = mapping.position();
+        handle_t handle = graph.get_handle(pos.node_id(), pos.is_reverse());
+        size_t offset = pos.offset();
+        if (rev_strand) {
+            offset += mapping_from_length(mapping);
+        }
+        for (int64_t j = rev_strand ? mapping.edit_size() - 1 : 0; j < mapping.edit_size() && j >= 0; j += incr) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() == edit.to_length()) {
+                // aligned base
+                if (edit.sequence().empty()) {
+                    if (curr_op != Match) {
+                        strm << (verbose_format ? '=' : ':');
+                        curr_op = Match;
+                    }
+                    if (verbose_format) {
+                        if (rev_strand) {
+                            strm << reverse_complement(seq.substr(read_idx - edit.to_length(), edit.to_length()));
+                        }
+                        else {
+                            strm << seq.substr(read_idx, edit.to_length());
+                        }
+                    }
+                    else {
+                        match_len += edit.to_length();
+                    }
+                }
+                else {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    string graph_subseq = graph.get_subsequence(handle, offset - (rev_strand ? edit.from_length(): 0),
+                                                                edit.from_length());
+                    for (int64_t k = rev_strand ? edit.from_length() - 1 : 0; k < edit.from_length() && k >= 0; k += incr) {
+                        char gnt = graph_subseq[k];
+                        char rnt = seq[read_idx + k - (rev_strand ? edit.from_length() : 0)];
+                        if (rev_strand) {
+                            gnt = reverse_complement(gnt);
+                            rnt = reverse_complement(rnt);
+                        }
+                        strm << '*' << gnt;
+                        if (verbose_format) {
+                            strm << "->";
+                        }
+                        strm << rnt;
+                    }
+                    curr_op = Null;
+                }
+            }
+            else if (edit.from_length() != 0) {
+                // deletion
+                if (curr_op != Delete) {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    strm << '-';
+                    curr_op = Delete;
+                }
+                if (rev_strand) {
+                    strm << reverse_complement(graph.get_subsequence(handle, offset - edit.from_length(), edit.from_length()));
+                }
+                else {
+                    strm << graph.get_subsequence(handle, offset, edit.from_length());
+                }
+            }
+            else if (edit.to_length() != 0) {
+                // insertion
+                if (curr_op != Insert) {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    strm << '+';
+                    curr_op = Insert;
+                }
+                if (rev_strand) {
+                    strm << reverse_complement(seq.substr(read_idx - edit.to_length(), edit.to_length()));
+                }
+                else {
+                    strm << seq.substr(read_idx, edit.to_length());
+                }
+            }
+            read_idx += edit.to_length() * incr;
+            offset += edit.from_length() * incr;
+        }
+    }
+    if (match_len != 0) {
+        strm << match_len;
+        match_len = 0;
+    }
+    return strm.str();
+}
+
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand) {
+    return graph_CS_cigar_internal(aln, graph, rev_strand, true);
+}
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand) {
+    return graph_CS_cigar_internal(aln, graph, rev_strand, false);
 }
 
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
@@ -1360,7 +1799,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
         // TODO: catch reads with pair partners when they shouldn't be paired?
     }
 
-    if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
+    if (!is_mapped(alignment)) {
         // unmapped
         flag |= BAM_FUNMAP;
     } 
@@ -1374,108 +1813,88 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-template<typename T>
-string aux_array_to_string(const uint8_t*& aux_arr, int32_t arr_len) {
-    
-    const T* t_arr = (const T*) aux_arr;
-    
-    stringstream strm;
-    strm << setprecision(8); // lossless for 32-bit float
-    for (int32_t i = 0; i < arr_len; ++i) {
-        strm << ',' << t_arr[i];
-    }
-    aux_arr = (const uint8_t*) (t_arr + arr_len);
-    return strm.str();
-}
-
-template<typename T>
-string aux_val_to_string(const uint8_t*& aux_arr) {
-    string str = to_string(*(const T*) aux_arr);
-    aux_arr += sizeof(T);
-    return str;
-}
-
 vector<string> bam_tag_strings(const bam1_t* b) {
     vector<string> tag_strings;
-    const uint8_t* aux = bam_get_aux(b);
-    const uint8_t* end = b->data + b->l_data;
-    while (aux != end) {
+    
+    for (uint8_t* aux = bam_aux_first(b); aux != NULL; aux = bam_aux_next(b, aux)) {
+        // For each aux field (i.e. tag)
         tag_strings.emplace_back();
         auto& tag_string = tag_strings.back();
         tag_string.reserve(6);
-        tag_string.push_back(aux[0]);
-        tag_string.push_back(aux[1]);
+        // We know that this returns a pointer to 2 characters in a row, with
+        // no null terminator. We smuggle it into an array type by thinking of
+        // the const char* as a pointer-to-an-array and then dereferencing
+        // that, as suggested by helpful robots.
+        const char (&tag)[2] = *reinterpret_cast<const char (*)[2]>(bam_aux_tag(aux));
+        char type = bam_aux_type(aux);
+        tag_string.push_back(tag[0]);
+        tag_string.push_back(tag[1]);
         tag_string.push_back(':');
-        tag_string.push_back(aux[2]);
+        tag_string.push_back(type);
         tag_string.push_back(':');
-        char type = aux[2];
-        aux += 3;
         switch (type) {
             case 'A':
-                tag_string.append(aux_val_to_string<char>(aux));
+                // Handle single characters
+                tag_string.push_back(bam_aux2A(aux));
                 break;
             case 'c':
-                tag_string.append(aux_val_to_string<int8_t>(aux));
-                break;
             case 'C':
-                tag_string.append(aux_val_to_string<uint8_t>(aux));
-                break;
             case 's':
-                tag_string.append(aux_val_to_string<int16_t>(aux));
-                break;
             case 'S':
-                tag_string.append(aux_val_to_string<uint16_t>(aux));
-                break;
             case 'i':
-                tag_string.append(aux_val_to_string<int32_t>(aux));
-                break;
             case 'I':
-                tag_string.append(aux_val_to_string<uint32_t>(aux));
+                // Handle any integral number (with fall-through)
+                tag_string.append(std::to_string(bam_aux2i(aux)));
                 break;
             case 'f':
-                tag_string.append(aux_val_to_string<float>(aux));
+                // Handle a float
+                tag_string.append(std::to_string(bam_aux2f(aux)));
                 break;
             case 'H':
             case 'Z':
-                tag_string.append((const char*) aux);
-                aux += strlen((const char*) aux) + 1;
+                // Handle string data (with fall-through)
+                tag_string.append(bam_aux2Z(aux));
                 break;
             case 'B':
             {
-                char arr_type = *aux;
-                int32_t arr_len = bam_auxB_len(aux);
-                aux += 5;
+                // Handle arrays, which can actually only be of integral or float types.
+                uint32_t arr_len = bam_auxB_len(aux);
+                // Get the type of the items *in* the array. There's no
+                // dedicated accessor to do this, but the htslib example code
+                // does it this way. See
+                // <https://github.com/samtools/htslib/blob/d677f345fe35d451587319ca38ac611862a46e1b/samples/read_aux.c#L91>
+                char arr_type = bam_aux_type(aux + 1);
+                // Include the type of the array data
+                tag_string.push_back(arr_type);
+                stringstream strm;
                 switch (arr_type) {
                     case 'c':
-                        tag_string.append(aux_array_to_string<int8_t>(aux, arr_len));
-                        break;
                     case 'C':
-                        tag_string.append(aux_array_to_string<uint8_t>(aux, arr_len));
-                        break;
                     case 's':
-                        tag_string.append(aux_array_to_string<int16_t>(aux, arr_len));
-                        break;
                     case 'S':
-                        tag_string.append(aux_array_to_string<uint16_t>(aux, arr_len));
-                        break;
                     case 'i':
-                        tag_string.append(aux_array_to_string<int32_t>(aux, arr_len));
-                        break;
                     case 'I':
-                        tag_string.append(aux_array_to_string<uint32_t>(aux, arr_len));
+                        for (uint32_t i = 0; i < arr_len; i++) {
+                            strm << "," << bam_auxB2i(aux, i);
+                        }
+                        tag_string.append(strm.str());
                         break;
                     case 'f':
-                        tag_string.append(aux_array_to_string<float>(aux, arr_len));
+                        strm << setprecision(8); // lossless for 32-bit float
+                        for (uint32_t i = 0; i < arr_len; i++) {
+                            strm << "," << bam_auxB2f(aux, i);
+                        }
+                        tag_string.append(strm.str());
                         break;
                     default:
-                        cerr << "error: unrecognized array type " << arr_type << " for 'B' type SAM tag" << endl;
+                        cerr << "error: invalid BAM array type '" << arr_type << "' (" << (int)arr_type << ") for 'B' type tag '" << tag[0] << tag[1] << "'" << endl;
                         exit(1);
                         break;
                 }
                 break;
             }
             default:
-                cerr << "error: invalid BAM tag " << type << '\n';
+                cerr << "error: invalid BAM tag type '" << type << "' (" << (int)type << ") for tag '" << tag[0] << tag[1] << "'" << endl;
                 exit(1);
                 break;
         }
@@ -1539,18 +1958,28 @@ Alignment bam_to_alignment(const bam1_t *b,
         
     }
     alignment.set_read_paired((b->core.flag & BAM_FPAIRED) != 0);
+
+    // Consult the One True Place in SAM for knowing if a read is aligned or not.
+    bool is_aligned = !(b->core.flag & BAM_FUNMAP);
     
-    if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
+    if (is_aligned) {
+        // Set the little-used GAM field that exists to represent this.
+        alignment.set_read_mapped(is_aligned);
+
+        // Use the MAPQ
         alignment.set_mapping_quality(b->core.qual);
-        alignment.set_read_mapped(true);
-        // Look for the path handle this is against.
-        auto found = tid_path_handle.find(b->core.tid);
-        if (found == tid_path_handle.end()) {
-            cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
-                 << bh->target_name[b->core.tid] << endl;
-            exit(1);
+        
+        if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
+            // We can actually build the path for this read.
+            // Look for the path handle this is against.
+            auto found = tid_path_handle.find(b->core.tid);
+            if (found == tid_path_handle.end()) {
+                cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
+                     << bh->target_name[b->core.tid] << endl;
+                exit(1);
+            }
+            mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
         }
-        mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.
@@ -1572,7 +2001,8 @@ Alignment bam_to_alignment(const bam1_t *b,
             }
             ++removed;
         }
-        else if (tag_name == "AS") {
+        else if (tag_name == "AS" && is_aligned) {
+            // Set the score, for aligned reads.
             alignment.set_score(parse<int64_t>(tag.substr(5, string::npos)));
             ++removed;
         }
@@ -1921,27 +2351,11 @@ int non_match_end(const Alignment& alignment) {
 }
 
 int softclip_start(const Alignment& alignment) {
-    if (alignment.path().mapping_size() > 0) {
-        auto& path = alignment.path();
-        auto& first_mapping = path.mapping(0);
-        auto& first_edit = first_mapping.edit(0);
-        if (first_edit.from_length() == 0 && first_edit.to_length() > 0) {
-            return first_edit.to_length();
-        }
-    }
-    return 0;
+    return softclip_start(alignment.path());
 }
 
 int softclip_end(const Alignment& alignment) {
-    if (alignment.path().mapping_size() > 0) {
-        auto& path = alignment.path();
-        auto& last_mapping = path.mapping(path.mapping_size()-1);
-        auto& last_edit = last_mapping.edit(last_mapping.edit_size()-1);
-        if (last_edit.from_length() == 0 && last_edit.to_length() > 0) {
-            return last_edit.to_length();
-        }
-    }
-    return 0;
+    return softclip_end(alignment.path());
 }
 
 int softclip_trim(Alignment& alignment) {
@@ -1960,9 +2374,8 @@ int softclip_trim(Alignment& alignment) {
 }
 
 bool is_perfect(const Alignment& alignment) {
-    // Non-aligned paths can't be perfect (code from subcommand/stats_main.cpp)
-    bool has_alignment = alignment.score() > 0 || alignment.path().mapping_size() > 0;
-    if (!has_alignment) return false;
+    // Non-aligned paths can't be perfect
+    if (!is_mapped(alignment)) return false;
 
     // Check that the path is perfect
     for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
@@ -1972,6 +2385,79 @@ bool is_perfect(const Alignment& alignment) {
         }
     }
     return true;
+}
+
+bool is_supplementary(const Alignment& alignment) {
+    if (!has_annotation(alignment, "supplementary")) {
+        return false;
+    }
+    else {
+        return get_annotation<bool>(alignment, "supplementary");
+    }
+}
+
+pair<int64_t, int64_t> aligned_interval(const Alignment& aln) {
+    return pair<int64_t, int64_t>(softclip_start(aln), aln.sequence().size() - softclip_end(aln));
+}
+
+string mate_info(const string& path, int32_t pos, bool rev_strand, bool is_read1) {
+    subrange_t subrange;
+    string path_name = Paths::strip_subrange(path, &subrange);
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        pos += subrange.first;
+    }
+    string info;
+    info.append(path_name);
+    info.push_back('\t');
+    info.append(to_string(pos));
+    info.push_back('\t');
+    info.push_back(rev_strand ? '1' : '0');
+    info.push_back(is_read1 ? '1' : '0');
+    return info;
+}
+
+tuple<string, int32_t, bool, bool> parse_mate_info(const string& info) {
+    tuple<string, int64_t, bool, bool> parsed;
+    size_t i = 0;
+    while (info[i] != '\t') {
+        ++i;
+    }
+    get<0>(parsed) = info.substr(0, i);
+    ++i;
+    size_t j = i;
+    while (info[j] != '\t') {
+        ++j;
+    }
+    get<1>(parsed) = stoi(info.substr(i, j - i));
+    get<2>(parsed) = info[j + 1] == '1';
+    get<3>(parsed) = info[j + 2] == '1';
+    return parsed;
+}
+
+bool is_mapped(const Alignment& alignment) {
+    if (alignment.read_mapped()) {
+        // The flag for being mapped is set.
+        return true;
+    }
+
+    // Otherwise it's not set, but we don't consistently set it in vg. (SAM
+    // uses an *un*mapped flag so you don't forget to set it on mapped reads
+    // ever.) So second-guess the flag and up on round-tripping SAM with
+    // alignment fields set for unmapped reads.
+    
+    if (alignment.path().mapping_size() > 0) {
+        // If an alignment path is filled in, it is mapped.
+        return true;
+    }
+
+    if (alignment.score() > 0) {
+        // If there's no alignment actually there but anonzero score, we
+        // represent a mapped read, we're just not sure where to.
+        return true;
+    }
+
+    // If there's no evidence of being mapped, we're unmapped.
+    return false;
 }
 
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {
@@ -3118,28 +3604,43 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     
     // How long is the path?
     auto path_len = graph->get_path_length(path);
+
+#ifdef debug
+    #pragma omp critical (cerr)
+    std::cerr << "Target alignment from " << pos1 << " to " << pos2 << std::endl;
+#endif
     
     if (pos2 < pos1) {
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path)) {
             // But the path isn't circular, which is a problem
-            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                                " to " + to_string(pos2) + " across the junction of non-circular path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' from 1-based positions " + to_string(pos1 + 1) +
+                " through " + to_string(pos2) +
+                " across the junction of non-circular path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
-            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' starting at 1-based position " + to_string(pos1 + 1) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
-            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' ending at 1-based inclusive position " + to_string(pos2) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         // Split the provided Mapping of edits at the path end/start junction
@@ -3163,14 +3664,20 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     // Otherwise, the base case is that we don't go over the circular path junction
     
     if (pos1 >= path_len) {
-        throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                            " which is past end " + to_string(path_len) + " of path " +
-                            graph->get_path_name(path));
+        throw AlignmentEmbeddingError(
+            "Cannot produce Alignment of '" + feature +
+            "' starting at 1-based position " + to_string(pos1 + 1) +
+            " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+            graph->get_path_name(path) + "'."
+        );
     }
     if (pos2 > path_len) {
-        throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                            " which is past end " + to_string(path_len) + " of path " +
-                            graph->get_path_name(path));
+        throw AlignmentEmbeddingError(
+            "Cannot produce Alignment of '" + feature +
+            "' ending at 1-based inclusive position " + to_string(pos2) +
+            " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+            graph->get_path_name(path) + "'."
+        );
     }
     
     step_handle_t step = graph->get_step_at_position(path, pos1);
@@ -3191,10 +3698,14 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                 continue;
             } else {
                 // We've gone off the end of the contig with something other than a softclip
-                throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
-                                         " at edit " + std::to_string(edit_idx) +
-                                         "/" + std::to_string(cigar_mapping.edit_size()) +
-                                         " for alignment of feature " + feature);
+                throw AlignmentEmbeddingError(
+                    "Reached unexpected end of path '" + graph->get_path_name(path) +
+                    "' which has 1-based inclusive end position " + std::to_string(graph->get_path_length(path)) +
+                    ", at edit " + std::to_string(edit_idx) +
+                    "/" + std::to_string(cigar_mapping.edit_size()) +
+                    " for alignment of '" + feature + 
+                    "'; are you sure the alignment doesn't go off the end of the path?"
+                );
             }
         }
         handle_t h = graph->get_handle_of_step(step);
@@ -3283,9 +3794,13 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path)) {
             // But the path isn't circular, which is a problem
-            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                                " to " + to_string(pos2) + " across the junction of non-circular path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' from 1-based positions " + to_string(pos1 + 1) +
+                " through " + to_string(pos2) +
+                " across the junction of non-circular path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         // How long is the path?
@@ -3293,16 +3808,22 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
-            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' starting at 1-based position " + to_string(pos1 + 1) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
-            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' ending at 1-based inclusive position " + to_string(pos2) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         // We extract from pos1 to the end

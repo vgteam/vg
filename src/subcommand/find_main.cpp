@@ -28,45 +28,57 @@ using namespace vg::io;
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
          << "options:" << endl
+         << "  -h, --help                  print this help message to stderr and exit" << endl
          << "graph features:" << endl
-         << "    -x, --xg-name FILE     use this xg index or graph (instead of rocksdb db)" << endl
-         << "    -n, --node ID          find node(s), return 1-hop context as graph" << endl
-         << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
-         << "        --mapping FILE     also include nodes that map to the selected node ids" << endl
-         << "    -e, --edges-end ID     return edges on end of node with ID" << endl
-         << "    -s, --edges-start ID   return edges on start of node with ID" << endl
-         << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
-         << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
-         << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
-         << "    -I, --list-paths       write out the path names in the index" << endl
-         << "    -r, --node-range N:M   get nodes from N to M" << endl
-         << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
-         << "    --connecting-start POS find the graph connecting from POS (node ID, + or -, node offset) to --connecting-end" << endl
-         << "    --connecting-end POS   find the graph connecting to POS (node ID, + or -, node offset) from --connecting-start" << endl
-         << "    --connecting-range INT traverse up to INT bases when going from --connecting-start to --connecting-end (default: 100)" << endl
+         << "  -x, --xg-name FILE          use this xg index or graph (instead of rocksdb db)" << endl
+         << "  -n, --node ID               find node(s), return 1-hop context as graph" << endl
+         << "  -N, --node-list FILE        whitespace or line delimited list of nodes to grab" << endl
+         << "      --mapping FILE          include nodes mapping to the selected node IDs" << endl
+         << "  -e, --edges-end ID          return edges on end of node with ID" << endl
+         << "  -s, --edges-start ID        return edges on start of node with ID" << endl
+         << "  -c, --context STEPS         expand the context of the subgraph this many steps" << endl
+         << "  -L, --use-length            treat STEPS in -c or M in -r as a length in bases" << endl
+         << "  -P, --position-in PATH      find the position of -n node in the given path" << endl
+         << "  -I, --list-paths            write out the path names in the index" << endl
+         << "  -r, --node-range N:M        get nodes from N to M" << endl
+         << "  -G, --gam GAM               accumulate the graph touched by GAM's alignments" << endl
+         << "      --connecting-start POS  find graph from POS (node ID, + or -, node offset)" << endl
+         << "                              connecteing to --connecting-end" << endl
+         << "      --connecting-end POS    find graph to POS (node ID, + or -, node offset)" << endl
+         << "                              connecting from --connecting-start" << endl
+         << "      --connecting-range INT  traverse up to INT bases when going " << endl
+         << "                              from --connecting-start to --connecting-end [100]" << endl
          << "subgraphs by path range:" << endl
-         << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
-         << "    -R, --path-bed FILE    read our targets from the given BED FILE" << endl
-         << "    -E, --path-dag         with -p or -R, gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
-         << "    -W, --save-to PREFIX   instead of writing target subgraphs to stdout," << endl
-         << "                           write one per given target to a separate file named PREFIX[path]:[start]-[end].vg" << endl
-         << "    -K, --subgraph-k K     instead of graphs, write kmers from the subgraphs" << endl
-         << "    -H, --gbwt FILE        when enumerating kmers from subgraphs, determine their frequencies in this GBWT haplotype index" << endl
+         << "  -p, --path TARGET           find the node(s) in the specified path range(s)" << endl
+         << "                              TARGET=path[:pos1[-pos2]]" << endl
+         << "  -R, --path-bed FILE         read our targets from the given BED FILE" << endl
+         << "  -E, --path-dag              with -p or -R, gets any node in the partial order" << endl
+         << "                              from pos1 to pos2, assumes id sorted DAG" << endl
+         << "  -W, --save-to PREFIX        instead of writing target subgraphs to stdout," << endl
+         << "                              write one per given target to a separate file" << endl
+         << "                              named PREFIX[path]:[start]-[end].vg" << endl
+         << "  -K, --subgraph-k K          instead of graphs, write kmers from the subgraphs" << endl
+         << "  -H, --gbwt FILE             when enumerating kmers from subgraphs, determine" << endl
+         << "                              their frequencies in this GBWT haplotype index" << endl
          << "alignments:" << endl
-         << "    -l, --sorted-gam FILE  use this sorted, indexed GAM file" << endl
-         << "    -F, --sorted-gaf FILE  use this sorted, indexed GAF file" << endl
-         << "    -o, --alns-on N:M      write alignments which align to any of the nodes between N and M (inclusive)" << endl
-         << "    -A, --to-graph VG      get alignments to the provided subgraph" << endl
+         << "  -l, --sorted-gam FILE       use this sorted, indexed GAM file" << endl
+         << "  -F, --sorted-gaf FILE       use this sorted, indexed GAF file" << endl
+         << "  -o, --alns-on N:M           write alignments which align to any of the" << endl
+         << "                              nodes between N and M (inclusive)" << endl
+         << "  -A, --to-graph VG           get alignments to the provided subgraph" << endl
          << "sequences:" << endl
-         << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph (required for sequence queries)" << endl
-         << "    -S, --sequence STR     search for sequence STR using" << endl
-         << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
-         << "    -B, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl
-         << "    -f, --fast-reseed      use fast SMEM reseeding algorithm" << endl
-         << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
-         << "    -Z, --min-mem N        the minimum length of the MEM (default: 1)" << endl
-         << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl
-         << "    -Q, --paths-named S    return all paths whose names are prefixed with S (multiple allowed)" << endl;
+         << "  -g, --gcsa FILE             use this GCSA2 index of the graph's sequence space" << endl
+         << "                              (required for sequence queries)" << endl
+         << "  -S, --sequence STR          search for sequence STR using" << endl
+         << "  -M, --mems STR              describe the super-maximal exact matches" << endl
+         << "                              of the STR (GCSA2) in JSON" << endl
+         << "  -B, --reseed-length N       find non-super-maximal MEMs inside SMEMs length>=N" << endl
+         << "  -f, --fast-reseed           use fast SMEM reseeding algorithm" << endl
+         << "  -Y, --max-mem N             maximum length of the MEM [GCSA2 order]" << endl
+         << "  -Z, --min-mem N             minimum length of the MEM [1]" << endl
+         << "  -D, --distance              return distance on path between pair of nodes (-n)" << endl
+         << "                              if -P not used, best path chosen heurstically" << endl
+         << "  -Q, --paths-named STR       return all paths with name prefix STR (may repeat)" << endl;
 
 }
 
@@ -165,11 +177,12 @@ int main_find(int argc, char** argv) {
                 {"list-paths", no_argument, 0, 'I'},
                 {"subgraph-k", required_argument, 0, 'K'},
                 {"gbwt", required_argument, 0, 'H'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "x:n:e:s:o:hc:LS:p:P:r:l:F:mg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:H:",
+        c = getopt_long (argc, argv, "x:n:e:s:o:h?c:LS:p:P:r:l:F:mg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:H:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -518,18 +531,12 @@ int main_find(int argc, char** argv) {
               
             } else if (!sorted_gaf_name.empty()) {
                 // Find in sorted GAF
-                // loop over ranges and print GAF records
-                for (auto range : ranges) {
-                    string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
-                    hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
-                    kstring_t str = {0,0,0};
-                    if ( itr ) {
-                        while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
-                            puts(str.s);
-                        }
-                        tbx_itr_destroy(itr);
-                    }
-                }
+                for_each_gaf_record_in_ranges(gaf_fp, gaf_tbx, ranges, [&](const std::string& record_string) {
+                    // For each unique matching GAF record's unparsed string
+
+                    // Handle the record (by printing it).
+                    std::cout << record_string << std::endl;
+                }); 
             }
         } else {
             cerr << "error [vg find]: Cannot find alignments on graph without a sorted GAM" << endl;
@@ -608,7 +615,8 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            cout << vg::algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
+            cout << vg::algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex),
+                make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }
         if (list_path_names) {
@@ -704,14 +712,17 @@ int main_find(int argc, char** argv) {
                             for (auto& p : vg::algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
                                 const uint64_t& start_p = p.second.front().first;
                                 const bool& start_rev = p.second.front().second;
-                                if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
-                                    start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
+                                if (p.first == path_handle && (!start_rev && start_p >= target.start 
+                                                               || start_rev && start_p <= target.end)) {
+                                    start_str = target.seq + ":" + std::to_string(start_p) 
+                                                + (p.second.front().second ? "-" : "+");
                                 }
                             }
                             for (auto& p : vg::algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
                                 const uint64_t& end_p = p.second.front().first;
                                 const bool& end_rev = p.second.front().second;
-                                if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
+                                if (p.first == path_handle && (!end_rev && end_p <= target.end 
+                                                               || end_rev && end_p >= target.start)) {
                                     end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
                                 }
                             }
@@ -766,7 +777,8 @@ int main_find(int argc, char** argv) {
             nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
-                cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
+                cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got "
+                     << range << endl;
                 exit(1);
             }
             convert(parts.front(), id_start);
@@ -856,6 +868,7 @@ int main_find(int argc, char** argv) {
             }
             vg::algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
             vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+            vg::algorithms::add_subpaths_to_subgraph(*xindex, graph);
             vg::io::save_handle_graph(&graph, cout);
         }
         if (id(connecting_start) != 0) {
@@ -902,7 +915,8 @@ int main_find(int argc, char** argv) {
             mapper.fast_reseed = use_fast_reseed;
             // get the mems
             double lcp_avg, fraction_filtered;
-            auto mems = mapper.find_mems_deep(sequence.begin(), sequence.end(), lcp_avg, fraction_filtered, max_mem_length, min_mem_length, mem_reseed_length);
+            auto mems = mapper.find_mems_deep(sequence.begin(), sequence.end(), lcp_avg, fraction_filtered,
+                                              max_mem_length, min_mem_length, mem_reseed_length);
             
             // dump them to stdout
             cout << mems_to_json(mems) << endl;

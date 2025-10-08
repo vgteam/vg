@@ -44,38 +44,39 @@ using namespace vg::algorithms;
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] [<graph file>]" << endl
          << "options:" << endl
-         << "    -z, --size             size of graph" << endl
-         << "    -N, --node-count       number of nodes in graph" << endl
-         << "    -E, --edge-count       number of edges in graph" << endl
-         << "    -l, --length           length of sequences in graph" << endl
-         << "    -L, --self-loops       number of self-loops" << endl
-         << "    -s, --subgraphs        describe subgraphs of graph" << endl
-         << "    -H, --heads            list the head nodes of the graph" << endl
-         << "    -T, --tails            list the tail nodes of the graph" << endl
-         << "    -e, --nondeterm        list the nondeterministic edge sets" << endl
-         << "    -c, --components       print the strongly connected components of the graph" << endl
-         << "    -A, --is-acyclic       print if the graph is acyclic or not" << endl
-         << "    -n, --node ID          consider node with the given id" << endl
-         << "    -d, --to-head          show distance to head for each provided node" << endl
-         << "    -t, --to-tail          show distance to head for each provided node" << endl
-         << "    -a, --alignments FILE  compute stats for reads aligned to the graph" << endl
-         << "    -r, --node-id-range    X:Y where X and Y are the smallest and largest "
-        "node id in the graph, respectively" << endl
-         << "    -o, --overlap PATH    for each overlapping path mapping in the graph write a table:" << endl
+         << "  -z, --size               size of graph" << endl
+         << "  -N, --node-count         number of nodes in graph" << endl
+         << "  -E, --edge-count         number of edges in graph" << endl
+         << "  -l, --length             length of sequences in graph" << endl
+         << "  -L, --self-loops         number of self-loops" << endl
+         << "  -s, --subgraphs          describe subgraphs of graph" << endl
+         << "  -H, --heads              list the head nodes of the graph" << endl
+         << "  -T, --tails              list the tail nodes of the graph" << endl
+         << "  -e, --nondeterm          list the nondeterministic edge sets" << endl
+         << "  -c, --components         print the strongly connected components of the graph" << endl
+         << "  -A, --is-acyclic         print if the graph is acyclic or not" << endl
+         << "  -n, --node ID            consider node with the given id" << endl
+         << "  -d, --to-head            show distance to head for each provided node" << endl
+         << "  -t, --to-tail            show distance to head for each provided node" << endl
+         << "  -a, --alignments FILE    compute stats for reads aligned to the graph" << endl
+         << "  -r, --node-id-range      X:Y where X and Y are the smallest and largest" << endl
+         << "                           node id in the graph, respectively" << endl
+         << "  -o, --overlap PATH       for each overlapping path mapping in the graph write:" << endl
          << "                              PATH, other_path, rank1, rank2" << endl
-         << "                          multiple allowed; limit comparison to those provided" << endl
-         << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
-         << "    -R, --snarls          print statistics for each snarl" << endl
-         << "        --snarl-contents  print out a table of <snarl, depth, parent, contained node ids>" << endl
-         << "        --snarl-sample    print out reference coordinates on given sample" << endl
-         << "    -C, --chains          print statistics for each chain" << endl
-         << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
-        "Can't detect Protobuf if graph read from stdin" << endl
-         << "    -D, --degree-dist     print degree distribution of the graph." << endl
-         << "    -b, --dist-snarls FILE print the sizes and depths of the snarls in a given distance index." << endl
-         << "    -p, --threads N       number of threads to use [all available]" << endl
-         << "    -v, --verbose         output longer reports" << endl
-         << "    -P, --progress        show progress" << endl;
+         << "                           multiple allowed; limit comparison to those provided" << endl
+         << "  -O, --overlap-all        print overlap table for cartesian product of paths" << endl
+         << "  -R, --snarls             print statistics for each snarl" << endl
+         << "      --snarl-contents     print table of <snarl, depth, parent, node ids>" << endl
+         << "      --snarl-sample NAME  print out reference coordinates on given sample" << endl
+         << "  -C, --chains             print statistics for each chain" << endl
+         << "  -F, --format             graph type {VG-Protobuf, PackedGraph, HashGraph, XG}" << endl
+         << "                           Can't detect Protobuf if graph read from stdin" << endl
+         << "  -D, --degree-dist        print degree distribution of the graph." << endl
+         << "  -b, --dist-snarls FILE   print sizes/depths of the snarls in distance index" << endl
+         << "  -p, --threads N          number of threads to use [all available]" << endl
+         << "  -v, --verbose            output longer reports" << endl
+         << "  -P, --progress           show progress" << endl
+         << "  -h, --help               print this help message to stderr and exit" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -135,6 +136,7 @@ int main_stats(int argc, char** argv) {
             {"heads", no_argument, 0, 'H'},
             {"tails", no_argument, 0, 'T'},
             {"nondeterm", no_argument, 0, 'e'},
+            {"show-siblings", no_argument, 0, 'S'},
             {"help", no_argument, 0, 'h'},
             {"components", no_argument, 0, 'c'},
             {"to-head", no_argument, 0, 'd'},
@@ -144,7 +146,7 @@ int main_stats(int argc, char** argv) {
             {"is-acyclic", no_argument, 0, 'A'},
             {"node-id-range", no_argument, 0, 'r'},
             {"verbose", no_argument, 0, 'v'},
-            {"overlap", no_argument, 0, 'o'},
+            {"overlap", required_argument, 0, 'o'},
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
             {"snarl-contents", no_argument, 0, OPT_SNARL_CONTENTS},
@@ -159,8 +161,8 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vPAro:ORCFDb:p:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?zlLsHTeScdtn:NEa:vPAro:ORCFDb:p:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -282,7 +284,8 @@ int main_stats(int argc, char** argv) {
         {
             int num_threads = parse<int>(optarg);
             if (num_threads <= 0) {
-                cerr << "error:[vg stats] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                cerr << "error:[vg stats] Thread count (-t) set to " << num_threads
+                     << ", must set to a positive integer." << endl;
                 exit(1);
             }
             omp_set_num_threads(num_threads);
@@ -532,7 +535,8 @@ int main_stats(int argc, char** argv) {
         // print degrees
         cout << "Degree\tSides\tNodes(min)\tNodes(max)\tNodes(total)" << endl;
         for (const auto& dg : degree_to_count) {
-            cout << dg.first << "\t" << get<0>(dg.second) << "\t" <<get<1>(dg.second) << "\t" << get<2>(dg.second) << "\t" << get<3>(dg.second) << endl;
+            cout << dg.first << "\t" << get<0>(dg.second) << "\t" <<get<1>(dg.second) << "\t"
+                 << get<2>(dg.second) << "\t" << get<3>(dg.second) << endl;
         }
     }
 
@@ -658,6 +662,8 @@ int main_stats(int argc, char** argv) {
             // And substitutions
             size_t total_substitutions = 0;
             size_t total_substituted_bases = 0;
+            // And matches
+            size_t total_matched_bases = 0;
             // And softclips
             size_t total_softclips = 0;
             size_t total_softclipped_bases = 0;
@@ -702,6 +708,7 @@ int main_stats(int argc, char** argv) {
                 total_deleted_bases += other.total_deleted_bases;
                 total_substitutions += other.total_substitutions;
                 total_substituted_bases += other.total_substituted_bases;
+                total_matched_bases += other.total_matched_bases;
                 total_softclips += other.total_softclips;
                 total_softclipped_bases += other.total_softclipped_bases;
                 total_paired += other.total_paired;
@@ -922,6 +929,9 @@ int main_stats(int argc, char** argv) {
                                 // Record the actual substitution
                                 stats.substitutions.push_back(make_pair(node_id, edit));
                             }
+                        } else {
+                            // This is a match
+                            stats.total_matched_bases += edit.from_length();
                         }
 
                     }
@@ -945,13 +955,15 @@ int main_stats(int argc, char** argv) {
         get_input_file(alignments_filename, [&](istream& alignment_stream) {
             // Read in the given GAM
             // Actually go through all the reads and count stuff up.
-            vg::Progressive::with_progress(show_progress, "Read reads", [&](const std::function<void(size_t, size_t)>& progress) {
+            vg::Progressive::with_progress(show_progress, "Read reads", 
+                [&](const std::function<void(size_t, size_t)>& progress) {
                 vg::io::for_each_parallel(alignment_stream, lambda, 256, progress);
             });
         });
 
         // Now combine into a single ReadStats object (for which we pre-populated reads_on_allele with 0s).
-        vg::Progressive::with_progress(show_progress, "Combine thread results", [&](const std::function<void(size_t, size_t)>& progress) {
+        vg::Progressive::with_progress(show_progress, "Combine thread results", 
+            [&](const std::function<void(size_t, size_t)>& progress) {
             progress(0, read_stats.size());
             for(size_t i = 0; i < read_stats.size(); i++) {
                 combined += read_stats[i];
@@ -1102,14 +1114,21 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
-        cout << "Substitutions: " << combined.total_substituted_bases << " bp in " << combined.total_substitutions << " read events" << endl;
+        cout << "Substitutions: " << combined.total_substituted_bases << " bp in " << combined.total_substitutions 
+             << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.substitutions) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
         }
-        cout << "Softclips: " << combined.total_softclipped_bases << " bp in " << combined.total_softclips << " read events" << endl;
+        cout << "Matches: " << combined.total_matched_bases << " bp";
+        if (combined.total_alignments > 0) {
+            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+        }
+        cout << endl;
+        cout << "Softclips: " << combined.total_softclipped_bases << " bp in "
+             << combined.total_softclips << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.softclips) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
@@ -1186,7 +1205,9 @@ int main_stats(int argc, char** argv) {
                 }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }
-            cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
+            cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes"
+                 << "\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth"
+                 << "\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
         }
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -1206,7 +1227,8 @@ int main_stats(int argc, char** argv) {
                         // search toward the reference path
                         unordered_map<path_handle_t, vector<step_handle_t>> start_steps;
                         unordered_map<path_handle_t, vector<step_handle_t>> end_steps;
-                        handlegraph::algorithms::dijkstra(pp_graph, pp_graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                        handlegraph::algorithms::dijkstra(pp_graph, pp_graph->get_handle(snarl->start().node_id(),
+                                                                                         snarl->start().backward()),
                                  [&](const handle_t& found_handle, size_t dist) {
                                      graph->for_each_step_on_handle(found_handle, [&](step_handle_t step) {
                                          if (graph->get_sample_name(graph->get_path_handle_of_step(step)) == snarl_sample) {
@@ -1215,7 +1237,8 @@ int main_stats(int argc, char** argv) {
                                      });
                                      return start_steps.empty() && dist < snarl_search_context;
                                  }, true);
-                        handlegraph::algorithms::dijkstra(pp_graph, pp_graph->get_handle(snarl->end().node_id(), snarl->end().backward()),
+                        handlegraph::algorithms::dijkstra(pp_graph, pp_graph->get_handle(snarl->end().node_id(), 
+                                                                                         snarl->end().backward()),
                                  [&](const handle_t& found_handle, size_t dist) {
                                      graph->for_each_step_on_handle(found_handle, [&](step_handle_t step) {
                                          if (graph->get_sample_name(graph->get_path_handle_of_step(step)) == snarl_sample) {
@@ -1279,7 +1302,15 @@ int main_stats(int argc, char** argv) {
                             swap(start_pos, end_pos);
                             swap(start_step, end_step);                            
                         }
-                        end_pos += graph->get_length(pp_graph->get_handle_of_step(end_step));
+                        // we don't want the boundaries counting toward the snarl length
+                        // so if the start step is forward in the traversal, then subtract its lefnth
+                        if (!graph->get_is_reverse(graph->get_handle_of_step(start_step))) {
+                            start_pos += graph->get_length(graph->get_handle_of_step(start_step));
+                        }
+                        // and if the last step is backwards in the traversal, subtract its length
+                        if (graph->get_is_reverse(graph->get_handle_of_step(end_step))) {
+                            end_pos -= graph->get_length(graph->get_handle_of_step(end_step));
+                        }
                         cout << graph->get_path_name(pp_graph->get_path_handle_of_step(start_step)) << "\t" << start_pos << "\t"
                              << end_pos << "\t";
 
@@ -1390,7 +1421,9 @@ int main_stats(int argc, char** argv) {
         
 
         // TSV header
-        cout << "Snarl1-Start\tSSnarl1-Start-Reversed\tSnarl1-End\tSnarl1-End-Reversed\tSnarl1-Reversed\tSnarl2-Start\tSSnarl2-Start-Reversed\tSnarl2-End\tSnarl2-End-Reversed\tSnarl2-Reversed\tSnarl-Count\tMax-Depth\tChild-Snarls\tChild-Chains\n";
+        cout << "Snarl1-Start\tSSnarl1-Start-Reversed\tSnarl1-End\tSnarl1-End-Reversed\tSnarl1-Reversed"
+             << "\tSnarl2-Start\tSSnarl2-Start-Reversed\tSnarl2-End\tSnarl2-End-Reversed\tSnarl2-Reversed"
+             << "\tSnarl-Count\tMax-Depth\tChild-Snarls\tChild-Chains\n";
         
         manager.for_each_chain([&](const Chain* chain) {
             // Loop over all the snarls and print stats.

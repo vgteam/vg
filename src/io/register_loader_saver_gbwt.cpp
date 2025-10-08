@@ -26,7 +26,7 @@ void register_loader_saver_gbwt() {
         gbwt::GBWT* index = new gbwt::GBWT();
 
         // Load it. In case of a failure, this will:
-        // * Throw an exception if sanity checks fail.
+        // * Throw an exception if data is unacceptable.
         // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         index->load(input);
@@ -45,7 +45,7 @@ void register_loader_saver_gbwt() {
         gbwt::DynamicGBWT* index = new gbwt::DynamicGBWT();
 
         // Load it. In case of a failure, this will:
-        // * Throw an exception if sanity checks fail.
+        // * Throw an exception if data is unacceptable.
         // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         index->load(input);

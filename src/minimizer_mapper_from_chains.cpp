@@ -34,6 +34,8 @@
 
 // Turn on debugging prints
 //#define debug
+// Turn on recombintion debugging prints
+//#define debug_rec
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump the zip code forest
@@ -283,14 +285,15 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
     sdsl::bit_vector covered(seq_length, 0);
 
     vector<size_t> tree_seeds;
-    for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[i]) {
+    for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[i].get_all_seeds()) {
         if (this->track_provenance) {
             // Remember the seeds
             tree_seeds.push_back(found.seed);
         }
         // For each seed in the tree, find what minimizer it comes from
         if (found.seed >= seeds.size()) {
-            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed) + " but we only have " + std::to_string(seeds.size()) + " seeds");
+            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed)
+                                    + " but we only have " + std::to_string(seeds.size()) + " seeds");
         }
         size_t source = seeds.at(found.seed).source;
         if (!present.contains(source)) {
@@ -633,24 +636,21 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Make them into a zip code tree
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
-    zip_code_forest.fill_in_forest(seeds, minimizers, *distance_index, 
-                                   max_graph_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
+    zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            std::cerr << log_name() << "Zip code forest:";
-            zip_code_forest.print_self(&seeds, &minimizers);
-        }
+    #pragma omp critical (cerr)
+    {
+        std::cerr << log_name() << "Zip code forest:" << std::endl;
+        zip_code_forest.print_self(&seeds);
     }
 #endif
+
     // Turn all the seeds into anchors. Either we'll fragment them directly or
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
-
-
+    
     // Now we need to chain into fragments.
     // Each fragment needs to end up with a seeds array of seed numbers, and a
     // coverage float on the read, for downstream
@@ -1176,11 +1176,9 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             //Make sure that each seed gets added only once
             vector<bool> added_seed (seeds.size(), false);
             vector<size_t> selected_seeds;
-            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
-                if (!added_seed[found.seed]) {
-                    selected_seeds.push_back(found.seed);
-                    added_seed[found.seed] = true;
-                }
+            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num].get_all_seeds()) {
+                selected_seeds.push_back(found.seed);
+                added_seed[found.seed] = true;
             }
             
             if (show_work) {
@@ -1412,8 +1410,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
             // And what seeds should count as explored when we take an anchor
             const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
-            
-            
 
             if (track_provenance) {
                 funnel.substage("fragment");
@@ -1453,6 +1449,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                this->rec_penalty_fragment,
                 this->max_fragments,
                 for_each_transition,
                 this->item_bonus,
@@ -1505,7 +1502,38 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 // Translate fragments into seed numbers and not local anchor numbers.
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size() * 2);
+                // Keep track of the paths consistent with the fragment
+                size_t fragment_start_paths = UINT64_MAX;
+                size_t fragment_end_paths = UINT64_MAX;
                 for (auto& selected_number : scored_fragment.second) {
+                    bool recombination = false;
+#ifdef debug_rec
+                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_start_paths() == anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_end_paths());
+                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_start_paths() != 0);
+                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_end_paths() != 0);
+#endif
+                    
+                    auto paths_update = anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_paths();
+                    if (recombination) {
+                        // If we already had a recombination, start paths are set, we can only update end paths.
+                        fragment_end_paths &= paths_update.second;
+                        if (fragment_end_paths == 0) {
+                            fragment_end_paths = paths_update.second;
+                        }
+                    } else {
+                        
+                        if ((fragment_start_paths & paths_update.first) == 0) {
+#ifdef debug_rec
+                            cerr << log_name() << "Recombinant fragment at anchor " << anchor_view[selected_number] << " with paths " << paths_update.first << endl;
+#endif
+                            // If we have no paths, we have a recombination event. start and end paths are not the same.
+                            fragment_end_paths = paths_update.second;
+                            recombination = true;
+                        }  else {
+                            fragment_start_paths &= paths_update.first;
+                            fragment_end_paths = fragment_start_paths;
+                        }
+                    }
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
@@ -1520,14 +1548,20 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 }
                 // Remember the score
                 fragment_scores.push_back(scored_fragment.first);
+
                 // And make an anchor of it right now, for chaining later.
                 // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
+                fragment_anchors.emplace_back(
+                    algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back())
+                );
+                fragment_anchors.back().set_paths(fragment_start_paths, fragment_end_paths);            
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
                 multiplicity_by_fragment.emplace_back((float)item_count);
-
+#ifdef debug_rec
+                cerr << "fragment score: " << fragment_scores.back() << " with length: "<< scored_fragment.second.size() << " Paths: "<< fragment_anchors.back().anchor_start_paths() << " " << fragment_anchors.back().anchor_end_paths() << endl;
+#endif
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.introduce();
@@ -1555,6 +1589,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
                     }
                 }
+
                 if (track_provenance && show_work && result < MANY_LIMIT) {
                     for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
                         // Log each range on a path associated with the fragment.
@@ -1570,7 +1605,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     }
                 }
             }
-
             
             if (track_provenance) {
                 // Say we're done with this 
@@ -1915,6 +1949,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                this->rec_penalty_chain, 
                 this->max_alignments,
                 for_each_transition,
                 this->item_bonus,
@@ -2106,8 +2141,8 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
         
         // Find all the seeds in its zip tree
         vector<size_t> involved_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num)) {
-            involved_seeds.push_back(found.seed);   
+        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
+            involved_seeds.push_back(found.seed);
         }
 
         // Start making a list of things to show. 
@@ -2220,10 +2255,13 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     if (!read_group.empty()) {
         aln.set_read_group(read_group);
     }
-
+    
     // Compute lower limit on chain score to actually investigate
-    int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
-    // Remember we also have chain_score_threshold, which counts down from best chain score
+    int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
+    // Apply the max in chain score limit
+    chain_min_score = std::min(chain_min_score, max_min_chain_score);
+
+    // Remember: we also have chain_score_threshold, which counts down from best chain score
     
     // We need to be able to discard a chain because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
@@ -3482,7 +3520,18 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
 
     }
-    
+   
+    if (softclip_penalty != 0.0 && composed_path.mapping_size() > 0) {
+        size_t softclipped_bases = softclip_start(composed_path) + softclip_end(composed_path);
+        double penalty = softclip_penalty * softclipped_bases;
+        // Make sure score can't go negative.
+        composed_score = std::max(composed_score - penalty, 0.0);
+        if (show_work) {
+            #pragma omp critical (cerr)
+            cerr << log_name() << "Applied softclip penalty of " << penalty << " for " << softclipped_bases << " total softclipped bases" << endl;
+        }
+    }
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -3493,7 +3542,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
     }
-    
+
     // Convert to a vg Alignment.
     Alignment result(aln);
     // Simplify the path but keep internal deletions; we want to assert the
@@ -4177,6 +4226,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     size_t hint_start;
     size_t margin_left;
     size_t margin_right;
+    auto paths = seed.paths;
     if (source.value.is_reverse) {
         // Seed stores the final base of the match in the graph.
         // So get the past-end position.
@@ -4223,7 +4273,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
-    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive); 
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive, paths); 
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {

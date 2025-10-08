@@ -35,7 +35,8 @@ public:
      */
     SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph,
         unordered_set<path_handle_t> paths, unique_ptr<AlignmentEmitter>&& backing,
-        bool prune_suspicious_anchors = false);
+        bool prune_suspicious_anchors = false, bool add_graph_alignment_tag = false,
+        bool report_supplementary = false);
    
     ///  Force full length alignment in surjection resolution 
     bool surject_subpath_global = true;
@@ -74,8 +75,12 @@ protected:
     /// AlignmentEmitter to emit to once done
     unique_ptr<AlignmentEmitter> backing;
     
-    /// Surject alignments in place.
+    /// Surject unpaired alignments in place.
     void surject_alignments_in_place(vector<Alignment>& alns) const;
+    
+    /// Surject paired alignments in place and separate out supplementary alignments
+    void surject_paired_alignments_in_place(vector<Alignment>& alns1, vector<Alignment>& alns2,
+                                            vector<Alignment>& supplementary_alns) const;
     
     
     

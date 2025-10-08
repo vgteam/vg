@@ -90,10 +90,9 @@ FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "Giraffes have never been observed swimming.",
          "Mozambique requires power lines to be 39 feet high so giraffes can safely pass underneath."]
 
-def parse_args(args):
+def parse_args():
     """
-    Takes in the command-line arguments list (args), and returns a nice argparse
-    result with fields for all the options.
+    Returns a nice argparse result with fields for all the options.
     
     Borrows heavily from the argparse documentation examples:
     <http://docs.python.org/library/argparse.html>
@@ -118,14 +117,13 @@ def parse_args(args):
                         help="show stage associated with each filter")
     parser.add_argument("--filter-help", "-f", action="store_true", default=False,
                         help="show documentation for each filter")
+    parser.add_argument("--track-last", choices=["correct", "any"], 
+                        default="correct", 
+                        help="count read as lost if it loses these alignments.")
     parser.add_argument("outdir",
                         help="directory to place output in")
     
-    # The command line arguments start with the program name, which we don't
-    # want to treat as an argument for argparse. So we remove it.
-    args = args[1:]
-        
-    return parser.parse_args(args)
+    return parser.parse_args()
     
 def sniff_params(read):
     """
@@ -300,7 +298,7 @@ def get_flat_key(struct, key, default=None):
 # Stats under NO_FILTER are not associated with a filter
 NO_FILTER = (-1, "__none__", "")
 
-def make_stats(read):
+def make_stats(read, track_last):
     """
     Given a read dict parsed from JSON, compute a stats OrderedDict for the read.
     
@@ -309,13 +307,13 @@ def make_stats(read):
     A stats dict maps from filter number, name pair to a LossyCounter of filter stats.
     The filter stats include:
         
-        - 'passed_count_total' which is the count of results passing the
+        - 'passed': 'count_total' which is the count of results passing the
           filter.
-        - 'failed_count_total' which is the count of results failing the
+        - 'failed': 'count_total' which is the count of results failing the
           filter.
-        - 'passed_count_correct' which is the count of correct results passing
+        - 'passed': 'count_correct' which is the count of correct results passing
           the filter.
-        - 'failed_count_correct' which is the count of correct results failing
+        - 'failed': 'count_correct' which is the count of correct results failing
           the filter.
         
     Additionally, each of these '_count_' stats has a '_size_' version,
@@ -342,6 +340,11 @@ def make_stats(read):
     
     The stats dict may also have an entry for NO_FILTER, with stats not
     associated with a filter, such as count or time used.
+
+    If track_last is True, then we use 'last_correct_stage' to find the last
+    stage where a correct alignment was present. This might be missing.
+    Otherwise, we use the 'count_total' values to find the last stage where
+    there were any passing alignments at all.
     """
     
     # This is the annotation dict from the read
@@ -411,11 +414,20 @@ def make_stats(read):
     for index, stage in stages_by_index.items():
         first_filter_number_in[stage] = min(first_filter_number_in.get(stage, float("inf")), index)
 
-    if "last_correct_stage" in annot:
-        stage = annot["last_correct_stage"]
-        if stage in first_filter_number_in:
-            # Assign a last correct stage point to the first filter in the named stage, which maybe lost the item.
-            filter_stats[filters_by_index[first_filter_number_in[stage]]]['last_correct_stage'] = 1
+    if track_last == "correct":
+        if "last_correct_stage" in annot:
+            stage = annot["last_correct_stage"]
+            if stage in first_filter_number_in:
+                # Assign a last correct stage point to the first filter in the named stage, which maybe lost the item.
+                filter_stats[filters_by_index[first_filter_number_in[stage]]]['last_correct_stage'] = 1
+    elif track_last == "any":
+        for i in range(len(filters_by_index)):
+            # If nothing passed this filter, then we lost the read at this stage
+            if filter_dict[str(i)]["passed"]["count_total"] == 0:
+                assert(filter_dict[str(i)]["failed"]["count_total"] > 0)
+                # Assign a lost stage point
+                filter_stats[filters_by_index[i]]['lost_stage'] = 1
+                break
 
     # Now put them all in this dict by number and then name, and then stage to smuggle the stage out
     ordered_stats = collections.OrderedDict()
@@ -529,12 +541,12 @@ def read_line_to_read_dict(line):
 
     return read
 
-def read_line_to_stats(line):
+def read_line_to_stats(line, track_last):
     """
     Map from a read TSV line (possibly empty) to a stats dict.
     """
 
-    return make_stats(read_line_to_read_dict(line))
+    return make_stats(read_line_to_read_dict(line), track_last)
 
 def batched(input_iterator, batch_size):
     """
@@ -588,7 +600,8 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function, thr
     # <https://alexwlchan.net/2019/adventures-with-concurrent-futures/>.
 
     # Futures for map tasks in progress
-    map_in_flight = {executor.submit(map_function, item) for item in itertools.islice(input_iterator, max_tasks)}
+    map_in_flight = {executor.submit(map_function, item) 
+                     for item in itertools.islice(input_iterator, max_tasks)}
     # Futures for reduce tasks in progress
     reduce_in_flight = set()
 
@@ -630,7 +643,8 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function, thr
         new_tasks = max_tasks - len(map_in_flight) - len(reduce_in_flight)
         if new_tasks > 0:
             # Top up mapping to have at most the set number of jobs in flight
-            map_in_flight |= {executor.submit(map_function, item) for item in itertools.islice(input_iterator, new_tasks)}
+            map_in_flight |= {executor.submit(map_function, item) 
+                              for item in itertools.islice(input_iterator, new_tasks)}
 
     # When everything is done, finish reduction in this thread
     result = functools.reduce(reduce_function, reduce_buffer, zero_function())
@@ -956,7 +970,7 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(stats_total, params=None, out=sys.stdout, show_stages=False):
+def print_table(stats_total, track_last, params=None, out=sys.stdout, show_stages=False):
     """
     Take the accumulated total stats dict, and an optional dict
     of mapping parameters corresponding to values for filters.
@@ -1057,10 +1071,15 @@ def print_table(stats_total, params=None, out=sys.stdout, show_stages=False):
     headers2.append(failing_header2)
     header_widths.append(failing_width)
     
-    # And the number of correct reads lost at each stage
+    # And the number of reads lost at each stage
     lost_stage_header = "Lost"
     lost_stage_header2 = "reads"
-    lost_stage_reads = [x for x in (stats_total[filter_key].get('last_correct_stage', 0) for filter_key in filters) if x is not None]
+    if track_last == "correct":
+        lost_stage_reads = [x for x in (stats_total[filter_key].get('last_correct_stage', 0) 
+                                        for filter_key in filters) if x is not None]
+    elif track_last == "any":
+        lost_stage_reads = [x for x in (stats_total[filter_key].get('lost_stage', 0) 
+                                        for filter_key in filters) if x is not None]
     max_stage = max(itertools.chain(lost_stage_reads, [0]))
     overall_lost_stage = sum(lost_stage_reads)
     lost_stage_width = max(len(lost_stage_header), len(lost_stage_header2), len(str(max_stage)), len(str(overall_lost_stage)))
@@ -1146,7 +1165,10 @@ def print_table(stats_total, params=None, out=sys.stdout, show_stages=False):
         # No reads are lost at the final stage.
         lost = stats_total[filter_key]['failed_count_correct']
         
-        lost_stage = stats_total[filter_key]['last_correct_stage']
+        if track_last == "correct":
+            lost_stage = stats_total[filter_key]['last_correct_stage']
+        elif track_last == "any":
+            lost_stage = stats_total[filter_key]['lost_stage']
 
         # And reads that are rejected at all
         rejected = stats_total[filter_key]['failed_count_total']
@@ -1368,7 +1390,7 @@ def explain_filters_in(stats_total, vg):
 
     explain_filters(filters_and_stages, vg)
 
-def main(args):
+def main():
     """
     Parses command line arguments and do the work of the program.
     "args" specifies the program arguments, with args[0] being the executable
@@ -1377,7 +1399,7 @@ def main(args):
    
     print(random.choice(FACTS), file = sys.stderr)
     
-    options = parse_args(args) # This holds the nicely-parsed options object
+    options = parse_args() # This holds the nicely-parsed options object
     
     # Make the output directory if it doesn't exist
     os.makedirs(options.outdir, exist_ok=True)
@@ -1403,12 +1425,13 @@ def main(args):
     read_lines = read_read_lines(options.vg, options.input, threads=max(1, options.threads // 2))
    
     # Map it to stats and reduce it to total stats
-    stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict, threads=max(1, options.threads // 2))
+    stats_total = map_reduce(read_lines, functools.partial(read_line_to_stats, track_last=options.track_last), 
+                             add_in_stats, collections.OrderedDict, threads=max(1, options.threads // 2))
 
     # After processing all the reads
     
     # Print the table now in case plotting fails
-    print_table(stats_total, params, show_stages=options.stages)
+    print_table(stats_total, options.track_last, params, show_stages=options.stages)
 
     if options.filter_help:
         # Explain all the filters
@@ -1421,10 +1444,10 @@ def entrypoint():
     """
     0-argument entry point for setuptools to call.
     """
-    
+
     # Provide main with its arguments and handle exit codes
-    sys.exit(main(sys.argv))
-    
+    sys.exit(main())
+
 if __name__ == "__main__" :
     entrypoint()
         

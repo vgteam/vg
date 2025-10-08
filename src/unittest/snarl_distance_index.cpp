@@ -156,6 +156,42 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
+        TEST_CASE( "Distances for past-the-end positions", "[snarl_distance]" ) {
+            VG graph;
+                
+            Node* n1 = graph.create_node("GC");
+            Node* n2 = graph.create_node("T");
+
+            Edge* e1 = graph.create_edge(n1, n2);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+            SECTION("Forward distances") {
+                // Start of node 1 to past the end of node 1
+                REQUIRE(distance_index.minimum_distance(1, false, 0, 1, false, 2) == 2);
+                // Start of node 1 to past the end of node 2
+                REQUIRE(distance_index.minimum_distance(1, false, 0, 2, false, 1) == 3);
+                // Past the end of node 1 to start of node 2
+                REQUIRE(distance_index.maximum_distance(1, false, 2, 2, false, 0) == 0);
+                // Past the end of node 1 to past the end of node 2
+                REQUIRE(distance_index.minimum_distance(1, false, 2, 2, false, 1) == 1);
+                // Start of node 2 to past the end of node 2
+                REQUIRE(distance_index.minimum_distance(2, false, 0, 2, false, 1) == 1);
+            }
+            SECTION("Backward distances") {
+                // End of node 1 to past the start of node 1
+                REQUIRE(distance_index.minimum_distance(1, true, 0, 1, true, 2) == 2);
+                // Past the start of node 2 to past the start of node 1
+                REQUIRE(distance_index.maximum_distance(2, true, 1, 1, true, 2) == 2);
+                // End of node 2 to past the start of node 1
+                REQUIRE(distance_index.minimum_distance(2, true, 0, 1, true, 2) == 3);
+                // Past the start of node 2 to end of node 1
+                REQUIRE(distance_index.minimum_distance(2, true, 1, 1, true, 0) == 0);
+                // End of node 2 to past the start of node 2
+                REQUIRE(distance_index.minimum_distance(2, true, 0, 2, true, 1) == 1);
+            }
+        }
         TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
         
             VG graph;
@@ -194,7 +230,7 @@ namespace vg {
             Edge* e17 = graph.create_edge(n11, n12);
             Edge* e18 = graph.create_edge(n12, n13);
             
-                                graph.serialize_to_file("test_graph.vg");
+            graph.serialize_to_file("test_graph.vg");
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SECTION("Traversal of chain") {
@@ -205,6 +241,24 @@ namespace vg {
                     if (distance_index.is_node(child)) {
                     }
                 });
+            }
+            SECTION("Snarl classifications are correct") {
+                SECTION("Distance index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))));
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), true));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false));
+                } SECTION("Distanceless index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))), true, &graph));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id()))), true, &graph));
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), true, &graph));
+                    // TODO: This isn't true because it would be too much work to recursively check all children using only the graph
+                    //REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false, &graph));
+                }
             }
             SECTION("Minimum distances are correct") {
                 SnarlDistanceIndex distance_index;

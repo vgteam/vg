@@ -42,11 +42,13 @@ vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
         stringstream strm(line);
         string token;
         while (getline(strm, token, '\t')) {
-            tokens.push_back(move(token));
+            tokens.push_back(std::move(token));
             token.clear();
         }
         if (tokens.size() != 8) {
-            cerr << "[vg sim] error: Cannot parse transcription file. Expected 8-column TSV file as produced by RSEM, got " << tokens.size() << " columns." << endl;
+            cerr << "[vg sim] error: Cannot parse transcription file. "
+                 << "Expected 8-column TSV file as produced by RSEM, got "
+                 << tokens.size() << " columns." << endl;
             exit(1);
         }
         return_val.emplace_back(tokens[0], parse<double>(tokens[5]));
@@ -67,11 +69,13 @@ vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& h
         stringstream strm(line);
         string token;
         while (getline(strm, token, '\t')) {
-            tokens.push_back(move(token));
+            tokens.push_back(std::move(token));
             token.clear();
         }
         if (tokens.size() != 5) {
-            cerr << "[vg sim] error: Cannot parse haplotype transcript file. Expected 5-column TSV file as produced by vg rna -i, got " << tokens.size() << " columns." << endl;
+            cerr << "[vg sim] error: Cannot parse haplotype transcript file. "
+                 << "Expected 5-column TSV file as produced by vg rna -i, got "
+                 << tokens.size() << " columns." << endl;
             exit(1);
         }
         // contributing haplotypes are separeted by commas
@@ -87,40 +91,51 @@ void help_sim(char** argv) {
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
          << "basic options:" << endl
-         << "    -x, --xg-name FILE          use the graph in FILE (required)" << endl
-         << "    -n, --num-reads N           simulate N reads or read pairs" << endl
-         << "    -l, --read-length N         simulate reads of length N" << endl
-         << "    -r, --progress              show progress information" << endl
+         << "  -h, --help                  print this help message to stderr and exit" << endl
+         << "  -x, --xg-name FILE          use the graph in FILE (required)" << endl
+         << "  -n, --num-reads N           simulate N reads or read pairs" << endl
+         << "  -l, --read-length N         simulate reads of length N" << endl
+         << "  -r, --progress              show progress information" << endl
          << "output options:" << endl
-         << "    -a, --align-out             write alignments in GAM-format" << endl
-         << "    -J, --json-out              write alignments in json" << endl
-         << "    --multi-position            annotate alignments with multiple reference positions" << endl
+         << "  -a, --align-out             write alignments in GAM-format" << endl
+         << "  -q, --fastq-out             write reads in FASTQ format" << endl
+         << "  -J, --json-out              write alignments in JSON-format GAM (implies -a)" << endl
+         << "      --multi-position        annotate with multiple reference positions" << endl
          << "simulation parameters:" << endl
-         << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
-         << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
-         << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
-         << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
-         << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
-         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -F that are indels (default 0.01)" << endl
-         << "    -S, --scale-err FLOAT       scale trained error probabilities from -F by this much (default 1.0)" << endl
-         << "    -f, --forward-only          don't simulate from the reverse strand" << endl
-         << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
-         << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
-         << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
-         << "    --max-tries N               attempt sampling operations up to N times before giving up [100]" << endl
-         << "    -t, --threads               number of compute threads (only when using FASTQ with -F) [1]" << endl
+         << "  -F, --fastq FILE            match the error profile of NGS reads in FILE," << endl
+         << "                              repeat for paired reads (ignores -l,-f)" << endl
+         << "  -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
+         << "  -s, --random-seed N         use this specific seed for the PRNG" << endl
+         << "  -e, --sub-rate FLOAT        base substitution rate [0.0]" << endl
+         << "  -i, --indel-rate FLOAT      indel rate [0.0]" << endl
+         << "  -d, --indel-err-prop FLOAT  proportion of trained errors from -F" << endl
+         << "                              that are indels [0.01]" << endl
+         << "  -S, --scale-err FLOAT       scale trained error probs from -F by FLOAT [1.0]" << endl
+         << "  -f, --forward-only          don't simulate from the reverse strand" << endl
+         << "  -p, --frag-len N            make paired end reads with fragment length N" << endl
+         << "  -v, --frag-std-dev FLOAT    use this standard deviation" << endl
+         << "                              for fragment length estimation" << endl
+         << "  -N, --allow-Ns              allow reads to be sampled with Ns in them" << endl
+         << "      --max-tries N           attempt sampling operations up to N times [100]" << endl
+         << "  -t, --threads N             number of compute threads (only when using -F) [1]" << endl
          << "simulate from paths:" << endl
-         << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
-         << "    -A, --any-path              simulate from any path (overrides -P)" << endl
-         << "    -m, --sample-name NAME      simulate from this sample (may repeat; requires -g)" << endl
-         << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
-         << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
-         << "                                from if no samples are used. Unmatched contigs get ploidy 2." << endl
-         << "    -g, --gbwt-name FILE        use samples from this GBWT index" << endl
-         << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
-         << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
-         << "    -u, --unsheared             sample from unsheared fragments" << endl
-         << "    -E, --path-pos-file FILE    output a TSV with sampled position on path of each read (requires -F)" << endl;
+         << "  -P, --path NAME             simulate from this path" << endl
+         << "                              (may repeat; cannot also give -T)" << endl
+         << "  -A, --any-path              simulate from any path (overrides -P)" << endl
+         << "  -m, --sample-name NAME      simulate from this sample (may repeat)" << endl
+         << "  -R, --ploidy-regex RULES    use this comma-separated list of colon-delimited" << endl
+         << "                              REGEX:PLOIDY rules to assign ploidies to contigs" << endl
+         << "                              not visited by the selected samples, or to all" << endl
+         << "                              contigs simulated from if no samples are used." << endl
+         << "                              Unmatched contigs get ploidy 2" << endl
+         << "  -g, --gbwt-name FILE        use samples from this GBWT index" << endl
+         << "  -T, --tx-expr-file FILE     simulate from an expression profile formatted as" << endl
+         << "                              RSEM output (cannot also give -P)" << endl
+         << "  -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i" << endl
+         << "                              (required for -T on haplotype transcripts)" << endl
+         << "  -u, --unsheared             sample from unsheared fragments" << endl
+         << "  -E, --path-pos-file FILE    output a TSV with sampled position on path" << endl
+         << "                              of each read (requires -F)" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -130,8 +145,8 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_MULTI_POSITION 1000
-    #define OPT_MAX_TRIES 1001
+    constexpr int OPT_MULTI_POSITION = 1000;
+    constexpr int OPT_MAX_TRIES = 1001;
 
     string xg_name;
     int num_reads = 1;
@@ -145,6 +160,7 @@ int main_sim(int argc, char** argv) {
     bool forward_only = false;
     bool align_out = false;
     bool json_out = false;
+    bool fastq_out = false;
     bool multi_position_annotations = false;
     int fragment_length = 0;
     double fragment_std_dev = 0;
@@ -204,6 +220,7 @@ int main_sim(int argc, char** argv) {
             {"random-seed", required_argument, 0, 's'},
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
+            {"fastq-out", no_argument, 0, 'q'},
             {"json-out", no_argument, 0, 'J'},
             {"multi-position", no_argument, 0, OPT_MULTI_POSITION},
             {"allow-Ns", no_argument, 0, 'N'},
@@ -216,13 +233,13 @@ int main_sim(int argc, char** argv) {
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
             {"threads", required_argument, 0, 't'},
-            {"path-usage", required_argument, 0, 'E'},
+            {"path-pos-file", required_argument, 0, 'E'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?rl:n:s:e:i:fax:qJp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -314,7 +331,8 @@ int main_sim(int argc, char** argv) {
             seed_val = parse<int>(optarg);
             if (seed_val == 0) {
                 // Don't let the user specify seed 0 as we will confuse it with no deterministic seed.
-                cerr << "error[vg sim]: seed 0 cannot be used. Omit the seed option if you want nondeterministic results." << endl;
+                cerr << "error[vg sim]: seed 0 cannot be used. "
+                     << "Omit the seed option if you want nondeterministic results." << endl;
                 exit(1);
             }
             break;
@@ -340,10 +358,26 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'a':
+            if (fastq_out) {
+                cerr << "[vg sim] error: only one output format (-a/-J or -q) can be selected." << endl;
+                exit(1);
+            }
             align_out = true;
             break;
 
+        case 'q':
+            if (align_out) {
+                cerr << "[vg sim] error: only one output format (-a/-J or -q) can be selected." << endl;
+                exit(1);
+            }
+            fastq_out = true;
+            break;
+
         case 'J':
+            if (fastq_out) {
+                cerr << "[vg sim] error: only one output format (-a/-J or -q) can be selected." << endl;
+                exit(1);
+            }
             json_out = true;
             align_out = true;
             break;
@@ -417,12 +451,10 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: --gbwt-name requires --sample-name or --tx-expr-file" << endl;
         return 1;
     }
-    if (!sample_names.empty() && gbwt_name.empty()) {
-        cerr << "[vg sim] error: --sample-name must be used with --gbwt-name" << endl;
-        return 1;
-    }
     if (!gbwt_name.empty() && !rsem_file_name.empty() && !haplotype_transcript_file_name.empty()) {
-        cerr << "[vg sim] error: using --gbwt-name requires that HSTs be included --tx-expr-file, combination with --haplo-tx-file is not implemented" << endl;
+        // TODO: This message doesn't really make sense.
+        cerr << "[vg sim] error: using --gbwt-name requires that HSTs be included --tx-expr-file, "
+             << "combination with --haplo-tx-file is not implemented" << endl;
         return 1;
     }
 
@@ -444,7 +476,8 @@ int main_sim(int argc, char** argv) {
         }
         ifstream haplo_tx_in(haplotype_transcript_file_name);
         if (!haplo_tx_in) {
-            cerr << "[vg sim] error: could not open haplotype transcript file " << haplotype_transcript_file_name << endl;
+            cerr << "[vg sim] error: could not open haplotype transcript file "
+                 << haplotype_transcript_file_name << endl;
             return 1;
         }
         haplotype_transcripts = parse_haplotype_transcript_file(haplo_tx_in);
@@ -461,7 +494,8 @@ int main_sim(int argc, char** argv) {
     }
     
     if (fastq_name.empty() && unsheared_fragments) {
-        cerr << "[vg sim] error: unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+        cerr << "[vg sim] error: unsheared fragment option only available "
+             << "when simulating from FASTQ-trained errors" << endl;
         exit(1);
     }
     
@@ -500,18 +534,37 @@ int main_sim(int argc, char** argv) {
     // We may add some paths to our graph. If so, we need to ignore them when
     // annotating with path positions, because they will be useless.
     unordered_set<string> inserted_path_names;
-    
+   
+    // We need to track the contigs that have generic sense paths in the graph,
+    // but don't have any paths with that name as the locus in any selected
+    // sample. If ploidy rules are used, we will simulate from them as well, at
+    // those ploidies.
+    std::unordered_set<std::string> unvisited_contigs;
+    if (!sample_names.empty() && !ploidy_rules.empty()) {
+        // We need to track the contigs that have not had any threads in any sample.
+        
+        // We actually want to visit them, so we have to find them
+        if (progress) {
+            std::cerr << "Inventorying contigs" << std::endl;
+        }
+        // We assume the generic paths in the graph are contigs ("chr1", "chr2", etc.)
+        path_handle_graph->for_each_path_of_sense(PathSense::GENERIC, [&](const path_handle_t& handle) {
+            // For each path in the graph
+            auto name = path_handle_graph->get_path_name(handle);
+            if (!Paths::is_alt(name)) {
+                unvisited_contigs.insert(name);
+            }
+        });
+    }
+
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
-        
-        // We need to track the contigs that have not had any threads in any sample
-        std::unordered_set<std::string> unvisited_contigs;
-        
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
         std::unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
-        if (!(gbwt_index->hasMetadata()) || !(gbwt_index->metadata.hasSampleNames()) || !(gbwt_index->metadata.hasPathNames())) {
+        if (!(gbwt_index->hasMetadata()) || !(gbwt_index->metadata.hasSampleNames()) 
+                                              || !(gbwt_index->metadata.hasPathNames())) {
             std::cerr << "[vg sim] error: GBWT index does not contain sufficient metadata" << std::endl;
             return 1;
         }
@@ -521,32 +574,14 @@ int main_sim(int argc, char** argv) {
         
         if (!sample_names.empty()) {
             // we're consulting the provided sample names to determine which threads to include
-            
-            // We need to track the contigs that have not had any threads in any sample
-            if (!ploidy_rules.empty()) {
-                // We actually want to visit them, so we have to find them
-                if (progress) {
-                    std::cerr << "Inventorying contigs" << std::endl;
-                }
-                path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
-                    // For each path in the graph
-                    auto name = path_handle_graph->get_path_name(handle);
-                    if (!Paths::is_alt(name)) {
-                        // TODO: We assume that if it isn't an alt path it represents a contig!
-                        // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
-                        unvisited_contigs.insert(name);
-                    }
-                });
-            }
-            
             if (progress) {
                 std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
             }
-            
             for (std::string& sample_name : sample_names) {
                 gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
                 if (id >= gbwt_index->metadata.samples()) {
-                    std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
+                    std::cerr << "[vg sim] error: sample \"" << sample_name 
+                              << "\" not found in the GBWT index" << std::endl;
                     return 1;
                 }
                 auto idx = sample_id_to_idx.size();
@@ -558,7 +593,8 @@ int main_sim(int argc, char** argv) {
             for (const auto& transcript_expression  : transcript_expressions) {
                 gbwt::size_type id = gbwt_index->metadata.sample(transcript_expression.first);
                 if (id >= gbwt_index->metadata.samples()) {
-                    std::cerr << "[vg sim] error: haplotype-specific transcript \"" << transcript_expression.first << "\" not found in the GBWT index" << std::endl;
+                    std::cerr << "[vg sim] error: haplotype-specific transcript \"" << transcript_expression.first
+                              << "\" not found in the GBWT index" << std::endl;
                     return 1;
                 }
                 auto idx = sample_id_to_idx.size();
@@ -566,7 +602,8 @@ int main_sim(int argc, char** argv) {
             }
         }
         
-        MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
+        MutablePathMutableHandleGraph* mutable_graph \
+            = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
         if (mutable_graph == nullptr) {
             if (progress) {
                 std::cerr << "Converting the graph into HashGraph" << std::endl;
@@ -613,17 +650,75 @@ int main_sim(int argc, char** argv) {
         if (progress) {
             std::cerr << "Inserted " << inserted_path_names.size() << " paths" << std::endl;
         }
-        if (!unvisited_contigs.empty()) {
-            // There are unvisited contigs we want to sample from too
-            for (auto& name : unvisited_contigs) {
-                // Sample from each
-                path_names.push_back(name);
-                // With the rule-determined ploidy
-                path_ploidies.push_back(consult_ploidy_rules(name));
+    } else {
+        // We're not using a separate GBWT, so when asked to simulate from a
+        // sample, pull that sample from the base graph.
+        if (!sample_names.empty()) {
+            // we're consulting the provided sample names to determine which threads to include
+            
+            // Make a query set of sample names
+            std::unordered_set<std::string> sample_name_set(sample_names.begin(), sample_names.end());
+
+            if (sample_name_set.size() != sample_names.size()) {
+                // Do a quick check for duplicates since we've bothered to make the set.
+                std::cerr << "[vg sim] error: Of the " << sample_names.size()
+                          << " samples, there are only " << sample_name_set.size()
+                          << " distinct values. Remove the duplicate entries." << std::endl;
+                return 1;
             }
+
             if (progress) {
-                std::cerr << "Also sampling from " << unvisited_contigs.size() << " paths representing unvisited contigs" << std::endl;
+                std::cerr << "Finding matching paths for " << sample_name_set.size()
+                          << " samples" << std::endl;
             }
+
+            // Also keep a set of sample names actually seen
+            std::unordered_set<std::string> seen_sample_names;
+            // And a count of sample-based paths we picked
+            size_t sample_path_count = 0;
+            path_handle_graph->for_each_path_matching(nullptr, &sample_name_set, nullptr, [&](const path_handle_t path) {
+                // Remember we saw this sample
+                seen_sample_names.insert(path_handle_graph->get_sample_name(path));
+                
+                if (!unvisited_contigs.empty()) {
+                    // Remember we visited this path's contig, if it has a full-contig generic path lying around.
+                    unvisited_contigs.erase(path_handle_graph->get_locus_name(path));
+                }
+
+                // Remember to simulate from this path by name with ploidy 1.
+                path_names.push_back(path_handle_graph->get_path_name(path));
+                path_ploidies.push_back(1.0);
+                ++sample_path_count;
+            });
+
+            if (seen_sample_names.size() != sample_name_set.size()) {
+                // TODO: Use std::set_difference in C++17.
+                std::cerr << "[vg sim] error: Some samples requested are not in the graph:";
+                for (auto& s : sample_name_set) {
+                    if (!seen_sample_names.count(s)) {
+                        std::cerr << " " << s;
+                    }
+                }
+                std::cerr << std::endl;
+                return 1;
+            }
+
+            if (progress) {
+                std::cerr << "Using " << sample_path_count << " sample paths" << std::endl;
+            }
+        }
+    }
+
+    if (!unvisited_contigs.empty()) {
+        // There are unvisited contigs we want to sample from too
+        for (auto& name : unvisited_contigs) {
+            // Sample from each
+            path_names.push_back(name);
+            // With the rule-determined ploidy
+            path_ploidies.push_back(consult_ploidy_rules(name));
+        }
+        if (progress) {
+            std::cerr << "Also sampling from " << unvisited_contigs.size() << " paths representing unvisited contigs" << std::endl;
         }
     }
     
@@ -634,8 +729,10 @@ int main_sim(int argc, char** argv) {
             }
             for (auto& transcript_expression : transcript_expressions) {
                 if (!path_handle_graph->has_path(transcript_expression.first)) {
-                    cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
-                    cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
+                    cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first 
+                         << "\" not found in index" << endl;
+                    cerr << "if you embedded haplotype-specific transcripts in the graph, "
+                         << "you may need the haplotype transcript file from vg rna -i" << endl;
                     return 1;
                 }
             }
@@ -647,7 +744,8 @@ int main_sim(int argc, char** argv) {
         }
         for (auto& haplotype_transcript : haplotype_transcripts) {
             if (!path_handle_graph->has_path(get<0>(haplotype_transcript))) {
-                cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
+                cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) 
+                     << "\" not found in index" << endl;
                 return 1;
             }
         }
@@ -658,7 +756,17 @@ int main_sim(int argc, char** argv) {
     }
     
     bdsg::ReferencePathVectorizableOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
+    // Work out the list of path names we definitely need position queries on,
+    // even if they aren't reference sense.
+    // Just put all the target path names in there, since it can't hurt.
+    std::unordered_set<std::string> extra_path_names(path_names.begin(), path_names.end());
+    // Apply the overlay to ensure position lookups are efficient.
+    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(
+        overlay_helper.apply(
+            path_handle_graph.get(),
+            extra_path_names
+        )
+    );
     
     // We want to store the inserted paths as a set of handles, which are
     // easier to hash than strings for lookup.
@@ -689,6 +797,9 @@ int main_sim(int argc, char** argv) {
         }
         if (json_out) {
             std::cerr << "--json-out" << std::endl;
+        }
+        if (fastq_out) {
+            std::cerr << "--fastq-out" << std::endl;
         }
         if (!fastq_name.empty()) {
             std::cerr << "--fastq " << fastq_name << std::endl;
@@ -739,7 +850,8 @@ int main_sim(int argc, char** argv) {
             cerr << "warning: Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
         }
         
-        sampler.reset(new Sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts));
+        sampler.reset(new Sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names,
+                                  path_ploidies, transcript_expressions, haplotype_transcripts));
     } else {
         // Use the FASTQ-trained sampler
         sampler.reset(new NGSSimulator(*xgidx,
@@ -753,8 +865,10 @@ int main_sim(int argc, char** argv) {
                                        base_error,
                                        indel_error,
                                        indel_prop,
-                                       fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
-                                       fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
+                                       // suppresses warnings about fragment length
+                                       fragment_length ? fragment_length : std::numeric_limits<double>::max(), 
+                                       // eliminates errors from having 0 as stddev without substantial difference
+                                       fragment_std_dev ? fragment_std_dev : 0.000001,
                                        error_scale_factor,
                                        !reads_may_contain_Ns,
                                        unsheared_fragments,
@@ -803,9 +917,27 @@ int main_sim(int argc, char** argv) {
             // Print the sequences of the reads we have.
             #pragma omp critical
             {
+                if (fastq_out) {
+                    cout << "@" << r1->name() << endl;
+                }
                 cout << r1->sequence();
+                if (fastq_out) {
+                    cout << endl << "+" << endl;
+                    for (size_t i = 0; i < r1->sequence().size(); ++i) {
+                        cout << "I"; // assume all bases are perfect
+                    }
+                }
                 if (r2) {
-                    cout << "\t" << r2->sequence();
+                    if (fastq_out) {
+                        cout << endl << "@" << r2->name() << endl
+                             << r2->sequence() << endl
+                             << "+" << endl;
+                        for (size_t i = 0; i < r2->sequence().size(); ++i) {
+                            cout << "I"; // assume all bases are perfect
+                        }
+                    } else {
+                        cout << "\t" << r2->sequence();
+                    }
                 }
                 cout << endl;
             }
@@ -874,7 +1006,7 @@ int main_sim(int argc, char** argv) {
             ngs_sampler->connect_to_position_file(path_pos_filename);
         }
         
-        // static scheduling could produce some degradation in speed, but i think it should make
+        // static scheduling could produce some degradation in speed, but I think it should make
         // the output deterministic (except for ordering)
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < num_reads; i++) {

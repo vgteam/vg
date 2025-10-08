@@ -40,27 +40,36 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_cluster(char** argv) {
-    cerr
-    << "usage: " << argv[0] << " cluster [options] input.gam > output.gam" << endl
-    << "Find and cluster mapping seeds." << endl
-    << endl
-    << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
-    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
-    << "  -G, --gbwt-name FILE          use this gbwt" << endl
-    << "  -B, --gbwtgraph-name FILE     use this gbwtgraph" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
-    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore minimizers with more than this many locations [500]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
-    << "  -U, --max-min INT             use at most INT minimizers, 0 for no limit [500]" << endl
-    << "  -b, --num-bp-per-min INT      use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [1000]" << endl
-    << "  -D, --downsample-min INT      downsample minimizers with windows of length read length/INT, 0 for no downsampling [0]" << endl
-    << "  -z, --zip-codes FILE          file containing extra zip codes not stored in the minimizers" << endl
-    << "  -Z, --zip-tree                create a zipcode tree instead of clustering" << endl
-    << "computational parameters:" << endl 
-    << "  -t, --threads INT             number of compute threads to use" << endl;
+    cerr << "usage: " << argv[0] << " cluster [options] input.gam > output.gam" << endl
+         << "Find and cluster mapping seeds." << endl
+         << endl
+         << "basic options:" << endl
+         << "  -h, --help                    print this help message to stderr and exit" << endl
+         << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
+         << "  -f, --gbz-format              input graph is GBZ format (has graph & GBWT)" << endl
+         << "  -g, --gcsa-name FILE          use FILE & FILE.lcp GCSA2/LCP index pair" << endl
+         << "  -G, --gbwt-name FILE          use this GBWT" << endl
+         << "  -B, --gbwtgraph-name FILE     use this GBWTGraph" << endl
+         << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+         << "  -l, --long-reads              minimizer index is for long reads" << endl
+         << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
+         << "  -p, --prefix PREFIX           prefix to find indexes at" << endl
+         << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
+         << "  -C, --hard-hit-cap INT        ignore minimizers with more than INT hits [500]" << endl
+         << "  -a, --hits-above INT          output minimizers with at least INT hits [inf]" << endl
+         << "  -S, --sequences-only          only output -s sequences of minimizers," << endl
+         << "                                no clustering/ziptree (overrides -Z)" << endl
+         << "  -F, --score-fraction FLOAT    select minimizers between -c/-C until" << endl
+         << "                                score is FLOAT of total [0.9]" << endl
+         << "  -U, --max-min INT             use at most INT minimizers, 0 for no limit [500]" << endl
+         << "  -b, --num-bp-per-min INT      use maximum of number minimizers calculated by" << endl
+         << "                                READ_LENGTH / INT and --max-min [1000]" << endl
+         << "  -D, --downsample-min INT      downsample minimizers with windows of length" << endl
+         << "                                read length/INT, 0 for no downsampling [0]" << endl
+         << "  -z, --zip-codes FILE          file containing ip codes not in the minimizers" << endl
+         << "  -Z, --zip-tree                create a zipcode tree instead of clustering" << endl
+         << "computational parameters:" << endl 
+         << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
 int main_cluster(int argc, char** argv) {
@@ -71,19 +80,23 @@ int main_cluster(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
-    bool use_minimizers = true;
-    string xg_name;
+    string graph_name = "";
+    bool gbz_format = false;
     string gcsa_name;
     string zipcode_name;
+    string minimizer_name = "";
+    bool long_reads = false;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
     size_t hit_cap = 10;
     size_t hard_hit_cap = 500;
+    size_t hits_above_threshold = std::numeric_limits<size_t>::max();
     float score_fraction = 0.9;
     size_t max_min = 500;
     size_t num_bp_per_min = 1000;
     size_t downsample_min = 0;
+    bool output_sequences_only = false;
     bool make_zip_tree = false;
  
     //Get an index registry to keep track of all the indexes
@@ -97,13 +110,18 @@ int main_cluster(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"gbz-format", no_argument, 0, 'f'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"gbwtgraph-name", required_argument, 0, 'B'},
             {"minimizer-name", required_argument, 0, 'm'},
+            {"long-reads", no_argument, 0, 'l'},
             {"dist-name", required_argument, 0, 'd'},
+            {"prefix", required_argument, 0, 'p'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
+            {"hits-above", required_argument, 0, 'a'},
+            {"sequences-only", no_argument, 0, 'S'},
             {"score-fraction", required_argument, 0, 'F'},
             {"max-min", required_argument, 0, 'U'},
             {"num-bp-per-min", required_argument, 0, 'b'},
@@ -115,7 +133,7 @@ int main_cluster(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:G:B:m:d:c:C:F:U:b:D:z:Zt:",
+        c = getopt_long (argc, argv, "h?x:fg:G:B:m:ld:p:c:C:a:SF:U:b:D:z:Zt:",
                          long_options, &option_index);
 
 
@@ -135,15 +153,14 @@ int main_cluster(int argc, char** argv) {
                     exit(1);
                 }
                 //Remember the string for MEMs
-                xg_name = optarg;
+                graph_name = optarg;
+                break;
 
-                //Give the file to the index registry for clustering minimizers
-                registry.provide("XG", optarg);
+            case 'f':
+                gbz_format = true;
                 break;
                 
             case 'g':
-                use_minimizers = true;
-
                 if (!optarg || !*optarg) {
                     cerr << "error:[vg cluster] Must provide GCSA file with -g." << endl;
                     exit(1);
@@ -152,7 +169,7 @@ int main_cluster(int argc, char** argv) {
                     cerr << "error:[vg cluster] Couldn't open GCSA file " << optarg << endl;
                     exit(1);
                 }
-                registry.provide("Giraffe GCSA", optarg);
+                registry.provide("GCSA", optarg);
                 break;
             
             case 'G':
@@ -195,10 +212,12 @@ int main_cluster(int argc, char** argv) {
                     cerr << "error:[vg cluster] Couldn't open minimizer file " << optarg << endl;
                     exit(1);
                 }
-                registry.provide("Minimizers", optarg);
+                minimizer_name = optarg;
                 break;
                 
-
+            case 'l':
+                long_reads = true;
+                break;
                 
             case 'd':
                 distance_name = optarg;
@@ -216,6 +235,14 @@ int main_cluster(int argc, char** argv) {
                 }
                 registry.provide("Giraffe Distance Index", optarg);
                 break;
+
+            case 'p':
+                if (!optarg || !*optarg) {
+                    cerr << "error:[vg cluster] Must provide prefix with -p." << endl;
+                    exit(1);
+                }
+                registry.set_prefix(optarg);
+                break;
             
             case 'c':
                 hit_cap = parse<size_t>(optarg);
@@ -223,6 +250,14 @@ int main_cluster(int argc, char** argv) {
 
             case 'C':
                 hard_hit_cap = parse<size_t>(optarg);
+                break;
+
+            case 'a':
+                hits_above_threshold = parse<size_t>(optarg);
+                break;
+            
+            case 'S':
+                output_sequences_only = true;
                 break;
 
             case 'F':
@@ -253,7 +288,8 @@ int main_cluster(int argc, char** argv) {
             {
                 int num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
-                    cerr << "error:[vg cluster] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    cerr << "error:[vg cluster] Thread count (-t) set to " << num_threads 
+                         << ", must set to a positive integer." << endl;
                     exit(1);
                 }
                 omp_set_num_threads(num_threads);
@@ -269,6 +305,35 @@ int main_cluster(int argc, char** argv) {
         }
     }
     
+    if (graph_name.empty()) {
+        cerr << "error:[vg cluster] Must provide a graph file with -x." << endl;
+        exit(1);
+    }
+
+    if (hits_above_threshold != std::numeric_limits<size_t>::max()) {
+        if (hard_hit_cap < hits_above_threshold) {
+            cerr << "error:[vg cluster] Hard hit cap (-C) must be greater than or equal to hits-above threshold (-a)." << endl;
+            exit(1);
+        }
+    } else {
+        if (output_sequences_only) {
+            cerr << "error:[vg cluster] Cannot use -S (sequences only) without a hits-above threshold (-a)." << endl;
+            exit(1);
+        }
+    }
+
+    // Give the file to the index registry for clustering minimizers
+    if (gbz_format) {
+        registry.provide("GBZ", graph_name);
+    } else {
+        registry.provide("XG", graph_name);
+    }
+
+    std::string minimizer_index_type = long_reads ? "Long Read Minimizers" : "Short Read Minimizers";
+
+    if (!minimizer_name.empty()) {
+        registry.provide(minimizer_index_type, minimizer_name);
+    }
 
     // We define a child class to expose protected stuff
     // This is copied from the minimizer mapper unit tests
@@ -302,73 +367,58 @@ int main_cluster(int argc, char** argv) {
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
 
-    if (!use_minimizers) {
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-        xg_index = overlay_helper.apply(path_handle_graph.get());
-        if (!gcsa_name.empty()) {
-            gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-            lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
-        }
+    // The IndexRegistry doesn't try to infer index files based on the
+    // basename, so do that here. We can have multiple extension options that
+    // we try in order of priority.
+    unordered_map<string, vector<string>> indexes_and_extensions = {
+        {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
+        {"Giraffe Distance Index", {"dist"}},
+        {minimizer_index_type, {long_reads ? "longread.withzip.min" : "shortread.withzip.min"}},
+        {long_reads ? "Long Read Zipcodes" : "Short Read Zipcodes", 
+            {long_reads ? "longread.zipcodes" : "shortread.zipcodes"}}
+    };
+    //Get minimizer indexes
+    for (auto& completed : registry.completed_indexes()) {
+        // Drop anything we already got from the list
+        indexes_and_extensions.erase(completed);
     }
-
-    //Get the minimizer indexes using the index registry
-    if (use_minimizers) {
-
-        // The IndexRegistry doesn't try to infer index files based on the
-        // basename, so do that here. We can have multiple extension options that
-        // we try in order of priority.
-        unordered_map<string, vector<string>> indexes_and_extensions = {
-            {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
-            {"XG", {"xg"}},
-            {"Giraffe GBWT", {"gbwt"}},
-            {"GBWTGraph", {"gg"}},
-            {"Giraffe Distance Index", {"dist"}},
-            {"Minimizers", {"min"}}
-        };
-        //Get minimizer indexes
-        for (auto& completed : registry.completed_indexes()) {
-            // Drop anything we already got from the list
-            indexes_and_extensions.erase(completed);
-        }
-        for (auto& index_and_extensions : indexes_and_extensions) {
-            // For each index type
-            for (auto& extension : index_and_extensions.second) {
-                // For each extension in priority order
-                string inferred_filename = registry.get_prefix() + "." + extension;
-                if (ifstream(inferred_filename).is_open()) {
-                    // A file with the appropriate name exists and we can read it
-                    registry.provide(index_and_extensions.first, inferred_filename);
-                    // Report it because this may not be desired behavior
-                    cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
-                    // Skip other extension options for the index
-                    break;
-                }
+    for (auto& index_and_extensions : indexes_and_extensions) {
+        // For each index type
+        for (auto& extension : index_and_extensions.second) {
+            // For each extension in priority order
+            string inferred_filename = registry.get_prefix() + "." + extension;
+            if (ifstream(inferred_filename).is_open()) {
+                // A file with the appropriate name exists and we can read it
+                registry.provide(index_and_extensions.first, inferred_filename);
+                // Report it because this may not be desired behavior
+                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                // Skip other extension options for the index
+                break;
             }
         }
-        // create in-memory objects
+    }
+    // create in-memory objects
 
-        // Don't try and use all the memory.
-        // TODO: add memory options like autoindex?
-        registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
+    // Don't try and use all the memory.
+    // TODO: add memory options like autoindex?
+    registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
 
-        auto index_targets = VGIndexes::get_default_short_giraffe_indexes();
+    auto index_targets = long_reads 
+                         ? VGIndexes::get_default_long_giraffe_indexes() 
+                         : VGIndexes::get_default_short_giraffe_indexes();
 
-        //Make sure we have all necessary indexes
-        try {
-            registry.make_indexes(index_targets);
-        }
-        catch (InsufficientInputException ex) {
-            cerr << "error:[vg cluster] Input is not sufficient to create indexes" << endl;
-            cerr << ex.what();
-            return 1;
-        }
-
+    //Make sure we have all necessary indexes
+    try {
+        registry.make_indexes(index_targets);
+    }
+    catch (InsufficientInputException ex) {
+        cerr << "error:[vg cluster] Input is not sufficient to create indexes" << endl;
+        cerr << ex.what();
+        return 1;
     }
 
     //Get the minimizer index
-    auto minimizer_index = use_minimizers 
-                         ? vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0))
-                         : nullptr;
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_index_type).at(0));
 
     //Get the zipcodes
     ZipCodeCollection oversized_zipcodes;
@@ -380,14 +430,10 @@ int main_cluster(int argc, char** argv) {
     }
 
     // Grab the GBZ
-    auto gbz = use_minimizers
-             ? vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0))
-             : nullptr;
+    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     //Get the distance index
-    auto distance_index = use_minimizers
-                        ? vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0))
-                        : vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
 
 
 
@@ -400,6 +446,10 @@ int main_cluster(int argc, char** argv) {
     if (gcsa_index) {
         // We will find MEMs using a Mapper
         mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
+        if (output_sequences_only) {
+            cerr << "error:[vg cluster] Cannot output minimizers (-S) with a GCSA index (-g)." << endl;
+            exit(1);
+        }
     }
     // Otherwise we will find minimizers using the minimizer_index
     
@@ -431,6 +481,7 @@ int main_cluster(int argc, char** argv) {
             // And either way this will map from seed to MEM or minimizer that generated it
             vector<size_t> seed_to_source;
             VectorView<MinimizerMapper::Minimizer> minimizers;
+            std::vector<size_t> minimizer_score_order;
             
             if (mapper) {
                 // Find MEMs
@@ -469,194 +520,229 @@ int main_cluster(int argc, char** argv) {
 
                 //Find the minimizers and then the seeds using the minimizer mapper
                 minimizers_in_read = minimizer_mapper.find_minimizers(aln.sequence(), funnel);
-                // Indexes of minimizers, sorted into score order, best score first
-                LazyRNG rng([&]() {
-                    return aln.sequence();
-                });
-                std::vector<size_t> minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read, rng);
+                if (hits_above_threshold < hard_hit_cap) {
+                    // minimizer : (hits in read, hits in graph)
+                    unordered_map<std::string, std::pair<size_t, size_t>> minimizer_hit_counts;
+                    std::string cur_minimizer;
+                    for (auto& m : minimizers_in_read) {
+                        cur_minimizer = m.value.key.decode(m.length);
+                        if (minimizer_hit_counts.find(cur_minimizer) == minimizer_hit_counts.end()) {
+                            // If we haven't seen this minimizer before, initialize its count
+                            minimizer_hit_counts[cur_minimizer] = make_pair(1, m.hits);
+                        }
+                        minimizer_hit_counts[cur_minimizer].first++;
+                    }
 
-                // Minimizers sorted by best score first
-                minimizers = {minimizers_in_read, minimizer_score_order};
-                
-                // Find the seeds and mark the minimizers that were located.
-                seeds = minimizer_mapper.find_seeds(minimizers_in_read, minimizers, aln, funnel);
-
-                //Fill in seeds_to_source using the funnel
-                vector<vector<size_t>> seed_to_source_vector = funnel.map_stage_results_to_previous_stage("seed");
-
-                //This was a vector of vectors, but each seed came from just one minimizer, so flatten the vector
-                for (auto& v : seed_to_source_vector) {
-                    assert(v.size() == 1);
-                    seed_to_source.emplace_back(v.front());
+                    std::stringstream high_hit_minimizers;
+                    for (auto& m : minimizer_hit_counts) {
+                        // For each minimizer, if it has more hits than the threshold, add it to the annotation
+                        if (m.second.second * m.second.first > hits_above_threshold) {
+                            high_hit_minimizers << m.first << "=" << m.second.first << "x" 
+                                                << m.second.second << ",";
+                        }
+                    }
+                    set_annotation(aln, "high_hit_minimizers", high_hit_minimizers.str());
                 }
-                assert(seed_to_source.size() == seeds.size());
-                funnel.stop();
 
+                if (output_sequences_only) {
+                    // Skip finding seeds, we only care about minimizers
+                    #pragma omp critical (cout)
+                    emitter.write(std::move(aln));
+                    
+                    funnel.stop();
+                } else {
+                    // Indexes of minimizers, sorted into score order, best score first
+                    LazyRNG rng([&]() {
+                        return aln.sequence();
+                    });
+                    minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read, rng);
+
+                    // Minimizers sorted by best score first
+                    minimizers = {minimizers_in_read, minimizer_score_order};
+                    
+                    // Find the seeds and mark the minimizers that were located.
+                    seeds = minimizer_mapper.find_seeds(minimizers_in_read, minimizers, aln, funnel);
+
+                    //Fill in seeds_to_source using the funnel
+                    vector<vector<size_t>> seed_to_source_vector = funnel.map_stage_results_to_previous_stage("seed");
+
+                    //This was a vector of vectors, but each seed came from just one minimizer, so flatten the vector
+                    for (auto& v : seed_to_source_vector) {
+                        assert(v.size() == 1);
+                        seed_to_source.emplace_back(v.front());
+                    }
+                    assert(seed_to_source.size() == seeds.size());
+                    funnel.stop();
+                }
             }
 
             
-            if (make_zip_tree) {
-                //Time making the zipcode tree
-
-                ZipCodeForest zip_forest;
-
-                std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                zip_forest.fill_in_forest(seeds, minimizers, *distance_index, std::numeric_limits<size_t>::max());
-                std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds = end-start;
-
-                std::pair<size_t, size_t> dag_non_dag_count (0, 0);
-                for (const auto& zip_tree : zip_forest.trees) {
-                    pair<size_t, size_t> tree_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
-                    dag_non_dag_count.first += tree_count.first;
-                    dag_non_dag_count.second += tree_count.second;
-                }
-
-                // And with hit count clustered
-                set_annotation(aln, "seed_count", (double)seeds.size());
-
-                // Annotate with the time spent making the zip tree
-                set_annotation(aln, "zip_tree_construction_seconds", elapsed_seconds.count());
-
-                //The number of snarls that are dags
-                set_annotation(aln, "zip_tree_dag_count", dag_non_dag_count.first);
-
-                //The number of snarls that aren't dags
-                set_annotation(aln, "zip_tree_non_dag_count", dag_non_dag_count.second);
-
-                // TODO: parallelize this
-                #pragma omp critical (cout)
-                emitter.write(std::move(aln));
                 
-            } else {
-                // Cluster the seeds. Get sets of input seed indexes that go together.
-                // Make sure to time it.
-                std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,  distance_limit);
-                std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds = end-start;
-                
-                // Compute the covered portion of the read represented by each cluster
-                vector<double> read_coverage_by_cluster;
-                for (auto& cluster : clusters) {
-                    // We set bits in here to true when query anchors cover them
-                    vector<bool> covered(aln.sequence().size());
-                    // We use this to convert iterators to indexes
-                    auto start = aln.sequence().begin();
-                    
-                    for (auto hit_index : cluster.seeds) {
-                        // For each hit in the cluster, work out what anchor sequence it is from.
-                        size_t source_index = seed_to_source.at(hit_index);
-                        
-                        if (mapper) {
-                            // Using MEMs
-                            for (size_t i = (mems[source_index].begin - start); i < (mems[source_index].end - start); i++) {
-                                // Set all the bits in read space for that MEM
-                                covered[i] = true;
-                            }
-                        } else {
-                            // Using minimizers
-                            size_t start_offset = minimizers_in_read[source_index].forward_offset();
-                            for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
-                                // Set all the bits in read space for that minimizer.
-                                // Each minimizr is a length-k exact match starting at a position
-                                covered[i] = true;
-                            }
-                        }
+            if (!output_sequences_only) {
+                if (make_zip_tree) {
+                    //Time making the zipcode tree
+
+                    ZipCodeForest zip_forest;
+
+                    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+                    zip_forest.fill_in_forest(seeds, *distance_index, std::numeric_limits<size_t>::max());
+                    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
+
+                    std::pair<size_t, size_t> dag_non_dag_count (0, 0);
+                    for (const auto& zip_tree : zip_forest.trees) {
+                        pair<size_t, size_t> tree_count = zip_tree.dag_and_cyclic_snarl_count();
+                        dag_non_dag_count.first += tree_count.first;
+                        dag_non_dag_count.second += tree_count.second;
                     }
+
+                    // And with hit count clustered
+                    set_annotation(aln, "seed_count", (double)seeds.size());
+
+                    // Annotate with the time spent making the zip tree
+                    set_annotation(aln, "zip_tree_construction_seconds", elapsed_seconds.count());
+
+                    //The number of snarls that are dags
+                    set_annotation(aln, "zip_tree_dag_count", dag_non_dag_count.first);
+
+                    //The number of snarls that aren't dags
+                    set_annotation(aln, "zip_tree_non_dag_count", dag_non_dag_count.second);
+
+                    // TODO: parallelize this
+                    #pragma omp critical (cout)
+                    emitter.write(std::move(aln));
+
+                } else {
+                    // Cluster the seeds. Get sets of input seed indexes that go together.
+                    // Make sure to time it.
+                    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+                    vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,  distance_limit);
+                    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
                     
-                    // Count up the covered positions
-                    size_t covered_count = 0;
-                    for (auto bit : covered) {
-                        covered_count += bit;
-                    }
-                    
-                    // Turn that into a fraction
-                    read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
-                }
-                
-                // Make a vector of cluster indexes to sort
-                vector<size_t> cluster_indexes_in_order;
-                for (size_t i = 0; i < clusters.size(); i++) {
-                    cluster_indexes_in_order.push_back(i);
-                }
-        
-                // Put the most covering cluster's index first
-                std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
-                    // Return true if a must come before b, and false otherwise
-                    return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
-                });
-                
-                // Find the seeds in the clusters tied for best.
-                vector<pos_t> best;
-                if (!clusters.empty()) {
-                    // How much does the best cluster cover
-                    double best_coverage = read_coverage_by_cluster.at(cluster_indexes_in_order.front());
-                    for (size_t i = 0; i < cluster_indexes_in_order.size() &&
-                        read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
+                    // Compute the covered portion of the read represented by each cluster
+                    vector<double> read_coverage_by_cluster;
+                    for (auto& cluster : clusters) {
+                        // We set bits in here to true when query anchors cover them
+                        vector<bool> covered(aln.sequence().size());
+                        // We use this to convert iterators to indexes
+                        auto start = aln.sequence().begin();
                         
-                        // For each cluster covering that much or more of the read
-                        for (auto seed_index : clusters.at(cluster_indexes_in_order[i]).seeds) {
-                            // For each seed in those clusters
+                        for (auto hit_index : cluster.seeds) {
+                            // For each hit in the cluster, work out what anchor sequence it is from.
+                            size_t source_index = seed_to_source.at(hit_index);
                             
-                            // Mark that seed as being part of the best cluster(s)
-                            best.push_back(positions.at(seed_index));
+                            if (mapper) {
+                                // Using MEMs
+                                for (size_t i = (mems[source_index].begin - start); i < (mems[source_index].end - start); i++) {
+                                    // Set all the bits in read space for that MEM
+                                    covered[i] = true;
+                                }
+                            } else {
+                                // Using minimizers
+                                size_t start_offset = minimizers_in_read[source_index].forward_offset();
+                                for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
+                                    // Set all the bits in read space for that minimizer.
+                                    // Each minimizr is a length-k exact match starting at a position
+                                    covered[i] = true;
+                                }
+                            }
+                        }
+                        
+                        // Count up the covered positions
+                        size_t covered_count = 0;
+                        for (auto bit : covered) {
+                            covered_count += bit;
+                        }
+                        
+                        // Turn that into a fraction
+                        read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+                    }
+                    
+                    // Make a vector of cluster indexes to sort
+                    vector<size_t> cluster_indexes_in_order;
+                    for (size_t i = 0; i < clusters.size(); i++) {
+                        cluster_indexes_in_order.push_back(i);
+                    }
+            
+                    // Put the most covering cluster's index first
+                    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), 
+                    [&](const size_t& a, const size_t& b) -> bool {
+                        // Return true if a must come before b, and false otherwise
+                        return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
+                    });
+                    
+                    // Find the seeds in the clusters tied for best.
+                    vector<pos_t> best;
+                    if (!clusters.empty()) {
+                        // How much does the best cluster cover
+                        double best_coverage = read_coverage_by_cluster.at(cluster_indexes_in_order.front());
+                        for (size_t i = 0; i < cluster_indexes_in_order.size() &&
+                            read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
+                            
+                            // For each cluster covering that much or more of the read
+                            for (auto seed_index : clusters.at(cluster_indexes_in_order[i]).seeds) {
+                                // For each seed in those clusters
+                                
+                                // Mark that seed as being part of the best cluster(s)
+                                best.push_back(positions.at(seed_index));
+                            }
+                            
                         }
                         
                     }
                     
-                }
-                
-                // Decide if they are in the right place for the original alignment or not
-                unordered_set<vg::id_t> true_nodes;
-                for (auto& mapping : aln.path().mapping()) {
-                    true_nodes.insert(mapping.position().node_id());
-                }
-                // We are in the right place if we share any nodes
-                bool have_overlap = false;
-                for (auto& pos : best) {
-                    if (true_nodes.count(get_id(pos))) {
-                        // The cluster had a position on a node that the real alignment had.
-                        have_overlap = true;
+                    // Decide if they are in the right place for the original alignment or not
+                    unordered_set<vg::id_t> true_nodes;
+                    for (auto& mapping : aln.path().mapping()) {
+                        true_nodes.insert(mapping.position().node_id());
                     }
-                }
-                
-                // We also want to know if we overlap any non-filtered hit
-                bool have_hit_overlap = false;
-                for (auto& pos : positions) {
-                    if (true_nodes.count(get_id(pos))) {
-                        // The hit set had a position on a node that the real alignment had.
-                        have_hit_overlap = true;
+                    // We are in the right place if we share any nodes
+                    bool have_overlap = false;
+                    for (auto& pos : best) {
+                        if (true_nodes.count(get_id(pos))) {
+                            // The cluster had a position on a node that the real alignment had.
+                            have_overlap = true;
+                        }
                     }
+                    
+                    // We also want to know if we overlap any non-filtered hit
+                    bool have_hit_overlap = false;
+                    for (auto& pos : positions) {
+                        if (true_nodes.count(get_id(pos))) {
+                            // The hit set had a position on a node that the real alignment had.
+                            have_hit_overlap = true;
+                        }
+                    }
+                    
+                    // And we need a vector of cluster sizes
+                    vector<double> cluster_sizes;
+                    cluster_sizes.reserve(clusters.size());
+                    for (auto& cluster : clusters) {
+                        cluster_sizes.push_back((double)cluster.seeds.size());
+                    }
+                    
+                    // Tag the alignment with cluster accuracy
+                    set_annotation(aln, "best_cluster_overlap", have_overlap);
+                    // And with any-hit overlap
+                    set_annotation(aln, "any_seed_overlap", have_hit_overlap);
+                    // And with cluster time
+                    set_annotation(aln, "cluster_seconds", elapsed_seconds.count());
+                    // And with hit count clustered
+                    set_annotation(aln, "seed_count", (double)positions.size());
+                    // And with cluster count returned
+                    set_annotation(aln, "cluster_count", (double)clusters.size());
+                    // And with size of each cluster
+                    set_annotation(aln, "cluster_sizes", cluster_sizes);
+                    // And with the coverage of the read in the best cluster
+                    set_annotation(aln, "best_cluster_coverage", clusters.empty() ? 0.0 :
+                        read_coverage_by_cluster.at(cluster_indexes_in_order.front()));
+                    
+                    
+                    // TODO: parallelize this
+                    #pragma omp critical (cout)
+                    emitter.write(std::move(aln));
                 }
-                
-                // And we need a vector of cluster sizes
-                vector<double> cluster_sizes;
-                cluster_sizes.reserve(clusters.size());
-                for (auto& cluster : clusters) {
-                    cluster_sizes.push_back((double)cluster.seeds.size());
-                }
-                
-                // Tag the alignment with cluster accuracy
-                set_annotation(aln, "best_cluster_overlap", have_overlap);
-                // And with any-hit overlap
-                set_annotation(aln, "any_seed_overlap", have_hit_overlap);
-                // And with cluster time
-                set_annotation(aln, "cluster_seconds", elapsed_seconds.count());
-                // And with hit count clustered
-                set_annotation(aln, "seed_count", (double)positions.size());
-                // And with cluster count returned
-                set_annotation(aln, "cluster_count", (double)clusters.size());
-                // And with size of each cluster
-                set_annotation(aln, "cluster_sizes", cluster_sizes);
-                // And with the coverage of the read in the best cluster
-                set_annotation(aln, "best_cluster_coverage", clusters.empty() ? 0.0 :
-                    read_coverage_by_cluster.at(cluster_indexes_in_order.front()));
-                
-                
-                // TODO: parallelize this
-                #pragma omp critical (cout)
-                emitter.write(std::move(aln));
             }
         });
     });

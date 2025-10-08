@@ -94,7 +94,7 @@ On other distros, or if you do not have root access, you will need to perform th
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
-At present, you will need GCC version 4.9 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.2.0 is supported.
+At present, you will need GCC version 7 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.2.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 

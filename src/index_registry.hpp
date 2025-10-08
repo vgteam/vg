@@ -146,6 +146,8 @@ struct VGIndexes {
     static vector<IndexName> get_default_short_giraffe_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe on long reads
     static vector<IndexName> get_default_long_giraffe_indexes();
+    /// A list of the identifiers of the default indexes to run vg giraffe on long reads with path minimizers
+    static vector<IndexName> get_default_long_path_giraffe_indexes();
 };
 
 /**
@@ -452,12 +454,14 @@ class InsufficientInputException : public runtime_error {
 public:
     InsufficientInputException() = delete;
     InsufficientInputException(const IndexName& target,
-                               const IndexRegistry& registry) noexcept;
+                               const IndexRegistry& registry,
+                               const set<IndexGroup>& missing_index_sets = {}) noexcept;
     const char* what() const noexcept;
 private:
     string msg;
     IndexName target;
     vector<IndexName> inputs;
+    set<IndexGroup> missing_index_sets;
 };
 
 

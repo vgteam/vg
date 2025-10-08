@@ -60,7 +60,9 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             }
             // Interpose a surjecting AlignmentEmitter
             emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter),
-                flags & ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS);
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS,
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG,
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY);
         }
     
     } else {
@@ -615,7 +617,6 @@ void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t
     
     for (auto& b : records) {
         // Emit each record
-        
         int sam_write_error = sam_write1(sam_files[thread_number], header, b);
         if (sam_write_error < 0) {
             cerr << "[vg::HTSWriter] error: writing to output file failed with sam_write1 error code " << sam_write_error << endl;
@@ -749,6 +750,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
 }
 
 void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest) {
+
     // Look up the stuff we need from the Alignment to express it in BAM.
     vector<pair<int, char>> cigar;
     bool pos_rev;
@@ -756,12 +758,40 @@ void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, ve
     string path_name;
     convert_alignment(aln, cigar, pos_rev, pos, path_name);
     
-    dest.emplace_back(alignment_to_bam(header,
-                                       aln,
-                                       path_name,
-                                       pos,
-                                       pos_rev,
-                                       cigar));
+    bam1_t* bam;
+    if (has_annotation(aln, "mate_info")) {
+        // this is a supplementary alignment from a pair
+        string mate_path_name;
+        int32_t mate_pos;
+        bool mate_pos_rev;
+        bool mate_read_1;
+        tie(mate_path_name, mate_pos, mate_pos_rev, mate_read_1) = parse_mate_info(get_annotation<string>(aln, "mate_info"));
+        auto mate_rpos = (mate_read_1 ? aln.mutable_fragment_prev() : aln.mutable_fragment_next())->add_refpos();
+        mate_rpos->set_name(mate_path_name);
+        mate_rpos->set_offset(mate_pos);
+        mate_rpos->set_is_reverse(mate_pos_rev);
+        bam = alignment_to_bam(header,
+                               aln,
+                               path_name,
+                               pos,
+                               pos_rev,
+                               cigar,
+                               mate_path_name,
+                               mate_pos,
+                               mate_pos_rev,
+                               0,
+                               0);
+    }
+    else {
+        bam = alignment_to_bam(header,
+                               aln,
+                               path_name,
+                               pos,
+                               pos_rev,
+                               cigar);
+    }
+
+    dest.emplace_back(bam);
 }
 
 void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_hdr_t* header, int64_t tlen_limit,
@@ -976,134 +1006,7 @@ void SplicedHTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<
     pos_rev = aln.refpos(0).is_reverse();
     
     // Convert to a cigar with spliced deletions
-    cigar = spliced_cigar_against_path(aln, path_name, pos, pos_rev);
+    cigar = spliced_cigar_against_path(aln, graph, path_name, pos, pos_rev, min_splice_length);
 }
-
-vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(const Alignment& aln,
-                                                                               const string& path_name,
-                                                                               int64_t pos, bool rev) const {
-    // the return value
-    vector<pair<int, char>> cigar;
-    
-    if (aln.has_path() && aln.path().mapping_size() > 0) {
-        // the read is aligned to the path
-        
-        path_handle_t path_handle = graph.get_path_handle(path_name);
-        step_handle_t step = graph.get_step_at_position(path_handle, pos);
-        
-        // to indicate whether we've found the edit that corresponds to the BAM position
-        bool found_pos = false;
-        
-        const Path& path = aln.path();
-        for (size_t i = 0; i < path.mapping_size(); ++i) {
-            
-            // we traverse backwards on a reverse strand mapping
-            const Mapping& mapping = path.mapping(rev ? path.mapping_size() - 1 - i : i);
-            
-            for (size_t j = 0; j < mapping.edit_size(); ++j) {
-                                
-                // we traverse backwards on a reverse strand mapping
-                const Edit& edit = mapping.edit(rev ? mapping.edit_size() - 1 - j : j);
-                
-                if (!found_pos) {
-                    // we may still be searching through an initial softclip to find
-                    // the edit that corresponds to the BAM position
-                    if (edit.to_length() > 0 && edit.from_length() == 0) {
-                        append_cigar_operation(edit.to_length(), 'S', cigar);
-                        // skip the main block where we assign cigar operations
-                        continue;
-                    }
-                    else {
-                        found_pos = true;
-                    }
-                }
-                
-                // identify the cigar operation
-                char cigar_code;
-                int length;
-                if (edit.from_length() == edit.to_length()) {
-                    cigar_code = 'M';
-                    length = edit.from_length();
-                }
-                else if (edit.from_length() > 0 && edit.to_length() == 0) {
-                    cigar_code = 'D';
-                    length = edit.from_length();
-                }
-                else if (edit.to_length() > 0 && edit.from_length() == 0) {
-                    cigar_code = 'I';
-                    length = edit.to_length();
-                }
-                else {
-                    throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
-                }
-                
-                append_cigar_operation(length, cigar_code, cigar);
-            } // close loop over edits
-            
-            if (found_pos && i + 1 < path.mapping_size()) {
-                // we're anchored on the path by the annotated position, and we're transitioning between
-                // two mappings, so we should check for a deletion/splice edge
-                
-                step_handle_t next_step = graph.get_next_step(step);
-                
-                handle_t next_handle = graph.get_handle_of_step(next_step);
-                const Position& next_pos = path.mapping(rev ? path.mapping_size() - 2 - i : i + 1).position();
-                if (graph.get_id(next_handle) != next_pos.node_id()
-                    || (graph.get_is_reverse(next_handle) != next_pos.is_reverse()) != rev) {
-                    
-                    // the next mapping in the alignment is not the next mapping on the path, so we must have
-                    // taken a deletion
-                    
-                    // find the closest step that is further along the path than the current one
-                    // and matches the next position (usually there will only be one)
-                    size_t curr_offset = graph.get_position_of_step(step);
-                    size_t nearest_offset = numeric_limits<size_t>::max();
-                    graph.for_each_step_on_handle(graph.get_handle(next_pos.node_id()),
-                                                  [&](const step_handle_t& candidate) {
-                        
-                        if (graph.get_path_handle_of_step(candidate) == path_handle) {
-                            size_t candidate_offset = graph.get_position_of_step(candidate);
-                            if (candidate_offset < nearest_offset && candidate_offset > curr_offset) {
-                                nearest_offset = candidate_offset;
-                                next_step = candidate;
-                            }
-                        }
-                    });
-                    
-                    if (nearest_offset == numeric_limits<size_t>::max()) {
-                        throw std::runtime_error("Spliced BAM conversion could not find path steps that match alignment");
-                    }
-                    
-                    // the gap between the current step and the next one along the path
-                    size_t deletion_length = (nearest_offset - curr_offset -
-                                              graph.get_length(graph.get_handle_of_step(step)));
-                    
-                    // add to the cigar
-                    if (deletion_length >= min_splice_length) {
-                        // long enough to be a splice
-                        append_cigar_operation(deletion_length, 'N', cigar);
-                    }
-                    else if (deletion_length) {
-                        // create or extend a deletion
-                        append_cigar_operation(deletion_length, 'D', cigar);
-                    }
-                }
-                
-                // iterate along the path
-                step = next_step;
-            }
-        } // close loop over mappings
-        
-        if (cigar.back().second == 'I') {
-            // the final insertion is actually a softclip
-            cigar.back().second = 'S';
-        }
-    }
-    
-    simplify_cigar(cigar);
-    
-    return cigar;
-}
-
 
 }

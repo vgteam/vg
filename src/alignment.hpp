@@ -22,12 +22,18 @@ namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
+// htslib-based alignment read functions.
+// When encountering read records that don't agree with the graph (i.e. go off
+// path ends, etc.), these stop the program and print a useful error message.
+
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each(string& filename, function<void(Alignment&)> lambda,
                  const PathPositionHandleGraph* graph);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
                           const PathPositionHandleGraph* graph);
+
+// FASTQ-input functions
 
 // parsing a FASTQ record, optionally intepreting the comment as SAM-style tags
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment, bool comment_as_tags);
@@ -66,6 +72,20 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
                                                            bool comment_as_tags = false,
                                                            uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
 
+// Functions to read indexed GAF.
+// TODO: move to libvgio?
+
+/// Find each distinct GAF record intersecting any of the given sorted node ID ranges.
+/// Presents the GAF record as a string, even though it is parsed internally.
+/// If you need the gfakluge::GafRecord, refactor this function instead of parsing it again.
+void for_each_gaf_record_in_ranges(htsFile* gaf_fp, tbx_t* gaf_tbx, const vector<pair<vg::id_t, vg::id_t>>& ranges, const std::function<void(const std::string&)>& iteratee);
+
+/// Return True if the given parsed GAF record has any node IDs that occur in the given ID range.
+/// Raises an exception if any GAF path entries aren't ID visits.
+bool gaf_record_intersects_range(const gafkluge::GafRecord& record, const std::pair<nid_t, nid_t>& range);
+
+// More htslib-based functions
+
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
                              const SequenceDictionary& sequence_dictionary,
@@ -81,13 +101,23 @@ string mapping_string(const string& source, const Mapping& mapping);
 
 void cigar_mapping(const bam1_t *b, Mapping& mapping);
 
+/// Convert a BAM record to an Alignment.
+/// May throw AlignmentEmbeddingError if the BAM record is inconsistent with
+/// the provided graph.
 Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
                            const map<int, path_handle_t>& tid_path_handle,
                            const bam_hdr_t *bh,
                            const PathPositionHandleGraph* graph);
+/// Convert a BAM record to an Alignment without a graph.
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
+// the CIGAR string of the graph alignment
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand = false);
+// the CS-style (i.e. verbose) CIGAR difference string of the graph alignment
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand = false);
+// the cs-style (i.e. compact) CIGAR difference string of the graph alignment
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_stand = false);
 /**
  * Add a CIGAR operation to a vector representing the parsed CIGAR string.
  *
@@ -207,6 +237,12 @@ int32_t determine_flag(const Alignment& alignment,
 /// suppress softclips up to that length. This will necessitate adjusting pos,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+    
+/// Convert a spliced alignment against a path to a cigar. The alignment must be
+/// colinear along a path and contain only mappings on the path, but it can have
+/// deletions relative to the path that follow edges in the graph.
+vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const PathPositionHandleGraph& graph, const string& path_name, 
+                                                   int64_t pos, bool rev, int64_t min_splice_length);
 
 /// Merge runs of successive I/D operations into a single I and D, remove 0-length
 /// operations, and merge adjacent operations of the same type
@@ -262,7 +298,11 @@ void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(nid_t)>& node_length);
 int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
+/// Get the leading softclip from an Alignment, assuming it is coalesced into a
+/// single Edit
 int softclip_start(const Alignment& alignment);
+/// Get the trailing softclip from an Alignment, assuming it is coalesced into a
+/// single Edit
 int softclip_end(const Alignment& alignment);
 int softclip_trim(Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
@@ -275,9 +315,24 @@ string signature(const Alignment& aln);
 pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
 string middle_signature(const Alignment& aln, int len);
 pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
-// Return whether the path is a perfect match (i.e. contains no non-match edits)
-// and has no soft clips (e.g. like in vg stats -a)
+/// Return whether the path is a perfect match (i.e. contains no non-match edits)
+/// and has no soft clips (e.g. like in vg stats -a)
 bool is_perfect(const Alignment& alignment);
+bool is_supplementary(const Alignment& alignment);
+// The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
+pair<int64_t, int64_t> aligned_interval(const Alignment& aln);
+
+// create an annotation string required to properly set the SAM fields/flags of a supplementary alignment
+// the arguments all refer to properties of the primary *mate* alignment
+// the path name saved in the info is the base path name, with any subrange info reflected in the position
+string mate_info(const string& path, int32_t pos, bool rev_strand, bool is_read1);
+// parse the annotation string, returns tuple of (mate path name, mate path pos, mate rev strand, mate is read1) 
+tuple<string, int32_t, bool, bool> parse_mate_info(const string& info);
+
+/// Return whether the Alignment represents a mapped read (true) or an
+/// unaligned read (false). Uses the GAM read_mapped flag, but also sniffs for
+/// mapped reads which forgot to set it.
+bool is_mapped(const Alignment& alignment);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
@@ -376,15 +431,43 @@ struct AlignmentValidity {
 /// node lengths or ids. Result can be used like a bool or inspected for
 /// further details. Does not log anything itself about bad alignments.
 AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence = false);
-    
+
+/**
+ * Represents a problem when trying to find a path region in a graph as an
+ * Alignment, or when trying to inject a linear CIGAR-based alignment into the
+ * graph along an embedded path.
+ *
+ * This could be a problem like the alignment trying to go out of range on the
+ * embedded linear path/reference, or trying to go across the junction of a
+ * path that isn't really circular.
+ *
+ * We expect the user to be able to cause this with bad inputs, so this
+ * exception should be handled and reported in a helpful way, rather than as a
+ * crash.
+ */
+class AlignmentEmbeddingError : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
 /// Make an Alignment corresponding to a subregion of a stored path.
 /// Positions are 0-based, and pos2 is excluded.
 /// Respects path circularity, so pos2 < pos1 is not a problem.
 /// If pos1 == pos2, returns an empty alignment.
+///
+/// Throws AlignmentEmbeddingError if the region goes out of range, or tries to
+/// go across the junction of a non-circular path. Despite taking 0-based
+/// coordinates, error messages will describe 1-based coordinates.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse);
 /// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
+///
+/// Throws AlignmentEmbeddingError if the region goes out of range, or tries to
+/// go across the junction of a non-circular path, or if cigar_mapping
+/// describes edits that are impossible, like matches past the end of the
+/// described region. Despite taking 0-based coordinates, error messages will
+/// describe 1-based coordinates.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
 

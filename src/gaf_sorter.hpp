@@ -9,6 +9,7 @@
  * TODO: Option for automatic detection of merge width to guarantee <= 2 rounds.
  * TODO: Option for giving approximate batch size in bytes.
  * TODO: Switch to std::string_view when we can.
+ * TODO: Remove sorting by GBWT position as obsolete.
  */
 
 #include <algorithm>
@@ -20,6 +21,8 @@
 #include <string>
 // #include <string_view>
 #include <vector>
+
+#include <gbwt/utils.h>
 
 namespace vg {
 
@@ -130,8 +133,18 @@ struct GAFSorterRecord {
     /// Stops if the function returns false.
     void for_each_field(const std::function<bool(size_t, str_view)>& lambda) const;
 
-private:
+    /// Returns the path as a GBWT path in forward orientation.
+    /// If an ok flag is given, sets it to false and prints an error message
+    /// if the path could not be parsed.
+    gbwt::vector_type as_gbwt_path(bool* ok = nullptr) const;
+
+    /// 0-based field number for the strand/orientation in a GAF line.
+    constexpr static size_t STRAND_FIELD = 4;
+
+    /// 0-based field number for the path in a GAF line.
     constexpr static size_t PATH_FIELD = 5;
+
+    /// Number of mandatory fields in a GAF line.
     constexpr static size_t MANDATORY_FIELDS = 12;
 };
 
@@ -146,6 +159,12 @@ private:
 struct alignas(128) GAFSorterFile {
     /// File name.
     std::string name;
+
+    /// File name for the GBWT index, if any.
+    std::string gbwt_file;
+
+    /// Should the GBWT index be bidirectional?
+    bool bidirectional_gbwt;
 
     /// Number of records.
     size_t records;
@@ -170,6 +189,9 @@ struct alignas(128) GAFSorterFile {
 
     /// Constructor that creates a raw GAF file with the given name.
     explicit GAFSorterFile(const std::string& name);
+
+    /// Constructor that creates a raw GAF file with the given name and a GBWT index that may be bidirectional.
+    GAFSorterFile(const std::string& name, const std::string& gbwt_file, bool bidirectional_gbwt);
 
     /// If the file is temporary, the destructor removes the file.
     ~GAFSorterFile();
@@ -250,6 +272,12 @@ struct GAFSorterParameters {
     /// Use stable sorting.
     bool stable = false;
 
+    /// GBWT output file, if any.
+    std::string gbwt_file;
+
+    /// Make the GBWT bidirectional.
+    bool bidirectional_gbwt = false;
+
     /// Print progress information to stderr.
     bool progress = false;
 };
@@ -262,6 +290,12 @@ struct GAFSorterParameters {
  * Each merge job merges params.files_per_merge files.
  * Use "-" for reading stdin / writing to stdout.
  * Returns false and prints an error message on failure.
+ *
+ * If a GBWT file is specified in the parameters, a GBWT index of the paths is built for the paths and written to the file.
+ * The GBWT index can be unidirectional or bidirectional, depending on the parameters.
+ * Paths in the GBWT are in the same order as the records in the output file.
+ * The GBWT index does not contain any metadata.
+ * GBWT construction uses one additional thread.
  */
 bool sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params);
 
@@ -271,6 +305,12 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
  * The lines are converted into GAFSorterRecord objects, with the given key type.
  * The original lines are consumed.
  * Sets the ok flag in the output and prints an error message on failure.
+ *
+ * If a GBWT file is specified in the output file, a GBWT index of the paths is built for the paths and written to the file.
+ * The GBWT index can be unidirectional or bidirectional, depending on the output file.
+ * Paths in the GBWT are in the same order as the records in the output file.
+ * The GBWT index does not contain any metadata.
+ * GBWT construction uses one additional thread.
  *
  * This function is intended to be used with std::thread.
  */
@@ -284,6 +324,12 @@ void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRe
  * If the input files are in the same order as the corresponding batches in the initial sort, this is a stable merge.
  * Consumes the inputs and removes the files if they are temporary.
  * Sets the ok flag in the output and prints an error message on failure.
+ *
+ * If a GBWT file is specified in the output file, a GBWT index of the paths is built for the paths and written to the file.
+ * The GBWT index can be unidirectional or bidirectional, depending on the output file.
+ * Paths in the GBWT are in the same order as the records in the output file.
+ * The GBWT index does not contain any metadata.
+ * GBWT construction uses one additional thread.
  *
  * This function is intended to be used with std::thread.
  */

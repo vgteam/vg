@@ -17,25 +17,27 @@ void help_genotype(char** argv) {
          << "Compute genotypes from a graph and a collection of reads" << endl
          << endl
          << "options:" << endl
-         << "    -j, --json              output in JSON" << endl
-         << "    -v, --vcf               output in VCF" << endl
-         << "    -V, --recall-vcf VCF    recall variants in a specific VCF file." << endl
-         << "    -F, --fasta  FASTA" << endl
-         << "    -I, --insertions INS" << endl
-         << "    -r, --ref PATH          use the given path name as the reference path" << endl
-         << "    -c, --contig NAME       use the given name as the VCF contig name" << endl
-         << "    -s, --sample NAME       name the sample in the VCF with the given name" << endl
-         << "    -o, --offset INT        offset variant positions by this amount" << endl
-         << "    -l, --length INT        override total sequence length" << endl
-         << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
-         << "    -Q, --ignore_mapq       do not use mapping qualities" << endl
-         << "    -A, --no_indel_realign  disable indel realignment" << endl
-         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
-         << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
-         << "    -E, --no_embed          don't embed gam edits into graph" << endl
-         << "    -T, --traversal         traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
-         << "    -p, --progress          show progress" << endl
-         << "    -t, --threads N         number of threads to use" << endl;
+         << "  -j, --json                   output in JSON" << endl
+         << "  -v, --vcf                    output in VCF" << endl
+         << "  -V, --recall-vcf FILE        recall variants in a specific VCF file." << endl
+         << "  -F, --fasta FILE             use this linear reference" << endl
+         << "  -I, --insertions FILE        use reference insertions in this FASTA file" << endl
+         << "  -r, --ref PATH               use the given path name as the reference path" << endl
+         << "  -c, --contig NAME            use the given name as the VCF contig name" << endl
+         << "  -s, --sample NAME            name the sample in the VCF with the given name" << endl
+         << "  -o, --offset INT             offset variant positions by this amount" << endl
+         << "  -l, --length INT             override total sequence length" << endl
+         << "  -a, --augmented FILE         dump augmented graph to FILE" << endl
+         << "  -Q, --ignore-mapq            do not use mapping qualities" << endl
+         << "  -A, --no-indel-realign       disable indel realignment" << endl
+         << "  -d, --het-prior-denom FLOAT  denominator for prior prob of heterozygousness" << endl
+         << "  -P, --min-per-strand INT     min unique reads per strand for a called allele" << endl
+         << "  -E, --no-embed               don't embed gam edits into graph" << endl
+         << "  -T, --traversal STR          traversal finder to use [adaptive]" << endl 
+         << "                               {reads, exhaustive, representative, adaptive}" << endl
+         << "  -p, --progress               show progress" << endl
+         << "  -t, --threads N              number of threads to use" << endl
+         << "  -h, --help                   print this help message to stderr and exit" << endl;
 }
 
 int main_genotype(int argc, char** argv) {
@@ -94,6 +96,7 @@ int main_genotype(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
+                {"help", no_argument, 0, 'h'},
                 {"json", no_argument, 0, 'j'},
                 {"vcf", no_argument, 0, 'v'},
                 {"ref", required_argument, 0, 'r'},
@@ -102,23 +105,23 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
-                {"ignore_mapq", no_argument, 0, 'Q'},
-                {"no_indel_realign", no_argument, 0, 'A'},
-                {"het_prior_denom", required_argument, 0, 'd'},
-                {"min_per_strand", required_argument, 0, 'P'},
+                {"ignore-mapq", no_argument, 0, 'Q'},
+                {"no-indel-realign", no_argument, 0, 'A'},
+                {"het-prior-denom", required_argument, 0, 'd'},
+                {"min-per-strand", required_argument, 0, 'P'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"recall-vcf", required_argument, 0, 'V'},
                 {"fasta", required_argument, 0, 'F'},
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
-                {"no_embed", no_argument, 0, 'E'},
+                {"no-embed", no_argument, 0, 'E'},
                 {"traversal", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QAd:P:pt:V:I:F:zET:",
+        c = getopt_long (argc, argv, "h?jvr:c:s:o:l:a:QAd:P:pt:V:I:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -363,4 +366,4 @@ int main_genotype(int argc, char** argv) {
 }
 
 
-static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs.", main_genotype);
+static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs", main_genotype);
