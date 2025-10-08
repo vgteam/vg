@@ -156,7 +156,7 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
         
             VG graph;
                 

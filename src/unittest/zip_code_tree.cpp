@@ -3143,7 +3143,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "zipcode tree multicomponent chain nested in irregular snarl",
-                   "[zip_tree][bug]" ) {
+                   "[zip_tree]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAAAAA");
