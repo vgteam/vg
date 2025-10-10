@@ -44,6 +44,7 @@ void help_zipcode(char** argv) {
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -d, --dist-name FILE          use this distance index (required)" << endl
     << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl
+    << "  -p, --pos POS                 additional position to find a zipcode for" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -61,6 +62,8 @@ int main_zipcode(int argc, char** argv) {
     string minimizer_name;
     string distance_name;
     size_t hit_cap = 10;
+    vector<pos_t> extra_pos;
+    bool skip_gam = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -74,11 +77,12 @@ int main_zipcode(int argc, char** argv) {
             {"dist-name", required_argument, 0, 'd'},
             {"hit-cap", required_argument, 0, 'c'},
             {"threads", required_argument, 0, 't'},
+            {"pos", required_argument, 0, 'p'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:g:m:d:c:t:",
+        c = getopt_long (argc, argv, "h?x:g:m:d:c:t:p:",
                          long_options, &option_index);
 
 
@@ -135,6 +139,10 @@ int main_zipcode(int argc, char** argv) {
                 omp_set_num_threads(num_threads);
             }
                 break;
+
+            case 'p':
+                extra_pos.push_back(parse<pos_t>(optarg));
+                break;
                 
             case 'h':
             case '?':
@@ -144,22 +152,67 @@ int main_zipcode(int argc, char** argv) {
                 break;
         }
     }
-    
-    
-    if (xg_name.empty()) {
-        cerr << "error:[vg zipcode] Finding zipcodes requires an XG index, must provide XG file (-x)" << endl;
-        exit(1);
+
+    if (argc - optind >= 1) {
+        cerr << "error:[vg zipcode] No more than 1 positional argument" << endl;
+        return 1;
+    } else if (argc - optind == 0) {
+        if (extra_pos.empty()) {
+            cerr << "error:[vg zipcode] No GAM input and no extra position (-p) to find a zipcode for" << endl;
+            return 1;
+        }
+        skip_gam = true;
     }
     
-    if (gcsa_name.empty() && minimizer_name.empty()) {
-        cerr << "error:[vg zipcode] Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)" << endl;
-        exit(1);
+    if (!skip_gam) {
+        if (xg_name.empty()) {
+            cerr << "error:[vg zipcode] Finding seeds requires an XG index, must provide XG file (-x)" << endl;
+            exit(1);
+        }
+        
+        if (gcsa_name.empty() && minimizer_name.empty()) {
+            cerr << "error:[vg zipcode] Finding seeds requires a GCSA2 index or minimizer index (-g, -m)" << endl;
+            exit(1);
+        }
     }
     
     
     if (distance_name.empty()) {
         cerr << "error:[vg zipcode] Finding zipcodes requires a distance index, must provide distance index file (-d)" << endl;
         exit(1);
+    }
+
+    unique_ptr<SnarlDistanceIndex> distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
+    distance_index->preload(true);
+
+    for (auto& pos : extra_pos) {
+        cerr << "Pos " << pos << endl;
+        // If a special zip code has been requested, print its information on up
+        ZipCode extra_zip;
+        extra_zip.fill_in_zipcode(*distance_index, pos);
+        extra_zip.fill_in_full_decoder();
+        for (size_t depth = 0; depth <= extra_zip.max_depth(); depth++) {
+            cerr << "\tdepth " << depth << " (";
+            if (depth == 0) {
+                cerr << extra_zip.get_code_type(depth);
+            } else if (depth == extra_zip.max_depth()) {
+                cerr << "offset of " << extra_zip.get_offset_in_chain(depth) << ")" << endl;
+                // Can't do get_reversed_in_parent() for some reason
+                break;
+            } else if (extra_zip.get_code_type(depth) == ZipCode::IRREGULAR_SNARL ||
+                extra_zip.get_code_type(depth) == ZipCode::CYCLIC_SNARL ||
+                extra_zip.get_code_type(depth) == ZipCode::REGULAR_SNARL) {
+                cerr << distance_index->net_handle_as_string(extra_zip.get_net_handle(depth, &*distance_index))
+                     << " has offset of " << extra_zip.get_offset_in_chain(depth);
+            } else if (extra_zip.get_code_type(depth) == ZipCode::CHAIN) {
+                cerr << "CHAIN of rank " << extra_zip.get_rank_in_snarl(depth);
+            }
+            cerr << ") is " << (extra_zip.get_is_reversed_in_parent(depth) ? "" : "not") << " reversed" << endl;
+        }
+    }
+
+    if (skip_gam) {
+        return 0;
     }
     
     // create in-memory objects
@@ -176,8 +229,6 @@ int main_zipcode(int argc, char** argv) {
     if (!minimizer_name.empty()) {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
     }
-    unique_ptr<SnarlDistanceIndex> distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
-    distance_index->preload(true);
     
     // Make a Mapper to look up MEM seeds
     unique_ptr<Mapper> mapper;
