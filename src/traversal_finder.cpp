@@ -1823,7 +1823,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(id_t nod
         left_visit = to_visit(graph, edge->first);
         right_visit = to_visit(graph, edge->second);
         
-        // Find any child snarls looking out form the edge
+        // Find any child snarls looking out from the edge
         const Snarl* right_child = snarl_manager.into_which_snarl(right_visit);
         const Snarl* left_child = snarl_manager.into_which_snarl(reverse(left_visit));
         

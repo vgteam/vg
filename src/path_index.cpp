@@ -482,7 +482,7 @@ map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& trans
 
 void PathIndex::apply_translation(const Translation& translation) {
     
-    // Parse the translation, to get a map form old node ID to vector of
+    // Parse the translation, to get a map from old node ID to vector of
     // replacement mappings.
     auto old_node_to_new_nodes = parse_translation(translation);
     

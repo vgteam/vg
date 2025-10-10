@@ -94,7 +94,7 @@ bool PositionIDScanner<Graph>::scan(const Graph& msg, const function<bool(const 
 
 template<typename Message>
 bool IDScanner<Message>::scan(const Message& msg, const function<bool(const id_t&)>& iteratee) {
-    // Get the node ID form the position and iterate over that
+    // Get the node ID from the position and iterate over that
     return PositionIDScanner<Message>::scan(msg, [&](const Position& pos) {
         return iteratee(pos.node_id());
     }, iteratee);

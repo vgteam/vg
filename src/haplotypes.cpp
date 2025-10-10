@@ -621,7 +621,7 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
       continue;
     }
     
-    // If we know it's int he index, get its index in the index
+    // If we know it's in the index, get its index in the index
     size_t this_i = index->get_site_index(SNV_candidates.ref_position(i));
     if(last_i != std::numeric_limits<size_t>::max() && this_i != last_i + 1) {
       // The last SNP existed and this SNP does not come after it.

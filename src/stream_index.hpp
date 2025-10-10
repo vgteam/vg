@@ -198,7 +198,7 @@ protected:
  * adds or finds and adds are prohibited.
  *
  * Most of the basic index API doesn't depend on the message type. So we put it
- * in this base class and inherit form it in templates that provide the
+ * in this base class and inherit from it in templates that provide the
  * high-level interface in terms of message instances.
  */
 class StreamIndexBase {
