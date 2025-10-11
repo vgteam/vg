@@ -188,7 +188,7 @@ Private Member Functions</h2></td></tr>
 <p>The tiling windows are just the node IDs down-shifted by a few bits.</p>
 <p>Messages that use no nodes (i.e. unmapped reads) are considered to visit node ID 0. The maximum and minimum id_t values are used as sentinels, so they can't be real nodes.</p>
 <p>All find operations are thread-safe with respect to each other. Simultaneous adds or finds and adds are prohibited.</p>
-<p>Most of the basic index API doesn't depend on the message type. So we put it in this base class and inherit form it in templates that provide the high-level interface in terms of message instances. </p>
+<p>Most of the basic index API doesn't depend on the message type. So we put it in this base class and inherit from it in templates that provide the high-level interface in terms of message instances. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a1de6fb384732cab26d21f38f133bc9e9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1de6fb384732cab26d21f38f133bc9e9">&#9670;&nbsp;</a></span>bin_t</h2>

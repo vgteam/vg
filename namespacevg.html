@@ -26082,7 +26082,7 @@ template&lt;typename Number &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Same as above, but uses the given <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, translated directly form a CIGAR string, as a source of edits. The edits are inserted into the generated <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, cut as necessary to fit into the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s Mappings.</p>
+<p>Same as above, but uses the given <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, translated directly from a CIGAR string, as a source of edits. The edits are inserted into the generated <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, cut as necessary to fit into the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s Mappings.</p>
 <p>Throws <a class="el" href="classvg_1_1AlignmentEmbeddingError.html">AlignmentEmbeddingError</a> if the region goes out of range, or tries to go across the junction of a non-circular path, or if cigar_mapping describes edits that are impossible, like matches past the end of the described region. Despite taking 0-based coordinates, error messages will describe 1-based coordinates. </p>
 
 </div>
