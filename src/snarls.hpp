@@ -171,7 +171,7 @@ struct ChainIterator {
     /// beginning)
     bool is_rend;
         
-    /// When dereferencing, should we flip snarl orientations form the
+    /// When dereferencing, should we flip snarl orientations from the
     /// orientations they appear at in the chain when read left to right?
     bool complement;
         

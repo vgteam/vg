@@ -460,7 +460,7 @@ public:
 /// coordinates, error messages will describe 1-based coordinates.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse);
-/// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
+/// Same as above, but uses the given Mapping, translated directly from a CIGAR string, as a source of edits.
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
 ///
 /// Throws AlignmentEmbeddingError if the region goes out of range, or tries to
