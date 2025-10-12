@@ -20,7 +20,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg annotate]";
+const string context = "vg annotate";
 
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl

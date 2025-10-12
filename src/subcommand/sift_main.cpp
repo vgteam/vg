@@ -18,7 +18,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg sift]";
+const string context = "vg sift";
 
 //TODO ideal behavior is to filter READ PAIRS
 //when a mate fails one of the individual read filters.

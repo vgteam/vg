@@ -33,7 +33,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg index]";
+const string context = "vg index";
 
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl

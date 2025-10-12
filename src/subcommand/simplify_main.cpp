@@ -21,7 +21,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg simplify]";
+const string context = "vg simplify";
 
 void help_simplify(char** argv) {
     cerr << "usage: " << argv[0] << " simplify [options] old.vg >new.vg" << endl

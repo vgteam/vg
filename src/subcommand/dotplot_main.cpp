@@ -24,7 +24,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg dotplot]";
+const string context = "vg dotplot";
 
 void help_dotplot(char** argv) {
     cerr << "usage: " << argv[0] << " dotplot [options]" << endl

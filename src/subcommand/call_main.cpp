@@ -25,7 +25,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg call]";
+const string context = "vg call";
 const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 
 void help_call(char** argv) {

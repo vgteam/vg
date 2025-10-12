@@ -31,7 +31,7 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
-const string context = "[vg view]";
+const string context = "vg view";
 
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl

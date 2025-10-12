@@ -34,7 +34,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg deconstruct]";
+const string context = "vg deconstruct";
 
 void help_deconstruct(char** argv) {
     cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <GRAPH>" << endl

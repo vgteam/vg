@@ -12,7 +12,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg viz]";
+const string context = "vg viz";
 
 void help_viz(char** argv) {
     cerr << "usage: " << argv[0] << " viz [options]" << endl

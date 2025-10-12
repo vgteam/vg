@@ -28,7 +28,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg align]";
+const string context = "vg align";
 
 void help_align(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl

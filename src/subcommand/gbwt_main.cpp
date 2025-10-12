@@ -26,7 +26,7 @@
 
 using namespace vg;
 
-const string context = "[vg gbwt]";
+const string context = "vg gbwt";
 
 struct GBWTConfig {
     // Build mode also defines the type of input args.

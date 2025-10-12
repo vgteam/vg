@@ -15,7 +15,7 @@ using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-const string context = "[vg trace]";
+const string context = "vg trace";
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl

@@ -18,7 +18,7 @@ using namespace vg::subcommand;
 using namespace vg::io;
 using namespace std;
 
-const string context = "[vg mask]";
+const string context = "vg mask";
 
 vector<tuple<string, size_t, size_t>> parse_bed(istream& in){
     

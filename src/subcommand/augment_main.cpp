@@ -39,7 +39,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg augment]";
+const string context = "vg augment";
 
 void help_augment(char** argv, ConfigurableParser& parser) {
     cerr << "usage: " << argv[0] << " augment [options] <graph.vg> [alignment.gam] > augmented_graph.vg" << endl

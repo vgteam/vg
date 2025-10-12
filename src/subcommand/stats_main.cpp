@@ -41,7 +41,7 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::algorithms;
 
-const string context = "[vg stats]";
+const string context = "vg stats";
 
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] [<graph file>]" << endl

@@ -28,7 +28,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg paths]";
+const string context = "vg paths";
 
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl

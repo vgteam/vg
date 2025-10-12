@@ -15,7 +15,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg map]";
+const string context = "vg map";
 
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] -d idxbase -f in1.fq [-f in2.fq] >aln.gam" << endl

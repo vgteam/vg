@@ -17,7 +17,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg explode]";
+const string context = "vg explode";
 
 void help_explode(char** argv) {
     cerr << "usage: " << argv[0] << " explode [options] source.vg part_dir" << endl

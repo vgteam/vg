@@ -22,7 +22,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg circularize]";
+const string context = "vg circularize";
 
 void help_circularize(char** argv) {
     cerr << "usage: " << argv[0] << " circularize [options] <graph.vg> > [circularized.vg]" << endl

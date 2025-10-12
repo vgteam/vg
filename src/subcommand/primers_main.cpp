@@ -12,7 +12,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg primers]";
+const string context = "vg primers";
 
 void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl

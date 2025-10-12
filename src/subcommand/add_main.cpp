@@ -25,7 +25,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg add]";
+const string context = "vg add";
 
 void help_add(char** argv) {
     cerr << "usage: " << argv[0] << " add [options] old.vg >new.vg" << endl

@@ -16,7 +16,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg gamsort]";
+const string context = "vg gamsort";
 
 //------------------------------------------------------------------------------
 

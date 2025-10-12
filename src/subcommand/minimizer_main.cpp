@@ -41,7 +41,7 @@
 
 using namespace vg;
 
-const std::string context = "[vg minimizer]";
+const std::string context = "vg minimizer";
 
 // Using too many threads just wastes CPU time without speeding up the construction.
 constexpr int DEFAULT_MAX_THREADS = 16;

@@ -32,7 +32,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand; 
 
-const string context = "[vg surject]";
+const string context = "vg surject";
 
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl

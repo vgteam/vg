@@ -43,7 +43,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg mpmap]";
+const string context = "vg mpmap";
 
 pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstream& strm) {
     

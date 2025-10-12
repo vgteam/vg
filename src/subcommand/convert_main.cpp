@@ -25,7 +25,7 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
-const string context = "[vg convert]";
+const string context = "vg convert";
 
 //------------------------------------------------------------------------------
 

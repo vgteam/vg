@@ -26,7 +26,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg mcmc]";
+const string context = "vg mcmc";
 
 void help_mcmc(char** argv) {
     cerr << "usage: " << argv[0] << " mcmc [options] multipath_alns.mgam graph.vg sites.snarls > graph_with_paths.vg" << endl

@@ -87,7 +87,7 @@ static string to_string(const vg::IndexGroup& name) {
 
 namespace vg {
 
-const string context = "[IndexRegistry]";
+const string context = "IndexRegistry";
 
 IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = PackedGraph;
 int IndexingParameters::max_node_size = 32;
@@ -5112,7 +5112,7 @@ vector<IndexGroup> IndexRegistry::dependency_order() const {
     }
     
     if (order.size() != dependency_graph.size()) {
-        fatal_error("[IndexFile]") << "index dependency graph is not a DAG" << endl;
+        fatal_error("IndexFile") << "index dependency graph is not a DAG" << endl;
         
 #ifdef debug_index_registry
         // do DFS to find the cycle

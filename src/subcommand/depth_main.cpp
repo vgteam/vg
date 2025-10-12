@@ -25,7 +25,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg depth]";
+const string context = "vg depth";
 
 const size_t DEFAULT_MAX_NODES = 1000000;
 const size_t DEFAULT_MIN_MAPQ = 0;

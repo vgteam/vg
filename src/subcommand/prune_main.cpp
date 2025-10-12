@@ -41,7 +41,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg prune]";
+const string context = "vg prune";
 
 enum PruningMode { mode_prune, mode_restore, mode_unfold };
 

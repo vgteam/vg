@@ -14,7 +14,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg pack]";
+const string context = "vg pack";
 
 void help_pack(char** argv) {
     cerr << "usage: " << argv[0] << " pack [options]" << endl

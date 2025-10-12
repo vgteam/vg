@@ -34,7 +34,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg zipcode]";
+const string context = "vg zipcode";
 
 void help_zipcode(char** argv) {
     cerr

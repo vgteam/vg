@@ -16,7 +16,7 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
-const string context = "[vg clip]";
+const string context = "vg clip";
 
 void help_clip(char** argv) {
     cerr << "usage: " << argv[0] << " [options] <graph>" << endl

@@ -13,7 +13,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg genotype]";
+const string context = "vg genotype";
 const string DEFAULT_TRAVERSAL_FINDER = "adaptive";
 
 void help_genotype(char** argv) {

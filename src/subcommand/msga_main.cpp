@@ -18,7 +18,7 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg msga]";
+const string context = "vg msga";
 
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl

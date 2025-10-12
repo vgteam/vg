@@ -39,7 +39,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg cluster]";
+const string context = "vg cluster";
 
 void help_cluster(char** argv) {
     cerr << "usage: " << argv[0] << " cluster [options] input.gam > output.gam" << endl

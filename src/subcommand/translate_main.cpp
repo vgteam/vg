@@ -20,7 +20,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg translate]";
+const string context = "vg translate";
 
 void help_translate(char** argv) {
     cerr << "usage: " << argv[0] << " translate [options] translation" << endl

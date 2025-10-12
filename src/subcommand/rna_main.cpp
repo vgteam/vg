@@ -21,7 +21,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg rna]";
+const string context = "vg rna";
 
 void help_rna(char** argv) {
     cerr << "usage: " << argv[0] << " rna [options] graph.[vg|pg|hg|gbz] > splicing_graph.[vg|pg|hg]" << endl

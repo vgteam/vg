@@ -15,7 +15,7 @@
  * Errors/warnings are output to std::cerr as:
  * error<context>: message
  * warning<context>: message
- * where "context" is a string like "[vg inject]"
+ * where "context" is a string like "vg inject"
  * 
  * The error/warning functions exist to have a standardized error/warning format
  * across the vg subcommands. You don't *have* to use them elsewhere, but
@@ -62,14 +62,14 @@ public:
 };
 
 /// Log to cerr with a standard format
-/// "context" is caller context, e.g. "[vg inject]"
+/// "context" is caller context, e.g. "vg inject"
 cerrWrapper basic_log(const std::string& context);
 /// Emit a warning with a standard format
-/// "context" is caller context, e.g. "[vg inject]"
+/// "context" is caller context, e.g. "vg inject"
 cerrWrapper warning(const std::string& context);
 /// Error with a standard format
 /// Once the cerrWrapper goes out of scope,
 /// the program will exit with an error code.
-/// "context" is caller context, e.g. "[vg inject]"
+/// "context" is caller context, e.g. "vg inject"
 cerrWrapper fatal_error(const std::string& context);
 }

@@ -24,7 +24,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg vectorize]";
+const string context = "vg vectorize";
 
 void help_vectorize(char** argv) {
     cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl

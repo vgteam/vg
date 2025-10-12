@@ -20,7 +20,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg validate]";
+const string context = "vg validate";
 
 void help_validate(char** argv) {
     cerr << "usage: " << argv[0] << " validate [options] [graph]" << endl

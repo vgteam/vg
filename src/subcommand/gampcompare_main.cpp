@@ -22,7 +22,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg gampcompare]";
+const string context = "vg gampcompare";
 
 void help_gampcompare(char** argv) {
     cerr << "usage: " << argv[0] << " gampcompare [options] alngraph.xg aln.gamp truth.gam > output.tsv" << endl

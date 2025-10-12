@@ -23,7 +23,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg filter]";
+const string context = "vg filter";
 
 void help_filter(char** argv) {
     cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl

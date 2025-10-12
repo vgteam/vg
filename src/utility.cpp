@@ -617,17 +617,17 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        fatal_error("[get_input_file_name]") << "specify input filename, or \"-\" for standard input" << endl;
+        fatal_error("get_input_file_name") << "specify input filename, or \"-\" for standard input" << endl;
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        fatal_error("[get_input_file_name]") << "specify a non-empty input filename" << endl;
+        fatal_error("get_input_file_name") << "specify a non-empty input filename" << endl;
     }
 
     if (test_open) {
-        require_exists("[get_input_file_name]", file_name);
+        require_exists("get_input_file_name", file_name);
     }
     
     return file_name;
@@ -638,13 +638,13 @@ string get_output_file_name(int& optind, int argc, char** argv) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        fatal_error("[get_output_file_name]") << "specify output filename" << endl;
+        fatal_error("get_output_file_name") << "specify output filename" << endl;
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        fatal_error("[get_output_file_name]") << "specify a non-empty output filename" << endl;
+        fatal_error("get_output_file_name") << "specify a non-empty output filename" << endl;
     }
     
     return file_name;
@@ -663,16 +663,16 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
             in.open(file_name.c_str());
             if (!in.is_open()) {
                 // The user gave us a bad filename
-                fatal_error("[get_input_file]") << "could not open file \"" 
-                                                << file_name << "\"" << endl;
+                fatal_error("get_input_file") << "could not open file \"" 
+                                              << file_name << "\"" << endl;
             }
             callback(in);
             
         }
     } catch(vg::io::TruncatedBGZFError& e) {
         // If we find a truncated input while working on this file, it's likely to be this file's fault.
-        fatal_error("[get_input_file]") << "detected truncated input while processing \"" 
-                                        << file_name << "\"" << endl;
+        fatal_error("get_input_file") << "detected truncated input while processing \"" 
+                                      << file_name << "\"" << endl;
     }
 }
 

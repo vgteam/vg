@@ -23,7 +23,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg sort]";
+const string context = "vg sort";
 
 void help_sort(char** argv) {
     cerr << "usage: " << argv[0] << " sort [options] > sorted.vg " << endl

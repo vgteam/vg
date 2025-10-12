@@ -63,7 +63,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg giraffe]";
+const string context = "vg giraffe";
 
 /// Options struct for options for the Giraffe driver (i.e. this file)
 struct GiraffeMainOptions {

@@ -22,7 +22,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg autoindex]";
+const string context = "vg autoindex";
 
 int64_t parse_memory_usage(const string& mem_arg) {
     if (mem_arg.empty()) {

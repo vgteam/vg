@@ -33,7 +33,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "[vg chunk]";
+const string context = "vg chunk";
 const string DEFAULT_CHUNK_PREFIX = "./chunk";
 
 static string chunk_name(const string& out_chunk_prefix, int i, const Region& region,

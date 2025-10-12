@@ -28,7 +28,7 @@
 
 using namespace vg;
 
-const std::string context = "[vg chains]";
+const std::string context = "vg chains";
 
 //----------------------------------------------------------------------------
 

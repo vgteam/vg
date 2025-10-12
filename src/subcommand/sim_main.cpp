@@ -30,7 +30,7 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
-const string context = "[vg sim]";
+const string context = "vg sim";
 
 // Gets the transcript IDs and TPM values from an RSEM output .tsv file
 vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {

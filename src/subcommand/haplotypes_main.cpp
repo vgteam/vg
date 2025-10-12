@@ -26,7 +26,7 @@
 
 using namespace vg;
 
-const std::string context = "[vg haplotypes]";
+const std::string context = "vg haplotypes";
 
 //----------------------------------------------------------------------------
 
