@@ -28,7 +28,7 @@ void register_loader_saver_gbwtgraph() {
         gbwtgraph::GBWTGraph* graph = new gbwtgraph::GBWTGraph();
 
         // Load it. In case of a failure, this will:
-        // * Throw an exception if sanity checks fail.
+        // * Throw an exception if data is unacceptable.
         // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         graph->deserialize(input);

@@ -521,22 +521,15 @@ int main_cluster(int argc, char** argv) {
                     ZipCodeForest zip_forest;
 
                     std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                    zip_forest.fill_in_forest(seeds, minimizers, *distance_index, std::numeric_limits<size_t>::max());
+                    zip_forest.fill_in_forest(seeds, *distance_index, std::numeric_limits<size_t>::max());
                     std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                     std::chrono::duration<double> elapsed_seconds = end-start;
 
                     std::pair<size_t, size_t> dag_non_dag_count (0, 0);
                     for (const auto& zip_tree : zip_forest.trees) {
-                        pair<size_t, size_t> tree_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
+                        pair<size_t, size_t> tree_count = zip_tree.dag_and_cyclic_snarl_count();
                         dag_non_dag_count.first += tree_count.first;
                         dag_non_dag_count.second += tree_count.second;
-                    }
-
-                    std::string cyclic_snarl_sizes_string;
-                    for (const auto& zip_tree : zip_forest.trees) {
-                        for (const auto& size : zip_tree.cyclic_snarl_sizes(seeds, *distance_index)) {
-                            cyclic_snarl_sizes_string += std::to_string(size) + ",";
-                        }
                     }
 
                     // And with hit count clustered
@@ -550,9 +543,6 @@ int main_cluster(int argc, char** argv) {
 
                     //The number of snarls that aren't dags
                     set_annotation(aln, "zip_tree_non_dag_count", dag_non_dag_count.second);
-
-                    //CSV of the sizes of the cyclic snarls
-                    set_annotation(aln, "zip_tree_cyclic_snarl_sizes", cyclic_snarl_sizes_string);
 
                     // TODO: parallelize this
                     #pragma omp critical (cout)

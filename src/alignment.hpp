@@ -237,6 +237,12 @@ int32_t determine_flag(const Alignment& alignment,
 /// suppress softclips up to that length. This will necessitate adjusting pos,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+    
+/// Convert a spliced alignment against a path to a cigar. The alignment must be
+/// colinear along a path and contain only mappings on the path, but it can have
+/// deletions relative to the path that follow edges in the graph.
+vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const PathPositionHandleGraph& graph, const string& path_name, 
+                                                   int64_t pos, bool rev, int64_t min_splice_length);
 
 /// Merge runs of successive I/D operations into a single I and D, remove 0-length
 /// operations, and merge adjacent operations of the same type
@@ -309,9 +315,24 @@ string signature(const Alignment& aln);
 pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
 string middle_signature(const Alignment& aln, int len);
 pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
-// Return whether the path is a perfect match (i.e. contains no non-match edits)
-// and has no soft clips (e.g. like in vg stats -a)
+/// Return whether the path is a perfect match (i.e. contains no non-match edits)
+/// and has no soft clips (e.g. like in vg stats -a)
 bool is_perfect(const Alignment& alignment);
+bool is_supplementary(const Alignment& alignment);
+// The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
+pair<int64_t, int64_t> aligned_interval(const Alignment& aln);
+
+// create an annotation string required to properly set the SAM fields/flags of a supplementary alignment
+// the arguments all refer to properties of the primary *mate* alignment
+// the path name saved in the info is the base path name, with any subrange info reflected in the position
+string mate_info(const string& path, int32_t pos, bool rev_strand, bool is_read1);
+// parse the annotation string, returns tuple of (mate path name, mate path pos, mate rev strand, mate is read1) 
+tuple<string, int32_t, bool, bool> parse_mate_info(const string& info);
+
+/// Return whether the Alignment represents a mapped read (true) or an
+/// unaligned read (false). Uses the GAM read_mapped flag, but also sniffs for
+/// mapped reads which forgot to set it.
+bool is_mapped(const Alignment& alignment);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);

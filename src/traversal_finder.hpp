@@ -418,7 +418,7 @@ protected:
     const PathHandleGraph& graph;
 
     /// Use this to check if our snarl runs through a reference path
-    /// (may be overkill, but can be used for sanity checking)
+    /// (may be overkill, but can be used for debugging)
     PathTraversalFinder path_finder;
     
     /// The SnarlManager managiung the snarls we use

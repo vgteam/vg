@@ -461,7 +461,7 @@ namespace vg{
     }
 
     bool Filter::unmapped_filter(Alignment& aln){
-        if (aln.score() == 0 || aln.path().mapping_size() == 0){
+        if (!is_mapped(aln)){
             aln.set_read_mapped(false);
             return true;
         }

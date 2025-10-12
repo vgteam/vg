@@ -357,4 +357,4 @@ int main_genotype(int argc, char** argv) {
 }
 
 
-static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs.", main_genotype);
+static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs", main_genotype);

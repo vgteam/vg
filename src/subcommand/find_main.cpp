@@ -855,6 +855,7 @@ int main_find(int argc, char** argv) {
             }
             vg::algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
             vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+            vg::algorithms::add_subpaths_to_subgraph(*xindex, graph);
             vg::io::save_handle_graph(&graph, cout);
         }
         if (id(connecting_start) != 0) {
