@@ -28,6 +28,8 @@
 
 using namespace vg;
 
+const std::string context = "[vg chains]";
+
 //----------------------------------------------------------------------------
 
 struct ChainsConfig {
@@ -77,8 +79,8 @@ int main_chains(int argc, char** argv) {
             std::cerr << "Found a snarl file" << std::endl;
         }
     } else {
-        std::cerr << "error: [vg chains] unable to load distance index or snarl file from " << config.input_file << std::endl;
-        return 1;
+        fatal_error(context) << "unable to load distance index or snarl file from " 
+                             << config.input_file << std::endl;
     }
 
     if (config.progress) {
@@ -138,7 +140,7 @@ int main_chains(int argc, char** argv) {
         }
         write_gfa_paths(chains, *out_stream);
     } else {
-        std::cerr << "error: [vg chains] unknown output format" << std::endl;
+        fatal_error(context) << "unknown output format" << std::endl;
         return 1;
     }
     out_file.close();

@@ -159,8 +159,7 @@ int main_circularize(int argc, char** argv){
     graph->serialize_to_ostream(cout);
 //    SerializableHandleGraph* to_serialize = dynamic_cast<SerializableHandleGraph*>(&(*graph));
 //    if (!to_serialize) {
-//        cerr << "error: graph format is not serializable!" << endl;
-//        return 1;
+//        fatal_error(context) << "graph format is not serializable!" << endl;
 //    }
 //    to_serialize->serialize(std::cout);
     

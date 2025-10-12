@@ -363,7 +363,7 @@ int main_minimizer(int argc, char** argv) {
             break;
         case 'E':
             rec_mode = true;
-            std::cerr << "[vg minimizer] warning: --rec-mode is still under development" << std::endl;
+            warning(context) << "--rec-mode is still under development" << std::endl;
             break;
         case 'd':
             distance_name = require_exists(context, optarg);

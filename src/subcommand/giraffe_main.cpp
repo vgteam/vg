@@ -1602,7 +1602,7 @@ int main_giraffe(int argc, char** argv) {
     }
     if (use_path_minimizer && !map_long_reads) {
         // We don't have file paths to load defined for recombination-aware short-read minimizers.
-        cerr << "error: [vg giraffe] Path minimizers cannot be used with short reads." << endl;
+        fatal_error(context) << "Path minimizers cannot be used with short reads." << endl;
         return 1;
     }
     bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
