@@ -1823,7 +1823,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(id_t nod
         left_visit = to_visit(graph, edge->first);
         right_visit = to_visit(graph, edge->second);
         
-        // Find any child snarls looking out form the edge
+        // Find any child snarls looking out from the edge
         const Snarl* right_child = snarl_manager.into_which_snarl(right_visit);
         const Snarl* left_child = snarl_manager.into_which_snarl(reverse(left_visit));
         
@@ -2996,7 +2996,7 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
         visit->set_backward(graph.get_is_reverse(end_handle));
     }
 
-    // sanity check: we compare the output to something gotten directly from the
+    // consistency check: we compare the output to something gotten directly from the
     // path index when doing the reference haplotype.
     if (all_of(haplotype.begin(), haplotype.end(), [] (int i) {return i == 0;})) { 
         SnarlTraversal ref_trav;

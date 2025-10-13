@@ -4649,10 +4649,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     num_edits = path_1.mapping(i).edit_size() - j - 1;
                 }
             }
-            //cerr << "need to copy " << num_mappings << " full mappings and " << num_edits << " edits" << endl;
             // copy to the zipped alignment
             for (int64_t m = 0; m < num_mappings; k += incr, ++m) {
-                //cerr << "copy mapping " << debug_string(*path_1.mutable_mapping(k)) << endl;
                 *return_val.first.add_mapping() = std::move(*path_1.mutable_mapping(k));
             }
             if (num_edits != 0) {
@@ -4663,7 +4661,6 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 auto copy_pos = copy_mapping->mutable_position();
                 for (int64_t l = from_left ? 0 : mapping->edit_size() - 1, e = 0; e < num_edits; l += incr, ++e) {
                     auto edit = mapping->mutable_edit(l);
-                    //cerr << "copy edit " << debug_string(*edit) << endl;
                     *copy_mapping->add_edit() = std::move(*edit);
                 }
                 if (from_left) {

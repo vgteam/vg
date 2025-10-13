@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 29
+plan tests 30
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -68,7 +68,9 @@ is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) --sorted-gam x.sorted.gam |
 
 rm -rf x.gam x.sorted.gam x.sorted.gam.gai
 
-is $(vg find -G small/x-s1337-n1.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTT | wc -l) 1 "the index can be queried using GAM alignments"
+is "$(vg find -G small/x-s1337-n1.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTT | wc -l)" "1" "the index can be queried using GAM alignments"
+
+is "$(vg find -G small/x-s1337-n1.gam -x x.xg | vg paths --list -x -)" "x[121-272]" "querying the index with GAM alignments finds relevant subpaths"
 
 rm -rf x.vg x.xg x.gcsa{,.lcp}
 

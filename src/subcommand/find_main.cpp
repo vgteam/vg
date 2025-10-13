@@ -43,7 +43,7 @@ void help_find(char** argv) {
          << "  -r, --node-range N:M        get nodes from N to M" << endl
          << "  -G, --gam GAM               accumulate the graph touched by GAM's alignments" << endl
          << "      --connecting-start POS  find graph from POS (node ID, + or -, node offset)" << endl
-         << "                              connecteing to --connecting-end" << endl
+         << "                              connecting to --connecting-end" << endl
          << "      --connecting-end POS    find graph to POS (node ID, + or -, node offset)" << endl
          << "                              connecting from --connecting-start" << endl
          << "      --connecting-range INT  traverse up to INT bases when going " << endl
@@ -446,7 +446,7 @@ int main_find(int argc, char** argv) {
         // Load the GAM index
         gam_index = unique_ptr<GAMIndex>(new GAMIndex());
         get_input_file(sorted_gam_name + ".gai", [&](istream& in) {
-            // We get it form the appropriate .gai, which must exist
+            // We get it from the appropriate .gai, which must exist
             gam_index->load(in); 
         });
     }
@@ -868,6 +868,7 @@ int main_find(int argc, char** argv) {
             }
             vg::algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
             vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+            vg::algorithms::add_subpaths_to_subgraph(*xindex, graph);
             vg::io::save_handle_graph(&graph, cout);
         }
         if (id(connecting_start) != 0) {

@@ -50,21 +50,33 @@ public:
     /// in HTSLib output
     void set_min_splice_length(int64_t min_splice_length);
     
-    /// Emit paired read mappings as interleaved protobuf messages
+    /// Emit paired read mappings as interleaved protobuf messages or HTSLib output
     void emit_pairs(const string& name_1, const string& name_2,
                     vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs,
                     vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>>* path_positions = nullptr,
                     vector<int64_t>* tlen_limits = nullptr);
     
-    /// Emit read mappings as protobuf messages
+    /// Emit read mappings as protobuf messages or HTSLib output
     void emit_singles(const string& name, vector<multipath_alignment_t>&& mp_alns,
                       vector<tuple<string, bool, int64_t>>* path_positions = nullptr);
+    
+    /// Emit unpaired independent or supplementary alignments for paired reads
+    void emit_paired_independent(const string& name_1, const string& name_2,
+                                 vector<multipath_alignment_t>&& mp_alns_1,
+                                 vector<multipath_alignment_t>&& mp_alns_2,
+                                 vector<tuple<string, bool, int64_t>>* path_positions_1 = nullptr,
+                                 vector<tuple<string, bool, int64_t>>* path_positions_2 = nullptr);
     
 private:
     
     /// what format are we outputting in
     enum output_format_t {GAMP, GAM, GAF, BAM, SAM, CRAM};
     output_format_t format;
+        
+    /// Emit read mappings as protobuf messages or HTSLib output
+    void emit_singles_internal(const string& name, vector<multipath_alignment_t>&& mp_alns,
+                               vector<tuple<string, bool, int64_t>>* path_positions,
+                               const string* mate_name, bool is_read_1);
     
     /// make a GAM alignment from a multipath alignment
     void convert_to_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
@@ -79,7 +91,8 @@ private:
     /// store a bam1_t object with the indicated data in the dest vector
     void convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                  const string& ref_name, bool ref_rev, int64_t ref_pos,
-                                 bam_hdr_t* header, vector<bam1_t*>& dest) const;
+                                 bam_hdr_t* header, vector<bam1_t*>& dest,
+                                 const string* mate_name = nullptr) const;
     
     /// store two paired bam1_t objects with the indicated data in the dest vector
     void convert_to_hts_paired(const string& name_1, const string& name_2,
@@ -91,6 +104,9 @@ private:
     
     /// transfer the allelic mapq, group mapq, and secondary annotations to a BAM record
     void add_annotations(const multipath_alignment_t& mp_aln, bam1_t* bam) const;
+
+    /// take subrange info out of the path name and adjust the position for the subrange start
+    void canonicalize_subrange(string& path_name, int32_t& pos) const;
     
     const PathPositionHandleGraph* graph;
     

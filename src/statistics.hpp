@@ -680,7 +680,7 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
     //
     // The state is, for each ambiguity class, a vector of length equal to
     // the number of set bits in the valence, and sum equal to the number of
-    // reads int he category.
+    // reads in the category.
     //
     // We start with all the reads in the first spot in each class, and
     // advance/reset until we have iterated over all combinations of category

@@ -3019,7 +3019,7 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
 
         //cerr << "Removed " << edge->from() << "-start to " << edge->to() << " orientation " << relative_orientation << endl;
     } else {
-        // The edge is on the end of the from node, do remove it form the end of the from node.
+        // The edge is on the end of the from node, do remove it from the end of the from node.
         std::pair<nid_t, bool> to_remove {edge->to(), relative_orientation};
         swap_remove(edges_end(edge->from()), to_remove);
         if (edges_on_end[edge->from()].empty()) edges_on_end.erase(edge->from());
@@ -5472,7 +5472,7 @@ int VG::path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path
     // Now back out the last node we just took.
     l += (*--pitr).node->sequence().size();
 
-    // Measure form the far end of the last node.
+    // Measure from the far end of the last node.
     l = (*pitr).node->sequence().size() - l - 1;
 
     return l;

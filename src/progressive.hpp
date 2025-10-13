@@ -14,7 +14,7 @@ namespace vg {
 using namespace std;
 
 /**
- * Inherit form this class to give your class create_progress(),
+ * Inherit from this class to give your class create_progress(),
  * update_progress(), and destroy_progress() methods, and a public show_progress
  * field that can be toggled on and off.
  *

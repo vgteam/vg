@@ -133,6 +133,24 @@ void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& 
     }
 }
 
+void load_minimizer(gbwtgraph::MinimizerIndexXL& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading MinimizerIndexXL from " << filename << std::endl;
+    }
+    try {
+        std::ifstream in(filename, std::ios_base::binary);
+        if (!in) {
+            throw sdsl::simple_sds::CannotOpenFile(filename, false);
+        }
+        in.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
+        index.deserialize(in);
+        in.close();
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [load_minimizer()] cannot load MinimizerIndexXL " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Saving GBWTGraph to " << filename << std::endl;
@@ -188,26 +206,6 @@ void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::s
 void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::string& graph_name, bool show_progress) {
     save_gbwt(gbz.index, gbwt_name, show_progress);
     save_gbwtgraph(gbz.graph, graph_name, show_progress);
-}
-
-void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress) {
-    if (show_progress) {
-        std::cerr << "Saving MinimizerIndex to " << filename << std::endl;
-    }
-
-    // This mimics Simple-SDS serialization.
-    try {
-        std::ofstream out(filename, std::ios_base::binary);
-        if (!out) {
-            throw sdsl::simple_sds::CannotOpenFile(filename, true);
-        }
-        out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-        index.serialize(out);
-        out.close();
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [save_minimizer()] cannot save MinimizerIndex to " << filename << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
 }
 
 //------------------------------------------------------------------------------

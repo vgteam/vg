@@ -161,7 +161,7 @@ public:
     
     /**
      * Parse a W line into sample, haplotype, sequence, range (start and end), walk, and tags.
-     * If some or all of the range is missing, uses NO_SUBRANGE and NO_END_POSITION form PathMetadata.
+     * If some or all of the range is missing, uses NO_SUBRANGE and NO_END_POSITION from PathMetadata.
      * Doesn't include an end position if a start position isn't set.
      */
     static tuple<string, size_t, string, pair<int64_t, int64_t>, chars_t, tag_list_t> parse_w(const string& p_line);
