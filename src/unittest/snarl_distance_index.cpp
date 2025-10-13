@@ -192,7 +192,7 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(2, true, 0, 2, true, 1) == 1);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
         
             VG graph;
                 
