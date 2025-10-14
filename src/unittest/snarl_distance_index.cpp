@@ -260,6 +260,27 @@ namespace vg {
                     //REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false, &graph));
                 }
             }
+            SECTION("Snarl child counts are correct") {
+                SECTION("Distance index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                    REQUIRE(distance_index.get_snarl_child_count(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))) 
+                               == 1);
+                    REQUIRE(distance_index.get_snarl_child_count(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))) 
+                               == 2);
+                    REQUIRE(distance_index.get_snarl_child_count(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))) 
+                               == 2);
+                } SECTION("Distanceless index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
+                    REQUIRE(distance_index.get_snarl_child_count(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))) 
+                               == 1);
+                    REQUIRE(distance_index.get_snarl_child_count(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))) 
+                               == 2);
+                    REQUIRE(distance_index.get_snarl_child_count(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))) 
+                               == 2);
+                }
+            }
             SECTION("Minimum distances are correct") {
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
