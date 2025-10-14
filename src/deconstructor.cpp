@@ -1600,6 +1600,10 @@ static string resolve_path_name(const PathPositionHandleGraph* graph,
         subrange.first += out_start;
         subrange.second = subrange.first + (out_end - out_start);
     }
+    if (phase_block == 0) {
+        phase_block = PathMetadata::NO_PHASE_BLOCK;
+        sense = PathSense::REFERENCE;
+    }
     path_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
 
     return path_name;    
