@@ -69,8 +69,16 @@ print("COMMANDS")
 print("====")
 
 # help for each cmd
+vg_help = subprocess.run(['vg', 'help'], capture_output=True)
+cmd_desc = dict()
+for line in vg_help.stderr.decode().split('\n'):
+    if '--' in line:
+        parts = line.split()
+        cmd_desc[parts[1]] = ' '.join(parts[2:])
+        cmd = parts[1]
+
 for cmd in cmds:
-    print('## {cmd}\n\n'.format(cmd=cmd))
+    print('## {cmd}: {blurb}\n\n'.format(cmd=cmd, blurb=cmd_desc[cmd]))
     try:
         # Try first with the help option to get all options described.
         # Use check=True to raise CalledProcessError on non-zero exit codes (e.g., when --help fails),
@@ -81,9 +89,6 @@ for cmd in cmds:
         # vg subcommands (e.g., construct) don’t recognize --help
         ret = subprocess.run(['vg', cmd], capture_output=True)
     print('```')
-    if cmd in desc:
-        print(desc[cmd])
-        print('\n\n')
     print(ret.stderr.decode())
     print('```\n\n')
 
