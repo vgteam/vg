@@ -515,8 +515,6 @@ public:
         const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
-        /// Memorized minimum initial running distances for all chains processed
-        unordered_map<size_t, size_t> chain_start_distances;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
 
@@ -551,6 +549,10 @@ public:
         /// Helper for stack_snarl_distances()
         /// Stack a single value from a triangular distance matrix
         void stack_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
+
+        /// Helper for stack_snarl_distances()
+        /// Stack a single value below the running distance
+        void stack_below_top(size_t value);
 
         // Helper functions for the automaton's state machine
 

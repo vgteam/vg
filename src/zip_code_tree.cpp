@@ -1695,15 +1695,29 @@ void ZipCodeTree::distance_iterator::stack_snarl_distances(size_t snarl_start_i,
     if (is_cyclic) {
         // Which row corresponds to this chain side?
         size_t cur_row; 
+        // How many right sides should we give inf distances?
+        size_t inf_right_sides;
+        // How many left sides should we give inf distances?
+        size_t inf_left_sides;
         if (chain_num == 0) {
             // Chain 0 means the snarl start
             cur_row = 0;
+            // Can skip all left sides; R->L traversals from there
+            // will get to here anyhow
+            inf_right_sides = 0;
+            inf_left_sides = num_chains;
         } else if (chain_num == std::numeric_limits<size_t>::max()) {
             // Chain max means the snarl end
             cur_row = num_chains * 2 + 1;
+            // Can skip all right sides
+            inf_right_sides = num_chains;
+            inf_left_sides = 0;
         } else {
             // Otherwise, we are in a chain
             cur_row = chain_num * 2 - (right_side ? 0 : 1);
+            // Can skip all chains before this one
+            inf_right_sides = chain_num - 1;
+            inf_left_sides = chain_num - 1;
         }
 
         // Very bottom of the stack is the distance to a snarl bound
@@ -1718,13 +1732,22 @@ void ZipCodeTree::distance_iterator::stack_snarl_distances(size_t snarl_start_i,
         // Cyclic snarl always stacks all lefts on top, then all rights 
         // We process left to right then "bounce" right to left
         // c1_L is on top, and c1_R is on bottom, directly above the snarl bound
-        for (size_t i = 1; i <= num_chains; i++) {
+        // Anything that we've already visited, we use artificial inf distances
+        for (size_t i = 1; i <= inf_right_sides; i++) {
+            // Right sides that we're skipping
+            stack_below_top(std::numeric_limits<size_t>::max());
+        }
+        for (size_t i = inf_right_sides + 1; i <= num_chains; i++) {
             // Right sides from c1 to cN
             stack_matrix_value(dist_matrix_start, true, cur_row, i * 2);
         }
-        for (size_t i = num_chains; i >= 1; i--) {
+        for (size_t i = num_chains; i >= inf_left_sides + 1; i--) {
             // Left sides from cN to c1
             stack_matrix_value(dist_matrix_start, true, cur_row, i * 2 - 1);
+        }
+        for (size_t i = inf_left_sides; i >= 1; i--) {
+            // Left sides that we're skipping
+            stack_below_top(std::numeric_limits<size_t>::max());
         }
     } else {
         if (chain_num == std::numeric_limits<size_t>::max()) {
@@ -1765,14 +1788,18 @@ void ZipCodeTree::distance_iterator::stack_matrix_value(size_t matrix_start_i, b
                                                : (row * (row - 1)) / 2 + col;
     size_t distance = zip_code_tree.at(matrix_start_i + within_matrix_i).get_value();
 
-    dup();
     // Add in the edge value to make a running distance for child
 #ifdef debug_parse
     std::cerr << "\tTo current running parent distance " << top() << " add edge " 
               << (distance == std::numeric_limits<size_t>::max() ? "inf" : std::to_string(distance))
               << std::endl;
 #endif
-    top() = SnarlDistanceIndex::sum(top(), distance);
+    stack_below_top(SnarlDistanceIndex::sum(top(), distance));
+}
+
+void ZipCodeTree::distance_iterator::stack_below_top(size_t value) {
+    dup();
+    top() = value;
     // Flip top 2 elements, so now parent running distance is on top,
     // over edge running distance.
     swap();
@@ -1794,27 +1821,6 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
     // Where *would* we jump, if we jumped?
     push(index + current_item().get_other_bound_offset());
     swap();
-    
-    // Check if we have already seen this chain
-    auto chain_distance = chain_start_distances.find(index);
-    if (chain_distance == chain_start_distances.end()) {
-        // We haven't seen this chain before, so remember it
-        chain_start_distances.emplace_hint(chain_distance, index, top());
-    } else {
-#ifdef debug_parse
-        std::cerr << "Already saw this chain with old running distance " << chain_distance->second
-                  << "; new running distance " << top() << std::endl;
-#endif
-        if (top() >= chain_distance->second) {
-            // We've already seen this chain with a better or equal distance
-            skip_chain();
-            return;
-        } else {
-            // We have a better distance, so update the record
-            chain_distance->second = top();
-        }
-    }
-
     if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
         std::cerr << "Skip chain with running distance "

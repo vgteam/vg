@@ -1206,22 +1206,18 @@ namespace unittest {
                     REQUIRE(reverse_views[{1, true}][2].distance == 8);
                     REQUIRE(reverse_views[{1, true}][2].is_reversed == true);
 
-                    // 3-1 can see the rest of its chain & the other chain
+                    // 3-1 can see the rest of its chain
                     // Not rev since we're going L->R
                     REQUIRE(reverse_views.count({3, false}));
-                    REQUIRE(reverse_views[{3, false}].size() == 2);
+                    REQUIRE(reverse_views[{3, false}].size() == 1);
                     // Edge to 3-0
                     REQUIRE(reverse_views[{3, false}][0].seed == 2);
                     REQUIRE(reverse_views[{3, false}][0].distance == 1);
                     REQUIRE(reverse_views[{3, false}][0].is_reversed == false);
-                    // Edge to 4+0
-                    REQUIRE(reverse_views[{3, false}][1].seed == 1);
-                    REQUIRE(reverse_views[{3, false}][1].distance == 3);
-                    REQUIRE(reverse_views[{3, false}][1].is_reversed == false);
 
-                    // 5+0 can see all other seeds once
+                    // 5+0 can see the seeds on 3 & 1
                     REQUIRE(reverse_views.count({4, false}));
-                    REQUIRE(reverse_views[{4, false}].size() == 4);
+                    REQUIRE(reverse_views[{4, false}].size() == 3);
                     // Edge to 3-1 (not rev since going L->R)
                     REQUIRE(reverse_views[{4, false}][0].seed == 3);
                     REQUIRE(reverse_views[{4, false}][0].distance == 5);
@@ -1230,14 +1226,10 @@ namespace unittest {
                     REQUIRE(reverse_views[{4, false}][1].seed == 2);
                     REQUIRE(reverse_views[{4, false}][1].distance == 6);
                     REQUIRE(reverse_views[{4, false}][1].is_reversed == false);
-                    // Edge to 4+0
-                    REQUIRE(reverse_views[{4, false}][2].seed == 1);
-                    REQUIRE(reverse_views[{4, false}][2].distance == 8);
-                    REQUIRE(reverse_views[{4, false}][2].is_reversed == false);
                     // Edge to 1+0
-                    REQUIRE(reverse_views[{4, false}][3].seed == 0);
-                    REQUIRE(reverse_views[{4, false}][3].distance == 11);
-                    REQUIRE(reverse_views[{4, false}][3].is_reversed == false);
+                    REQUIRE(reverse_views[{4, false}][2].seed == 0);
+                    REQUIRE(reverse_views[{4, false}][2].distance == 11);
+                    REQUIRE(reverse_views[{4, false}][2].is_reversed == false);
                 } else {
                     cerr << "Not testing reverse views since I didn't bother writing it" << endl;
                 }
@@ -1828,17 +1820,6 @@ namespace unittest {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
-            }
-
-            SECTION("Check iterator memorization") {
-                auto reverse_views = get_reverse_views(zip_forest);
-                // 5+0 should only see 3+1 once due to memorization
-                REQUIRE(reverse_views.count({5, false}));
-                size_t seen_3 = 0;
-                for (auto& view : reverse_views[{5, false}]) {
-                    if (view.seed == 3) seen_3++;
-                }
-                REQUIRE(seen_3 == 1);
             }
         }
         SECTION("Reverse both inversions") {
