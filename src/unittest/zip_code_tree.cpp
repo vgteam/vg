@@ -3000,9 +3000,16 @@ namespace unittest {
             REQUIRE(zip_forest.trees[0].get_item_at_index(18).get_value() == 1);
             // Seeds are in correct order
             REQUIRE(zip_forest.trees[0].get_item_at_index(23).get_type() == ZipCodeTree::SEED);
-            REQUIRE(zip_forest.trees[0].get_item_at_index(23).get_value() == 0);
             REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::SEED);
-            REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_value() == 1);
+            if (zip_forest.trees[0].get_item_at_index(23).get_is_reversed()) {
+                REQUIRE(zip_forest.trees[0].get_item_at_index(23).get_value() == 0);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_value() == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_is_reversed());
+            } else {
+                REQUIRE(zip_forest.trees[0].get_item_at_index(23).get_value() == 0);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_value() == 1);
+                REQUIRE(!zip_forest.trees[0].get_item_at_index(26).get_is_reversed());
+            }
         }
         SECTION("One seed on each node") {
             // [7+0rev 0 {2  inf  1  2  2  inf  inf  6  0  inf  inf  1  2  inf  
