@@ -230,10 +230,10 @@ printf "x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
 grep -v ^# mnp.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > mnp.tsv
 diff  mnp_truth.tsv mnp.tsv
 is "$?" 0 "nested deconstruction handles mnp"
-printf "a#1#y0#0\t2\t6\t>8>11\tx\t2\t6\n" > mnp.nesting.truth.tsv
+printf "a#1#y0\t2\t6\t>8>11\tx\t2\t6\n" > mnp.nesting.truth.tsv
 diff mnp.fa.nesting.tsv mnp.nesting.truth.tsv
 is "$?" 0 "nested deconstruction makes correct mnp tsv"
-printf ">a#1#y0#0[2-6]\nATTT\n"  > mnp.fa.truth
+printf ">a#1#y0[2-6]\nATTT\n"  > mnp.fa.truth
 diff mnp.fa mnp.fa.truth
 is "$?" 0 "nested deconstruction makes correct fasta"
 
