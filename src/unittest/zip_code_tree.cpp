@@ -2989,12 +2989,20 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Seeds in nested snarl chains") {
-            // [7+0rev 0 {[3+0 3 (2  0  0  1  1  1  1 [4+0][5+0]) 0 6+0
+            // [{1  inf  4  8  2  inf  inf  1  5  2  inf [(2  0  0  1  1  1  1 [4+0][5+0])]}]
             vector<pos_t> positions;
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
 
-            make_and_validate_forest(positions, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            // Inter-chain edge in nested snarl is reachable
+            REQUIRE(zip_forest.trees[0].get_item_at_index(18).get_value() == 1);
+            // Seeds are in correct order
+            REQUIRE(zip_forest.trees[0].get_item_at_index(23).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(23).get_value() == 0);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_value() == 1);
         }
         SECTION("One seed on each node") {
             // [7+0rev 0 {2  inf  1  2  2  inf  inf  6  0  inf  inf  1  2  inf  
