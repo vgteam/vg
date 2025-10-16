@@ -133,6 +133,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:ab0edf066db25bf87cfc81f962d306089"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1069c3b150d6da8c4fceb61be5be36e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#a1069c3b150d6da8c4fceb61be5be36e8">stack_matrix_value</a> (size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col)</td></tr>
 <tr class="separator:a1069c3b150d6da8c4fceb61be5be36e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a941d5dbfa9f4bb38fc5defbe982f975e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#a941d5dbfa9f4bb38fc5defbe982f975e">stack_below_top</a> (size_t value)</td></tr>
+<tr class="separator:a941d5dbfa9f4bb38fc5defbe982f975e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a344501ef660b08aa04bbcbc838552574"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#a344501ef660b08aa04bbcbc838552574">state</a> (<a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#aa62eb94739c4b9145d7d72c0818fdb9b">State</a> new_state)</td></tr>
 <tr class="memdesc:a344501ef660b08aa04bbcbc838552574"><td class="mdescLeft">&#160;</td><td class="mdescRight">Adopt a new state.  <a href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#a344501ef660b08aa04bbcbc838552574">More...</a><br /></td></tr>
 <tr class="separator:a344501ef660b08aa04bbcbc838552574"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -189,9 +191,6 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:aca2ea4727f323cec4dbf2864f6ee8e19"><td class="memItemLeft" align="right" valign="top">const vector&lt; <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html">tree_item_t</a> &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#aca2ea4727f323cec4dbf2864f6ee8e19">zip_code_tree</a></td></tr>
 <tr class="memdesc:aca2ea4727f323cec4dbf2864f6ee8e19"><td class="mdescLeft">&#160;</td><td class="mdescRight">References to the zip code tree to let us look up distance matrices.  <a href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#aca2ea4727f323cec4dbf2864f6ee8e19">More...</a><br /></td></tr>
 <tr class="separator:aca2ea4727f323cec4dbf2864f6ee8e19"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af64a939abe29c879ab84b17586766a3e"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#af64a939abe29c879ab84b17586766a3e">chain_start_distances</a></td></tr>
-<tr class="memdesc:af64a939abe29c879ab84b17586766a3e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Memorized minimum initial running distances for all chains processed.  <a href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#af64a939abe29c879ab84b17586766a3e">More...</a><br /></td></tr>
-<tr class="separator:af64a939abe29c879ab84b17586766a3e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adf9799741ba652a17f792eb638972e0f"><td class="memItemLeft" align="right" valign="top">std::stack&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#adf9799741ba652a17f792eb638972e0f">stack_data</a></td></tr>
 <tr class="memdesc:adf9799741ba652a17f792eb638972e0f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Stack for computing distances.  <a href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#adf9799741ba652a17f792eb638972e0f">More...</a><br /></td></tr>
 <tr class="separator:adf9799741ba652a17f792eb638972e0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -789,6 +788,33 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a941d5dbfa9f4bb38fc5defbe982f975e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a941d5dbfa9f4bb38fc5defbe982f975e">&#9670;&nbsp;</a></span>stack_below_top()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::ZipCodeTree::distance_iterator::stack_below_top </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>value</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Helper for <a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#ab0edf066db25bf87cfc81f962d306089">stack_snarl_distances()</a> Stack a single value below the running distance </p>
+
+</div>
+</div>
 <a id="a1069c3b150d6da8c4fceb61be5be36e8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1069c3b150d6da8c4fceb61be5be36e8">&#9670;&nbsp;</a></span>stack_matrix_value()</h2>
 
@@ -1038,30 +1064,6 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Within each parent snarl, which chain are we in? </p>
-
-</div>
-</div>
-<a id="af64a939abe29c879ab84b17586766a3e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af64a939abe29c879ab84b17586766a3e">&#9670;&nbsp;</a></span>chain_start_distances</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unordered_map&lt;size_t, size_t&gt; vg::ZipCodeTree::distance_iterator::chain_start_distances</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Memorized minimum initial running distances for all chains processed. </p>
 
 </div>
 </div>

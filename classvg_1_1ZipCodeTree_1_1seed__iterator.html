@@ -136,7 +136,7 @@ Private Attributes</h2></td></tr>
 <div class="textblock"><p>Iterator that visits seeds left to right in the tree's in-order traversal</p>
 <h2><a class="anchor" id="autotoc_md0"></a>
 Iteration flow</h2>
-<p>Each seed is visited in from left to right, in the same order as <a class="el" href="classvg_1_1ZipCodeTree.html#a1ba0ef9843d61c0b165d691797c85cac">get_all_seeds()</a> would return them.</p>
+<p>Each seed is visited from left to right, in the same order as <a class="el" href="classvg_1_1ZipCodeTree.html#a1ba0ef9843d61c0b165d691797c85cac">get_all_seeds()</a> would return them.</p>
 <p>The first time any given seed is visited, right_to_left is true, indicating that a distance iterator should be set off going in the default direction of right to left.</p>
 <p>Once the right-to-left step has been done, then the iterator decides whether to do a second, left-to-right step, with right_to_left set to false. This will happen if inside a cyclic snarl, even if not necessarily the direct parent. Calling ++() will toggle right_to_left instead of moving the internal iteration index. The next call to ++() would then reset right_to_left back to true, and finally advance the iterator rightward to the next seed.</p>
 <p>For seeds not inside cyclic snarls, ++() will simply move rightward.</p>
