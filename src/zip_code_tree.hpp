@@ -345,7 +345,7 @@ public:
      * 
      * ## Iteration flow
      * 
-     * Each seed is visited in from left to right, in the same order as
+     * Each seed is visited from left to right, in the same order as
      * get_all_seeds() would return them.
      * 
      * The first time any given seed is visited, right_to_left is true,
@@ -515,8 +515,6 @@ public:
         const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
-        /// Memorized minimum initial running distances for all chains processed
-        unordered_map<size_t, size_t> chain_start_distances;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
 
@@ -551,6 +549,10 @@ public:
         /// Helper for stack_snarl_distances()
         /// Stack a single value from a triangular distance matrix
         void stack_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
+
+        /// Helper for stack_snarl_distances()
+        /// Stack a single value below the running distance
+        void stack_below_top(size_t value);
 
         // Helper functions for the automaton's state machine
 
@@ -1144,9 +1146,17 @@ class ZipCodeForest {
     /// The matrix starts with a CHAIN_COUNT with the number of child chains,
     /// and then is a list of EDGEs; for each item in order, all distances to it
     /// from all previous items, possibly including self-loops
+    /// If reverse_chain_order is set, then all the child chains
+    /// will be extracted and then put back in reverse order
     /// Returns the size of the distance matrix added (plus the CHAIN_COUNT)
     size_t add_distance_matrix(forest_growing_state_t& forest_state, 
-                               const size_t& depth, bool snarl_is_reversed);
+                               const size_t& depth, bool snarl_is_reversed,
+                               bool reverse_chain_order = false);
+
+    /// Helper for add_distance_matrix() to reverse the order of chains
+    /// This is done by extracting all the chains,
+    /// adding them back in reverse order, and updating the forest_state
+    void reverse_chains_in_snarl(forest_growing_state_t& forest_state, const size_t& depth);
 
     /// Helper for add_distance_matrix()
     /// Look up seeds for chain edges and remember seed_info_t for each
@@ -1163,7 +1173,8 @@ class ZipCodeForest {
     
     /// Helper for add_distance_matrix() to add the chains' rows
     /// These are edges from everything prior to the given chain end bound
-    void add_edges_for_chains(vector<tree_item_t>& dist_matrix,
+    /// Returns true if most (>90%) inter-chain distances are unreachable
+    bool add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                               forest_growing_state_t& forest_state, 
                               const size_t& depth, const vector<seed_info_t>& edge_seeds,
                               bool snarl_is_reversed, bool is_cyclic_snarl) const;

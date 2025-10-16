@@ -508,7 +508,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //Go through each of the children in the chain, skipping nodes
             //The snarl may be trivial, in which case don't fill in the distances
 #ifdef debug_distance_indexing
-            cerr << "    Looking at child " << temp_index.structure_start_end_as_string(chain_child_index) << " current max prefi xum " << temp_chain_record.max_prefix_sum.back() << endl;
+            cerr << "    Looking at child " << temp_index.structure_start_end_as_string(chain_child_index) 
+                 << " current max prefix sum " << temp_chain_record.max_prefix_sum.back() << endl;
 #endif
 
             if (chain_child_index.first == SnarlDistanceIndex::TEMP_SNARL){
