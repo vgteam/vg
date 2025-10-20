@@ -42,6 +42,7 @@ using PathInterval = pair<step_handle_t, step_handle_t>;
 string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, int64_t max_steps = 10);
 // replaces pb2json(snarl)
 string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle);
+string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval);
 
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic

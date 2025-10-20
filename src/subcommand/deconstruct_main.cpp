@@ -64,6 +64,7 @@ void help_deconstruct(char** argv) {
          << "                           is >= F together [1.0; experimental]" << endl
          << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
          << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
+         << "  -f, --nested-fasta F     write off-reference FASTA to F (with F.nesting.tsv)" << endl
          << "                           but do not cross the site. Only works with -n" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
@@ -93,6 +94,7 @@ int main_deconstruct(int argc, char** argv){
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
     bool nested = false;
+    string nested_fasta_file_name;
     bool star_allele = false;
     
     int c;
@@ -118,6 +120,7 @@ int main_deconstruct(int argc, char** argv){
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
                 {"nested", no_argument, 0, 'n'},
+                {"nested-fasta", required_argument, 0, 'f'},
                 {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
@@ -125,7 +128,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nf:Rt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -184,6 +187,9 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'n':
             nested = true;
+            break;
+        case 'f':
+            nested_fasta_file_name = optarg;
             break;
         case 'R':
             star_allele = true;
@@ -395,6 +401,10 @@ int main_deconstruct(int argc, char** argv){
                    gbwt_index,
                    nested,
                    star_allele);
+
+    if (!nested_fasta_file_name.empty()) {
+        dd.save_off_ref_sequences(nested_fasta_file_name);
+    }
     return 0;
 }
 
