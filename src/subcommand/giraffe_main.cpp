@@ -1347,6 +1347,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 provided_indexes.emplace_back("Long Read Minimizers", optarg);
                 provided_indexes.emplace_back("Short Read Minimizers", optarg);
+                provided_indexes.emplace_back("Long Read PathMinimizers", optarg);
                 break;
                 
             case 'z':
@@ -1360,6 +1361,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 provided_indexes.emplace_back("Long Read Zipcodes", optarg);
                 provided_indexes.emplace_back("Short Read Zipcodes", optarg);
+                provided_indexes.emplace_back("Long Read PathZipcodes", optarg);
                 break;
             case 'd':
                 if (!optarg || !*optarg) {
