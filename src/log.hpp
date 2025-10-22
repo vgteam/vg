@@ -13,8 +13,8 @@
  * - fatal_error(): emit an error message with a given context
  * 
  * Errors/warnings are output to std::cerr as:
- * error<context>: message
- * warning<context>: message
+ * error[<context>]: message
+ * warning[<context>]: message
  * where "context" is a string like "vg inject"
  * 
  * The error/warning functions exist to have a standardized error/warning format
@@ -26,9 +26,9 @@
  * of scope, it will exit the program with a failure code (in the case of
  * fatal_error) or do nothing (in the case of warning and basic_log).
  * 
- * Technically you can get the same effect by streaming to cerr, but this
- * way you don't have to remember to exit after logging an error,
- * and we can change format in a centralized place.
+ * When endl is streamed to the object, it will indent subsequent lines
+ * to match the length of the prefix, which might make things line up a little
+ * better in logs.
  */
 
 namespace vg {
@@ -37,20 +37,37 @@ namespace vg {
 class cerrWrapper {
 private:
     bool exit_on_destruct;
+    // How far to indent each time
+    size_t indent_length;
+    // Should we indent next time?
+    bool at_start_of_line;
 
 public:
-    cerrWrapper(bool exit_on_destruct) :
+    cerrWrapper(std::string prefix, bool exit_on_destruct) :
         exit_on_destruct(exit_on_destruct) {
+        std::cerr << prefix;
+        // Remember indentation level
+        indent_length = prefix.size();
+        at_start_of_line = false;
     }
 
     template <typename T>
     cerrWrapper& operator<<(const T& t) {
+        // Indent if needed
+        if (at_start_of_line) {
+            std::cerr << std::string(indent_length, ' ');
+            at_start_of_line = false;
+        }
         std::cerr << t;
         return *this;
     }
 
     cerrWrapper& operator<<(std::ostream& (*manip)(std::ostream&)) {
         std::cerr << manip;
+        // If this is a newline, we are at the start of a line now
+        if (manip == static_cast<std::ostream& (*)(std::ostream&)>(std::endl)) {
+            at_start_of_line = true;
+        }
         return *this;
     }
 

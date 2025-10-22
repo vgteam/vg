@@ -5,18 +5,15 @@
 namespace vg {
 
 cerrWrapper basic_log(const std::string& context) {
-    std::cerr << "[" << context << "] ";
-    return cerrWrapper(false);
+    return cerrWrapper("[" + context + "] ", false);
 }
 
 cerrWrapper warning(const std::string& context) {
-    std::cerr << "warning[" << context << "] ";
-    return cerrWrapper(false);
+    return cerrWrapper("warning[" + context + "] ", false);
 }
 
 cerrWrapper fatal_error(const std::string& context) {
-    std::cerr << "error[" << context << "] ";
-    return cerrWrapper(true);
+    return cerrWrapper("error[" + context + "] ", true);
 }
 
 }
