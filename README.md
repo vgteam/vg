@@ -211,7 +211,7 @@ Whether or not that helps, please then [open an issue](https://github.com/vgteam
 
 #### From VCF
 
-> **Note**
+> [!NOTE]
 > See the `vg autoindex` examples below for how to use that tool in place of `vg construct` to build and index graphs in a single step.
 
 One way to build a graph with `vg` is to `construct` it from variant calls using a reference FASTA file and VCF file. If you're working in vg's `test/` directory:
@@ -253,12 +253,12 @@ The distinction between `REFERENCE` and `HAPLOTYPE` paths is carried over into t
 
 See the [Path Metadata WIKI](https://github.com/vgteam/vg/wiki/Path-Metadata-Model) for more details.
 
-> **Warning**
+> [!WARNING]
 > `GBZ` is the only format that supports efficiently loading large numbers of `HAPLOTYPE` paths in `vg`.  You may run into issues trying to load whole-genome graphs with thousands of `HAPLOTYPE` paths from `.vg` or `.gfa` files.  `vg convert -H` can be used to drop `HAPLOTYPE` paths, allowing the graph to be more easily loaded in other formats. 
 
 ### Viewing
 
-> **Note**
+> [!NOTE]
 > It is best to use the newer `vg convert` tool (described above) for GFA conversion
 
 `vg view` provides a way to convert the graph into various formats:
@@ -341,7 +341,7 @@ vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 
 Variation from alignments can be embedded back into the graph.  This process is called augmentation and can be used for *de novo* variant calling, for example (see below).
 
-> **Warning**
+> [!WARNING]
 > Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to BAM and running a linear variant caller such as DeepVariant. 
 
 <!-- !test check Augment a graph -->
@@ -357,7 +357,7 @@ vg augment x.vg aln.gam -i -S > aug_with_paths.vg
 
 ### Variant Calling
 
-> **Note**
+> [!NOTE]
 > More information can be found in the [WIKI](https://github.com/vgteam/vg/wiki/SV-Genotyping-and-variant-calling).
 
 #### Calling variants using read support
@@ -384,7 +384,7 @@ vg call x.xg -k aln.pack -a > snarl_genotypes.vcf
 
 In order to also consider *novel* variants from the reads, use the augmented graph and GAM (as created in the "Augmentation" example using `vg augment -A`):
 
-> **Warning**
+> [!WARNING]
 > Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to BAM and running a linear variant caller such as DeepVariant. 
 
 <!-- !test check Call from augmentation -->
