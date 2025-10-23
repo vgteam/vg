@@ -1133,7 +1133,7 @@ int main_stats(int argc, char** argv) {
         cout << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp";
         if (combined.total_alignments > 0) {
-            cout << " (" << combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
+            cout << " (" << 100 * combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
                  << combined.total_softclipped_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
         } 
         cout << " in " << combined.total_softclips << " read events" << endl;
