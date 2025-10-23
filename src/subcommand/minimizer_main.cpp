@@ -123,7 +123,6 @@ void construct_minimizer_dispatch(
     bool use_syncmers,
     bool progress
 ) {
-    // Find frequent kmers.
     std::vector<gbwtgraph::Key64> frequent_kmers;
     if (weighted) {
         double checkpoint = gbwt::readTimer();
@@ -239,7 +238,7 @@ void construct_minimizer_dispatch(
                     node_id_to_payload.emplace(id(pos), payload);
                     }
                     return payload;
-                } else if (zipcode_name.empty()) {
+                } else if (!zipcode_name.empty()) {
                     //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
                     //And remember the zipcode
 

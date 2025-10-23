@@ -112,6 +112,7 @@ bool IndexingParameters::short_read_minimizer_W = false;
 int IndexingParameters::long_read_minimizer_k = 31;
 int IndexingParameters::long_read_minimizer_w = 50;
 bool IndexingParameters::long_read_minimizer_W = true;
+int IndexingParameters::long_read_minimizer_W_iterations = 3;
 int IndexingParameters::minimizer_s = 18;
 bool IndexingParameters::space_efficient_counting = false;
 int IndexingParameters::minimizer_downweight_threshold = 500;
@@ -549,13 +550,24 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
                          IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
                          IndexingParameters::use_bounded_syncmers);
 
+    // Find frequent kmers.
+    std::vector<gbwtgraph::Key64> frequent_kmers;
+    //TODO: maybe we want to add this too? I left it as the default
     if (minimizer_W) {
-        auto frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold,
-            IndexingParameters::space_efficient_counting
+        double checkpoint = gbwt::readTimer();
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            std::string algorithm = (IndexingParameters::space_efficient_counting ? "space-efficient" : "fast");
+            std::cerr << "[IndexRegistry]: Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
+        }
+        frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
+            gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold, IndexingParameters::space_efficient_counting
         );
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            std::cerr << "[IndexRegistry]: Found " << frequent_kmers.size() << " kmers with more than " << IndexingParameters::minimizer_downweight_threshold << " hits" << std::endl;
+        }
+        minimizers.add_frequent_kmers(frequent_kmers, IndexingParameters::long_read_minimizer_W_iterations);
     }
-
+    
     ZipCodeCollection oversized_zipcodes;
     hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
 
