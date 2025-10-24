@@ -36,7 +36,7 @@
 #include "../handle.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../zip_code.hpp"
-
+#include "../minimizer_index_helper.hpp"
 #include <gbwtgraph/index.h>
 
 using namespace vg;
@@ -123,39 +123,29 @@ void construct_minimizer_dispatch(
     bool use_syncmers,
     bool progress
 ) {
-    std::vector<gbwtgraph::Key64> frequent_kmers;
-    if (weighted) {
-        double checkpoint = gbwt::readTimer();
-        if (progress) {
-            std::string algorithm = (space_efficient_counting ? "space-efficient" : "fast");
-            std::cerr << "Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
-        }
-        if (hash_table_size == 0) {
-            hash_table_size = estimate_hash_table_size(*gbz, progress);
-        }
-        frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, IndexingParameters::short_read_minimizer_k, threshold, space_efficient_counting, hash_table_size
-        );
-        if (progress) {
-            double seconds = gbwt::readTimer() - start;
-            std::cerr << "Found " << frequent_kmers.size() << " kmers with more than " << threshold << " hits in " << seconds << " seconds" << std::endl;
-        }
-    }
-
     // Minimizer index.
     using IndexType = gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::PositionPayload<PayloadType>>;
     IndexType index(IndexingParameters::short_read_minimizer_k, 
         (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
         use_syncmers);
-
+    
     if (load_index.empty()) {
-        if (weighted && !frequent_kmers.empty()) {
-            index.add_frequent_kmers(frequent_kmers, iterations);
+        if (weighted) {
+            mi_helper::set_frequent_kmers<IndexType>(
+                gbz,
+                index,
+                index.k(),
+                threshold,
+                space_efficient_counting,
+                hash_table_size,
+                iterations,
+                progress
+            );
         }
     } else {
         load_minimizer(index, load_index, progress);
     }
-    
+
     // Distance index 
     std::unique_ptr<SnarlDistanceIndex> distance_index;
     if (!distance_name.empty()) {
@@ -166,132 +156,25 @@ void construct_minimizer_dispatch(
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
         distance_index->preload(true);
     }
-
-    // Zipcodes
-
-    //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
-    ZipCodeCollection oversized_zipcodes;
-
-    //Map node id to what gets stored in the payload - either the zipcode or index into oversized_zipcodes
-    hash_map<vg::id_t, PayloadType> node_id_to_payload;
-    node_id_to_payload.reserve(gbz->graph.max_node_id() - gbz->graph.min_node_id());
-
-    // Build the index.
-    if (progress) {
-        std::cerr << "Building MinimizerIndex with k = " << index.k();
-        if (index.uses_syncmers()) {
-            std::cerr << ", s = " << index.s();
-        } else {
-            std::cerr << ", w = " << index.w();
-        }
-        std::cerr << " using : " ;
-        if (std::is_same<PayloadType, gbwtgraph::Payload>::value) {
-            std::cerr << "Payload";
-        } else if (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
-            std::cerr << "PayloadXL";
-        } else {
-            std::cerr << "Unknown PayloadType";
-        }
-        std::cerr << std::endl;
-    }
-
-    if (distance_name.empty()) {
-        std::function<PayloadType(const pos_t&)> payload_lambda = 
-            [](const pos_t& pos) -> PayloadType {
-                if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
-                    return {0, 0, 0};
-                } else {
-                    return MIPayload::NO_CODE;
-                }
-            };
-
-        gbwtgraph::index_haplotypes(gbz->graph, index, payload_lambda);
-    } else {
-        std::function<PayloadType(const pos_t&)> payload_lambda = 
-            [&](const pos_t& pos) -> PayloadType {
-                
-                PayloadType payload = PayloadType::default_payload();
-                #pragma omp critical 
-                {
-                //If we've already seen this node before, then return the saved payload
-                if (node_id_to_payload.count(id(pos))) {
-                    payload =  node_id_to_payload[id(pos)];
-                }
-                }
-                if (payload != PayloadType::default_payload()) {
-                    return payload;
-                }
-
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(*distance_index, pos);
-                gbwtgraph::Payload from_zc = zipcode.get_payload_from_zip();
-                
-                if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
-                    payload = PayloadType::from_payload(from_zc);
-                } else {
-                    payload = from_zc;
-                }
-
-                if (payload != PayloadType::default_payload()) {
-                    #pragma omp critical 
-                    {
-                    node_id_to_payload.emplace(id(pos), payload);
-                    }
-                    return payload;
-                } else if (!zipcode_name.empty()) {
-                    //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
-                    //And remember the zipcode
-
-                    //Fill in the decoder to be saved too
-                    zipcode.fill_in_full_decoder();
-                    
-                    #pragma omp critical 
-                    {
-                    oversized_zipcodes.emplace_back(zipcode);
-                    size_t zip_index = oversized_zipcodes.size() - 1;
-                    payload= {0, zip_index};
-                    node_id_to_payload.emplace(id(pos), payload);
-                    }
-                    return payload;
-                } else {
-                    //If the zipcode is too big and we don't have a file to save the big zipcodes
-                    #pragma omp critical 
-                    {
-                    payload = PayloadType::default_payload();
-                    node_id_to_payload.emplace(id(pos), payload);
-                    }
-                    return payload;
-                }
-            };
-        gbwtgraph::index_haplotypes(gbz->graph, index, payload_lambda);
-    }
-
-    // Index statistics.
-    if (progress) {
-        std::cerr << index.size() << " keys (" << index.unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index.number_of_values() << std::endl;
-        std::cerr << "Load factor: " << index.load_factor() << std::endl;
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
-    }
-
-    // Serialize the index.
-    save_minimizer(index, output_name);
-
-    //If using it, write the larger zipcodes to a file
-    if (!zipcode_name.empty()) { 
-        ofstream zip_out (zipcode_name);
-        oversized_zipcodes.serialize(zip_out);
-        zip_out.close();
-
-    }
-
-
-    if (progress) {
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "Time usage: " << seconds << " seconds" << std::endl;
-        std::cerr << "Memory usage: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-    }
+    bool use_distance_index = (distance_name.empty() ? false : true);
+    bool use_zipcode_index = (zipcode_name.empty() ? false : true);
+    mi_helper::build_minimizer_index<IndexType, PayloadType>(
+        gbz,
+        index,
+        *distance_index,
+        distance_name,
+        zipcode_name,
+        output_name,
+        hash_table_size,
+        threshold,
+        iterations,
+        space_efficient_counting,
+        weighted,
+        use_syncmers,
+        use_distance_index,
+        use_zipcode_index,
+        progress
+    );
 }
 
 int main_minimizer(int argc, char** argv) {
