@@ -507,18 +507,17 @@ int execute_in_fork(const function<void(void)>& exec) {
 #endif
 }
 
-// Internal helper for constructing minimizer indexes with different payload types
-// PayloadType should be one of gbwtgraph::Payload, gbwtgraph::PayloadXL
-template<typename PayloadType>
-static std::vector<std::vector<std::string>>
-construct_minimizers_impl(const vector<const IndexFile*>& inputs,
-                              const IndexingPlan* plan,
-                              const IndexGroup& constructing,
-                              int minimizer_k, int minimizer_w, bool minimizer_W) {
-    
+// Actual implementation of minimizer index construction.
+std::vector<std::vector<std::string>>
+construct_minimizers_impl(
+    const vector<const IndexFile*>& inputs,
+    const IndexingPlan* plan,
+    const IndexGroup& constructing,
+    const MinimizerIndexParameters& params
+) {
     if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
-            cerr << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") << "payload type " << (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value ? "XL" : "Standard") << endl;
+            cerr << "\tuse parameters -k " << params.k << " -w " << params.w_or_s << (params.use_weighted_minimizers ? " -W " : "") << (params.with_paths ? " with paths" : "") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -544,68 +543,11 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     init_in(infile_dist, dist_filename);
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
 
-    using IndexType = gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::PositionPayload<PayloadType>>;
-    IndexType minimizers(minimizer_k,
-                         IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
-                         IndexingParameters::use_bounded_syncmers);
-
-    if (minimizer_W) {
-        auto frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold,
-            IndexingParameters::space_efficient_counting
-        );
-    }
-
     ZipCodeCollection oversized_zipcodes;
-    hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
+    gbwtgraph::DefaultMinimizerIndex minimizers = build_minimizer_index(
+        *gbz, distance_index.get(), &oversized_zipcodes, params
+    );
 
-    std::function<PayloadType(const pos_t&)> payload_lambda =
-    [&](const pos_t& pos) -> PayloadType {
-        ZipCode zip;
-        zip.fill_in_zipcode(*distance_index, pos);
-        auto payload = zip.get_payload_from_zip();
-
-        if constexpr (std::is_same<PayloadType, gbwtgraph::Payload>::value) {
-            if (payload != MIPayload::NO_CODE) {
-                return payload; // small payload
-            } else {
-                zip.fill_in_full_decoder();
-                size_t zip_index;
-                #pragma omp critical
-                {
-                    if (node_id_to_zipcode_index.count(id(pos))) {
-                        zip_index = node_id_to_zipcode_index.at(id(pos));
-                    } else {
-                        oversized_zipcodes.emplace_back(zip);
-                        zip_index = oversized_zipcodes.size() - 1;
-                        node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                    }
-                }
-                return {0, zip_index}; // extended encoding
-            }
-        } else if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
-            zip.fill_in_full_decoder();
-            size_t zip_index;
-            #pragma omp critical
-            {
-                if (node_id_to_zipcode_index.count(id(pos))) {
-                    zip_index = node_id_to_zipcode_index.at(id(pos));
-                } else {
-                    oversized_zipcodes.emplace_back(zip);
-                    zip_index = oversized_zipcodes.size() - 1;
-                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                }
-            }
-            return {0, zip_index, 0};
-        } else {
-            static_assert(
-                std::is_same<PayloadType, gbwtgraph::Payload>::value ||
-                std::is_same<PayloadType, gbwtgraph::PayloadXL>::value,
-                "PayloadType must be gbwtgraph::Payload or gbwtgraph::PayloadXL"
-            );
-        }
-    };
-    gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
     string output_name = plan->output_filepath(minimizer_output);
     save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
     output_name_minimizer.push_back(output_name);
@@ -4217,52 +4159,55 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // Minimizers Recipes
     ////////////////////////////////////
 
-
-    // meta-recipe for Minimizer indexing
-    auto construct_minimizers = [&]<typename PayloadT>(const vector<const IndexFile*>& inputs,
-        const IndexingPlan* plan,
-        const IndexGroup& constructing,
-        int minimizer_k, int minimizer_w, bool minimizer_W, bool use_payload_xl) {
-        if (use_payload_xl) {
-            return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing,
-                                                    minimizer_k, minimizer_w, minimizer_W);
-        } else {
-            return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing,
-                                                minimizer_k, minimizer_w, minimizer_W);
-        }
-    };
-
-    
-    // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
+    // TODO: We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    registry.register_recipe({"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k,
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
-    });
-    
-    registry.register_recipe({"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::short_read_minimizer_k, 
-                                    IndexingParameters::short_read_minimizer_w, IndexingParameters::short_read_minimizer_W);
+    registry.register_recipe(
+        {"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.k = IndexingParameters::long_read_minimizer_k;
+            params.w_or_s = IndexingParameters::long_read_minimizer_w;
+            params.with_paths = true;
+            params.use_weighted_minimizers = IndexingParameters::long_read_minimizer_W;
+            params.threshold = IndexingParameters::minimizer_downweight_threshold;
+            // TODO: The number of iterations is not in the parameters.
+            params.space_efficient_counting = IndexingParameters::space_efficient_counting;
+            params.progress = (IndexingParameters::verbosity == IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
+        }
+    );
+
+    registry.register_recipe(
+        {"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.k = IndexingParameters::short_read_minimizer_k;
+            params.w_or_s = IndexingParameters::short_read_minimizer_w;
+            params.with_paths = false;
+            params.use_weighted_minimizers = IndexingParameters::short_read_minimizer_W;
+            params.threshold = IndexingParameters::minimizer_downweight_threshold;
+            // TODO: The number of iterations is not in the parameters.
+            params.space_efficient_counting = IndexingParameters::space_efficient_counting;
+            params.progress = (IndexingParameters::verbosity == IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
     });
 
-    registry.register_recipe({"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
-    });
+    registry.register_recipe(
+        {"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.k = IndexingParameters::long_read_minimizer_k;
+            params.w_or_s = IndexingParameters::long_read_minimizer_w;
+            params.with_paths = false;
+            params.use_weighted_minimizers = IndexingParameters::long_read_minimizer_W;
+            params.threshold = IndexingParameters::minimizer_downweight_threshold;
+            // TODO: The number of iterations is not in the parameters.
+            params.space_efficient_counting = IndexingParameters::space_efficient_counting;
+            params.progress = (IndexingParameters::verbosity == IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
+        }
+    );
 
-    
     return registry;
 }
 
