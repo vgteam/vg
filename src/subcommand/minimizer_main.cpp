@@ -167,6 +167,11 @@ void help_minimizer(char** argv) {
 }
 
 MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
+    if (argc < 3) {
+        help_minimizer(argv);
+        std::exit(EXIT_FAILURE);
+    }
+
     constexpr int OPT_THRESHOLD = 1001;
     constexpr int OPT_ITERATIONS = 1002;
     constexpr int OPT_FAST_COUNTING = 1003;

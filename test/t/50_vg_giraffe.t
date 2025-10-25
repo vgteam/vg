@@ -14,7 +14,8 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min -z x.shortread.zipcodes x.xg
+vg gbwt -x x.xg -g xx.gbz --gbz-format x.gbwt
+vg minimizer -k 29 -w 11 -d x.dist -o x.shortread.withzip.min -z x.shortread.zipcodes xx.gbz
 
 
 # For later tests we expect this to make x.giraffe.gbz so we can't have an x.gbz around.
@@ -80,7 +81,8 @@ rm -f mapped-nobonus.gam
 
 is "$(vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq -o BAM --add-graph-aln | samtools view | grep "GR:Z:" | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with graph alignment"
 
-vg minimizer -k 29 -b -s 18 -d x.dist -g x.gbwt -o x.sync x.xg
+vg minimizer -k 29 -c -s 18 -d x.dist -o x.sync xx.gbz
+rm -f xx.gbz # not needed anymore
 
 vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"

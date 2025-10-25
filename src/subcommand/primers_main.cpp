@@ -208,7 +208,11 @@ int main_primers(int argc, char** argv) {
     graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_path);
     ifstream file_handle(primers_path);
     MinimizerMapper* giraffe_mapper = nullptr;
-    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
+
+    // Load the minimizer index if provided. Because we dereference the pointer later,
+    // the compiler is allowed to assume that it is not null. It may therefore load
+    // the index even if the filename is empty and the condition should be false.
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index(new gbwtgraph::DefaultMinimizerIndex(0));
     ZipCodeCollection zipcodes;
     if (!min_path.empty()) {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(min_path);
@@ -218,6 +222,7 @@ int main_primers(int argc, char** argv) {
             zip_in.close();
         }
     }
+
     //The minimizer mapper needs to be declared here to keep it around in memory
     //So sometimes make it with empty indexes but only keep the pointer to it if we had minimizers
     MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index, &zipcodes);
