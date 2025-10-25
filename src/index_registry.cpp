@@ -516,8 +516,9 @@ construct_minimizers_impl(
     const MinimizerIndexParameters& params
 ) {
     if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
-            cerr << "\tuse parameters -k " << params.k << " -w " << params.w_or_s << (params.use_weighted_minimizers ? " -W " : "") << (params.with_paths ? " with paths" : "") << endl;
+        cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
+        cerr << "    using parameters -k " << params.k << " -w " << params.w_or_s << (params.use_weighted_minimizers ? " -W " : "")
+            << (params.paths_in_payload ? " with paths" : "") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -4165,14 +4166,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         {"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
-            params.k = IndexingParameters::long_read_minimizer_k;
-            params.w_or_s = IndexingParameters::long_read_minimizer_w;
-            params.with_paths = true;
-            params.use_weighted_minimizers = IndexingParameters::long_read_minimizer_W;
-            params.threshold = IndexingParameters::minimizer_downweight_threshold;
-            // TODO: The number of iterations is not in the parameters.
-            params.space_efficient_counting = IndexingParameters::space_efficient_counting;
-            params.progress = (IndexingParameters::verbosity == IndexingParameters::Debug);
+            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
+                .with_paths(true)
+                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
             return construct_minimizers_impl(inputs, plan, constructing, params);
         }
     );
@@ -4181,14 +4179,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         {"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
-            params.k = IndexingParameters::short_read_minimizer_k;
-            params.w_or_s = IndexingParameters::short_read_minimizer_w;
-            params.with_paths = false;
-            params.use_weighted_minimizers = IndexingParameters::short_read_minimizer_W;
-            params.threshold = IndexingParameters::minimizer_downweight_threshold;
-            // TODO: The number of iterations is not in the parameters.
-            params.space_efficient_counting = IndexingParameters::space_efficient_counting;
-            params.progress = (IndexingParameters::verbosity == IndexingParameters::Debug);
+            params.minimizers(IndexingParameters::short_read_minimizer_k, IndexingParameters::short_read_minimizer_w)
+                .with_paths(false)
+                .weighted(IndexingParameters::short_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
             return construct_minimizers_impl(inputs, plan, constructing, params);
     });
 
@@ -4196,14 +4191,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         {"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
-            params.k = IndexingParameters::long_read_minimizer_k;
-            params.w_or_s = IndexingParameters::long_read_minimizer_w;
-            params.with_paths = false;
-            params.use_weighted_minimizers = IndexingParameters::long_read_minimizer_W;
-            params.threshold = IndexingParameters::minimizer_downweight_threshold;
-            // TODO: The number of iterations is not in the parameters.
-            params.space_efficient_counting = IndexingParameters::space_efficient_counting;
-            params.progress = (IndexingParameters::verbosity == IndexingParameters::Debug);
+            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
+                .with_paths(false)
+                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
             return construct_minimizers_impl(inputs, plan, constructing, params);
         }
     );

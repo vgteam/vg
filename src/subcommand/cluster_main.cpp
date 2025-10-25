@@ -528,7 +528,7 @@ int main_cluster(int argc, char** argv) {
                         cur_minimizer = m.value.key.decode(m.length);
                         if (minimizer_hit_counts.find(cur_minimizer) == minimizer_hit_counts.end()) {
                             // If we haven't seen this minimizer before, initialize its count
-                            minimizer_hit_counts[cur_minimizer] = make_pair(1, m.hits);
+                            minimizer_hit_counts[cur_minimizer] = make_pair(1, m.hits());
                         }
                         minimizer_hit_counts[cur_minimizer].first++;
                     }

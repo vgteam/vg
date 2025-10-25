@@ -14,8 +14,6 @@ using namespace std;
 
 void register_loader_saver_minimizer();
 
-void register_loader_saver_minimizer_paths();
-
 }
 
 }

@@ -207,7 +207,7 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
         switch (c)
         {
         case 'E':
-            this->params.with_paths = true;
+            this->params.paths_in_payload = true;
             std::cerr << "[vg minimizer] warning: --rec-mode is still under development" << std::endl;
             break;
         case 'd':

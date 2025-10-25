@@ -40,6 +40,8 @@ struct MIPayload;
 /// It should be unique and hashable
 typedef std::string net_identifier_t;
 
+// Forward declaration.
+class ZipCodeCollection;
 
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
  * A zip code will contain all the information necessary to compute the minimum distance between two 
@@ -66,12 +68,25 @@ class ZipCode {
     public:
 
         //Fill in an empty zipcode given a position
-        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder = true);
+        void fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder = true);
 
-        //Fill in an empty zipcode using the information that was stored in a payload
         using code_type = gbwtgraph::KmerEncoding::code_type;
         typedef std::pair<code_type, code_type> payload_type;
+
+        //Fill in an empty zipcode using the information that was stored in a payload
         void fill_in_zipcode_from_payload(const code_type* payload);
+
+        // Fill in an empty zipcode from a payload value.
+        void fill_in_zipcode_from_payload(payload_type payload) {
+            fill_in_zipcode_from_payload(reinterpret_cast<const code_type*>(&payload));
+        }
+ 
+        // Fill in an empty zipcode from:
+        // 1. The minimizer payload, if it is non-empty.
+        // 2. The oversized zipcode list, if it is provided and the payload indicates an oversized zipcode.
+        // 3. From the position in the graph, if neither of the above provided a zipcode.
+        void fill_in_zipcode(const code_type* payload, const ZipCodeCollection* oversized_zipcodes,
+                             const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
 
         //Get the exact minimum distance between two positions and their zip codes
         //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance

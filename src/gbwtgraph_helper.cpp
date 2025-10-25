@@ -14,6 +14,7 @@ constexpr size_t MinimizerIndexParameters::DEFAULT_ITERATIONS;
 constexpr size_t MinimizerIndexParameters::MAX_ITERATIONS;
 constexpr size_t MinimizerIndexParameters::HASH_TABLE_MIN_WIDTH;
 constexpr size_t MinimizerIndexParameters::HASH_TABLE_MAX_WIDTH;
+constexpr size_t MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE;
 
 //------------------------------------------------------------------------------
 
@@ -353,7 +354,7 @@ void cache_payloads(
         nid_t node_id = gbz.graph.get_id(handle);
         ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
-        zipcode.fill_in_zipcode(distance_index, pos);
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos);
         payload_type payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.
@@ -391,8 +392,8 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     // Determine the payload size.
     size_t payload_size = 0;
     if (distance_index != nullptr) {
-        payload_size = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type);
-        if (params.with_paths) {
+        payload_size = MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE;
+        if (params.paths_in_payload) {
             payload_size++;
         }
     }
@@ -432,7 +433,7 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
                 return reinterpret_cast<const code_type*>(&MIPayload::NO_CODE);
             }
         };
-        if (params.with_paths) {
+        if (params.paths_in_payload) {
             gbwtgraph::index_haplotypes_with_paths(gbz.graph, index, get_payload);
         } else {
             gbwtgraph::index_haplotypes(gbz.graph, index, get_payload);

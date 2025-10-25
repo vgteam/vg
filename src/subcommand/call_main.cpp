@@ -664,7 +664,7 @@ int main_call(int argc, char** argv) {
     
     // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
-    algorithms::BinnedDepthIndex depth_index;
+    vg::algorithms::BinnedDepthIndex depth_index;
 
     unique_ptr<Packer> packer;
     unique_ptr<TraversalSupportFinder> support_finder;
@@ -696,7 +696,7 @@ int main_call(int argc, char** argv) {
         if (ratio_caller == false) {
             // Make a depth index
             if (show_progress) cerr << "[vg call]: Computing coverage statistics" << endl;
-            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
+            depth_index = vg::algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
                                                                 depth_scale_fac, 0, true, true);
             if (show_progress) cerr << "[vg call]: Computed coverage statistics" << endl;
             // Make a new-stype probablistic caller

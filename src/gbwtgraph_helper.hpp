@@ -48,6 +48,7 @@ void load_gbz(gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::stri
 void load_gbz(gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
 
 // FIXME: option to check payload type
+// FIXME: or maybe a standalone check, as we cannot tell vg::io::VPKG the expected type of payload
 /// Load a minimizer index from the file.
 void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
 
@@ -85,6 +86,9 @@ struct MinimizerIndexParameters {
     /// Upper bound for `hash_table_width`.
     constexpr static size_t HASH_TABLE_MAX_WIDTH = 36;
 
+    /// Number of words used for a zipcode payload.
+    constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type); 
+
     /// k-mer length.
     size_t k = gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH;
 
@@ -96,7 +100,7 @@ struct MinimizerIndexParameters {
 
     /// Whether to include path information in the payload (for recombination-aware mapping).
     /// Ignored if there is no zipcode payload.
-    bool with_paths = false;
+    bool paths_in_payload = false;
 
     /// Whether to use weighted minimizers (cannot be used with syncmers).
     bool use_weighted_minimizers = false;
@@ -115,6 +119,52 @@ struct MinimizerIndexParameters {
 
     /// Print progress information during construction.
     bool progress = false;
+
+    /// Sets minimizer parameters.
+    MinimizerIndexParameters& minimizers(size_t k, size_t w) {
+        this->k = k;
+        this->w_or_s = w;
+        this->use_syncmers = false;
+        return *this;
+    }
+
+    /// Sets syncmer parameters.
+    MinimizerIndexParameters& syncmers(size_t k, size_t s) {
+        this->k = k;
+        this->w_or_s = s;
+        this->use_syncmers = true;
+        return *this;
+    }
+
+    /// Includes path information in the payload.
+    MinimizerIndexParameters& with_paths(bool paths_in_payload = true) {
+        this->paths_in_payload = paths_in_payload;
+        return *this;
+    }
+
+    /// Sets weighted minimizer parameters.
+    MinimizerIndexParameters& weighted(
+        bool use_weighted_minimizers,
+        size_t threshold = DEFAULT_THRESHOLD, size_t iterations = DEFAULT_ITERATIONS
+    ) {
+        this->use_weighted_minimizers = use_weighted_minimizers;
+        this->threshold = threshold;
+        this->iterations = iterations;
+        return *this;
+    }
+
+    /// Sets k-mer counting parameters.
+    MinimizerIndexParameters& kmer_counting(bool space_efficient_counting = false, size_t hash_table_width = 0) {
+        this->space_efficient_counting = space_efficient_counting;
+        this->hash_table_width = hash_table_width;
+        return *this;
+    }
+
+    /// Sets progress printing.
+    MinimizerIndexParameters& verbose(bool progress = true) {
+        this->progress = progress;
+        return *this;
+    }
 
     /// Returns an error message if the parameters are invalid.
     std::string validate() const;

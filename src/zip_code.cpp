@@ -8,7 +8,7 @@ using namespace std;
 // Make sure that the default / empty payload exists as a value that can be pointed to.
 constexpr std::pair<gbwtgraph::KmerEncoding::code_type, gbwtgraph::KmerEncoding::code_type> MIPayload::NO_CODE;
 
-void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
+void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
 
     std::vector<net_handle_t> ancestors;
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
@@ -148,6 +148,29 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
     }
     if (fill_in_decoder) {
         fill_in_full_decoder();
+    }
+}
+
+void ZipCode::fill_in_zipcode(
+    const code_type* payload,
+    const ZipCodeCollection* oversized_zipcodes,
+    const SnarlDistanceIndex& distance_index, const vg::pos_t& pos
+) {
+    if (payload == nullptr || std::make_pair(payload[0], payload[1]) == MIPayload::NO_CODE) {
+        // No payload available.
+        this->fill_in_zipcode_from_pos(distance_index, pos);
+    } else if (payload[0] == 0) {
+        // This is an oversized zipcode.
+        if (oversized_zipcodes != nullptr && !oversized_zipcodes->empty()) {
+            // Take the value from the oversized zipcode collection.
+            *this = oversized_zipcodes->at(payload[1]);
+        } else {
+            // Fall back to position-based filling.
+            this->fill_in_zipcode_from_pos(distance_index, pos);
+        }
+    } else {
+        // Decode the provided payload.
+        this->fill_in_zipcode_from_payload(payload);
     }
 }
 
