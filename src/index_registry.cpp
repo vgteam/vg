@@ -571,11 +571,9 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     mi_helper::build_minimizer_index<IndexType, PayloadType>(
         gbz.get(),
         minimizers,
-        *distance_index,
+        distance_index.get(),
         zipcodes_output_name,
         minimizers_output_name,
-        true,
-        true,
         IndexingParameters::verbosity != IndexingParameters::None
     );
     output_name_minimizers.push_back(minimizers_output_name);

@@ -155,16 +155,12 @@ void construct_minimizer_dispatch(
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
         distance_index->preload(true);
     }
-    bool use_distance_index = (distance_name.empty() ? false : true);
-    bool use_zipcode_index = (zipcode_name.empty() ? false : true);
     mi_helper::build_minimizer_index<IndexType, PayloadType>(
         gbz,
         index,
-        *distance_index,
+        distance_index.get(),
         zipcode_name,
         output_name,
-        use_distance_index,
-        use_zipcode_index,
         progress
     );
 }
