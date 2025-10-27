@@ -2,7 +2,6 @@
 minimizer_index_helper.hpp
 Shared logic for minimizer index construction.
 */
-
 #pragma once
 #include <fstream>
 #include <functional>
@@ -22,7 +21,7 @@ namespace mi_helper {
 using namespace std;
 using namespace vg;
 
-size_t trailing_zeros(size_t value) {
+inline size_t trailing_zeros(size_t value) {
   size_t result = 0;
   if (value == 0) {
     return result;
@@ -34,7 +33,8 @@ size_t trailing_zeros(size_t value) {
   return result;
 }
 
-size_t estimate_hash_table_size(const gbwtgraph::GBZ &gbz, bool progress) {
+inline size_t estimate_hash_table_size(const gbwtgraph::GBZ &gbz,
+                                       bool progress) {
   if (progress) {
     std::cerr << "Estimating genome size" << std::endl;
   }
@@ -107,14 +107,10 @@ void set_frequent_kmers(const gbwtgraph::GBZ *gbz, IndexType &index, int k,
 template <typename IndexType, typename PayloadType>
 void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
                            const bdsg::SnarlDistanceIndex &distance_index,
-                           const std::string &distance_name,
                            const std::string &zipcode_name,
                            const std::string &output_name,
-                           size_t hash_table_size, size_t threshold,
-                           size_t iterations, bool space_efficient_counting,
-                           bool weighted, bool use_syncmers,
-                           bool use_distance_index, bool use_zipcode_index,
-                           bool progress) {
+                           bool use_distance_index,
+                           bool use_zipcode_index, bool progress) {
 
   // Zipcodes
   // oversized_zipcodes may be stored alongside the minimizer index in the file
@@ -123,7 +119,7 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
 
   // Map node id to what gets stored in the payload - either the zipcode or
   // index into oversized_zipcodes
-  hash_map<vg::id_t, PayloadType> node_id_to_payload;
+  vg::hash_map<vg::id_t, PayloadType> node_id_to_payload;
   node_id_to_payload.reserve(gbz->graph.max_node_id() -
                              gbz->graph.min_node_id());
 

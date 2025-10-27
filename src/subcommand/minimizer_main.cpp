@@ -55,8 +55,6 @@ int get_default_threads() {
     return std::min(omp_get_max_threads(), DEFAULT_MAX_THREADS);
 }
 
-size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress);
-
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer [options] -d graph.dist -o graph.min graph" << std::endl;
     std::cerr << std::endl;
@@ -109,7 +107,7 @@ void help_minimizer(char** argv) {
 
 template<typename PayloadType>
 void construct_minimizer_dispatch(
-    const gbwtgraph::GBZ* gbz,
+    gbwtgraph::GBZ* gbz,
     const std::string& distance_name,
     const std::string& load_index,
     const std::string& zipcode_name,
@@ -129,6 +127,7 @@ void construct_minimizer_dispatch(
         (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
         use_syncmers);
     
+    // find frequent kmers and set them in the index
     if (load_index.empty()) {
         if (weighted) {
             mi_helper::set_frequent_kmers<IndexType>(
@@ -162,15 +161,8 @@ void construct_minimizer_dispatch(
         gbz,
         index,
         *distance_index,
-        distance_name,
         zipcode_name,
         output_name,
-        hash_table_size,
-        threshold,
-        iterations,
-        space_efficient_counting,
-        weighted,
-        use_syncmers,
         use_distance_index,
         use_zipcode_index,
         progress
@@ -407,59 +399,6 @@ int main_minimizer(int argc, char** argv) {
 
     return 0;
 }
-
-//------------------------------------------------------------------------------
-
-size_t trailing_zeros(size_t value) {
-    size_t result = 0;
-    if (value == 0) {
-        return result;
-    }
-    while ((value & 1) == 0) {
-        value >>= 1;
-        result++;
-    }
-    return result;
-}
-
-size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
-    if (progress) {
-        std::cerr << "Estimating genome size" << std::endl;
-    }
-    size_t genome_size = 0;
-
-    if (gbz.graph.get_path_count() > 0) {
-        gbz.graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-            gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
-                handle_t handle = gbz.graph.get_handle_of_step(step_handle);
-                genome_size += gbz.graph.get_length(handle);
-            });
-        });
-        if (progress) {
-            std::cerr << "Estimated size based on reference / generic paths: " << genome_size << std::endl;
-        }
-    }
-
-    if (genome_size == 0) {
-        gbz.graph.for_each_handle([&](const handle_t& handle) {
-            genome_size += gbz.graph.get_length(handle);
-        });
-        if (progress) {
-            std::cerr << "Estimated size based on total sequence length: " << genome_size << std::endl;
-        }
-    }
-
-    // Genome size / 2 should be a reasonably tight upper bound for the number of kmers
-    // with any specific base in the middle position.
-    size_t hash_table_size = gbwtgraph::KmerIndex<gbwtgraph::Key64, gbwtgraph::Position>::minimum_size(genome_size / 2);
-    if (progress) {
-        std::cerr << "Estimated hash table size: 2^" << trailing_zeros(hash_table_size) << std::endl; 
-    }
-
-    return hash_table_size;
-}
-
-//------------------------------------------------------------------------------
 
 // Register subcommand
 static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index",
