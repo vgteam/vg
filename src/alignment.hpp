@@ -103,7 +103,9 @@ void cigar_mapping(const bam1_t *b, Mapping& mapping);
 
 /// Convert a BAM record to an Alignment.
 /// May throw AlignmentEmbeddingError if the BAM record is inconsistent with
-/// the provided graph and set_missing_contig_to_unmapped is false.
+/// the provided graph.
+/// Unless set_missing_contig_to_unmapped is true, will also error if a read
+/// is aligned to a contig which is not in the graph.
 /// If true, then those reads are treated as unmapped instead.
 Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
