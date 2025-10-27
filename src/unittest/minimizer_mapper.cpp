@@ -92,7 +92,7 @@ TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mappi
         gbwtgraph::GBWTGraph gbwt_graph;
         gbwt::GBWT gbwt;
         gbwt_graph.set_gbwt(gbwt);
-        gbwtgraph::DefaultMinimizerIndex minimizer_index(2); // FIXME: We may have to add payload tag here.
+        gbwtgraph::DefaultMinimizerIndex minimizer_index(2);
         SnarlDistanceIndex distance_index;
         PathPositionHandleGraph* handle_graph;
         TestMinimizerMapper test_mapper (gbwt_graph, minimizer_index, &distance_index, handle_graph);
@@ -1066,7 +1066,7 @@ TEST_CASE("MinimizerMapper can fix up alignments with deletions on the ends", "[
     gbwtgraph::GBWTGraph gbwt_graph;
     gbwt::GBWT gbwt;
     gbwt_graph.set_gbwt(gbwt);
-    gbwtgraph::DefaultMinimizerIndex minimizer_index(2); // FIXME: we may need to set the payload tag
+    gbwtgraph::DefaultMinimizerIndex minimizer_index(2);
     SnarlDistanceIndex distance_index;
     PathPositionHandleGraph* handle_graph;
     TestMinimizerMapper test_mapper (gbwt_graph, minimizer_index, &distance_index, handle_graph);
