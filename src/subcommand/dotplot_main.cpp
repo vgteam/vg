@@ -24,8 +24,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg dotplot";
-
 void help_dotplot(char** argv) {
     cerr << "usage: " << argv[0] << " dotplot [options]" << endl
          << "options:" << endl
@@ -35,6 +33,7 @@ void help_dotplot(char** argv) {
 }
 
 int main_dotplot(int argc, char** argv) {
+    Logger logger("vg dotplot");
 
     if (argc == 2) {
         help_dotplot(argv);
@@ -65,7 +64,7 @@ int main_dotplot(int argc, char** argv) {
         {
 
         case 'x':
-            xg_file = require_exists(context, optarg);
+            xg_file = require_exists(logger, optarg);
             break;
 
         case 'h':
@@ -80,7 +79,7 @@ int main_dotplot(int argc, char** argv) {
     }
 
     if (xg_file.empty()) {
-        fatal_error(context) << "an XG index is required" << endl;
+        logger.error() << "an XG index is required" << endl;
     } else {
         unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
         bdsg::PathPositionOverlayHelper overlay_helper;

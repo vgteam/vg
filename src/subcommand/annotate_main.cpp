@@ -20,8 +20,6 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg annotate";
-
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl
          << "graph annotation options:" << endl
@@ -93,7 +91,8 @@ static unordered_set<const string*> find_overlapping(const vector<feature_t>& ra
     return to_return;
 }
 
-int main_annotate(int argc, char** argv) {
+int main_annotate(int argc, char** argv) { 
+    Logger logger("vg annotate");
     
     if (argc == 2) {
         help_annotate(argv);
@@ -146,19 +145,19 @@ int main_annotate(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_name = require_exists(context, optarg);
+            xg_name = require_exists(logger, optarg);
             break;
 
         case 'a':
-            gam_name = require_exists(context, optarg);
+            gam_name = require_exists(logger, optarg);
             break;
 
         case 'b':
-            bed_names.push_back(require_exists(context, optarg));
+            bed_names.push_back(require_exists(logger, optarg));
             break;
 
         case 'f':
-            gff_names.push_back(require_exists(context, optarg));
+            gff_names.push_back(require_exists(logger, optarg));
             break;
             
         case 'g':
@@ -170,7 +169,7 @@ int main_annotate(int argc, char** argv) {
             break;
                 
         case 's':
-            snarls_name = require_exists(context, optarg);
+            snarls_name = require_exists(logger, optarg);
             break;
 
         case 'p':
@@ -191,7 +190,7 @@ int main_annotate(int argc, char** argv) {
             break;
             
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'P':
@@ -216,22 +215,22 @@ int main_annotate(int argc, char** argv) {
     if (!xg_name.empty()) {
         // Read in the XG index
         if (show_progress) {
-            basic_log(context) << "Load graph" << std::endl;
+            logger.info() << "Load graph" << std::endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         if (show_progress) {
-            basic_log(context) << "Apply overlay" << std::endl;
+            logger.info() << "Apply overlay" << std::endl;
         }
         xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
-        fatal_error(context) << "no XG index provided" << std::endl;
+        logger.error() << "no XG index provided" << std::endl;
     }
     
     
     unique_ptr<SnarlManager> snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         if (show_progress) {
-            basic_log(context) << "Load snarls" << std::endl;
+            logger.info() << "Load snarls" << std::endl;
         }
         get_input_file(snarls_name, [&](istream& snarl_stream) {
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
@@ -248,7 +247,7 @@ int main_annotate(int argc, char** argv) {
             // TODO: refactor this into novelty annotation and annotation-to-table conversion.
             if (add_positions || !bed_names.empty()) {
                 // We can't make the TSV and also annotate the reads
-                fatal_error(context) << "Cannot annotate reads while computing novelty table" << endl;
+                logger.error() << "Cannot annotate reads while computing novelty table" << endl;
             }
             
             cout << "name\tlength.bp\tunaligned.bp\tknown.nodes\tknown.bp\tnovel.nodes\tnovel.bp" << endl;
@@ -405,14 +404,14 @@ int main_annotate(int argc, char** argv) {
         // Annotating the graph. We must do something.
         if (bed_names.empty() && gff_names.empty()) {
             // We weren't asked to do anything.
-            fatal_error(context) << "only GAM, BED, or GFF3/GTF annotation is implemented" << endl;
+            logger.error() << "only GAM, BED, or GFF3/GTF annotation is implemented" << endl;
         }
     
         if (output_ggff) {
             
             if (!bed_names.empty()) {
-                fatal_error(context) << "BED conversion to GGFF is not currently supported. "
-                                     << "Convert to GFF3 first." << endl;
+                logger.error() << "BED conversion to GGFF is not currently supported. "
+                               << "Convert to GFF3 first." << endl;
             }
             
             // define a function that converts to GGFF

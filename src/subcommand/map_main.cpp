@@ -15,8 +15,6 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg map";
-
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] -d idxbase -f in1.fq [-f in2.fq] >aln.gam" << endl
          << "Align reads to a graph." << endl
@@ -152,6 +150,7 @@ void help_map(char** argv) {
 }
 
 int main_map(int argc, char** argv) {
+    Logger logger("vg map");
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
@@ -348,21 +347,21 @@ int main_map(int argc, char** argv) {
 
         case 'd':
             db_name = optarg;
-            require_exists(context, db_name + ".xg");
-            require_exists(context, db_name + gcsa::GCSA::EXTENSION);
+            require_exists(logger, db_name + ".xg");
+            require_exists(logger, db_name + gcsa::GCSA::EXTENSION);
             // GBWT is optional
             break;
 
         case 'x':
-            xg_name = require_exists(context, optarg);
+            xg_name = require_exists(logger, optarg);
             break;
 
         case 'g':
-            gcsa_name = require_exists(context, optarg);
+            gcsa_name = require_exists(logger, optarg);
             break;
             
         case '1':
-            gbwt_name = require_exists(context, optarg);
+            gbwt_name = require_exists(logger, optarg);
             break;
 
         case 'V':
@@ -419,7 +418,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'T':
-            read_file = require_exists(context, optarg);
+            read_file = require_exists(logger, optarg);
             break;
 
         case 'R':
@@ -431,7 +430,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'b':
-            hts_file = require_exists(context, optarg);
+            hts_file = require_exists(logger, optarg);
             break;
 
         case 'K':
@@ -443,11 +442,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'f':
-            assign_fastq_files(context, optarg, fastq1, fastq2);
+            assign_fastq_files(logger, optarg, fastq1, fastq2);
             break;
 
         case 'F':
-            fasta_file = require_exists(context, optarg);
+            fasta_file = require_exists(logger, optarg);
             break;
 
         case 'i':
@@ -455,7 +454,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'D':
@@ -479,7 +478,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'G':
-            gam_input = require_exists(context, optarg);
+            gam_input = require_exists(logger, optarg);
             break;
 
         case 'j':
@@ -548,7 +547,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = require_exists(context, optarg);
+            matrix_file_name = require_exists(logger, optarg);
             break;
 
         case 'o':
@@ -583,12 +582,12 @@ int main_map(int argc, char** argv) {
                 c = toupper(c);
             }
             if (output_format != "SAM" && output_format != "BAM" && output_format != "CRAM") {
-                fatal_error(context) << "illegal surjection type " << output_format << endl;
+                logger.error() << "illegal surjection type " << output_format << endl;
             }
             break;
             
         case OPT_REF_PATHS:
-            ref_paths_name = require_exists(context, optarg);
+            ref_paths_name = require_exists(logger, optarg);
             break;
 
         case OPT_REF_NAME:
@@ -611,7 +610,7 @@ int main_map(int argc, char** argv) {
                 convert(parts[3], fragment_orientation);
                 convert(parts[4], fragment_direction);
             } else {
-                fatal_error(context) << "expected five :-delimited numbers to --fragment" << endl;
+                logger.error() << "expected five :-delimited numbers to --fragment" << endl;
             }
         }
         break;
@@ -663,7 +662,7 @@ int main_map(int argc, char** argv) {
 
 
         default:
-            fatal_error(context) << "Unimplemented option " << (char) c << endl;
+            logger.error() << "Unimplemented option " << (char) c << endl;
         }
     }
 
@@ -671,23 +670,23 @@ int main_map(int argc, char** argv) {
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
 
     if (!ref_paths_name.empty() && !hts_output) {
-        warning(context) << "Reference path file (--ref-paths) is only used when output format "
-                         << "(--surject-to) is SAM, BAM, or CRAM." << endl;
+        logger.warn() << "Reference path file (--ref-paths) is only used when output format "
+                      << "(--surject-to) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
     if (!reference_assembly_names.empty() && !hts_output) {
-        warning(context) << "Reference assembly names (--ref-name) are only used when output format "
-                         << "(--surject-to) is SAM, BAM, or CRAM." << endl;
+        logger.warn() << "Reference assembly names (--ref-name) are only used when output format "
+                      << "(--surject-to) is SAM, BAM, or CRAM." << endl;
         reference_assembly_names.clear();
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty()
         && gam_input.empty() && fasta_file.empty()) {
-        fatal_error(context) << "A sequence or read file is required when mapping." << endl;
+        logger.error() << "A sequence or read file is required when mapping." << endl;
     }
 
     if (!qual.empty() && (seq.length() != qual.length())) {
-        fatal_error(context) << "Sequence and base quality string must be the same length." << endl;
+        logger.error() << "Sequence and base quality string must be the same length." << endl;
     }
 
     if (qual_adjust_alignments &&
@@ -695,7 +694,7 @@ int main_map(int argc, char** argv) {
          || (!seq.empty() && qual.empty()) // can't provide sequence without quality
          || !read_file.empty()))           // can't provide sequence list without qualities
     {
-        fatal_error(context) << "Quality adjusted alignments require base quality scores for all sequences." << endl;
+        logger.error() << "Quality adjusted alignments require base quality scores for all sequences." << endl;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
     
@@ -745,10 +744,8 @@ int main_map(int argc, char** argv) {
     
     if (!xg_name.empty()) {
         // We have an XG index!
-        // TODO: tell when the user asked for an XG vs. when we guessed one,
-        // and error when the user asked for one and we can't find it.
         if (debug) {
-            basic_log(context) << "Loading XG index " << xg_name << "..." << endl;
+            logger.info() << "Loading XG index " << xg_name << "..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
@@ -758,7 +755,7 @@ int main_map(int argc, char** argv) {
     if (gcsa_stream) {
         // We have a GCSA index too!
         if (debug) {
-            basic_log(context) << "Loading GCSA2 index " << gcsa_name << "..." << endl;
+            logger.info() << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
         gcsa = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
@@ -767,7 +764,7 @@ int main_map(int argc, char** argv) {
     ifstream lcp_stream(lcp_name);
     if (lcp_stream) {
         if (debug) {
-            basic_log(context) << "Loading LCP index " << lcp_name << "..." << endl;
+            logger.info() << "Loading LCP index " << lcp_name << "..." << endl;
         }
         lcp = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -776,7 +773,7 @@ int main_map(int argc, char** argv) {
     if (gbwt_stream) {
         // We have a GBWT index too!
         if (debug) {
-            basic_log(context) << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
+            logger.info() << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
         
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -860,9 +857,9 @@ int main_map(int argc, char** argv) {
         m->min_cluster_length = min_cluster_length;
         m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
         if (debug && i == 0) {
-            basic_log(context) << "min_mem_length = " << m->min_mem_length
-                               << ", mem_reseed_length = " << m->mem_reseed_length
-                               << ", min_cluster_length = " << m->min_cluster_length << endl;
+            logger.info() << "min_mem_length = " << m->min_mem_length
+                          << ", mem_reseed_length = " << m->mem_reseed_length
+                          << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = true; // This used to be an option, but no more
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
@@ -1301,7 +1298,7 @@ int main_map(int argc, char** argv) {
             // we've calculated our fragment size, so print it and bail out
             cout << mapper[0]->frag_stats.fragment_model_str() << endl;
         } else {
-            fatal_error(context) << "Could not calculate fragment model." << endl;
+            logger.error() << "Could not calculate fragment model." << endl;
         }
     }
 
@@ -1321,10 +1318,10 @@ int main_map(int argc, char** argv) {
         }
     
         double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
-        basic_log(context) << "Index load time: " << index_load_seconds.count() << endl;
-        basic_log(context) << "Mapped " << total_reads_mapped << " reads" << endl;
-        basic_log(context) << "Mapping speed: " << reads_per_second_per_thread
-                           << " reads per second per thread" << endl; 
+        logger.info() << "Index load time: " << index_load_seconds.count() << endl;
+        logger.info() << "Mapped " << total_reads_mapped << " reads" << endl;
+        logger.info() << "Mapping speed: " << reads_per_second_per_thread
+                      << " reads per second per thread" << endl; 
     }
     
     cout.flush();

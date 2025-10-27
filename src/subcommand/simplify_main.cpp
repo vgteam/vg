@@ -21,8 +21,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg simplify";
-
 void help_simplify(char** argv) {
     cerr << "usage: " << argv[0] << " simplify [options] old.vg >new.vg" << endl
          << "general options:" << endl
@@ -52,6 +50,7 @@ void help_simplify(char** argv) {
 }
 
 int main_simplify(int argc, char** argv) {
+    Logger logger("vg simplify");
 
     if (argc == 2) {
         help_simplify(argv);
@@ -122,15 +121,15 @@ int main_simplify(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
             
         case 'b':
-            bed_in_filename = require_exists(context, optarg);
+            bed_in_filename = require_exists(logger, optarg);
             break;
         
         case 'B':
-            bed_out_filename = ensure_writable(context, optarg);
+            bed_out_filename = ensure_writable(logger, optarg);
             break;
 
         case 'm':
@@ -154,7 +153,7 @@ int main_simplify(int argc, char** argv) {
             break;
 
         case 'v':
-            vcf_filename = require_exists(context, optarg);
+            vcf_filename = require_exists(logger, optarg);
             break;
 
         case 'f':
@@ -181,26 +180,26 @@ int main_simplify(int argc, char** argv) {
     // Do preliminary options checks
     if (!bed_out_filename.empty() && bed_in_filename.empty()) {
         // Don't allow writing out a BED without reading one
-        fatal_error(context) << "Cannot output a BED (-B) unless a BED is read in first (-b)" << endl;
+        logger.error() << "Cannot output a BED (-B) unless a BED is read in first (-b)" << endl;
     }
     
     if (algorithm != "small" && !ref_path_prefix.empty()) {
-        fatal_error(context) << "Path simplification (-P) can only be used with -a small" << endl;
+        logger.error() << "Path simplification (-P) can only be used with -a small" << endl;
     }
 
     if (algorithm == "small") {
         if (ref_path_prefix.empty()) {
-        warning(context) << "By not specifying a reference path (-P) you are using old logic which requires "
-                         << "protobuf input, and scales very poorly" << endl;
+        logger.warn() << "By not specifying a reference path (-P) you are using old logic which requires "
+                      << "protobuf input, and scales very poorly" << endl;
         }
         if (!vcf_filename.empty()) {
-            fatal_error(context) << "A VCF file (-v) cannot be used with small snarl simplification" << endl;
+            logger.error() << "A VCF file (-v) cannot be used with small snarl simplification" << endl;
         }
     }
 
     if (algorithm == "rare") {
         if (vcf_filename.empty()) {
-            fatal_error(context) << "The \"rare\" simplification algorithm requires a VCF (-v)" << endl;
+            logger.error() << "The \"rare\" simplification algorithm requires a VCF (-v)" << endl;
         }
     }
     
@@ -213,13 +212,13 @@ int main_simplify(int argc, char** argv) {
             try {
                 graph = unique_ptr<MutablePathDeletableHandleGraph>(new VG(in, show_progress));
             } catch(...) {
-                fatal_error(context) << "Error loading input Protobuf graph." << endl;
+                logger.error() << "Error loading input Protobuf graph." << endl;
             }
         }
     });
 
     if (graph == nullptr) {
-        fatal_error(context) << "Could not load graph." << endl;
+        logger.error() << "Could not load graph." << endl;
     }
 
     // This will hold BED features if we are tracking those
@@ -234,7 +233,7 @@ int main_simplify(int argc, char** argv) {
 
     if (!ref_path_prefix.empty()) {
         if (!vcf_filename.empty() || !bed_in_filename.empty() || !bed_out_filename.empty()) {
-            fatal_error(context) << "-v/-b/-B options cannot be used with path-based simplification (-P)" << endl;
+            logger.error()<< "-v/-b/-B options cannot be used with path-based simplification (-P)" << endl;
         }
 
         nid_t min_id = graph->min_node_id();
@@ -277,7 +276,7 @@ int main_simplify(int argc, char** argv) {
         variant_file.parseSamples = false; // Major speedup if there are many samples.
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            fatal_error(context) << "could not open " << vcf_filename << endl;
+            logger.error() << "could not open " << vcf_filename << endl;
         }
 
         // Buffer it
@@ -293,8 +292,8 @@ int main_simplify(int argc, char** argv) {
         // Run it
         simplifier.simplify();
     } else {
-        fatal_error(context) << "Unknown algorithm \""
-                             << algorithm << "\"; use \"small\" or \"rare\"." << endl;
+        logger.error() << "Unknown algorithm \"" 
+                       << algorithm << "\"; use \"small\" or \"rare\"." << endl;
     }
 
     // Serialize the graph

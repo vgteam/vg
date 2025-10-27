@@ -18,8 +18,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg construct";
-
 void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
@@ -60,6 +58,7 @@ void help_construct(char** argv) {
 }
 
 int main_construct(int argc, char** argv) {
+    Logger logger("vg construct");
 
     if (argc == 2) {
         help_construct(argv);
@@ -124,15 +123,15 @@ int main_construct(int argc, char** argv) {
         switch (c)
         {
         case 'v':
-            vcf_filenames.push_back(require_exists(context, optarg));
+            vcf_filenames.push_back(require_exists(logger, optarg));
             break;
 
         case 'M':
-            msa_filename = require_exists(context, optarg);
+            msa_filename = require_exists(logger, optarg);
             break;
             
         case 'F':
-            msa_format = require_exists(context, optarg);
+            msa_format = require_exists(logger, optarg);
             break;
             
         case 'd':
@@ -148,7 +147,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'r':
-            fasta_filenames.push_back(require_exists(context, optarg));
+            fasta_filenames.push_back(require_exists(logger, optarg));
             break;
 
         case 'S':
@@ -156,14 +155,14 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'I':
-            insertion_filenames.push_back(require_exists(context, optarg));
+            insertion_filenames.push_back(require_exists(logger, optarg));
             break;
 
             
         case 'n':
             {
                 string vcf_contig, fasta_contig;
-                tie(vcf_contig, fasta_contig) = parse_pair(context, optarg, '=', "--rename");
+                tie(vcf_contig, fasta_contig) = parse_pair(logger, optarg, '=', "--rename");
                 // Add the name mapping
                 constructor.add_name_mapping(vcf_contig, fasta_contig);
             }
@@ -195,7 +194,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'm':
@@ -224,11 +223,11 @@ int main_construct(int argc, char** argv) {
 
     if (max_node_size == 0) {
         // Make sure we can actually make nodes
-        fatal_error(context) << "max node size cannot be 0" << endl;
+        logger.error() << "max node size cannot be 0" << endl;
     }
     
     if (!msa_filename.empty() && !fasta_filenames.empty()) {
-        fatal_error(context) << "cannot construct from a reference/VCF and an MSA simultaneously" << endl;
+        logger.error() << "cannot construct from a reference/VCF and an MSA simultaneously" << endl;
     }
     
     if (!fasta_filenames.empty()) {
@@ -253,40 +252,40 @@ int main_construct(int argc, char** argv) {
                              stop_pos);
                              
                 if (used_region_contigs.count(seq_name)) {
-                    fatal_error(context) << "cannot construct multiple regions of " << seq_name << endl;
+                    logger.error() << "cannot construct multiple regions of " << seq_name << endl;
                 }
                 used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
                     if (constructor.show_progress) {
-                        basic_log(context) << "Restricting to " << seq_name << " from " 
-                                           << start_pos << " to " << stop_pos << endl;
+                        logger.info() << "Restricting to " << seq_name << " from " 
+                                      << start_pos << " to " << stop_pos << endl;
                     }
                     constructor.allowed_vcf_names.insert(seq_name);
                     // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
                     constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
                 } else if (start_pos < 0 && stop_pos < 0) {
                     // We just got a name
-                    basic_log(context) << "Restricting to " << seq_name << " from 1 to end" << endl;
+                    logger.info() << "Restricting to " << seq_name << " from 1 to end" << endl;
                     constructor.allowed_vcf_names.insert(seq_name);
                 } else {
                     // This doesn't make sense. Does it have like one coordinate?
-                    fatal_error(context) << "could not parse " << region << endl;
+                    logger.error() << "could not parse " << region << endl;
                 }
             } else {
                 // We have been told not to parse the region
-                basic_log(context) << "Restricting to " << region << " from 1 to end" << endl;
+                logger.info() << "Restricting to " << region << " from 1 to end" << endl;
                 constructor.allowed_vcf_names.insert(region);
             }
         }
         
         
         if (fasta_filenames.empty()) {
-            fatal_error(context) << "a reference is required for graph construction" << endl;
+            logger.error() << "a reference is required for graph construction" << endl;
         }
         if (insertion_filenames.size() > 1) {
-            fatal_error(context) << "only one insertion file may be provided" << endl;
+            logger.error() << "only one insertion file may be provided" << endl;
         }
         
         if (construct_in_memory) {
@@ -344,7 +343,7 @@ int main_construct(int argc, char** argv) {
         msa_graph.serialize_to_ostream(cout);
     }
     else {
-        fatal_error(context) << "a reference or an MSA is required for graph construction" << endl;
+        logger.error() << "a reference or an MSA is required for graph construction" << endl;
     }
 
     return 0;

@@ -28,8 +28,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg align";
-
 void help_align(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl
          << "options:" << endl
@@ -54,6 +52,7 @@ void help_align(char** argv) {
 }
 
 int main_align(int argc, char** argv) {
+    Logger logger("vg align");
 
     string seq;
     string seq_name;
@@ -149,7 +148,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = require_exists(context, optarg);
+            matrix_file_name = require_exists(logger, optarg);
             break;
 
         case 'r':
@@ -173,7 +172,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case 'w':
-            tie(left_anchor, right_anchor) = parse_pair<pos_t, pos_t>(context, optarg, ',', "--rename");
+            tie(left_anchor, right_anchor) = parse_pair<pos_t, pos_t>(logger, optarg, ',', "--rename");
             break;
 
         case 'h':
@@ -192,13 +191,13 @@ int main_align(int argc, char** argv) {
 
     if (!vg::is_empty(left_anchor) || !vg::is_empty(right_anchor)) {
         if (!ref_seq.empty()) {
-            fatal_error(context) << "Cannot align between positions when using a reference sequence." << std::endl;
+            logger.error() << "Cannot align between positions when using a reference sequence." << std::endl;
         }
         if (pinned_alignment) {
-            fatal_error(context) << "Aligning between positions always uses pinned alignment." << std::endl;
+            logger.error() << "Aligning between positions always uses pinned alignment." << std::endl;
         }
         if (banded_global) {
-            fatal_error(context) << "Aligning between positions always uses banded global alignment." << std::endl;
+            logger.error() << "Aligning between positions always uses banded global alignment." << std::endl;
         }
     }
 
@@ -218,7 +217,7 @@ int main_align(int argc, char** argv) {
     Alignment alignment;
     if (!ref_seq.empty()) {
         if (!matrix_file_name.empty()) {
-            fatal_error(context) << "Custom scoring matrix not supported in reference sequence mode" << std::endl;
+            logger.error() << "Custom scoring matrix not supported in reference sequence mode" << std::endl;
         }
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);

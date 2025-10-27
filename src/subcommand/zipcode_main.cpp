@@ -34,23 +34,21 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg zipcode";
-
 void help_zipcode(char** argv) {
-    cerr
-    << "usage: " << argv[0] << " test zipcodes on minimizers from reads [options] input.gam > output.gam" << endl
-    << endl
-    << "basic options:" << endl
-    << "  -h, --help                    print this help message to stderr and exit" << endl
-    << "  -x, --xg-name FILE            use this XG index or graph (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -d, --dist-name FILE          use this distance index (required)" << endl
-    << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl
-    << "computational parameters:" << endl
-    << "  -t, --threads INT             number of compute threads to use" << endl;
+    cerr << "usage: " << argv[0] << " test zipcodes on minimizers from reads [options] input.gam > output.gam" << endl
+         << endl
+         << "basic options:" << endl
+         << "  -h, --help                    print this help message to stderr and exit" << endl
+         << "  -x, --xg-name FILE            use this XG index or graph (required)" << endl
+         << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+         << "  -d, --dist-name FILE          use this distance index (required)" << endl
+         << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl
+         << "computational parameters:" << endl
+         << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
 int main_zipcode(int argc, char** argv) {
+    Logger logger("vg zipcode");
 
     if (argc == 2) {
         help_zipcode(argv);
@@ -91,21 +89,21 @@ int main_zipcode(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = require_exists(context, optarg);
+                xg_name = require_exists(logger, optarg);
                 break;
                 
             case 'g':
-                gcsa_name = require_exists(context, optarg);
+                gcsa_name = require_exists(logger, optarg);
                 // We also need the LCP index
-                require_exists(context, gcsa_name + ".lcp");
+                require_exists(logger, gcsa_name + ".lcp");
                 break;
             
             case 'm':
-                minimizer_name = require_exists(context, optarg);
+                minimizer_name = require_exists(logger, optarg);
                 break;
                 
             case 'd':
-                distance_name = require_exists(context, optarg);
+                distance_name = require_exists(logger, optarg);
                 break;
             
             case 'c':
@@ -113,7 +111,7 @@ int main_zipcode(int argc, char** argv) {
                 break;
                 
             case 't':
-                set_thread_count(context, optarg);
+                set_thread_count(logger, optarg);
                 break;
                 
             case 'h':
@@ -127,16 +125,16 @@ int main_zipcode(int argc, char** argv) {
     
     
     if (xg_name.empty()) {
-        fatal_error(context) << "Finding zipcodes requires an XG index, must provide XG file (-x)" << endl;
+        logger.error() << "Finding zipcodes requires an XG index, must provide XG file (-x)" << endl;
     }
     
     if (gcsa_name.empty() && minimizer_name.empty()) {
-        fatal_error(context) << "Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)" << endl;
+        logger.error() << "Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)" << endl;
     }
     
     if (distance_name.empty()) {
-        fatal_error(context) << "Finding zipcodes requires a distance index, "
-                             << "must provide distance index file (-d)" << endl;
+        logger.error() << "Finding zipcodes requires a distance index, "
+                       << "must provide distance index file (-d)" << endl;
     }
     
     // create in-memory objects

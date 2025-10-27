@@ -39,8 +39,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg cluster";
-
 void help_cluster(char** argv) {
     cerr << "usage: " << argv[0] << " cluster [options] input.gam > output.gam" << endl
          << "Find and cluster mapping seeds." << endl
@@ -75,6 +73,7 @@ void help_cluster(char** argv) {
 }
 
 int main_cluster(int argc, char** argv) {
+    Logger logger("vg cluster");
 
     if (argc == 2) {
         help_cluster(argv);
@@ -147,7 +146,7 @@ int main_cluster(int argc, char** argv) {
         {
             case 'x':
                 // Remember the string for MEMs
-                graph_name = require_exists(context, optarg);
+                graph_name = require_exists(logger, optarg);
                 break;
 
             case 'f':
@@ -174,7 +173,7 @@ int main_cluster(int argc, char** argv) {
 
             
             case 'm':
-                minimizer_name = require_exists(context, optarg);
+                minimizer_name = require_exists(logger, optarg);
                 break;
                 
             case 'l':
@@ -182,13 +181,13 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 'd':
-                distance_name = require_exists(context, optarg);
+                distance_name = require_exists(logger, optarg);
                 registry.provide("Giraffe Distance Index", optarg);
                 break;
 
             case 'p':
                 if (!optarg || !*optarg) {
-                    fatal_error(context) << "Must provide prefix with -p." << endl;
+                    logger.error() << "Must provide prefix with -p." << endl;
                 }
                 registry.set_prefix(optarg);
                 break;
@@ -234,7 +233,7 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 't':
-                set_thread_count(context, optarg);
+                set_thread_count(logger, optarg);
                 break;
                 
             case 'h':
@@ -247,17 +246,17 @@ int main_cluster(int argc, char** argv) {
     }
     
     if (graph_name.empty()) {
-        fatal_error(context) << "Must provide a graph file with -x." << endl;
+        logger.error() << "Must provide a graph file with -x." << endl;
     }
 
     if (hits_above_threshold != std::numeric_limits<size_t>::max()) {
         if (hard_hit_cap < hits_above_threshold) {
-            fatal_error(context) << "Hard hit cap (-C) must be greater than or equal "
-                                 << "to hits-above threshold (-a)." << endl;
+            logger.error() << "Hard hit cap (-C) must be greater than or equal "
+                           << "to hits-above threshold (-a)." << endl;
         }
     } else {
         if (output_sequences_only) {
-            fatal_error(context) << "Cannot use -S (sequences only) without a hits-above threshold (-a)." << endl;
+            logger.error() << "Cannot use -S (sequences only) without a hits-above threshold (-a)." << endl;
         }
     }
 
@@ -330,7 +329,7 @@ int main_cluster(int argc, char** argv) {
                 // A file with the appropriate name exists and we can read it
                 registry.provide(index_and_extensions.first, inferred_filename);
                 // Report it because this may not be desired behavior
-                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                logger.info() << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
                 // Skip other extension options for the index
                 break;
             }
@@ -351,7 +350,7 @@ int main_cluster(int argc, char** argv) {
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
-        fatal_error(context) << "Input is not sufficient to create indexes:\n" << ex.what() << endl;
+        logger.error() << "Input is not sufficient to create indexes:\n" << ex.what() << endl;
     }
 
     //Get the minimizer index
@@ -384,7 +383,7 @@ int main_cluster(int argc, char** argv) {
         // We will find MEMs using a Mapper
         mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
         if (output_sequences_only) {
-            fatal_error(context) << "Cannot output minimizers (-S) with a GCSA index (-g)." << endl;
+            logger.error() << "Cannot output minimizers (-S) with a GCSA index (-g)." << endl;
         }
     }
     // Otherwise we will find minimizers using the minimizer_index

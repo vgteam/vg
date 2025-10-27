@@ -22,8 +22,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg circularize";
-
 void help_circularize(char** argv) {
     cerr << "usage: " << argv[0] << " circularize [options] <graph.vg> > [circularized.vg]" << endl
          << "Makes specific paths or nodes in a graph circular." << endl
@@ -38,7 +36,8 @@ void help_circularize(char** argv) {
     exit(1);
 }
 
-int main_circularize(int argc, char** argv){
+int main_circularize(int argc, char** argv) {
+    Logger logger("vg circularize");
     if (argc == 2){
         help_circularize(argv);
         exit(1);
@@ -84,7 +83,7 @@ int main_circularize(int argc, char** argv){
                 path = optarg;
                 break;
             case 'P':
-                pathfile = require_exists(context, optarg);
+                pathfile = require_exists(logger, optarg);
                 break;
             case 'd':
                 describe = true;
@@ -102,7 +101,7 @@ int main_circularize(int argc, char** argv){
     vector<string> paths_to_circularize;
     if (!((head * tail) > 0)) {
         help_circularize(argv);
-        fatal_error(context) << "Both a head and tail node must be provided" << endl;
+        logger.error() << "Both a head and tail node must be provided" << endl;
     }
     if  (pathfile != "") {
         string line;
@@ -110,7 +109,7 @@ int main_circularize(int argc, char** argv){
         pfi.open(pathfile);
         if (!pfi.good()){
             help_circularize(argv);
-            fatal_error(context) << "There is an error with the input file." << endl;
+            logger.error() << "There is an error with the input file." << endl;
         }
         while (getline(pfi, line)){
             paths_to_circularize.push_back(line);
@@ -131,7 +130,7 @@ int main_circularize(int argc, char** argv){
     // Check if paths are in graph:
     for (const string& p : paths_to_circularize) {
         if (!graph->has_path(p)) {
-            fatal_error(context) << "Path not in graph \"" << p << "\"" << endl;
+            logger.error() << "Path not in graph \"" << p << "\"" << endl;
         }
     }
 
@@ -159,7 +158,7 @@ int main_circularize(int argc, char** argv){
     graph->serialize_to_ostream(cout);
 //    SerializableHandleGraph* to_serialize = dynamic_cast<SerializableHandleGraph*>(&(*graph));
 //    if (!to_serialize) {
-//        fatal_error(context) << "graph format is not serializable!" << endl;
+//        logger.error() << "graph format is not serializable!" << endl;
 //    }
 //    to_serialize->serialize(std::cout);
     

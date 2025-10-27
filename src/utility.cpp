@@ -157,7 +157,8 @@ void choose_good_thread_count() {
             // TODO: If you have >1024 bits in your mask, glibc can't deal and you will get EINVAL.
             // We're supposed to then try increasingly large dynamically-allocated CPU flag sets until we find one that works.
             auto problem = errno;
-            warning("vg") << "Cannot determine CPU count from affinity mask: " << strerror(problem) << endl;
+            logging::warn("vg") << "Cannot determine CPU count from affinity mask: " 
+                                << strerror(problem) << endl;
         } else {
             // We're also supposed to intersect this mask with the actual
             // existing processors, in case somebody flags on way more
@@ -617,13 +618,14 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        fatal_error("get_input_file_name") << "specify input filename, or \"-\" for standard input" << endl;
+        logging::error("get_input_file_name") << "specify input filename, "
+                                              << "or \"-\" for standard input" << endl;
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        fatal_error("get_input_file_name") << "specify a non-empty input filename" << endl;
+        logging::error("get_input_file_name") << "specify a non-empty input filename" << endl;
     }
 
     if (test_open) {
@@ -638,13 +640,13 @@ string get_output_file_name(int& optind, int argc, char** argv) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        fatal_error("get_output_file_name") << "specify output filename" << endl;
+        logging::error("get_output_file_name") << "specify output filename" << endl;
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        fatal_error("get_output_file_name") << "specify a non-empty output filename" << endl;
+        logging::error("get_output_file_name") << "specify a non-empty output filename" << endl;
     }
     
     return file_name;
@@ -663,16 +665,16 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
             in.open(file_name.c_str());
             if (!in.is_open()) {
                 // The user gave us a bad filename
-                fatal_error("get_input_file") << "could not open file \"" 
-                                              << file_name << "\"" << endl;
+                logging::error("get_input_file") << "could not open file \"" 
+                                                 << file_name << "\"" << endl;
             }
             callback(in);
             
         }
     } catch(vg::io::TruncatedBGZFError& e) {
         // If we find a truncated input while working on this file, it's likely to be this file's fault.
-        fatal_error("get_input_file") << "detected truncated input while processing \"" 
-                                      << file_name << "\"" << endl;
+       logging::error("get_input_file") << "detected truncated input while processing \"" 
+                                        << file_name << "\"" << endl;
     }
 }
 
@@ -735,24 +737,24 @@ bool file_can_be_written(const string& filename) {
     }
 }
 
-string require_exists(const string& context, const string& filename) {
+string require_exists(const Logger& logger, const string& filename) {
     if (!file_exists(filename)) {
-        fatal_error(context) << "file \"" << filename << "\" does not exist" << endl;
+        logger.error() << "file \"" << filename << "\" does not exist" << endl;
     }
     return filename;
 }
 
-string require_non_gzipped(const string& context, const string& filename) {
+string require_non_gzipped(const Logger& logger, const string& filename) {
     if (ends_with(filename, ".gz")) {
-        fatal_error(context) << "file \"" << filename << "\" appears to be gzipped; "
-                             << "please decompress it before use" << endl;
+        logger.error() << "file \"" << filename << "\" appears to be gzipped; "
+                       << "please decompress it before use" << endl;
     }
     return filename;
 }
 
-string ensure_writable(const string& context, const string& filename) {
+string ensure_writable(const Logger& logger, const string& filename) {
     if (!file_can_be_written(filename)) {
-        fatal_error(context) << "file \"" << filename << "\" cannot be written to" << endl;
+        logger.error() << "file \"" << filename << "\" cannot be written to" << endl;
     }
     return filename;
 }
@@ -1010,7 +1012,7 @@ bool parse(const string& arg, pos_t& dest) {
     return true;
 }
 
-int set_thread_count(const string& context, const string& arg, int max_threads) {
+int set_thread_count(const Logger& logger, const string& arg, int max_threads) {
     int num_threads = parse<int>(arg);
     if (max_threads == 0) {
         // If the user didn't specify a maximum, use the OMP default.
@@ -1018,11 +1020,11 @@ int set_thread_count(const string& context, const string& arg, int max_threads) 
     }
     
     if (num_threads <= 0) {
-        fatal_error(context) << "Thread count (-t) must be a positive integer, not " << arg << endl;
+        logger.error() << "Thread count (-t) must be a positive integer, not " << arg << endl;
     } else if (num_threads > max_threads) {
         // If the user asked for more threads than we can actually use, cap it.
-        warning(context) << "Thread count (-t) is greater than the maximum number of threads available (" 
-                         << omp_get_max_threads() << "), capping to that value" << endl;
+        logger.warn() << "Thread count (-t) is greater than the maximum number of threads available (" 
+                      << omp_get_max_threads() << "), capping to that value" << endl;
         num_threads = omp_get_max_threads();
     }
     
@@ -1030,15 +1032,15 @@ int set_thread_count(const string& context, const string& arg, int max_threads) 
     return num_threads;
 }
 
-void assign_fastq_files(const string& context, const string& input_filename, string& slot1, string& slot2) {
+void assign_fastq_files(const Logger& logger, const string& input_filename, string& slot1, string& slot2) {
     if (slot1.empty()) {
-        slot1 = require_exists(context, input_filename);
+        slot1 = require_exists(logger, input_filename);
     }
     else if (slot2.empty()) {
-        slot2 = require_exists(context, input_filename);
+        slot2 = require_exists(logger, input_filename);
     }
     else {
-        fatal_error(context) << "Cannot specify more than two FASTQ files" << endl;
+        logger.error() << "Cannot specify more than two FASTQ files" << endl;
     }
 }
 }

@@ -21,8 +21,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg kmers";
-
 void help_kmers(char** argv) {
     cerr << "usage: " << argv[0] << " kmers [options] <graph1.vg> [graph2.vg ...] >kmers.tsv" << endl
          << "Generates kmers from both strands of the graph(s). Output is: kmer id pos" << endl
@@ -42,6 +40,7 @@ void help_kmers(char** argv) {
 }
 
 int main_kmers(int argc, char** argv) {
+    Logger logger("vg kmers");
 
     if (argc == 2) {
         help_kmers(argv);
@@ -98,7 +97,7 @@ int main_kmers(int argc, char** argv) {
                 kmer_size = parse<size_t>(optarg);
                 break;
             case 't':
-                set_thread_count(context, optarg);
+                set_thread_count(logger, optarg);
                 break;
             case 'p':
                 show_progress = true;
@@ -121,11 +120,11 @@ int main_kmers(int argc, char** argv) {
 
             // Obsolete options.
             case 'e':
-                fatal_error(context) << "Option --edge-max is obsolete. "
-                                     << "Use vg prune to prune the graph instead." << endl;
+                logger.error() << "Option --edge-max is obsolete. "
+                               << "Use vg prune to prune the graph instead." << endl;
                 break;
             case 'F':
-                fatal_error(context) << "Option --forward-only is obsolete" << endl;
+                logger.error() << "Option --forward-only is obsolete" << endl;
                 break;
 
             case 'h':
@@ -140,7 +139,7 @@ int main_kmers(int argc, char** argv) {
     }
 
     if (kmer_size == 0) {
-        fatal_error(context) << "--kmer-size was not specified" << endl;
+        logger.error() << "--kmer-size was not specified" << endl;
     }
 
     vector<string> graph_file_names;

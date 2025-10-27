@@ -15,8 +15,6 @@ using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-const string context = "vg trace";
-
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
          << "Trace and extract haplotypes from an index" << endl
@@ -34,6 +32,7 @@ void help_trace(char** argv) {
 }
 
 int main_trace(int argc, char** argv) {
+    Logger logger("vg trace");
     if (argc == 2) {
         help_trace(argv);
         return 1;
@@ -76,15 +75,15 @@ int main_trace(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_name = require_exists(context, optarg);
+            xg_name = require_exists(logger, optarg);
             break;
 
         case 'G':
-            gbwt_name = require_exists(context, optarg);
+            gbwt_name = require_exists(logger, optarg);
             break;
 
         case 'a':
-            annotation_path = ensure_writable(context, optarg);
+            annotation_path = ensure_writable(logger, optarg);
             break;
 
         case 'n':
@@ -115,10 +114,10 @@ int main_trace(int argc, char** argv) {
     }
 
     if (xg_name.empty()) {
-        fatal_error(context) << "XG index must be specified with -x" << endl;
+        logger.error() << "XG index must be specified with -x" << endl;
     }
     if (start_node < 1) {
-        fatal_error(context) << "start node must be specified with -n" << endl;
+        logger.error() << "start node must be specified with -n" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -130,7 +129,7 @@ int main_trace(int argc, char** argv) {
 
     if (gbwt_index == nullptr) {
         // Complain if we couldn't.
-        fatal_error(context) << "unable to find GBWT index in graph or separate file" << endl;
+        logger.error() << "unable to find GBWT index in graph or separate file" << endl;
     }
     
     // trace out our graph and paths from the start node

@@ -24,8 +24,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg inject";
-
 void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject -x graph.xg [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
@@ -39,6 +37,7 @@ void help_inject(char** argv) {
 }
 
 int main_inject(int argc, char** argv) {
+    Logger logger("vg inject");
 
     if (argc == 2) {
         help_inject(argv);
@@ -76,7 +75,7 @@ int main_inject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = require_exists(context, optarg);
+            xg_name = require_exists(logger, optarg);
             break;
         
         case 'o':
@@ -85,7 +84,7 @@ int main_inject(int argc, char** argv) {
                 c = std::toupper(c);
             }
             if (output_formats.find(output_format) == output_formats.end()) {
-                fatal_error(context) << "Invalid output format: " << output_format << endl;
+                logger.error() << "Invalid output format: " << output_format << endl;
             }
             break;
 
@@ -98,7 +97,7 @@ int main_inject(int argc, char** argv) {
             break;
 
         case 't':
-            threads = set_thread_count(context, optarg);
+            threads = set_thread_count(logger, optarg);
             break;
 
         case 'h':
@@ -116,7 +115,7 @@ int main_inject(int argc, char** argv) {
 
     // We require an XG index
     if (xg_name.empty()) {
-        fatal_error(context) << "Graph (-x) is required" << endl;
+        logger.error() << "Graph (-x) is required" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;

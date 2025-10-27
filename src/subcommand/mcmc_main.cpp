@@ -26,8 +26,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg mcmc";
-
 void help_mcmc(char** argv) {
     cerr << "usage: " << argv[0] << " mcmc [options] multipath_alns.mgam graph.vg sites.snarls > graph_with_paths.vg" << endl
          << "Finds haplotypes based on reads using MCMC methods" << endl
@@ -47,6 +45,7 @@ void help_mcmc(char** argv) {
 }
 
 int main_mcmc(int argc, char** argv) {
+    Logger logger("vg mcmc");
 
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
@@ -115,7 +114,7 @@ int main_mcmc(int argc, char** argv) {
                 sample_name = optarg;
                 break;  
             case 'v':
-                vcf_out = ensure_writable(context, optarg);
+                vcf_out = ensure_writable(logger, optarg);
                 break;
             case 'b':
                 burn_in = parse<int>(optarg);
@@ -164,7 +163,7 @@ int main_mcmc(int argc, char** argv) {
     ensure_vg();
 
     if(vg_graph == nullptr || vg_graph == 0) {
-        fatal_error(context) << "Graph is NULL" << endl;
+        logger.error() << "Graph is NULL" << endl;
     }
     PathPositionHandleGraph* graph = nullptr;
     graph = overlay_helper.apply(vg_graph);
@@ -173,17 +172,17 @@ int main_mcmc(int argc, char** argv) {
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
-            fatal_error(context) << "Reference path \"" << ref_path << "\" not found in graph" << endl;
+            logger.error() << "Reference path \"" << ref_path << "\" not found in graph" << endl;
         }
     }
     
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        fatal_error(context) << "when using -o, the same number paths must be given with -p" << endl;
+        logger.error() << "when using -o, the same number paths must be given with -p" << endl;
     }
     // Check our ref lengths
     if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
-        fatal_error(context) << "when using -l, the same number paths must be given with -p" << endl;
+        logger.error() << "when using -l, the same number paths must be given with -p" << endl;
     }
 
     // No paths specified: use them all

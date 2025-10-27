@@ -17,8 +17,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg explode";
-
 void help_explode(char** argv) {
     cerr << "usage: " << argv[0] << " explode [options] source.vg part_dir" << endl
          << "Breaks connected components of graph into" << endl
@@ -30,6 +28,7 @@ void help_explode(char** argv) {
 }
 
 int main_explode(int argc, char** argv) {
+    Logger logger("vg explode");
 
     if (argc == 2) {
         help_explode(argv);
@@ -61,7 +60,7 @@ int main_explode(int argc, char** argv) {
         {
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'h':
@@ -73,9 +72,9 @@ int main_explode(int argc, char** argv) {
         }
     }
 
-    cerr << "vg explode is deprecated.  Please use \"vg chunk -C source.vg -b part_dir/component\" "
-         << "for the same* functionality as \"vg explode source.vg part_dir\"" << endl
-         << " * (unlike explode, the output directory must already exist when running chunk, though)" << endl;
+    logger.info() << "vg explode is deprecated.  Please use \"vg chunk -C source.vg -b part_dir/component\" "
+                  << "for the same* functionality as \"vg explode source.vg part_dir\"" << endl
+                  << " * (unlike explode, the output directory must already exist when running chunk, though)" << endl;
     return 1;
 
     VG* graph;

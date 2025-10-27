@@ -12,8 +12,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg primers";
-
 void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl
          << endl
@@ -72,6 +70,7 @@ void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
 }
 
 int main_primers(int argc, char** argv) {
+    Logger logger("vg primers");
     
     if (argc == 2) {
         help_primers(argv);
@@ -121,27 +120,27 @@ int main_primers(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_path = require_exists(context, optarg);
+            xg_path = require_exists(logger, optarg);
             break;
         
         case 'd':
-            distance_index_path = require_exists(context, optarg);
+            distance_index_path = require_exists(logger, optarg);
             break;
         
         case 'r':
-            ri_path = require_exists(context, optarg);
+            ri_path = require_exists(logger, optarg);
             break;
         
         case 'g':
-            gbz_path = require_exists(context, optarg);
+            gbz_path = require_exists(logger, optarg);
             break;
         
         case 'M':
-            min_path = require_exists(context, optarg);
+            min_path = require_exists(logger, optarg);
             break;
         
         case 'Z':
-            zip_path = require_exists(context, optarg);
+            zip_path = require_exists(logger, optarg);
             break;
         
         case 'v':
@@ -176,19 +175,19 @@ int main_primers(int argc, char** argv) {
     }
 
     if (xg_path.empty()) {
-        fatal_error(context) << "XG file (-x) is required" << endl;
+        logger.error() << "XG file (-x) is required" << endl;
     }
 
     if (distance_index_path.empty()) {
-        fatal_error(context) << "distance index file (-d) is required" << endl;
+        logger.error() << "distance index file (-d) is required" << endl;
     }
 
     if (ri_path.empty()) {
-        fatal_error(context) << "r index file (-r) is required" << endl;
+        logger.error() << "r index file (-r) is required" << endl;
     }
 
     if (gbz_path.empty()) {
-        fatal_error(context) << "GBZ file (-g) is required" << endl;
+        logger.error() << "GBZ file (-g) is required" << endl;
     }
 
     string primers_path = get_input_file_name(optind, argc, argv);

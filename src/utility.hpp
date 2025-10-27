@@ -829,23 +829,34 @@ bool file_can_be_written(const string& filename);
 
 /// Check if a file exists and return its name (if so) or error.
 /// Uses file_exists() and is intended to be called when parsing arguments.
-string require_exists(const string& context, const string& filename);
+string require_exists(const Logger& logger, const string& filename);
+
+/// Check if a file exists and return its name (if so) or error.
+/// Creates a logger using "context" as the context string.
+/// and then calls the other require_exists().
+inline string require_exists(const string& context, const string& filename) {
+    return require_exists(Logger(context), filename);
+}
 
 /// Error if a file looks like it's gzipped.
 /// Checks the filename for ending with ".gz"; doesn't actually open it
 /// or check the magic number.
-string require_non_gzipped(const string& context, const string& filename);
+string require_non_gzipped(const Logger& logger, const string& filename);
 
 /// Check if a file can be written to and return its name (if so) or error.
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
-string ensure_writable(const string& context, const string& filename);
+string ensure_writable(const Logger& logger, const string& filename);
+
+inline string ensure_writable(const string& context, const string& filename) {
+    return ensure_writable(Logger(context), filename);
+}
 
 /// A special parser for thread count which errors if non-positive
 /// If max_threads is non-zero, it will also decrease to that maximum.
 /// If max_threads is zero, max is omp_get_max_threads()
 /// Sets thread count with omp_set_num_threads()
 /// Returns new thread count
-int set_thread_count(const string& context, const string& arg, int max_threads = 0);
+int set_thread_count(const Logger& logger, const string& arg, int max_threads = 0);
 
 /// A special parser for possibly-paired FASTQ files
 /// If the first file is unset, then it gets the input filename
@@ -853,7 +864,7 @@ int set_thread_count(const string& context, const string& arg, int max_threads =
 /// If both are already set, then this errors
 /// Also calls require_exists() on the filenames
 /// To set both FASTQ files, you'll need to call this twice
-void assign_fastq_files(const string& context, const string& input_filename, string& slot1, string& slot2);
+void assign_fastq_files(const Logger& logger, const string& input_filename, string& slot1, string& slot2);
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>
@@ -947,18 +958,18 @@ Result parse(const char* arg) {
 /// Parse an argument that should be a pair of strings separated by a delimiter.
 /// Errors if the string does not contain exactly one delimiter.
 template<typename T1 = std::string, typename T2 = std::string>
-std::pair<T1, T2> parse_pair(const string& context, const string& arg,
+std::pair<T1, T2> parse_pair(const Logger& logger, const string& arg,
                              const char& delimiter, const string& option_name) {
     size_t delim_index = arg.find(delimiter);
     if (delim_index == string::npos || delim_index == 0 || delim_index + 1 == arg.size()) {
-        fatal_error(context) << option_name << " must have two parts separated by a "
-                             << delimiter << ", not \"" << arg << "\"" << endl;
+        logger.error() << option_name << " must have two parts separated by a "
+                       << delimiter << ", not \"" << arg << "\"" << endl;
     }
     string second_part = arg.substr(delim_index + 1);
     if (second_part.find(delimiter) != string::npos) {
         // The second part has another delimiter in it, which is not allowed.
-        fatal_error(context) << option_name << " must have two parts separated by a `"
-                             << delimiter << "`, not \"" << arg << "\"" << endl;
+        logger.error() << option_name << " must have two parts separated by a `"
+                       << delimiter << "`, not \"" << arg << "\"" << endl;
     }
     // Parse out the two parts
     return make_pair(parse<T1>(arg.substr(0, delim_index)),

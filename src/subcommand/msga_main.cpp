@@ -18,8 +18,6 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg msga";
-
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
          << "Multiple sequence / graph aligner." << endl
@@ -100,6 +98,7 @@ void help_msga(char** argv) {
 }
 
 int main_msga(int argc, char** argv) {
+    Logger logger("vg msga");
 
     cerr << "!!!" << endl;
     cerr << "WARNING" << endl;
@@ -278,7 +277,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'f':
-            fasta_files.push_back(require_exists(context, optarg));
+            fasta_files.push_back(require_exists(logger, optarg));
             break;
 
         case 'n':
@@ -295,10 +294,10 @@ int main_msga(int argc, char** argv) {
 
         case 'g':
             if (graph_files.size() != 0) {
-                fatal_error(context) << "graph-graph alignment is not yet implemented. "
-                                     << "We can only use one input graph." << endl;
+                logger.error() << "graph-graph alignment is not yet implemented. "
+                               << "We can only use one input graph." << endl;
             }
-            graph_files.push_back(require_exists(context, optarg));
+            graph_files.push_back(require_exists(logger, optarg));
             break;
 
         case 'w':
@@ -358,7 +357,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'Q':
@@ -394,7 +393,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'R':
-            position_bed_file = require_exists(context, optarg);
+            position_bed_file = require_exists(logger, optarg);
             break;
 
         case 'T':
@@ -434,8 +433,8 @@ int main_msga(int argc, char** argv) {
         mapping_quality_method = Exact;
     }
     else {
-        fatal_error(context) << "unrecognized mapping quality method command line arg '"
-                             << method_code << "'" << endl;
+        logger.error() << "unrecognized mapping quality method command line arg '"
+                       << method_code << "'" << endl;
     }
 
     if (band_overlap == -1) {
@@ -478,14 +477,14 @@ int main_msga(int argc, char** argv) {
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
-        if (debug) basic_log(context) << "loading " << fasta_file_name << endl;
+        if (debug) logger.info() << "loading " << fasta_file_name << endl;
         for (auto& name : ref.index->sequenceNames) {
             if (!seq_names.empty() && seq_names.count(name) == 0) continue;
             // only use the sequence if we have whitelisted it
             // and also sanitize the input so we have only ATGCN
             if (seen_seq_names.count(name)) {
-                warning(context) << "sequence " << name << " is seen multiple times in input, "
-                                 << "ignoring all but the first instance" << endl;
+                logger.warn() << "sequence " << name << " is seen multiple times in input, "
+                              << "ignoring all but the first instance" << endl;
                 continue;
             }
             strings[name] = vg::nonATGCNtoN(ref.getSequence(name));
@@ -529,7 +528,7 @@ int main_msga(int argc, char** argv) {
 
     // align, include, repeat
 
-    if (debug) basic_log(context) << "preparing initial graph" << endl;
+    if (debug) logger.info() << "preparing initial graph" << endl;
 
     size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
     // limit max node size
@@ -599,11 +598,11 @@ int main_msga(int argc, char** argv) {
             return;
         }
 
-        if (debug) basic_log(context) << "building XG index" << endl;
+        if (debug) logger.info() << "building XG index" << endl;
         xgidx = new xg::XG();
         xgidx->from_path_handle_graph(*graph);
 
-        if (debug) basic_log(context) << "building GCSA2 index" << endl;
+        if (debug) logger.info() << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
@@ -614,17 +613,17 @@ int main_msga(int argc, char** argv) {
             Region region = position_hints[names_in_order[name_idx]];
             if (!xgidx->has_path(region.seq) || xgidx->get_path_length(xgidx->get_path_handle(region.seq)) <=
                 region.end) {
-                fatal_error(context) << "Target region for \"" << names_in_order[name_idx] << "\" ("
-                                     << region.seq << ":" << region.start << "-" << region.end
-                                     << ") not found in graph." << endl;
+                logger.error() << "Target region for \"" << names_in_order[name_idx] << "\" ("
+                               << region.seq << ":" << region.start << "-" << region.end
+                               << ") not found in graph." << endl;
             }
             region_graph = new VG();
             Region out_region;
             PathChunker chunker(xgidx);
             if (debug) {
-                basic_log(context) << "Subsetting graph to " << region.seq << ":" << region.start
-                                   << "-" << region.end << " for sequence " << names_in_order[name_idx]
-                                   << " using " << context_steps << " context steps." << endl;
+                logger.info() << "Subsetting graph to " << region.seq << ":" << region.start
+                              << "-" << region.end << " for sequence " << names_in_order[name_idx]
+                              << " using " << context_steps << " context steps." << endl;
             }
             chunker.extract_subgraph(region, context_steps, 0, false, *region_graph, out_region);
             graph = region_graph;
@@ -692,9 +691,9 @@ int main_msga(int argc, char** argv) {
             mapper->min_cluster_length = min_cluster_length;
             mapper->mem_reseed_length = round(mem_reseed_factor * mapper->min_mem_length);
             if (debug) {
-                basic_log(context) << "min_mem_length = " << mapper->min_mem_length
-                                   << ", mem_reseed_length = " << mapper->mem_reseed_length
-                                   << ", min_cluster_length = " << mapper->min_cluster_length << endl;
+                logger.info() << "min_mem_length = " << mapper->min_mem_length
+                              << ", mem_reseed_length = " << mapper->mem_reseed_length
+                              << ", min_cluster_length = " << mapper->min_cluster_length << endl;
             }
             mapper->fast_reseed = use_fast_reseed;
             mapper->max_target_factor = max_target_factor;
@@ -734,26 +733,26 @@ int main_msga(int argc, char** argv) {
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) {
-                basic_log(context) << name << ": adding to graph "
-                                   << i << "/" << names_in_order.size() << endl;
+                logger.info() << name << ": adding to graph "
+                              << i << "/" << names_in_order.size() << endl;
             }
             vector<Path> paths;
             int j = 0;
             // align to the graph
             if (debug) {
-                basic_log(context) << name << ": aligning " << seq.size()
-                                   << "bp -> g:" << graph->length() << "bp " << "n:"
-                                   << graph->node_count() << " " << "e:" << graph->edge_count() << endl;
+                logger.info() << name << ": aligning " << seq.size()
+                              << "bp -> g:" << graph->length() << "bp " << "n:"
+                              << graph->node_count() << " " << "e:" << graph->edge_count() << endl;
             }
             Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap, xdrop_alignment);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = vg::algorithms::path_string(*graph, aln.path());
                 if (aln_seq != seq) {
-                    basic_log(context) << "alignment corrupted, failed to obtain correct banded alignment "
-                                       << "(alignment seq != input seq)" << endl;
-                    cerr << "expected " << seq << endl;
-                    cerr << "got      " << aln_seq << endl;
+                    logger.info() << "alignment corrupted, failed to obtain correct banded alignment "
+                                  << "(alignment seq != input seq)" << endl;
+                    logger.info() << "expected " << seq << endl;
+                    logger.info() << "got      " << aln_seq << endl;
                     ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
                     vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
                     vg::io::finish(f);
@@ -780,7 +779,7 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             // now take the alignment and modify the graph with it
-            if (debug) basic_log(context) << name << ": editing graph" << endl;
+            if (debug) logger.info() << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             // Modify graph and embed paths
             graph->edit(paths, nullptr, true);
@@ -790,13 +789,13 @@ int main_msga(int argc, char** argv) {
             handlealgs::chop(*graph, node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
-            if (debug) basic_log(context) << name << ": sorting and compacting ids" << endl;
+            if (debug) logger.info() << name << ": sorting and compacting ids" << endl;
             graph->sort();
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // XG can't work unless IDs are compacted.
             //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
             if (circularize) {
-                if (debug) basic_log(context) << name << ": circularizing" << endl;
+                if (debug) logger.info() << name << ": circularizing" << endl;
                 graph->circularize({name});
                 //graph->serialize_to_file(name + "-post-circularize.vg");
             }
@@ -818,11 +817,11 @@ int main_msga(int argc, char** argv) {
             auto path_seq = vg::algorithms::path_string(*graph, graph->paths.path(name));
             incomplete = !(path_seq == seq) || !is_valid;
             if (incomplete) {
-                basic_log(context) << "failed to include alignment, retrying " << endl
-                                   << "expected " << seq << endl
-                                   << "got      " << path_seq << endl
-                                   << pb2json(aln.path()) << endl
-                                   << pb2json(graph->paths.path(name)) << endl;
+                logger.info() << "failed to include alignment, retrying " << endl
+                              << "expected " << seq << endl
+                              << "got      " << path_seq << endl
+                              << pb2json(aln.path()) << endl
+                              << pb2json(graph->paths.path(name)) << endl;
                 graph->serialize_to_file(name + "-post-edit.vg");
                 ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
                 vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
@@ -832,7 +831,7 @@ int main_msga(int argc, char** argv) {
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
         if (incomplete && iter >= iter_max) {
-            fatal_error(context) << "failed to include path " << name << endl;
+            logger.error() << "failed to include path " << name << endl;
         }
     }
 
@@ -866,7 +865,7 @@ int main_msga(int argc, char** argv) {
     //      };
 
     if (normalize) {
-        if (debug) basic_log(context) << "normalizing graph" << endl;
+        if (debug) logger.info() << "normalizing graph" << endl;
         if (graph_files.empty()) {
             // shouldn't be any reason to do this, but if we are going to do it,
             // only try if graph was made entirely of msga'd sequences.
@@ -877,7 +876,7 @@ int main_msga(int argc, char** argv) {
         graph->sort();
         graph->compact_ids();
         if (!graph->is_valid()) {
-            warning(context) << "graph is not valid after normalization" << endl;
+            logger.warn() << "graph is not valid after normalization" << endl;
         }
     }
 
@@ -897,7 +896,7 @@ int main_msga(int argc, char** argv) {
     }
 
     if (!failures.empty()) {
-        auto error_msg = fatal_error(context);
+        auto error_msg = logger.error();
         error_msg << "failed to include paths ";
         stringstream ss;
         ss << "vg-msga-failed-include_";

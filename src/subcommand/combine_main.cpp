@@ -24,8 +24,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg combine";
-
 void help_combine(char** argv) {
     cerr << "usage: " << argv[0] << " combine [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
          << "Combines one or more graphs into a single file, regardless of input format." << endl
@@ -43,9 +41,10 @@ void help_combine(char** argv) {
          << "  -h, --help            print this help message to stderr and exit" << endl;
 }
 
-static int cat_proto_graphs(int argc, char** argv);
+static int cat_proto_graphs(int argc, char** argv, const Logger& logger);
 
 int main_combine(int argc, char** argv) {
+    Logger logger("vg combine");
 
     if (argc == 2) {
         help_combine(argv);
@@ -95,9 +94,9 @@ int main_combine(int argc, char** argv) {
 
     if (cat_proto) {
         if (connect_paths) 
-        warning(context) << "--cat-proto/-c option is deprecated "
-                         << "and will be removed in a future version of vg." << endl;
-        return cat_proto_graphs(argc, argv);
+        logger.warn() << "--cat-proto/-c option is deprecated "
+                      << "and will be removed in a future version of vg." << endl;
+        return cat_proto_graphs(argc, argv, logger);
     }
     
     unique_ptr<MutablePathMutableHandleGraph> first_graph;
@@ -124,9 +123,9 @@ int main_combine(int argc, char** argv) {
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
                     if (first_graph->has_path(path_name)) {
-                        fatal_error(context) << "Paths with name \"" << path_name 
-                                             << "\" found in multiple input graphs. If they are consecutive"
-                                             << "subpath ranges, they can be connected by using the -p option." << endl;
+                        logger.error() << "Paths with name \"" << path_name 
+                                       << "\" found in multiple input graphs. If they are consecutive"
+                                       << "subpath ranges, they can be connected by using the -p option." << endl;
                     }
                 });
             handlealgs::copy_path_handle_graph(graph.get(), first_graph.get());
@@ -147,7 +146,7 @@ static Subcommand vg_combine("combine", "merge multiple graph files together", m
 // Since it relies on the Protobuf format itself, particular the ability to stream together chunks that
 // would otherwise be invalid individually, it is probably never going to be ported to the handle graph
 // api, which is why it's been relegated to the deprecated bin
-int cat_proto_graphs(int argc, char** argv) {
+int cat_proto_graphs(int argc, char** argv, const Logger& logger) {
     
     while (optind < argc) {
         get_input_file(optind, argc, argv, [&](istream& in) {
@@ -176,7 +175,7 @@ int cat_proto_graphs(int argc, char** argv) {
                         }
                         
                         if (!cout) {
-                            fatal_error(context) << "Could not write decompressed data to output stream." << endl;
+                            logger.error() << "Could not write decompressed data to output stream." << endl;
                         }
                         
                         // Do the next input file
@@ -197,7 +196,7 @@ int cat_proto_graphs(int argc, char** argv) {
                 cout << in.rdbuf();
                 
                 if (!cout) {
-                    fatal_error(context) << "Could not write raw data to output stream." << endl;
+                    logger.error() << "Could not write raw data to output stream." << endl;
                 }
                 
                 // Do the next input file
@@ -227,7 +226,7 @@ int cat_proto_graphs(int argc, char** argv) {
             }
             
             if (!cout) {
-                fatal_error(context) << "Could not write converted graph to output stream." << endl;
+                logger.error() << "Could not write converted graph to output stream." << endl;
             }
             
         });

@@ -18,8 +18,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg sift";
-
 //TODO ideal behavior is to filter READ PAIRS
 //when a mate fails one of the individual read filters.
 //
@@ -60,6 +58,7 @@ void help_sift(char** argv) {
 
 
 int main_sift(int argc, char** argv) {
+    Logger logger("vg sift");
 
     if (argc <= 2) {
         help_sift(argv);
@@ -149,10 +148,10 @@ int main_sift(int argc, char** argv) {
                 help_sift(argv);
                 return 1;
             case 't':
-                set_thread_count(context, optarg);
+                set_thread_count(logger, optarg);
                 break;
             case 'G':
-                graph_name = require_exists(context, optarg);
+                graph_name = require_exists(logger, optarg);
                 break;
             case 'u':
                 do_unmapped = true;
@@ -229,11 +228,11 @@ int main_sift(int argc, char** argv) {
     }
 
     if (optind >= argc) {
-        fatal_error(context) << "No alignment file given" << endl;
+        logger.error() << "No alignment file given" << endl;
     }
     alignment_file = argv[optind];
 
-    basic_log(context) << "Filtering  " << alignment_file << endl;
+    logger.info() << "Filtering  " << alignment_file << endl;
 
     vg::VG* graph;
     if (!graph_name.empty()) {
@@ -568,7 +567,7 @@ int main_sift(int argc, char** argv) {
         // }
 
         if (is_paired) {
-            basic_log(context) << "Processing..." << endl;
+            logger.info() << "Processing..." << endl;
             vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{

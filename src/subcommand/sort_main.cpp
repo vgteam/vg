@@ -23,8 +23,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg sort";
-
 void help_sort(char** argv) {
     cerr << "usage: " << argv[0] << " sort [options] > sorted.vg " << endl
          << "options: " << endl
@@ -38,6 +36,7 @@ void help_sort(char** argv) {
 }
 
 int main_sort(int argc, char *argv[]) {
+    Logger logger("vg sort");
 
     // What should we sort the graph by?
     string algorithm;
@@ -89,7 +88,7 @@ int main_sort(int argc, char *argv[]) {
             without_grooming = true;
             break;
         case 'I':
-            sorted_index_filename = ensure_writable(context, optarg);
+            sorted_index_filename = ensure_writable(logger, optarg);
             break;
         case 'h':
         case '?':
@@ -110,23 +109,23 @@ int main_sort(int argc, char *argv[]) {
     // Validate the algorithm selection and option combination
     if (algorithm == "id" || algorithm == "topo") {
         if (!reference_name.empty()) {
-            fatal_error(context) << "Reference name not used with "
-                                 << algorithm << " sort algorithm" << endl;
+            logger.error() << "Reference name not used with "
+                           << algorithm << " sort algorithm" << endl;
         }
         if (without_grooming) {
-            fatal_error(context) << "Not sensible to turn off grooming with "
-                                 << algorithm << " sort algorithm" << endl;
+            logger.error() << "Not sensible to turn off grooming with "
+                           << algorithm << " sort algorithm" << endl;
         }
     } else if (algorithm == "max-flow" || algorithm == "eades") {
         if (reference_name.empty()) {
-            fatal_error(context) << "Reference name required with "
-                                 << algorithm << " sort algorithm" << endl;
+            logger.error() << "Reference name required with "
+                           << algorithm << " sort algorithm" << endl;
         }
     } else {
-        fatal_error(context) << "Unrecognized sort algorithm: " << algorithm << endl;
+        logger.error() << "Unrecognized sort algorithm: " << algorithm << endl;
     }
     if (!sorted_index_filename.empty() && algorithm != "id") {
-        fatal_error(context) << "Sorted VG index can only be produced when sorting by ID" << endl;
+        logger.error() << "Sorted VG index can only be produced when sorting by ID" << endl;
     }
     
     // With the input graph file
@@ -142,12 +141,10 @@ int main_sort(int argc, char *argv[]) {
             algorithms::gfa_to_path_handle_graph(filename, graph.get());
         } catch(algorithms::GFAFormatError& e) {
             // GFA loading has failed because the file is invalid
-            cerr << e.what() << endl;
-            exit(1);
+            logger.error() << e.what() << endl;
         } catch(ios_base::failure& e) {
             // GFA loading has failed because the file couldn't be read
-            cerr << e.what() << endl;
-            exit(1);
+            logger.error() << e.what() << endl;
         }
     } else {
         // Read as Handle Graph and copy into VG           

@@ -22,8 +22,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg gamcompare";
-
 void help_gamcompare(char** argv) {
     cerr << "usage: " << argv[0] << " gamcompare aln.gam truth.gam >output.gam" << endl
          << endl
@@ -93,6 +91,7 @@ std::vector<MappingRun> base_mappings(const Alignment& aln) {
 }
 
 int main_gamcompare(int argc, char** argv) {
+    Logger logger("vg gamcompare");
 
     if (argc == 2) {
         help_gamcompare(argv);
@@ -146,7 +145,7 @@ int main_gamcompare(int argc, char** argv) {
         case 'n':
             {
                 string query_contig, truth_contig;
-                tie(query_contig, truth_contig) = parse_pair(context, optarg, '=', "--rename");
+                tie(query_contig, truth_contig) = parse_pair(logger, optarg, '=', "--rename");
                 // Add the name mapping
                 renames.emplace(query_contig, truth_contig);
             }
@@ -157,11 +156,11 @@ int main_gamcompare(int argc, char** argv) {
             break;
 
         case 'd':
-            distance_name = require_exists(context, optarg);
+            distance_name = require_exists(logger, optarg);
             break;
 
         case 'o':
-            output_gam = ensure_writable(context, optarg);
+            output_gam = ensure_writable(logger, optarg);
             break;
 
         case 'T':
@@ -177,7 +176,7 @@ int main_gamcompare(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'h':
@@ -238,10 +237,10 @@ int main_gamcompare(int argc, char** argv) {
     if (truth_file_name == "-") {
         // Read truth fropm standard input, if it looks good.
         if (test_file_name == "-") {
-            fatal_error(context) << "Standard input can only be used for truth or test file, not both" << endl;
+            logger.error() << "Standard input can only be used for truth or test file, not both" << endl;
         }
         if (!std::cin) {
-            fatal_error(context) << "Unable to read standard input when looking for true reads" << endl;
+            logger.error() << "Unable to read standard input when looking for true reads" << endl;
         }
         if (distance_name.empty()) {
             vg::io::for_each_parallel(std::cin, record_path_positions);
@@ -258,7 +257,7 @@ int main_gamcompare(int argc, char** argv) {
         }
     }
     if (score_alignment && range == -1) {
-        fatal_error(context) << "Score-alignment requires range" << endl;
+        logger.error() << "Score-alignment requires range" << endl;
     }
 
     // Count eligible reads that actually have positions that could be got.
@@ -423,14 +422,14 @@ int main_gamcompare(int argc, char** argv) {
 
     if (test_file_name == "-") {
         if (!std::cin) {
-            fatal_error(context) << "Unable to read standard input when looking for reads under test" << endl;
+            logger.error() << "Unable to read standard input when looking for reads under test" << endl;
         }
         vg::io::for_each_parallel(std::cin, annotate_test);
     } else {
         ifstream test_file_in(test_file_name);
         if (!test_file_in) {
-            fatal_error(context) << "Unable to read " << test_file_name
-                                 << " when looking for reads under test" << endl;
+            logger.error() << "Unable to read " << test_file_name
+                           << " when looking for reads under test" << endl;
         }
         vg::io::for_each_parallel(test_file_in, annotate_test);
     }

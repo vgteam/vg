@@ -28,8 +28,6 @@
 
 using namespace vg;
 
-const std::string context = "vg chains";
-
 //----------------------------------------------------------------------------
 
 struct ChainsConfig {
@@ -57,34 +55,35 @@ sdsl::int_vector<> normalize_chain(gbwt::vector_type& chain);
 //----------------------------------------------------------------------------
 
 int main_chains(int argc, char** argv) {
+    Logger logger("vg chains");
     ChainsConfig config(argc, argv);
 
     if (config.progress) {
-        std::cerr << "Loading graph from " << config.graph_file << std::endl;
+        logger.info() << "Loading graph from " << config.graph_file << std::endl;
     }
     std::unique_ptr<HandleGraph> graph = io::VPKG::load_one<HandleGraph>(config.graph_file);
 
     if (config.progress) {
-        std::cerr << "Loading distance index or snarl file from " << config.input_file << std::endl;
+        logger.info() << "Loading distance index or snarl file from " << config.input_file << std::endl;
     }
     std::unique_ptr<SnarlDistanceIndex> distance_index;
     std::unique_ptr<SnarlManager> snarls;
     std::tie(distance_index, snarls) = io::VPKG::try_load_first<SnarlDistanceIndex, SnarlManager>(config.input_file);
     if (distance_index != nullptr) {
         if (config.progress) {
-            std::cerr << "Found a distance index" << std::endl;
+            logger.info() << "Found a distance index" << std::endl;
         }
     } else if (snarls != nullptr) {
         if (config.progress) {
-            std::cerr << "Found a snarl file" << std::endl;
+            logger.info() << "Found a snarl file" << std::endl;
         }
     } else {
-        fatal_error(context) << "unable to load distance index or snarl file from " 
-                             << config.input_file << std::endl;
+        logger.error() << "unable to load distance index or snarl file from " 
+                       << config.input_file << std::endl;
     }
 
     if (config.progress) {
-        std::cerr << "Extracting chains" << std::endl;
+        logger.info() << "Extracting chains" << std::endl;
     }
     std::vector<sdsl::int_vector<>> chains;
     if (distance_index != nullptr) {
@@ -111,7 +110,7 @@ int main_chains(int argc, char** argv) {
         for (const auto& chain : chains) {
             total_handles += chain.size();
         }
-        std::cerr << "Extracted " << chains.size() << " chains with " << total_handles << " handles" << std::endl;
+        logger.info() << "Extracted " << chains.size() << " chains with " << total_handles << " handles" << std::endl;
     }
     std::sort(chains.begin(), chains.end());
 
@@ -119,28 +118,28 @@ int main_chains(int argc, char** argv) {
     std::ofstream out_file;
     if (config.output_file.empty()) {
         if (config.progress) {
-            std::cerr << "Writing output to stdout" << std::endl;
+            logger.info() << "Writing output to stdout" << std::endl;
         }
         out_stream = &std::cout;
     } else {
         if (config.progress) {
-            std::cerr << "Writing output to " << config.output_file << std::endl;
+            logger.info() << "Writing output to " << config.output_file << std::endl;
         }
         out_file.open(config.output_file, std::ios_base::binary);
         out_stream = &out_file;
     }
     if (config.output_format == ChainsConfig::BINARY) {
         if (config.progress) {
-            std::cerr << "Writing binary format" << std::endl;
+            logger.info() << "Writing binary format" << std::endl;
         }
         write_binary(chains, *out_stream);
     } else if (config.output_format == ChainsConfig::GFA) {
         if (config.progress) {
-            std::cerr << "Writing GFA paths" << std::endl;
+            logger.info() << "Writing GFA paths" << std::endl;
         }
         write_gfa_paths(chains, *out_stream);
     } else {
-        fatal_error(context) << "unknown output format" << std::endl;
+        logger.error() << "unknown output format" << std::endl;
         return 1;
     }
     out_file.close();
@@ -148,7 +147,8 @@ int main_chains(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_chains("chains", "extract handles in top-level chains", vg::subcommand::WIDGET, main_chains);
+static vg::subcommand::Subcommand vg_chains("chains", "extract handles in top-level chains", 
+                                            vg::subcommand::WIDGET, main_chains);
 
 //----------------------------------------------------------------------------
 
@@ -247,7 +247,8 @@ void write_gfa_paths(const std::vector<sdsl::int_vector<>>& chains, std::ostream
     }
 }
 
-net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t chain_id, net_handle_t curr) {
+net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const HandleGraph& graph, 
+                          size_t chain_id, net_handle_t curr) {
     net_handle_t next = curr;
     size_t successors = 0;
     distance_index.follow_net_edges(next, &graph, false, [&](const net_handle_t& child) {
@@ -255,8 +256,8 @@ net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const Handle
         next = child;
     });
     if (successors != 1) {
-        std::cerr << "follow_chain(): chain " << chain_id << " has " << successors << " successors for a child";
-        std::exit(EXIT_FAILURE);
+        logging::error("follow_chain()") << "chain " << chain_id 
+                                         << " has " << successors << " successors for a child";
     }
     return next;
 }
@@ -273,7 +274,8 @@ void try_append(gbwt::vector_type& chain, gbwt::node_type start, gbwt::node_type
     }
 }
 
-gbwt::vector_type extract_chain(const SnarlDistanceIndex& distance_index, const HandleGraph& graph, net_handle_t chain, size_t chain_id) {
+gbwt::vector_type extract_chain(const SnarlDistanceIndex& distance_index, const HandleGraph& graph, 
+                                net_handle_t chain, size_t chain_id) {
     gbwt::vector_type result;
 
     // Closed interval of net handles.
@@ -305,15 +307,16 @@ gbwt::vector_type extract_chain(const SnarlDistanceIndex& distance_index, const 
     for (auto handle : result) {
         nid_t id = gbwt::Node::id(handle);
         if (!graph.has_node(id)) {
-            std::cerr << "extract_chain(): chain " << chain_id << " has a handle for missing node " << id << std::endl;
-            std::exit(EXIT_FAILURE);
+            logging::error("extract_chain()") << "chain " << chain_id
+                                              << " has a handle for missing node " << id << std::endl;
         }
     }
 
     return result;
 }
 
-gbwt::vector_type extract_chain(const SnarlManager& snarls, const HandleGraph& graph, const Chain& chain, size_t chain_id) {
+gbwt::vector_type extract_chain(const SnarlManager& snarls, const HandleGraph& graph, 
+                                const Chain& chain, size_t chain_id) {
     gbwt::vector_type result;
 
     for (auto iter = chain_begin(chain); iter != chain_end(chain); ++iter) {

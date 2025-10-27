@@ -27,8 +27,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg ids";
-
 void help_ids(char** argv) {
     cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
          << "options:" << endl
@@ -44,6 +42,7 @@ void help_ids(char** argv) {
 }
 
 int main_ids(int argc, char** argv) {
+    Logger logger("vg ids");
 
     if (argc == 2) {
         help_ids(argv);
@@ -99,7 +98,7 @@ int main_ids(int argc, char** argv) {
                 break;
 
             case 'm':
-                mapping_name = ensure_writable(context, optarg);
+                mapping_name = ensure_writable(logger, optarg);
                 break;
 
             case 's':

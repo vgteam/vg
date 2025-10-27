@@ -22,11 +22,9 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg autoindex";
-
-int64_t parse_memory_usage(const string& mem_arg) {
+int64_t parse_memory_usage(const Logger& logger, const string& mem_arg) {
     if (mem_arg.empty()) {
-        fatal_error(context) << "target memory usage arg is empty" << endl;
+        logger.error() << "target memory usage arg is empty" << endl;
     }
     string mem = mem_arg;
     if (mem.back() == 'B') {
@@ -49,8 +47,8 @@ int64_t parse_memory_usage(const string& mem_arg) {
         base = 1;
     }
     else {
-        fatal_error(context) << "unrecognized unit " << mem.back()
-                             << " for target memory usage: " << mem_arg << endl;
+        logger.error() << "unrecognized unit " << mem.back()
+                       << " for target memory usage: " << mem_arg << endl;
     }
     return parse<int64_t>(mem) * base;
 }
@@ -75,13 +73,13 @@ string mem_usage_string(int64_t mem) {
 };
 
 // expects a string of form "Index Registry Name:filepath1,filepath2,filepath3"
-pair<string, vector<string>> parse_provide_string(const string& str) {
+pair<string, vector<string>> parse_provide_string(const Logger& logger, const string& str) {
     
     pair<string, vector<string>> return_val;
     
     size_t i = str.find(':');
     if (i >= str.size()) {
-        fatal_error(context) << "Couldn't parse index provide string: " << str << endl;
+        logger.error() << "Couldn't parse index provide string: " << str << endl;
     }
     return_val.first = str.substr(0, i);
     while (i < str.size()) {
@@ -90,7 +88,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
         i = end;
     }
     if (return_val.second.empty()) {
-        fatal_error(context) << "Couldn't parse index provide string:" << str << endl;
+        logger.error() << "Couldn't parse index provide string:" << str << endl;
     }
     return return_val;
 }
@@ -134,6 +132,7 @@ void help_autoindex(char** argv) {
 }
 
 int main_autoindex(int argc, char** argv) {
+    Logger logger("vg autoindex");
     
     if (argc == 2) {
         help_autoindex(argv);
@@ -232,25 +231,25 @@ int main_autoindex(int argc, char** argv) {
                     }
                 }
                 else {
-                    fatal_error(context) << "Unrecognized workflow (-w) \"" << optarg << "\"" << endl;
+                    logger.error() << "Unrecognized workflow (-w) \"" << optarg << "\"" << endl;
                 }
                 break;
             case 'r':
-                require_non_gzipped(context, optarg);
+                require_non_gzipped(logger, optarg);
                 registry.provide("Reference FASTA", optarg);
                 break;
             case 'v':
-                vcf_names.push_back(require_exists(context, optarg));
+                vcf_names.push_back(require_exists(logger, optarg));
                 break;
             case 'i':
-                require_non_gzipped(context, optarg);
+                require_non_gzipped(logger, optarg);
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
-                gfa_name = require_exists(context, optarg);
+                gfa_name = require_exists(logger, optarg);
                 break;
             case 'G':
-                gbz_name = require_exists(context, optarg);
+                gbz_name = require_exists(logger, optarg);
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);
@@ -269,15 +268,15 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'P':
             {
-                auto parsed = parse_provide_string(optarg);
+                auto parsed = parse_provide_string(logger, optarg);
                 registry.provide(parsed.first, parsed.second);
                 break;
             }
             case 'R':
-                targets.emplace_back(ensure_writable(context, optarg));
+                targets.emplace_back(ensure_writable(logger, optarg));
                 break;
             case 'M':
-                target_mem_usage = parse_memory_usage(optarg);
+                target_mem_usage = parse_memory_usage(logger, optarg);
                 break;
             case OPT_GBWT_BUFFER_SIZE:
                 IndexingParameters::gbwt_insert_batch_size = std::max(parse<size_t>(optarg), 1ul) * gbwt::MILLION;
@@ -286,14 +285,14 @@ int main_autoindex(int argc, char** argv) {
                 temp_file::set_dir(optarg);
                 break;
             case 't':
-                set_thread_count(context, optarg);
+                set_thread_count(logger, optarg);
                 break;
             case 'V':
             {
                 int verbosity = parse<int>(optarg);
                 if (verbosity < IndexingParameters::None || verbosity > IndexingParameters::Debug) {
-                    fatal_error(context) << "Verbosity (-V) must be integer in {0, 1, 2}, not \""
-                                         << optarg << "\"" << endl;
+                    logger.error() << "Verbosity (-V) must be integer in {0, 1, 2}, not \""
+                                   << optarg << "\"" << endl;
                 }
                 IndexingParameters::verbosity = (IndexingParameters::Verbosity) verbosity;
                 break;
@@ -322,11 +321,12 @@ int main_autoindex(int argc, char** argv) {
     }
     
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        basic_log(context) << "Executing command:";
+        auto info_msg = logger.info();
+        info_msg << "Executing command:";
         for (int i = 0; i < argc; ++i) {
-            cerr << " " << argv[i];
+            info_msg << " " << argv[i];
         }
-        cerr << endl;
+        info_msg << endl;
     }
     
     assert(!(force_phased && force_unphased));
@@ -391,7 +391,7 @@ int main_autoindex(int argc, char** argv) {
                 vector<string> inferred_file_names = registry.get_possible_filenames(target);
                 for (const string& filename : inferred_file_names) {
                     if (ifstream(filename).is_open()) {
-                        basic_log(context) << "Guessing that " << filename << " is " << target << endl;
+                        logger.info() << "Guessing that " << filename << " is " << target << endl;
                         registry.provide(target, filename);
                         break;
                     }
@@ -404,7 +404,7 @@ int main_autoindex(int argc, char** argv) {
         registry.make_indexes(targets);
     }
     catch (InsufficientInputException ex) {
-        fatal_error(context) << "Input is not sufficient to create indexes\n" << string(ex.what()) << endl;
+        logger.error() << "Input is not sufficient to create indexes\n" << string(ex.what()) << endl;
     }
     
     return 0;

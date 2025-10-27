@@ -4,16 +4,20 @@
 
 namespace vg {
 
-cerrWrapper basic_log(const std::string& context) {
+namespace logging {
+
+cerrWrapper info(const std::string& context) {
     return cerrWrapper("[" + context + "] ", false);
 }
 
-cerrWrapper warning(const std::string& context) {
+cerrWrapper warn(const std::string& context) {
     return cerrWrapper("warning[" + context + "] ", false);
 }
 
-cerrWrapper fatal_error(const std::string& context) {
+cerrWrapper error(const std::string& context) {
     return cerrWrapper("error[" + context + "] ", true);
+}
+
 }
 
 }

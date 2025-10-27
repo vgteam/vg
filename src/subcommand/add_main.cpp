@@ -25,8 +25,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg add";
-
 void help_add(char** argv) {
     cerr << "usage: " << argv[0] << " add [options] old.vg >new.vg" << endl
          << "options:" << endl
@@ -42,6 +40,7 @@ void help_add(char** argv) {
 }
 
 int main_add(int argc, char** argv) {
+    Logger logger("vg add");
 
     if (argc == 2) {
         help_add(argv);
@@ -89,13 +88,13 @@ int main_add(int argc, char** argv) {
         {
 
         case 'v':
-            vcf_filenames.push_back(require_exists(context, optarg));
+            vcf_filenames.push_back(require_exists(logger, optarg));
             break;
             
         case 'n':
             {
                 string vcf_contig, graph_contig;
-                tie(vcf_contig, graph_contig) = parse_pair(context, optarg, '=', "--rename");
+                tie(vcf_contig, graph_contig) = parse_pair(logger, optarg, '=', "--rename");
                 // Add the name mapping
                 renames.emplace_back(vcf_contig, graph_contig);
             }
@@ -118,7 +117,7 @@ int main_add(int argc, char** argv) {
             break;
             
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'h':
@@ -149,7 +148,7 @@ int main_add(int argc, char** argv) {
         auto& vcf = *vcfs.back();
         vcf.open(vcf_filename);
         if (!vcf.is_open()) {
-            fatal_error(context) << "could not open " << vcf_filename << endl;
+            logger.error() << "could not open " << vcf_filename << endl;
         }
     }
     
@@ -181,7 +180,7 @@ int main_add(int argc, char** argv) {
     ensure_vg();
     
     if (vg_graph == nullptr) {
-        fatal_error(context) << "Could not load graph" << endl;
+        logger.error() << "Could not load graph" << endl;
     }
     
     {

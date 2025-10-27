@@ -41,8 +41,6 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::algorithms;
 
-const string context = "vg stats";
-
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] [<graph file>]" << endl
          << "options:" << endl
@@ -82,6 +80,7 @@ void help_stats(char** argv) {
 }
 
 int main_stats(int argc, char** argv) {
+    Logger logger("vg stats");
 
     if (argc == 2) {
         help_stats(argv);
@@ -233,7 +232,7 @@ int main_stats(int argc, char** argv) {
             break;
 
         case 'a':
-            alignments_filename = require_exists(context, optarg);
+            alignments_filename = require_exists(logger, optarg);
             break;
 
         case 'r':
@@ -280,10 +279,10 @@ int main_stats(int argc, char** argv) {
             degree_dist = true;
             break;
         case 'b':
-            distance_index_filename = require_exists(context, optarg);
+            distance_index_filename = require_exists(logger, optarg);
             break;
         case 'p':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
 
         case 'h':
@@ -298,7 +297,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (!snarl_sample.empty() && !snarl_stats) {
-        fatal_error(context) << "--snarl-sample can only be used with --snarls/-R" << endl;
+        logger.error() << "--snarl-sample can only be used with --snarls/-R" << endl;
     }
 
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -320,16 +319,16 @@ int main_stats(int argc, char** argv) {
     }
     
     // We have function to make sure the graph was passed and complain if not
-    auto require_graph = [&graph]() {
+    auto require_graph = [&graph, &logger]() {
         if (graph == nullptr) {
-            fatal_error(context) << "The selected operation requires passing a graph file to work on" << endl;
+            logger.error() << "The selected operation requires passing a graph file to work on" << endl;
         }
     };
 
     if (stats_size) {
         require_graph();
         cout << "nodes" << "\t" << graph->get_node_count() << endl
-            << "edges" << "\t" << graph->get_edge_count() << endl;
+             << "edges" << "\t" << graph->get_edge_count() << endl;
     }
 
     if (node_count) {
@@ -963,7 +962,7 @@ int main_stats(int argc, char** argv) {
             }
         });
         if (show_progress) {
-            basic_log(context) << "Destroy per-thread data structures" << std::endl;
+            logger.info() << "Destroy per-thread data structures" << std::endl;
         }
         // This can take a long time because we need to deallocate all this
         // stuff allocated by other threads, such as per-node count maps.
@@ -993,7 +992,7 @@ int main_stats(int argc, char** argv) {
 
         if (graph != nullptr) {
             if (show_progress) {
-                basic_log(context) << "Account for graph" << std::endl;
+                logger.info() << "Account for graph" << std::endl;
             }
 
             // Calculate stats about the reads per allele data
@@ -1069,7 +1068,7 @@ int main_stats(int argc, char** argv) {
         }
 
         if (show_progress) {
-            basic_log(context) << "Print report" << std::endl;
+            logger.info() << "Print report" << std::endl;
         }
 
         cout << "Total alignments: " << combined.total_alignments << endl;
@@ -1192,7 +1191,7 @@ int main_stats(int argc, char** argv) {
                     ref_path_names.push_back(graph->get_path_name(path_handle));
                 });
                 if (ref_path_names.empty()) {
-                    fatal_error(context) << "unable to find any paths of --snarl-sample" << endl;
+                    logger.error() << "unable to find any paths of --snarl-sample" << endl;
                 }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }

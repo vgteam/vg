@@ -32,8 +32,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand; 
 
-const string context = "vg surject";
-
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
          << "Transforms alignments to be relative to particular paths." << endl
@@ -92,14 +90,14 @@ void help_surject(char** argv) {
 /// If the given alignment doesn't make sense against the given graph (i.e.
 /// doesn't agree with the nodes in the graph), print a message and stop the
 /// program. Is thread-safe.
-static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGraph& graph) {
+static void ensure_alignment_is_for_graph(const Logger& logger, const Alignment& aln, const HandleGraph& graph) {
     AlignmentValidity validity = alignment_is_valid(aln, &graph);
     if (!validity) {
         #pragma omp critical (cerr)
         {
-        fatal_error(context) << "Alignment " << aln.name() << " cannot be interpreted against this graph:\n" 
-                             << validity.message
-                             << "\nMake sure that you are using the same graph that the reads were mapped to!" << endl;
+        logger.error() << "Alignment " << aln.name() << " cannot be interpreted against this graph:\n" 
+                       << validity.message
+                       << "\nMake sure that you are using the same graph that the reads were mapped to!" << endl;
         }
     }
 }
@@ -107,7 +105,8 @@ static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGrap
 /// If the given multipath alignment doesn't make sense against the given graph (i.e.
 /// doesn't agree with the nodes in the graph), print a message and stop the
 /// program. Is thread-safe.
-static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const HandleGraph& graph) {
+static void ensure_alignment_is_for_graph(const Logger& logger, const MultipathAlignment& aln, 
+                                          const HandleGraph& graph) {
     // For multipath alignments we just check node existence.
     for (auto& subpath : aln.subpath()) {
         for (auto& mapping : subpath.path().mapping()) {
@@ -116,11 +115,11 @@ static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const H
                 // Something is wrong with this alignment.
                 #pragma omp critical (cerr)
                 {
-                fatal_error(context) << "MultipathAlignment " << aln.name() 
-                                     << " cannot be interpreted against this graph: node "
-                                     << node_id << " does not exist!"
-                                     << "\nMake sure that you are using"
-                                     << "the same graph that the reads were mapped to!" << endl;
+                logger.error() << "MultipathAlignment " << aln.name() 
+                               << " cannot be interpreted against this graph: node "
+                               << node_id << " does not exist!"
+                               << "\nMake sure that you are using"
+                               << "the same graph that the reads were mapped to!" << endl;
                 }
             }
             // TODO: Check edge existence. It's possible to have an alignment
@@ -130,13 +129,16 @@ static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const H
     }
 }
 
-static void adjacent_but_not_paired_error(const string& name1, const string& name2) {
-    // This is a helper for the cases where we find two alignments that are
-    // adjacent in the input but not paired.
-    fatal_error(context) << "alignments " << name1 << " and " << name2 << " are adjacent but not paired" << endl;
+/// This is a helper for the cases where we find two alignments
+/// that are adjacent in the input but not paired.
+static void adjacent_but_not_paired_error(const Logger& logger, const string& name1, const string& name2) {
+    
+    logger.error() << "alignments " << name1 << " and " 
+                   << name2 << " are adjacent but not paired" << endl;
 }
 
 int main_surject(int argc, char** argv) {
+    Logger logger("vg surject");
     
     if (argc == 2) {
         help_surject(argv);
@@ -227,7 +229,7 @@ int main_surject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = require_exists(context, optarg);
+            xg_name = require_exists(logger, optarg);
             break;
 
         case 'p':
@@ -235,7 +237,7 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'F':
-            path_file = require_exists(context, optarg);
+            path_file = require_exists(logger, optarg);
             break;
 
         case 'n':
@@ -340,7 +342,7 @@ int main_surject(int argc, char** argv) {
             break;
             
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
                 
         case 'L':
@@ -366,9 +368,8 @@ int main_surject(int argc, char** argv) {
 
     if (have_input_file(optind, argc, argv)) {
         // We only take one input file.
-        fatal_error(context) << "Extra argument provided: "
-                             << get_input_file_name(optind, argc, argv, false) << endl;
-        exit(1);
+        logger.error() << "Extra argument provided: "
+                       << get_input_file_name(optind, argc, argv, false) << endl;
     }
 
     // Create a preprocessor to apply read group and sample name overrides in place
@@ -388,20 +389,20 @@ int main_surject(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
         if (show_progress) {
-            basic_log(context) << "Loading graph..." << endl;
+            logger.info() << "Loading graph..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         if (show_progress) {
-            basic_log(context) << "Applying overlay..." << endl;
+            logger.info() << "Applying overlay..." << endl;
         }
         xgidx = overlay_helper.apply(path_handle_graph.get());
     } else {
         // We need an XG index for the rest of the algorithm
-        fatal_error(context) << "XG index (-x) is required for surjection" << endl;
+        logger.error() << "XG index (-x) is required for surjection" << endl;
     }
     
     if (show_progress) {
-        basic_log(context) << "Finding paths..." << endl;
+        logger.info() << "Finding paths..." << endl;
     }
 
     // Get the paths to surject into and their length information, either from
@@ -418,7 +419,7 @@ int main_surject(int argc, char** argv) {
     }
 
     if (show_progress) {
-        basic_log(context) << "Building Surjector for " << paths.size() << " paths..." << endl;
+        logger.info() << "Building Surjector for " << paths.size() << " paths..." << endl;
     }
 
     // Make a single thread-safe Surjector.
@@ -461,7 +462,7 @@ int main_surject(int argc, char** argv) {
     std::atomic<size_t> total_reads_surjected(0);
 
     if (show_progress) {
-        basic_log(context) << "Surjecting on " << thread_count << " threads..." << endl;
+        logger.info() << "Surjecting on " << thread_count << " threads..." << endl;
     }
 
     clock_t cpu_time_before = clock();
@@ -473,11 +474,11 @@ int main_surject(int argc, char** argv) {
             if (src.has_path() && src.sequence().empty()) {
                 #pragma omp critical (cerr)
                 {
-                fatal_error(context) << "Read " << src.name() <<" is aligned but "
-                                     << "does not have a sequence and therefore cannot be surjected. "
-                                     << "Was it derived from a GAF without a base-level alignment? "
-                                     << "Or a GAF with a CIGAR string in the 'cg' tag (which does not "
-                                     << "provide enough information to reconstruct the sequence)?" << endl;
+                logger.error() << "Read " << src.name() <<" is aligned but "
+                               << "does not have a sequence and therefore cannot be surjected. "
+                               << "Was it derived from a GAF without a base-level alignment? "
+                               << "Or a GAF with a CIGAR string in the 'cg' tag (which does not "
+                               << "provide enough information to reconstruct the sequence)?" << endl;
                 }
             }
         };
@@ -510,7 +511,7 @@ int main_surject(int argc, char** argv) {
                             src2.fragment_prev().name() != src1.name()) {
                             
 #pragma omp critical (cerr)
-                            adjacent_but_not_paired_error(src1.name(), src2.name());
+                            adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                             
                         }
                     } else if (src2.has_fragment_next()) {
@@ -520,18 +521,18 @@ int main_surject(int argc, char** argv) {
                             src1.fragment_prev().name() != src2.name()) {
                             
 #pragma omp critical (cerr)
-                           adjacent_but_not_paired_error(src1.name(), src2.name());
+                           adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                             
                         }
                     } else {
                         // Alignments aren't paired up at all
 #pragma omp critical (cerr)
-                        adjacent_but_not_paired_error(src1.name(), src2.name());
+                        adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                     }
                     
                     if (validate) {
-                        ensure_alignment_is_for_graph(src1, *xgidx);
-                        ensure_alignment_is_for_graph(src2, *xgidx);
+                        ensure_alignment_is_for_graph(logger, src1, *xgidx);
+                        ensure_alignment_is_for_graph(logger, src2, *xgidx);
                     }
                     
                     // Preprocess read to set metadata before surjection
@@ -646,7 +647,7 @@ int main_surject(int argc, char** argv) {
                         watchdog->check_in(thread_num, src.name());
                     }
                     if (validate) {
-                        ensure_alignment_is_for_graph(src, *xgidx);
+                        ensure_alignment_is_for_graph(logger, src, *xgidx);
                     }
                     
                     // Preprocess read to set metadata before surjection
@@ -710,18 +711,18 @@ int main_surject(int argc, char** argv) {
                         if (src1.paired_read_name() != src2.name() || src2.paired_read_name() != src1.name()) {
                             
 #pragma omp critical (cerr)
-                            adjacent_but_not_paired_error(src1.name(), src2.name());
+                            adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                             
                         }
                         else if (src1.paired_read_name().empty() || src2.paired_read_name().empty()) {
                             // Alignments aren't paired up at all
 #pragma omp critical (cerr)
-                            adjacent_but_not_paired_error(src1.name(), src2.name());
+                            adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                         }
 
                         if (validate) {
-                            ensure_alignment_is_for_graph(src1, *xgidx);
-                            ensure_alignment_is_for_graph(src2, *xgidx);
+                            ensure_alignment_is_for_graph(logger, src1, *xgidx);
+                            ensure_alignment_is_for_graph(logger, src2, *xgidx);
                         }
                         
                         // convert out of protobuf
@@ -854,7 +855,7 @@ int main_surject(int argc, char** argv) {
                         }
 
                         if (validate) {
-                            ensure_alignment_is_for_graph(src, *xgidx);
+                            ensure_alignment_is_for_graph(logger, src, *xgidx);
                         }
 
                         multipath_alignment_t mp_src;
@@ -892,7 +893,7 @@ int main_surject(int argc, char** argv) {
             }
         });
     } else {
-        fatal_error(context) << "Unimplemented input format " << input_format << endl;
+        logger.error() << "Unimplemented input format " << input_format << endl;
     }
     
     cout.flush();
@@ -904,11 +905,11 @@ int main_surject(int argc, char** argv) {
 
     if (show_progress) {
         // Log to standard error
-        basic_log(context) << "Surjected " << total_reads_surjected << " reads in "
-                           << cpu_seconds << " CPU-seconds" << endl;
+        logger.info() << "Surjected " << total_reads_surjected << " reads in "
+                      << cpu_seconds << " CPU-seconds" << endl;
         if (cpu_seconds > 0) {
-            basic_log(context) << "Surjected at " << total_reads_surjected / cpu_seconds
-                               << " RPS per thread" << endl;
+            logger.info() << "Surjected at " << total_reads_surjected / cpu_seconds
+                          << " RPS per thread" << endl;
         }
     }
     

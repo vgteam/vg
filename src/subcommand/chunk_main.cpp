@@ -33,14 +33,13 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg chunk";
 const string DEFAULT_CHUNK_PREFIX = "./chunk";
 
 static string chunk_name(const string& out_chunk_prefix, int i, const Region& region,
                          string ext, int gi = 0, bool components = false);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
-static void check_read(const Alignment& aln, const HandleGraph* graph);
+static void check_read(const Alignment& aln, const HandleGraph* graph, const Logger& logger);
                      
 
 void help_chunk(char** argv) {
@@ -111,6 +110,7 @@ void help_chunk(char** argv) {
 }
 
 int main_chunk(int argc, char** argv) {
+    Logger logger("vg chunk");
 
     if (argc == 2) {
         help_chunk(argv);
@@ -200,15 +200,15 @@ int main_chunk(int argc, char** argv) {
         {
 
         case 'x':
-            xg_file = require_exists(context, optarg);
+            xg_file = require_exists(logger, optarg);
             break;
         
         case 'G':
-            gbwt_file = require_exists(context, optarg);
+            gbwt_file = require_exists(logger, optarg);
             break;
 
         case 'a':
-            aln_files.push_back(require_exists(context, optarg));
+            aln_files.push_back(require_exists(logger, optarg));
             break;
             
         case 'g':
@@ -224,7 +224,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'P':
-            path_list_file = require_exists(context, optarg);
+            path_list_file = require_exists(logger, optarg);
             break;
 
         case 's':
@@ -236,15 +236,15 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'e':
-            in_bed_file = require_exists(context, optarg);
+            in_bed_file = require_exists(logger, optarg);
             break;
             
         case 'S':
-            snarl_filename = require_exists(context, optarg);
+            snarl_filename = require_exists(logger, optarg);
             break;
             
         case 'E':
-            out_bed_file = ensure_writable(context, optarg);
+            out_bed_file = ensure_writable(logger, optarg);
             break;
 
         case 'b':
@@ -266,7 +266,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'R':
-            node_ranges_file = require_exists(context, optarg);
+            node_ranges_file = require_exists(logger, optarg);
             id_range = true;
             break;
 
@@ -305,7 +305,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
             
         case 'O':
@@ -328,12 +328,12 @@ int main_chunk(int argc, char** argv) {
     if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) +
         (in_bed_file.empty() ? 0 : 1) + (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) +
         (aln_split_size == 0 ? 0 : 1) + (path_components ? 1 : 0) > 1) {
-        fatal_error(context) << "at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} "
-                             << "required to specify input regions" << endl;
+        logger.error() << "at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} "
+                       << "required to specify input regions" << endl;
     }
     // need -a if using options that use it
     if ((aln_split_size != 0 || fully_contained || cut_alignments) && aln_files.empty()) {
-        fatal_error(context) << "read alignment file must be specified with -a when using -f, -u, or -m" << endl;
+        logger.error() << "read alignment file must be specified with -a when using -f, -u, or -m" << endl;
     }
     // GAF chunking just uses tabix lookup and forwards line strings right now,
     // so it can't do anything that relies on parsing the alignments.
@@ -341,44 +341,44 @@ int main_chunk(int argc, char** argv) {
     // TODO: Unify the input and output into swappable pieces and actually
     // parse GAF.
     if (fully_contained && aln_is_gaf) {
-        fatal_error(context) << "restricting to fully-contained alignments not yet implemented for GAF" << endl;
+        logger.error() << "restricting to fully-contained alignments not yet implemented for GAF" << endl;
     }
     if (cut_alignments && aln_is_gaf) {
-        fatal_error(context) << "cutting alignments not yet implemented for GAF" << endl;
+        logger.error() << "cutting alignments not yet implemented for GAF" << endl;
     }
     if (components == true && context_steps >= 0) {
-        fatal_error(context) << "context cannot be specified (-c) when splitting into components (-C)" << endl;
+        logger.error() << "context cannot be specified (-c) when splitting into components (-C)" << endl;
     }
 
     if (!snarl_filename.empty() && context_steps >= 0) {
-        fatal_error(context) << "context cannot be specified (-c) when using snarls (-S)" << endl;
+        logger.error() << "context cannot be specified (-c) when using snarls (-S)" << endl;
     }
     if (!snarl_filename.empty() && region_strings.empty() && path_list_file.empty() && in_bed_file.empty()) {
-        fatal_error(context) << "snarl chunking can only be used with path regions (-p -P -e)" << endl;
+        logger.error() << "snarl chunking can only be used with path regions (-p -P -e)" << endl;
     }
 
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
     if (!vg::io::valid_output_format(output_format)) {
-        fatal_error(context) << "invalid output format" << endl;
+        logger.error() << "invalid output format" << endl;
     }
     if (trace && output_format != "vg") {
         // todo: trace code goes through vg conversion anyway and according to unit tests
         //       fails when not outputting vg
         output_format = "vg";
         if (output_format_set) {
-            warning(context) << "ignoring -O and setting output format to vg, as required by -T" << endl;
+            logger.warn() << "ignoring -O and setting output format to vg, as required by -T" << endl;
         }
         
     }
     else if (output_format == "vg") {
-        warning(context) << "the vg-protobuf format is DEPRECATED. "
-                         << "You probably want to use PackedGraph (pg) instead" << endl;
+        logger.warn() << "the vg-protobuf format is DEPRECATED. "
+                      << "You probably want to use PackedGraph (pg) instead" << endl;
     }    
     string output_ext = output_format == "gfa" ? ".gfa"  : ".vg";
 
     // figure out which outputs we want.  the graph always
-    // needs to be chunked, even if only gam output is requested,
+    // needs to be chunked, even if only GAM output is requested,
     // because we use the graph to get the nodes we're looking for.
     // but we only write the subgraphs to disk if chunk_graph is true. 
     bool chunk_aln = !aln_files.empty() && aln_split_size == 0;
@@ -425,7 +425,7 @@ int main_chunk(int argc, char** argv) {
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && aln_split_size == 0) 
         || (id_range && chunk_aln) || components) {
         if (xg_file.empty()) {
-            fatal_error(context) << "graph or XG index (-x) required" << endl;
+            logger.error() << "graph or XG index (-x) required" << endl;
         }
 
         // To support the regions we were asked for, we might need to ensure
@@ -455,7 +455,7 @@ int main_chunk(int argc, char** argv) {
             gbwt_index_holder = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
             if (gbwt_index_holder.get() == nullptr) {
                 // Complain if we couldn't get it but were supposed to.
-                fatal_error(context) << "unable to load GBWT index file: " << gbwt_file << endl;
+                logger.error() << "unable to load GBWT index file: " << gbwt_file << endl;
             }
             gbwt_index = gbwt_index_holder.get();
         }
@@ -482,18 +482,18 @@ int main_chunk(int argc, char** argv) {
                     if (!gaf_file.empty()){
                         gaf_tbx = tbx_index_load3(gaf_file.c_str(), NULL, 0);
                         if ( !gaf_tbx ) {
-                            fatal_error(context) << "Could not load .tbi/.csi index of " << gaf_file << endl;
+                            logger.error() << "Could not load .tbi/.csi index of " << gaf_file << endl;
                         }
                         int nseq;
                         gaf_fp = hts_open(gaf_file.c_str(),"r");
                         if ( !gaf_fp ) {
-                            fatal_error(context) << "Could not open " << gaf_file << endl;
+                            logger.error() << "Could not open " << gaf_file << endl;
                         }
                         gaf_fps.push_back(unique_ptr<htsFile>(gaf_fp));
                         gaf_tbxs.push_back(unique_ptr<tbx_t>(gaf_tbx));
                     }
                 } catch (...) {
-                    fatal_error(context) << "unable to load GAF index file: " << gaf_file << endl;
+                    logger.error() << "unable to load GAF index file: " << gaf_file << endl;
                 }
             }
         } else {
@@ -504,9 +504,9 @@ int main_chunk(int argc, char** argv) {
                         gam_indexes.back()->load(index_stream);
                     });
                 } catch (...) {
-                    fatal_error(context) << "unable to load GAM index file: " << gam_file << ".gai;\n"
-                                         << "note: .gai is required when *not* chunking by components "
-                                         << "with -C or -M" << endl;
+                    logger.error() << "unable to load GAM index file: " << gam_file << ".gai;\n"
+                                   << "note: .gai is required when *not* chunking by components "
+                                   << "with -C or -M" << endl;
                 }
             }
         }
@@ -589,7 +589,7 @@ int main_chunk(int argc, char** argv) {
     }
     
     if (context_steps >= 0 && regions.empty()) {
-        fatal_error(context) << "extracting context (-c) requires a region to take context around" << endl;
+        logger.error() << "extracting context (-c) requires a region to take context around" << endl;
     }
     
     // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
@@ -600,7 +600,7 @@ int main_chunk(int argc, char** argv) {
                 context_steps = 1;
             }
         } else if (!components && snarl_filename.empty()) {
-            fatal_error(context) << "context (-c) or snarls (-S)  must be specified when chunking on paths" << endl;
+            logger.error() << "context (-c) or snarls (-S)  must be specified when chunking on paths" << endl;
         }
     }
 
@@ -622,17 +622,17 @@ int main_chunk(int argc, char** argv) {
                 if (region.start < 0 || region.end < 0) {
                     // The region coordinates aren't fully specified but the path with that exact name doesn't exist.
                     // Guessing what the user wants would be hard, so stop.
-                    fatal_error(context) << "input path " << region.seq << " not found exactly in graph "
-                                         << "and region coordinates are not completely specified" << endl;
+                    logger.error() << "input path " << region.seq << " not found exactly in graph "
+                                   << "and region coordinates are not completely specified" << endl;
                 } else if (graph->has_path(region.seq)) {
                     // This is just an out of range request
-                    fatal_error(context) << "input region " << region.seq << ":" << region.start << "-" << region.end
-                                         << " is out of bounds of path " << region.seq << " which has length " 
-                                         << get_path_length(graph->get_path_handle(region.seq)) << endl;
+                    logger.error() << "input region " << region.seq << ":" << region.start << "-" << region.end
+                                   << " is out of bounds of path " << region.seq << " which has length " 
+                                   << get_path_length(graph->get_path_handle(region.seq)) << endl;
                 } else {
                     // The path isn't there or the containing subpath isn't there.
-                    fatal_error(context) << "input region " << region.seq << ":" << region.start << "-" 
-                                         << region.end << " not contained by any graph path" << endl;
+                    logger.error() << "input region " << region.seq << ":" << region.start << "-" 
+                                   << region.end << " not contained by any graph path" << endl;
                 }
             }
             
@@ -687,16 +687,16 @@ int main_chunk(int argc, char** argv) {
     // now ready to get our chunk on
     if (aln_split_size != 0) {
         if(aln_is_gaf) {
-            fatal_error(context) << "GAF file input toggled with -F but, currently, only GAM files can be split. "
-                                 << "A workaround would be to split the GAF file using split -l/-n "
-                                 << "which can split text files into chunks." << endl;
+            logger.error() << "GAF file input toggled with -F but, currently, only GAM files can be split. "
+                           << "A workaround would be to split the GAF file using split -l/-n "
+                           << "which can split text files into chunks." << endl;
         }
         for (size_t gi = 0; gi < aln_files.size(); ++gi) {
             ifstream gam_stream;
             string& gam_file = aln_files[gi];
             // Open the GAM file, whether splitting directly or seeking with an index
             gam_stream.open(gam_file);
-            // just chunk up every N reads in the gam without any path or id logic. Don't do anything else.
+            // just chunk up every N reads in the GAM without any path or id logic. Don't do anything else.
             string prefix = gi == 0 ? out_chunk_prefix : out_chunk_prefix + std::to_string(gi);
             split_gam(gam_stream, aln_split_size, prefix);
         }
@@ -718,7 +718,7 @@ int main_chunk(int argc, char** argv) {
     }
     
     // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.
-    // Todo: when operating on multiple gams, we make |threads| X |gams| cursors, even though
+    // Todo: when operating on multiple GAMs, we make |threads| X |gams| cursors, even though
     // we only ever use |threads| threads.
     vector<list<ifstream>> gam_streams_vec(aln_files.size());
     vector<vector<GAMIndex::cursor_t>> cursors_vec(aln_files.size());
@@ -904,7 +904,7 @@ int main_chunk(int argc, char** argv) {
                         out_gaf_file.close();
                     }
                 } else {
-                    // old way: use the gam index
+                    // old way: use the GAM index
                     for (size_t gi = 0; gi < gam_indexes.size(); ++gi) {
                         auto& gam_index = gam_indexes[gi];
                         assert(gam_index.get() != nullptr);
@@ -915,7 +915,7 @@ int main_chunk(int argc, char** argv) {
                         auto emit = vg::io::emit_to<Alignment>(out_gam_file);
                     
                         auto handle_read = [&](const Alignment& aln) {
-                            check_read(aln, graph);
+                            check_read(aln, graph, logger);
                             if (cut_alignments) {
                                 // Cut down to just things in any range belonging to this region.
                                 vector<Alignment> pieces = alignment_pieces_within(aln, [&](nid_t id) -> bool {
@@ -957,7 +957,7 @@ int main_chunk(int argc, char** argv) {
             // Even if we have only one chunk, the trace annotation data always
             // ends up in a file.
             string annot_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".annotate.txt", 0, components);
-            ensure_writable(context, annot_name);
+            ensure_writable(logger, annot_name);
             ofstream out_annot_file(annot_name);
             for (auto tf : trace_thread_frequencies) {
                 out_annot_file << tf.first << "\t" << tf.second << endl;
@@ -980,13 +980,13 @@ int main_chunk(int argc, char** argv) {
         }
     }
 
-    // write out component gams
+    // write out component GAMs
     if (chunk_aln && components) {
         if(aln_is_gaf) {
-            fatal_error(context) << "GAF file input toggled with -F but, currently, only GAM files "
-                                 << "can be chunked by component. A workaround is to query one chromosome-component "
-                                 << "as the reference path and all contained snarls using "
-                                 << "'-p PATHNAME -S SNARLFILE'." << endl;
+            logger.error() << "GAF file input toggled with -F but, currently, only GAM files "
+                           << "can be chunked by component. A workaround is to query one chromosome-component "
+                           << "as the reference path and all contained snarls using "
+                           << "'-p PATHNAME -S SNARLFILE'." << endl;
         }
 
         // buffer size of each component, total across threads
@@ -1008,7 +1008,7 @@ int main_chunk(int argc, char** argv) {
             string gam_name = chunk_name(out_chunk_prefix, comp_number, output_regions[comp_number], ".gam", 0, components);
             {
                 std::lock_guard<std::mutex> guard(output_buffer_locks[comp_number]);
-                ensure_writable(context, gam_name);
+                ensure_writable(logger, gam_name);
                 ofstream out_gam_file(gam_name, append_buffer[comp_number] ? std::ios_base::app : std::ios_base::out);
                 vg::io::write_buffered(out_gam_file, output_buffers[buffer_idx], output_buffers[buffer_idx].size());
                 append_buffer[comp_number] = true;
@@ -1017,7 +1017,7 @@ int main_chunk(int argc, char** argv) {
         };
         
         function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
-            check_read(aln, graph);
+            check_read(aln, graph, logger);
              
             // we're going to lose unmapped reads right here
             if (aln.path().mapping_size() > 0) {
@@ -1137,7 +1137,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                     }
                     stringstream out_name;
                     out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
-                    out_file.open(ensure_writable(context, out_name.str()));
+                    out_file.open(ensure_writable("chunk::split_gam()", out_name.str()));
                     // Open a new multiplexer on the new file
                     gam_multiplexer.reset(new vg::io::StreamMultiplexer(out_file, thread_count));
                 }
@@ -1231,7 +1231,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
 
 /// Stop and print an error if the graph exists and the read does not appear to
 /// actually be aligned against the graph.
-static void check_read(const Alignment& aln, const HandleGraph* graph) { 
+static void check_read(const Alignment& aln, const HandleGraph* graph, const Logger& logger) { 
     if (!graph) {
         return;
     }
@@ -1239,9 +1239,9 @@ static void check_read(const Alignment& aln, const HandleGraph* graph) {
     AlignmentValidity validity = alignment_is_valid(aln, graph);
     if (!validity) {
         #pragma omp critical (cerr)
-        fatal_error(context) << "Alignment " << aln.name() << " cannot be interpreted against this graph:\n" 
-                             << validity.message
-                             << "\nMake sure that you are using the same graph that the reads were mapped to!" << endl;
+        logger.error() << "Alignment " << aln.name() << " cannot be interpreted against this graph:\n" 
+                       << validity.message
+                       << "\nMake sure that you are using the same graph that the reads were mapped to!" << endl;
     }
 }
 

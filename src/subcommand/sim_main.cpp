@@ -30,10 +30,8 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
-const string context = "vg sim";
-
 // Gets the transcript IDs and TPM values from an RSEM output .tsv file
-vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
+vector<pair<string, double>> parse_rsem_expression_file(const Logger& logger, istream& rsem_in) {
     vector<pair<string, double>> return_val;
     string line;
     // skip the header line
@@ -48,9 +46,9 @@ vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
             token.clear();
         }
         if (tokens.size() != 8) {
-            fatal_error(context) << "Cannot parse transcription file. "
-                                 << "Expected 8-column TSV file as produced by RSEM, got "
-                                 << tokens.size() << " columns." << std::endl;
+            logger.error() << "Cannot parse transcription file. "
+                           << "Expected 8-column TSV file as produced by RSEM, got "
+                           << tokens.size() << " columns." << std::endl;
         }
         return_val.emplace_back(tokens[0], parse<double>(tokens[5]));
         line.clear();
@@ -59,7 +57,7 @@ vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
 }
 
 // Gets the trancript path name, the original transcript name, and the haplotype count from the vg rna -i file
-vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& haplo_tx_in) {
+vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(const Logger& logger, istream& haplo_tx_in) {
     vector<tuple<string, string, size_t>> return_val;
     string line;
     // skip the header line
@@ -74,9 +72,9 @@ vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& h
             token.clear();
         }
         if (tokens.size() != 5) {
-            fatal_error(context) << "Cannot parse haplotype transcript file. "
-                                 << "Expected 5-column TSV file as produced by vg rna -i, got "
-                                 << tokens.size() << " columns." << std::endl;
+            logger.error() << "Cannot parse haplotype transcript file. "
+                           << "Expected 5-column TSV file as produced by vg rna -i, got "
+                           << tokens.size() << " columns." << std::endl;
         }
         // contributing haplotypes are separeted by commas
         size_t haplo_count = 1 + std::count(tokens[4].begin(), tokens[4].end(), ',');
@@ -139,6 +137,7 @@ void help_sim(char** argv) {
 }
 
 int main_sim(int argc, char** argv) {
+    Logger logger("vg sim");
 
     if (argc == 2) {
         help_sim(argv);
@@ -248,7 +247,7 @@ int main_sim(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = require_exists(context, optarg);
+            xg_name = require_exists(logger, optarg);
             break;
             
         case 'r':
@@ -256,7 +255,7 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'F':
-            assign_fastq_files(context, optarg, fastq_name, fastq_2_name);
+            assign_fastq_files(logger, optarg, fastq_name, fastq_2_name);
             break;
             
         case 'I':
@@ -280,7 +279,7 @@ int main_sim(int argc, char** argv) {
                 // For each comma-separated rule
                 auto parts = split_delims(rule, ":");
                 if (parts.size() != 2) {
-                    fatal_error(context) << "ploidy rules must be REGEX:PLOIDY" << std::endl;
+                    logger.error() << "ploidy rules must be REGEX:PLOIDY" << std::endl;
                 }
                 try {
                     // Parse the regex
@@ -290,22 +289,22 @@ int main_sim(int argc, char** argv) {
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {
                     // This is not a good regex
-                    fatal_error(context) << "unacceptable regular expression\n\""
-                                         << parts[0] << "\":\n" << e.what() << std::endl;
+                    logger.error() << "unacceptable regular expression\n\""
+                                   << parts[0] << "\":\n" << e.what() << std::endl;
                 }
             }
             break;
 
         case 'g':
-            gbwt_name = require_exists(context, optarg);
+            gbwt_name = require_exists(logger, optarg);
             break;
 
         case 'T':
-            rsem_file_name = require_exists(context, optarg);
+            rsem_file_name = require_exists(logger, optarg);
             break;
                 
         case 'H':
-            haplotype_transcript_file_name = require_exists(context, optarg);
+            haplotype_transcript_file_name = require_exists(logger, optarg);
             break;
 
         case 'l':
@@ -320,8 +319,8 @@ int main_sim(int argc, char** argv) {
             seed_val = parse<int>(optarg);
             if (seed_val == 0) {
                 // Don't let the user specify seed 0 as we will confuse it with no deterministic seed.
-                fatal_error(context) << "seed 0 cannot be used. Omit the seed option "
-                                     << "if you want nondeterministic results." << std::endl;
+                logger.error() << "seed 0 cannot be used. Omit the seed option "
+                               << "if you want nondeterministic results." << std::endl;
             }
             break;
 
@@ -383,11 +382,11 @@ int main_sim(int argc, char** argv) {
             break;
                 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
                 
         case 'E':
-            path_pos_filename = require_exists(context, optarg);
+            path_pos_filename = require_exists(logger, optarg);
             break;
             
         case 'h':
@@ -418,61 +417,61 @@ int main_sim(int argc, char** argv) {
     };
 
     if (align_out && fastq_out) {
-        fatal_error(context) << "only one output format (-a/-J or -q) can be selected." << std::endl;
+        logger.error() << "only one output format (-a/-J or -q) can be selected." << std::endl;
     }
 
     if (xg_name.empty()) {
-        fatal_error(context) << "we need a graph to sample reads from" << std::endl;
+        logger.error() << "we need a graph to sample reads from" << std::endl;
     }
     if (!gbwt_name.empty() && sample_names.empty() && rsem_file_name.empty()) {
-        fatal_error(context) << "--gbwt-name requires --sample-name or --tx-expr-file" << std::endl;
+        logger.error() << "--gbwt-name requires --sample-name or --tx-expr-file" << std::endl;
     }
     if (!gbwt_name.empty() && !rsem_file_name.empty() && !haplotype_transcript_file_name.empty()) {
         // TODO: This message doesn't really make sense.
-        fatal_error(context) << "using --gbwt-name requires that HSTs be included --tx-expr-file; "
-                             << "combination with --haplo-tx-file is not implemented" << std::endl;
+        logger.error() << "using --gbwt-name requires that HSTs be included --tx-expr-file; "
+                       << "combination with --haplo-tx-file is not implemented" << std::endl;
     }
 
     if (!rsem_file_name.empty()) {
         if (progress) {
-            basic_log(context) << "Reading transcription profile from "
-                               << rsem_file_name << std::endl;
+            logger.info() << "Reading transcription profile from "
+                          << rsem_file_name << std::endl;
         }
         ifstream rsem_in(rsem_file_name);
-        transcript_expressions = parse_rsem_expression_file(rsem_in);
+        transcript_expressions = parse_rsem_expression_file(logger, rsem_in);
     }
     
     if (!haplotype_transcript_file_name.empty()) {
         if (progress) {
-            basic_log(context) << "Reading haplotype transcript file "
-                               << haplotype_transcript_file_name << std::endl;
+            logger.info() << "Reading haplotype transcript file "
+                          << haplotype_transcript_file_name << std::endl;
         }
         ifstream haplo_tx_in(haplotype_transcript_file_name);
-        haplotype_transcripts = parse_haplotype_transcript_file(haplo_tx_in);
+        haplotype_transcripts = parse_haplotype_transcript_file(logger, haplo_tx_in);
     }
 
     if (progress) {
-        basic_log(context) << "Loading graph " << xg_name << std::endl;
+        logger.info() << "Loading graph " << xg_name << std::endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     
     if (!path_pos_filename.empty() && fastq_name.empty()) {
-        fatal_error(context) << "path usage table is not available unless using trained simulation (-F)" << std::endl;
+        logger.error() << "path usage table is not available unless using trained simulation (-F)" << std::endl;
     }
     
     if (fastq_name.empty() && unsheared_fragments) {
-        fatal_error(context) << "unsheared fragment option only available "
-                                "when simulating from FASTQ-trained errors" << std::endl;
+        logger.error() << "unsheared fragment option only available "
+                       << "when simulating from FASTQ-trained errors" << std::endl;
     }
     
     // Deal with path names. Do this before we create paths to represent threads.
     if (any_path) {
         if (progress) {
-            basic_log(context) << "Selecting all " << path_handle_graph->get_path_count()
-                               << " paths" << std::endl;
+            logger.info() << "Selecting all " << path_handle_graph->get_path_count()
+                          << " paths" << std::endl;
         }
         if (path_handle_graph->get_path_count() == 0) {
-            fatal_error(context) << "the graph does not contain paths" << std::endl;
+            logger.error() << "the graph does not contain paths" << std::endl;
         }
         path_names.clear();
         path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
@@ -485,11 +484,11 @@ int main_sim(int argc, char** argv) {
         });
     } else if (!path_names.empty()) {
         if (progress) {
-            basic_log(context) << "Checking " << path_names.size() << " selected paths" << std::endl;
+            logger.info() << "Checking " << path_names.size() << " selected paths" << std::endl;
         }
         for (auto& path_name : path_names) {
             if (path_handle_graph->has_path(path_name) == false) {
-                fatal_error(context) << "path \"" << path_name << "\" not found in index" << std::endl;
+                logger.error() << "path \"" << path_name << "\" not found in index" << std::endl;
             }
             // Synthesize ploidies for explicitly specified paths
             path_ploidies.push_back(consult_ploidy_rules(path_name));
@@ -510,7 +509,7 @@ int main_sim(int argc, char** argv) {
         
         // We actually want to visit them, so we have to find them
         if (progress) {
-            basic_log(context) << "Inventorying contigs" << std::endl;
+            logger.info() << "Inventorying contigs" << std::endl;
         }
         // We assume the generic paths in the graph are contigs ("chr1", "chr2", etc.)
         path_handle_graph->for_each_path_of_sense(PathSense::GENERIC, [&](const path_handle_t& handle) {
@@ -525,12 +524,12 @@ int main_sim(int argc, char** argv) {
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
         if (progress) {
-            basic_log(context) << "Loading GBWT index " << gbwt_name << std::endl;
+            logger.info() << "Loading GBWT index " << gbwt_name << std::endl;
         }
         std::unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
         if (!(gbwt_index->hasMetadata()) || !(gbwt_index->metadata.hasSampleNames()) 
                                               || !(gbwt_index->metadata.hasPathNames())) {
-            fatal_error(context) << "GBWT index does not contain sufficient metadata" << std::endl;
+            logger.error() << "GBWT index does not contain sufficient metadata" << std::endl;
         }
         
         // we will add these threads to the graph as named paths and index them for easy look up
@@ -539,13 +538,13 @@ int main_sim(int argc, char** argv) {
         if (!sample_names.empty()) {
             // we're consulting the provided sample names to determine which threads to include
             if (progress) {
-                basic_log(context) << "Checking " << sample_names.size() << " samples" << std::endl;
+                logger.info() << "Checking " << sample_names.size() << " samples" << std::endl;
             }
             for (std::string& sample_name : sample_names) {
                 gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
                 if (id >= gbwt_index->metadata.samples()) {
-                    fatal_error(context) << "sample \"" << sample_name 
-                                         << "\" not found in the GBWT index" << std::endl;
+                    logger.error() << "sample \"" << sample_name 
+                                   << "\" not found in the GBWT index" << std::endl;
                 }
                 auto idx = sample_id_to_idx.size();
                 sample_id_to_idx[id] = idx;
@@ -556,8 +555,8 @@ int main_sim(int argc, char** argv) {
             for (const auto& transcript_expression  : transcript_expressions) {
                 gbwt::size_type id = gbwt_index->metadata.sample(transcript_expression.first);
                 if (id >= gbwt_index->metadata.samples()) {
-                    fatal_error(context) << "haplotype-specific transcript \"" << transcript_expression.first
-                                         << "\" not found in the GBWT index" << std::endl;
+                    logger.error() << "haplotype-specific transcript \"" << transcript_expression.first
+                                   << "\" not found in the GBWT index" << std::endl;
                 }
                 auto idx = sample_id_to_idx.size();
                 sample_id_to_idx[id] = idx;
@@ -568,15 +567,15 @@ int main_sim(int argc, char** argv) {
             = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
         if (mutable_graph == nullptr) {
             if (progress) {
-                basic_log(context)  << ": Converting the graph into HashGraph" << std::endl;
+                logger.info() << ": Converting the graph into HashGraph" << std::endl;
             }
             mutable_graph = new bdsg::HashGraph();
             handlealgs::copy_path_handle_graph(path_handle_graph.get(), mutable_graph);
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {
-            basic_log(context) << "Inserting " << sample_id_to_idx.size()
-                               << " GBWT threads into the graph" << std::endl;
+            logger.info() << "Inserting " << sample_id_to_idx.size()
+                          << " GBWT threads into the graph" << std::endl;
         }
         
         for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
@@ -611,7 +610,7 @@ int main_sim(int argc, char** argv) {
             }
         }
         if (progress) {
-            basic_log(context) << "Inserted " << inserted_path_names.size()
+            logger.info() << "Inserted " << inserted_path_names.size()
                                << " paths" << std::endl;
         }
     } else {
@@ -625,14 +624,14 @@ int main_sim(int argc, char** argv) {
 
             if (sample_name_set.size() != sample_names.size()) {
                 // Do a quick check for duplicates since we've bothered to make the set.
-                fatal_error(context) << "Of the " << sample_names.size()
-                                     << " samples, there are only " << sample_name_set.size()
-                                     << " distinct values. Remove the duplicate entries." << std::endl;
+                logger.error() << "Of the " << sample_names.size()
+                               << " samples, there are only " << sample_name_set.size()
+                               << " distinct values. Remove the duplicate entries." << std::endl;
             }
 
             if (progress) {
-                basic_log(context) << "Finding matching paths for "
-                                   << sample_name_set.size() << " samples" << std::endl;
+                logger.info() << "Finding matching paths for "
+                              << sample_name_set.size() << " samples" << std::endl;
             }
 
             // Also keep a set of sample names actually seen
@@ -656,7 +655,7 @@ int main_sim(int argc, char** argv) {
 
             if (seen_sample_names.size() != sample_name_set.size()) {
                 // TODO: Use std::set_difference in C++17
-                auto error_msg = fatal_error(context);
+                auto error_msg = logger.error();
                 error_msg << "Some samples requested are not in the graph:";
                 for (auto& s : sample_name_set) {
                     if (!seen_sample_names.count(s)) {
@@ -666,8 +665,8 @@ int main_sim(int argc, char** argv) {
             }
 
             if (progress) {
-                basic_log(context) << "Using " << sample_path_count
-                                   << " sample paths" << std::endl;
+                logger.info() << "Using " << sample_path_count
+                              << " sample paths" << std::endl;
             }
         }
     }
@@ -681,42 +680,42 @@ int main_sim(int argc, char** argv) {
             path_ploidies.push_back(consult_ploidy_rules(name));
         }
         if (progress) {
-            basic_log(context) << "Also sampling from " << unvisited_contigs.size()
-                               << " paths representing unvisited contigs" << std::endl;
+            logger.info() << "Also sampling from " << unvisited_contigs.size()
+                          << " paths representing unvisited contigs" << std::endl;
         }
     }
     
     if (haplotype_transcript_file_name.empty()) {
         if (!transcript_expressions.empty()) {
             if (progress) {
-                basic_log(context) << "Checking " << transcript_expressions.size()
-                                   << " transcripts" << std::endl;
+                logger.info() << "Checking " << transcript_expressions.size()
+                              << " transcripts" << std::endl;
             }
             for (auto& transcript_expression : transcript_expressions) {
                 if (!path_handle_graph->has_path(transcript_expression.first)) {
-                    fatal_error(context) << "transcript path \"" << transcript_expression.first 
-                                         << "\" not found in index. If you embedded haplotype-specific transcripts "
-                                         << "in the graph, you may need the "
-                                         << "haplotype transcript file from vg rna -i" << std::endl;
+                    logger.error() << "transcript path \"" << transcript_expression.first 
+                                   << "\" not found in index. If you embedded haplotype-specific transcripts "
+                                   << "in the graph, you may need the "
+                                   << "haplotype transcript file from vg rna -i" << std::endl;
                 }
             }
         }
     }
     else {
         if (progress) {
-            basic_log(context) << "Checking " << haplotype_transcripts.size()
-                               << " haplotype transcripts" << std::endl;
+            logger.info() << "Checking " << haplotype_transcripts.size()
+                          << " haplotype transcripts" << std::endl;
         }
         for (auto& haplotype_transcript : haplotype_transcripts) {
             if (!path_handle_graph->has_path(get<0>(haplotype_transcript))) {
-                fatal_error(context) << "transcript path for \"" << get<0>(haplotype_transcript) 
-                                     << "\" not found in index." << std::endl;
+                logger.error() << "transcript path for \"" << get<0>(haplotype_transcript) 
+                               << "\" not found in index." << std::endl;
             }
         }
     }
     
     if (progress) {
-        basic_log(context) << "Creating path position overlay" << std::endl;
+        logger.info() << "Creating path position overlay" << std::endl;
     }
     
     bdsg::ReferencePathVectorizableOverlayHelper overlay_helper;
@@ -737,7 +736,7 @@ int main_sim(int argc, char** argv) {
     unordered_set<path_handle_t> inserted_path_handles;
     if (!inserted_path_names.empty()) {
         if (progress) {
-            basic_log(context) << "Finding inserted paths" << std::endl;
+            logger.info() << "Finding inserted paths" << std::endl;
         }
         for (auto& name : inserted_path_names) {
             inserted_path_handles.insert(xgidx->get_path_handle(name));
@@ -753,56 +752,57 @@ int main_sim(int argc, char** argv) {
     // Otherwise we're just dumping sequence strings; leave it null.
     
     if (progress) {
-        basic_log(context) << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
-        std::cerr << "--num-reads " << num_reads << std::endl;
-        std::cerr << "--read-length " << read_length << std::endl;
+        auto opt_info = logger.info();
+        opt_info << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl
+                 << "--num-reads " << num_reads << std::endl
+                 << "--read-length " << read_length << std::endl;
         if (align_out) {
-            std::cerr << "--align-out" << std::endl;
+            opt_info << "--align-out" << std::endl;
         }
         if (json_out) {
-            std::cerr << "--json-out" << std::endl;
+            opt_info << "--json-out" << std::endl;
         }
         if (fastq_out) {
-            std::cerr << "--fastq-out" << std::endl;
+            opt_info << "--fastq-out" << std::endl;
         }
         if (!fastq_name.empty()) {
-            std::cerr << "--fastq " << fastq_name << std::endl;
+            opt_info << "--fastq " << fastq_name << std::endl;
             if (!fastq_2_name.empty()) {
-                std::cerr << "--fastq " << fastq_2_name << std::endl;
+                opt_info << "--fastq " << fastq_2_name << std::endl;
             }
             if (interleaved) {
-                std::cerr << "--interleaved" << std::endl;
+                opt_info << "--interleaved" << std::endl;
             }
         } else {
             if (base_error > 0.0) {
-                std::cerr << "--sub-rate " << base_error << std::endl;
+                opt_info << "--sub-rate " << base_error << std::endl;
             }
         }
         if (indel_error > 0.0) {
-            std::cerr << "--indel-rate " << indel_error << std::endl;
+            opt_info << "--indel-rate " << indel_error << std::endl;
         }
         if (!fastq_name.empty()) {
             if (indel_prop > 0.0) {
-                std::cerr << "--indel-err-prop " << indel_prop << std::endl;
+                opt_info << "--indel-err-prop " << indel_prop << std::endl;
             }
             if (error_scale_factor != 1.0) {
-                std::cerr << "--scale-err " << error_scale_factor << std::endl;
+                opt_info << "--scale-err " << error_scale_factor << std::endl;
             }
         }
         if (forward_only) {
-            std::cerr << "--forward-only" << std::endl;
+            opt_info << "--forward-only" << std::endl;
         }
         if (fragment_length > 0) {
-            std::cerr << "--frag-len " << fragment_length << std::endl;
+            opt_info << "--frag-len " << fragment_length << std::endl;
             if (fragment_std_dev > 0.0) {
-                std::cerr << "--frag-std-dev " << fragment_std_dev << std::endl;
+                opt_info << "--frag-std-dev " << fragment_std_dev << std::endl;
             }
         }
         if (reads_may_contain_Ns) {
-            std::cerr << "--allow-Ns" << std::endl;
+            opt_info << "--allow-Ns" << std::endl;
         }
         if (max_tries != 100) {
-            std::cerr << "--max-tries" << max_tries << std::endl;
+            opt_info << "--max-tries" << max_tries << std::endl;
         }
     }
     
@@ -811,8 +811,8 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         if (unsheared_fragments) {
-            warning(context) << "Unsheared fragments option is only available "
-                             << "when simulating from FASTQ-trained errors" << std::endl;
+            logger.warn() << "Unsheared fragments option is only available "
+                          << "when simulating from FASTQ-trained errors" << std::endl;
         }
         
         sampler.reset(new Sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names,

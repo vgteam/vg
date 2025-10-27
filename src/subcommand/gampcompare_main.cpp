@@ -22,8 +22,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg gampcompare";
-
 void help_gampcompare(char** argv) {
     cerr << "usage: " << argv[0] << " gampcompare [options] alngraph.xg aln.gamp truth.gam > output.tsv" << endl
          << endl
@@ -37,6 +35,7 @@ void help_gampcompare(char** argv) {
 }
 
 int main_gampcompare(int argc, char** argv) {
+    Logger logger("vg gampcompare");
 
     if (argc == 2) {
         help_gampcompare(argv);
@@ -86,7 +85,7 @@ int main_gampcompare(int argc, char** argv) {
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
                 
         case 'G':
@@ -110,7 +109,7 @@ int main_gampcompare(int argc, char** argv) {
     string truth_file_name = get_input_file_name(optind, argc, argv);
 
     if ((truth_file_name == "-") + (test_file_name == "-") + (graph_file_name == "-") > 1) {
-        fatal_error(context) << "Standard input can only be used for one input file" << endl;
+        logger.error() << "Standard input can only be used for one input file" << endl;
     }
     
     // Load the graph we mapped to
@@ -121,7 +120,7 @@ int main_gampcompare(int argc, char** argv) {
     else {
         ifstream graph_stream(graph_file_name);
         if (!graph_stream) {
-            fatal_error(context) << "Cannot open graph file " << graph_file_name << endl;
+            logger.error() << "Cannot open graph file " << graph_file_name << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
     }
@@ -140,7 +139,7 @@ int main_gampcompare(int argc, char** argv) {
     if (truth_file_name == "-") {
         // Read truth fropm standard input, if it looks good.
         if (!std::cin) {
-            fatal_error(context) << "Unable to read standard input when looking for true reads" << endl;
+            logger.error() << "Unable to read standard input when looking for true reads" << endl;
         }
         vg::io::for_each_parallel(std::cin, record_truth);
     }
@@ -148,8 +147,8 @@ int main_gampcompare(int argc, char** argv) {
         // Read truth from this file, if it looks good.
         ifstream truth_file_in(truth_file_name);
         if (!truth_file_in) {
-            fatal_error(context) << "Unable to read " << truth_file_name
-                                 << " when looking for true reads" << endl;
+            logger.error() << "Unable to read " << truth_file_name
+                           << " when looking for true reads" << endl;
         }
         vg::io::for_each_parallel(truth_file_in, record_truth);
     }
@@ -259,7 +258,7 @@ int main_gampcompare(int argc, char** argv) {
 
     if (test_file_name == "-") {
         if (!std::cin) {
-            fatal_error(context) << "Unable to read standard input when looking for mapped reads" << endl;
+            logger.error() << "Unable to read standard input when looking for mapped reads" << endl;
         }
         if (gam_input) {
             vg::io::for_each_parallel(std::cin, evaluate_gam_correctness);
@@ -270,7 +269,7 @@ int main_gampcompare(int argc, char** argv) {
     } else {
         ifstream test_file_in(test_file_name);
         if (!test_file_in) {
-            fatal_error(context) << "Unable to read " << test_file_name << " when looking for mapped reads" << endl;
+            logger.error() << "Unable to read " << test_file_name << " when looking for mapped reads" << endl;
         }
         if (gam_input) {
             vg::io::for_each_parallel(test_file_in, evaluate_gam_correctness);

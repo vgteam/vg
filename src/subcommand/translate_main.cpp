@@ -20,8 +20,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg translate";
-
 void help_translate(char** argv) {
     cerr << "usage: " << argv[0] << " translate [options] translation" << endl
          << "Translate alignments or paths using the translation map." << endl
@@ -37,6 +35,7 @@ void help_translate(char** argv) {
 }
 
 int main_translate(int argc, char** argv) {
+    Logger logger("vg translate");
 
     if (argc <= 2) {
         help_translate(argv);
@@ -84,19 +83,19 @@ int main_translate(int argc, char** argv) {
             break;
 
         case 'p':
-            path_file = require_exists(context, optarg);
+            path_file = require_exists(logger, optarg);
             break;
 
         case 'a':
-            aln_file = require_exists(context, optarg);
+            aln_file = require_exists(logger, optarg);
             break;
 
         case 'l':
-            loci_file = require_exists(context, optarg);
+            loci_file = require_exists(logger, optarg);
             break;
 
         case 'o':
-            overlay_file = require_exists(context, optarg);
+            overlay_file = require_exists(logger, optarg);
             break;
 
         case 'h':

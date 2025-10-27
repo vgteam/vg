@@ -41,8 +41,6 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg prune";
-
 enum PruningMode { mode_prune, mode_restore, mode_unfold };
 
 struct PruningParameters
@@ -141,6 +139,7 @@ void help_prune(char** argv) {
 }
 
 int main_prune(int argc, char** argv) {
+    Logger logger("vg prune");
 
     if (argc == 2) {
         help_prune(argv);
@@ -219,10 +218,10 @@ int main_prune(int argc, char** argv) {
             verify_paths = true;
             break;
         case 'x': // no longer needed
-            warning(context) << "option --xg-name is no longer needed" << std::endl;
+            logger.warn() << "option --xg-name is no longer needed" << std::endl;
             break;
         case 'g':
-            gbwt_name = require_exists(context, optarg);
+            gbwt_name = require_exists(logger, optarg);
             break;
         case 'm':
             mapping_name = optarg;
@@ -234,7 +233,7 @@ int main_prune(int argc, char** argv) {
             show_progress = true;
             break;
         case 't':
-            threads = set_thread_count(context, optarg);
+            threads = set_thread_count(logger, optarg);
             break;
         case 'd':
             dry_run = true;
@@ -272,70 +271,71 @@ int main_prune(int argc, char** argv) {
         max_degree = PruningParameters::max_degree[mode];
     }
     if (!(kmer_length > 0 && edge_max > 0)) {
-        fatal_error(context) << "--kmer-length and --edge-max must be positive" << std::endl;
+        logger.error() << "--kmer-length and --edge-max must be positive" << std::endl;
     }
 
     if (!mapping_name.empty()) {
         if (append_mapping) {
             // If appending, we need to check that the file exists
-            require_exists(context, mapping_name);
+            require_exists(logger, mapping_name);
         } else {
             // If not appending, we need to be able to write it
-            ensure_writable(context, mapping_name);
+            ensure_writable(logger, mapping_name);
         }
     } else if (append_mapping) {
         // If appending, we need a mapping file
-        fatal_error(context) << "cannot append to mapping file without specifying one with --mapping" << std::endl;
+       logger.error() << "cannot append to mapping file without specifying one with --mapping" << std::endl;
     }
 
     // Mode-specific checks.
     if (mode == mode_prune) {
         if (verify_paths) {
-            fatal_error(context) << "mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
+            logger.error() << "mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
         }
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            fatal_error(context) << "mode " << mode_name(mode) << " does not use additional files" << std::endl;
+            logger.error() << "mode " << mode_name(mode) << " does not use additional files" << std::endl;
         }
     }
     if (mode == mode_restore) {
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            fatal_error(context) << "mode " << mode_name(mode) << " does not use additional files" << std::endl;
+            logger.error() << "mode " << mode_name(mode) << " does not use additional files" << std::endl;
         }
     }
     if (mode == mode_unfold) {
         if (mapping_name.empty()) {
-            fatal_error(context) << "mode --unfold requires a node mapping file specified with --mapping" << std::endl;
+            logger.error() << "mode --unfold requires a node mapping file specified with --mapping" << std::endl;
         }
     }
 
     // Dry run.
     if (dry_run) {
-        basic_log(context) << "Pruning mode:   " << mode_name(mode) << std::endl;
-        basic_log(context) << "Parameters:     --kmer-length " << kmer_length
-                           << " --edge-max " << edge_max << " --subgraph-min " << subgraph_min
-                           << " --max-degree " << max_degree << std::endl;
-        basic_log(context) << "Options:        --threads " << threads;
+        logger.info() << "Pruning mode:   " << mode_name(mode) << std::endl;
+        logger.info() << "Parameters:     --kmer-length " << kmer_length
+                      << " --edge-max " << edge_max << " --subgraph-min " << subgraph_min
+                      << " --max-degree " << max_degree << std::endl;
+        auto opt_info = logger.info();
+        opt_info << "Options:        --threads " << threads;
         if (verify_paths) {
-            std::cerr << " --verify-paths";
+            opt_info << " --verify-paths";
         }
         if (append_mapping) {
-            std::cerr << " --append_mapping";
+            opt_info << " --append_mapping";
         }
         if (show_progress) {
-            std::cerr << " --progress";
+            opt_info << " --progress";
         }
         if (dry_run) {
-            std::cerr << " --dry-run";
+            opt_info << " --dry-run";
         }
-        std::cerr << std::endl;
+        opt_info << std::endl;
         if (!vg_name.empty()) {
-            std::cerr << "VG:             " << (vg_name == "-" ? "(stdin)" : vg_name) << std::endl;
+            logger.info() << "VG:             " << (vg_name == "-" ? "(stdin)" : vg_name) << std::endl;
         }        
         if (!gbwt_name.empty()) {
-            std::cerr << "GBWT:           " << gbwt_name << std::endl;
+            logger.info() << "GBWT:           " << gbwt_name << std::endl;
         }
         if (!mapping_name.empty()) {
-            std::cerr << "Mapping:        " << mapping_name << std::endl;
+            logger.info() << "Mapping:        " << mapping_name << std::endl;
         }
         return 0;
     }
@@ -349,8 +349,8 @@ int main_prune(int argc, char** argv) {
     
     vg::id_t max_node_id = graph->max_node_id();
     if (show_progress) {
-        basic_log(context) << "Original graph " << vg_name << ": " << graph->get_node_count() 
-                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        logger.info() << "Original graph " << vg_name << ": " << graph->get_node_count() 
+                      << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
     // Remove the paths and build an XG index if needed.
@@ -366,7 +366,7 @@ int main_prune(int argc, char** argv) {
         }
         xg_index.from_path_handle_graph(*graph);
         if (show_progress) {
-            basic_log(context) << "Built a temporary XG index" << std::endl;
+            logger.info() << "Built a temporary XG index" << std::endl;
         }
     }
     
@@ -380,28 +380,28 @@ int main_prune(int argc, char** argv) {
     }
     
     if (show_progress) {
-        basic_log(context) << "Removed all paths" << std::endl;
+        logger.info() << "Removed all paths" << std::endl;
     }
 
     // Remove high-degree nodes.
     if (max_degree > 0) {
         algorithms::remove_high_degree_nodes(*graph, max_degree);
         if (show_progress) {
-            basic_log(context) << "Removed high-degree nodes: " << graph->get_node_count()
-                               << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+            logger.info() << "Removed high-degree nodes: " << graph->get_node_count()
+                          << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
         }
     }
 
     // Prune the graph.
     algorithms::prune_complex_with_head_tail(*graph, kmer_length, edge_max);
     if (show_progress) {
-        basic_log(context) << "Pruned complex regions: " << graph->get_node_count()
-                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        logger.info() << "Pruned complex regions: " << graph->get_node_count()
+                      << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
     algorithms::prune_short_subgraphs(*graph, subgraph_min);
     if (show_progress) {
-        basic_log(context) << "Removed small subgraphs: " << graph->get_node_count()
-                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        logger.info() << "Removed small subgraphs: " << graph->get_node_count()
+                      << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
     // Restore the non-alt paths.
@@ -413,7 +413,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                warning(context) << "verification failed for " << failures << " paths" << std::endl;
+                logger.warn() << "verification failed for " << failures << " paths" << std::endl;
             }
         }
     }
@@ -424,7 +424,7 @@ int main_prune(int argc, char** argv) {
             get_input_file(gbwt_name, [&](std::istream& in) {
                 gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(in);
                 if (gbwt_index.get() == nullptr) {
-                    fatal_error(context) << "could not load GBWT" << std::endl;
+                    logger.error() << "could not load GBWT" << std::endl;
                 }
             });
         } else {
@@ -443,7 +443,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                warning(context) << "verification failed for " << failures << " paths" << std::endl;
+                logger.warn() << "verification failed for " << failures << " paths" << std::endl;
             }
         }
     }
@@ -452,8 +452,8 @@ int main_prune(int argc, char** argv) {
     
     vg::io::save_handle_graph(graph.get(), std::cout);
     if (show_progress) {
-        basic_log(context) << "Serialized the graph: " << graph->get_node_count()
-                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        logger.info() << "Serialized the graph: " << graph->get_node_count()
+                      << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
     return 0;

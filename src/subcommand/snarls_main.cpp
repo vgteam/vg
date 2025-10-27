@@ -27,8 +27,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg snarls";
-
 void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
@@ -57,6 +55,7 @@ void help_snarl(char** argv) {
 }
 
 int main_snarl(int argc, char** argv) {
+    Logger logger("vg snarls");
 
     if (argc == 2) {
         help_snarl(argv);
@@ -121,7 +120,7 @@ int main_snarl(int argc, char** argv) {
             break;
 
         case 'r':
-            traversal_file = ensure_writable(context, optarg);
+            traversal_file = ensure_writable(logger, optarg);
             break;
 
         case 'l':
@@ -155,20 +154,20 @@ int main_snarl(int argc, char** argv) {
             fill_path_names = true;
             break;
         case 'v':
-            vcf_filename = require_exists(context, optarg);
+            vcf_filename = require_exists(logger, optarg);
             break;
         case 'f':
-            ref_fasta_filename = require_exists(context, optarg);
+            ref_fasta_filename = require_exists(logger, optarg);
             break;
         case 'i':
-            ins_fasta_filename = require_exists(context, optarg);
+            ins_fasta_filename = require_exists(logger, optarg);
             break;
         case 'e':
             path_traversals = true;
             break;
 
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
         case 'h':
         case '?':
@@ -198,8 +197,8 @@ int main_snarl(int argc, char** argv) {
     if (named_coordinates) {
         translation = vg::algorithms::find_translation(graph.get());
         if (!translation) {
-            fatal_error(context) << "Named coordinate output (-n) was requested, "
-                                 << "but the graph does not come with a named coordinate space." << endl;
+            logger.error() << "Named coordinate output (-n) was requested, "
+                           << "but the graph does not come with a named coordinate space." << endl;
         }
     }
     
@@ -215,17 +214,17 @@ int main_snarl(int argc, char** argv) {
     } else if (algorithm == "integrated") {
         snarl_finder.reset(new IntegratedSnarlFinder(*graph));
     } else {
-        fatal_error(context) << "Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
+        logger.error() << "Algorithm must be 'cactus' or 'integrated', not '" 
+                       << algorithm << "'" << endl;
     }
     if (!vcf_filename.empty() && path_traversals) {
-        fatal_error(context) << "-v cannot be used with -e" << endl;
+        logger.error() << "-v cannot be used with -e" << endl;
     }
     if (path_traversals && traversal_file.empty()) {
-        fatal_error(context) << "-e requires -r" << endl;
-        return 1;
+        logger.error() << "-e requires -r" << endl;
     }
     if (!vcf_filename.empty() && traversal_file.empty()) {
-        fatal_error(context) << "-v requires -r" << endl;
+        logger.error() << "-v requires -r" << endl;
     }
 
     unique_ptr<TraversalFinder> trav_finder;
@@ -237,7 +236,7 @@ int main_snarl(int argc, char** argv) {
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            fatal_error(context) << "could not open " << vcf_filename << endl;
+            logger.error() << "could not open " << vcf_filename << endl;
         }
 
         // load up the fasta
@@ -392,11 +391,11 @@ int main_snarl(int argc, char** argv) {
                 (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
-                cerr << "Look for traversals of " << pb2json(*snarl) << endl;
+                logger.info() << "Look for traversals of " << pb2json(*snarl) << endl;
 #endif
                 vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
 #ifdef debug        
-                cerr << "Found " << travs.size() << endl;
+                logger.info() << "Found " << travs.size() << endl;
 #endif
                 
                 if (translation) {

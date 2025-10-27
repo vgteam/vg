@@ -24,8 +24,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg vectorize";
-
 void help_vectorize(char** argv) {
     cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl
          << "Vectorize a set of alignments to a variety of vector formats." << endl
@@ -52,7 +50,8 @@ void help_vectorize(char** argv) {
          << "  -h, --help                 print this help message to stderr and exit" << endl;
 }
 
-int main_vectorize(int argc, char** argv){
+int main_vectorize(int argc, char** argv) {
+    Logger logger("vg vectorize");
 
     string xg_name;
     string aln_label = "";
@@ -111,19 +110,19 @@ int main_vectorize(int argc, char** argv){
                 aln_label = optarg;
                 break;
             case 'r':
-                warning(context) << "The --reads option is deprecated." << endl;
+                logger.warn() << "The --reads option is deprecated." << endl;
                 break;
             case '?':
             case 'h':
                 help_vectorize(argv);
                 return 1;
             case 'x':
-                xg_name = require_exists(context, optarg);
+                xg_name = require_exists(logger, optarg);
                 break;
             case 'g':
-                gcsa_name = require_exists(context, optarg);
+                gcsa_name = require_exists(logger, optarg);
                 // We also need the LCP index
-                require_exists(context, gcsa_name + ".lcp");
+                require_exists(logger, gcsa_name + ".lcp");
                 break;
             case 'm':
                 mem_sketch = true;
@@ -151,7 +150,7 @@ int main_vectorize(int argc, char** argv){
                 format = true;
                 break;
             case 'M':
-                wabbit_mapping_file = ensure_writable(context, optarg);
+                wabbit_mapping_file = ensure_writable(logger, optarg);
                 break;
             default:
                 abort();
@@ -166,7 +165,7 @@ int main_vectorize(int argc, char** argv){
         xg_index = overlay_helper.apply(path_handle_graph.get());
     }
     else{
-        fatal_error(context) << "No XG index given. An XG index must be provided." << endl;
+        logger.error() << "No XG index given. An XG index must be provided." << endl;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -185,7 +184,7 @@ int main_vectorize(int argc, char** argv){
     Mapper* mapper = nullptr;
     if (mem_sketch) {
         if (gcsa_name.empty()) {
-            fatal_error(context) << "an XG index and GCSA index are required when making MEM sketches" << endl;
+            logger.error() << "an XG index and GCSA index are required when making MEM sketches" << endl;
         } else {
             mapper = new Mapper(xg_index, gcsa_index.get(), lcp_index.get());
         }

@@ -23,8 +23,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg filter";
-
 void help_filter(char** argv) {
     cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl
          << "Filter alignments by properties." << endl
@@ -95,6 +93,7 @@ void help_filter(char** argv) {
 }
 
 int main_filter(int argc, char** argv) {
+    Logger logger("vg filter");
 
     if (argc <= 2) {
         help_filter(argv);
@@ -339,7 +338,7 @@ int main_filter(int argc, char** argv) {
                     auto point = opt_string.find('.');
                     
                     if (point == -1) {
-                        fatal_error(context) << "no decimal point in seed/probability " << opt_string << std::endl;
+                        logger.error() << "no decimal point in seed/probability " << opt_string << std::endl;
                     }
                     
                     // Everything including and after the decimal point is the probability
@@ -370,9 +369,9 @@ int main_filter(int argc, char** argv) {
             {
                 set_min_base_quality = true;
                 tie(min_base_quality, min_base_quality_fraction) = \
-                    parse_pair<int, double>(context, optarg, ':', "--min-base-quality");
+                    parse_pair<int, double>(logger, optarg, ':', "--min-base-quality");
                 if (min_base_quality_fraction < 0 || min_base_quality_fraction > 1) {
-                    fatal_error(context) << "second part of -b input must be between 0 and 1" << std::endl;
+                    logger.error() << "second part of -b input must be between 0 and 1" << std::endl;
                 }
             }
             break;
@@ -392,7 +391,7 @@ int main_filter(int argc, char** argv) {
             batch_size = parse<size_t>(optarg);
             break;
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;
         case OPT_PROGRESS:
             show_progress = true;
@@ -416,26 +415,25 @@ int main_filter(int argc, char** argv) {
     }
 
     if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
-        warning(context) << "max read count is not divisible by 2, but reads are paired." << std::endl;
+        logger.warn() << "max read count is not divisible by 2, but reads are paired." << std::endl;
     }
     if (first_alignment) {
-        warning(context) << "setting --threads 1 because --first-alignment requires one thread." << std::endl;
+        logger.warn() << "setting --threads 1 because --first-alignment requires one thread." << std::endl;
         omp_set_num_threads(1);
     }
     if (!input_gam && overwrite_score) {
-        fatal_error(context) << "-W/--overwrite-score cannot be used with multipath alignments "
-                             << "(-M/--input-mp-aln), which do not directly store a score." << std::endl;
-        return 1;
+        logger.error() << "-W/--overwrite-score cannot be used with multipath alignments "
+                       << "(-M/--input-mp-aln), which do not directly store a score." << std::endl;
     }
     if (rescore && sub_score) {
-        fatal_error(context) << "you asked to rescore reads (-O/--rescore), but also to use "
-                             << "the substitution count as the score (-u/--substitutions). "
-                             << "Pick one or the other." << std::endl;
+        logger.error() << "you asked to rescore reads (-O/--rescore), but also to use "
+                       << "the substitution count as the score (-u/--substitutions). "
+                       << "Pick one or the other." << std::endl;
     }
     if ((!set_min_secondary && !set_min_primary && !overwrite_score) &&
         (rescore || sub_score || frac_score)) {
         // Scores are not being used, but we were told how to get them. Suspicious.
-        auto err_msg = fatal_error(context);
+        auto err_msg = logger.error();
         err_msg << "you asked to ";
         if (rescore) {
             err_msg << "rescore reads (-O/--rescore)";

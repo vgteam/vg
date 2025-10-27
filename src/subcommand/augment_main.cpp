@@ -39,8 +39,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-const string context = "vg augment";
-
 void help_augment(char** argv, ConfigurableParser& parser) {
     cerr << "usage: " << argv[0] << " augment [options] <graph.vg> [alignment.gam] > augmented_graph.vg" << endl
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
@@ -75,6 +73,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
 }
 
 int main_augment(int argc, char** argv) {
+    Logger logger("vg augment");
 
     // Write the translations (as protobuf) to this path
     string translation_file_name;
@@ -171,21 +170,21 @@ int main_augment(int argc, char** argv) {
         {
             // Deprecated.
         case 'a':
-            warning(context) << "-a / --augmentation-mode option is deprecated" << endl;
+            logger.warn() << "-a / --augmentation-mode option is deprecated" << endl;
             break;
             // General Options
         case 'Z':
-            translation_file_name = ensure_writable(context, optarg);
+            translation_file_name = ensure_writable(logger, optarg);
             break;
         case 'A':
-            gam_out_file_name = ensure_writable(context, optarg);
+            gam_out_file_name = ensure_writable(logger, optarg);
             break;
         case 'i':
             include_paths = true;
             break;
         case 'C':
-            warning(context) << "-C / --cut-softclips option is deprecated "
-                             << "(now enabled by default)" << endl;
+            logger.warn() << "-C / --cut-softclips option is deprecated "
+                          << "(now enabled by default)" << endl;
             break;
         case 'S':
             include_softclips = true;
@@ -230,13 +229,13 @@ int main_augment(int argc, char** argv) {
             verbose = true;
             break;
         case 't':
-            set_thread_count(context, optarg);
+            set_thread_count(logger, optarg);
             break;         
         // Loci Options
         case 'L':
             called_genotypes_only = true;
         case 'l': // Fall through for -L as well
-            loci_file = require_exists(context, optarg);
+            loci_file = require_exists(logger, optarg);
             break;
             
         default:
@@ -249,7 +248,7 @@ int main_augment(int argc, char** argv) {
 
     // Parse the two positional arguments
     if (optind + 1 > argc) {
-        fatal_error(context) << "too few arguments" << endl;
+        logger.error() << "too few arguments" << endl;
     }
 
     string graph_file_name = get_input_file_name(optind, argc, argv);
@@ -258,30 +257,30 @@ int main_augment(int argc, char** argv) {
     }
 
     if (gam_in_file_name.empty() && loci_file.empty()) {
-        fatal_error(context) << "gam file argument required" << endl;
+        logger.error() << "GAM file argument required" << endl;
     }
     if (gam_in_file_name == "-" && graph_file_name == "-") {
-        fatal_error(context) << "graph and gam can't both be from stdin." << endl;
+        logger.error() << "graph and GAM can't both be from stdin." << endl;
     }
     if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty() || edges_only)) {
-        fatal_error(context) << "Translation (-Z), GAM (-A) output and edges-only (-E) "
-                             << "do not work with \"label-only\" (-B) mode" << endl;
+        logger.error() << "Translation (-Z), GAM (-A) output and edges-only (-E) "
+                       << "do not work with \"label-only\" (-B) mode" << endl;
     }
     if (include_paths && edges_only) {
-        fatal_error(context) << "-E cannot be used with -i" << endl;
+        logger.error() << "-E cannot be used with -i" << endl;
     }
     if (gam_in_file_name == "-" && !label_paths) {
-        warning(context) << "reading the entire GAM from stdin into memory. It is recommended to pass in "
-                         << "a filename rather than - so it can be streamed over two passes" << endl;
+        logger.warn() << "reading the entire GAM from stdin into memory. It is recommended to pass in "
+                      << "a filename rather than - so it can be streamed over two passes" << endl;
         if (!gam_out_file_name.empty()) {
-            warning(context) << "when streaming in a GAM with -A, the output GAM will lose all non-Path "
-                             << "related fields from the input" << endl;
+            logger.warn() << "when streaming in a GAM with -A, the output GAM will lose all non-Path "
+                          << "related fields from the input" << endl;
         }
     }
 
     // read the graph
     if (show_progress) {
-        basic_log(context) << "Reading input graph" << endl;
+        logger.info() << "Reading input graph" << endl;
     }
 
     // Read the graph
@@ -412,7 +411,7 @@ int main_augment(int argc, char** argv) {
         if (!translation_file_name.empty()) {
             // Write the translations
             if (show_progress) {
-                basic_log(context) << "Writing translation table" << endl;
+                logger.info() << "Writing translation table" << endl;
             }
             ofstream translation_file(translation_file_name);
             vg::io::write_buffered(translation_file, translation, 0);
