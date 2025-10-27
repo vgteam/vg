@@ -14,6 +14,7 @@
 #include "subcommand.hpp"
 
 #include "../snarl_seed_clusterer.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include "../zip_code_tree.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
@@ -419,6 +420,12 @@ int main_cluster(int argc, char** argv) {
 
     //Get the minimizer index
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_index_type).at(0));
+    require_payload(*minimizer_index,
+        {
+            MinimizerIndexParameters::PAYLOAD_ZIPCODES,
+            MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS
+        }
+    );
 
     //Get the zipcodes
     ZipCodeCollection oversized_zipcodes;

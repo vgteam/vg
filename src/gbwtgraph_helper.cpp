@@ -16,6 +16,9 @@ constexpr size_t MinimizerIndexParameters::HASH_TABLE_MIN_WIDTH;
 constexpr size_t MinimizerIndexParameters::HASH_TABLE_MAX_WIDTH;
 constexpr size_t MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE;
 
+// Other static members.
+const std::string MinimizerIndexParameters::PAYLOAD_KEY = "payload";
+
 //------------------------------------------------------------------------------
 
 gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters() {
@@ -256,6 +259,19 @@ std::string MinimizerIndexParameters::validate() const {
     return "";
 }
 
+std::string MinimizerIndexParameters::payload_str(PayloadType type) {
+    switch (type) {
+        case PAYLOAD_NONE:
+            return "none";
+        case PAYLOAD_ZIPCODES:
+            return "zipcodes";
+        case PAYLOAD_ZIPCODES_WITH_PATHS:
+            return "zipcodes with paths";
+        default:
+            return "unknown";
+    }
+}
+
 size_t trailing_zeros(size_t value) {
     size_t result = 0;
     if (value == 0) {
@@ -307,7 +323,7 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
 
 using key_type = gbwtgraph::DefaultMinimizerIndex::key_type;
 using code_type = gbwtgraph::KmerEncoding::code_type;
-using payload_type = ZipCode::payload_type;
+using payload_t = ZipCode::payload_type;
 
 std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const MinimizerIndexParameters& params) {
     std::vector<key_type> frequent_kmers;
@@ -341,7 +357,7 @@ std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const Minim
 void cache_payloads(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex& distance_index,
-    hash_map<nid_t, payload_type>& node_id_to_payload,
+    hash_map<nid_t, payload_t>& node_id_to_payload,
     ZipCodeCollection* oversized_zipcodes,
     bool progress
 ) {
@@ -355,7 +371,7 @@ void cache_payloads(
         ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
         zipcode.fill_in_zipcode_from_pos(distance_index, pos);
-        payload_type payload = zipcode.get_payload_from_zip();
+        payload_t payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.
             // Add it to the oversized zipcode list.
@@ -389,14 +405,19 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         std::exit(EXIT_FAILURE);
     }
 
-    // Determine the payload size.
+    // Determine payload size and type.
     size_t payload_size = 0;
+    MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_NONE;
     if (distance_index != nullptr) {
         payload_size = MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE;
         if (params.paths_in_payload) {
             payload_size++;
+            payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
+        } else {
+            payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
         }
     }
+    std::string payload_str = MinimizerIndexParameters::payload_str(payload_type);
 
     // Create an empty minimizer index.
     std::vector<key_type> frequent_kmers = find_frequent_kmers(gbz, params);
@@ -404,6 +425,7 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     if (params.use_weighted_minimizers && !frequent_kmers.empty()) {
         index.add_frequent_kmers(frequent_kmers, params.iterations);
     }
+    index.set_tag(MinimizerIndexParameters::PAYLOAD_KEY, payload_str);
 
     // Build the index.
     if (params.progress) {
@@ -413,15 +435,15 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         } else {
             std::cerr << ", w = " << index.w();
         }
-        std::cerr << ", payload size = " << index.payload_size() << std::endl;
+        std::cerr << ", payload = " << payload_str << std::endl;
     }
 
     if (distance_index == nullptr) {
         gbwtgraph::index_haplotypes(gbz.graph, index, [](const pos_t&) { return nullptr; });
     } else {
         // Cache payloads before building the index.
-        // A zip code only depends on the node id.
-        hash_map<nid_t, payload_type> node_id_to_payload;
+        // A zipcode only depends on the node id.
+        hash_map<nid_t, payload_t> node_id_to_payload;
         node_id_to_payload.reserve(gbz.graph.max_node_id() - gbz.graph.min_node_id());
         cache_payloads(gbz, *distance_index, node_id_to_payload, oversized_zipcodes, params.progress);
 
@@ -450,6 +472,38 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
 
     return index;
+}
+
+void require_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerIndexParameters::PayloadType expected_payload) {
+    std::string expected_str = MinimizerIndexParameters::payload_str(expected_payload);
+    std::string found = index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY);
+    if (found != expected_str) {
+        std::cerr << "error: expected a minimizer index with payload type \""
+            << expected_str << "\" but found \"" << found << "\"" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+void require_payload(
+    const gbwtgraph::DefaultMinimizerIndex& index,
+    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payload
+) {
+    std::string found = index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY);
+    for (MinimizerIndexParameters::PayloadType type : expected_payload) {
+        std::string expected_str = MinimizerIndexParameters::payload_str(type);
+        if (found == expected_str) {
+            return;
+        }
+    }
+    std::cerr << "error: expected a minimizer index with one of payload types {";
+    for (size_t i = 0; i < expected_payload.size(); ++i) {
+        std::cerr << " \"" << MinimizerIndexParameters::payload_str(expected_payload[i]) << "\"";
+        if (i + 1 < expected_payload.size()) {
+            std::cerr << ",";
+        }
+    }
+    std::cerr << " } but found \"" << found << "\"" << std::endl;
+    std::exit(EXIT_FAILURE);
 }
 
 //------------------------------------------------------------------------------

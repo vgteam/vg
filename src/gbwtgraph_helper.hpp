@@ -47,9 +47,8 @@ void load_gbz(gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::stri
 /// Load GBWT and GBWTGraph from the GBZ file.
 void load_gbz(gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
 
-// FIXME: option to check payload type
-// FIXME: or maybe a standalone check, as we cannot tell vg::io::VPKG the expected type of payload
 /// Load a minimizer index from the file.
+/// require_payload() can be used afterwards to ensure the payload type is correct.
 void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
 
 /// Save GBWTGraph to the file.
@@ -88,6 +87,18 @@ struct MinimizerIndexParameters {
 
     /// Number of words used for a zipcode payload.
     constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type); 
+
+    enum PayloadType {
+        /// No payload.
+        PAYLOAD_NONE,
+        /// Zipcode payload.
+        PAYLOAD_ZIPCODES,
+        /// Zipcode payload with path information.
+        PAYLOAD_ZIPCODES_WITH_PATHS
+    };
+
+    /// Tag used to indicate the payload type in the minimizer index.
+    const static std::string PAYLOAD_KEY; // "payload"
 
     /// k-mer length.
     size_t k = gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH;
@@ -168,9 +179,12 @@ struct MinimizerIndexParameters {
 
     /// Returns an error message if the parameters are invalid.
     std::string validate() const;
+
+    /// Returns a string representation of the payload type.
+    /// This will be used as a tag value in the minimizer index.
+    static std::string payload_str(PayloadType type);
 };
 
-// FIXME: This should also set a tag that describes the payload.
 /// Builds a new minimizer index. If a distance index is provided, zipcodes are
 /// stored as payload. If a zipcode collection is also provided, zipcodes that
 /// do not fit in the payload are stored there.
@@ -181,6 +195,21 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     const SnarlDistanceIndex* distance_index,
     ZipCodeCollection* oversized_zipcodes,
     const MinimizerIndexParameters& params
+);
+
+/// Checks that the minimizer index has the expected payload type.
+///
+/// The check is based on tag "payload" stored in the index.
+/// Prints an error message and exits on failure.
+void require_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerIndexParameters::PayloadType expected_payload);
+
+/// Checks that the minimizer index has one of the expected payload types.
+///
+/// The check is based on tag "payload" stored in the index.
+/// Prints an error message and exits on failure.
+void require_payload(
+    const gbwtgraph::DefaultMinimizerIndex& index,
+    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payload
 );
 
 //------------------------------------------------------------------------------

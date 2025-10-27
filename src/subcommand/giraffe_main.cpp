@@ -1347,6 +1347,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 provided_indexes.emplace_back("Long Read Minimizers", optarg);
                 provided_indexes.emplace_back("Short Read Minimizers", optarg);
+                provided_indexes.emplace_back("Long Read PathMinimizers", optarg);
                 break;
                 
             case 'z':
@@ -1360,6 +1361,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 provided_indexes.emplace_back("Long Read Zipcodes", optarg);
                 provided_indexes.emplace_back("Short Read Zipcodes", optarg);
+                provided_indexes.emplace_back("Long Read PathZipcodes", optarg);
                 break;
             case 'd':
                 if (!optarg || !*optarg) {
@@ -1825,9 +1827,11 @@ int main_giraffe(int argc, char** argv) {
         cerr << "Loading Minimizer Index" << endl;
     }
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
+    MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
         if (use_path_minimizer) {
             minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read PathMinimizers").at(0));
+            payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
             // Use the long read minimizers
             minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));
@@ -1835,6 +1839,7 @@ int main_giraffe(int argc, char** argv) {
     } else {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Short Read Minimizers").at(0));
     }
+    require_payload(*minimizer_index, payload_type);
 
     // Grab the zipcodes
     if (show_progress) {
