@@ -131,6 +131,9 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
     } else {
       std::cerr << ", w = " << index.w();
     }
+    if (index.uses_weighted_minimizers()) {
+      std::cerr << ", W";
+    }
     std::cerr << " using : ";
     if (std::is_same<PayloadType, gbwtgraph::Payload>::value) {
       std::cerr << "Payload";
