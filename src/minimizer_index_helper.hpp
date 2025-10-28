@@ -104,13 +104,25 @@ void set_frequent_kmers(const gbwtgraph::GBZ *gbz, IndexType &index, int k,
   }
 }
 
+/**
+ * Build a minimizer index with type IndexType, holding payloads of type
+ * PayloadType.
+ *
+ * If distance_index is set, uses that distance index to make payloads.
+ *
+ * If zipcode_name is nonempty, sotres oversize zipcodes to that file.
+ *
+ * Writes the minimizer index to the file named output_name; the filename must
+ * be nonempty.
+ *
+ * Logs progress if progress is true.
+ */
 template <typename IndexType, typename PayloadType>
 void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
-                           const bdsg::SnarlDistanceIndex &distance_index,
+                           const bdsg::SnarlDistanceIndex *distance_index,
                            const std::string &zipcode_name,
                            const std::string &output_name,
-                           bool use_distance_index,
-                           bool use_zipcode_index, bool progress) {
+                           bool progress) {
 
   // Zipcodes
   // oversized_zipcodes may be stored alongside the minimizer index in the file
@@ -145,7 +157,7 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
     std::cerr << std::endl;
   }
   auto start = gbwt::readTimer();
-  if (!use_distance_index) {
+  if (!distance_index) {
     std::function<PayloadType(const pos_t &)> payload_lambda =
         [](const pos_t &pos) -> PayloadType {
       if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
@@ -172,7 +184,7 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
       }
 
       ZipCode zipcode;
-      zipcode.fill_in_zipcode(distance_index, pos);
+      zipcode.fill_in_zipcode(*distance_index, pos);
       gbwtgraph::Payload from_zc = zipcode.get_payload_from_zip();
 
       if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
@@ -187,7 +199,7 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
           node_id_to_payload.emplace(id(pos), payload);
         }
         return payload;
-      } else if (use_zipcode_index) {
+      } else if (!zipcode_name.empty()) {
         // Otherwise, if they are being saved, add the zipcode to the oversized
         // zipcode list And remember the zipcode
 
@@ -229,7 +241,7 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
   save_minimizer(index, output_name);
 
   // If using it, write the larger zipcodes to a file
-  if (use_zipcode_index) {
+  if (!zipcode_name.empty()) {
     ofstream zip_out(zipcode_name);
     oversized_zipcodes.serialize(zip_out);
     zip_out.close();
