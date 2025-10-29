@@ -112,7 +112,7 @@ int main_inject(int argc, char** argv) {
         case 'h':
         case '?':
           help_inject(argv);
-          exit(1);
+          exit(0);
           break;
 
         default:

@@ -55,6 +55,7 @@
 #include "job_schedule.hpp"
 #include "path.hpp"
 #include "zip_code.hpp"
+#include "minimizer_index_helper.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -112,6 +113,7 @@ bool IndexingParameters::short_read_minimizer_W = false;
 int IndexingParameters::long_read_minimizer_k = 31;
 int IndexingParameters::long_read_minimizer_w = 50;
 bool IndexingParameters::long_read_minimizer_W = true;
+int IndexingParameters::long_read_minimizer_W_iterations = 3;
 int IndexingParameters::minimizer_s = 18;
 bool IndexingParameters::space_efficient_counting = false;
 int IndexingParameters::minimizer_downweight_threshold = 500;
@@ -518,7 +520,7 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     
     if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
-            cerr << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") << "payload type " << (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value ? "XL" : "Standard") << endl;
+            cerr << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") << " payload type " << (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value ? "XL" : "Standard") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -533,12 +535,12 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     vector<vector<string>> all_outputs(constructing.size());
     auto minimizer_output = *constructing.begin();
     auto zipcode_output = *constructing.rbegin();
-    auto& output_name_minimizer = all_outputs[0];
+    auto& output_name_minimizers = all_outputs[0];
     auto& output_name_zipcodes = all_outputs[1];
 
     ifstream infile_gbz;
     init_in(infile_gbz, gbz_filename);
-    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
+    unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
 
     ifstream infile_dist;
     init_in(infile_dist, dist_filename);
@@ -548,72 +550,29 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     IndexType minimizers(minimizer_k,
                          IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
                          IndexingParameters::use_bounded_syncmers);
-
+    
+    // Set up the minimizer index helper.
+    MinimizerIndexHelper<IndexType, PayloadType> mi_helper(gbz.get(), minimizers, IndexingParameters::verbosity != IndexingParameters::None);
+    // Find frequent kmers.
     if (minimizer_W) {
-        auto frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold,
-            IndexingParameters::space_efficient_counting
+        mi_helper.set_frequent_kmers(
+            minimizers.k(),
+            IndexingParameters::minimizer_downweight_threshold,
+            IndexingParameters::space_efficient_counting,
+            0,
+            IndexingParameters::long_read_minimizer_W_iterations
         );
     }
-
-    ZipCodeCollection oversized_zipcodes;
-    hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
-
-    std::function<PayloadType(const pos_t&)> payload_lambda =
-    [&](const pos_t& pos) -> PayloadType {
-        ZipCode zip;
-        zip.fill_in_zipcode(*distance_index, pos);
-        auto payload = zip.get_payload_from_zip();
-
-        if constexpr (std::is_same<PayloadType, gbwtgraph::Payload>::value) {
-            if (payload != MIPayload::NO_CODE) {
-                return payload; // small payload
-            } else {
-                zip.fill_in_full_decoder();
-                size_t zip_index;
-                #pragma omp critical
-                {
-                    if (node_id_to_zipcode_index.count(id(pos))) {
-                        zip_index = node_id_to_zipcode_index.at(id(pos));
-                    } else {
-                        oversized_zipcodes.emplace_back(zip);
-                        zip_index = oversized_zipcodes.size() - 1;
-                        node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                    }
-                }
-                return {0, zip_index}; // extended encoding
-            }
-        } else if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
-            zip.fill_in_full_decoder();
-            size_t zip_index;
-            #pragma omp critical
-            {
-                if (node_id_to_zipcode_index.count(id(pos))) {
-                    zip_index = node_id_to_zipcode_index.at(id(pos));
-                } else {
-                    oversized_zipcodes.emplace_back(zip);
-                    zip_index = oversized_zipcodes.size() - 1;
-                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                }
-            }
-            return {0, zip_index, 0};
-        } else {
-            static_assert(
-                std::is_same<PayloadType, gbwtgraph::Payload>::value ||
-                std::is_same<PayloadType, gbwtgraph::PayloadXL>::value,
-                "PayloadType must be gbwtgraph::Payload or gbwtgraph::PayloadXL"
-            );
-        }
-    };
-    gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
-    string output_name = plan->output_filepath(minimizer_output);
-    save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-    output_name_minimizer.push_back(output_name);
-
+    
+    // Build the minimizer index with zipcodes.
+    string minimizers_output_name = plan->output_filepath(minimizer_output);
     string zipcodes_output_name = plan->output_filepath(zipcode_output);
-    ofstream zip_out(zipcodes_output_name);
-    oversized_zipcodes.serialize(zip_out);
-    zip_out.close();
+    mi_helper.build(
+        distance_index.get(),
+        zipcodes_output_name,
+        minimizers_output_name
+    );
+    output_name_minimizers.push_back(minimizers_output_name);
     output_name_zipcodes.push_back(zipcodes_output_name);
 
     return all_outputs;
