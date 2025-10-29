@@ -2301,20 +2301,12 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
     }
 
     for (auto& sub_interval : sub_intervals) {
-        // Snarls are already sorted by a topological order of
-        // the orientation of the zip tree, so don't reverse them
-        // And don't reverse the sort if that has
-        // already been taken into account in the value finding
-        bool reverse_order = (sub_interval.code_type == ZipCode::REGULAR_SNARL 
-                              || sub_interval.code_type == ZipCode::IRREGULAR_SNARL) 
-                             ? false
-                             : sub_interval.is_reversed; 
         // Sort the given interval using the value-getter and orientation
         if (use_radix) {
             radix_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, 
-                                reverse_order, min_sort_value, max_sort_value);
+                                sub_interval.is_reversed, min_sort_value, max_sort_value);
         } else {
-            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, reverse_order);
+            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, sub_interval.is_reversed);
         }
     }
     return;
