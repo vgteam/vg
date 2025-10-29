@@ -2,7 +2,9 @@
 \file minimizer_index_helper.hpp
 Shared logic for minimizer index construction.
 */
-#pragma once
+#ifndef VG_MINIMIZER_INDEX_HELPER_HPP_INCLUDED
+#define VG_MINIMIZER_INDEX_HELPER_HPP_INCLUDED
+
 #include <fstream>
 #include <functional>
 #include <gbwtgraph/gbz.h>
@@ -121,8 +123,7 @@ template <typename IndexType, typename PayloadType>
 void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
                            const bdsg::SnarlDistanceIndex *distance_index,
                            const std::string &zipcode_name,
-                           const std::string &output_name,
-                           bool progress) {
+                           const std::string &output_name, bool progress) {
 
   // Zipcodes
   // oversized_zipcodes may be stored alongside the minimizer index in the file
@@ -255,3 +256,5 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
   }
 }
 } // namespace mi_helper
+
+#endif // VG_MINIMIZER_INDEX_HELPER_HPP_INCLUDED
