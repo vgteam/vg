@@ -127,18 +127,18 @@ void construct_minimizer_dispatch(
         (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
         use_syncmers);
     
+    // Helper for building the index.
+    MinimizerIndexHelper<IndexType, PayloadType> mi_helper(gbz, index, progress);
+    
     // find frequent kmers and set them in the index
     if (load_index.empty()) {
         if (weighted) {
-            mi_helper::set_frequent_kmers<IndexType>(
-                gbz,
-                index,
+            mi_helper.set_frequent_kmers(
                 index.k(),
                 threshold,
                 space_efficient_counting,
                 hash_table_size,
-                iterations,
-                progress
+                iterations
             );
         }
     } else {
@@ -155,13 +155,11 @@ void construct_minimizer_dispatch(
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
         distance_index->preload(true);
     }
-    mi_helper::build_minimizer_index<IndexType, PayloadType>(
-        gbz,
-        index,
-        distance_index.get(),
+
+    mi_helper.build(
+        distance_index.get(), 
         zipcode_name,
-        output_name,
-        progress
+        output_name
     );
 }
 

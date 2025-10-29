@@ -550,31 +550,27 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     IndexType minimizers(minimizer_k,
                          IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
                          IndexingParameters::use_bounded_syncmers);
-
+    
+    // Set up the minimizer index helper.
+    MinimizerIndexHelper<IndexType, PayloadType> mi_helper(gbz.get(), minimizers, IndexingParameters::verbosity != IndexingParameters::None);
     // Find frequent kmers.
     if (minimizer_W) {
-        mi_helper::set_frequent_kmers<IndexType>(
-            gbz.get(),
-            minimizers,
+        mi_helper.set_frequent_kmers(
             minimizers.k(),
             IndexingParameters::minimizer_downweight_threshold,
             IndexingParameters::space_efficient_counting,
             0,
-            IndexingParameters::long_read_minimizer_W_iterations,
-            IndexingParameters::verbosity != IndexingParameters::None
+            IndexingParameters::long_read_minimizer_W_iterations
         );
     }
     
     // Build the minimizer index with zipcodes.
     string minimizers_output_name = plan->output_filepath(minimizer_output);
     string zipcodes_output_name = plan->output_filepath(zipcode_output);
-    mi_helper::build_minimizer_index<IndexType, PayloadType>(
-        gbz.get(),
-        minimizers,
+    mi_helper.build(
         distance_index.get(),
         zipcodes_output_name,
-        minimizers_output_name,
-        IndexingParameters::verbosity != IndexingParameters::None
+        minimizers_output_name
     );
     output_name_minimizers.push_back(minimizers_output_name);
     output_name_zipcodes.push_back(zipcodes_output_name);
