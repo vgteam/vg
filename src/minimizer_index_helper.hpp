@@ -7,6 +7,7 @@ Shared logic for minimizer index construction.
 
 #include <fstream>
 #include <functional>
+#include <mutex>
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/index.h>
 #include <omp.h>
@@ -23,62 +24,29 @@ namespace mi_helper {
 using namespace std;
 using namespace vg;
 
-inline size_t trailing_zeros(size_t value) {
-  size_t result = 0;
-  if (value == 0) {
-    return result;
-  }
-  while ((value & 1) == 0) {
-    value >>= 1;
-    result++;
-  }
-  return result;
-}
+/**
+ * Count the number of trailing zero bits in a value.
 
-inline size_t estimate_hash_table_size(const gbwtgraph::GBZ &gbz,
-                                       bool progress) {
-  if (progress) {
-    std::cerr << "Estimating genome size" << std::endl;
-  }
-  size_t genome_size = 0;
+ * @return Number of trailing zeros, or 0 if value is 0
+ */
+size_t trailing_zeros(size_t value);
 
-  if (gbz.graph.get_path_count() > 0) {
-    gbz.graph.for_each_path_handle([&](const path_handle_t &path_handle) {
-      gbz.graph.for_each_step_in_path(
-          path_handle, [&](const step_handle_t &step_handle) {
-            handle_t handle = gbz.graph.get_handle_of_step(step_handle);
-            genome_size += gbz.graph.get_length(handle);
-          });
-    });
-    if (progress) {
-      std::cerr << "Estimated size based on reference / generic paths: "
-                << genome_size << std::endl;
-    }
-  }
+/**
+ * Estimate an appropriate hash table size for a minimizer index based on genome size.
+ * 
+ * Calculates genome size from paths if available, otherwise from total sequence length.
+ * Returns a power-of-2 size suitable for storing kmers.
+ *
+ * @return Estimated hash table size (always a power of 2)
+ */
+size_t estimate_hash_table_size(const gbwtgraph::GBZ &gbz, bool progress);
 
-  if (genome_size == 0) {
-    gbz.graph.for_each_handle([&](const handle_t &handle) {
-      genome_size += gbz.graph.get_length(handle);
-    });
-    if (progress) {
-      std::cerr << "Estimated size based on total sequence length: "
-                << genome_size << std::endl;
-    }
-  }
-
-  // Genome size / 2 should be a reasonably tight upper bound for the number of
-  // kmers with any specific base in the middle position.
-  size_t hash_table_size =
-      gbwtgraph::KmerIndex<gbwtgraph::Key64, gbwtgraph::Position>::minimum_size(
-          genome_size / 2);
-  if (progress) {
-    std::cerr << "Estimated hash table size: 2^"
-              << trailing_zeros(hash_table_size) << std::endl;
-  }
-
-  return hash_table_size;
-}
-
+/**
+ * Identify and mark frequent kmers in a minimizer index.
+ * 
+ * Finds kmers that occur more than the specified threshold and adds them
+ * to the index's frequent kmer list for special handling.
+ */
 template <typename IndexType>
 void set_frequent_kmers(const gbwtgraph::GBZ *gbz, IndexType &index, int k,
                         size_t threshold, bool space_efficient_counting,
@@ -136,6 +104,10 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
   node_id_to_payload.reserve(gbz->graph.max_node_id() -
                              gbz->graph.min_node_id());
 
+  // Mutex for protecting shared data structures in parallel regions
+  std::mutex payload_mutex;
+  std::mutex zipcode_mutex;
+
   // Build the index.
   if (progress) {
     std::cerr << "Building MinimizerIndex with k = " << index.k();
@@ -173,8 +145,8 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
     std::function<PayloadType(const pos_t &)> payload_lambda =
         [&](const pos_t &pos) -> PayloadType {
       PayloadType payload = PayloadType::default_payload();
-#pragma omp critical
       {
+        std::lock_guard<std::mutex> lock(payload_mutex);
         // If we've already seen this node before, then return the saved payload
         if (node_id_to_payload.count(id(pos))) {
           payload = node_id_to_payload[id(pos)];
@@ -195,8 +167,8 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
       }
 
       if (payload != PayloadType::default_payload()) {
-#pragma omp critical
         {
+          std::lock_guard<std::mutex> lock(payload_mutex);
           node_id_to_payload.emplace(id(pos), payload);
         }
         return payload;
@@ -207,8 +179,8 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
         // Fill in the decoder to be saved too
         zipcode.fill_in_full_decoder();
 
-#pragma omp critical
         {
+          std::lock_guard<std::mutex> lock(zipcode_mutex);
           oversized_zipcodes.emplace_back(zipcode);
           size_t zip_index = oversized_zipcodes.size() - 1;
           payload = {0, zip_index};
@@ -216,9 +188,9 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
         }
         return payload;
       } else {
-// If the zipcode is too big and we don't have a file to save the big zipcodes
-#pragma omp critical
+        // If the zipcode is too big and we don't have a file to save the big zipcodes
         {
+          std::lock_guard<std::mutex> lock(payload_mutex);
           payload = PayloadType::default_payload();
           node_id_to_payload.emplace(id(pos), payload);
         }
@@ -255,6 +227,7 @@ void build_minimizer_index(const gbwtgraph::GBZ *gbz, IndexType &index,
               << " GiB" << std::endl;
   }
 }
+
 } // namespace mi_helper
 
 #endif // VG_MINIMIZER_INDEX_HELPER_HPP_INCLUDED
