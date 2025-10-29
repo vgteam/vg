@@ -212,6 +212,9 @@ void require_payload(
     const std::vector<MinimizerIndexParameters::PayloadType>& expected_payload
 );
 
+/// Prints a description of the minimizer index in the given file to the given output stream.
+void describe_minimizer_index(const std::string& filename, std::ostream& out);
+
 //------------------------------------------------------------------------------
 
 /// Return a mapping of the original segment ids to a list of chopped node ids

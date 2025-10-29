@@ -65,6 +65,7 @@ struct MinimizerConfig {
     // Note that params also has a 'progress' field.
     bool progress = false;
     int threads = get_default_threads();
+    bool describe = false;
 
     MinimizerConfig(int argc, char** argv, int max_threads);
 };
@@ -77,6 +78,12 @@ using payload_type = ZipCode::payload_type;
 int main_minimizer(int argc, char** argv) {
     double start = gbwt::readTimer();
     MinimizerConfig config(argc, argv, get_default_threads());
+
+    if (config.describe) {
+        // Just describe the index.
+        describe_minimizer_index(config.output_name, std::cout);
+        return 0;
+    }
 
     // Load the graph.
     gbwtgraph::GBZ gbz;
@@ -122,7 +129,9 @@ int main_minimizer(int argc, char** argv) {
 //------------------------------------------------------------------------------
 
 void help_minimizer(char** argv) {
-    std::cerr << "usage: " << argv[0] << " minimizer [options] -d graph.dist -o graph.min graph.gbz" << std::endl;
+    std::cerr << "usage:" << std::endl;
+    std::cerr << "    " << argv[0] << " minimizer [options] -d graph.dist -o graph.min graph.gbz" << std::endl;
+    std::cerr << "    " << argv[0] << " minimizer --describe graph.min" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Builds a (w, k)-minimizer index or a (k, s)-syncmer index." << std::endl;
     std::cerr << std::endl;
@@ -162,6 +171,7 @@ void help_minimizer(char** argv) {
     std::cerr << "                             (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
     std::cerr << "      --no-dist              build the index without distance index annotations" << std::endl;
     std::cerr << "                             (not recommended)" << std::endl;
+    std::cerr << "      --describe FILE        describe the minimizer index in FILE and exit" << std::endl;
     std::cerr << "  -h, --help                 print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
 }
@@ -178,6 +188,7 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
     constexpr int OPT_SAVE_MEMORY = 1004;
     constexpr int OPT_HASH_TABLE = 1005;
     constexpr int OPT_NO_DIST = 1100;
+    constexpr int OPT_DESCRIBE = 1101;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -201,6 +212,7 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { "no-dist", no_argument, 0, OPT_NO_DIST },
+            { "describe", required_argument, 0, OPT_DESCRIBE },
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
@@ -269,6 +281,11 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
         case OPT_NO_DIST:
             this->require_distance_index = false;
             break;
+        case OPT_DESCRIBE:
+            this->describe = true;
+            this->output_name = optarg;
+            this->require_distance_index = false;
+            break;
 
         case 'h':
         case '?':
@@ -283,11 +300,13 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
         std::cerr << "error: [vg minimizer] option --output-name is required" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if (optind + 1 != argc) {
-        help_minimizer(argv);
-        std::exit(EXIT_FAILURE);
+    if (!this->describe) {
+        if (optind + 1 != argc) {
+            help_minimizer(argv);
+            std::exit(EXIT_FAILURE);
+        }
+        this->graph_name = argv[optind];
     }
-    this->graph_name = argv[optind];
     if (this->require_distance_index && this->distance_name.empty()) {
         std::cerr << "error: [vg minimizer] one of options --distance-index and --no-dist is required" << std::endl;
         std::exit(EXIT_FAILURE);
