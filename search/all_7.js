@@ -83,7 +83,7 @@ var searchData=
   ['gbwthandler_2139',['GBWTHandler',['../structvg_1_1GBWTHandler.html',1,'vg']]],
   ['gbwtscoreprovider_2140',['GBWTScoreProvider',['../classhaplo_1_1GBWTScoreProvider.html',1,'haplo::GBWTScoreProvider&lt; GBWTType &gt;'],['../classhaplo_1_1GBWTScoreProvider.html#abf8bd05e480afa9a2ac2832a13f5b181',1,'haplo::GBWTScoreProvider::GBWTScoreProvider()']]],
   ['gbwttraversalfinder_2141',['GBWTTraversalFinder',['../classvg_1_1GBWTTraversalFinder.html',1,'vg::GBWTTraversalFinder'],['../classvg_1_1GBWTTraversalFinder.html#af415423d43372c2770c201a10ace0385',1,'vg::GBWTTraversalFinder::GBWTTraversalFinder()']]],
-  ['gbz_2142',['gbz',['../classvg_1_1GBZGraph.html#ac56a91ab9fe591aa7781cd751fe94ed4',1,'vg::GBZGraph::gbz()'],['../classvg_1_1HaplotypePartitioner.html#a533f084057db81844dd0c02f36fb5498',1,'vg::HaplotypePartitioner::gbz()'],['../classvg_1_1Recombinator.html#a977b21bbcc9ea6520dbc97a5014488e6',1,'vg::Recombinator::gbz()']]],
+  ['gbz_2142',['gbz',['../classvg_1_1GBZGraph.html#ac56a91ab9fe591aa7781cd751fe94ed4',1,'vg::GBZGraph::gbz()'],['../classvg_1_1MinimizerIndexHelper.html#a994cbe2a530e538503637f1043734d1d',1,'vg::MinimizerIndexHelper::gbz()'],['../classvg_1_1HaplotypePartitioner.html#a533f084057db81844dd0c02f36fb5498',1,'vg::HaplotypePartitioner::gbz()'],['../classvg_1_1Recombinator.html#a977b21bbcc9ea6520dbc97a5014488e6',1,'vg::Recombinator::gbz()']]],
   ['gbz_5fformat_2143',['gbz_format',['../structGBWTConfig.html#a14fe1675f26aa9b74381640c4cffdd47',1,'GBWTConfig']]],
   ['gbz_5foutput_2144',['gbz_output',['../structHaplotypesConfig.html#af71ee285e699443b559375aeac054eb8',1,'HaplotypesConfig']]],
   ['gbzgraph_2145',['GBZGraph',['../classvg_1_1GBZGraph.html',1,'vg']]],

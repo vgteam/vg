@@ -167,7 +167,7 @@ var searchData=
   ['estimate_5fdistribution_1563',['estimate_distribution',['../classvg_1_1FragmentLengthDistribution.html#a87a5794f706a81748136f0890f2168cd',1,'vg::FragmentLengthDistribution']]],
   ['estimate_5fedge_5fscore_1564',['estimate_edge_score',['../classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab',1,'vg::MEMClusterer']]],
   ['estimate_5fgc_5fcontent_1565',['estimate_gc_content',['../classvg_1_1BaseMapper.html#aa08b00e5a349252d013d76651f754f8d',1,'vg::BaseMapper']]],
-  ['estimate_5fhash_5ftable_5fsize_1566',['estimate_hash_table_size',['../minimizer__main_8cpp.html#a2f3588cd2c21ddbe85727345718e9ca3',1,'minimizer_main.cpp']]],
+  ['estimate_5fhash_5ftable_5fsize_1566',['estimate_hash_table_size',['../classvg_1_1MinimizerIndexHelper.html#ae6026cda1ad4b4f1bdd7f1553c5b5a5d',1,'vg::MinimizerIndexHelper']]],
   ['estimate_5fmax_5fpossible_5fmapping_5fquality_1567',['estimate_max_possible_mapping_quality',['../classvg_1_1GSSWAligner.html#a0dc19c58a3f70a67a4b2a1ad475af79d',1,'vg::GSSWAligner::estimate_max_possible_mapping_quality()'],['../classvg_1_1Mapper.html#ac8613c49c8390b280aef7323151a4fd8',1,'vg::Mapper::estimate_max_possible_mapping_quality()']]],
   ['estimate_5fmissed_5frescue_5fmultiplicity_1568',['estimate_missed_rescue_multiplicity',['../classvg_1_1MultipathMapper.html#a46edc0708ffa290b067a937c1876904c',1,'vg::MultipathMapper']]],
   ['estimate_5fnext_5fbest_5fscore_1569',['estimate_next_best_score',['../classvg_1_1GSSWAligner.html#a439ed0a50959b73b99d08d5ec0af4bc6',1,'vg::GSSWAligner']]],
