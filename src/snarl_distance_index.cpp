@@ -1312,7 +1312,7 @@ void populate_snarl_index(
                     bool next_is_boundary = !temp_snarl_record.is_root_snarl && (next_rank == 0 || next_rank == 1);
 
                     if (size_limit != 0 &&
-                        (temp_snarl_record.node_count < size_limit || start_is_boundary || next_is_boundary)) {
+                        (temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary)) {
                         //If the snarl is too big, then we don't record distances between internal nodes
                         //If we are looking at all distances or we are looking at boundaries
                         bool added_new_distance = false;
@@ -1522,7 +1522,8 @@ void populate_snarl_index(
         temp_index.max_index_size -= (temp_snarl_record.children.size() * SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord::get_max_record_length());
     }
 
-
+    // For simple snarl records, need  11 + 11 + number of bits for the number of children
+    temp_index.max_bits = std::max(temp_index.max_bits, 22 + SnarlDistanceIndex::bit_width(temp_snarl_record.children.size())); 
 }
 
 

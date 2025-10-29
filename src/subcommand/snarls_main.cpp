@@ -188,6 +188,18 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
+    if (traversal_file.empty()) {
+        if (!ultrabubble_only) {
+            cerr << "warning:[vg snarls] --any-snarl-type (-a) has no effect without --traversals file" << endl;
+        }
+        if (top_level_only) {
+            cerr << "warning:[vg snarls] --top-level (-o) has no effect without --traversals file" << endl;
+        }
+        if (leaf_only) {
+            cerr << "warning:[vg snarls] --leaf-only (-l) has no effect without --traversals file" << endl;
+        }
+    }
+
     // Prepare traversal output stream
     ofstream trav_stream;
     if (!traversal_file.empty()) {

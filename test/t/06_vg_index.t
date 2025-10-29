@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 45
+plan tests 47
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -212,11 +212,13 @@ rm -f x.vg distIndex snarls.pb
 
 # Test distance index with GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
-vg snarls -T graph.gbz > graph.snarls
 vg index -j graph.dist graph.gbz
 is $? 0 "distance index construction from GBZ"
+
+is $(vg index -j graph.dist --snarl-limit 1 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l) 1 "Warn when creating graph with oversized snarls"
+is $(vg index -j graph.dist --snarl-limit 2 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l) 0 "Don't warn for exactly equal --size-limit"
 
 cat graph.gbz | vg index -j graph.dist -
 is $? 0 "distance index construction from piped GBZ"
 
-rm -f graph.gbz graph.snarls graph.dist
+rm -f graph.gbz graph.dist

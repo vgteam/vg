@@ -538,7 +538,7 @@ construct_minimizers_impl(
 
     ifstream infile_gbz;
     init_in(infile_gbz, gbz_filename);
-    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
+    unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
 
     ifstream infile_dist;
     init_in(infile_dist, dist_filename);

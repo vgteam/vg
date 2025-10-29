@@ -28,12 +28,13 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject -x graph.xg [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE        use this graph or xg index (required, non-XG okay)" << endl
-         << "  -i, --add-identity        calculate & add 'identity' statistic to output GAM" << endl
-         << "  -r, --rescore             re-score alignments" << endl
-         << "  -o, --output-format NAME  output alignment format {gam / gaf / json} [gam]" << endl
-         << "  -t, --threads N           number of threads to use" << endl
-         << "  -h, --help                print this help message to stderr and exit" << endl;
+         << "  -x, --xg-name FILE          use this graph or XG index (required, non-XG okay)" << endl
+         << "  -i, --add-identity          calculate & add 'identity' statistic to output GAM" << endl
+         << "  -r, --rescore               re-score alignments" << endl
+         << "  -o, --output-format NAME    output alignment format {gam / gaf / json} [gam]" << endl
+         << "  -a, --allow-missing-contig  treat alignments to missing contigs as unmapped" << endl
+         << "  -t, --threads N             number of threads to use" << endl
+         << "  -h, --help                  print this help message to stderr and exit" << endl;
 }
 
 int main_inject(int argc, char** argv) {
@@ -45,6 +46,7 @@ int main_inject(int argc, char** argv) {
     string xg_name;
     bool add_identity = false;
     bool rescore = false;
+    bool allow_missing_contig = false;
     string output_format = "GAM";
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON" };
     int threads = get_thread_count();
@@ -59,12 +61,13 @@ int main_inject(int argc, char** argv) {
           {"add-identity", no_argument, 0, 'i'},
           {"rescore", no_argument, 0, 'r'},
           {"output-format", required_argument, 0, 'o'},
+          {"allow-missing-contig", no_argument, 0, 'a'},
           {"threads", required_argument, 0, 't'},
           {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:iro:t:",
+        c = getopt_long (argc, argv, "h?x:iro:at:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -102,10 +105,14 @@ int main_inject(int argc, char** argv) {
           threads = parse<int>(optarg);
           break;
 
+        case 'a':
+          allow_missing_contig = true;
+          break;
+
         case 'h':
         case '?':
           help_inject(argv);
-          exit(1);
+          exit(0);
           break;
 
         default:
@@ -147,9 +154,9 @@ int main_inject(int argc, char** argv) {
         clear_crash_context();
     };
     if (threads > 1) {
-        hts_for_each_parallel(file_name, lambda, xgidx);
+        hts_for_each_parallel(file_name, lambda, xgidx, allow_missing_contig);
     } else {
-        hts_for_each(file_name, lambda, xgidx);
+        hts_for_each(file_name, lambda, xgidx, allow_missing_contig);
     }
     return 0;
 }
