@@ -1,5 +1,5 @@
-/*
-minimizer_index_helper.hpp
+/**
+\file minimizer_index_helper.hpp
 Shared logic for minimizer index construction.
 */
 #pragma once
