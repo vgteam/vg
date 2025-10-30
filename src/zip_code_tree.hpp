@@ -452,6 +452,16 @@ public:
      * 
      * New cyclic snarl handling flowchart: 
      * https://docs.google.com/drawings/d/1diKMXCuMteR06fF64BhSttsD5RHh3eTnd8FtyYqs17Y/edit?usp=sharing
+     * 
+     * In order to de-duplicate work, this iterator will not actually look at
+     * _everything_ before it; if it knows that seeds from a given chain would
+     * have already output transitions to its own position. This occurs in
+     * cyclic snarls. For example, since previous chains in a cyclic snarl will
+     * have already visited all other chains, later such chains do not have to
+     * visit these previous chains. Similarly, when the traversal enters a
+     * cyclic snarl, it only has to handle the chains going in the opposite
+     * orientation, since the ones in the same orientation will have simply
+     * already seen the traversal's starting position by exiting the snarl.
      */
     class distance_iterator {
     public:
