@@ -506,57 +506,6 @@ void require_payload(
     std::exit(EXIT_FAILURE);
 }
 
-void describe_minimizer_index(const std::string& filename, std::ostream& out) {
-    std::ifstream in(filename, std::ios_base::binary);
-    if (!in) {
-        out << "File " << filename << " cannot be opened" << std::endl;
-        return;
-    }
-    in.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
-
-    try {
-        gbwtgraph::MinimizerHeader header;
-        gbwtgraph::io::load(in, header);
-        if (header.tag != gbwtgraph::MinimizerHeader::TAG) {
-            out << "File " << filename << " is not a minimizer index" << std::endl;
-            return;
-        }
-        try {
-            header.check();
-        } catch (const std::runtime_error& e) {
-            out << "Cannot validate header: " << e.what() << std::endl;
-            return;
-        }
-        out << "Minimizer index version " << header.version << std::endl;
-        if (header.flags & gbwtgraph::MinimizerHeader::FLAG_SYNCMERS) {
-            out << "Syncmers with k = " << header.k << ", s = " << header.w_or_s << std::endl;
-        } else {
-            size_t iterations = header.get_int(gbwtgraph::MinimizerHeader::FLAG_WEIGHT_MASK, gbwtgraph::MinimizerHeader::FLAG_WEIGHT_OFFSET);
-            if (iterations > 0) {
-                out << "Weighted minimizers with k = " << header.k << ", w = " << header.w_or_s << ", iterations = " << iterations << std::endl;
-            } else {
-                out << "Minimizers with k = " << header.k << ", w = " << header.w_or_s << std::endl;
-            }
-        }
-        out << header.keys << " keys (" << header.unique << " unique) with a total of " << header.values << " occurrences" << std::endl;
-        size_t key_bits = header.get_int(gbwtgraph::MinimizerHeader::FLAG_KEY_MASK, gbwtgraph::MinimizerHeader::FLAG_KEY_OFFSET);
-        size_t payload_words = header.get_int(gbwtgraph::MinimizerHeader::FLAG_PAYLOAD_MASK, gbwtgraph::MinimizerHeader::FLAG_PAYLOAD_OFFSET);
-        out << key_bits << "-bit keys and " << payload_words << "-word payloads" << std::endl;
-        out << std::endl;
-
-        gbwt::Tags tags;
-        tags.load(in);
-        out << "Tags:" << std::endl;
-        for (const auto& tag : tags.tags) {
-            out << "  " << tag.first << " = " << tag.second << std::endl;
-        }
-        out << std::endl;
-    } catch (const std::runtime_error& e) {
-        out << "Reading file " << filename << " failed: " << e.what() << std::endl;
-        return;
-    }
-}
-
 //------------------------------------------------------------------------------
 
 /// Return a mapping of the original segment ids to a list of chopped node ids
