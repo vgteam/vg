@@ -54,11 +54,11 @@ rm x.vg
 
 vg view -Fv overlaps/two_snvs_assembly1.gfa >/dev/null 2>errors.txt
 is "${?}" "1" "gfa graphs with overlaps are rejected"
-is "$(cat errors.txt | grep -P "error\[" | wc -l)" "1" "GFA import produces a concise error message when overlaps are present"
+is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l)" "1" "GFA import produces a concise error message when overlaps are present"
 
 vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null 2>errors.txt
 is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its sequences"
-is "$(cat errors.txt | grep -P "error\[" | wc -l)" "1" "GFA import produces a concise error message in that case"
+is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l)" "1" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
 
