@@ -1311,11 +1311,13 @@ int main_giraffe(int argc, char** argv) {
             case 'm':
                 provided_indexes.emplace_back("Long Read Minimizers", optarg);
                 provided_indexes.emplace_back("Short Read Minimizers", optarg);
+                provided_indexes.emplace_back("Long Read PathMinimizers", optarg);
                 break;
                 
             case 'z':
                 provided_indexes.emplace_back("Long Read Zipcodes", optarg);
                 provided_indexes.emplace_back("Short Read Zipcodes", optarg);
+                provided_indexes.emplace_back("Long Read PathZipcodes", optarg);
                 break;
             case 'd':
                 provided_indexes.emplace_back("Giraffe Distance Index", optarg);

@@ -1014,7 +1014,7 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                     REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
                 }
 
-                // For each form anchor and to anchor, remember the read and graph distances.
+                // For each from anchor and to anchor, remember the read and graph distances.
                 std::unordered_map<std::pair<size_t, size_t>, std::pair<size_t, size_t>> all_transitions;
 
                 // Set up to get all the transitions between anchors in the zip code tree

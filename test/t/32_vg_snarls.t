@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 25
 
 vg view -J -v snarls/snarls.json > snarls.vg
 vg snarls -t 1 snarls.vg -r st.pb > snarls.pb
@@ -13,7 +13,22 @@ is $(vg view -R snarls.pb | wc -l) 3 "vg snarls made right number of protobuf Sn
 is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
 is $(vg view -R snarls.pb | jq -r '[(.start.node_id | tonumber), (.end.node_id | tonumber)] | min' | tr '\n' ',') "1,3,7," "vg snarls made snarls in the right order"
 
-rm -f snarls.pb st.pb
+vg snarls -l -t 1 snarls.vg > leaf_only.pb 2> warnings.txt
+is "$(grep 'has no effect without --traversals file' warnings.txt | wc -l)" "1" "vg snarls warns when -l is used without --traversals"
+diff leaf_only.pb snarls.pb
+is $? 0 "vg snarls -l matches full snarls"
+
+vg snarls -o -t 1 snarls.vg > top_level.pb 2> warnings.txt
+is "$(grep 'has no effect without --traversals file' warnings.txt | wc -l)" "1" "vg snarls warns when -o is used without --traversals"
+diff top_level.pb snarls.pb
+is $? 0 "vg snarls -o matches full snarls"
+
+vg snarls -a -t 1 snarls.vg > any.pb 2> warnings.txt
+is "$(grep 'has no effect without --traversals file' warnings.txt | wc -l)" "1" "vg snarls warns when -a is used without --traversals"
+diff any.pb snarls.pb
+is $? 0 "vg snarls -a matches full snarls"
+
+rm -f snarls.pb st.pb leaf_only.pb top_level.pb any.pb warnings.txt
 
 vg index snarls.vg -x snarls.xg
 is $(vg snarls snarls.xg -r st.pb | vg view -R - | wc -l) 3 "vg snarls on xg made right number of protobuf Snarls"

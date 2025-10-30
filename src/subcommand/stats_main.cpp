@@ -661,6 +661,8 @@ int main_stats(int argc, char** argv) {
             // And pairing
             size_t total_paired = 0;
             size_t total_proper_paired = 0;
+            // And just bases in general
+            size_t total_bases = 0;
 
             // Alignment and mapping quality score distributions.
             std::map<std::int64_t, size_t> alignment_scores;
@@ -704,6 +706,7 @@ int main_stats(int argc, char** argv) {
                 total_softclipped_bases += other.total_softclipped_bases;
                 total_paired += other.total_paired;
                 total_proper_paired += other.total_proper_paired;
+                total_bases += other.total_bases;
 
                 for (auto iter = other.alignment_scores.begin(); iter != other.alignment_scores.end(); ++iter) {
                     this->alignment_scores[iter->first] += iter->second;
@@ -869,6 +872,7 @@ int main_stats(int argc, char** argv) {
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
                         // Go through edits and look for each type.
                         auto& edit = mapping.edit(j);
+                        stats.total_bases += edit.to_length();
 
                         if(edit.to_length() > edit.from_length()) {
                             // This is an insert or softclip and not a match
@@ -1118,8 +1122,12 @@ int main_stats(int argc, char** argv) {
             cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
         }
         cout << endl;
-        cout << "Softclips: " << combined.total_softclipped_bases << " bp in "
-             << combined.total_softclips << " read events" << endl;
+        cout << "Softclips: " << combined.total_softclipped_bases << " bp";
+        if (combined.total_alignments > 0) {
+            cout << " (" << 100 * combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
+                 << combined.total_softclipped_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+        } 
+        cout << " in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.softclips) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()

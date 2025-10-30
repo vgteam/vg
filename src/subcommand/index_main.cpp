@@ -33,6 +33,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const size_t DEFAULT_SNARL_LIMIT = 50000;
+
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
@@ -65,7 +67,8 @@ void help_index(char** argv) {
          << "                            store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
          << "  -j, --dist-name FILE      use this file to store a snarl-based distance index" << endl
-         << "      --snarl-limit N       don't store distances for snarls > N nodes [10000]" << endl
+         << "      --snarl-limit N       don't store distances for snarls > N nodes "
+                                     << "[" << DEFAULT_SNARL_LIMIT << "]" << endl
          << "                            if 0 then don't store distances, only the snarl tree" << endl
          << "      --no-nested-distance  only store distances along the top-level chain" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
@@ -113,7 +116,7 @@ int main_index(int argc, char** argv) {
     bool xg_alts = false;
 
     //Distance index
-    size_t snarl_limit = 50000;
+    size_t snarl_limit = DEFAULT_SNARL_LIMIT;
     bool only_top_level_chain_distances = false;
     std::unordered_map<nid_t, size_t> extra_node_weight;
     // We will put this amount of extra weight on upweighted nodes. It should

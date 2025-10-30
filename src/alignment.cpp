@@ -10,7 +10,8 @@ using namespace vg::io;
 
 namespace vg {
 
-int hts_for_each(string& filename, function<void(Alignment&)> lambda, const PathPositionHandleGraph* graph) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda,
+                 const PathPositionHandleGraph* graph, bool allow_missing_contig) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -23,7 +24,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda, const Path
     while (sam_read1(in, hdr, b) >= 0) {
         Alignment a;
         try {
-            a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+            a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph, allow_missing_contig);
         } catch (AlignmentEmbeddingError& e) {
             #pragma omp critical (cerr)
             std::cerr << "[vg::alignment.cpp] error: Input file " << filename 
@@ -45,7 +46,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
 }
 
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
-                          const PathPositionHandleGraph* graph) {
+                          const PathPositionHandleGraph* graph , bool allow_missing_contig) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -80,7 +81,7 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
             if (got_read) {
                 Alignment a;
                 try {
-                    a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+                    a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph, allow_missing_contig);
                 } catch (AlignmentEmbeddingError& e) {
                     #pragma omp critical (cerr)
                     std::cerr << "[vg::alignment.cpp] error: Input file " << filename 
@@ -1906,7 +1907,8 @@ Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
                            const map<int, path_handle_t>& tid_path_handle,
                            const bam_hdr_t *bh,
-                           const PathPositionHandleGraph* graph) {
+                           const PathPositionHandleGraph* graph,
+                           bool set_missing_contig_to_unmapped) {
 
     Alignment alignment;
 
@@ -1962,24 +1964,31 @@ Alignment bam_to_alignment(const bam1_t *b,
     // Consult the One True Place in SAM for knowing if a read is aligned or not.
     bool is_aligned = !(b->core.flag & BAM_FUNMAP);
     
+    if (is_aligned && graph != nullptr && bh != nullptr && b->core.tid >= 0) {
+        // We may be able to actually build the path for this read.
+        // Look for the path handle this is against.
+        auto found = tid_path_handle.find(b->core.tid);
+        if (found == tid_path_handle.end()) {
+            if (set_missing_contig_to_unmapped) {
+                // Pretend that it is unmapped.
+                is_aligned = false;
+            } else {
+                // We're not allowed to see nonexistent references.
+                cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
+                        << bh->target_name[b->core.tid] << endl;
+                exit(1);
+            }
+        } else {
+            mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
+        }
+    }
+    // If we still consider it aligned
     if (is_aligned) {
         // Set the little-used GAM field that exists to represent this.
         alignment.set_read_mapped(is_aligned);
 
         // Use the MAPQ
         alignment.set_mapping_quality(b->core.qual);
-        
-        if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
-            // We can actually build the path for this read.
-            // Look for the path handle this is against.
-            auto found = tid_path_handle.find(b->core.tid);
-            if (found == tid_path_handle.end()) {
-                cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
-                     << bh->target_name[b->core.tid] << endl;
-                exit(1);
-            }
-            mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
-        }
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.

@@ -8,7 +8,7 @@ When adding a new subcommand, add it to the appropriate section(s) in the descri
 
 vg is a toolkit for variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods.
 
-For more in-depth explanations of tools and workflows, see the [vg wiki page](https://github.com/vgteam/vg/wiki)
+For more in-depth explanations of tools and workflows, see the [vg wiki page](https://github.com/vgteam/vg/wiki).
 
 # synopsis
 This is an incomplete list of vg subcommands. For a complete list, run `vg help`.
@@ -57,42 +57,6 @@ This is an incomplete list of vg subcommands. For a complete list, run `vg help`
 - **Subgraph extraction**
     - [`vg chunk`](#chunk): split a graph and/or alignment into smaller chunks.
     - [`vg find`](#find): use an index to find nodes, edges, kmers, paths, or positions.
-
-# annotate
-
-Annotate alignments with graphs and graphs with alignments.
-
-# autoindex
-
-Mapping tool-oriented index construction from interchange formats.
-
-# convert
-
-Convert graphs between handle-graph compliant formats as well as GFA.
-
-# find
-
-Use an index to find nodes, edges, kmers, paths, or positions.
-
-# ids
-
-Manipulate node ids.
-
-# pack
-
-Convert alignments to a compact coverage index.
-
-# paths
-
-Traverse paths in the graph.
-
-# view
-
-format conversions for graphs and alignments
-
-# filter
-
-Filter alignments by properties.
 
 # bugs
 

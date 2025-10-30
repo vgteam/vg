@@ -508,7 +508,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //Go through each of the children in the chain, skipping nodes
             //The snarl may be trivial, in which case don't fill in the distances
 #ifdef debug_distance_indexing
-            cerr << "    Looking at child " << temp_index.structure_start_end_as_string(chain_child_index) << " current max prefi xum " << temp_chain_record.max_prefix_sum.back() << endl;
+            cerr << "    Looking at child " << temp_index.structure_start_end_as_string(chain_child_index) 
+                 << " current max prefix sum " << temp_chain_record.max_prefix_sum.back() << endl;
 #endif
 
             if (chain_child_index.first == SnarlDistanceIndex::TEMP_SNARL){
@@ -1311,7 +1312,7 @@ void populate_snarl_index(
                     bool next_is_boundary = !temp_snarl_record.is_root_snarl && (next_rank == 0 || next_rank == 1);
 
                     if (size_limit != 0 &&
-                        (temp_snarl_record.node_count < size_limit || start_is_boundary || next_is_boundary)) {
+                        (temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary)) {
                         //If the snarl is too big, then we don't record distances between internal nodes
                         //If we are looking at all distances or we are looking at boundaries
                         bool added_new_distance = false;
@@ -1521,7 +1522,8 @@ void populate_snarl_index(
         temp_index.max_index_size -= (temp_snarl_record.children.size() * SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord::get_max_record_length());
     }
 
-
+    // For simple snarl records, need  11 + 11 + number of bits for the number of children
+    temp_index.max_bits = std::max(temp_index.max_bits, 22 + SnarlDistanceIndex::bit_width(temp_snarl_record.children.size())); 
 }
 
 
