@@ -69,7 +69,7 @@ cerrWrapper info(const std::string& context);
 /// Emit a warning with a standard format
 /// "context" is caller context, e.g. "vg inject"
 cerrWrapper warn(const std::string& context);
-/// Error with a standard format
+/// Error AND EXIT with a standard format
 /// Once the cerrWrapper goes out of scope,
 /// the program will exit with an error code.
 /// "context" is caller context, e.g. "vg inject"
@@ -86,12 +86,17 @@ private:
 public:
     Logger(const std::string& context) : context(context) {}
 
+    /// Log to cerr with a standard format
     inline cerrWrapper info() const {
         return logging::info(context);
     }
+    /// Emit a warning with a standard format
     inline cerrWrapper warn() const {
         return logging::warn(context);
     }
+    /// Error AND EXIT with a standard format
+    /// Once the cerrWrapper goes out of scope,
+    /// the program will exit with an error code.
     inline cerrWrapper error() const {
         return logging::error(context);
     }
