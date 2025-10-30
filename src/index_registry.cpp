@@ -506,7 +506,7 @@ construct_minimizers_impl(
     const MinimizerIndexParameters& params
 ) {
     if (IndexingParameters::verbosity != IndexingParameters::None) {
-        info(context) << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
+        info(context) << "Constructing minimizer index and associated zipcodes." << endl;
         info(context) << "    using parameters -k " << params.k << " -w " << params.w_or_s 
                       << (params.use_weighted_minimizers ? " -W " : "")
                       << (params.paths_in_payload ? " with paths" : "") << endl;
