@@ -67,7 +67,7 @@ struct MinimizerConfig {
     int threads = get_default_threads();
     bool describe = false;
 
-    MinimizerConfig(int argc, char** argv, int max_threads);
+    MinimizerConfig(int argc, char** argv, int max_threads, const Logger& logger);
 };
 
 using code_type = gbwtgraph::KmerEncoding::code_type;
@@ -77,7 +77,8 @@ using payload_type = ZipCode::payload_type;
 
 int main_minimizer(int argc, char** argv) {
     double start = gbwt::readTimer();
-    MinimizerConfig config(argc, argv, get_default_threads());
+    Logger logger("vg minimizer");
+    MinimizerConfig config(argc, argv, get_default_threads(), logger);
 
     if (config.describe) {
         // Just describe the index.
@@ -94,7 +95,7 @@ int main_minimizer(int argc, char** argv) {
     if (!config.distance_name.empty()) {
         // new distance index
         if (config.progress) {
-            config.logger.info() << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
+            logger.info() << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_name);
         distance_index->preload(true);
@@ -176,7 +177,7 @@ void help_minimizer(char** argv) {
     std::cerr << std::endl;
 }
 
-MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
+MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const Logger& logger) {
     if (argc < 3) {
         help_minimizer(argv);
         std::exit(EXIT_FAILURE);
