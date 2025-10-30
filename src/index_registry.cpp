@@ -55,7 +55,6 @@
 #include "job_schedule.hpp"
 #include "path.hpp"
 #include "zip_code.hpp"
-#include "minimizer_index_helper.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -116,7 +115,6 @@ bool IndexingParameters::short_read_minimizer_W = false;
 int IndexingParameters::long_read_minimizer_k = 31;
 int IndexingParameters::long_read_minimizer_w = 50;
 bool IndexingParameters::long_read_minimizer_W = true;
-int IndexingParameters::long_read_minimizer_W_iterations = 3;
 int IndexingParameters::minimizer_s = 18;
 bool IndexingParameters::space_efficient_counting = false;
 int IndexingParameters::minimizer_downweight_threshold = 500;
@@ -499,19 +497,19 @@ int execute_in_fork(const function<void(void)>& exec) {
 #endif
 }
 
-// Internal helper for constructing minimizer indexes with different payload types
-// PayloadType should be one of gbwtgraph::Payload, gbwtgraph::PayloadXL
-template<typename PayloadType>
-static std::vector<std::vector<std::string>>
-construct_minimizers_impl(const vector<const IndexFile*>& inputs,
-                              const IndexingPlan* plan,
-                              const IndexGroup& constructing,
-                              int minimizer_k, int minimizer_w, bool minimizer_W) {
-    
+// Actual implementation of minimizer index construction.
+std::vector<std::vector<std::string>>
+construct_minimizers_impl(
+    const vector<const IndexFile*>& inputs,
+    const IndexingPlan* plan,
+    const IndexGroup& constructing,
+    const MinimizerIndexParameters& params
+) {
     if (IndexingParameters::verbosity != IndexingParameters::None) {
         info(context) << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
-        info(context) << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") 
-                      << " payload type " << (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value ? "XL" : "Standard") << endl;
+        info(context) << "    using parameters -k " << params.k << " -w " << params.w_or_s 
+                      << (params.use_weighted_minimizers ? " -W " : "")
+                      << (params.paths_in_payload ? " with paths" : "") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -526,7 +524,7 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     vector<vector<string>> all_outputs(constructing.size());
     auto minimizer_output = *constructing.begin();
     auto zipcode_output = *constructing.rbegin();
-    auto& output_name_minimizers = all_outputs[0];
+    auto& output_name_minimizer = all_outputs[0];
     auto& output_name_zipcodes = all_outputs[1];
 
     ifstream infile_gbz;
@@ -537,33 +535,19 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
     init_in(infile_dist, dist_filename);
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
 
-    using IndexType = gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::PositionPayload<PayloadType>>;
-    IndexType minimizers(minimizer_k,
-                         IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
-                         IndexingParameters::use_bounded_syncmers);
-    
-    // Set up the minimizer index helper.
-    MinimizerIndexHelper<IndexType, PayloadType> mi_helper(gbz.get(), minimizers, IndexingParameters::verbosity != IndexingParameters::None);
-    // Find frequent kmers.
-    if (minimizer_W) {
-        mi_helper.set_frequent_kmers(
-            minimizers.k(),
-            IndexingParameters::minimizer_downweight_threshold,
-            IndexingParameters::space_efficient_counting,
-            0,
-            IndexingParameters::long_read_minimizer_W_iterations
-        );
-    }
-    
-    // Build the minimizer index with zipcodes.
-    string minimizers_output_name = plan->output_filepath(minimizer_output);
-    string zipcodes_output_name = plan->output_filepath(zipcode_output);
-    mi_helper.build(
-        distance_index.get(),
-        zipcodes_output_name,
-        minimizers_output_name
+    ZipCodeCollection oversized_zipcodes;
+    gbwtgraph::DefaultMinimizerIndex minimizers = build_minimizer_index(
+        *gbz, distance_index.get(), &oversized_zipcodes, params
     );
-    output_name_minimizers.push_back(minimizers_output_name);
+
+    string output_name = plan->output_filepath(minimizer_output);
+    save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+    output_name_minimizer.push_back(output_name);
+
+    string zipcodes_output_name = plan->output_filepath(zipcode_output);
+    ofstream zip_out(zipcodes_output_name);
+    oversized_zipcodes.serialize(zip_out);
+    zip_out.close();
     output_name_zipcodes.push_back(zipcodes_output_name);
 
     return all_outputs;
@@ -4163,52 +4147,46 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // Minimizers Recipes
     ////////////////////////////////////
 
-
-    // meta-recipe for Minimizer indexing
-    auto construct_minimizers = [&]<typename PayloadT>(const vector<const IndexFile*>& inputs,
-        const IndexingPlan* plan,
-        const IndexGroup& constructing,
-        int minimizer_k, int minimizer_w, bool minimizer_W, bool use_payload_xl) {
-        if (use_payload_xl) {
-            return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing,
-                                                    minimizer_k, minimizer_w, minimizer_W);
-        } else {
-            return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing,
-                                                minimizer_k, minimizer_w, minimizer_W);
-        }
-    };
-
-    
-    // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
+    // TODO: We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    registry.register_recipe({"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k,
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
-    });
-    
-    registry.register_recipe({"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::short_read_minimizer_k, 
-                                    IndexingParameters::short_read_minimizer_w, IndexingParameters::short_read_minimizer_W);
+    registry.register_recipe(
+        {"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
+                .with_paths(true)
+                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
+        }
+    );
+
+    registry.register_recipe(
+        {"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.minimizers(IndexingParameters::short_read_minimizer_k, IndexingParameters::short_read_minimizer_w)
+                .with_paths(false)
+                .weighted(IndexingParameters::short_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
     });
 
-    registry.register_recipe({"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
-    });
+    registry.register_recipe(
+        {"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
+                .with_paths(false)
+                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
+        }
+    );
 
-    
     return registry;
 }
 

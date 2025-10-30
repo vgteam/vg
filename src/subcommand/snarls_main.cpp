@@ -292,7 +292,7 @@ int main_snarl(int argc, char** argv) {
             if (translation) {
                 for (auto& trav : travs) {
                     // Bring all the output traversals into named segment space.
-                    algorithms::back_translate_in_place(translation, trav);
+                    vg::algorithms::back_translate_in_place(translation, trav);
                 }
             }
             vg::io::write_buffered(cout, travs, 0);
@@ -377,7 +377,7 @@ int main_snarl(int argc, char** argv) {
             snarl_buffer.push_back(*snarl);
             if (translation) {
                 // Bring all the output snarls into named segment space.
-                algorithms::back_translate_in_place(translation, snarl_buffer.back());
+                vg::algorithms::back_translate_in_place(translation, snarl_buffer.back());
             }
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
@@ -413,7 +413,7 @@ int main_snarl(int argc, char** argv) {
                 if (translation) {
                     for (auto& trav : travs) {
                         // Bring all the output traversals into named segment space.
-                        algorithms::back_translate_in_place(translation, trav);
+                        vg::algorithms::back_translate_in_place(translation, trav);
                     }
                 }
                 

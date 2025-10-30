@@ -8,9 +8,13 @@
 #include <gbwtgraph/gfa.h>
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
+
 #include "position.hpp"
-#include <unordered_map>
+#include "snarl_distance_index.hpp"
+#include "zip_code.hpp"
+
 #include <vector>
+#include <unordered_map>
 
 namespace vg {
 
@@ -44,11 +48,8 @@ void load_gbz(gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::stri
 void load_gbz(gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
 
 /// Load a minimizer index from the file.
+/// require_payload() can be used afterwards to ensure the payload type is correct.
 void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
-
-/// Load a minimizerXL index from the file.
-void load_minimizer(gbwtgraph::MinimizerIndexXL& index, const std::string& filename, bool show_progress = false);
-
 
 /// Save GBWTGraph to the file.
 void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
@@ -63,25 +64,156 @@ void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::s
 void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::string& graph_name, bool show_progress = false);
 
 /// Save a minimizer index to the file.
-template<typename IndexType>
-void save_minimizer(const IndexType& index, const std::string& filename, bool show_progress = false) {
-    if (show_progress) {
-        std::cerr << "Saving MinimizerIndex to " << filename << std::endl;
+void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
+
+//------------------------------------------------------------------------------
+
+/// Minimizer index construction parameters.
+struct MinimizerIndexParameters {
+    /// Default for `threshold`. Should be the same as Giraffe hard hit cap.
+    constexpr static size_t DEFAULT_THRESHOLD = 500;
+
+    /// Default for `iterations`.
+    constexpr static size_t DEFAULT_ITERATIONS = 3;
+
+    /// Maximum allowed value for `iterations`.
+    constexpr static size_t MAX_ITERATIONS = gbwtgraph::MinimizerHeader::FLAG_WEIGHT_MASK >> gbwtgraph::MinimizerHeader::FLAG_WEIGHT_OFFSET;
+
+    /// Lower bound for `hash_table_width`.
+    constexpr static size_t HASH_TABLE_MIN_WIDTH = 10;
+
+    /// Upper bound for `hash_table_width`.
+    constexpr static size_t HASH_TABLE_MAX_WIDTH = 36;
+
+    /// Number of words used for a zipcode payload.
+    constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type); 
+
+    enum PayloadType {
+        /// No payload.
+        PAYLOAD_NONE,
+        /// Zipcode payload.
+        PAYLOAD_ZIPCODES,
+        /// Zipcode payload with path information.
+        PAYLOAD_ZIPCODES_WITH_PATHS
+    };
+
+    /// Tag used to indicate the payload type in the minimizer index.
+    const static std::string PAYLOAD_KEY; // "payload"
+
+    /// k-mer length.
+    size_t k = gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH;
+
+    /// Window length (with minimizers) or s-mer length (with syncmers).
+    size_t w_or_s = gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH;
+
+    /// Whether to use syncmers instead of minimizers.
+    bool use_syncmers = false;
+
+    /// Whether to include path information in the payload (for recombination-aware mapping).
+    /// Ignored if there is no zipcode payload.
+    bool paths_in_payload = false;
+
+    /// Whether to use weighted minimizers (cannot be used with syncmers).
+    bool use_weighted_minimizers = false;
+
+    /// Downweight kmers with more than this many hits.
+    size_t threshold = DEFAULT_THRESHOLD;
+
+    /// Number of iterations for weighted minimizer calculation.
+    size_t iterations = DEFAULT_ITERATIONS;
+
+    /// Whether to use the space-efficient k-mer counting algorithm with weighted minimizers.
+    bool space_efficient_counting = false;
+
+    /// Initial hash table width (in bits) for kmer counting (0 = guess).
+    size_t hash_table_width = 0;
+
+    /// Print progress information during construction.
+    bool progress = false;
+
+    /// Sets minimizer parameters.
+    MinimizerIndexParameters& minimizers(size_t k, size_t w) {
+        this->k = k;
+        this->w_or_s = w;
+        this->use_syncmers = false;
+        return *this;
     }
 
-    try {
-        std::ofstream out(filename, std::ios_base::binary);
-        if (!out) {
-            throw sdsl::simple_sds::CannotOpenFile(filename, true);
-        }
-        out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-        index.serialize(out);
-        out.close();
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [save_minimizer()] cannot save MinimizerIndex to " << filename << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
+    /// Sets syncmer parameters.
+    MinimizerIndexParameters& syncmers(size_t k, size_t s) {
+        this->k = k;
+        this->w_or_s = s;
+        this->use_syncmers = true;
+        return *this;
     }
-}
+
+    /// Includes path information in the payload.
+    MinimizerIndexParameters& with_paths(bool paths_in_payload = true) {
+        this->paths_in_payload = paths_in_payload;
+        return *this;
+    }
+
+    /// Sets weighted minimizer parameters.
+    MinimizerIndexParameters& weighted(
+        bool use_weighted_minimizers,
+        size_t threshold = DEFAULT_THRESHOLD, size_t iterations = DEFAULT_ITERATIONS
+    ) {
+        this->use_weighted_minimizers = use_weighted_minimizers;
+        this->threshold = threshold;
+        this->iterations = iterations;
+        return *this;
+    }
+
+    /// Sets k-mer counting parameters.
+    MinimizerIndexParameters& kmer_counting(bool space_efficient_counting = false, size_t hash_table_width = 0) {
+        this->space_efficient_counting = space_efficient_counting;
+        this->hash_table_width = hash_table_width;
+        return *this;
+    }
+
+    /// Sets progress printing.
+    MinimizerIndexParameters& verbose(bool progress = true) {
+        this->progress = progress;
+        return *this;
+    }
+
+    /// Returns an error message if the parameters are invalid.
+    std::string validate() const;
+
+    /// Returns a string representation of the payload type.
+    /// This will be used as a tag value in the minimizer index.
+    static std::string payload_str(PayloadType type);
+};
+
+/// Builds a new minimizer index. If a distance index is provided, zipcodes are
+/// stored as payload. If a zipcode collection is also provided, zipcodes that
+/// do not fit in the payload are stored there.
+///
+/// Prints an error message and exits on failure. Uses OpenMP for multithreading.
+gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
+    const gbwtgraph::GBZ& gbz,
+    const SnarlDistanceIndex* distance_index,
+    ZipCodeCollection* oversized_zipcodes,
+    const MinimizerIndexParameters& params
+);
+
+/// Checks that the minimizer index has the expected payload type.
+///
+/// The check is based on tag "payload" stored in the index.
+/// Prints an error message and exits on failure.
+void require_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerIndexParameters::PayloadType expected_payload);
+
+/// Checks that the minimizer index has one of the expected payload types.
+///
+/// The check is based on tag "payload" stored in the index.
+/// Prints an error message and exits on failure.
+void require_payload(
+    const gbwtgraph::DefaultMinimizerIndex& index,
+    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payload
+);
+
+/// Prints a description of the minimizer index in the given file to the given output stream.
+void describe_minimizer_index(const std::string& filename, std::ostream& out);
 
 //------------------------------------------------------------------------------
 

@@ -268,7 +268,7 @@ int main_convert(int argc, char** argv) {
         input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
 
         unique_ptr<AlignmentEmitter> emitter = get_non_hts_alignment_emitter(
-            "-", (input == input_gam) ? "GAF" : "GAM", {}, get_thread_count(), input_graph.get());
+            "-", (input == input_gam) ? "GAF" : "GAM", {}, vg::get_thread_count(), input_graph.get());
         std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
             emitter->emit_singles({aln});
         };                
@@ -320,7 +320,7 @@ int main_convert(int argc, char** argv) {
             bdsg::HashGraph intermediate;
             logger.warn() << "currently cannot convert GFA directly to XG; "
                           << "converting through another format" << endl;
-            algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
+            vg::algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
                                                  input_rgfa_rank, gfa_trans_path);
             graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples, hap_locus, new_sample, drop_haplotypes);
         }
@@ -333,16 +333,16 @@ int main_convert(int argc, char** argv) {
                     MutablePathMutableHandleGraph* mutable_output_graph \
                         = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
                     assert(mutable_output_graph != nullptr);
-                    algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
+                    vg::algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
                                                          input_rgfa_rank, gfa_trans_path);
                 }
                 else {
                     MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
                     assert(mutable_output_graph != nullptr);
-                    algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
+                    vg::algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
                                                     gfa_trans_path);
                 }
-            } catch (algorithms::GFAFormatError& e) {
+            } catch (vg::algorithms::GFAFormatError& e) {
                 logger.error() << "Input GFA is not acceptable.\n" << e.what() << endl;
             } catch (std::ios_base::failure& e) {
                 logger.error() << "IO error processing input GFA.\n" << e.what() << endl;

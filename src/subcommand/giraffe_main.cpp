@@ -1749,10 +1749,11 @@ int main_giraffe(int argc, char** argv) {
         logger.info() << "Loading Minimizer Index" << endl;
     }
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
-    unique_ptr<gbwtgraph::MinimizerIndexXL> path_minimizer_index;
+    MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
         if (use_path_minimizer) {
-            path_minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndexXL>(registry.require("Long Read PathMinimizers").at(0));
+            minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read PathMinimizers").at(0));
+            payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
             // Use the long read minimizers
             minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));
@@ -1760,6 +1761,7 @@ int main_giraffe(int argc, char** argv) {
     } else {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Short Read Minimizers").at(0));
     }
+    require_payload(*minimizer_index, payload_type);
 
     // Grab the zipcodes
     if (show_progress) {
@@ -1838,20 +1840,11 @@ int main_giraffe(int argc, char** argv) {
         logger.info() << "Initializing MinimizerMapper" << endl;
     }
     unique_ptr<MinimizerMapper> minimizer_mapper_ptr;
-
-    if (use_path_minimizer) {
-        crash_unless(path_minimizer_index);
-        minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
-            gbz->graph, *path_minimizer_index, distance_index.get(),
-            &oversized_zipcodes, path_position_graph
-        );
-    } else {
-        crash_unless(minimizer_index);
-        minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
-            gbz->graph, *minimizer_index, distance_index.get(),
-            &oversized_zipcodes, path_position_graph
-        );
-    }
+    crash_unless(minimizer_index);
+    minimizer_mapper_ptr = std::make_unique<MinimizerMapper>(
+        gbz->graph, *minimizer_index, distance_index.get(),
+        &oversized_zipcodes, path_position_graph
+    );
     MinimizerMapper& minimizer_mapper = *minimizer_mapper_ptr;
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);

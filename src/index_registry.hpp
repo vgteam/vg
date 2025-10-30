@@ -108,8 +108,6 @@ struct IndexingParameters {
     static int long_read_minimizer_w;
     // minimizer weighting [true]
     static bool long_read_minimizer_W;
-    // number of iterations for long read minimizer weighting [3]
-    static int long_read_minimizer_W_iterations;
     // For minimizer weighting, do we use space efficient counting? [false]
     static bool space_efficient_counting;
     // For minimizer weighting, downweight kmers with more than N hit [500]
