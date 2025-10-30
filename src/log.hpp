@@ -36,18 +36,11 @@ namespace vg {
 class cerrWrapper {
 private:
     bool exit_on_destruct;
-    // How far to indent each time
-    size_t indent_length;
-    // Should we indent next time?
-    bool at_start_of_line;
 
 public:
     cerrWrapper(std::string prefix, bool exit_on_destruct) :
         exit_on_destruct(exit_on_destruct) {
         std::cerr << prefix;
-        // Remember indentation level
-        indent_length = prefix.size();
-        at_start_of_line = false;
     }
 
     template <typename T>
