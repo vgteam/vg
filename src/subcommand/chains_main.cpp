@@ -39,7 +39,7 @@ struct ChainsConfig {
     } output_format = BINARY;
     bool progress = false;
 
-    ChainsConfig(int argc, char** argv);
+    ChainsConfig(int argc, char** argv, const Logger& logger);
 };
 
 void write_binary(const std::vector<sdsl::int_vector<>>& chains, std::ostream& out);
@@ -56,7 +56,7 @@ sdsl::int_vector<> normalize_chain(gbwt::vector_type& chain);
 
 int main_chains(int argc, char** argv) {
     Logger logger("vg chains");
-    ChainsConfig config(argc, argv);
+    ChainsConfig config(argc, argv, logger);
 
     if (config.progress) {
         logger.info() << "Loading graph from " << config.graph_file << std::endl;
@@ -171,7 +171,7 @@ void help_chains(char** argv) {
     std::cerr << std::endl;
 }
 
-ChainsConfig::ChainsConfig(int argc, char** argv) {
+ChainsConfig::ChainsConfig(int argc, char** argv, const Logger& logger) {
     static struct option long_options[] = {
         { "output", required_argument, nullptr, 'o' },
         { "binary", no_argument, nullptr, 'b' },
@@ -190,7 +190,7 @@ ChainsConfig::ChainsConfig(int argc, char** argv) {
         switch (c)
         {
         case 'o':
-            this->output_file = optarg;
+            this->output_file = ensure_writable(logger, optarg);
             break;
         case 'b':
             this->output_format = BINARY;
