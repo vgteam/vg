@@ -79,7 +79,7 @@ void help_describe(char** argv) {
     std::cerr << std::endl;
 
     std::cerr << "Options:" << std::endl;
-    std::cerr << "  -h, --help   print this help message and exit" << std::endl;
+    std::cerr << "  -h, --help   print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
 }
 
