@@ -13,8 +13,8 @@
  * - error(): emit an error message with a given context
  * 
  * Errors/warnings are output to std::cerr as:
- * error[<context>]: message
- * warning[<context>]: message
+ * error[<context>] message
+ * warning[<context>] message
  * where "context" is a string like "vg inject"
  * 
  * The error/warning functions exist to have a standardized error/warning format
