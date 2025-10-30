@@ -110,17 +110,23 @@ Public Types</h2></td></tr>
 <br />
  }</td></tr>
 <tr class="separator:a3a7913620a6b9e7988e14c210c51e9c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a930c205d47f41592d63fd98aefddd336"><td class="memItemLeft" align="right" valign="top">typedef std::uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a930c205d47f41592d63fd98aefddd336">code_type</a></td></tr>
-<tr class="separator:a930c205d47f41592d63fd98aefddd336"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e6e5aaa80410ac7d4772b09f84e71c6"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a> = gbwtgraph::KmerEncoding::code_type</td></tr>
+<tr class="separator:a8e6e5aaa80410ac7d4772b09f84e71c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad049069e521f953a5451988459ba162d"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a>, <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">payload_type</a></td></tr>
+<tr class="separator:ad049069e521f953a5451988459ba162d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ac232fe003bd30dfbba804cf0bc81b580"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#ac232fe003bd30dfbba804cf0bc81b580">fill_in_zipcode</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">vg::pos_t</a> &amp;pos, bool fill_in_decoder=true)</td></tr>
-<tr class="separator:ac232fe003bd30dfbba804cf0bc81b580"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad53005c4c44463b1226835f7f7da83e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#ad53005c4c44463b1226835f7f7da83e0">fill_in_zipcode_from_payload</a> (const gbwtgraph::Payload &amp;payload)</td></tr>
-<tr class="separator:ad53005c4c44463b1226835f7f7da83e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05895f989a23d97b08bd0c1c56bbc3bc"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Payload&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a05895f989a23d97b08bd0c1c56bbc3bc">get_payload_from_zip</a> () const</td></tr>
-<tr class="separator:a05895f989a23d97b08bd0c1c56bbc3bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac6d15263258d01f69f9db70a44db1855"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#ac6d15263258d01f69f9db70a44db1855">fill_in_zipcode_from_pos</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">vg::pos_t</a> &amp;pos, bool fill_in_decoder=true)</td></tr>
+<tr class="separator:ac6d15263258d01f69f9db70a44db1855"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a80560ef71e77da7b85129278a46675ce"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a80560ef71e77da7b85129278a46675ce">fill_in_zipcode_from_payload</a> (const <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a> *payload)</td></tr>
+<tr class="separator:a80560ef71e77da7b85129278a46675ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7bd50f9f7e2acd1ee2cf9e9cdb535b3f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a7bd50f9f7e2acd1ee2cf9e9cdb535b3f">fill_in_zipcode_from_payload</a> (<a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">payload_type</a> payload)</td></tr>
+<tr class="separator:a7bd50f9f7e2acd1ee2cf9e9cdb535b3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9cfedfdd581aaa389054cc1fe579848d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a9cfedfdd581aaa389054cc1fe579848d">fill_in_zipcode</a> (const <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a> *payload, const <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">vg::pos_t</a> &amp;pos)</td></tr>
+<tr class="separator:a9cfedfdd581aaa389054cc1fe579848d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a49b1332365331322cd03e607967de7b2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">payload_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a49b1332365331322cd03e607967de7b2">get_payload_from_zip</a> () const</td></tr>
+<tr class="separator:a49b1332365331322cd03e607967de7b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a36fb166e87c595d4e513b5e6a7676958"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCode.html#a36fb166e87c595d4e513b5e6a7676958">byte_count</a> () const</td></tr>
 <tr class="memdesc:a36fb166e87c595d4e513b5e6a7676958"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many bytes were used to store this zipcode?  <a href="classvg_1_1ZipCode.html#a36fb166e87c595d4e513b5e6a7676958">More...</a><br /></td></tr>
 <tr class="separator:a36fb166e87c595d4e513b5e6a7676958"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -294,14 +300,28 @@ Static Private Attributes</h2></td></tr>
 <tr class="separator:aa4fb1284d9b1da36db4e87fb5f8a1510"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Typedef Documentation</h2>
-<a id="a930c205d47f41592d63fd98aefddd336"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a930c205d47f41592d63fd98aefddd336">&#9670;&nbsp;</a></span>code_type</h2>
+<a id="a8e6e5aaa80410ac7d4772b09f84e71c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e6e5aaa80410ac7d4772b09f84e71c6">&#9670;&nbsp;</a></span>code_type</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::uint64_t <a class="el" href="classvg_1_1ZipCode.html#a930c205d47f41592d63fd98aefddd336">vg::ZipCode::code_type</a></td>
+          <td class="memname">using <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">vg::ZipCode::code_type</a> =  gbwtgraph::KmerEncoding::code_type</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad049069e521f953a5451988459ba162d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad049069e521f953a5451988459ba162d">&#9670;&nbsp;</a></span>payload_type</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef std::pair&lt;<a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a>, <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a>&gt; <a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">vg::ZipCode::payload_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -446,14 +466,98 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ac232fe003bd30dfbba804cf0bc81b580"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac232fe003bd30dfbba804cf0bc81b580">&#9670;&nbsp;</a></span>fill_in_zipcode()</h2>
+<a id="a9cfedfdd581aaa389054cc1fe579848d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9cfedfdd581aaa389054cc1fe579848d">&#9670;&nbsp;</a></span>fill_in_zipcode()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">void vg::ZipCode::fill_in_zipcode </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a> *&#160;</td>
+          <td class="paramname"><em>payload</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *&#160;</td>
+          <td class="paramname"><em>oversized_zipcodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">vg::pos_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a80560ef71e77da7b85129278a46675ce"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a80560ef71e77da7b85129278a46675ce">&#9670;&nbsp;</a></span>fill_in_zipcode_from_payload() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::ZipCode::fill_in_zipcode_from_payload </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">code_type</a> *&#160;</td>
+          <td class="paramname"><em>payload</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7bd50f9f7e2acd1ee2cf9e9cdb535b3f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7bd50f9f7e2acd1ee2cf9e9cdb535b3f">&#9670;&nbsp;</a></span>fill_in_zipcode_from_payload() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::ZipCode::fill_in_zipcode_from_payload </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">payload_type</a>&#160;</td>
+          <td class="paramname"><em>payload</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac6d15263258d01f69f9db70a44db1855"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac6d15263258d01f69f9db70a44db1855">&#9670;&nbsp;</a></span>fill_in_zipcode_from_pos()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::ZipCode::fill_in_zipcode_from_pos </td>
           <td>(</td>
           <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
           <td class="paramname"><em>distance_index</em>, </td>
@@ -474,24 +578,6 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td>)</td>
           <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ad53005c4c44463b1226835f7f7da83e0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad53005c4c44463b1226835f7f7da83e0">&#9670;&nbsp;</a></span>fill_in_zipcode_from_payload()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::ZipCode::fill_in_zipcode_from_payload </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>payload</em></td><td>)</td>
-          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -966,14 +1052,14 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a05895f989a23d97b08bd0c1c56bbc3bc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05895f989a23d97b08bd0c1c56bbc3bc">&#9670;&nbsp;</a></span>get_payload_from_zip()</h2>
+<a id="a49b1332365331322cd03e607967de7b2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a49b1332365331322cd03e607967de7b2">&#9670;&nbsp;</a></span>get_payload_from_zip()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">gbwtgraph::Payload vg::ZipCode::get_payload_from_zip </td>
+          <td class="memname">std::pair&lt; <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">ZipCode::code_type</a>, <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">ZipCode::code_type</a> &gt; vg::ZipCode::get_payload_from_zip </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>

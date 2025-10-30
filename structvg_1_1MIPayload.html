@@ -80,8 +80,10 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a9601701523086479bbb59d0d304cf71f"><td class="memItemLeft" align="right" valign="top">typedef std::uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a></td></tr>
-<tr class="separator:a9601701523086479bbb59d0d304cf71f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46cc22e2d3688b4ef75087e282e2c9fd"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a46cc22e2d3688b4ef75087e282e2c9fd">code_type</a> = <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">ZipCode::code_type</a></td></tr>
+<tr class="separator:a46cc22e2d3688b4ef75087e282e2c9fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3c4a81d4452e043413c8a183e880766f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a3c4a81d4452e043413c8a183e880766f">payload_type</a> = <a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">ZipCode::payload_type</a></td></tr>
+<tr class="separator:a3c4a81d4452e043413c8a183e880766f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -112,22 +114,36 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:aad1e599cc16dec3115ea845eada83bb3"><td class="memItemLeft" align="right" valign="top">constexpr static gbwtgraph::Payload&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aad1e599cc16dec3115ea845eada83bb3">NO_CODE</a> = {0, 0}</td></tr>
-<tr class="separator:aad1e599cc16dec3115ea845eada83bb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af9c686f2278e1854f46971986a43500f"><td class="memItemLeft" align="right" valign="top">constexpr static <a class="el" href="structvg_1_1MIPayload.html#a3c4a81d4452e043413c8a183e880766f">payload_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#af9c686f2278e1854f46971986a43500f">NO_CODE</a> = {0, 0}</td></tr>
+<tr class="separator:af9c686f2278e1854f46971986a43500f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90c2f3f622099c6920b28356d49d9a4e"><td class="memItemLeft" align="right" valign="top">constexpr static std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a90c2f3f622099c6920b28356d49d9a4e">NO_VALUE</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
 <tr class="separator:a90c2f3f622099c6920b28356d49d9a4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>The payload for the minimizer index. This stores distance information that gets used in clustering The payload now uses zip codes, so this gets used to go from a zip code to distance information usable by the clusterer </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a id="a9601701523086479bbb59d0d304cf71f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9601701523086479bbb59d0d304cf71f">&#9670;&nbsp;</a></span>code_type</h2>
+<a id="a46cc22e2d3688b4ef75087e282e2c9fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46cc22e2d3688b4ef75087e282e2c9fd">&#9670;&nbsp;</a></span>code_type</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::uint64_t <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">vg::MIPayload::code_type</a></td>
+          <td class="memname">using <a class="el" href="structvg_1_1MIPayload.html#a46cc22e2d3688b4ef75087e282e2c9fd">vg::MIPayload::code_type</a> =  <a class="el" href="classvg_1_1ZipCode.html#a8e6e5aaa80410ac7d4772b09f84e71c6">ZipCode::code_type</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3c4a81d4452e043413c8a183e880766f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3c4a81d4452e043413c8a183e880766f">&#9670;&nbsp;</a></span>payload_type</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="structvg_1_1MIPayload.html#a3c4a81d4452e043413c8a183e880766f">vg::MIPayload::payload_type</a> =  <a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">ZipCode::payload_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -177,8 +193,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aad1e599cc16dec3115ea845eada83bb3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aad1e599cc16dec3115ea845eada83bb3">&#9670;&nbsp;</a></span>NO_CODE</h2>
+<a id="af9c686f2278e1854f46971986a43500f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af9c686f2278e1854f46971986a43500f">&#9670;&nbsp;</a></span>NO_CODE</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -187,7 +203,7 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr static gbwtgraph::Payload vg::MIPayload::NO_CODE = {0, 0}</td>
+          <td class="memname">constexpr std::pair&lt; <a class="el" href="minimizer__main_8cpp.html#a8867b3cdc58ca9921841bee59bc089d9">gbwtgraph::KmerEncoding::code_type</a>, <a class="el" href="minimizer__main_8cpp.html#a8867b3cdc58ca9921841bee59bc089d9">gbwtgraph::KmerEncoding::code_type</a> &gt; vg::MIPayload::NO_CODE = {0, 0}</td>
         </tr>
       </table>
   </td>
@@ -347,8 +363,9 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<hr/>The documentation for this struct was generated from the following file:<ul>
+<hr/>The documentation for this struct was generated from the following files:<ul>
 <li>src/<a class="el" href="zip__code_8hpp.html">zip_code.hpp</a></li>
+<li>src/<a class="el" href="zip__code_8cpp.html">zip_code.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

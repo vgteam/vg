@@ -261,6 +261,9 @@ $(function() {
 <li>default_item_scale
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a95fe7acf05497e31363fe201f9dc22b4">vg::MinimizerMapper</a>
 </li>
+<li>DEFAULT_ITERATIONS
+: <a class="el" href="structvg_1_1MinimizerIndexParameters.html#a9826b5b16a20770b2d1be5185758cc1c">vg::MinimizerIndexParameters</a>
+</li>
 <li>DEFAULT_K
 : <a class="el" href="structvg_1_1Haplotypes_1_1Header.html#a85d1a35162f23b04d49e1533e12e4a7c">vg::Haplotypes::Header</a>
 </li>
@@ -465,6 +468,9 @@ $(function() {
 <li>DEFAULT_SUBGRAPH_LIMIT
 : <a class="el" href="classvg_1_1Surjector.html#ac78645d41b2dfd88bece81c86a5b7090">vg::Surjector</a>
 </li>
+<li>DEFAULT_THRESHOLD
+: <a class="el" href="structvg_1_1MinimizerIndexParameters.html#a3ede0637f0b0cc035c7dcaf91f8d0589">vg::MinimizerIndexParameters</a>
+</li>
 <li>default_track_correctness
 : <a class="el" href="classvg_1_1MinimizerMapper.html#afcc3e652ef8dd9d78edb5ac14a0fd602">vg::MinimizerMapper</a>
 </li>
@@ -510,12 +516,6 @@ $(function() {
 </li>
 <li>default_zipcode_tree_score_threshold
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a4ea6f674bb701f8f07e4e31b79fb79d1">vg::MinimizerMapper</a>
-</li>
-<li>DefaultIndex
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a287068f26e7b430704867f3d517ef7cb">vg::MinimizerMapper</a>
-</li>
-<li>DefaultMinimizerIndex
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a93b804e6eaa70ceb77b5dd5651b32855">vg::MinimizerMapper</a>
 </li>
 <li>defining_path
 : <a class="el" href="classvg_1_1PathSubgraph.html#a907a18a155eace47d2f8a1f9bacf4894">vg::PathSubgraph</a>
@@ -603,8 +603,9 @@ $(function() {
 <li>depth_padding_factor
 : <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a53eec737bc91a46f91161c18ddc26cd7">vg::PoissonSupportSnarlCaller</a>
 </li>
-<li>describe()
-: <a class="el" href="classvg_1_1io_1_1VPKG.html#af08bb9c650bfbbf15521ca1a215d0939">vg::io::VPKG</a>
+<li>describe
+: <a class="el" href="structMinimizerConfig.html#aa2296ac9e72fd96dc2d2fea2a2f0e251">MinimizerConfig</a>
+, <a class="el" href="classvg_1_1io_1_1VPKG.html#af08bb9c650bfbbf15521ca1a215d0939">vg::io::VPKG</a>
 </li>
 <li>description
 : <a class="el" href="classvg_1_1BaseOption.html#a4468cf61e5b31a06929303e91f096f6d">vg::BaseOption&lt; Value, Parser &gt;</a>
@@ -626,7 +627,7 @@ $(function() {
 </li>
 <li>destroy_edge()
 : <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a285ac35e805eab548c4106ee534d79f2">handlegraph::DeletableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a7fd2744b37b62862df68e82cbe7b6b59">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#abe6b91020abf39815d28995eceac4e2d">vg::VG</a>
 </li>
 <li>destroy_handle()
 : <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a06d4d3ecda0694d5045c457f3eecd8e3">handlegraph::DeletableHandleGraph</a>
@@ -650,7 +651,7 @@ $(function() {
 </li>
 <li>dfs()
 : <a class="el" href="classvg_1_1FlowSort.html#ab2154c68fe44aa6cf33aa7dba294fc7a">vg::FlowSort</a>
-, <a class="el" href="classvg_1_1VG.html#aec0db609d022b3c3183403600970238f">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a8ee80f3ce939643d59157e1a1d707068">vg::VG</a>
 </li>
 <li>dfs_gbwt()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a4355a2ecfe99c02410f92093efc77ce4">vg::MinimizerMapper</a>
@@ -770,6 +771,7 @@ $(function() {
 </li>
 <li>distance_name
 : <a class="el" href="structHaplotypesConfig.html#a7c90afeb06a1a670d1c562e282289fe1">HaplotypesConfig</a>
+, <a class="el" href="structMinimizerConfig.html#a7f54428af4ce2d2ca8f97c15e29d608b">MinimizerConfig</a>
 </li>
 <li>distance_right
 : <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1ClusterHead.html#a7e393752378e18d98e0990244e35aefc">vg::SnarlDistanceIndexClusterer::ClusterHead</a>
@@ -790,14 +792,14 @@ $(function() {
 : <a class="el" href="structvg_1_1ZipCodeForest_1_1child__info__t.html#a4e096843dd1f83013634d54b4e498af6">vg::ZipCodeForest::child_info_t</a>
 </li>
 <li>divide_handle()
-: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a05c38787f0ff4a2695e61d98cb402175">handlegraph::MutableHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#aca166406fa2000778552ed77c41a5e4c">handlegraph::MutableHandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#a7a5dbc95fa80e7fe3dc04d62ac6d7b3c">vg::VG</a>
 </li>
 <li>divide_mapping()
-: <a class="el" href="classvg_1_1Paths.html#ab307239574344cac532dd2df6e4bc6f9">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a98161e70365341b3522a198b4c199556">vg::Paths</a>
 </li>
 <li>divide_node()
-: <a class="el" href="classvg_1_1VG.html#a7bee7317e4f7e42d85d8e7ef8d07273a">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#ad06f0fcad4bf5b1c29cf937a870a58b4">vg::VG</a>
 </li>
 <li>divide_path()
 : <a class="el" href="classvg_1_1VG.html#a0466bd1a92042266f6a99aa306d387c9">vg::VG</a>
@@ -866,7 +868,7 @@ $(function() {
 : <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t_1_1stat__set__t.html#a7a193ad86c14a5cca14d982f16c0f252">vg::MinimizerMapper::aligner_stats_t::stat_set_t</a>
 </li>
 <li>DozeuPinningOverlay()
-: <a class="el" href="classvg_1_1DozeuPinningOverlay.html#a2a71927eb2c877e8bad8208d804f028e">vg::DozeuPinningOverlay</a>
+: <a class="el" href="classvg_1_1DozeuPinningOverlay.html#a5b86da6db2f137450aba39f1807640a1">vg::DozeuPinningOverlay</a>
 </li>
 <li>dp_aligner
 : <a class="el" href="classvg_1_1Surjector.html#aff0ca9cc154747c421ba325fa7048507">vg::Surjector</a>
@@ -931,7 +933,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimizerMapper.html#aa5ad810a56c4188ac65a4d00ef882583">vg::MinimizerMapper</a>
 </li>
 <li>dump_debug_query()
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a79654a1638227197fd75f33ab24b1276">vg::MinimizerMapper</a>
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a14d4ea0c3d2e6c82acdba6db0afb0fc5">vg::MinimizerMapper</a>
 </li>
 <li>dump_debug_seeds()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a1f1a80614f3a36b6c14b46590619027b">vg::MinimizerMapper</a>

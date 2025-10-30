@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">gbwtgraph_helper.cpp File Reference</div>  </div>
@@ -75,11 +76,21 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="gbwtgraph__helper_8hpp.html">gbwtgraph_helper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">gbwt_helper.hpp</a>&quot;</code><br />
+<code>#include &lt;gbwtgraph/index.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a14bb99a367d188bb86fcfec1fd3c9999"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a14bb99a367d188bb86fcfec1fd3c9999">vg::key_type</a> = gbwtgraph::DefaultMinimizerIndex::key_type</td></tr>
+<tr class="separator:a14bb99a367d188bb86fcfec1fd3c9999"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa85b36d0e4c1df199061908f5796217f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa85b36d0e4c1df199061908f5796217f">vg::code_type</a> = gbwtgraph::KmerEncoding::code_type</td></tr>
+<tr class="separator:aa85b36d0e4c1df199061908f5796217f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a724c5d2a0f18eb0c88c59c8719e80323"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">vg::payload_t</a> = <a class="el" href="minimizer__main_8cpp.html#a7ba9738fcf469d6c351e84d38cc0500f">ZipCode::payload_type</a></td></tr>
+<tr class="separator:a724c5d2a0f18eb0c88c59c8719e80323"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -96,12 +107,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a1bd12c27c337a889da2db07d54d2e1d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1bd12c27c337a889da2db07d54d2e1d6">vg::load_gbz</a> (gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
 <tr class="memdesc:a1bd12c27c337a889da2db07d54d2e1d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load GBZ from separate GBWT / GBWTGraph files.  <a href="namespacevg.html#a1bd12c27c337a889da2db07d54d2e1d6">More...</a><br /></td></tr>
 <tr class="separator:a1bd12c27c337a889da2db07d54d2e1d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a649b144d7ce85a247af73055577c4d91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a649b144d7ce85a247af73055577c4d91">vg::load_minimizer</a> (gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
-<tr class="memdesc:a649b144d7ce85a247af73055577c4d91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a minimizer index from the file.  <a href="namespacevg.html#a649b144d7ce85a247af73055577c4d91">More...</a><br /></td></tr>
-<tr class="separator:a649b144d7ce85a247af73055577c4d91"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aee65426d2a4778e352a031b130435651"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aee65426d2a4778e352a031b130435651">vg::load_minimizer</a> (gbwtgraph::MinimizerIndexXL &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
-<tr class="memdesc:aee65426d2a4778e352a031b130435651"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a minimizerXL index from the file.  <a href="namespacevg.html#aee65426d2a4778e352a031b130435651">More...</a><br /></td></tr>
-<tr class="separator:aee65426d2a4778e352a031b130435651"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a668401f63add7bacd7b91066cf703cea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a668401f63add7bacd7b91066cf703cea">vg::load_minimizer</a> (gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress)</td></tr>
+<tr class="separator:a668401f63add7bacd7b91066cf703cea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea7640260b1c70795335439f3d6c2eac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aea7640260b1c70795335439f3d6c2eac">vg::save_gbwtgraph</a> (const gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:aea7640260b1c70795335439f3d6c2eac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBWTGraph to the file.  <a href="namespacevg.html#aea7640260b1c70795335439f3d6c2eac">More...</a><br /></td></tr>
 <tr class="separator:aea7640260b1c70795335439f3d6c2eac"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -114,6 +121,26 @@ Functions</h2></td></tr>
 <tr class="memitem:af7669e457f62e6f197f3120086a091e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">vg::save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
 <tr class="memdesc:af7669e457f62e6f197f3120086a091e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to separate GBWT / GBWTGraph files.  <a href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">More...</a><br /></td></tr>
 <tr class="separator:af7669e457f62e6f197f3120086a091e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7885143ca20185816afadc669813f12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7885143ca20185816afadc669813f12">vg::save_minimizer</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:af7885143ca20185816afadc669813f12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a minimizer index to the file.  <a href="namespacevg.html#af7885143ca20185816afadc669813f12">More...</a><br /></td></tr>
+<tr class="separator:af7885143ca20185816afadc669813f12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a43a116ea7d11c936d36a933b751aa2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0a43a116ea7d11c936d36a933b751aa2">vg::trailing_zeros</a> (size_t value)</td></tr>
+<tr class="separator:a0a43a116ea7d11c936d36a933b751aa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abf196d86b9aa6fa87dcedd65caf2bb00"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abf196d86b9aa6fa87dcedd65caf2bb00">vg::estimate_hash_table_size</a> (const gbwtgraph::GBZ &amp;gbz, bool progress)</td></tr>
+<tr class="separator:abf196d86b9aa6fa87dcedd65caf2bb00"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20330937bc196160411bc3b935fd2fef"><td class="memItemLeft" align="right" valign="top">std::vector&lt; key_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a20330937bc196160411bc3b935fd2fef">vg::find_frequent_kmers</a> (const gbwtgraph::GBZ &amp;gbz, const MinimizerIndexParameters &amp;params)</td></tr>
+<tr class="separator:a20330937bc196160411bc3b935fd2fef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a19809a3b9330acd3095fb23ca749809b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a19809a3b9330acd3095fb23ca749809b">vg::cache_payloads</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex &amp;distance_index, hash_map&lt; nid_t, payload_t &gt; &amp;node_id_to_payload, ZipCodeCollection *oversized_zipcodes, bool progress)</td></tr>
+<tr class="separator:a19809a3b9330acd3095fb23ca749809b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a129b727ee45c9c55491653888fbe7417"><td class="memItemLeft" align="right" valign="top">gbwtgraph::DefaultMinimizerIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a129b727ee45c9c55491653888fbe7417">vg::build_minimizer_index</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex *distance_index, ZipCodeCollection *oversized_zipcodes, const MinimizerIndexParameters &amp;params)</td></tr>
+<tr class="separator:a129b727ee45c9c55491653888fbe7417"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aadc0e3f2c2a95cff87a70fa1fcd46f65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aadc0e3f2c2a95cff87a70fa1fcd46f65">vg::require_payload</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, MinimizerIndexParameters::PayloadType expected_payload)</td></tr>
+<tr class="separator:aadc0e3f2c2a95cff87a70fa1fcd46f65"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a102056ece1f11355554416409d19eafc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a102056ece1f11355554416409d19eafc">vg::require_payload</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::vector&lt; MinimizerIndexParameters::PayloadType &gt; &amp;expected_payload)</td></tr>
+<tr class="separator:a102056ece1f11355554416409d19eafc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afd5aa2fdfb724d3a7239e8f05a87184f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afd5aa2fdfb724d3a7239e8f05a87184f">vg::describe_minimizer_index</a> (const std::string &amp;filename, std::ostream &amp;out)</td></tr>
+<tr class="memdesc:afd5aa2fdfb724d3a7239e8f05a87184f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Prints a description of the minimizer index in the given file to the given output stream.  <a href="namespacevg.html#afd5aa2fdfb724d3a7239e8f05a87184f">More...</a><br /></td></tr>
+<tr class="separator:afd5aa2fdfb724d3a7239e8f05a87184f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a709e93bb1c0dbdcdbc928960e42688ec"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, vector&lt; nid_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a709e93bb1c0dbdcdbc928960e42688ec">vg::load_translation_map</a> (const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
 <tr class="memdesc:a709e93bb1c0dbdcdbc928960e42688ec"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a mapping of the original segment ids to a list of chopped node ids.  <a href="namespacevg.html#a709e93bb1c0dbdcdbc928960e42688ec">More...</a><br /></td></tr>
 <tr class="separator:a709e93bb1c0dbdcdbc928960e42688ec"><td class="memSeparator" colspan="2">&#160;</td></tr>

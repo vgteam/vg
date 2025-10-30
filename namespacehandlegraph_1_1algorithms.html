@@ -97,6 +97,27 @@ Functions</h2></td></tr>
 <tr class="separator:a3a3110dde9b4be48c07966ca05f07ce3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47f57c2a75f2c22df467596639377d77"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a47f57c2a75f2c22df467596639377d77">are_equivalent_with_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph_1, const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph_2, bool verbose)</td></tr>
 <tr class="separator:a47f57c2a75f2c22df467596639377d77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f51e6dd46a439641f9d1a08700e8ccd"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a1f51e6dd46a439641f9d1a08700e8ccd"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1f51e6dd46a439641f9d1a08700e8ccd">node_id_as</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)=delete</td></tr>
+<tr class="separator:a1f51e6dd46a439641f9d1a08700e8ccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12c7e1008ada8dafd3261e28bc1b418e"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a12c7e1008ada8dafd3261e28bc1b418e"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a12c7e1008ada8dafd3261e28bc1b418e">node_id_as&lt; nid_t &gt;</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
+<tr class="separator:a12c7e1008ada8dafd3261e28bc1b418e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d31f06f20d6185511c6b8c2287066b5"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a1d31f06f20d6185511c6b8c2287066b5"><td class="memTemplItemLeft" align="right" valign="top">std::string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1d31f06f20d6185511c6b8c2287066b5">node_id_as&lt; std::string &gt;</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
+<tr class="separator:a1d31f06f20d6185511c6b8c2287066b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abcdea26d15e9209f52b90106a4174fcb"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:abcdea26d15e9209f52b90106a4174fcb"><td class="memTemplItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; T, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#abcdea26d15e9209f52b90106a4174fcb">nodes_in_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:abcdea26d15e9209f52b90106a4174fcb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d172563de4aa9d36bfd45c254e86da3"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a5d172563de4aa9d36bfd45c254e86da3"><td class="memTemplItemLeft" align="right" valign="top">std::vector&lt; std::tuple&lt; T, bool, bool &gt; &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a5d172563de4aa9d36bfd45c254e86da3">canonical_edges_in_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const T &amp;from_id, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> forward_handle)</td></tr>
+<tr class="separator:a5d172563de4aa9d36bfd45c254e86da3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a735c3f9a35cbb359c0161a6dded300"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a7a735c3f9a35cbb359c0161a6dded300">write_gfa_s_line</a> (const std::string &amp;id, const std::string &amp;sequence, std::ostream &amp;out)</td></tr>
+<tr class="separator:a7a735c3f9a35cbb359c0161a6dded300"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1e6d6de5b20ed05e0a5c550af6608dc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1e6d6de5b20ed05e0a5c550af6608dc8">write_gfa_l_line</a> (const std::string &amp;from_id, bool from_is_rev, const std::string &amp;to_id, bool to_is_rev, std::ostream &amp;out)</td></tr>
+<tr class="separator:a1e6d6de5b20ed05e0a5c550af6608dc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af01eda84b3f56066517e103b233a7542"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#af01eda84b3f56066517e103b233a7542">canonical_gfa</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, std::ostream &amp;out, bool integer_ids)</td></tr>
+<tr class="separator:af01eda84b3f56066517e103b233a7542"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9c46c9dde150b8a2e2bbe785b1889534"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a9c46c9dde150b8a2e2bbe785b1889534">concat_nodes</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &amp;graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;nodes)</td></tr>
 <tr class="separator:a9c46c9dde150b8a2e2bbe785b1889534"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a843ff1c62aa75e4c3ec1b7a5d0ea88d3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a843ff1c62aa75e4c3ec1b7a5d0ea88d3">combine_handles</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &amp;graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;handles)</td></tr>
@@ -324,6 +345,76 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>verbose</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5d172563de4aa9d36bfd45c254e86da3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5d172563de4aa9d36bfd45c254e86da3">&#9670;&nbsp;</a></span>canonical_edges_in_order()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;std::tuple&lt;T, bool, bool&gt; &gt; handlegraph::algorithms::canonical_edges_in_order </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const T &amp;&#160;</td>
+          <td class="paramname"><em>from_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>forward_handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af01eda84b3f56066517e103b233a7542"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af01eda84b3f56066517e103b233a7542">&#9670;&nbsp;</a></span>canonical_gfa()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::algorithms::canonical_gfa </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>integer_ids</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1110,6 +1201,104 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a1f51e6dd46a439641f9d1a08700e8ccd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f51e6dd46a439641f9d1a08700e8ccd">&#9670;&nbsp;</a></span>node_id_as()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">T handlegraph::algorithms::node_id_as </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">delete</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a12c7e1008ada8dafd3261e28bc1b418e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12c7e1008ada8dafd3261e28bc1b418e">&#9670;&nbsp;</a></span>node_id_as&lt; nid_t &gt;()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> <a class="el" href="namespacehandlegraph_1_1algorithms.html#a1f51e6dd46a439641f9d1a08700e8ccd">handlegraph::algorithms::node_id_as</a>&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt; </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1d31f06f20d6185511c6b8c2287066b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d31f06f20d6185511c6b8c2287066b5">&#9670;&nbsp;</a></span>node_id_as&lt; std::string &gt;()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string <a class="el" href="namespacehandlegraph_1_1algorithms.html#a1f51e6dd46a439641f9d1a08700e8ccd">handlegraph::algorithms::node_id_as</a>&lt; std::string &gt; </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="afbf906cc6a283954093403396ee5ce0e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afbf906cc6a283954093403396ee5ce0e">&#9670;&nbsp;</a></span>nodes_are_perfect_path_neighbors()</h2>
 
@@ -1142,6 +1331,26 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Return true if nodes share all paths and the mappings they share in these paths are adjacent, in the specified relative order and orientation. </p>
+
+</div>
+</div>
+<a id="abcdea26d15e9209f52b90106a4174fcb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abcdea26d15e9209f52b90106a4174fcb">&#9670;&nbsp;</a></span>nodes_in_order()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;std::pair&lt;T, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; &gt; handlegraph::algorithms::nodes_in_order </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -1349,6 +1558,86 @@ Functions</h2></td></tr>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1e6d6de5b20ed05e0a5c550af6608dc8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e6d6de5b20ed05e0a5c550af6608dc8">&#9670;&nbsp;</a></span>write_gfa_l_line()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::algorithms::write_gfa_l_line </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>from_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>from_is_rev</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>to_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>to_is_rev</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7a735c3f9a35cbb359c0161a6dded300"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a735c3f9a35cbb359c0161a6dded300">&#9670;&nbsp;</a></span>write_gfa_s_line()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::algorithms::write_gfa_s_line </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
