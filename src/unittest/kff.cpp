@@ -38,7 +38,7 @@ void minimizer_recode(const std::string& kmer, const uint8_t* encoding) {
     REQUIRE(decoded == kmer);
 
     kff_recoding_t recoding = kff_recoding(encoding);
-    gbwtgraph::Key64 round_trip = kff_recode(recoded.data(), kmer.length(), recoding);
+    gbwtgraph::Key64 round_trip(kff_recode(recoded.data(), kmer.length(), recoding));
     REQUIRE(round_trip == encoded);
 }
 

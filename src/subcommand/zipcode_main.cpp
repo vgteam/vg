@@ -241,9 +241,10 @@ int main_zipcode(int argc, char** argv) {
                         // Locate it in the graph. We do not have to reverse the hits for a
                         // reverse minimizers, as the zipcodes only cares about node ids.
                         auto hits = minimizer_index->find(minimizers[i]);
-                        for (auto hit = hits.first; hit != hits.first + hits.second; ++hit) {
+                        for (size_t j = 0; j < hits.second; j++) {
                             // For each position, remember it and what minimizer it came from
-                            seeds.push_back(hit->position.decode());
+                            auto hit = minimizer_index->get_value(hits, j);
+                            seeds.push_back(hit.first.decode());
                             seed_to_source.push_back(i);
                         }
                     }
@@ -261,10 +262,10 @@ int main_zipcode(int argc, char** argv) {
 
                     //Get zip codes
                     ZipCode zip1;
-                    zip1.fill_in_zipcode(*distance_index, pos1);
+                    zip1.fill_in_zipcode_from_pos(*distance_index, pos1);
                     zip1.fill_in_full_decoder();
                     ZipCode zip2;
-                    zip2.fill_in_zipcode(*distance_index, pos2);
+                    zip2.fill_in_zipcode_from_pos(*distance_index, pos2);
                     zip2.fill_in_full_decoder();
 
                     //Time finding distance with the zip codes

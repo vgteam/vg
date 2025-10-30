@@ -538,18 +538,19 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
         expected_chains++;
     });
 
-    // Minimizer index.
-    HaplotypePartitioner::minimizer_index_type minimizer_index(config.k, config.w, false);
-    {
-        double minimizer = gbwt::readTimer();
-        if (config.verbosity >= Haplotypes::verbosity_basic) {
-            std::cerr << "Building minimizer index" << std::endl;
-        }
-        gbwtgraph::index_haplotypes(gbz.graph, minimizer_index);
-        if (config.verbosity >= Haplotypes::verbosity_basic) {
-            double seconds = gbwt::readTimer() - minimizer;
-            std::cerr << "Built the minimizer index in " << seconds << " seconds" << std::endl;
-        }
+    // Minimizer index without payload.
+    double minimizer = gbwt::readTimer();
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Building minimizer index" << std::endl;
+    }
+    MinimizerIndexParameters params;
+    params.k = config.k;
+    params.w_or_s = config.w;
+    params.progress = (config.verbosity >= Haplotypes::verbosity_detailed);
+    HaplotypePartitioner::minimizer_index_type minimizer_index = build_minimizer_index(gbz, nullptr, nullptr, params);
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        double seconds = gbwt::readTimer() - minimizer;
+        std::cerr << "Built the minimizer index in " << seconds << " seconds" << std::endl;
     }
 
     // R-index.

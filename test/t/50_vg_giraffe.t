@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 65
+plan tests 66
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -14,7 +14,8 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min -z x.shortread.zipcodes x.xg
+vg gbwt -x x.xg -g xx.gbz --gbz-format x.gbwt
+vg minimizer -k 29 -w 11 -d x.dist -o x.shortread.withzip.min -z x.shortread.zipcodes xx.gbz
 
 
 # For later tests we expect this to make x.giraffe.gbz so we can't have an x.gbz around.
@@ -25,6 +26,11 @@ rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
 vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + zips + dist specified without crashing"
+
+vg minimizer -d x.dist --rec-mode -o wrong.min -z wrong.zipcodes xx.gbz
+vg giraffe -Z x.giraffe.gbz -m wrong.min -z wrong.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "1" "a minimizer index with the wrong payload type is rejected"
+rm -f wrong.min wrong.zipcodes
 
 rm -f x.giraffe.gbz
 vg gbwt -x x.xg -g x.gg x.gbwt
@@ -80,7 +86,8 @@ rm -f mapped-nobonus.gam
 
 is "$(vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq -o BAM --add-graph-aln | samtools view | grep "GR:Z:" | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with graph alignment"
 
-vg minimizer -k 29 -b -s 18 -d x.dist -g x.gbwt -o x.sync x.xg
+vg minimizer -k 29 -c -s 18 -d x.dist -o x.sync xx.gbz
+rm -f xx.gbz # not needed anymore
 
 vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
@@ -268,5 +275,5 @@ is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
-rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
+rm -f longread.gam 1mb1kgp.vg 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
 

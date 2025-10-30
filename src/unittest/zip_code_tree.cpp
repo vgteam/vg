@@ -22,7 +22,7 @@ namespace unittest {
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (const auto& pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos);
             zipcode.fill_in_full_decoder();
             seeds.push_back({pos, 0, zipcode});
         }
