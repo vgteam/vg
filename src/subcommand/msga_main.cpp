@@ -613,9 +613,10 @@ int main_msga(int argc, char** argv) {
             Region region = position_hints[names_in_order[name_idx]];
             if (!xgidx->has_path(region.seq) || xgidx->get_path_length(xgidx->get_path_handle(region.seq)) <=
                 region.end) {
-                logger.error() << "Target region for \"" << names_in_order[name_idx] << "\" ("
-                               << region.seq << ":" << region.start << "-" << region.end
-                               << ") not found in graph." << endl;
+                stringstream err_msg;
+                err_msg << "error[vg msga]: Target region for \"" << names_in_order[name_idx] << "\" ("
+                        << region.seq << ":" << region.start << "-" << region.end << ") not found in graph." << endl;
+                throw runtime_error(err_msg.str());
             }
             region_graph = new VG();
             Region out_region;
