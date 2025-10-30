@@ -831,13 +831,6 @@ bool file_can_be_written(const string& filename);
 /// Uses file_exists() and is intended to be called when parsing arguments.
 string require_exists(const Logger& logger, const string& filename);
 
-/// Check if a file exists and return its name (if so) or error.
-/// Creates a logger using "context" as the context string.
-/// and then calls the other require_exists().
-inline string require_exists(const string& context, const string& filename) {
-    return require_exists(Logger(context), filename);
-}
-
 /// Error if a file looks like it's gzipped.
 /// Checks the filename for ending with ".gz"; doesn't actually open it
 /// or check the magic number.
@@ -846,10 +839,6 @@ string require_non_gzipped(const Logger& logger, const string& filename);
 /// Check if a file can be written to and return its name (if so) or error.
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
 string ensure_writable(const Logger& logger, const string& filename);
-
-inline string ensure_writable(const string& context, const string& filename) {
-    return ensure_writable(Logger(context), filename);
-}
 
 /// A special parser for thread count which errors if non-positive
 /// If max_threads is non-zero, it will also decrease to that maximum.

@@ -629,7 +629,7 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
     }
 
     if (test_open) {
-        require_exists("get_input_file_name", file_name);
+        require_exists(std::string("get_input_file_name"), file_name);
     }
     
     return file_name;

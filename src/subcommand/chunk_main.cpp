@@ -1137,7 +1137,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                     }
                     stringstream out_name;
                     out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
-                    out_file.open(ensure_writable("chunk::split_gam()", out_name.str()));
+                    out_file.open(ensure_writable(std::string("chunk::split_gam()"), out_name.str()));
                     // Open a new multiplexer on the new file
                     gam_multiplexer.reset(new vg::io::StreamMultiplexer(out_file, thread_count));
                 }
