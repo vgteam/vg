@@ -6583,6 +6583,27 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n8->id(), false, 0, false, &graph) == 8);
                 REQUIRE(distance_index.minimum_distance(n8->id(), false, 0, n2->id(), true,  0, false, &graph) == 1);
             }
+            SECTION( "Is oversized" ) {
+                net_handle_t node_1 = distance_index.get_node_net_handle(n1->id());
+                net_handle_t snarl;
+                distance_index.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                    snarl=other;
+                    return false;
+                });
+                REQUIRE(distance_index.is_oversized_snarl(snarl));
+            }
+            SECTION( "Is not oversized with size limit equal to snarl size " ) {
+                SnarlDistanceIndex distance_index2;
+                // Exactly equal to the snarl size
+                fill_in_distance_index(&distance_index2, &graph, &snarl_finder, 7);
+                net_handle_t node_1 = distance_index2.get_node_net_handle(n1->id());
+                net_handle_t snarl;
+                distance_index2.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                    snarl=other;
+                    return false;
+                });
+                REQUIRE(!distance_index2.is_oversized_snarl(snarl));
+            }
         }
         TEST_CASE( "Nested oversized snarl","[snarl_distance]" ) {
             VG graph;
