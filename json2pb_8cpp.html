@@ -269,9 +269,9 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 <b>Value:</b><div class="fragment"><div class="line">        <span class="keywordflow">case</span> FieldDescriptor::type: {           \</div>
 <div class="line">            ctype value;                \</div>
-<div class="line">            int r = json_unpack_ex(jf, &amp;error, JSON_STRICT, fmt, &amp;value); \</div>
+<div class="line">            int r = json_unpack_ex(jf, &amp;<a class="code" href="namespacevg_1_1logging.html#a3aa1426b99956be1d4d26661d301ac27">error</a>, JSON_STRICT, fmt, &amp;value); \</div>
 <div class="line">            if (r) { \</div>
-<div class="line">                if (!json_is_string(jf)) <span class="keywordflow">throw</span> <a class="code" href="classj2pb__error.html">j2pb_error</a>(field, std::string(<span class="stringliteral">&quot;Failed to unpack or view as string: &quot;</span>) + error.text); \</div>
+<div class="line">                if (!json_is_string(jf)) <span class="keywordflow">throw</span> <a class="code" href="classj2pb__error.html">j2pb_error</a>(field, std::string(<span class="stringliteral">&quot;Failed to unpack or view as string: &quot;</span>) + <a class="code" href="namespacevg_1_1logging.html#a3aa1426b99956be1d4d26661d301ac27">error</a>.text); \</div>
 <div class="line">                const <span class="keywordtype">char</span> * string_value = json_string_value(jf); \</div>
 <div class="line">                value = fromstringfunc(string_value); \</div>
 <div class="line">            } \</div>
@@ -451,6 +451,7 @@ Functions</h2></td></tr>
 </div><!-- contents -->
 <div class="ttc" id="anamespacestd_html_aec6a9d59586ce5d9e0acc951c9c355c8"><div class="ttname"><a href="namespacestd.html#aec6a9d59586ce5d9e0acc951c9c355c8">std::to_string</a></div><div class="ttdeci">std::string to_string(const vg::WFAAlignment::Edit &amp;edit)</div><div class="ttdoc">Convert a WFAAlignment Edit operation to a string.</div><div class="ttdef"><b>Definition:</b> gbwt_extender.cpp:1215</div></div>
 <div class="ttc" id="aclassj2pb__error_html"><div class="ttname"><a href="classj2pb__error.html">j2pb_error</a></div><div class="ttdef"><b>Definition:</b> json2pb.cpp:48</div></div>
+<div class="ttc" id="anamespacevg_1_1logging_html_a3aa1426b99956be1d4d26661d301ac27"><div class="ttname"><a href="namespacevg_1_1logging.html#a3aa1426b99956be1d4d26661d301ac27">vg::logging::error</a></div><div class="ttdeci">cerrWrapper error(const std::string &amp;context)</div><div class="ttdef"><b>Definition:</b> log.cpp:17</div></div>
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

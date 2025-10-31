@@ -92,10 +92,10 @@ $(function() {
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:aa1964053fdd12fb9dde544ce6d18ab70"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; string, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="sim__main_8cpp.html#aa1964053fdd12fb9dde544ce6d18ab70">parse_rsem_expression_file</a> (istream &amp;rsem_in)</td></tr>
-<tr class="separator:aa1964053fdd12fb9dde544ce6d18ab70"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae98175893da0d162097014dd65ba8ce2"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; string, string, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="sim__main_8cpp.html#ae98175893da0d162097014dd65ba8ce2">parse_haplotype_transcript_file</a> (istream &amp;haplo_tx_in)</td></tr>
-<tr class="separator:ae98175893da0d162097014dd65ba8ce2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a83aa7a281f245badc31e9eaf8c5128c7"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; string, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="sim__main_8cpp.html#a83aa7a281f245badc31e9eaf8c5128c7">parse_rsem_expression_file</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, istream &amp;rsem_in)</td></tr>
+<tr class="separator:a83aa7a281f245badc31e9eaf8c5128c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5edf11e1eb89938eb88440bc83e872dd"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; string, string, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="sim__main_8cpp.html#a5edf11e1eb89938eb88440bc83e872dd">parse_haplotype_transcript_file</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, istream &amp;haplo_tx_in)</td></tr>
+<tr class="separator:a5edf11e1eb89938eb88440bc83e872dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab2368d74cf2fb693982eeb4676e6b534"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="sim__main_8cpp.html#ab2368d74cf2fb693982eeb4676e6b534">help_sim</a> (char **argv)</td></tr>
 <tr class="separator:ab2368d74cf2fb693982eeb4676e6b534"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1926f81c841475ca54d3100d6340d468"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="sim__main_8cpp.html#a1926f81c841475ca54d3100d6340d468">main_sim</a> (int argc, char **argv)</td></tr>
@@ -150,8 +150,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ae98175893da0d162097014dd65ba8ce2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae98175893da0d162097014dd65ba8ce2">&#9670;&nbsp;</a></span>parse_haplotype_transcript_file()</h2>
+<a id="a5edf11e1eb89938eb88440bc83e872dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5edf11e1eb89938eb88440bc83e872dd">&#9670;&nbsp;</a></span>parse_haplotype_transcript_file()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -159,17 +159,27 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">vector&lt;tuple&lt;string, string, size_t&gt; &gt; parse_haplotype_transcript_file </td>
           <td>(</td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>haplo_tx_in</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>haplo_tx_in</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="aa1964053fdd12fb9dde544ce6d18ab70"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa1964053fdd12fb9dde544ce6d18ab70">&#9670;&nbsp;</a></span>parse_rsem_expression_file()</h2>
+<a id="a83aa7a281f245badc31e9eaf8c5128c7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a83aa7a281f245badc31e9eaf8c5128c7">&#9670;&nbsp;</a></span>parse_rsem_expression_file()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -177,9 +187,19 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">vector&lt;pair&lt;string, double&gt; &gt; parse_rsem_expression_file </td>
           <td>(</td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>rsem_in</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>rsem_in</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">

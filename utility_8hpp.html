@@ -93,6 +93,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="src_2types_8hpp.html">types.hpp</a>&quot;</code><br />
 <code>#include &quot;sha1.hpp&quot;</code><br />
 <code>#include &quot;Variant.h&quot;</code><br />
+<code>#include &quot;<a class="el" href="log_8hpp.html">log.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -318,6 +319,18 @@ Functions</h2></td></tr>
 <tr class="separator:aeaf52003fcf4fa34ded0aeabafacb3fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abebdd1477a436020f3d3f8368d825054"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abebdd1477a436020f3d3f8368d825054">vg::file_exists</a> (const string &amp;filename)</td></tr>
 <tr class="separator:abebdd1477a436020f3d3f8368d825054"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7fdef746ae26a61bfc61b084f9a23bad"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7fdef746ae26a61bfc61b084f9a23bad">vg::file_can_be_written</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a7fdef746ae26a61bfc61b084f9a23bad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae3d9bf3e957f8aa367dde1d50dae7057"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae3d9bf3e957f8aa367dde1d50dae7057">vg::require_exists</a> (const Logger &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:ae3d9bf3e957f8aa367dde1d50dae7057"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a759ea048c45c4ba2f90f92d6564599bc"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a759ea048c45c4ba2f90f92d6564599bc">vg::require_non_gzipped</a> (const Logger &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:a759ea048c45c4ba2f90f92d6564599bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9692e0ba7b4d25ac924605649669338c"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9692e0ba7b4d25ac924605649669338c">vg::ensure_writable</a> (const Logger &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:a9692e0ba7b4d25ac924605649669338c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5bfda092551850fdb5286954e4b6789c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5bfda092551850fdb5286954e4b6789c">vg::set_thread_count</a> (const Logger &amp;logger, const string &amp;arg, int max_threads)</td></tr>
+<tr class="separator:a5bfda092551850fdb5286954e4b6789c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abdab9345bf474b70956efce90402771b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abdab9345bf474b70956efce90402771b">vg::assign_fastq_files</a> (const Logger &amp;logger, const string &amp;input_filename, string &amp;slot1, string &amp;slot2)</td></tr>
+<tr class="separator:abdab9345bf474b70956efce90402771b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8873caafc22d22b52e0f6f3f164f6dc8"><td class="memTemplParams" colspan="2">template&lt;typename Result &gt; </td></tr>
 <tr class="memitem:a8873caafc22d22b52e0f6f3f164f6dc8"><td class="memTemplItemLeft" align="right" valign="top">Result&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8873caafc22d22b52e0f6f3f164f6dc8">vg::parse</a> (const string &amp;arg)</td></tr>
 <tr class="separator:a8873caafc22d22b52e0f6f3f164f6dc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -342,13 +355,14 @@ Functions</h2></td></tr>
 <tr class="memitem:aa4a3393960dd54c941e9d7c317923c2e"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:aa4a3393960dd54c941e9d7c317923c2e"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa4a3393960dd54c941e9d7c317923c2e">vg::parse</a> (const string &amp;arg, pos_t &amp;dest)</td></tr>
 <tr class="separator:aa4a3393960dd54c941e9d7c317923c2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3f381468578c541e436adb0e537629fb"><td class="memTemplParams" colspan="2">template&lt;typename T1  = std::string, typename T2  = std::string&gt; </td></tr>
+<tr class="memitem:a3f381468578c541e436adb0e537629fb"><td class="memTemplItemLeft" align="right" valign="top">std::pair&lt; T1, T2 &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3f381468578c541e436adb0e537629fb">vg::parse_pair</a> (const Logger &amp;logger, const string &amp;arg, const char &amp;delimiter, const string &amp;option_name)</td></tr>
+<tr class="separator:a3f381468578c541e436adb0e537629fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
 <tr class="memitem:a466eef41b2208daa1c649e71022cdc44"><td class="memItemLeft" align="right" valign="top">const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a466eef41b2208daa1c649e71022cdc44">vg::whitespace</a> = &quot; \t\n\v\f\r&quot;</td></tr>
 <tr class="separator:a466eef41b2208daa1c649e71022cdc44"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a03513be677bdb1a882f0ede178236d27"><td class="memItemLeft" align="right" valign="top">const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a03513be677bdb1a882f0ede178236d27">vg::GZ_SUFFIX</a> = &quot;.gz&quot;</td></tr>
-<tr class="separator:a03513be677bdb1a882f0ede178236d27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

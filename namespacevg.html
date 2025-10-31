@@ -80,6 +80,8 @@ Namespaces</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespacevg_1_1io"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html">io</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1logging"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1logging.html">logging</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespacevg_1_1subcommand"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html">subcommand</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespacevg_1_1temp__file"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1temp__file.html">temp_file</a></td></tr>
@@ -142,6 +144,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1CactusSide.html">CactusSide</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1CactusSnarlFinder.html">CactusSnarlFinder</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1cerrWrapper.html">cerrWrapper</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ChainAlignmentFailedError.html">ChainAlignmentFailedError</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -363,6 +367,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Locus.html">Locus</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Describes a genetic locus with multiple possible alleles, a genotype, and observational support.  <a href="structvg_1_1Locus.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Logger.html">Logger</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Mapper.html">Mapper</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2744,6 +2750,14 @@ Functions</h2></td></tr>
 <tr class="separator:aeaf52003fcf4fa34ded0aeabafacb3fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abebdd1477a436020f3d3f8368d825054"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abebdd1477a436020f3d3f8368d825054">file_exists</a> (const string &amp;filename)</td></tr>
 <tr class="separator:abebdd1477a436020f3d3f8368d825054"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7fdef746ae26a61bfc61b084f9a23bad"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7fdef746ae26a61bfc61b084f9a23bad">file_can_be_written</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a7fdef746ae26a61bfc61b084f9a23bad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae3d9bf3e957f8aa367dde1d50dae7057"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae3d9bf3e957f8aa367dde1d50dae7057">require_exists</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:ae3d9bf3e957f8aa367dde1d50dae7057"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a759ea048c45c4ba2f90f92d6564599bc"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a759ea048c45c4ba2f90f92d6564599bc">require_non_gzipped</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:a759ea048c45c4ba2f90f92d6564599bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9692e0ba7b4d25ac924605649669338c"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9692e0ba7b4d25ac924605649669338c">ensure_writable</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:a9692e0ba7b4d25ac924605649669338c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae9e16eec9e4a4120718eba7d5711a7df"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae9e16eec9e4a4120718eba7d5711a7df">create_ref_allele</a> (vcflib::Variant &amp;variant, const std::string &amp;allele)</td></tr>
 <tr class="separator:ae9e16eec9e4a4120718eba7d5711a7df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6391a10ec421fbb6c487f491bd978ef6"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6">add_alt_allele</a> (vcflib::Variant &amp;variant, const std::string &amp;allele)</td></tr>
@@ -2781,6 +2795,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae996017b379b1178d5e588b96a7c7f3f"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae996017b379b1178d5e588b96a7c7f3f">overlay_node_translations</a> (const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;over, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;under)</td></tr>
 <tr class="memdesc:ae996017b379b1178d5e588b96a7c7f3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compose the translations from two graph operations, neither of which involved oriented transformations.  <a href="namespacevg.html#ae996017b379b1178d5e588b96a7c7f3f">More...</a><br /></td></tr>
 <tr class="separator:ae996017b379b1178d5e588b96a7c7f3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a89ddce304ab2b03953bc1e0d4da9b35d"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a89ddce304ab2b03953bc1e0d4da9b35d"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a89ddce304ab2b03953bc1e0d4da9b35d">parse</a> (const string &amp;arg, string &amp;dest)</td></tr>
+<tr class="separator:a89ddce304ab2b03953bc1e0d4da9b35d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1dd328fd8abb43338a3ae9e0a3b0be1f"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:a1dd328fd8abb43338a3ae9e0a3b0be1f"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1dd328fd8abb43338a3ae9e0a3b0be1f">parse</a> (const string &amp;arg, double &amp;dest)</td></tr>
 <tr class="separator:a1dd328fd8abb43338a3ae9e0a3b0be1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2793,6 +2810,10 @@ Functions</h2></td></tr>
 <tr class="memitem:aa4a3393960dd54c941e9d7c317923c2e"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:aa4a3393960dd54c941e9d7c317923c2e"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa4a3393960dd54c941e9d7c317923c2e">parse</a> (const string &amp;arg, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;dest)</td></tr>
 <tr class="separator:aa4a3393960dd54c941e9d7c317923c2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5bfda092551850fdb5286954e4b6789c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5bfda092551850fdb5286954e4b6789c">set_thread_count</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;arg, int max_threads)</td></tr>
+<tr class="separator:a5bfda092551850fdb5286954e4b6789c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abdab9345bf474b70956efce90402771b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abdab9345bf474b70956efce90402771b">assign_fastq_files</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;input_filename, string &amp;slot1, string &amp;slot2)</td></tr>
+<tr class="separator:abdab9345bf474b70956efce90402771b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a97c44463adc7ddcc77ac9664692a62b8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a97c44463adc7ddcc77ac9664692a62b8">is_number</a> (const string &amp;s)</td></tr>
 <tr class="separator:a97c44463adc7ddcc77ac9664692a62b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace99283a6b34f0891dc0b49f0cd60eea"><td class="memTemplParams" colspan="2">template&lt;typename T , typename V &gt; </td></tr>
@@ -2870,6 +2891,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a2cd6368e7395f1d90c4e3be1a7293d0a"><td class="memTemplParams" colspan="2">template&lt;typename Result &gt; </td></tr>
 <tr class="memitem:a2cd6368e7395f1d90c4e3be1a7293d0a"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2cd6368e7395f1d90c4e3be1a7293d0a">parse</a> (const string &amp;arg, typename enable_if&lt; sizeof(Result)&lt;=sizeof(long long) &amp;&amp;is_integral&lt; Result &gt;::value &amp;&amp;is_signed&lt; Result &gt;::value, Result &gt;::type &amp;dest)</td></tr>
 <tr class="separator:a2cd6368e7395f1d90c4e3be1a7293d0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3f381468578c541e436adb0e537629fb"><td class="memTemplParams" colspan="2">template&lt;typename T1  = std::string, typename T2  = std::string&gt; </td></tr>
+<tr class="memitem:a3f381468578c541e436adb0e537629fb"><td class="memTemplItemLeft" align="right" valign="top">std::pair&lt; T1, T2 &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3f381468578c541e436adb0e537629fb">parse_pair</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;arg, const char &amp;delimiter, const string &amp;option_name)</td></tr>
+<tr class="separator:a3f381468578c541e436adb0e537629fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7d3374c888c7c37f1de8370e151af7f9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7d3374c888c7c37f1de8370e151af7f9">genotype_svs</a> (<a class="el" href="classvg_1_1VG.html">VG</a> *graph, string gamfile, string refpath)</td></tr>
 <tr class="separator:a7d3374c888c7c37f1de8370e151af7f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96096594534e59d12b7a2cff3c400ef0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a96096594534e59d12b7a2cff3c400ef0">variant_recall</a> (<a class="el" href="classvg_1_1VG.html">VG</a> *graph, vcflib::VariantCallFile *vars, FastaReference *ref_genome, vector&lt; FastaReference * &gt; insertions, string gamfile)</td></tr>
@@ -2909,6 +2933,8 @@ Variables</h2></td></tr>
 <tr class="separator:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae77436235694e5e661c74799ab326d0b"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae77436235694e5e661c74799ab326d0b">ISSUE_URL</a> = &quot;https://github.com/vgteam/vg/issues/new/choose&quot;</td></tr>
 <tr class="separator:ae77436235694e5e661c74799ab326d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa9c9573184fc9275ea2b23866e4275b5"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa9c9573184fc9275ea2b23866e4275b5">context</a> = &quot;IndexRegistry&quot;</td></tr>
+<tr class="separator:aa9c9573184fc9275ea2b23866e4275b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa32104605c22b25e9ec17d69fbc61a4b"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1read__alignment__index__t.html">read_alignment_index_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa32104605c22b25e9ec17d69fbc61a4b">NO_READ_INDEX</a> = {std::numeric_limits&lt;size_t&gt;::infinity(), std::numeric_limits&lt;size_t&gt;::infinity()}</td></tr>
 <tr class="memdesc:aa32104605c22b25e9ec17d69fbc61a4b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an unset index.  <a href="namespacevg.html#aa32104605c22b25e9ec17d69fbc61a4b">More...</a><br /></td></tr>
 <tr class="separator:aa32104605c22b25e9ec17d69fbc61a4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2917,8 +2943,6 @@ Variables</h2></td></tr>
 <tr class="separator:a0fc209aaa8c7c17499d70452d2816f44"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a466eef41b2208daa1c649e71022cdc44"><td class="memItemLeft" align="right" valign="top">const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a466eef41b2208daa1c649e71022cdc44">whitespace</a> = &quot; \t\n\v\f\r&quot;</td></tr>
 <tr class="separator:a466eef41b2208daa1c649e71022cdc44"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a03513be677bdb1a882f0ede178236d27"><td class="memItemLeft" align="right" valign="top">const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a03513be677bdb1a882f0ede178236d27">GZ_SUFFIX</a> = &quot;.gz&quot;</td></tr>
-<tr class="separator:a03513be677bdb1a882f0ede178236d27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="a4ab10687f0a0cca11ecfd062d9bb0a07"></a>
@@ -5416,6 +5440,47 @@ template&lt;typename Iter &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>assign a list of child snarls to traversals that fully conrtain them the output is a list (for each traversal) of each child snarl that's contained in it so otuput[i] = {x,y,z} means that child_snarls[x],[y],[z] are in traversals[i] </p>
+
+</div>
+</div>
+<a id="abdab9345bf474b70956efce90402771b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abdab9345bf474b70956efce90402771b">&#9670;&nbsp;</a></span>assign_fastq_files()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::assign_fastq_files </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>input_filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>slot1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>slot2</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A special parser for possibly-paired FASTQ files If the first file is unset, then it gets the input filename Else if the second file is unset, then it gets the input filename If both are already set, then this errors Also calls <a class="el" href="namespacevg.html#ae3d9bf3e957f8aa367dde1d50dae7057">require_exists()</a> on the filenames To set both FASTQ files, you'll need to call this twice </p>
 
 </div>
 </div>
@@ -9515,6 +9580,35 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a id="a9692e0ba7b4d25ac924605649669338c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9692e0ba7b4d25ac924605649669338c">&#9670;&nbsp;</a></span>ensure_writable()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::ensure_writable </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Check if a file can be written to and return its name (if so) or error. Uses <a class="el" href="namespacevg.html#a7fdef746ae26a61bfc61b084f9a23bad">file_can_be_written()</a> and is intended to be called when parsing arguments. </p>
+
+</div>
+</div>
 <a id="a77c1cb6069f865239d0365b55649bc8a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a77c1cb6069f865239d0365b55649bc8a">&#9670;&nbsp;</a></span>entropy() <span class="overload">[1/2]</span></h2>
 
@@ -10219,6 +10313,25 @@ template&lt;class RandomIt &gt; </div>
 </div><div class="memdoc">
 
 <p>Get the base name of a filename (without the directory and the extension). </p>
+
+</div>
+</div>
+<a id="a7fdef746ae26a61bfc61b084f9a23bad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7fdef746ae26a61bfc61b084f9a23bad">&#9670;&nbsp;</a></span>file_can_be_written()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::file_can_be_written </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Determine if a file can be written to. Only works for files writable by the current user. Meant to be used to validate output file names. Will actually open the file, so it will overwrite the current contents. </p>
 
 </div>
 </div>
@@ -20418,7 +20531,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a8c5c364797f623025b67b9aff0657112"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c5c364797f623025b67b9aff0657112">&#9670;&nbsp;</a></span>parse() <span class="overload">[1/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c5c364797f623025b67b9aff0657112">&#9670;&nbsp;</a></span>parse() <span class="overload">[1/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20439,7 +20552,7 @@ template&lt;typename Result &gt; </div>
 </div>
 </div>
 <a id="a8873caafc22d22b52e0f6f3f164f6dc8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8873caafc22d22b52e0f6f3f164f6dc8">&#9670;&nbsp;</a></span>parse() <span class="overload">[2/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a8873caafc22d22b52e0f6f3f164f6dc8">&#9670;&nbsp;</a></span>parse() <span class="overload">[2/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20460,7 +20573,7 @@ template&lt;typename Result &gt; </div>
 </div>
 </div>
 <a id="a1dd328fd8abb43338a3ae9e0a3b0be1f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1dd328fd8abb43338a3ae9e0a3b0be1f">&#9670;&nbsp;</a></span>parse() <span class="overload">[3/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1dd328fd8abb43338a3ae9e0a3b0be1f">&#9670;&nbsp;</a></span>parse() <span class="overload">[3/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20490,7 +20603,7 @@ template&lt;&gt; </div>
 </div>
 </div>
 <a id="a2d3193c0a90ba95bd11b8b3201de52c0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2d3193c0a90ba95bd11b8b3201de52c0">&#9670;&nbsp;</a></span>parse() <span class="overload">[4/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a2d3193c0a90ba95bd11b8b3201de52c0">&#9670;&nbsp;</a></span>parse() <span class="overload">[4/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20520,7 +20633,7 @@ template&lt;&gt; </div>
 </div>
 </div>
 <a id="aa4a3393960dd54c941e9d7c317923c2e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa4a3393960dd54c941e9d7c317923c2e">&#9670;&nbsp;</a></span>parse() <span class="overload">[5/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aa4a3393960dd54c941e9d7c317923c2e">&#9670;&nbsp;</a></span>parse() <span class="overload">[5/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20550,7 +20663,7 @@ template&lt;&gt; </div>
 </div>
 </div>
 <a id="a627f5ad6fe6f1e6b4cc23ac97dfca4b8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a627f5ad6fe6f1e6b4cc23ac97dfca4b8">&#9670;&nbsp;</a></span>parse() <span class="overload">[6/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a627f5ad6fe6f1e6b4cc23ac97dfca4b8">&#9670;&nbsp;</a></span>parse() <span class="overload">[6/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20581,7 +20694,7 @@ template&lt;typename Result &gt; </div>
 </div>
 </div>
 <a id="aa1de4a1752e875116c767ec49a8e2961"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa1de4a1752e875116c767ec49a8e2961">&#9670;&nbsp;</a></span>parse() <span class="overload">[7/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aa1de4a1752e875116c767ec49a8e2961">&#9670;&nbsp;</a></span>parse() <span class="overload">[7/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20610,8 +20723,38 @@ template&lt;&gt; </div>
 
 </div>
 </div>
+<a id="a89ddce304ab2b03953bc1e0d4da9b35d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a89ddce304ab2b03953bc1e0d4da9b35d">&#9670;&nbsp;</a></span>parse() <span class="overload">[8/10]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::parse </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>arg</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>dest</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a1384531a1c8d8387bdd04961590bdf93"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1384531a1c8d8387bdd04961590bdf93">&#9670;&nbsp;</a></span>parse() <span class="overload">[8/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1384531a1c8d8387bdd04961590bdf93">&#9670;&nbsp;</a></span>parse() <span class="overload">[9/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20651,7 +20794,7 @@ template&lt;typename Result &gt; </div>
 </div>
 </div>
 <a id="a2cd6368e7395f1d90c4e3be1a7293d0a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2cd6368e7395f1d90c4e3be1a7293d0a">&#9670;&nbsp;</a></span>parse() <span class="overload">[9/9]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a2cd6368e7395f1d90c4e3be1a7293d0a">&#9670;&nbsp;</a></span>parse() <span class="overload">[10/10]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20859,6 +21002,49 @@ template&lt;typename Result &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3f381468578c541e436adb0e537629fb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3f381468578c541e436adb0e537629fb">&#9670;&nbsp;</a></span>parse_pair()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T1  = std::string, typename T2  = std::string&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">std::pair&lt;T1, T2&gt; vg::parse_pair </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>arg</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char &amp;&#160;</td>
+          <td class="paramname"><em>delimiter</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>option_name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Parse an argument that should be a pair of strings separated by a delimiter. Errors if the string does not contain exactly one delimiter. </p>
 
 </div>
 </div>
@@ -22907,6 +23093,64 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
+<a id="ae3d9bf3e957f8aa367dde1d50dae7057"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae3d9bf3e957f8aa367dde1d50dae7057">&#9670;&nbsp;</a></span>require_exists()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::require_exists </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Check if a file exists and return its name (if so) or error. Uses <a class="el" href="namespacevg.html#abebdd1477a436020f3d3f8368d825054">file_exists()</a> and is intended to be called when parsing arguments. </p>
+
+</div>
+</div>
+<a id="a759ea048c45c4ba2f90f92d6564599bc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a759ea048c45c4ba2f90f92d6564599bc">&#9670;&nbsp;</a></span>require_non_gzipped()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::require_non_gzipped </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Error if a file looks like it's gzipped. Checks the filename for ending with ".gz"; doesn't actually open it or check the magic number. </p>
+
+</div>
+</div>
 <a id="a102056ece1f11355554416409d19eafc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a102056ece1f11355554416409d19eafc">&#9670;&nbsp;</a></span>require_payload() <span class="overload">[1/2]</span></h2>
 
@@ -24517,6 +24761,41 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5bfda092551850fdb5286954e4b6789c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5bfda092551850fdb5286954e4b6789c">&#9670;&nbsp;</a></span>set_thread_count()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::set_thread_count </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>arg</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>max_threads</em> = <code>0</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A special parser for thread count which errors if non-positive If max_threads is non-zero, it will also decrease to that maximum. If max_threads is zero, max is omp_get_max_threads() Sets thread count with omp_set_num_threads() Returns new thread count </p>
 
 </div>
 </div>
@@ -29794,6 +30073,20 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="aa9c9573184fc9275ea2b23866e4275b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa9c9573184fc9275ea2b23866e4275b5">&#9670;&nbsp;</a></span>context</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const string vg::context = &quot;IndexRegistry&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="abd1798abb6fcee86ab5b0539fb764eb2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abd1798abb6fcee86ab5b0539fb764eb2">&#9670;&nbsp;</a></span>fullTrace</h2>
 
@@ -29802,20 +30095,6 @@ template&lt;typename T &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::fullTrace = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a03513be677bdb1a882f0ede178236d27"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a03513be677bdb1a882f0ede178236d27">&#9670;&nbsp;</a></span>GZ_SUFFIX</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">const std::string vg::GZ_SUFFIX = &quot;.gz&quot;</td>
         </tr>
       </table>
 </div><div class="memdoc">

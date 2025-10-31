@@ -119,7 +119,7 @@ Functions</h2></td></tr>
 --help" (because the help subcommand doesn't know how to get help info on the others).</p>
 <p>We have a subcommand importance/category system, so we can tell people about just the main pipeline and keep the subcommands they don't want out of their brains and off their screen.</p>
 <p>Subcommands get passed all of argv, so they have to skip past their names when parsing arguments.</p>
-<p>To make a subcommand, do something like this in a cpp file in this "subcommand" directory: </p><pre class="fragment">#include "subcommand.hpp"
+<p>To make a subcommand, do something like this in a *_main.cpp file in this "subcommand" directory: </p><pre class="fragment">#include "subcommand.hpp"
 using namespace vg::subcommand;
 
 int main_frobnicate(int argc, char** argv) {
@@ -128,7 +128,8 @@ int main_frobnicate(int argc, char** argv) {
 
 static Subcommand vg_frobnicate("frobnicate", "frobnicate nodes and edges",
     main_frobnicate);
-</pre> </div></div><!-- contents -->
+</pre><p>All src/subcommand/*_main.cpp files must pass the checks (formatting etc.) in scripts/check_options.py as part of an automated test. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

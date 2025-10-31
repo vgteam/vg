@@ -134,12 +134,12 @@ Functions</h2></td></tr>
 <tr class="separator:ae1c5768186dc339c157bf4b72517b5ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0124aac03621e82b84ef0de974a08574"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a0124aac03621e82b84ef0de974a08574">no_multiple_cover_types</a> (const <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:a0124aac03621e82b84ef0de974a08574"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4a6504bbdeed67c591fe5b36192a79d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a4a6504bbdeed67c591fe5b36192a79d7">check_tag_validity</a> (const std::string &amp;key, const std::string &amp;value, const std::unordered_set&lt; char &gt; &amp;prohibited, const std::string &amp;description)</td></tr>
-<tr class="separator:a4a6504bbdeed67c591fe5b36192a79d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8423b71fdd6374ae9c820c7767070703"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a8423b71fdd6374ae9c820c7767070703">check_tag_validity</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const std::string &amp;key, const std::string &amp;value, const std::unordered_set&lt; char &gt; &amp;prohibited, const std::string &amp;description)</td></tr>
+<tr class="separator:a8423b71fdd6374ae9c820c7767070703"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a561987b9179ef0c4d1e0cfa0c0cde254"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structjob__type.html">job_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a561987b9179ef0c4d1e0cfa0c0cde254">determine_jobs</a> (std::unique_ptr&lt; <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &gt; &amp;graph, const <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:a561987b9179ef0c4d1e0cfa0c0cde254"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab82463d53fb85eaec6c4e581e009d9e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#ab82463d53fb85eaec6c4e581e009d9e6">use_or_save</a> (std::unique_ptr&lt; gbwt::DynamicGBWT &gt; &amp;index, <a class="el" href="structvg_1_1GBWTHandler.html">GBWTHandler</a> &amp;gbwts, std::vector&lt; std::string &gt; &amp;filenames, size_t i, bool show_progress)</td></tr>
-<tr class="separator:ab82463d53fb85eaec6c4e581e009d9e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85e10c356525365b08862b38098ee64b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a85e10c356525365b08862b38098ee64b">use_or_save</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, std::unique_ptr&lt; gbwt::DynamicGBWT &gt; &amp;index, <a class="el" href="structvg_1_1GBWTHandler.html">GBWTHandler</a> &amp;gbwts, std::vector&lt; std::string &gt; &amp;filenames, size_t i, bool show_progress)</td></tr>
+<tr class="separator:a85e10c356525365b08862b38098ee64b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9750054dfc43368b363ed04acd832b15"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a9750054dfc43368b363ed04acd832b15">remove_samples</a> (<a class="el" href="structvg_1_1GBWTHandler.html">GBWTHandler</a> &amp;gbwts, <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:a9750054dfc43368b363ed04acd832b15"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac876d911cee30492e661fe44978b5f08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#ac876d911cee30492e661fe44978b5f08">set_tags</a> (<a class="el" href="structvg_1_1GBWTHandler.html">GBWTHandler</a> &amp;gbwts, <a class="el" href="structGraphHandler.html">GraphHandler</a> &amp;graphs, <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
@@ -148,8 +148,8 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg gbwt" subcommand for building, merging, and manipulating GBWT indexes and GBWTGraphs. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
-<a id="a4a6504bbdeed67c591fe5b36192a79d7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4a6504bbdeed67c591fe5b36192a79d7">&#9670;&nbsp;</a></span>check_tag_validity()</h2>
+<a id="a8423b71fdd6374ae9c820c7767070703"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8423b71fdd6374ae9c820c7767070703">&#9670;&nbsp;</a></span>check_tag_validity()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -157,6 +157,12 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">void check_tag_validity </td>
           <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>key</em>, </td>
         </tr>
@@ -698,8 +704,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ab82463d53fb85eaec6c4e581e009d9e6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab82463d53fb85eaec6c4e581e009d9e6">&#9670;&nbsp;</a></span>use_or_save()</h2>
+<a id="a85e10c356525365b08862b38098ee64b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85e10c356525365b08862b38098ee64b">&#9670;&nbsp;</a></span>use_or_save()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -707,6 +713,12 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">void use_or_save </td>
           <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">std::unique_ptr&lt; gbwt::DynamicGBWT &gt; &amp;&#160;</td>
           <td class="paramname"><em>index</em>, </td>
         </tr>
