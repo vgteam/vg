@@ -91,6 +91,7 @@ std::vector<MappingRun> base_mappings(const Alignment& aln) {
 }
 
 int main_gamcompare(int argc, char** argv) {
+    Logger logger("vg gamcompare");
 
     if (argc == 2) {
         help_gamcompare(argv);
@@ -143,16 +144,8 @@ int main_gamcompare(int argc, char** argv) {
             
         case 'n':
             {
-                // Parse the rename old=new
-                string key_value(optarg);
-                auto found = key_value.find('=');
-                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
-                    cerr << "error:[vg gamcompare] could not parse rename " << key_value << endl;
-                    exit(1);
-                }
-                // Parse out the two parts
-                string query_contig = key_value.substr(0, found);
-                string truth_contig = key_value.substr(found + 1);
+                string query_contig, truth_contig;
+                tie(query_contig, truth_contig) = parse_pair(logger, optarg, '=', "--rename");
                 // Add the name mapping
                 renames.emplace(query_contig, truth_contig);
             }
@@ -163,11 +156,11 @@ int main_gamcompare(int argc, char** argv) {
             break;
 
         case 'd':
-            distance_name = optarg;
+            distance_name = require_exists(logger, optarg);
             break;
 
         case 'o':
-            output_gam = optarg;
+            output_gam = ensure_writable(logger, optarg);
             break;
 
         case 'T':
@@ -183,8 +176,7 @@ int main_gamcompare(int argc, char** argv) {
             break;
 
         case 't':
-            threads = parse<int>(optarg);
-            omp_set_num_threads(threads);
+            set_thread_count(logger, optarg);
             break;
 
         case 'h':
@@ -245,12 +237,10 @@ int main_gamcompare(int argc, char** argv) {
     if (truth_file_name == "-") {
         // Read truth fropm standard input, if it looks good.
         if (test_file_name == "-") {
-            cerr << "error[vg gamcompare]: Standard input can only be used for truth or test file, not both" << endl;
-            exit(1);
+            logger.error() << "Standard input can only be used for truth or test file, not both" << endl;
         }
         if (!std::cin) {
-            cerr << "error[vg gamcompare]: Unable to read standard input when looking for true reads" << endl;
-            exit(1);
+            logger.error() << "Unable to read standard input when looking for true reads" << endl;
         }
         if (distance_name.empty()) {
             vg::io::for_each_parallel(std::cin, record_path_positions);
@@ -260,10 +250,6 @@ int main_gamcompare(int argc, char** argv) {
     } else {
         // Read truth from this file, if it looks good.
         ifstream truth_file_in(truth_file_name);
-        if (!truth_file_in) {
-            cerr << "error[vg gamcompare]: Unable to read " << truth_file_name << " when looking for true reads" << endl;
-            exit(1);
-        }
         if (distance_name.empty()) {
             vg::io::for_each_parallel(truth_file_in, record_path_positions);
         } else {
@@ -271,8 +257,7 @@ int main_gamcompare(int argc, char** argv) {
         }
     }
     if (score_alignment && range == -1) {
-        cerr << "error[vg gamcompare]: Score-alignment requires range" << endl;
-        exit(1);
+        logger.error() << "Score-alignment requires range" << endl;
     }
 
     // Count eligible reads that actually have positions that could be got.
@@ -291,10 +276,6 @@ int main_gamcompare(int argc, char** argv) {
     if (!output_gam.empty()) {
         // Output to specified location
         output_gam_stream.open(output_gam, std::ios_base::out | std::ios_base::trunc | std::ios_base::binary);
-        if (output_gam_stream.fail() || !output_gam_stream.is_open()) {
-            cerr << "error[vg gamcompare]: Cannot output to " << output_gam << endl;
-            exit(1);
-        }
         emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(output_gam_stream));
     } else if (!output_tsv) {
         // Output to standard output.
@@ -441,15 +422,14 @@ int main_gamcompare(int argc, char** argv) {
 
     if (test_file_name == "-") {
         if (!std::cin) {
-            cerr << "error[vg gamcompare]: Unable to read standard input when looking for reads under test" << endl;
-            exit(1);
+            logger.error() << "Unable to read standard input when looking for reads under test" << endl;
         }
         vg::io::for_each_parallel(std::cin, annotate_test);
     } else {
         ifstream test_file_in(test_file_name);
         if (!test_file_in) {
-            cerr << "error[vg gamcompare]: Unable to read " << test_file_name << " when looking for reads under test" << endl;
-            exit(1);
+            logger.error() << "Unable to read " << test_file_name
+                           << " when looking for reads under test" << endl;
         }
         vg::io::for_each_parallel(test_file_in, annotate_test);
     }

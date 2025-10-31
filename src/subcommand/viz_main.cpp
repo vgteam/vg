@@ -28,6 +28,7 @@ void help_viz(char** argv) {
 }
 
 int main_viz(int argc, char** argv) {
+    Logger logger("vg viz");
 
     string xg_name;
     vector<string> packs_in;
@@ -79,16 +80,16 @@ int main_viz(int argc, char** argv) {
             help_viz(argv);
             return 1;
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(logger, optarg);
             break;
         case 'n':
             pack_names.push_back(optarg);
             break;
         case 'i':
-            packs_in.push_back(optarg);
+            packs_in.push_back(require_exists(logger, optarg));
             break;
         case 'o':
-            image_out = optarg;
+            image_out = ensure_writable(logger, optarg);
             break;
         case 'X':
             image_width = parse<int>(optarg);
@@ -117,8 +118,7 @@ int main_viz(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     if (xg_name.empty()) {
-        cerr << "No input graph given. An input graph (-x) must be provided." << endl;
-        exit(1);
+        logger.error() << "No input graph given. An input graph (-x) must be provided." << endl;
     } else {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         // We know the PathPositionVectorizableOverlayHelper produces a PathPositionVectorizableOverlay

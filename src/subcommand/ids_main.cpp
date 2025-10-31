@@ -42,6 +42,7 @@ void help_ids(char** argv) {
 }
 
 int main_ids(int argc, char** argv) {
+    Logger logger("vg ids");
 
     if (argc == 2) {
         help_ids(argv);
@@ -97,7 +98,7 @@ int main_ids(int argc, char** argv) {
                 break;
 
             case 'm':
-                mapping_name = optarg;
+                mapping_name = ensure_writable(logger, optarg);
                 break;
 
             case 's':
@@ -184,12 +185,8 @@ int main_ids(int argc, char** argv) {
         if (!mapping_name.empty()) {
             gcsa::NodeMapping mapping(max_node_id + 1);
             std::ofstream out(mapping_name, std::ios_base::binary);
-            if (!out) {
-                std::cerr << "[vg ids]: cannot create node mapping file " << mapping_name << std::endl;
-            } else {
-                mapping.serialize(out);
-                out.close();
-            }
+            mapping.serialize(out);
+            out.close();
         }
     }
 

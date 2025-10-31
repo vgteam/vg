@@ -213,6 +213,10 @@ public:
     // get_index, so it has to be a friend.
     friend class IndexingPlan;
 
+    // Whether files given to provide() should be checked for existence
+    // This should always be true except in unit tests
+    bool check_files = true;
+
     /// Constructor
     IndexRegistry() = default;
     

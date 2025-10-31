@@ -35,6 +35,7 @@ void help_chain(char** argv) {
 }
 
 int main_chain(int argc, char** argv) {
+    Logger logger("vg chain");
 
     bool show_progress = false;
     int recomb_penalty = 0;
@@ -105,7 +106,7 @@ int main_chain(int argc, char** argv) {
     assert(json_is_object(problem_json));
     
     if (show_progress) {
-        std::cerr << "Loaded problem from " << problem_filename << std::endl;
+        logger.info() << "Loaded problem from " << problem_filename << std::endl;
     }
     
     // Populate the graph.
@@ -129,15 +130,15 @@ int main_chain(int argc, char** argv) {
                         assert(sequence != nullptr);
                         graph.create_handle(sequence, vg::parse<nid_t>(node_id));
                     } else {
-                        std::cerr << "warning:[vg chain] Unreadable node object at index " << i << ": "
-                                  << json_error.text << std::endl;
+                        logger.warn() << "Unreadable node object at index "
+                                      << i << ": " << json_error.text << std::endl;
                     }
                 } else {
-                    std::cerr << "warning:[vg chain] No node object at index " << i << std::endl;
+                    logger.warn() << "No node object at index " << i << std::endl;
                 }
             }
         } else {
-            std::cerr << "warning:[vg chain] No nodes" << std::endl;
+            logger.warn() << "No nodes" << std::endl;
         }
         json_t* edges_json = json_object_get(graph_json, "edge");
         if (edges_json && json_is_array(edges_json)) {
@@ -161,26 +162,26 @@ int main_chain(int argc, char** argv) {
                         handle_t to_handle = graph.get_handle(vg::parse<nid_t>(to_id), to_end);
                         graph.create_edge(from_handle, to_handle);
                     } else {
-                        std::cerr << "warning:[vg chain] Unreadable edge object at index " << i << ": "
-                                  << json_error.text << std::endl;
+                        logger.warn() << "Unreadable edge object at index " << i
+                                      << ": " << json_error.text << std::endl;
                     }
                 } else {
-                    std::cerr << "warning:[vg chain] No edge object at index " << i << std::endl;
+                    logger.warn() << "No edge object at index " << i << std::endl;
                 }
             }
         } else {
-            std::cerr << "warning:[vg chain] No edges" << std::endl;
+            logger.warn() << "No edges" << std::endl;
         }
     } else {
-        std::cerr << "warning:[vg chain] No graph" << std::endl;
+        logger.warn() << "No graph" << std::endl;
     }
     if (show_progress) {
-        std::cerr << "Reconstructed " << graph.get_node_count() << " nodes and " << graph.get_edge_count() << " edges" << std::endl;
+        logger.info() << "Reconstructed " << graph.get_node_count()
+                      << " nodes and " << graph.get_edge_count() << " edges" << std::endl;
     }
     
     if (graph.get_node_count() == 0) {
-        std::cerr << "error:[vg chain] Cannot build indexes for an empty graph" << std::endl;
-        exit(1);
+        logger.error() << "Cannot build indexes for an empty graph" << std::endl;
     }
     
     // Create the chaining space based on it
@@ -188,7 +189,7 @@ int main_chain(int argc, char** argv) {
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     if (show_progress) {
-        std::cerr << "Built distance index" << std::endl;
+        logger.info() << "Built distance index" << std::endl;
     }
     
     // Decide how to score alignments
@@ -259,18 +260,18 @@ int main_chain(int argc, char** argv) {
                     anchor.set_paths(anchor_paths);
                     items.emplace_back(anchor);
                 } else {
-                    std::cerr << "warning:[vg chain] Unreadable item object at index " 
-                              << i << ": " << json_error.text << std::endl;
+                    logger.warn() << "Unreadable item object at index " 
+                                  << i << ":" << json_error.text << std::endl;
                 }
             } else {
-                std::cerr << "warning:[vg chain] No item object at index " << i << std::endl;
+                logger.warn() << "No item object at index " << i << std::endl;
             }
         }
     } else {
-        std::cerr << "warning:[vg chain] No items" << std::endl;
+        logger.warn() << "No items" << std::endl;
     }
     if (show_progress) {
-        std::cerr << "Reconstructed " << items.size() << " chainable items" << std::endl;
+        logger.info() << "Reconstructed " << items.size() << " chainable items" << std::endl;
     }
     
     // Now we have parsed the JSON, so throw it out.
@@ -285,7 +286,7 @@ int main_chain(int argc, char** argv) {
     // Do the chaining. We assume items is already sorted right.
     std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.gap_open, scorer.gap_extension, recomb_penalty);
     
-    std::cout << "Best chain gets score " << score_and_chain.first << std::endl;
+    logger.info() << "Best chain gets score " << score_and_chain.first << std::endl;
     
     return 0;
 }

@@ -40,6 +40,7 @@ void help_pack(char** argv) {
 
 
 int main_pack(int argc, char** argv) {
+    Logger logger("vg pack");
 
     string xg_name;
     vector<string> packs_in;
@@ -104,19 +105,19 @@ int main_pack(int argc, char** argv) {
             help_pack(argv);
             return 1;
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(logger, optarg);
             break;
         case 'o':
-            packs_out = optarg;
+            packs_out = ensure_writable(logger, optarg);
             break;
         case 'i':
-            packs_in.push_back(optarg);
+            packs_in.push_back(require_exists(logger, optarg));
             break;
         case 'g':
-            gam_in = optarg;
+            gam_in = require_exists(logger, optarg);
             break;
         case 'a':
-            gaf_in = optarg;
+            gaf_in = require_exists(logger, optarg);
             break;
         case 'd':
             write_table = true;
@@ -134,20 +135,13 @@ int main_pack(int argc, char** argv) {
             bin_size = atoll(optarg);
             break;            
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg pack] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            set_thread_count(logger, optarg);
             break;
-        }
         case 'n':
             node_ids.push_back(parse<int>(optarg));
             break;
         case 'N':
-            node_list_file = optarg;
+            node_list_file = require_exists(logger, optarg);
             break;
         case 'Q':
             min_mapq = parse<int>(optarg);
@@ -167,8 +161,7 @@ int main_pack(int argc, char** argv) {
     unique_ptr<HandleGraph> handle_graph;
     HandleGraph* graph = nullptr;
     if (xg_name.empty()) {
-        cerr << "error [vg pack]: No basis graph given. One must be provided with -x." << endl;
-        exit(1);
+        logger.error() << "No basis graph given. One must be provided with -x." << endl;
     } else {
         handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
     }
@@ -176,28 +169,21 @@ int main_pack(int argc, char** argv) {
     graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(handle_graph.get()));
 
     if (gam_in.empty() && packs_in.empty() && gaf_in.empty()) {
-        cerr << "error [vg pack]: Input must be provided with -g, -a or -i" << endl;
-        exit(1);
+        logger.error() << "Input must be provided with -g, -a or -i" << endl;
     }
 
     if (!gam_in.empty() && !gaf_in.empty()) {
-        cerr << "error [vg pack]: -g cannot be used with -a" << endl;
-        exit(1);
+        logger.error() << "-g cannot be used with -a" << endl;
     }
 
     if (packs_out.empty() && write_table == false && write_edge_table == false && write_qual_table == false) {
-        cerr << "error [vg pack]: Output must be selected with -o, -d or -D" << endl;
-        exit(1);
+        logger.error() << "Output must be selected with -o, -d, -D or -u" << endl;
     }
 
     // process input node list
     if (!node_list_file.empty()) {
         ifstream nli;
         nli.open(node_list_file);
-        if (!nli.good()){
-            cerr << "[vg pack] error, unable to open the node list input file." << endl;
-            exit(1);
-        }
         string line;
         while (getline(nli, line)){
             for (auto& idstr : split_delims(line, " \t")) {

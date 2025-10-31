@@ -57,16 +57,16 @@ void help_sift(char** argv) {
 }
 
 
-int main_sift(int argc, char** argv){
+int main_sift(int argc, char** argv) {
+    Logger logger("vg sift");
 
-    if (argc <= 2){
+    if (argc <= 2) {
         help_sift(argv);
         return 1;
     }
 
     string alignment_file = "";
     string graph_name = "";
-    int threads = 1;
 
     bool inverse = false;
     bool is_paired = false;
@@ -148,10 +148,10 @@ int main_sift(int argc, char** argv){
                 help_sift(argv);
                 return 1;
             case 't':
-                threads = parse<int>(optarg);
+                set_thread_count(logger, optarg);
                 break;
             case 'G':
-                graph_name = optarg;
+                graph_name = require_exists(logger, optarg);
                 break;
             case 'u':
                 do_unmapped = true;
@@ -165,7 +165,7 @@ int main_sift(int argc, char** argv){
                 break;
             case 's':
                 do_split_read = true;
-                if (softclip_max < 0){
+                if (softclip_max < 0) {
                     softclip_max = 15;
                     ff.set_soft_clip_limit(15);
                 }
@@ -227,29 +227,27 @@ int main_sift(int argc, char** argv){
 
     }
 
-    if (optind >= argc){
-        cerr << "Error: no alignment file given" << endl;
-        exit(1);
+    if (optind >= argc) {
+        logger.error() << "No alignment file given" << endl;
     }
     alignment_file = argv[optind];
 
-    cerr << "Filtering  " << alignment_file << endl;
+    logger.info() << "Filtering  " << alignment_file << endl;
 
     vg::VG* graph;
-    if (!graph_name.empty()){
+    if (!graph_name.empty()) {
         ifstream gstream(graph_name);
         ff.my_vg = new vg::VG(gstream);
     }
 
-    omp_set_num_threads(threads);
     ff.set_inverse(inverse);
 
-    if (softclip_max >= 0){
+    if (softclip_max >= 0) {
         ff.set_soft_clip_limit(softclip_max);
     }
 
 
-    if (do_all){
+    if (do_all) {
     do_orientation = true;
     do_oea = true;
     do_insert_size = true;
@@ -307,42 +305,42 @@ int main_sift(int argc, char** argv){
     ofstream clean_stream;
     ofstream perfect_stream;
 
-    if (do_reversing){
+    if (do_reversing) {
         reversing_stream.open(reversing_fn);
     }
 
-    if (do_unmapped){
+    if (do_unmapped) {
         unmapped_stream.open(unmapped_fn);
     }
 
-    if (do_orientation){
+    if (do_orientation) {
         discordant_stream.open(discordant_fn);
     }
 
-    if (do_oea){
+    if (do_oea) {
         oea_stream.open(oea_fn);
     }
 
-    if (do_split_read){
+    if (do_split_read) {
         split_stream.open(split_fn);
     }
-    if (do_insert_size){
+    if (do_insert_size) {
         insert_stream.open(insert_fn);
     }
-    if (do_softclip){
+    if (do_softclip) {
         clipped_stream.open(clipped_fn);
     }
 
-    std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b){
+    std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b) {
         bool a_forward = true;
         bool b_reverse = false;
-        for (int i = 0; i < a.path().mapping_size(); i++){
-            if (a.path().mapping(i).position().is_reverse()){
+        for (int i = 0; i < a.path().mapping_size(); i++) {
+            if (a.path().mapping(i).position().is_reverse()) {
                 a_forward = false;
             }
         }
-        for (int i = 0; i < b.path().mapping_size(); i++){
-            if (b.path().mapping(i).position().is_reverse()){
+        for (int i = 0; i < b.path().mapping_size(); i++) {
+            if (b.path().mapping(i).position().is_reverse()) {
                 b_reverse = true;
             }
         }
@@ -350,12 +348,12 @@ int main_sift(int argc, char** argv){
     };
 
 
-    std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
+    std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second) {
         bool ret;
         bool flagged = false;
 
-        if (do_unmapped && !flagged){
-            if (ff.unmapped_filter(alns_first) && ff.unmapped_filter(alns_second)){
+        if (do_unmapped && !flagged) {
+            if (ff.unmapped_filter(alns_first) && ff.unmapped_filter(alns_second)) {
 
                     #pragma omp critical (unmapped_selected)
                     {
@@ -371,10 +369,10 @@ int main_sift(int argc, char** argv){
                 }
         }
 
-        if (do_orientation && !flagged){
+        if (do_orientation && !flagged) {
             
             ret = ff.pair_orientation_filter(alns_first, alns_second);
-            if (ret){
+            if (ret) {
                 #pragma omp critical (discordant_selected)
             {
                 flagged = true;
@@ -385,9 +383,9 @@ int main_sift(int argc, char** argv){
             
 
         }
-        if (do_oea && !flagged){
+        if (do_oea && !flagged) {
             ret = ff.one_end_anchored_filter(alns_first, alns_second);
-            if (ret){
+            if (ret) {
                 #pragma omp critical (oea_selected)
                 {
                     one_end_anchored.push_back(alns_first);
@@ -397,10 +395,10 @@ int main_sift(int argc, char** argv){
             
 
         }
-        if (do_insert_size && !flagged){
+        if (do_insert_size && !flagged) {
             
             ret = ff.insert_size_filter(alns_first, alns_second);
-            if (ret){
+            if (ret) {
                 #pragma omp critical (insert_selected)
                 {
                     insert_selected.push_back(alns_first);
@@ -411,9 +409,9 @@ int main_sift(int argc, char** argv){
 
 
         }
-        if (do_split_read && !flagged){
+        if (do_split_read && !flagged) {
 
-            if (ff.split_read_filter(alns_first)){
+            if (ff.split_read_filter(alns_first)) {
                 #pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
@@ -423,7 +421,7 @@ int main_sift(int argc, char** argv){
                 }
                 
             }
-            if (ff.split_read_filter(alns_second)){
+            if (ff.split_read_filter(alns_second)) {
                 #pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
@@ -435,10 +433,10 @@ int main_sift(int argc, char** argv){
             
 
         }
-        if (do_reversing && !flagged){
+        if (do_reversing && !flagged) {
             Alignment x = ff.reversing_filter(alns_first);
             Alignment y = ff.reversing_filter(alns_second);
-            if (x.name() != "" || y.name() != ""){
+            if (x.name() != "" || y.name() != "") {
                #pragma omp critical (reversing_selected)
                {
                    reversing_selected.push_back(alns_first);
@@ -449,18 +447,18 @@ int main_sift(int argc, char** argv){
 
 
         }
-        if (do_softclip && !flagged){
+        if (do_softclip && !flagged) {
 
             bool x = ff.soft_clip_filter(alns_first);
             bool y = ff.soft_clip_filter(alns_second);
-            if (x){
+            if (x) {
                 #pragma omp critical (clipped_selected)
                 {
                     clipped_selected.push_back(alns_first);
                     flagged = true;
                 }
             } 
-            if (y){
+            if (y) {
                 #pragma omp critical (clipped_selected)
                 {
                     flagged = true;
@@ -469,7 +467,7 @@ int main_sift(int argc, char** argv){
             } 
 
         }
-        if (do_quality && !flagged){
+        if (do_quality && !flagged) {
 
             #pragma omp critical (quality_selected)
             {
@@ -478,7 +476,7 @@ int main_sift(int argc, char** argv){
             }
 
         }
-        if (do_depth && !flagged){
+        if (do_depth && !flagged) {
 
             #pragma omp critical (depth_selected)
             {
@@ -487,10 +485,10 @@ int main_sift(int argc, char** argv){
             }
             
         }
-        if (!flagged){
+        if (!flagged) {
             // Check if read is perfect
 
-            if (ff.perfect_filter(alns_first) && ff.perfect_filter(alns_second)){
+            if (ff.perfect_filter(alns_first) && ff.perfect_filter(alns_second)) {
 
             }
             else{
@@ -516,24 +514,24 @@ int main_sift(int argc, char** argv){
         vg::io::write_buffered(perfect_stream, perfect, 100);
     };
 
-    std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
-        if (do_split_read){
+    std::function<void(Alignment&)> single_filters = [&](Alignment& aln) {
+        if (do_split_read) {
             split_selected.push_back(aln);
         }
-        if (do_reversing){
+        if (do_reversing) {
             reversing_selected.push_back(aln);
         }
-        if (do_softclip){
-           if (ff.soft_clip_filter(aln)){
+        if (do_softclip) {
+           if (ff.soft_clip_filter(aln)) {
                 clipped_selected.push_back(aln);
            }
            //vg::io::write_buffered(clipped_stream, clipped_selected, 1000);
 
         }
-        if (do_quality){
+        if (do_quality) {
             quality_selected.push_back(aln);
         }
-        if (do_depth){
+        if (do_depth) {
             depth_selected.push_back(aln);
         }
 
@@ -543,12 +541,12 @@ int main_sift(int argc, char** argv){
     // double insert_tot = 0.0;
     // int insert_count = 0;
     // double curr_sigma = 0.0;
-    // std::function<void(Alignment&, Alignment&)> calc_insert = [&](Alignment& a, Alignment& b){
-    //     if (a.fragment_size() > 1){
+    // std::function<void(Alignment&, Alignment&)> calc_insert = [&](Alignment& a, Alignment& b) {
+    //     if (a.fragment_size() > 1) {
     //         insert_count += 1;
     //         insert_tot += (double) a.fragment(0).length();   
     //     }
-    //     else if (b.fragment_size() > 1){
+    //     else if (b.fragment_size() > 1) {
 
     //     }
     // };
@@ -557,21 +555,19 @@ int main_sift(int argc, char** argv){
 
 
 
-if (alignment_file == "-"){
-    vg::io::for_each_interleaved_pair_parallel(cin, pair_filters);
-}
-else{
-    ifstream in;
-    in.open(alignment_file);
-    if (in.good()){
-
-        // if (just_calc_insert){
+    if (alignment_file == "-") {
+        vg::io::for_each_interleaved_pair_parallel(cin, pair_filters);
+    }
+    else {
+        ifstream in;
+        in.open(alignment_file);
+        // if (just_calc_insert) {
         //     vg::io::for_each_interleaved_pair_parallel(in, calc_insert);
         //     exit(0);
         // }
 
-        if (is_paired){
-            cerr << "Processing..." << endl;
+        if (is_paired) {
+            logger.info() << "Processing..." << endl;
             vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{
@@ -579,11 +575,7 @@ else{
 
         }
     }
-    else{
-        cerr << "Could not open " << alignment_file << endl;
-        help_sift(argv);
-    }
-}
+    
     vg::io::write_buffered(unmapped_stream, unmapped_selected, 0);
     vg::io::write_buffered(discordant_stream, discordant_selected, 0);
     vg::io::write_buffered(oea_stream, one_end_anchored, 0);

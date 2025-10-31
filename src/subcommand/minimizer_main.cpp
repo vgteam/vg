@@ -66,7 +66,7 @@ struct MinimizerConfig {
     bool progress = false;
     int threads = get_default_threads();
 
-    MinimizerConfig(int argc, char** argv, int max_threads);
+    MinimizerConfig(int argc, char** argv, int max_threads, const Logger& logger);
 };
 
 using code_type = gbwtgraph::KmerEncoding::code_type;
@@ -76,7 +76,8 @@ using payload_type = ZipCode::payload_type;
 
 int main_minimizer(int argc, char** argv) {
     double start = gbwt::readTimer();
-    MinimizerConfig config(argc, argv, get_default_threads());
+    Logger logger("vg minimizer");
+    MinimizerConfig config(argc, argv, get_default_threads(), logger);
 
     // Load the graph.
     gbwtgraph::GBZ gbz;
@@ -87,7 +88,7 @@ int main_minimizer(int argc, char** argv) {
     if (!config.distance_name.empty()) {
         // new distance index
         if (config.progress) {
-            std::cerr << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
+            logger.info() << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_name);
         distance_index->preload(true);
@@ -166,7 +167,7 @@ void help_minimizer(char** argv) {
     std::cerr << std::endl;
 }
 
-MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
+MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const Logger& logger) {
     if (argc < 3) {
         help_minimizer(argv);
         std::exit(EXIT_FAILURE);
@@ -213,7 +214,7 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
         {
         case 'E':
             this->params.paths_in_payload = true;
-            std::cerr << "[vg minimizer] warning: --rec-mode is still under development" << std::endl;
+            logger.warn() << "--rec-mode is still under development" << std::endl;
             break;
         case 'd':
             this->distance_name = optarg;
@@ -262,9 +263,7 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
             this->progress = true;
             break;
         case 't':
-            this->threads = parse<int>(optarg);
-            this->threads = std::min(this->threads, max_threads);
-            this->threads = std::max(this->threads, 1);
+            this->threads = set_thread_count(logger, optarg);
             break;
         case OPT_NO_DIST:
             this->require_distance_index = false;
@@ -278,10 +277,8 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
             std::abort();
         }
     }
-
     if (this->output_name.empty()) {
-        std::cerr << "error: [vg minimizer] option --output-name is required" << std::endl;
-        std::exit(EXIT_FAILURE);
+        logger.error() << "option --output-name is required" << std::endl;
     }
     if (optind + 1 != argc) {
         help_minimizer(argv);
@@ -289,10 +286,8 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads) {
     }
     this->graph_name = argv[optind];
     if (this->require_distance_index && this->distance_name.empty()) {
-        std::cerr << "error: [vg minimizer] one of options --distance-index and --no-dist is required" << std::endl;
-        std::exit(EXIT_FAILURE);
+        logger.error() << "one of options --distance-index and --no-dist is required" << std::endl;
     }
-    omp_set_num_threads(this->threads);
 }
 
 //------------------------------------------------------------------------------

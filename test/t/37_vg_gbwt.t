@@ -37,7 +37,7 @@ is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome X: 2 path names"
 is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome X: 1 contig name"
 is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome X: 1 sample name"
 
-rm -f x.gbwt parse_x.gbwt
+rm -f x.gbwt parse parse_x.gbwt
 rm -f parse_x parse_x_0_1
 
 

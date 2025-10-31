@@ -70,7 +70,8 @@ void help_deconstruct(char** argv) {
          << "  -h, --help               print this help message to stderr and exit" << endl;
 }
 
-int main_deconstruct(int argc, char** argv){
+int main_deconstruct(int argc, char** argv) {
+    Logger logger("vg deconstruct");
     if (argc <= 2) {
         help_deconstruct(argv);
         return 1;
@@ -141,25 +142,25 @@ int main_deconstruct(int argc, char** argv){
             refpath_prefixes.push_back(optarg);
             break;
         case 'H':
-            cerr << "Warning [vg deconstruct]: -H is deprecated, and will be ignored" << endl;
+            logger.warn() << "-H is deprecated, and will be ignored" << endl;
             break;
         case 'r':
-            snarl_file_name = optarg;
+            snarl_file_name = require_exists(logger, optarg);
             break;
         case 'g':
-            gbwt_file_name = optarg;
+            gbwt_file_name = require_exists(logger, optarg);
             break;
         case 'T':
-            translation_file_name = optarg;
+            translation_file_name = require_exists(logger, optarg);
             break;
         case 'O':
             gbz_translation = true;
             break;                        
         case 'e':
-            cerr << "Warning [vg deconstruct]: -e is deprecated as it's now on default" << endl;
+            logger.warn() << "-e is deprecated as it's now on default" << endl;
             break;
         case 'd':
-            cerr << "Warning [vg deconstruct]: -d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
+            logger.warn() << "-d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
             break;
         case 'c':
             context_jaccard_window = parse<int>(optarg);
@@ -189,7 +190,7 @@ int main_deconstruct(int argc, char** argv){
             star_allele = true;
             break;
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            set_thread_count(logger, optarg);
             break;
         case 'v':
             show_progress = true;
@@ -206,12 +207,10 @@ int main_deconstruct(int argc, char** argv){
     }
 
     if (nested == true && contig_only_ref == true) {
-        cerr << "Error [vg deconstruct]: -C cannot be used with -n" << endl;
-        return 1;
+        logger.error() << "-C cannot be used with -n" << endl;
     }
     if (star_allele == true && nested == false) {
-        cerr << "Error [vg deconstruct]: -R can only be used with -n" << endl;
-        return 1;
+        logger.error() << "-R can only be used with -n" << endl;
     }
     
     // Read the graph
@@ -230,12 +229,11 @@ int main_deconstruct(int argc, char** argv){
         path_handle_graph_up = std::move(get<1>(input));
         path_handle_graph = path_handle_graph_up.get();
     } else {
-        cerr << "Error [vg deconstruct]: Input graph is not a GBZ or path handle graph" << endl;
-        return 1;
+        logger.error() << "Input graph is not a GBZ or path handle graph" << endl;
     }
 
     if (!gbz_graph && gbz_translation) {
-        cerr << "Error [vg deconstruct]: -O can only be used when input graph is in GBZ format" << endl;
+        logger.error() << "-O can only be used when input graph is in GBZ format" << endl;
     }
 
     if (!gbwt_file_name.empty() || gbz_graph) {
@@ -263,19 +261,20 @@ int main_deconstruct(int argc, char** argv){
     std::chrono::duration<double> overlay_seconds = overlay_stop_time - overlay_start_time;
     
     if (show_progress && graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
-        std::cerr << "Computed overlay in " << overlay_seconds.count() << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
+        logger.info() << "Computed overlay in " << overlay_seconds.count()
+                      << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
     }
 
     // Read the GBWT
     unique_ptr<gbwt::GBWT> gbwt_index_up;
     if (!gbwt_file_name.empty()) {
         if (gbwt_index) {
-            cerr << "Warning [vg deconstruct]: Using GBWT from -g overrides that in input GBZ (you probably don't want to use -g)" << endl;
+            logger.warn() << "Using GBWT from -g overrides that in input GBZ "
+                          << "(you probably don't want to use -g)" << endl;
         }
         gbwt_index_up = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
         if (!gbwt_index_up) {
-            cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
-            return 1;
+            logger.error() << "Unable to load GBWT index file: " << gbwt_file_name << endl;
         }
         gbwt_index = gbwt_index_up.get();
     }
@@ -284,8 +283,8 @@ int main_deconstruct(int argc, char** argv){
         // Check our paths
         for (const string& ref_path : refpaths) {
             if (!graph->has_path(ref_path)) {
-                cerr << "error [vg deconstruct]: Reference path \"" << ref_path << "\" not found in graph/gbwt" << endl;
-                return 1;
+                logger.error() << "Reference path \"" << ref_path
+                               << "\" not found in graph/GBWT" << endl;
             }
         }
     }
@@ -303,9 +302,9 @@ int main_deconstruct(int argc, char** argv){
         });
 
         if (!found_hap && gbwt_index == nullptr) {
-            cerr << "error [vg deconstruct]: All graph paths selected as references (leaving no alts). Please use -P/-p "
-                 << "to narrow down the reference to a subset of paths, or GBZ/GBWT input that contains haplotype paths" << endl;
-            return 1;
+            logger.error() << "All graph paths selected as references (leaving no alts). Please use -P/-p "
+                           << "to narrow down the reference to a subset of paths, "
+                           << "or GBZ/GBWT input that contains haplotype paths" << endl;
         }        
     }
 
@@ -322,14 +321,10 @@ int main_deconstruct(int argc, char** argv){
     }
     if (!translation_file_name.empty()) {
         if (!translation->empty()) {
-            cerr << "Warning [vg deconstruct]: Using translation from -T overrides that in input GBZ "
-                 << "(you probably don't want to use -T)" << endl;
+            logger.warn() << "Using translation from -T overrides that in input GBZ "
+                          << "(you probably don't want to use -T)" << endl;
         }
         ifstream translation_file(translation_file_name.c_str());
-        if (!translation_file) {
-            cerr << "Error [vg deconstruct]: Unable to load translation file: " << translation_file_name << endl;
-            return 1;
-        }
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(*graph, translation_file);
     }
@@ -338,18 +333,14 @@ int main_deconstruct(int argc, char** argv){
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_file_name.empty()) {
         ifstream snarl_file(snarl_file_name.c_str());
-        if (!snarl_file) {
-            cerr << "Error [vg deconstruct]: Unable to load snarls file: " << snarl_file_name << endl;
-            return 1;
-        }
         if (show_progress) {
-            cerr << "Loading snarls" << endl;
+            logger.info() << "Loading snarls" << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
         IntegratedSnarlFinder finder(*graph);
         if (show_progress) {
-            cerr << "Finding snarls" << endl;
+            logger.info() << "Finding snarls" << endl;
         }
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
@@ -368,8 +359,7 @@ int main_deconstruct(int argc, char** argv){
     }
 
     if (refpaths.empty()) {
-        cerr << "Error [vg deconstruct]: No specified reference path or prefix found in graph" << endl;
-        return 1;
+        logger.error() << "No specified reference path or prefix found in graph" << endl;
     }
 
 #ifdef USE_CALLGRIND
@@ -380,7 +370,7 @@ int main_deconstruct(int argc, char** argv){
     // Deconstruct
     Deconstructor dd;
     if (show_progress) {
-        cerr << "Deconstructing top-level snarls" << endl;
+        logger.info() << "Deconstructing top-level snarls" << endl;
     }
     dd.set_translation(translation.get());
     dd.set_nested(all_snarls || nested);

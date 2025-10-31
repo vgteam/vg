@@ -35,20 +35,20 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_zipcode(char** argv) {
-    cerr
-    << "usage: " << argv[0] << " test zipcodes on minimizers from reads [options] input.gam > output.gam" << endl
-    << endl
-    << "basic options:" << endl
-    << "  -h, --help                    print this help message to stderr and exit" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -d, --dist-name FILE          use this distance index (required)" << endl
-    << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl
-    << "computational parameters:" << endl
-    << "  -t, --threads INT             number of compute threads to use" << endl;
+    cerr << "usage: " << argv[0] << " test zipcodes on minimizers from reads [options] input.gam > output.gam" << endl
+         << endl
+         << "basic options:" << endl
+         << "  -h, --help                    print this help message to stderr and exit" << endl
+         << "  -x, --xg-name FILE            use this XG index or graph (required)" << endl
+         << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+         << "  -d, --dist-name FILE          use this distance index (required)" << endl
+         << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl
+         << "computational parameters:" << endl
+         << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
 int main_zipcode(int argc, char** argv) {
+    Logger logger("vg zipcode");
 
     if (argc == 2) {
         help_zipcode(argv);
@@ -89,35 +89,21 @@ int main_zipcode(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = optarg;
-                if (xg_name.empty()) {
-                    cerr << "error:[vg zipcode] Must provide XG file with -x." << endl;
-                    exit(1);
-                }
+                xg_name = require_exists(logger, optarg);
                 break;
                 
             case 'g':
-                gcsa_name = optarg;
-                if (gcsa_name.empty()) {
-                    cerr << "error:[vg zipcode] Must provide GCSA file with -g." << endl;
-                    exit(1);
-                }
+                gcsa_name = require_exists(logger, optarg);
+                // We also need the LCP index
+                require_exists(logger, gcsa_name + ".lcp");
                 break;
             
             case 'm':
-                minimizer_name = optarg;
-                if (minimizer_name.empty()) {
-                    cerr << "error:[vg zipcode] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
+                minimizer_name = require_exists(logger, optarg);
                 break;
                 
             case 'd':
-                distance_name = optarg;
-                if (distance_name.empty()) {
-                    cerr << "error:[vg zipcode] Must provide distance index file with -d." << endl;
-                    exit(1);
-                }
+                distance_name = require_exists(logger, optarg);
                 break;
             
             case 'c':
@@ -125,15 +111,7 @@ int main_zipcode(int argc, char** argv) {
                 break;
                 
             case 't':
-            {
-                int num_threads = parse<int>(optarg);
-                if (num_threads <= 0) {
-                    cerr << "error:[vg zipcode] Thread count (-t) set to " << num_threads 
-                         << ", must set to a positive integer." << endl;
-                    exit(1);
-                }
-                omp_set_num_threads(num_threads);
-            }
+                set_thread_count(logger, optarg);
                 break;
                 
             case 'h':
@@ -147,19 +125,16 @@ int main_zipcode(int argc, char** argv) {
     
     
     if (xg_name.empty()) {
-        cerr << "error:[vg zipcode] Finding zipcodes requires an XG index, must provide XG file (-x)" << endl;
-        exit(1);
+        logger.error() << "Finding zipcodes requires an XG index, must provide XG file (-x)" << endl;
     }
     
     if (gcsa_name.empty() && minimizer_name.empty()) {
-        cerr << "error:[vg zipcode] Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)" << endl;
-        exit(1);
+        logger.error() << "Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)" << endl;
     }
     
-    
     if (distance_name.empty()) {
-        cerr << "error:[vg zipcode] Finding zipcodes requires a distance index, must provide distance index file (-d)" << endl;
-        exit(1);
+        logger.error() << "Finding zipcodes requires a distance index, "
+                       << "must provide distance index file (-d)" << endl;
     }
     
     // create in-memory objects
