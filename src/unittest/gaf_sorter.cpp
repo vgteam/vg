@@ -149,7 +149,7 @@ GAFSorterFile generate_sorted_gaf(
     const std::string& filename, const std::string& gbwt_file = "", bool bidirectional_gbwt = false
 ) {
     auto lines = generate_gaf(count, path_length, unaligned_probability);
-    GAFSorterFile output(filename, gbwt_file, bidirectional_gbwt);
+    GAFSorterFile output(filename, nullptr, gbwt_file, bidirectional_gbwt);
     sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, stable, output);
     return output;
 }
@@ -217,7 +217,7 @@ void merge_and_check(
 ) {
     std::string filename = temp_file::create("gaf-sorter");
     std::string gbwt_file = (with_gbwt ? temp_file::create("gaf-sorter") : "");
-    GAFSorterFile output(filename, gbwt_file, bidirectional_gbwt);
+    GAFSorterFile output(filename, nullptr, gbwt_file, bidirectional_gbwt);
     merge_gaf_records(std::move(inputs), output, buffer_size);
     check_sorted(output, true, expected_records, key_type, false);
     temp_file::remove(filename);
@@ -242,7 +242,7 @@ void integrated_test(size_t count, size_t path_length, double unaligned_probabil
     temp_file::remove(input_file);
 
     // Check the output.
-    GAFSorterFile output(output_file, params.gbwt_file, params.bidirectional_gbwt);
+    GAFSorterFile output(output_file, nullptr, params.gbwt_file, params.bidirectional_gbwt);
     output.records = count; // This is a new file object, so we need to set the record count.
     check_sorted(output, true, count, params.key_type, false);
 

@@ -108,7 +108,7 @@ printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:4
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 #this is what we expect back, mut.gaf where insertions and snps are converted to Ns:
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
-vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 > mut.cs.back.gaf
+vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 | grep -v "^@" > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"
 rm -f mut.cs.gaf mut.cg.gaf mut.cs.exp.gaf
@@ -133,9 +133,9 @@ diff sim-map-back.gaf sim-map.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam ->gaf makes same gaf each time on 1mb1kgp simulated reads"
 
 printf '{"name": "split", "path": {"mapping": [{"edit": [{"from_length": 13, "to_length": 13}], "position": {"node_id": "1", "offset": "10"}}, {"edit": [{"from_length": 2, "to_length": 2}], "position": {"node_id": "3", "offset": "5"}}]}}' | vg view -JaG - > split.gam
-vg convert zflat.vg -G split.gam > split.gaf
+vg convert zflat.vg -G split.gam | grep -v "^@" > split.gaf
 is "$(awk '{print $13}' split.gaf)" "cs:Z::13-CCAGTGCTCGCATC:2" "split alignment converted using deletions to represent internal offsets"
-vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - > split-back.gaf
+vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - | grep -v "^@" > split-back.gaf
 diff split.gaf split-back.gaf
 is "$?" 0 "vg convert gam -> gaf ->gam -> gaf makes same gaf each time for split alignment"
 
