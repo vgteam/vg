@@ -255,18 +255,18 @@ gbwt::vector_type GAFSorterRecord::as_gbwt_path(bool* ok) const {
 //------------------------------------------------------------------------------
 
 GAFSorterFile::GAFSorterFile() :
-    bidirectional_gbwt(false), records(0),
+    name(temp_file::create("gaf-sorter")), header_lines(nullptr),
+    gbwt_file(""), bidirectional_gbwt(false), records(0),
     temporary(true), compressed(true), raw_gaf(false), removed(false), ok(true) {
-    this->name = temp_file::create("gaf-sorter");
 }
 
-GAFSorterFile::GAFSorterFile(const std::string& name) :
-    name(name), bidirectional_gbwt(false), records(0),
-    temporary(false), compressed(false), raw_gaf(true), removed(false), ok(true) {
-}
-
-GAFSorterFile::GAFSorterFile(const std::string& name, const std::string& gbwt_file, bool bidirectional_gbwt) :
-    name(name), gbwt_file(gbwt_file), bidirectional_gbwt(bidirectional_gbwt), records(0),
+GAFSorterFile::GAFSorterFile(
+    const std::string& name,
+    std::unique_ptr<std::vector<std::string>> header_lines,
+    const std::string& gbwt_file, bool bidirectional_gbwt
+) :
+    name(name), header_lines(std::move(header_lines)),
+    gbwt_file(gbwt_file), bidirectional_gbwt(bidirectional_gbwt), records(0),
     temporary(false), compressed(false), raw_gaf(true), removed(false), ok(true) {
 }
 
@@ -289,6 +289,17 @@ std::pair<std::ostream*, std::unique_ptr<std::ostream>> GAFSorterFile::open_outp
         this->ok = false;
         std::cerr << "error: [gaf_sorter] could not open output file " << this->name << std::endl;
     }
+
+    if (this->raw_gaf && this->header_lines != nullptr) {
+        for (const std::string& line : *this->header_lines) {
+            (*result.first) << line << '\n';
+        }
+        if (!result.first->good()) {
+            this->ok = false;
+            std::cerr << "error: [gaf_sorter] could not write header lines to output file " << this->name << std::endl;
+        }
+    }
+
     return result;
 }
 
@@ -379,17 +390,33 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
         return all_ok;
     };
 
-    // Initial sort. If a worker thread fails, we break on join.
-    size_t batch = 0;
-    size_t initial_batch_size = std::max(params.records_per_file, size_t(1));
-    if (params.progress) {
-        std::cerr << "Initial sort: " << initial_batch_size << " records per file" << std::endl;
-    }
+    // Open the input file and read header lines.
+    std::unique_ptr<std::vector<std::string>> header_lines(new std::vector<std::string>());
     std::string peek;
     htsFile* input = hts_open(input_file.c_str(), "r");
     if (input == nullptr) {
         std::cerr << "error: [gaf_sorter] could not open input file " << input_file << std::endl;
         return false;
+    }
+    {
+        kstring_t s_buffer = KS_INITIALIZE;
+        while (hts_getline(input, '\n', &s_buffer) >= 0) {
+            std::string line(ks_str(&s_buffer), ks_len(&s_buffer));
+            if (!line.empty() && line[0] == '@') {
+                header_lines->push_back(line);
+            } else {
+                peek = line;
+                break;
+            }
+        }
+        ks_free(&s_buffer);
+    }
+
+    // Initial sort. If a worker thread fails, we break on join.
+    size_t batch = 0;
+    size_t initial_batch_size = std::max(params.records_per_file, size_t(1));
+    if (params.progress) {
+        std::cerr << "Initial sort: " << initial_batch_size << " records per file" << std::endl;
     }
     while (true) {
         // Read the next batch.
@@ -415,7 +442,7 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
                         std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
                     }
                 }
-                GAFSorterFile out(output_file, params.gbwt_file, params.bidirectional_gbwt);
+                GAFSorterFile out(output_file, std::move(header_lines), params.gbwt_file, params.bidirectional_gbwt);
                 sort_gaf_lines(std::move(lines), params.key_type, params.stable, out);
                 ks_free(&s_buffer);
                 hts_close(input);
@@ -505,7 +532,7 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
                 std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
             }
         }
-        GAFSorterFile out(output_file, params.gbwt_file, params.bidirectional_gbwt);
+        GAFSorterFile out(output_file, std::move(header_lines), params.gbwt_file, params.bidirectional_gbwt);
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
         for (std::unique_ptr<GAFSorterFile>& file : files) {
             inputs->push_back(std::move(*file));
