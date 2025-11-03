@@ -52,7 +52,7 @@ cat <(samtools view -H small/x.bam) <(printf "name\t4\t*\t0\t0\t*\t*\t0\t0\tACGT
 is "$(vg inject -x x.xg unmapped.sam | vg view -aj - | grep "path" | wc -l)" 0 "vg inject does not make an alignment for an umapped read"
 is "$(echo $?)" 0 "vg inject does not crash on an unmapped read"
 
-is $(vg inject -x x.xg small/x.bam -o GAF | wc -l) \
+is $(vg inject -x x.xg small/x.bam -o GAF | grep -v "^@" | wc -l) \
     1000 "vg inject supports GAF output"
 
 samtools cat small/x.bam small/i.bam > all.bam

@@ -389,7 +389,7 @@ TEST_CASE("CIGAR generation forces adjacent insertions and deletions to obey GAT
     
 }
 
-TEST_CASE("Conversion to GAF removes an unused final node", "[alignment]") {
+TEST_CASE("Conversion to GAF removes an unused final node", "[alignment][gaf]") {
     VG graph;
     graph.create_node("GATTACA", 1);
     graph.create_node("CAT", 2);
@@ -461,6 +461,35 @@ TEST_CASE("Conversion to GAF removes an unused final node", "[alignment]") {
         std::string difference_string = gaf.opt_fields["cs"].second;
         std::string true_difference_string = ":5*AT:1+AC";
         REQUIRE(difference_string == true_difference_string);
+    }
+}
+
+TEST_CASE("Unaligned sequences survive round-trip to GAF", "[alignment][gaf]") {
+    VG graph;
+    Alignment aln;
+    {
+        aln.set_sequence("TACACTTAC");
+        aln.set_name("unaligned");
+    }
+
+    gafkluge::GafRecord gaf = alignment_to_gaf(graph, aln, nullptr, true, false, false);
+    SECTION("GAF record is correct") {
+        REQUIRE(gaf.query_name == aln.name());
+        REQUIRE(gaf.query_length == aln.sequence().size());
+        REQUIRE(gaf.query_start == 0);
+        REQUIRE(gaf.query_end == aln.sequence().size());
+        REQUIRE(gaf.path.size() == 0);
+        REQUIRE(gaf.opt_fields.find("cs") != gaf.opt_fields.end());
+        std::string expected_cs = "+" + aln.sequence();
+        REQUIRE(gaf.opt_fields["cs"].second == expected_cs);
+    }
+
+    Alignment roundtrip;
+    gaf_to_alignment(graph, gaf, roundtrip);
+    SECTION("Round-tripped alignment is correct") {
+        REQUIRE(roundtrip.name() == aln.name());
+        REQUIRE(roundtrip.sequence() == aln.sequence());
+        REQUIRE(roundtrip.path().mapping_size() == 0);
     }
 }
 
