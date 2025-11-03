@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="structhandlegraph_1_1net__handle__t-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -76,6 +77,15 @@ $(function() {
 
 <p><code>#include &lt;types.hpp&gt;</code></p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
+Public Member Functions</h2></td></tr>
+<tr class="memitem:af298331935820d7bcd539ae7c92fbc1f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1net__handle__t.html#af298331935820d7bcd539ae7c92fbc1f">operator==</a> (const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;other) const</td></tr>
+<tr class="memdesc:af298331935820d7bcd539ae7c92fbc1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define equality on net handles.  <a href="structhandlegraph_1_1net__handle__t.html#af298331935820d7bcd539ae7c92fbc1f">More...</a><br /></td></tr>
+<tr class="separator:af298331935820d7bcd539ae7c92fbc1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a007af7ed5a061c07224d4b97816bfdd7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1net__handle__t.html#a007af7ed5a061c07224d4b97816bfdd7">operator!=</a> (const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;other) const</td></tr>
+<tr class="memdesc:a007af7ed5a061c07224d4b97816bfdd7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on net handles.  <a href="structhandlegraph_1_1net__handle__t.html#a007af7ed5a061c07224d4b97816bfdd7">More...</a><br /></td></tr>
+<tr class="separator:a007af7ed5a061c07224d4b97816bfdd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a1f37223d796f8f9a85fa8228d88ff760"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1net__handle__t.html#a1f37223d796f8f9a85fa8228d88ff760">data</a> [sizeof(<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>)]</td></tr>
@@ -86,7 +96,48 @@ Public Attributes</h2></td></tr>
 <p>Snarls and chains are bounded by two particular points, but the traversal may not visit both or any of them (as is the case for traversals between internal tips).</p>
 <p>The handle refers to the snarl or chain itself and also a particular category of traversals of it. Each of the start and end of the traversal can be the start of the snarl/chain, the end of the snarl/chain, or some internal tip, for 6 distinct combinations.</p>
 <p>For single nodes, we only have forward and reverse. </p>
-</div><h2 class="groupheader">Member Data Documentation</h2>
+</div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="a007af7ed5a061c07224d4b97816bfdd7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a007af7ed5a061c07224d4b97816bfdd7">&#9670;&nbsp;</a></span>operator!=()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool handlegraph::net_handle_t::operator!= </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Define inequality on net handles. </p>
+
+</div>
+</div>
+<a id="af298331935820d7bcd539ae7c92fbc1f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af298331935820d7bcd539ae7c92fbc1f">&#9670;&nbsp;</a></span>operator==()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool handlegraph::net_handle_t::operator== </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Define equality on net handles. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
 <a id="a1f37223d796f8f9a85fa8228d88ff760"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1f37223d796f8f9a85fa8228d88ff760">&#9670;&nbsp;</a></span>data</h2>
 
@@ -101,8 +152,9 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<hr/>The documentation for this struct was generated from the following file:<ul>
+<hr/>The documentation for this struct was generated from the following files:<ul>
 <li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html">types.hpp</a></li>
+<li>deps/libhandlegraph/src/<a class="el" href="types_8cpp.html">types.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

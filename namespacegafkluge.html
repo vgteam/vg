@@ -87,6 +87,14 @@ Functions</h2></td></tr>
 <tr class="separator:a190e58cca553fe5b7b67dac6f7aad7d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae093534cbdd3fda37e3a75ea91a0f6b2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ae093534cbdd3fda37e3a75ea91a0f6b2">is_missing</a> (int64_t i)</td></tr>
 <tr class="separator:ae093534cbdd3fda37e3a75ea91a0f6b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac32c031877f2c54e8b36db50756bd4dc"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ac32c031877f2c54e8b36db50756bd4dc">is_gaf_header_line</a> (const std::string &amp;line)</td></tr>
+<tr class="memdesc:ac32c031877f2c54e8b36db50756bd4dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the given line is a GAF header line.  <a href="namespacegafkluge.html#ac32c031877f2c54e8b36db50756bd4dc">More...</a><br /></td></tr>
+<tr class="separator:ac32c031877f2c54e8b36db50756bd4dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa47d5d3ba8aafb05947fc5dc2558f836"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#aa47d5d3ba8aafb05947fc5dc2558f836">is_gaf_header_line</a> (const char *line)</td></tr>
+<tr class="separator:aa47d5d3ba8aafb05947fc5dc2558f836"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6e708fc10f6d0344b928776911d6b7a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a6e708fc10f6d0344b928776911d6b7a6">write_gaf_file_header</a> (std::ostream &amp;out, const std::string &amp;version)</td></tr>
+<tr class="memdesc:a6e708fc10f6d0344b928776911d6b7a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes a GAF file header with the given version number to the given output stream.  <a href="namespacegafkluge.html#a6e708fc10f6d0344b928776911d6b7a6">More...</a><br /></td></tr>
+<tr class="separator:a6e708fc10f6d0344b928776911d6b7a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8a6f72dddac182a6d8d74a52a6fc92d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ab8a6f72dddac182a6d8d74a52a6fc92d">parse_gaf_record</a> (const std::string &amp;gaf_line, <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record)</td></tr>
 <tr class="separator:ab8a6f72dddac182a6d8d74a52a6fc92d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a97dfb71592c41879c5d3a5abdd4f3276"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a97dfb71592c41879c5d3a5abdd4f3276">for_each_cs</a> (const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record, std::function&lt; void(const std::string &amp;)&gt; fn)</td></tr>
@@ -232,6 +240,61 @@ Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa47d5d3ba8aafb05947fc5dc2558f836"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa47d5d3ba8aafb05947fc5dc2558f836">&#9670;&nbsp;</a></span>is_gaf_header_line() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool gafkluge::is_gaf_header_line </td>
+          <td>(</td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>line</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns true if the given line is a GAF header line. Assumes that the pointer is valid. </p>
+
+</div>
+</div>
+<a id="ac32c031877f2c54e8b36db50756bd4dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac32c031877f2c54e8b36db50756bd4dc">&#9670;&nbsp;</a></span>is_gaf_header_line() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool gafkluge::is_gaf_header_line </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>line</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns true if the given line is a GAF header line. </p>
 
 </div>
 </div>
@@ -420,6 +483,44 @@ Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6e708fc10f6d0344b928776911d6b7a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6e708fc10f6d0344b928776911d6b7a6">&#9670;&nbsp;</a></span>write_gaf_file_header()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void gafkluge::write_gaf_file_header </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>version</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Writes a GAF file header with the given version number to the given output stream. </p>
 
 </div>
 </div>
