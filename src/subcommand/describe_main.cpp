@@ -79,7 +79,7 @@ void help_describe(char** argv) {
     std::cerr << std::endl;
 
     std::cerr << "Options:" << std::endl;
-    std::cerr << "  -h, --help   print this help message and exit" << std::endl;
+    std::cerr << "  -h, --help   print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -111,6 +111,7 @@ void parse_args(int argc, char** argv) {
 }
 
 int main_describe(int argc, char** argv) {
+    Logger logger("vg describe");
     parse_args(argc, argv);
 
     // Libbdsg structures are kind of inconvenient and the files have the magic numbers in big-endian form.
@@ -145,7 +146,7 @@ int main_describe(int argc, char** argv) {
         std::string filename = argv[i];
         std::ifstream in(filename, std::ios_base::binary);
         if (!in) {
-            std::cerr << "error: [vg describe] cannot open file " << filename << std::endl;
+            logger.info() << "cannot open file " << filename << std::endl;
             continue;
         }
         in.exceptions(std::ifstream::badbit | std::ifstream::failbit);
@@ -172,7 +173,7 @@ int main_describe(int argc, char** argv) {
             std::cout << "File " << filename << " could not be identified" << std::endl;
             std::cout << std::endl;
         } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg describe] failed to read file " << filename << ": " << e.what() << std::endl;
+            logger.info() << "failed to read file " << filename << ": " << e.what() << std::endl;
             continue;
         }
     }

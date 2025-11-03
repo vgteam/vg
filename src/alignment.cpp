@@ -3531,7 +3531,10 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                         // check match/mismatch state between read and ref
                         if ((aln.sequence()[read_idx + k] == node_seq[node_idx + k]) != edit.sequence().empty()) {
                             std::stringstream ss;
-                            ss << "Edit erroneously claims " << (edit.sequence().empty() ? "match" : "mismatch") << " on node " << mapping.position().node_id() << " between node position " << (node_idx + k) << " and edit " << j << ", position " << k << " on " << (mapping.position().is_reverse() ? "reverse" : "forward") << " strand";
+                            ss << "Edit erroneously claims " << (edit.sequence().empty() ? "match" : "mismatch")
+                               << " on node " << mapping.position().node_id() << " between node position "
+                               << (node_idx + k) << " and edit " << j << ", position " << k << " on "
+                               << (mapping.position().is_reverse() ? "reverse" : "forward") << " strand";
                             return {
                                 AlignmentValidity::SEQ_DOES_NOT_MATCH,
                                 i,
@@ -3543,7 +3546,9 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                         if (!edit.sequence().empty() && edit.sequence()[k] != aln.sequence()[read_idx + k]) {
                             // compare mismatched sequence to the read
                             std::stringstream ss;
-                            ss << "Edit sequence (" << edit.sequence() << ") at position " << k << " does not match read sequence (" << aln.sequence() << ") at position " << (read_idx + k);
+                            ss << "Edit sequence (" << edit.sequence() << ") at position " << k
+                               << " does not match read sequence (" << aln.sequence() << ") at position "
+                               << (read_idx + k);
                             return {
                                 AlignmentValidity::SEQ_DOES_NOT_MATCH,
                                 i,
@@ -3572,7 +3577,9 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                     for (size_t k = 0; k < edit.to_length(); ++k) {
                         if (edit.sequence()[k] != aln.sequence()[read_idx + k]) {
                             std::stringstream ss;
-                            ss << "Read sequence (" << aln.sequence() << ") at position " << (read_idx + k) << " does not match insert sequence of edit (" << edit.sequence() << ") at position " << k;
+                            ss << "Read sequence (" << aln.sequence() << ") at position " << (read_idx + k)
+                               << " does not match insert sequence of edit (" << edit.sequence()
+                               << ") at position " << k;
                             return {
                                 AlignmentValidity::SEQ_DOES_NOT_MATCH,
                                 i,

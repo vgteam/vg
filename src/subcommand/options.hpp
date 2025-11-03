@@ -686,13 +686,13 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
             this->validator(this->value);
             this->value_set = true;
         } catch (std::domain_error& e) {
-            cerr << "error: option ";
+            auto err_msg = logging::error("optarg parse()");
+            err_msg << "error: option ";
                 if (this->short_option) {
-                    cerr << "-" << this->short_option << "/";
+                    err_msg << "-" << this->short_option << "/";
                 }
-                cerr << "--" << this->option << " ";
-                cerr << e.what() << endl;
-                exit(1);
+            err_msg << "--" << this->option << " ";
+            err_msg << e.what() << endl;
         }
     }
     

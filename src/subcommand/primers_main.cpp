@@ -16,10 +16,10 @@ void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-path FILE               use this xg graph (required)" << endl
+         << "  -x, --xg-path FILE               use this XG graph (required)" << endl
          << "  -d, --dist-index FILE            use this distance index (required)" << endl
          << "  -r, --r-index FILE               use this r index (required)" << endl
-         << "  -g, --gbz FILE                   use this gbz file (required)" << endl
+         << "  -g, --gbz FILE                   use this GBZ file (required)" << endl
          << "  -M, --minimizers FILE            use this minimizer file for mapping" << endl
          << "                                   the template sequence, if necessary" << endl
          << "  -Z, --zipcodes FILE              use this zipcode file for mapping" << endl
@@ -70,6 +70,7 @@ void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
 }
 
 int main_primers(int argc, char** argv) {
+    Logger logger("vg primers");
     
     if (argc == 2) {
         help_primers(argv);
@@ -119,27 +120,27 @@ int main_primers(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_path = optarg;
+            xg_path = require_exists(logger, optarg);
             break;
         
         case 'd':
-            distance_index_path = optarg;
+            distance_index_path = require_exists(logger, optarg);
             break;
         
         case 'r':
-            ri_path = optarg;
+            ri_path = require_exists(logger, optarg);
             break;
         
         case 'g':
-            gbz_path = optarg;
+            gbz_path = require_exists(logger, optarg);
             break;
         
         case 'M':
-            min_path = optarg;
+            min_path = require_exists(logger, optarg);
             break;
         
         case 'Z':
-            zip_path = optarg;
+            zip_path = require_exists(logger, optarg);
             break;
         
         case 'v':
@@ -174,23 +175,19 @@ int main_primers(int argc, char** argv) {
     }
 
     if (xg_path.empty()) {
-        cerr << "error:[vg primers] xg file (-x) is required" << endl;
-        exit(1);
+        logger.error() << "XG file (-x) is required" << endl;
     }
 
     if (distance_index_path.empty()) {
-        cerr << "error:[vg primers] distance index file (-d) is required" << endl;
-        exit(1);
+        logger.error() << "distance index file (-d) is required" << endl;
     }
 
     if (ri_path.empty()) {
-        cerr << "error:[vg primers] r index file (-r) is required" << endl;
-        exit(1);
+        logger.error() << "r index file (-r) is required" << endl;
     }
 
     if (gbz_path.empty()) {
-        cerr << "error:[vg primers] gbz file (-g) is required" << endl;
-        exit(1);
+        logger.error() << "GBZ file (-g) is required" << endl;
     }
 
     string primers_path = get_input_file_name(optind, argc, argv);

@@ -73,6 +73,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
 }
 
 int main_augment(int argc, char** argv) {
+    Logger logger("vg augment");
 
     // Write the translations (as protobuf) to this path
     string translation_file_name;
@@ -169,20 +170,21 @@ int main_augment(int argc, char** argv) {
         {
             // Deprecated.
         case 'a':
-            cerr << "[vg augment] warning: -a / --augmentation-mode option is deprecated" << endl;
+            logger.warn() << "-a / --augmentation-mode option is deprecated" << endl;
             break;
             // General Options
         case 'Z':
-            translation_file_name = optarg;
+            translation_file_name = ensure_writable(logger, optarg);
             break;
         case 'A':
-            gam_out_file_name = optarg;
+            gam_out_file_name = ensure_writable(logger, optarg);
             break;
         case 'i':
             include_paths = true;
             break;
         case 'C':
-            cerr << "[vg augment] warning: -C / --cut-softclips option is deprecated (now enabled by default)" << endl;
+            logger.warn() << "-C / --cut-softclips option is deprecated "
+                          << "(now enabled by default)" << endl;
             break;
         case 'S':
             include_softclips = true;
@@ -227,22 +229,13 @@ int main_augment(int argc, char** argv) {
             verbose = true;
             break;
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
-            break;
-        }            
+            set_thread_count(logger, optarg);
+            break;         
         // Loci Options
-        case 'l':
-            loci_file = optarg;
-            break;
         case 'L':
-            loci_file = optarg;
             called_genotypes_only = true;
+        case 'l': // Fall through for -L as well
+            loci_file = require_exists(logger, optarg);
             break;
             
         default:
@@ -255,9 +248,7 @@ int main_augment(int argc, char** argv) {
 
     // Parse the two positional arguments
     if (optind + 1 > argc) {
-        cerr << "[vg augment] error: too few arguments" << endl;
-        help_augment(argv, parser);
-        return 1;
+        logger.error() << "too few arguments" << endl;
     }
 
     string graph_file_name = get_input_file_name(optind, argc, argv);
@@ -266,34 +257,30 @@ int main_augment(int argc, char** argv) {
     }
 
     if (gam_in_file_name.empty() && loci_file.empty()) {
-        cerr << "[vg augment] error: gam file argument required" << endl;
-        return 1;
+        logger.error() << "GAM file argument required" << endl;
     }
     if (gam_in_file_name == "-" && graph_file_name == "-") {
-        cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
-        return 1;
+        logger.error() << "graph and GAM can't both be from stdin." << endl;
     }
     if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty() || edges_only)) {
-        cerr << "[vg augment] error: Translation (-Z), GAM (-A) output and edges-only (-E) "
-             << "do not work with \"label-only\" (-B) mode" << endl;
-        return 1;
+        logger.error() << "Translation (-Z), GAM (-A) output and edges-only (-E) "
+                       << "do not work with \"label-only\" (-B) mode" << endl;
     }
     if (include_paths && edges_only) {
-        cerr <<"vg augment] error: -E cannot be used with -i" << endl;
-        return 1;
+        logger.error() << "-E cannot be used with -i" << endl;
     }
     if (gam_in_file_name == "-" && !label_paths) {
-        cerr << "[vg augment] warning: reading the entire GAM from stdin into memory.  it is recommended to pass in"
-             << " a filename rather than - so it can be streamed over two passes" << endl;
+        logger.warn() << "reading the entire GAM from stdin into memory. It is recommended to pass in "
+                      << "a filename rather than - so it can be streamed over two passes" << endl;
         if (!gam_out_file_name.empty()) {
-            cerr << "             warning: when streaming in a GAM with -A, the output GAM will lose all non-Path"
-                 << "related fields from the input" << endl;
+            logger.warn() << "when streaming in a GAM with -A, the output GAM will lose all non-Path "
+                          << "related fields from the input" << endl;
         }
     }
 
     // read the graph
     if (show_progress) {
-        cerr << "Reading input graph" << endl;
+        logger.info() << "Reading input graph" << endl;
     }
 
     // Read the graph
@@ -341,13 +328,6 @@ int main_augment(int argc, char** argv) {
     
         // Actually do augmentation
         vector<Translation> translation;
-        if (!gam_out_file_name.empty()) {
-            ofstream gam_out_file(gam_out_file_name);
-            if (!gam_out_file) {
-                cerr << "[vg augment] error: could not open output GAM file: " << gam_out_file_name << endl;
-                return 1;
-            }
-        }
         if (gam_in_file_name == "-" || !loci_file.empty()) {
             vector<Path> buffer;
             if (gam_in_file_name == "-") {
@@ -431,13 +411,9 @@ int main_augment(int argc, char** argv) {
         if (!translation_file_name.empty()) {
             // Write the translations
             if (show_progress) {
-                cerr << "Writing translation table" << endl;
+                logger.info() << "Writing translation table" << endl;
             }
             ofstream translation_file(translation_file_name);
-            if (!translation_file) {
-                cerr << "[vg augment]: Error opening translation file: " << translation_file_name << endl;
-                return 1;
-            }
             vg::io::write_buffered(translation_file, translation, 0);
             translation_file.close();
         }

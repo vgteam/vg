@@ -35,6 +35,7 @@ void help_translate(char** argv) {
 }
 
 int main_translate(int argc, char** argv) {
+    Logger logger("vg translate");
 
     if (argc <= 2) {
         help_translate(argv);
@@ -82,19 +83,19 @@ int main_translate(int argc, char** argv) {
             break;
 
         case 'p':
-            path_file = optarg;
+            path_file = require_exists(logger, optarg);
             break;
 
         case 'a':
-            aln_file = optarg;
+            aln_file = require_exists(logger, optarg);
             break;
 
         case 'l':
-            loci_file = optarg;
+            loci_file = require_exists(logger, optarg);
             break;
 
         case 'o':
-            overlay_file = optarg;
+            overlay_file = require_exists(logger, optarg);
             break;
 
         case 'h':

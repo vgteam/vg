@@ -546,7 +546,7 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_end
         }
         
         if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id() && 
-            (prev_position_in_read - 1 >= trim_ends && prev_position_in_read <= trim_last)) {
+            (prev_position_in_read  > trim_ends && prev_position_in_read <= trim_last)) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;
@@ -635,11 +635,15 @@ string Packer::escape_delim(const string& s, char d) const {
 
 string Packer::unescape_delim(const string& s, char d) const {
     string unescaped; unescaped.reserve(s.size());
+    if (s.size() < 2) {
+        return s;  // Nothing to unescape for empty or single-char strings
+    }
     for (size_t i = 0; i < s.size()-1; ++i) {
         char c = s[i];
         char b = s[i+1];
         if (c == d && b == d) {
             unescaped.push_back(c);
+            ++i;  // Skip the duplicate delimiter
         } else {
             unescaped.push_back(c);
             if (i == s.size()-2) unescaped.push_back(b);
@@ -697,7 +701,7 @@ pair<size_t, size_t> Packer::node_quality_bin_offset(size_t i) const {
 
 size_t Packer::coverage_bin_size(size_t i) const {
     size_t bin_size = cov_bin_size;
-    if (i == coverage_dynamic.size() - 1) {
+    if (coverage_dynamic.size() > 0 && i == coverage_dynamic.size() - 1) {
         bin_size += num_bases_dynamic % coverage_dynamic.size();
     }
     return bin_size;
@@ -705,7 +709,7 @@ size_t Packer::coverage_bin_size(size_t i) const {
 
 size_t Packer::edge_coverage_bin_size(size_t i) const {
     size_t bin_size = edge_cov_bin_size;
-    if (i == edge_coverage_dynamic.size() - 1) {
+    if (edge_coverage_dynamic.size() > 0 && i == edge_coverage_dynamic.size() - 1) {
         bin_size += num_edges_dynamic % edge_coverage_dynamic.size();
     }
     return bin_size;
@@ -713,7 +717,7 @@ size_t Packer::edge_coverage_bin_size(size_t i) const {
 
 size_t Packer::node_quality_bin_size(size_t i) const {
     size_t bin_size = node_qual_bin_size;
-    if (i == node_quality_dynamic.size() - 1) {
+    if (node_quality_dynamic.size() > 0 && i == node_quality_dynamic.size() - 1) {
         bin_size += num_nodes_dynamic % node_quality_dynamic.size();
     }
     return bin_size;
