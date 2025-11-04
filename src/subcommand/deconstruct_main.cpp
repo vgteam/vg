@@ -190,7 +190,7 @@ int main_deconstruct(int argc, char** argv) {
             nested = true;
             break;
         case 'f':
-            nested_fasta_file_name = optarg;
+            nested_fasta_file_name = ensure_writable(logger, optarg);
             break;
         case 'R':
             star_allele = true;
