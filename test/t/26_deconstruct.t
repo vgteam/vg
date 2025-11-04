@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 40
+plan tests 56
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -239,6 +239,43 @@ is "$?" 0 "nested deconstruction makes correct fasta"
 
 rm -f mnp.snarls  mnp.vcf mnp_truth.tsv mnp.tsv mnp.nesting.truth.tsv  mnp.fa.truth
 
+# Test 1: Deep nesting (3+ levels) - triple nested SNP
+vg snarls nesting/triple_nested.gfa -A cactus > triple_nested.snarls
+vg deconstruct nesting/triple_nested.gfa -r triple_nested.snarls -p x -nR > triple_nested.vcf
+is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in triple nested"
+is $(grep -v ^# triple_nested.vcf | grep LV=1 | wc -l) 1 "level 1 site found in triple nested"
+is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
+is $(grep -v ^# triple_nested.vcf | grep LV=3 | wc -l) 1 "level 3 site found in triple nested"
+is $(grep "LV=3" triple_nested.vcf | grep "RC=x" | wc -l) 1 "top-level reference propagates to level 3"
+rm -f triple_nested.snarls triple_nested.vcf
+
+# Test 2: Multiple children at same level - insertion with 2 nested SNPs
+vg snarls -A cactus nesting/insertion_with_three_snps.gfa > insertion_with_three_snps.snarls
+vg deconstruct nesting/insertion_with_three_snps.gfa -p x -n -r insertion_with_three_snps.snarls > multi_child.vcf
+is $(grep -v ^# multi_child.vcf | grep LV=0 | wc -l) 1 "parent site with multiple children found"
+is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
+rm -f multi_child.vcf insertion_with_three_snps.snarls
+
+# Test 3: NestingInfo field propagation - verify all INFO tags
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > field_check.vcf
+is $(grep "LV=1" field_check.vcf | grep -o "PA=[0-9]*" | cut -d= -f2) 1 "PA field correct for nested site"
+is $(grep "LV=1" field_check.vcf | grep -o "PL=[0-9]*" | cut -d= -f2) 4 "PL field correct for nested site"
+is $(grep "LV=1" field_check.vcf | grep "RC=x" | wc -l) 1 "RC field correct for nested site"
+is $(grep "LV=1" field_check.vcf | grep "RS=" | wc -l) 1 "RS field present for nested site"
+is $(grep "LV=1" field_check.vcf | grep "RD=" | wc -l) 1 "RD field present for nested site"
+is $(grep "LV=1" field_check.vcf | grep "RL=" | wc -l) 1 "RL field present for nested site"
+rm -f field_check.vcf
+
+# Test 4: FASTA output for off-reference sequences
+vg deconstruct nesting/consecutive_nested.gfa -p x -nf consecutive.fa > consecutive.vcf
+test -s consecutive.fa && is "$?" 0 "consecutive nested graph generates off-reference FASTA"
+test -s consecutive.fa.nesting.tsv && is "$?" 0 "consecutive nested graph generates nesting TSV"
+rm -f consecutive.vcf consecutive.fa consecutive.fa.nesting.tsv
+
+# Test 5: Multiple reference traversals with nesting (should reduce to one)
+vg deconstruct nesting/cyclic_ref_nested.gfa -p x -n > cyclic_ref_nested.vcf
+is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
+rm -f cyclic_ref_nested.vcf
 
 
 
