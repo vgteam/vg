@@ -53,7 +53,7 @@ void help_deconstruct(char** argv) {
          << "                           (by default only top-level snarls reported)." << endl
          << "  -c, --context-jaccard N  set context mapping size used to disambiguate alleles" << endl
          << "                           at sites with multiple reference traversals [10000]" << endl
-         << "  -u, --untangle-travs     use context mapping fpr reference-relative positions" << endl
+         << "  -u, --untangle-travs     use context mapping for reference-relative positions" << endl
          << "                           of each step in allele traversals (AP INFO field)." << endl
          << "  -K, --keep-conflicted    retain conflicted genotypes in output." << endl
          << "  -S, --strict-conflicts   drop genotypes when we have more than one haplotype" << endl
@@ -64,7 +64,7 @@ void help_deconstruct(char** argv) {
          << "                           is >= F together [1.0; experimental]" << endl
          << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
          << "  -f, --nested-fasta F     Write off-reference FASTA to F (and some indexing" << endl
-         << "                           information to F.nesting.tsvx) [experimental]" << endl
+         << "                           information to F.nesting.tsv) [experimental]" << endl
          << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
@@ -121,23 +121,15 @@ int main_deconstruct(int argc, char** argv) {
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
                 {"nested", no_argument, 0, 'n'},
-<<<<<<< HEAD
+                {"nested-fasta", required_argument, 0, 'f'},                
                 {"star-allele", no_argument, 0, 'R'},
-=======
-                {"nested-fasta", required_argument, 0, 'f'},
-                {"start-allele", no_argument, 0, 'R'},
->>>>>>> 3d1e3c7bc (start fasta / table off-ref output)
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-<<<<<<< HEAD
-        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
-=======
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:nf:Rt:v",
->>>>>>> 3d1e3c7bc (start fasta / table off-ref output)
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nf:Rt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
