@@ -1061,7 +1061,6 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 ref_info.parent_path_interval = trav_steps[ref_trav_idx];
                 ref_info.parent_ref_interval = trav_steps[ref_trav_idx];
                 ref_info.lv0_ref_name = v.sequenceName;
-                ref_info.lv0_ref_name = v.sequenceName;
                 ref_info.lv0_ref_start = v.position;
                 ref_info.lv0_ref_len = v.alleles[0].length();
                 ref_info.lv0_alt_len = v.alleles[ref_info.parent_allele].length();
@@ -1102,7 +1101,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                         child_info.lv0_ref_start = ref_info.lv0_ref_start;
                         child_info.lv0_ref_len = ref_info.lv0_ref_len;
                         if (in_nesting_info == nullptr || in_nesting_info->has_ref == false) {
-                            // we're the parent of root, so we want to set this here
+                            // we're the parent or root, so we want to set this here
                             child_info.lv0_alt_len = child_info.parent_len;
                         } else {
                             child_info.lv0_alt_len = ref_info.lv0_alt_len;
