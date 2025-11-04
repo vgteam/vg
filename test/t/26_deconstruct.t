@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 56
+plan tests 74
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -276,6 +276,55 @@ rm -f consecutive.vcf consecutive.fa consecutive.fa.nesting.tsv
 vg deconstruct nesting/cyclic_ref_nested.gfa -p x -n > cyclic_ref_nested.vcf
 is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
 rm -f cyclic_ref_nested.vcf
+
+# Tests for -f option (off-reference FASTA output)
+
+# Test 6: -f with -n produces FASTA output
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -nf basic_test.fa > basic_test.vcf
+test -s basic_test.fa && is "$?" 0 "-f with -n produces FASTA file"
+test -s basic_test.fa.nesting.tsv && is "$?" 0 "-f with -n produces TSV file"
+rm -f basic_test.fa basic_test.fa.nesting.tsv basic_test.vcf
+
+# Test 7: Deep nesting with FASTA output - verify nesting info propagates
+vg snarls nesting/triple_nested.gfa -A cactus > triple_nested.snarls
+vg deconstruct nesting/triple_nested.gfa -r triple_nested.snarls -p x -nRf triple_nested.fa > triple_nested.vcf
+test -s triple_nested.fa && is "$?" 0 "triple nested graph generates FASTA with -f"
+test -s triple_nested.fa.nesting.tsv && is "$?" 0 "triple nested graph generates nesting TSV with -f"
+is $(wc -l < triple_nested.fa.nesting.tsv) 2 "triple nested TSV has 2 entries (merged by shared reference)"
+is $(awk '{print NF}' triple_nested.fa.nesting.tsv | uniq) 7 "nesting TSV has 7 columns"
+is $(cut -f5 triple_nested.fa.nesting.tsv | uniq) x "all TSV entries reference top-level contig x"
+rm -f triple_nested.snarls triple_nested.vcf triple_nested.fa triple_nested.fa.nesting.tsv
+
+# Test 8: Verify FASTA sequences match graph paths
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -nf nested_ins_test.fa > nested_ins_test.vcf
+is $(grep -c "^>" nested_ins_test.fa) 2 "nested insertion produces 2 FASTA sequences"
+# Check that sequences are non-empty
+is $(grep -v "^>" nested_ins_test.fa | grep -c ".") 2 "FASTA sequences are non-empty"
+# Verify TSV has matching entries
+is $(wc -l < nested_ins_test.fa.nesting.tsv) 2 "nesting TSV has matching number of entries"
+rm -f nested_ins_test.vcf nested_ins_test.fa nested_ins_test.fa.nesting.tsv
+
+# Test 9: Multiple children - verify all off-ref paths captured
+vg snarls -A cactus nesting/insertion_with_three_snps.gfa > multi_snps.snarls
+vg deconstruct nesting/insertion_with_three_snps.gfa -p x -n -r multi_snps.snarls -f multi_snps.fa > multi_snps.vcf
+test -s multi_snps.fa && is "$?" 0 "multi-child graph generates FASTA"
+# Should have sequences for the insertion alleles
+is $(grep -c "^>" multi_snps.fa) 2 "multi-child graph produces expected FASTA sequences"
+rm -f multi_snps.snarls multi_snps.vcf multi_snps.fa multi_snps.fa.nesting.tsv
+
+# Test 10: Verify TSV columns contain valid data
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -nf tsv_test.fa > tsv_test.vcf
+# Column 1: path name should contain #
+is $(cut -f1 tsv_test.fa.nesting.tsv | grep -c "#") 2 "TSV column 1 contains haplotype path names"
+# Column 2,3: positions should be integers
+is $(cut -f2 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 2 contains valid positions"
+is $(cut -f3 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 3 contains valid positions"
+# Column 5: should be reference name (x)
+is $(cut -f5 tsv_test.fa.nesting.tsv | uniq) x "TSV column 5 is top-level reference name"
+# Column 6,7: should be 0-based positions
+is $(cut -f6 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 6 contains valid reference positions"
+is $(cut -f7 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 7 contains valid reference positions"
+rm -f tsv_test.vcf tsv_test.fa tsv_test.fa.nesting.tsv
 
 
 
