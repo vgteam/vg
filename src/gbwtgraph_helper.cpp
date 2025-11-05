@@ -475,8 +475,8 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
 }
 
 void require_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerIndexParameters::PayloadType expected_payload) {
-    std::string expected_str = MinimizerIndexParameters::payload_str(expected_payload);
     std::string found = index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY);
+    std::string expected_str = MinimizerIndexParameters::payload_str(expected_payload);
     if (found != expected_str) {
         std::cerr << "error: expected a minimizer index with payload type \""
             << expected_str << "\" but found \"" << found << "\"" << std::endl;
@@ -486,24 +486,48 @@ void require_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerInd
 
 void require_payload(
     const gbwtgraph::DefaultMinimizerIndex& index,
-    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payload
+    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payloads
 ) {
     std::string found = index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY);
-    for (MinimizerIndexParameters::PayloadType type : expected_payload) {
+    for (MinimizerIndexParameters::PayloadType type : expected_payloads) {
         std::string expected_str = MinimizerIndexParameters::payload_str(type);
         if (found == expected_str) {
             return;
         }
     }
     std::cerr << "error: expected a minimizer index with one of payload types {";
-    for (size_t i = 0; i < expected_payload.size(); ++i) {
-        std::cerr << " \"" << MinimizerIndexParameters::payload_str(expected_payload[i]) << "\"";
-        if (i + 1 < expected_payload.size()) {
+    for (size_t i = 0; i < expected_payloads.size(); ++i) {
+        std::cerr << " \"" << MinimizerIndexParameters::payload_str(expected_payloads[i]) << "\"";
+        if (i + 1 < expected_payloads.size()) {
             std::cerr << ",";
         }
     }
     std::cerr << " } but found \"" << found << "\"" << std::endl;
     std::exit(EXIT_FAILURE);
+}
+
+// TODO: I couldn't figure out a way to factor out a checker/stringifier
+// function and share code between require_payload() and has_payload() without
+// some cost for the abstraction.
+
+bool has_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerIndexParameters::PayloadType payload) {
+    std::string found = index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY);
+    std::string expected_str = MinimizerIndexParameters::payload_str(payload);
+    return found == expected_str;
+}
+
+bool has_payload(
+    const gbwtgraph::DefaultMinimizerIndex& index,
+    const std::vector<MinimizerIndexParameters::PayloadType>& payloads
+) {
+    std::string found = index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY);
+    for (MinimizerIndexParameters::PayloadType type : payloads) {
+        std::string expected_str = MinimizerIndexParameters::payload_str(type);
+        if (found == expected_str) {
+            return true;
+        }
+    }
+    return false;
 }
 
 //------------------------------------------------------------------------------

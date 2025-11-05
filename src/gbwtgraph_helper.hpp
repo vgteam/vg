@@ -209,7 +209,20 @@ void require_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerInd
 /// Prints an error message and exits on failure.
 void require_payload(
     const gbwtgraph::DefaultMinimizerIndex& index,
-    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payload
+    const std::vector<MinimizerIndexParameters::PayloadType>& expected_payloads
+);
+
+/// Returns true if the minimizer index has the given payload, and false otherwise.
+///
+/// The check is based on tag "payload" stored in the index.
+bool has_payload(const gbwtgraph::DefaultMinimizerIndex& index, MinimizerIndexParameters::PayloadType payload);
+
+/// Returns true if the minimizer index has any of the given payloads, and false otherwise.
+///
+/// The check is based on tag "payload" stored in the index.
+bool has_payload(
+    const gbwtgraph::DefaultMinimizerIndex& index,
+    const std::vector<MinimizerIndexParameters::PayloadType>& payloads
 );
 
 //------------------------------------------------------------------------------

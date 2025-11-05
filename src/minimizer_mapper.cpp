@@ -59,7 +59,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     path_graph(path_graph),
     minimizer_index(minimizer_index),
     k(minimizer_index.k()), w(minimizer_index.w()),
-    payload_with_paths(false), // FIXME: how do we determine this?
+    payload_with_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
     uses_syncmers(minimizer_index.uses_syncmers()),
     distance_index(distance_index),  
     zipcodes(zipcodes),
@@ -70,8 +70,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     fragment_length_distr(1000,1000,0.95)
 {
     crash_unless(graph.index != nullptr);
-
-    // FIXME: Check the payload type and set payload_with_paths accordingly
 }
 
 void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
