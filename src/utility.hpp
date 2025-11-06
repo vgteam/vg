@@ -20,6 +20,7 @@
 #include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
+#include "log.hpp"
 
 namespace vg {
 
@@ -58,7 +59,6 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 bool starts_with(const std::string& value, const std::string& prefix);
 /// Check if a string ends with another string
 bool ends_with(const std::string& value, const std::string& suffix);
-const std::string GZ_SUFFIX = ".gz";
 
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
@@ -821,6 +821,39 @@ string file_base_name(const string& filename);
 /// Only works for files readable by the current user.
 bool file_exists(const string& filename);
 
+/// Determine if a file can be written to.
+/// Only works for files writable by the current user.
+/// Meant to be used to validate output file names.
+/// Will actually open the file, so it will overwrite the current contents.
+bool file_can_be_written(const string& filename);
+
+/// Check if a file exists and return its name (if so) or error.
+/// Uses file_exists() and is intended to be called when parsing arguments.
+string require_exists(const Logger& logger, const string& filename);
+
+/// Error if a file looks like it's gzipped.
+/// Checks the filename for ending with ".gz"; doesn't actually open it
+/// or check the magic number.
+string require_non_gzipped(const Logger& logger, const string& filename);
+
+/// Check if a file can be written to and return its name (if so) or error.
+/// Uses file_can_be_written() and is intended to be called when parsing arguments.
+string ensure_writable(const Logger& logger, const string& filename);
+
+/// A special parser for thread count which errors if non-positive
+/// If max_threads is non-zero, it will also decrease to that maximum.
+/// If max_threads is zero, max is omp_get_max_threads()
+/// Sets thread count with omp_set_num_threads()
+/// Returns new thread count
+int set_thread_count(const Logger& logger, const string& arg, int max_threads = 0);
+
+/// A special parser for possibly-paired FASTQ files
+/// If the first file is unset, then it gets the input filename
+/// Else if the second file is unset, then it gets the input filename
+/// If both are already set, then this errors
+/// Also calls require_exists() on the filenames
+/// To set both FASTQ files, you'll need to call this twice
+void assign_fastq_files(const Logger& logger, const string& input_filename, string& slot1, string& slot2);
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>
@@ -910,6 +943,28 @@ template<typename Result>
 Result parse(const char* arg) {
     return parse<Result>(string(arg));
 }
+
+/// Parse an argument that should be a pair of strings separated by a delimiter.
+/// Errors if the string does not contain exactly one delimiter.
+template<typename T1 = std::string, typename T2 = std::string>
+std::pair<T1, T2> parse_pair(const Logger& logger, const string& arg,
+                             const char& delimiter, const string& option_name) {
+    size_t delim_index = arg.find(delimiter);
+    if (delim_index == string::npos || delim_index == 0 || delim_index + 1 == arg.size()) {
+        logger.error() << option_name << " must have two parts separated by a "
+                       << delimiter << ", not \"" << arg << "\"" << endl;
+    }
+    string second_part = arg.substr(delim_index + 1);
+    if (second_part.find(delimiter) != string::npos) {
+        // The second part has another delimiter in it, which is not allowed.
+        logger.error() << option_name << " must have two parts separated by a `"
+                       << delimiter << "`, not \"" << arg << "\"" << endl;
+    }
+    // Parse out the two parts
+    return make_pair(parse<T1>(arg.substr(0, delim_index)),
+                     parse<T2>(arg.substr(delim_index + 1)));
+}
+
  
 }
 

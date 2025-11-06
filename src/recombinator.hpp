@@ -301,7 +301,7 @@ public:
     typedef Haplotypes::Subchain::kmer_type kmer_type;
 
     /// Minimizer index without payloads.
-    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::Position> minimizer_index_type;
+    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64> minimizer_index_type;
 
     /**
      * A subchain is a substring of a top-level chain defined by at most two

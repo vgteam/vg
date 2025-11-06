@@ -22,6 +22,8 @@ using namespace std;
 TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistry]") {
     
     TestIndexRegistry registry;
+    // Turn off file existence checking for unit tests
+    registry.check_files = false;
     
     // name the indexes
     registry.register_index("FASTA", "fasta");

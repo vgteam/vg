@@ -12,7 +12,7 @@ Insertions: 0 bp in 0 read events
 Deletions: 0 bp in 0 read events
 Substitutions: 0 bp in 0 read events
 Matches: 10000 bp (100 bp/alignment)
-Softclips: 0 bp in 0 read events
+Softclips: 0 bp (0% of bases, 0 bp/alignment) in 0 read events
 Unvisited nodes: 4/208 (4 bp)
 Single-visited nodes: 11/208 (18 bp)
 Significantly biased heterozygous sites: 2/62 (3.22581%)

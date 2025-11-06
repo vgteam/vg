@@ -80,6 +80,7 @@ void help_stats(char** argv) {
 }
 
 int main_stats(int argc, char** argv) {
+    Logger logger("vg stats");
 
     if (argc == 2) {
         help_stats(argv);
@@ -231,7 +232,7 @@ int main_stats(int argc, char** argv) {
             break;
 
         case 'a':
-            alignments_filename = optarg;
+            alignments_filename = require_exists(logger, optarg);
             break;
 
         case 'r':
@@ -278,19 +279,11 @@ int main_stats(int argc, char** argv) {
             degree_dist = true;
             break;
         case 'b':
-            distance_index_filename = optarg;
+            distance_index_filename = require_exists(logger, optarg);
             break;
         case 'p':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg stats] Thread count (-t) set to " << num_threads
-                     << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            set_thread_count(logger, optarg);
             break;
-        }
 
         case 'h':
         case '?':
@@ -304,8 +297,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (!snarl_sample.empty() && !snarl_stats) {
-        cerr << "error [vg stats]: --snarl-sample can only be used with --snarls/-R" << endl;
-        exit(1);
+        logger.error() << "--snarl-sample can only be used with --snarls/-R" << endl;
     }
 
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -327,17 +319,16 @@ int main_stats(int argc, char** argv) {
     }
     
     // We have function to make sure the graph was passed and complain if not
-    auto require_graph = [&graph]() {
+    auto require_graph = [&graph, &logger]() {
         if (graph == nullptr) {
-            cerr << "error[vg stats]: The selected operation requires passing a graph file to work on" << endl;
-            exit(1);
+            logger.error() << "The selected operation requires passing a graph file to work on" << endl;
         }
     };
 
     if (stats_size) {
         require_graph();
         cout << "nodes" << "\t" << graph->get_node_count() << endl
-            << "edges" << "\t" << graph->get_edge_count() << endl;
+             << "edges" << "\t" << graph->get_edge_count() << endl;
     }
 
     if (node_count) {
@@ -670,6 +661,8 @@ int main_stats(int argc, char** argv) {
             // And pairing
             size_t total_paired = 0;
             size_t total_proper_paired = 0;
+            // And just bases in general
+            size_t total_bases = 0;
 
             // Alignment and mapping quality score distributions.
             std::map<std::int64_t, size_t> alignment_scores;
@@ -713,6 +706,7 @@ int main_stats(int argc, char** argv) {
                 total_softclipped_bases += other.total_softclipped_bases;
                 total_paired += other.total_paired;
                 total_proper_paired += other.total_proper_paired;
+                total_bases += other.total_bases;
 
                 for (auto iter = other.alignment_scores.begin(); iter != other.alignment_scores.end(); ++iter) {
                     this->alignment_scores[iter->first] += iter->second;
@@ -878,6 +872,7 @@ int main_stats(int argc, char** argv) {
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
                         // Go through edits and look for each type.
                         auto& edit = mapping.edit(j);
+                        stats.total_bases += edit.to_length();
 
                         if(edit.to_length() > edit.from_length()) {
                             // This is an insert or softclip and not a match
@@ -971,7 +966,7 @@ int main_stats(int argc, char** argv) {
             }
         });
         if (show_progress) {
-            std::cerr << "Destroy per-thread data structures" << std::endl;
+            logger.info() << "Destroy per-thread data structures" << std::endl;
         }
         // This can take a long time because we need to deallocate all this
         // stuff allocated by other threads, such as per-node count maps.
@@ -1001,7 +996,7 @@ int main_stats(int argc, char** argv) {
 
         if (graph != nullptr) {
             if (show_progress) {
-                std::cerr << "Account for graph" << std::endl;
+                logger.info() << "Account for graph" << std::endl;
             }
 
             // Calculate stats about the reads per allele data
@@ -1077,7 +1072,7 @@ int main_stats(int argc, char** argv) {
         }
 
         if (show_progress) {
-            std::cerr << "Print report" << std::endl;
+            logger.info() << "Print report" << std::endl;
         }
 
         cout << "Total alignments: " << combined.total_alignments << endl;
@@ -1127,8 +1122,12 @@ int main_stats(int argc, char** argv) {
             cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
         }
         cout << endl;
-        cout << "Softclips: " << combined.total_softclipped_bases << " bp in "
-             << combined.total_softclips << " read events" << endl;
+        cout << "Softclips: " << combined.total_softclipped_bases << " bp";
+        if (combined.total_alignments > 0) {
+            cout << " (" << 100 * combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
+                 << combined.total_softclipped_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+        } 
+        cout << " in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.softclips) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
@@ -1189,7 +1188,7 @@ int main_stats(int argc, char** argv) {
         if (snarl_stats) {
             // TSV header
             if (!snarl_sample.empty()) {
-                // optionally prefix with bed-like refpath coordinates if --snarl-sample given
+                // optionally prefix with BED-like refpath coordinates if --snarl-sample given
                 cout <<"Contig\tStartPos\tEndPos\t";
                 
                 if (pp_graph == nullptr) {
@@ -1200,8 +1199,7 @@ int main_stats(int argc, char** argv) {
                     ref_path_names.push_back(graph->get_path_name(path_handle));
                 });
                 if (ref_path_names.empty()) {
-                    cerr << "error [vg stats]: unable to find any paths of --snarl-sample " << snarl_sample << endl;
-                    exit(1);
+                    logger.error() << "unable to find any paths of --snarl-sample" << endl;
                 }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }

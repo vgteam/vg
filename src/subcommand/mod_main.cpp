@@ -85,6 +85,7 @@ void help_mod(char** argv) {
 }
 
 int main_mod(int argc, char** argv) {
+    Logger logger("vg mod");
 
     if (argc == 2) {
         help_mod(argv);
@@ -188,36 +189,31 @@ int main_mod(int argc, char** argv) {
         {
 
         case 'i':
-            cerr << "[vg mod] error: vg mod -i is deprecated.  please switch to vg augment" << endl;
-            exit(1);
+            logger.error() << "vg mod -i is deprecated.  please switch to vg augment" << endl;
+            break;
 
         case 'q':
-            cerr << "[vg mod] error: vg mod -q is deprecated.  please switch to vg augment -l" << endl;
-            exit(1);
+            logger.error() << "vg mod -q is deprecated.  please switch to vg augment -l" << endl;
+            break;
 
         case 'Q':
-            cerr << "[vg mod] error: vg mod -Q is deprecated.  please switch to vg augment -L" << endl;
-            exit(1);
+            logger.error() << "vg mod -Q is deprecated.  please switch to vg augment -L" << endl;
             break;
 
         case 'Z':
-            cerr << "[vg mod] error: vg mod -Z is deprecated.  please switch to vg augment -Z" << endl;
-            exit(1);
+            logger.error() << "vg mod -Z is deprecated.  please switch to vg augment -Z" << endl;
             break;
 
         case 'D':
-            cerr << "[vg mod] error: vg mod -D is deprecated.  please switch to vg paths -d" << endl;
-            exit(1);
+            logger.error() << "vg mod -D is deprecated.  please switch to vg paths -d" << endl;
             break;
 
         case 'r':
-            cerr << "[vg mod] error: vg mod -r is deprecated.  please switch to vg paths -r" << endl;
-            exit(1);
+            logger.error() << "vg mod -r is deprecated.  please switch to vg paths -r" << endl;
             break;
 
         case 'I':
-            cerr << "[vg mod] error: vg mod -I is deprecated.  please switch to vg paths -d" << endl;
-            exit(1);
+            logger.error() << "vg mod -I is deprecated.  please switch to vg paths -d" << endl;
             break;
 
         case 'c':
@@ -233,7 +229,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'o':
-            cerr << "warning[vg mod]: -o is deprecated. Dangling edges are now automatically removed." << endl;
+            logger.warn() << "-o is deprecated. Dangling edges are now automatically removed." << endl;
             break;
 
         case 'p':
@@ -269,7 +265,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            set_thread_count(logger, optarg);
             break;
 
         case 'f':
@@ -281,7 +277,8 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'P':
-            cerr << "[vg mod] warning: vg mod -P is deprecated and will soon be removed.  please switch to vg augment -B" << endl;
+            logger.warn() << "vg mod -P is deprecated and will soon be removed. "
+                          << "please switch to vg augment -B" << endl;
             label_paths = true;
             break;
 
@@ -346,11 +343,11 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'v':
-            vcf_filename = optarg;
+            vcf_filename = require_exists(logger, optarg);
             break;
             
         case 'G':
-            loci_filename = optarg;
+            loci_filename = require_exists(logger, optarg);
             break;
 
         case 'M':
@@ -385,8 +382,7 @@ int main_mod(int argc, char** argv) {
         vcflib::VariantCallFile variant_file;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            cerr << "error:[vg mod] could not open" << vcf_filename << endl;
-            return 1;
+            logger.error() << "could not open " << vcf_filename << endl;
         }
 
         // Now go through and prune down the varaints.
@@ -503,7 +499,8 @@ int main_mod(int argc, char** argv) {
                 // same path without this node.
                 paths_to_remove.emplace(graph->get_path_handle_of_step(s));
 #ifdef debug
-                cerr << "Node " << node_id << " was on path " << graph->get_path_name(graph->get_path_handle_of_step(s)) << endl;
+                info(context) << "Node " << node_id << " was on path "
+                              << graph->get_path_name(graph->get_path_handle_of_step(s)) << endl;
 #endif
             });
 
@@ -613,7 +610,7 @@ int main_mod(int argc, char** argv) {
         set<string> kept_paths;
         vg_graph->keep_paths(path_names, kept_paths, invert_keep_paths);
         if (path_names.size() != kept_paths.size() && !invert_keep_paths) {
-            cerr << "[vg mod]: warning: some paths were not found in the graph, and will not be kept" << endl;
+            logger.warn() << "some paths were not found in the graph, and will not be kept" << endl;
             for (const auto& path_name : path_names) {
                 if (kept_paths.count(path_name) == 0) {
                     cerr << "\t\t\t" << path_name << endl;
@@ -734,8 +731,7 @@ int main_mod(int argc, char** argv) {
 
     if (prune_complex) {
         if (!(path_length > 0 && edge_max > 0)) {
-            cerr << "[vg mod]: when pruning complex regions you must specify a --length and --edge-max" << endl;
-            return 1;
+            logger.error() << "when pruning complex regions you must specify a --length and --edge-max" << endl;
         }
         algorithms::prune_complex_with_head_tail(*graph, path_length, edge_max);
     }
@@ -763,8 +759,7 @@ int main_mod(int argc, char** argv) {
 
     if (add_start_and_end_markers) {
         if (!(path_length > 0)) {
-            cerr << "[vg mod]: when adding start and end markers you must provide a --length" << endl;
-            return 1;
+            logger.error() << "when adding start and end markers you must provide a --length" << endl;
         }
         // TODO: replace this with the SourceSinkOverlay, accounting somehow for its immutability.
         Node* head_node = NULL;

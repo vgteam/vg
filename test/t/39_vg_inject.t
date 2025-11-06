@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 23
+plan tests 33
 
 vg construct -r small/x.fa > j.vg
 vg index -x j.xg j.vg
@@ -52,7 +52,7 @@ cat <(samtools view -H small/x.bam) <(printf "name\t4\t*\t0\t0\t*\t*\t0\t0\tACGT
 is "$(vg inject -x x.xg unmapped.sam | vg view -aj - | grep "path" | wc -l)" 0 "vg inject does not make an alignment for an umapped read"
 is "$(echo $?)" 0 "vg inject does not crash on an unmapped read"
 
-is $(vg inject -x x.xg small/x.bam -o GAF | wc -l) \
+is $(vg inject -x x.xg small/x.bam -o GAF | grep -v "^@" | wc -l) \
     1000 "vg inject supports GAF output"
 
 samtools cat small/x.bam small/i.bam > all.bam
@@ -73,10 +73,32 @@ is "$(cat log.txt | wc -l)" "0" "vg inject does not warn about a read abutting t
 
 vg inject -x x.xg small/pastend.sam >/dev/null 2>log.txt
 is "${?}" 1 "vg inject aborts when given a read extending past the end of the contig"
-is "$(grep error log.txt | grep 1001 | grep 1002 | wc -l)" "1" "vg inject reports a useful error message about a read extendign past the end of the contig"
+is "$(grep error log.txt | grep 1001 | grep 1002 | wc -l)" "1" "vg inject reports a useful error message about a read extending past the end of the contig"
 
 vg inject -x x.xg small/unmapped.sam | vg stats -a - >stats.txt
 is "$(grep "Total alignments: 4" stats.txt | wc -l)" "1" "Injecting reads flagged as unmapped produces alignment records"
 is "$(grep "Total aligned: 0" stats.txt | wc -l)" "1" "Injecting reads flagged as unmapped produces unaligned alignment records"
 
-rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam all.bam log.txt stats.txt
+vg inject -x x.xg small/bad_contig.sam >/dev/null 2>log.txt
+is "${?}" 1 "vg inject aborts when given a read on a contig not in the graph"
+is "$(grep error log.txt | grep 'not present in graph' | wc -l)" "1" \
+"vg inject reports a useful error message about a read on a contig not in the graph"
+
+vg inject -t 2 -x x.xg small/bad_contig.sam >/dev/null 2>log.txt
+is "${?}" 1 "vg inject aborts when given a read on a contig not in the graph (parallel)"
+is "$(grep error log.txt | grep 'not present in graph' | wc -l)" "1" \
+"vg inject reports a useful error message about a read on a contig not in the graph (parallel)"
+
+vg inject -a -x x.xg small/bad_contig.sam > bad_contig.gam
+is "${?}" 0 "vg inject -a allows a read on a contig not in the graph"
+vg stats -a bad_contig.gam >stats.txt
+is "$(grep "Total alignments: 2" stats.txt | wc -l)" "1" "Injecting reads on missing contigs still produces alignment records"
+is "$(grep "Total aligned: 1" stats.txt | wc -l)" "1" "Injecting reads on missing contigs produces unmapped alignment records"
+
+vg inject -t 2 -a -x x.xg small/bad_contig.sam > bad_contig.gam
+is "${?}" 0 "vg inject -a allows a read on a contig not in the graph (parallel)"
+vg stats -a bad_contig.gam >stats.txt
+is "$(grep "Total alignments: 2" stats.txt | wc -l)" "1" "Injecting reads on missing contigs still produces alignment records (parallel)"
+is "$(grep "Total aligned: 1" stats.txt | wc -l)" "1" "Injecting reads on missing contigs produces unmapped alignment records (parallel)"
+
+rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam all.bam log.txt stats.txt bad_contig.gam
