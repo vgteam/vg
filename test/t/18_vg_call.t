@@ -141,7 +141,7 @@ vg map -x c.xg -g c.gcsa -G m.sim >m.gam
 vg augment c.vg m.gam -A m.aug.gam >c.aug.vg
 vg index -x c.aug.xg c.aug.vg
 vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
-vg call c.aug.xg -k m.aug.pack >m.vcf
+vg call c.aug.xg -k m.aug.pack -p s1 >m.vcf
 is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
 rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 

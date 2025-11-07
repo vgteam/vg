@@ -50,6 +50,8 @@ void help_snarl(char** argv) {
          << "                            exhaustive traversal finder with -r" << endl
          << "  -f, --fasta FILE          reference as FASTA (required for SVs by -v)" << endl
          << "  -i, --ins-fasta FILE      insertions as FASTA (required for SVs by -v)" << endl
+         << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
+         << "                            of a top-level chain (may repeat)" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
 }
@@ -78,7 +80,12 @@ int main_snarl(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     bool path_traversals = false;
-        
+    std::unordered_map<nid_t, size_t> extra_node_weight;
+    // We will put this amount of extra weight on upweighted nodes. It should
+    // be longer than the maximum plausible distracting path or spurious bridge
+    // edge cycle, but small enough that several of it fit in a size_t.
+    constexpr size_t EXTRA_WEIGHT = 10000000000;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -98,6 +105,7 @@ int main_snarl(int argc, char** argv) {
                 {"fasta", required_argument, 0, 'f'},
                 {"ins-fasta", required_argument, 0, 'i'},
                 {"path-traversals", no_argument, 0, 'e'},
+                {"upweight-node", required_argument, 0, 'w'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
@@ -105,7 +113,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:eh?t:",
+        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:ew:h?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -166,6 +174,11 @@ int main_snarl(int argc, char** argv) {
             path_traversals = true;
             break;
 
+        case 'w':
+            // We use += so you can repeat a node and make it even more heavier.
+            extra_node_weight[parse<nid_t>(optarg)] += EXTRA_WEIGHT;
+            break;
+
         case 't':
             set_thread_count(logger, optarg);
             break;
@@ -220,13 +233,17 @@ int main_snarl(int argc, char** argv) {
         
     // Pick a SnalrFinder
     unique_ptr<SnarlFinder> snarl_finder;
-    
+
+    if (!extra_node_weight.empty() && algorithm != "integrated") {
+        logger.error() << "-w can only be used with -A integrated (not cactus algorithm)" << endl;
+    }
+
     if (algorithm == "cactus") {
         snarl_finder.reset(new CactusSnarlFinder(*graph));
     } else if (algorithm == "integrated") {
-        snarl_finder.reset(new IntegratedSnarlFinder(*graph));
+        snarl_finder.reset(new IntegratedSnarlFinder(*graph, extra_node_weight));
     } else {
-        logger.error() << "Algorithm must be 'cactus' or 'integrated', not '" 
+        logger.error() << "Algorithm must be 'cactus' or 'integrated', not '"
                        << algorithm << "'" << endl;
     }
     if (!vcf_filename.empty() && path_traversals) {
