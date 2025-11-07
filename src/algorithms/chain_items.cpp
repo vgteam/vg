@@ -571,6 +571,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 
     // We will run this over every transition in a good DP order.
     auto iteratee = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+        if (show_work) {
+            cerr << "DP: " <<  from_anchor << "->" << to_anchor 
+                 << " rd " << read_distance << " gd " << graph_distance << endl;
+        }
         
         crash_unless(chain_scores.size() > to_anchor);
         crash_unless(chain_scores.size() > from_anchor);
