@@ -268,8 +268,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // Emit a transition between a source and destination anchor, or skip if actually unreachable.
             size_t source_anchor_index = std::get<0>(transition);
             size_t dest_anchor_index = std::get<1>(transition);
-            size_t graph_distance = std::get<3>(transition);
-            size_t read_distance = std::get<2>(transition);
+            size_t graph_distance = std::get<2>(transition);
+            size_t read_distance = std::get<3>(transition);
             // Send it along.
             callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
         }
