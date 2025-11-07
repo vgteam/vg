@@ -1970,7 +1970,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                 // With a source
                 chain_source_tree.push_back(tree_num);
                 // With a score
-                chain_score_estimates.emplace_back(0);
+                chain_score_estimates.emplace_back(chain_result.first);
                 int& score = chain_score_estimates.back();
                 // And counts of each minimizer kept
                 minimizer_kept_chain_count.emplace_back();
@@ -1997,9 +1997,6 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                         
                     // And append all the seed numbers to the chain
                     std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
-                    
-                    // And count the score
-                    score += fragment_scores.at(fragment_num_overall);
                     
                     // And count the kept minimizers
                     auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
