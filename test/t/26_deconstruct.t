@@ -207,8 +207,7 @@ rm -f nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
 # todo: the integrated snarl finder doesnt anchor to the reference
 #       probably not an issue on most real graphs from vg construct / minigraph cacuts
 #       but seems like something that needs reviewing
-vg snarls nesting/nested_snp_in_nested_ins.gfa -A cactus > nested_snp_in_nested_ins.snarls
-vg deconstruct nesting/nested_snp_in_nested_ins.gfa -r nested_snp_in_nested_ins.snarls -P x -n > nested_snp_in_nested_ins.vcf
+vg deconstruct nesting/nested_snp_in_nested_ins.gfa -P x -n > nested_snp_in_nested_ins.vcf
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | awk '{print $8}') "AC=1,1;AF=0.5,0.5;AN=2;AT=>1>6,>1>2>3>31>33>34>35>5>6,>1>2>3>31>32>34>35>5>6;NS=1;PA=0;PL=1;PR=1;RC=x;RD=1;RL=1;RS=1;LV=0" "INFO tags correct for level-0 site of double-nested SNP"
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>2>3>31>33>34>35>5,>2>3>31>32>34>35>5;NS=1;PA=1;PL=8;PR=1;RC=x;RD=1;RL=8;RS=1;LV=1;PS=>1>6" "INFO tags correct for level-1 site of double-nested SNP"
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>31>33>34,>31>32>34;NS=1;PA=0;PL=5;PR=5;RC=x;RD=1;RL=8;RS=1;LV=2;PS=>2>5" "INFO tags correct for level-2 site of double-nested SNP"
@@ -240,8 +239,7 @@ is "$?" 0 "nested deconstruction makes correct fasta"
 rm -f mnp.snarls  mnp.vcf mnp_truth.tsv mnp.tsv mnp.nesting.truth.tsv  mnp.fa.truth
 
 # Test 1: Deep nesting (3+ levels) - triple nested SNP
-vg snarls nesting/triple_nested.gfa -A cactus > triple_nested.snarls
-vg deconstruct nesting/triple_nested.gfa -r triple_nested.snarls -p x -nR > triple_nested.vcf
+vg deconstruct nesting/triple_nested.gfa  -p x -nR > triple_nested.vcf
 is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=1 | wc -l) 1 "level 1 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
@@ -250,8 +248,7 @@ is $(grep "LV=3" triple_nested.vcf | grep "RC=x" | wc -l) 1 "top-level reference
 rm -f triple_nested.snarls triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
-vg snarls -A cactus nesting/insertion_with_three_snps.gfa > insertion_with_three_snps.snarls
-vg deconstruct nesting/insertion_with_three_snps.gfa -p x -n -r insertion_with_three_snps.snarls > multi_child.vcf
+vg deconstruct nesting/insertion_with_three_snps.gfa -p x -n  > multi_child.vcf
 is $(grep -v ^# multi_child.vcf | grep LV=0 | wc -l) 1 "parent site with multiple children found"
 is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
 rm -f multi_child.vcf insertion_with_three_snps.snarls
@@ -286,8 +283,7 @@ test -s basic_test.fa.nesting.tsv && is "$?" 0 "-f with -n produces TSV file"
 rm -f basic_test.fa basic_test.fa.nesting.tsv basic_test.vcf
 
 # Test 7: Deep nesting with FASTA output - verify nesting info propagates
-vg snarls nesting/triple_nested.gfa -A cactus > triple_nested.snarls
-vg deconstruct nesting/triple_nested.gfa -r triple_nested.snarls -p x -nRf triple_nested.fa > triple_nested.vcf
+vg deconstruct nesting/triple_nested.gfa -p x -nRf triple_nested.fa > triple_nested.vcf
 test -s triple_nested.fa && is "$?" 0 "triple nested graph generates FASTA with -f"
 test -s triple_nested.fa.nesting.tsv && is "$?" 0 "triple nested graph generates nesting TSV with -f"
 is $(wc -l < triple_nested.fa.nesting.tsv) 2 "triple nested TSV has 2 entries (merged by shared reference)"

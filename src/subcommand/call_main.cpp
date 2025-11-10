@@ -624,7 +624,14 @@ int main_call(int argc, char** argv) {
         if (show_progress) logger.info() << "Loaded snarls" << endl;
     } else {
         if (show_progress) logger.info() << "Computing snarls" << endl;
-        IntegratedSnarlFinder finder(*graph);
+        std::unordered_map<nid_t, size_t> extra_node_weight;
+        constexpr size_t EXTRA_WEIGHT = 10000000000;
+        for (const string& refpath_name : ref_paths) {
+            path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
+            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(refpath_handle)))] += EXTRA_WEIGHT;
+            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
+        }        
+        IntegratedSnarlFinder finder(*graph, extra_node_weight);
         if (show_progress) logger.info() << "Computed snarls" << endl;
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }

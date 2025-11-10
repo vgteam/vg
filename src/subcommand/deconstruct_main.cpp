@@ -334,7 +334,20 @@ int main_deconstruct(int argc, char** argv) {
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(*graph, translation_file);
     }
-    
+
+    // process the prefixes to find ref paths
+    if (!refpath_prefixes.empty()) {
+        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            for (auto& prefix : refpath_prefixes) {                    
+                if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                    refpaths.push_back(path_name);
+                    break;
+                }
+            }
+        });
+    }
+
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_file_name.empty()) {
@@ -344,26 +357,20 @@ int main_deconstruct(int argc, char** argv) {
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        IntegratedSnarlFinder finder(*graph);
+        std::unordered_map<nid_t, size_t> extra_node_weight;
+        constexpr size_t EXTRA_WEIGHT = 10000000000;
+        for (const string& refpath_name : refpaths) {
+            path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
+            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(refpath_handle)))] += EXTRA_WEIGHT;
+            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
+        }
+        IntegratedSnarlFinder finder(*graph, extra_node_weight);
         if (show_progress) {
             logger.info() << "Finding snarls" << endl;
         }
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
-    // process the prefixes to find ref paths
-    if (!refpath_prefixes.empty()) {
-        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                string path_name = graph->get_path_name(path_handle);
-                for (auto& prefix : refpath_prefixes) {                    
-                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
-                        refpaths.push_back(path_name);
-                        break;
-                    }
-                }
-            });
-    }
-
     if (refpaths.empty()) {
         logger.error() << "No specified reference path or prefix found in graph" << endl;
     }
