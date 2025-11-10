@@ -288,22 +288,7 @@ int main_clip(int argc, char** argv) {
         }
     }
 
-    if (need_snarls) {
-        // Load or compute the snarls which are required for targetting BED regions
-        if (!snarls_path.empty()) {
-            ifstream snarl_file(snarls_path.c_str());
-            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
-            if (verbose) {
-                logger.info() << "Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
-            }
-        } else {
-            IntegratedSnarlFinder finder(*graph);
-            snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
-            if (verbose) {
-                logger.info() << "Computed " << snarl_manager->num_snarls() << " snarls" << endl;
-            }
-        }
-        
+    if (need_snarls) {        
         // load the BED file
         if (!bed_path.empty()) {
             parse_bed_regions(bed_path, bed_regions);
@@ -360,6 +345,27 @@ int main_clip(int argc, char** argv) {
             if (verbose) {
                 logger.info() << "Inferred " << bed_regions.size() 
                               << " BED regions from paths in the graph" << endl;
+            }
+        }
+        // Load or compute the snarls which are required for targetting BED regions
+        if (!snarls_path.empty()) {
+            ifstream snarl_file(snarls_path.c_str());
+            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+            if (verbose) {
+                logger.info() << "Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
+            }
+        } else {
+            std::unordered_map<nid_t, size_t> extra_node_weight;
+            constexpr size_t EXTRA_WEIGHT = 10000000000;
+            for (const Region& region : bed_regions) {
+                path_handle_t path_handle = graph->get_path_handle(region.seq);
+                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
+                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
+            }
+            IntegratedSnarlFinder finder(*graph, extra_node_weight);
+            snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
+            if (verbose) {
+                logger.info() << "Computed " << snarl_manager->num_snarls() << " snarls" << endl;
             }
         }
     }        
