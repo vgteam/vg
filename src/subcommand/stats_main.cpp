@@ -1175,10 +1175,10 @@ int main_stats(int argc, char** argv) {
     if (snarl_stats || chain_stats || snarl_contents) {
         // We will go through all the snarls and compute stats.        
         require_graph();
-        
-        // First compute the snarls
-        manager = IntegratedSnarlFinder(*graph).find_snarls_parallel();
 
+        std::unordered_map<nid_t, size_t> extra_node_weight;
+        constexpr size_t EXTRA_WEIGHT = 10000000000;
+        
         // additional indexes only needed when finding --snarl-sample coordinates
         unique_ptr<PathTraversalFinder> path_trav_finder;
         bdsg::PathPositionOverlayHelper overlay_helper;
@@ -1197,6 +1197,8 @@ int main_stats(int argc, char** argv) {
                 vector<string> ref_path_names;
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
                     ref_path_names.push_back(graph->get_path_name(path_handle));
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
                 });
                 if (ref_path_names.empty()) {
                     logger.error() << "unable to find any paths of --snarl-sample" << endl;
@@ -1207,6 +1209,9 @@ int main_stats(int argc, char** argv) {
                  << "\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth"
                  << "\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
         }
+
+        // First compute the snarls
+        manager = IntegratedSnarlFinder(*graph, extra_node_weight).find_snarls_parallel();
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
