@@ -2033,6 +2033,18 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                                 std::cerr << " " << s;
                             } 
                             std::cerr << std::endl;
+
+                            // get recombination count
+                            size_t recombination_count = 0;
+                            size_t current_paths = UINT64_MAX;
+                            for (size_t s : chains.back()) {
+                                current_paths &= seeds.at(s).paths;
+                                if (current_paths == 0) {
+                                    recombination_count++;
+                                    current_paths = seeds.at(s).paths;
+                                }
+                            }
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " has " << recombination_count << " recombinations." << std::endl;
                         }
                         if (track_provenance) {
                             for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
