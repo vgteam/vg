@@ -186,80 +186,132 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
     }
 }
 
-void MinimizerMapper::dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph) {
+void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
+                                         const std::vector<Seed>& seeds,
+                                         const VectorView<Minimizer>& minimizers,
+                                         const std::vector<std::vector<size_t>>& fragments,
+                                         const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                         const std::vector<std::vector<size_t>>& chains,
+                                         const std::vector<size_t>& chain_source_tree,
+                                         const PathPositionHandleGraph* path_graph) {
     if (!path_graph) {
         // We don't have a path positional graph for this
         return;
     }
 
-    // Log the best bucket's seed positions in read and linear reference
-    TSVExplainer exp(true, name + "-dotplot");
+    // Loop through all chains
+    for (size_t chain_num = 0; chain_num < chains.size(); chain_num++) {
+        // For each chain, create a separate TSV file
 
-    // Determine the positions of all the involved seeds.
-    std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
-    for (auto& kv : seed_sets) {
-        for (const std::vector<size_t> included_seeds : kv.second) {
-            for (auto& seed_num : included_seeds) {
-                // For each seed in the run
-                auto& seed = seeds.at(seed_num);
+        auto& tree_num = chain_source_tree.at(chain_num);
 
-                auto found = seed_positions.find(seed_num);
-                if (found == seed_positions.end()) {
-                    // If we don't know the seed's positions yet, get them
-                    seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+        // Find all the seeds in its zip tree
+        vector<size_t> involved_seeds;
+        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
+            involved_seeds.push_back(found.seed);
+        }
+
+        // Start making a list of things to show.
+        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
+        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
+        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(chain_num)});
+
+        // Find all the fragments we passed for this tree
+        std::vector<std::vector<size_t>> relevant_fragments;
+        const auto& tree_fragments = good_fragments_in.at(tree_num);
+        for (const auto& fragment_num : tree_fragments) {
+            // Get all the seeds in each fragment
+            const std::vector<size_t>& fragment = fragments.at(fragment_num);
+            relevant_fragments.push_back(fragment);
+        }
+        seed_sets.emplace_back("frag", std::move(relevant_fragments));
+
+        // Sort everything in read order
+        for (auto& seed_set : seed_sets) {
+            for (auto& run : seed_set.second) {
+                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
+                    auto& seed_a = seeds.at(seed_index_a);
+                    auto& seed_b = seeds.at(seed_index_b);
+
+                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
+
+                });
+            }
+        }
+
+        // Create a name for this chain's file
+        std::string chain_file_name = "chain" + std::to_string(chain_num) + "-dotplot";
+
+        // Now we need to actually dump the data to a TSV
+        // The read context should already be set by the caller
+        TSVExplainer exp(true, chain_file_name);
+
+        // Determine the positions of all the involved seeds.
+        std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
+        for (auto& kv : seed_sets) {
+            for (const std::vector<size_t> included_seeds : kv.second) {
+                for (auto& seed_num : included_seeds) {
+                    // For each seed in the run
+                    auto& seed = seeds.at(seed_num);
+
+                    auto found = seed_positions.find(seed_num);
+                    if (found == seed_positions.end()) {
+                        // If we don't know the seed's positions yet, get them
+                        seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                    }
                 }
             }
         }
-    }
-                
-    for (auto& kv : seed_sets) {
-        // For each named seed set
-        const std::string& marker = kv.first;
-        for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
-            // For each run of seeds in it
-            const std::vector<size_t>& included_seeds = kv.second[run_number];
-            for (auto& seed_num : included_seeds) {
-                // For each seed in the run
-                auto& seed = seeds.at(seed_num);
-                
-                // Get its effective path positions
-                auto& offsets = seed_positions.at(seed_num);
 
-                for (auto& handle_and_positions : offsets) {
-                    std::string path_name = path_graph->get_path_name(handle_and_positions.first);
-                    for (auto& position : handle_and_positions.second) {
-                        // For each position on a ref path that this seed is at, log a line
+        for (auto& kv : seed_sets) {
+            // For each named seed set
+            const std::string& marker = kv.first;
+            for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
+                // For each run of seeds in it
+                const std::vector<size_t>& included_seeds = kv.second[run_number];
+                for (auto& seed_num : included_seeds) {
+                    // For each seed in the run
+                    auto& seed = seeds.at(seed_num);
+
+                    // Get its effective path positions
+                    auto& offsets = seed_positions.at(seed_num);
+
+                    for (auto& handle_and_positions : offsets) {
+                        std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+                        for (auto& position : handle_and_positions.second) {
+                            // For each position on a ref path that this seed is at, log a line
+                            exp.line();
+                            if (!marker.empty()) {
+                                // Contig and a marker and a subscript
+                                exp.field(path_name + "-" + marker + "-" + std::to_string(run_number));
+                            } else {
+                                // Contig alone
+                                exp.field(path_name);
+                            }
+                            // Offset on contig of the pin point
+                            exp.field(position.first);
+                            // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                            exp.field(minimizers[seed.source].pin_offset());
+                        }
+                    }
+                    if (offsets.empty()) {
+                        // Note that we don't actually have a position
                         exp.line();
                         if (!marker.empty()) {
-                            // Contig and a marker and a subscript
-                            exp.field(path_name + "-" + marker + "-" + std::to_string(run_number));
+                            // Sentinel and a marker and a subscript
+                            exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
                         } else {
-                            // Contig alone
-                            exp.field(path_name);
+                            // Sentinel alone
+                            exp.field("NO_PATH");
                         }
-                        // Offset on contig of the pin point
-                        exp.field(position.first);
+                        // Put it at 0 on no path
+                        exp.field(0);
                         // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                         exp.field(minimizers[seed.source].pin_offset());
                     }
                 }
-                if (offsets.empty()) {
-                    // Note that we don't actually have a position
-                    exp.line();
-                    if (!marker.empty()) {
-                        // Sentinel and a marker and a subscript
-                        exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
-                    } else {
-                        // Sentinel alone
-                        exp.field("NO_PATH");
-                    }
-                    // Put it at 0 on no path
-                    exp.field(0);
-                    // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
-                    exp.field(minimizers[seed.source].pin_offset());
-                }
-            }
 
+            }
         }
     }
 }
@@ -722,12 +774,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchors = 0;
     size_t best_chain_anchor_length = 0;
 
+    // Dump all chains if requested (do this before alignments, while chains still exist)
+    if (show_work && !chains.empty() && this->path_graph != nullptr) {
+        Explainer::set_read_context(aln.name());
+        dump_debug_chains(zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, this->path_graph);
+        Explainer::clear_read_context();
+    }
+
     if (alignments.size() == 0) {
-        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors, 
+        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors,
                              chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
                              best_chain_anchors, best_chain_anchor_length, funnel);
     }
-        
+
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -2134,50 +2193,6 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
         }
     }
 
-    if (show_work && best_chain != std::numeric_limits<size_t>::max()) {
-        // Dump the best chain
-
-        auto& tree_num = chain_source_tree.at(best_chain);
-        
-        // Find all the seeds in its zip tree
-        vector<size_t> involved_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
-            involved_seeds.push_back(found.seed);
-        }
-
-        // Start making a list of things to show. 
-        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
-        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
-        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(best_chain)});
-
-        // Find all the fragments we passed for this tree
-        std::vector<std::vector<size_t>> relevant_fragments;
-        const auto& tree_fragments = good_fragments_in.at(tree_num);
-        for (const auto& fragment_num : tree_fragments) {
-            // Get all the seeds in each fragment
-            const std::vector<size_t>& fragment = fragments.at(fragment_num);
-            relevant_fragments.push_back(fragment);
-        }
-        seed_sets.emplace_back("frag", std::move(relevant_fragments));
-
-        // Sort everything in read order
-        for (auto& seed_set : seed_sets) {
-            for (auto& run : seed_set.second) {
-                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
-                    auto& seed_a = seeds.at(seed_index_a);
-                    auto& seed_b = seeds.at(seed_index_b);
-                    
-                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
-    
-                });
-            }
-        }
-
-
-        dump_debug_dotplot("best-chain", minimizers, seeds, seed_sets, this->path_graph);
-
-    }
-    
     // Find its coverage
     if (best_chain != std::numeric_limits<size_t>::max()) {
         best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);

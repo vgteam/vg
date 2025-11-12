@@ -11,12 +11,17 @@
 #include <bdsg/hash_graph.hpp>
 
 #include <sstream>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
 
 namespace vg {
 
 std::atomic<size_t> Explainer::next_explanation_number {0};
 
 bool Explainer::save_explanations = false;
+
+thread_local std::string Explainer::current_read_context = "";
 
 Explainer::Explainer(bool enabled) : explanation_number(Explainer::next_explanation_number++), enabled(enabled) {
     // Nothing to do!
@@ -26,11 +31,55 @@ Explainer::~Explainer() {
     // Nothing to do!
 }
 
+void Explainer::set_read_context(const std::string& read_name) {
+    current_read_context = read_name;
+}
+
+void Explainer::clear_read_context() {
+    current_read_context = "";
+}
+
+std::string Explainer::get_read_context() {
+    return current_read_context;
+}
+
+std::string Explainer::make_filename(const std::string& base_name, const std::string& extension) {
+    if (current_read_context.empty()) {
+        // No read context: use simple filename
+        return base_name + extension;
+    } else {
+        // Sanitize read name to replace characters that might be problematic in filenames
+        std::string safe_read_name = current_read_context;
+        for (char& c : safe_read_name) {
+            if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+                c = '_';
+            }
+        }
+
+        // Create directory for this read if it doesn't exist
+        std::string dir_name = "explanation_" + safe_read_name;
+        // Use POSIX mkdir() to create directory
+        // Mode 0755 = rwxr-xr-x
+        int ret = mkdir(dir_name.c_str(), 0755);
+        // It's OK if the directory already exists (EEXIST)
+        if (ret != 0 && errno != EEXIST) {
+            // Log error but continue - the file open will fail if we can't proceed
+            std::cerr << "Warning: failed to create directory " << dir_name << ": " << strerror(errno) << std::endl;
+        }
+
+        // Return the full path in the read's directory
+        return dir_name + "/" + base_name + extension;
+    }
+}
+
 TSVExplainer::TSVExplainer(bool enabled, const std::string& name) : Explainer(enabled) {
     if (!explaining()) {
         return;
     }
-    out.open(name + std::to_string(explanation_number) + ".tsv");
+    // Use the helper to create the filename with appropriate directory structure
+    std::string base_name = name + std::to_string(explanation_number);
+    std::string filename = make_filename(base_name, ".tsv");
+    out.open(filename);
 }
 TSVExplainer::~TSVExplainer() {
     // Nothing to do!
@@ -77,7 +126,9 @@ ProblemDumpExplainer::ProblemDumpExplainer(bool enabled, const std::string& name
     if (!explaining()) {
         return;
     }
-    out.open(name + std::to_string(explanation_number) + ".json");
+    std::string base_name = name + std::to_string(explanation_number);
+    std::string filename = make_filename(base_name, ".json");
+    out.open(filename);
 }
 
 ProblemDumpExplainer::~ProblemDumpExplainer() {
@@ -375,44 +426,45 @@ void DiagramExplainer::write_connected_components() const {
         id_to_index.emplace(it->first, node_order.size());
         node_order.push_back(it);
     }
-    
+
     // Compose connected components
     structures::UnionFind components(node_order.size());
-    
+
     for_each_edge([&](const edge_ref_t& edge) {
         // Connect connected components for each edge
         components.union_groups(id_to_index.at(std::get<0>(edge)), id_to_index.at(std::get<1>(edge)));
     });
-    
+
     std::unordered_map<size_t, std::ofstream> files_by_group;
     for (size_t i = 0; i < node_order.size(); i++) {
         // For each node
-        
+
         // Make sure we have a file for the connected component it goes in
         size_t group = components.find_group(i);
         auto file_it = files_by_group.find(group);
         if (file_it == files_by_group.end()) {
             // We need to open and set up a new file
-            std::stringstream name_stream;
-            name_stream << "graph" << explanation_number << "-" << files_by_group.size() << ".dot";
-            file_it = files_by_group.emplace_hint(file_it, group, name_stream.str());
-            
+            std::stringstream base_name_stream;
+            base_name_stream << "graph" << explanation_number << "-" << files_by_group.size();
+            std::string filename = make_filename(base_name_stream.str(), ".dot");
+            file_it = files_by_group.emplace_hint(file_it, group, filename);
+
             // Start off with the heading
             file_it->second << "digraph explanation {" << std::endl;
             // And any globals
             write_globals(file_it->second, globals);
         }
-        
+
         // Write the node
         write_node(file_it->second, node_order[i]->first, node_order[i]->second);
     }
-    
+
     for_each_edge([&](const edge_ref_t& edge) {
         // Add each edge to the file for its group
         size_t group = components.find_group(id_to_index.at(std::get<0>(edge)));
         write_edge(files_by_group.at(group), std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
     });
-    
+
     for (auto& kv : files_by_group) {
         // Close out all the files
         kv.second << "}" << std::endl;
@@ -428,7 +480,8 @@ void SubgraphExplainer::subgraph(const HandleGraph& graph) {
     if (!explaining()) {
         return;
     }
-    std::string filename = "subgraph" + std::to_string(explanation_number) + ".vg";
+    std::string base_name = "subgraph" + std::to_string(explanation_number);
+    std::string filename = make_filename(base_name, ".vg");
     bdsg::HashGraph to_save;
     handlealgs::copy_handle_graph(&graph, &to_save);
     to_save.serialize(filename);

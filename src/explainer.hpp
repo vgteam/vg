@@ -27,6 +27,7 @@ namespace vg {
 
 /**
  * Base explainer class. Handles making sure each explanation has a different unique number.
+ * Also provides support for organizing explanations into per-read directories.
  */
 class Explainer {
 public:
@@ -35,7 +36,7 @@ public:
 
     /// Construct an Explainer that will save to one or more files
     Explainer(bool enabled);
-    
+
     /// Close out the files being explained to
     virtual ~Explainer();
 
@@ -45,20 +46,37 @@ public:
         return explaining();
     }
 
+    /// Set the current read context for organizing explanations
+    static void set_read_context(const std::string& read_name);
+
+    /// Clear the current read context
+    static void clear_read_context();
+
+    /// Get the current read context (empty string if none)
+    static std::string get_read_context();
+
 protected:
     /// What number explanation are we? Distinguishes different objects.
     size_t explanation_number;
-    
+
     /// Determines if this explainer should generate explanations.
     bool enabled;
 
     /// Counter used to give different explanations their own unique filenames.
     static std::atomic<size_t> next_explanation_number;
 
+    /// Current read being explained (for organizing into directories)
+    static thread_local std::string current_read_context;
+
     /// Function to check if we should be explaining.
     inline bool explaining() const {
         return this->enabled && Explainer::save_explanations;
     }
+
+    /// Helper to create a filename with optional per-read directory organization
+    /// If current_read_context is set, creates a directory and puts the file there.
+    /// Returns the full path to use for opening the file.
+    static std::string make_filename(const std::string& base_name, const std::string& extension);
 };
 
 /**
@@ -67,6 +85,7 @@ protected:
 class TSVExplainer : public Explainer {
 public:
     /// Construct a TSVExplainer that will save a table to a file.
+    /// Uses the current read context from Explainer::set_read_context() if set.
     TSVExplainer(bool enabled, const std::string& name = "data");
     /// Close out the file being explained to
     ~TSVExplainer();
@@ -247,8 +266,10 @@ DotDumpExplainer<T>::DotDumpExplainer(bool enabled, const T& to_dump) : Explaine
     if (!explaining()) {
         return;
     }
-    // Open the dot file
-    std::ofstream out("dotdump" + std::to_string(explanation_number) + ".dot");
+    // Open the dot file using the per-read directory system
+    std::string base_name = "dotdump" + std::to_string(explanation_number);
+    std::string filename = make_filename(base_name, ".dot");
+    std::ofstream out(filename);
     // And dump to it
     to_dump.to_dot(out);
 }
