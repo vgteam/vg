@@ -50,11 +50,14 @@ void help_snarl(char** argv) {
          << "                            exhaustive traversal finder with -r" << endl
          << "  -f, --fasta FILE          reference as FASTA (required for SVs by -v)" << endl
          << "  -i, --ins-fasta FILE      insertions as FASTA (required for SVs by -v)" << endl
+         << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
+         << "                            of a top-level chain (may repeat)" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
+    Logger logger("vg snarls");
 
     if (argc == 2) {
         help_snarl(argv);
@@ -77,7 +80,12 @@ int main_snarl(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     bool path_traversals = false;
-        
+    std::unordered_map<nid_t, size_t> extra_node_weight;
+    // We will put this amount of extra weight on upweighted nodes. It should
+    // be longer than the maximum plausible distracting path or spurious bridge
+    // edge cycle, but small enough that several of it fit in a size_t.
+    constexpr size_t EXTRA_WEIGHT = 10000000000;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -97,6 +105,7 @@ int main_snarl(int argc, char** argv) {
                 {"fasta", required_argument, 0, 'f'},
                 {"ins-fasta", required_argument, 0, 'i'},
                 {"path-traversals", no_argument, 0, 'e'},
+                {"upweight-node", required_argument, 0, 'w'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
@@ -104,7 +113,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:eh?t:",
+        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:ew:h?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -119,7 +128,7 @@ int main_snarl(int argc, char** argv) {
             break;
 
         case 'r':
-            traversal_file = optarg;
+            traversal_file = ensure_writable(logger, optarg);
             break;
 
         case 'l':
@@ -153,28 +162,26 @@ int main_snarl(int argc, char** argv) {
             fill_path_names = true;
             break;
         case 'v':
-            vcf_filename = optarg;
+            vcf_filename = require_exists(logger, optarg);
             break;
         case 'f':
-            ref_fasta_filename = optarg;
+            ref_fasta_filename = require_exists(logger, optarg);
             break;
         case 'i':
-            ins_fasta_filename = optarg;
+            ins_fasta_filename = require_exists(logger, optarg);
             break;
         case 'e':
             path_traversals = true;
             break;
 
-        case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg snarls] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+        case 'w':
+            // We use += so you can repeat a node and make it even more heavier.
+            extra_node_weight[parse<nid_t>(optarg)] += EXTRA_WEIGHT;
             break;
-        }
+
+        case 't':
+            set_thread_count(logger, optarg);
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -188,15 +195,22 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
+    if (traversal_file.empty()) {
+        if (!ultrabubble_only) {
+            cerr << "warning:[vg snarls] --any-snarl-type (-a) has no effect without --traversals file" << endl;
+        }
+        if (top_level_only) {
+            cerr << "warning:[vg snarls] --top-level (-o) has no effect without --traversals file" << endl;
+        }
+        if (leaf_only) {
+            cerr << "warning:[vg snarls] --leaf-only (-l) has no effect without --traversals file" << endl;
+        }
+    }
+
     // Prepare traversal output stream
     ofstream trav_stream;
     if (!traversal_file.empty()) {
         trav_stream.open(traversal_file);
-        if (!trav_stream) {
-            cerr << "error: [vg snarls] Could not open \"" << traversal_file
-                 << "\" for writing" << endl;
-            return 1;
-        }
     }
 
     // Read the graph into a PathHandleGraph.
@@ -208,9 +222,8 @@ int main_snarl(int argc, char** argv) {
     if (named_coordinates) {
         translation = vg::algorithms::find_translation(graph.get());
         if (!translation) {
-            cerr << "error:[vg snarls] Named coordinate output (-n) was requested, "
-                 << "but the graph does not come with a named coordinate space." << endl;
-            return 1;
+            logger.error() << "Named coordinate output (-n) was requested, "
+                           << "but the graph does not come with a named coordinate space." << endl;
         }
     }
     
@@ -220,26 +233,27 @@ int main_snarl(int argc, char** argv) {
         
     // Pick a SnalrFinder
     unique_ptr<SnarlFinder> snarl_finder;
-    
+
+    if (!extra_node_weight.empty() && algorithm != "integrated") {
+        logger.error() << "-w can only be used with -A integrated (not cactus algorithm)" << endl;
+    }
+
     if (algorithm == "cactus") {
         snarl_finder.reset(new CactusSnarlFinder(*graph));
     } else if (algorithm == "integrated") {
-        snarl_finder.reset(new IntegratedSnarlFinder(*graph));
+        snarl_finder.reset(new IntegratedSnarlFinder(*graph, extra_node_weight));
     } else {
-        cerr << "error:[vg snarls]: Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
-        return 1;
+        logger.error() << "Algorithm must be 'cactus' or 'integrated', not '"
+                       << algorithm << "'" << endl;
     }
     if (!vcf_filename.empty() && path_traversals) {
-        cerr << "error:[vg snarls]: -v cannot be used with -e" << endl;
-        return 1;
+        logger.error() << "-v cannot be used with -e" << endl;
     }
     if (path_traversals && traversal_file.empty()) {
-        cerr << "error:[vg snarls]: -e requires -r" << endl;
-        return 1;
+        logger.error() << "-e requires -r" << endl;
     }
     if (!vcf_filename.empty() && traversal_file.empty()) {
-        cerr << "error:[vg snarls]: -v requires -r" << endl;
-        return 1;
+        logger.error() << "-v requires -r" << endl;
     }
 
     unique_ptr<TraversalFinder> trav_finder;
@@ -251,8 +265,7 @@ int main_snarl(int argc, char** argv) {
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            cerr << "error: [vg snarls] could not open " << vcf_filename << endl;
-            return 1;
+            logger.error() << "could not open " << vcf_filename << endl;
         }
 
         // load up the fasta
@@ -296,7 +309,7 @@ int main_snarl(int argc, char** argv) {
             if (translation) {
                 for (auto& trav : travs) {
                     // Bring all the output traversals into named segment space.
-                    algorithms::back_translate_in_place(translation, trav);
+                    vg::algorithms::back_translate_in_place(translation, trav);
                 }
             }
             vg::io::write_buffered(cout, travs, 0);
@@ -381,7 +394,7 @@ int main_snarl(int argc, char** argv) {
             snarl_buffer.push_back(*snarl);
             if (translation) {
                 // Bring all the output snarls into named segment space.
-                algorithms::back_translate_in_place(translation, snarl_buffer.back());
+                vg::algorithms::back_translate_in_place(translation, snarl_buffer.back());
             }
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
@@ -407,17 +420,17 @@ int main_snarl(int argc, char** argv) {
                 (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
-                cerr << "Look for traversals of " << pb2json(*snarl) << endl;
+                logger.info() << "Look for traversals of " << pb2json(*snarl) << endl;
 #endif
                 vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
 #ifdef debug        
-                cerr << "Found " << travs.size() << endl;
+                logger.info() << "Found " << travs.size() << endl;
 #endif
                 
                 if (translation) {
                     for (auto& trav : travs) {
                         // Bring all the output traversals into named segment space.
-                        algorithms::back_translate_in_place(translation, trav);
+                        vg::algorithms::back_translate_in_place(translation, trav);
                     }
                 }
                 

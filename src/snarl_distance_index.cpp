@@ -59,7 +59,8 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     SnarlDistanceIndex::TemporaryDistanceIndex temp_index = make_temporary_distance_index(graph, snarl_finder, size_limit, only_top_level_chain_distances);
 
     if (!silence_warnings && temp_index.use_oversized_snarls) {
-        cerr << "warning: distance index uses oversized snarls, which may make mapping slow" << endl;
+        cerr << "warning: distance index uses oversized snarls, (the biggest has "
+             << temp_index.most_oversized_snarl_size << " nodes), which may make mapping slow" << endl;
         cerr << "\ttry increasing --snarl-limit when building the distance index" << endl;
     }
 
@@ -1030,6 +1031,7 @@ void populate_snarl_index(
     }
 
     if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {
+        temp_index.most_oversized_snarl_size = std::max(temp_index.most_oversized_snarl_size, temp_snarl_record.node_count);
         temp_index.use_oversized_snarls = true;
     }
 
@@ -1232,7 +1234,7 @@ void populate_snarl_index(
                     bool next_is_boundary = !temp_snarl_record.is_root_snarl && (next_rank == 0 || next_rank == 1);
 
                     if (size_limit != 0 &&
-                        (temp_snarl_record.node_count < size_limit || start_is_boundary || next_is_boundary)) {
+                        (temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary)) {
                         //If the snarl is too big, then we don't record distances between internal nodes
                         //If we are looking at all distances or we are looking at boundaries
                         bool added_new_distance = false;
@@ -1442,7 +1444,8 @@ void populate_snarl_index(
         temp_index.max_index_size -= (temp_snarl_record.children.size() * SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord::get_max_record_length());
     }
 
-
+    // For simple snarl records, need  11 + 11 + number of bits for the number of children
+    temp_index.max_bits = std::max(temp_index.max_bits, 22 + SnarlDistanceIndex::bit_width(temp_snarl_record.children.size())); 
 }
 
 

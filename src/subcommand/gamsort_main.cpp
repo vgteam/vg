@@ -60,8 +60,8 @@ void help_gamsort(char** argv) {
 
 //------------------------------------------------------------------------------
 
-int main_gamsort(int argc, char **argv)
-{
+int main_gamsort(int argc, char **argv) {
+    Logger logger("vg gamsort");
     // General options.
     string input_format = "GAM";
 
@@ -113,16 +113,12 @@ int main_gamsort(int argc, char **argv)
             gaf_params.key_type = GAFSorterRecord::key_hash;
             break;
         case 't':
-            {
-                size_t parsed = std::max(parse<size_t>(optarg), size_t(1));
-                num_threads = std::min(parsed, num_threads);
-                gaf_params.threads = parsed;
-            }
+            gaf_params.threads = set_thread_count(logger, optarg);
             break;
 
         // GAM sorting options.
         case 'i':
-            index_filename = optarg;
+            index_filename = ensure_writable(logger, optarg);
             break;
         case 'd':
             easy_sort = true;
@@ -142,7 +138,7 @@ int main_gamsort(int argc, char **argv)
             gaf_params.stable = true;
             break;
         case 'g':
-            gaf_params.gbwt_file = optarg;
+            gaf_params.gbwt_file = ensure_writable(logger, optarg);
             break;
         case 'b':
             gaf_params.bidirectional_gbwt = true;
@@ -156,17 +152,14 @@ int main_gamsort(int argc, char **argv)
         }
     }
 
-    if (argc < 3){
+    if (argc < 3) {
         help_gamsort(argv);
         exit(1);
     }
-    
-    omp_set_num_threads(num_threads);
 
     if (input_format == "GAM") {
         if (shuffle && !index_filename.empty()) {
-            cerr << "[vg gamsort] Indexing is not allowed when shuffling GAM files." << endl;
-            exit(1);
+            logger.error() << "Indexing is not allowed when shuffling GAM files." << std::endl;
         }
         get_input_file(optind, argc, argv, [&](istream& gam_in) {
 

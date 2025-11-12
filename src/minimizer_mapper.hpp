@@ -33,28 +33,16 @@ using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
     public:
-    // Type aliases for the two supported index types
-    using DefaultIndex = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
-                        gbwtgraph::PositionPayload<gbwtgraph::Payload>>;
-    using XLIndex      = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
-                        gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>>;
+    // Definitions used with minimizer indexes.
+    using MinimizerIndex = gbwtgraph::DefaultMinimizerIndex;
+    using payload_type = ZipCode::payload_type;
 
-    using DefaultMinimizerIndex = DefaultIndex;
     /**
      * Construct a new MinimizerMapper using the given indexes.
      * The PathPositionHandleGraph can be nullptr, as we only use it for correctness tracking.
      */
-
-    // Existing ctor (Default / "S" payload)
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-                    const DefaultIndex& minimizer_index,
-                    SnarlDistanceIndex* distance_index,
-                    const ZipCodeCollection* zipcodes,
-                    const PathPositionHandleGraph* path_graph = nullptr);
-
-    // New ctor (XL payload)
-    MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-                    const XLIndex& minimizer_index,
+                    const MinimizerIndex& minimizer_index,
                     SnarlDistanceIndex* distance_index,
                     const ZipCodeCollection* zipcodes,
                     const PathPositionHandleGraph* path_graph = nullptr);
@@ -592,11 +580,10 @@ class MinimizerMapper : public AlignerClient {
      * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
      */
     struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        MinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
-        size_t hits; // How many hits does the minimizer have?
-        const void* occs = nullptr; // Pointer to the occurrences of the minimizer in the index, void in order to be agnostic to index type.
+        MinimizerIndex::multi_value_type occs; // (pointer to hits, number of hits)
 
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
@@ -643,6 +630,11 @@ class MinimizerMapper : public AlignerClient {
             string sequence = value.key.decode(length);
             return value.is_reverse ? reverse_complement(sequence) : sequence;
         }
+
+        /// Number of hits for this minimizer.
+        inline size_t hits() const {
+            return this->occs.second;
+        }
     };
     
 protected:
@@ -653,7 +645,7 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static gbwtgraph::Payload no_chain_info() {
+    inline static payload_type no_chain_info() {
         return MIPayload::NO_CODE;  
     } 
     
@@ -684,31 +676,13 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness or position tracking.
-    
-    // Handle minimizers index standard and XL
-    enum class IndexKind { S, XL };
-    const DefaultIndex* minimizer_index_s = nullptr;
-    const XLIndex* minimizer_index_xl = nullptr;
-    IndexKind index_kind;
+    const MinimizerIndex& minimizer_index;
 
     // caching common information about the minimizer index
     int32_t k;
     int32_t w;
-    bool uses_syncmers;
-
-    // Dispatch the index to use based on the index kind.
-    template<typename Fn>
-    auto with_index(Fn&& fn) const
-        -> decltype(fn(*static_cast<const DefaultIndex*>(nullptr)))
-    {
-        if (index_kind == IndexKind::S) {
-            return fn(*minimizer_index_s);
-        } else if (index_kind == IndexKind::XL) {
-            return fn(*minimizer_index_xl);
-        } else {
-            throw std::runtime_error("MinimizerMapper::with_index: unknown index kind");
-        }
-    }
+    bool payload_with_paths; // Does the payload for minimizer hits include path information in addition to a zipcode?
+    bool uses_syncmers; // TODO: We could discard the syncmer support.
     
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;

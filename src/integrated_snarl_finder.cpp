@@ -1882,7 +1882,7 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
             // turn the component into a graph
             subgraph = new SubgraphOverlay(graph, &weak_components[i]);
         }
-        IntegratedSnarlFinder finder(*subgraph);
+        IntegratedSnarlFinder finder(*subgraph, extra_node_weight);
         // find the snarls without building the index
         snarl_managers[i] = finder.find_snarls_unindexed();
         if (weak_components.size() != 1) {

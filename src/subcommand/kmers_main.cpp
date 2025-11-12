@@ -40,6 +40,7 @@ void help_kmers(char** argv) {
 }
 
 int main_kmers(int argc, char** argv) {
+    Logger logger("vg kmers");
 
     if (argc == 2) {
         help_kmers(argv);
@@ -96,7 +97,7 @@ int main_kmers(int argc, char** argv) {
                 kmer_size = parse<size_t>(optarg);
                 break;
             case 't':
-                omp_set_num_threads(parse<int>(optarg));
+                set_thread_count(logger, optarg);
                 break;
             case 'p':
                 show_progress = true;
@@ -119,12 +120,11 @@ int main_kmers(int argc, char** argv) {
 
             // Obsolete options.
             case 'e':
-                cerr << "error: [vg kmers] Option --edge-max is obsolete. Use vg prune to prune the graph instead." << endl;
-                std::exit(EXIT_FAILURE);
+                logger.error() << "Option --edge-max is obsolete. "
+                               << "Use vg prune to prune the graph instead." << endl;
                 break;
             case 'F':
-                cerr << "error: [vg kmers] Option --forward-only is obsolete" << endl;
-                std::exit(EXIT_FAILURE);
+                logger.error() << "Option --forward-only is obsolete" << endl;
                 break;
 
             case 'h':
@@ -139,8 +139,7 @@ int main_kmers(int argc, char** argv) {
     }
 
     if (kmer_size == 0) {
-        cerr << "error: [vg kmers] --kmer-size was not specified" << endl;
-        std::exit(EXIT_FAILURE);
+        logger.error() << "--kmer-size was not specified" << endl;
     }
 
     vector<string> graph_file_names;

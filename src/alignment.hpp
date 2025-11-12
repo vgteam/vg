@@ -29,9 +29,9 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each(string& filename, function<void(Alignment&)> lambda,
-                 const PathPositionHandleGraph* graph);
+                 const PathPositionHandleGraph* graph, bool allow_missing_contig = false);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
-                          const PathPositionHandleGraph* graph);
+                          const PathPositionHandleGraph* graph, bool allow_missing_contig = false);
 
 // FASTQ-input functions
 
@@ -104,11 +104,15 @@ void cigar_mapping(const bam1_t *b, Mapping& mapping);
 /// Convert a BAM record to an Alignment.
 /// May throw AlignmentEmbeddingError if the BAM record is inconsistent with
 /// the provided graph.
+/// Unless set_missing_contig_to_unmapped is true, will also error if a read
+/// is aligned to a contig which is not in the graph.
+/// If true, then those reads are treated as unmapped instead.
 Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
                            const map<int, path_handle_t>& tid_path_handle,
                            const bam_hdr_t *bh,
-                           const PathPositionHandleGraph* graph);
+                           const PathPositionHandleGraph* graph,
+                           bool set_missing_contig_to_unmapped = false);
 /// Convert a BAM record to an Alignment without a graph.
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 

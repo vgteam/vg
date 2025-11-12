@@ -23,7 +23,7 @@ using namespace vg::subcommand;
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl
          << "graph annotation options:" << endl
-         << "  -x, --xg-name FILE     xg index or graph to annotate (required)" << endl
+         << "  -x, --xg-name FILE     XG index or graph to annotate (required)" << endl
          << "  -b, --bed-name FILE    BED file to convert to GAM (may repeat)" << endl
          << "  -f, --gff-name FILE    GFF3 file to convert to GAM (may repeat)" << endl
          << "  -g, --ggff             output GGFF subgraph annotation file" << endl
@@ -32,7 +32,7 @@ void help_annotate(char** argv) {
          << "  -s, --snarls FILE      snarls to expand GFF intervals into" << endl
          << "alignment annotation options:" << endl
          << "  -a, --gam FILE         alignments to annotate (required)" << endl
-         << "  -x, --xg-name FILE     xg index of the graph against which the" << endl
+         << "  -x, --xg-name FILE     XG index of the graph against which the" << endl
          << "                         alignments are aligned (required)" << endl
          << "  -p, --positions        annotate alignments with reference positions" << endl
          << "  -m, --multi-position   annotate alignments with multiple reference positions" << endl
@@ -91,7 +91,8 @@ static unordered_set<const string*> find_overlapping(const vector<feature_t>& ra
     return to_return;
 }
 
-int main_annotate(int argc, char** argv) {
+int main_annotate(int argc, char** argv) { 
+    Logger logger("vg annotate");
     
     if (argc == 2) {
         help_annotate(argv);
@@ -144,19 +145,19 @@ int main_annotate(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(logger, optarg);
             break;
 
         case 'a':
-            gam_name = optarg;
+            gam_name = require_exists(logger, optarg);
             break;
 
         case 'b':
-            bed_names.push_back(optarg);
+            bed_names.push_back(require_exists(logger, optarg));
             break;
 
         case 'f':
-            gff_names.push_back(optarg);
+            gff_names.push_back(require_exists(logger, optarg));
             break;
             
         case 'g':
@@ -168,7 +169,7 @@ int main_annotate(int argc, char** argv) {
             break;
                 
         case 's':
-            snarls_name = optarg;
+            snarls_name = require_exists(logger, optarg);
             break;
 
         case 'p':
@@ -189,7 +190,7 @@ int main_annotate(int argc, char** argv) {
             break;
             
         case 't':
-            omp_set_num_threads(parse<size_t>(optarg));
+            set_thread_count(logger, optarg);
             break;
 
         case 'P':
@@ -214,23 +215,22 @@ int main_annotate(int argc, char** argv) {
     if (!xg_name.empty()) {
         // Read in the XG index
         if (show_progress) {
-            std::cerr << "Load graph" << std::endl;
+            logger.info() << "Load graph" << std::endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         if (show_progress) {
-            std::cerr << "Apply overlay" << std::endl;
+            logger.info() << "Apply overlay" << std::endl;
         }
         xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
-        cerr << "error [vg annotate]: no xg index provided" << endl;
-        return 1;
+        logger.error() << "no XG index provided" << std::endl;
     }
     
     
     unique_ptr<SnarlManager> snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         if (show_progress) {
-            std::cerr << "Load snarls" << std::endl;
+            logger.info() << "Load snarls" << std::endl;
         }
         get_input_file(snarls_name, [&](istream& snarl_stream) {
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
@@ -247,8 +247,7 @@ int main_annotate(int argc, char** argv) {
             // TODO: refactor this into novelty annotation and annotation-to-table conversion.
             if (add_positions || !bed_names.empty()) {
                 // We can't make the TSV and also annotate the reads
-                cerr << "error [vg annotate]: Cannot annotate reads while computing novelty table" << endl;
-                return 1;
+                logger.error() << "Cannot annotate reads while computing novelty table" << endl;
             }
             
             cout << "name\tlength.bp\tunaligned.bp\tknown.nodes\tknown.bp\tnovel.nodes\tnovel.bp" << endl;
@@ -405,15 +404,14 @@ int main_annotate(int argc, char** argv) {
         // Annotating the graph. We must do something.
         if (bed_names.empty() && gff_names.empty()) {
             // We weren't asked to do anything.
-            cerr << "error [vg annotate]: only GAM, BED, or GFF3/GTF annotation is implemented" << endl;
-            return 1;
+            logger.error() << "only GAM, BED, or GFF3/GTF annotation is implemented" << endl;
         }
     
         if (output_ggff) {
             
             if (!bed_names.empty()) {
-                cerr << "error [vg annotate] BED conversion to GGFF is not currently supported. Convert to GFF3 first." << endl;
-                return 1;
+                logger.error() << "BED conversion to GGFF is not currently supported. "
+                               << "Convert to GFF3 first." << endl;
             }
             
             // define a function that converts to GGFF

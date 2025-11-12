@@ -30,7 +30,7 @@ is $(vg paths --list -S 2 -g x.gbwt | wc -l) 0 "no threads are reported for inva
 is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
 
 # Extract threads as GAF alignments
-is $(vg paths -x x.xg -g x.gbwt -A | wc -l) 2 "vg paths may be used to extract threads as GAF"
+is $(vg paths -x x.xg -g x.gbwt -A | grep -v "^@" | wc -l) 2 "vg paths may be used to extract threads as GAF"
 
 # Extract paths as fasta
 vg paths -x x.xg -Q x -F > x_from_xg.fa

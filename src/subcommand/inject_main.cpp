@@ -28,15 +28,17 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject -x graph.xg [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE        use this graph or xg index (required, non-XG okay)" << endl
-         << "  -i, --add-identity        calculate & add 'identity' statistic to output GAM" << endl
-         << "  -r, --rescore             re-score alignments" << endl
-         << "  -o, --output-format NAME  output alignment format {gam / gaf / json} [gam]" << endl
-         << "  -t, --threads N           number of threads to use" << endl
-         << "  -h, --help                print this help message to stderr and exit" << endl;
+         << "  -x, --xg-name FILE          use this graph or XG index (required, non-XG okay)" << endl
+         << "  -i, --add-identity          calculate & add 'identity' statistic to output GAM" << endl
+         << "  -r, --rescore               re-score alignments" << endl
+         << "  -o, --output-format NAME    output alignment format {gam / gaf / json} [gam]" << endl
+         << "  -a, --allow-missing-contig  treat alignments to missing contigs as unmapped" << endl
+         << "  -t, --threads N             number of threads to use" << endl
+         << "  -h, --help                  print this help message to stderr and exit" << endl;
 }
 
 int main_inject(int argc, char** argv) {
+    Logger logger("vg inject");
 
     if (argc == 2) {
         help_inject(argv);
@@ -45,6 +47,7 @@ int main_inject(int argc, char** argv) {
     string xg_name;
     bool add_identity = false;
     bool rescore = false;
+    bool allow_missing_contig = false;
     string output_format = "GAM";
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON" };
     int threads = get_thread_count();
@@ -59,12 +62,13 @@ int main_inject(int argc, char** argv) {
           {"add-identity", no_argument, 0, 'i'},
           {"rescore", no_argument, 0, 'r'},
           {"output-format", required_argument, 0, 'o'},
+          {"allow-missing-contig", no_argument, 0, 'a'},
           {"threads", required_argument, 0, 't'},
           {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:iro:t:",
+        c = getopt_long (argc, argv, "h?x:iro:at:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -74,19 +78,16 @@ int main_inject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(logger, optarg);
             break;
         
         case 'o':
-            {
-                output_format = optarg;
-                for (char& c : output_format) {
-                    c = std::toupper(c);
-                }
-                if (output_formats.find(output_format) == output_formats.end()) {
-                    std::cerr << "error: [vg inject] Invalid output format: " << optarg << std::endl;
-                    std::exit(1);
-                }
+            output_format = optarg;
+            for (char& c : output_format) {
+                c = std::toupper(c);
+            }
+            if (output_formats.find(output_format) == output_formats.end()) {
+                logger.error() << "Invalid output format: " << output_format << endl;
             }
             break;
 
@@ -99,28 +100,29 @@ int main_inject(int argc, char** argv) {
             break;
 
         case 't':
-          threads = parse<int>(optarg);
-          break;
+            threads = set_thread_count(logger, optarg);
+            break;
+
+        case 'a':
+            allow_missing_contig = true;
+            break;
 
         case 'h':
         case '?':
-          help_inject(argv);
-          exit(1);
-          break;
+            help_inject(argv);
+            exit(0);
+            break;
 
         default:
-          abort ();
+            abort ();
         }
     }
     
-    omp_set_num_threads(threads);
-
     string file_name = get_input_file_name(optind, argc, argv);
 
     // We require an XG index
     if (xg_name.empty()) {
-        cerr << "error[vg inject]: Graph (-x) is required" << endl;
-        exit(1);
+        logger.error() << "Graph (-x) is required" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -147,9 +149,9 @@ int main_inject(int argc, char** argv) {
         clear_crash_context();
     };
     if (threads > 1) {
-        hts_for_each_parallel(file_name, lambda, xgidx);
+        hts_for_each_parallel(file_name, lambda, xgidx, allow_missing_contig);
     } else {
-        hts_for_each(file_name, lambda, xgidx);
+        hts_for_each(file_name, lambda, xgidx, allow_missing_contig);
     }
     return 0;
 }
