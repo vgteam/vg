@@ -7,7 +7,8 @@ import subprocess
 cmds = ['index', 'view', 'autoindex', 'pack', 'giraffe', 'map', 'call',
         'mpmap', 'rna', 'chunk', 'stats', 'gbwt', 'paths', 'find', 'filter',
         'construct', 'minimizer', 'haplotypes', 'deconstruct', 'convert',
-        'gamsort', 'inject', 'surject', 'mod', 'prune', 'ids', 'sim', 'annotate']
+        'gamsort', 'inject', 'surject', 'mod', 'prune', 'ids', 'sim', 'annotate',
+        'combine']
 cmds.sort()
 
 
