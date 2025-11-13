@@ -407,7 +407,7 @@ struct transition_info {
  * Takes two anchor numbers (source and destination), and their read and graph
  * distances, in that order.
  */
-using transition_iteratee = std::function<void(transition_info transition)>;
+using transition_iteratee = std::function<void(const transition_info& transition)>;
 
 /**
  * Iterator function type which lets you iterate over transitions between
