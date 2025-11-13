@@ -3174,7 +3174,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             link_alignment = WFAAlignment::make_empty();
             link_alignment_source = "empty";
-        } else if (link_length > 0 && link_length <= max_chain_connection) {
+        } else if (link_length > 0 && link_length <= max_chain_connection && graph_dist * link_length <= max_dp_cells) {
             // If it's not empty and is a reasonable size, align it.
             // Make sure to walk back the left anchor so it is outside of the region to be aligned.
             pos_t left_anchor = (*here).graph_end();
@@ -3272,11 +3272,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
             // Fall back to another alignment method
             
-            if (linking_bases.size() > max_middle_dp_length) {
+            if (linking_bases.size() > max_middle_dp_length || graph_dist * link_length > max_dp_cells) {
                 // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " due to DP size limits, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
                 }
                 // Just jump to right tail
                 break;
