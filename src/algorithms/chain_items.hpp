@@ -388,15 +388,11 @@ struct transition_info {
     size_t to_anchor;
     // Distance between anchors in the graph
     size_t graph_distance;
-    // Distance between anchors in the read (defaults to max if not set)
-    size_t read_distance = std::numeric_limits<size_t>::max();
-
-    // Constructor without read distance
-    transition_info(size_t from, size_t to, size_t graph_dist)
-        : from_anchor(from), to_anchor(to), graph_distance(graph_dist) {}
+    // Distance between anchors in the read
+    size_t read_distance;
     
-    // Constructor with read distance
-    transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist)
+    // Constructor; read_distance defaults to max if not given
+    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
         : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
 };
 
