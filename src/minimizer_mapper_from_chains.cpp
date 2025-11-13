@@ -1997,7 +1997,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                         
                     // And append all the seed numbers to the chain
                     std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
-
+                    
                     // And count the score
                     score += fragment_scores.at(fragment_num_overall);
                     

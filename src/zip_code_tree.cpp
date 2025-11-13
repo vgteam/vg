@@ -2253,6 +2253,12 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
 #endif
             // For a snarl, use zipcode definition of reversed,
             // in order to get correct rank ordering
+            //
+            // Doing seed_is_reversed_at_depth() --> get_is_reversed_in_parent()
+            // would be nice, but actually swapping all uses leads to lots of
+            // other orientation issues in the zip tree. However, we do need
+            // to know the distance index's understanding of orientation. For
+            // just snarl rank sorting, at the very least.
             is_reversed = false;
             const Seed& seed = seeds->at(zipcode_sort_order[sub_interval.interval_start]);
             for (size_t depth = 0; depth <= sub_interval.depth ; depth++) {
