@@ -639,10 +639,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
-    #pragma omp critical (cerr)
-    {
-        std::cerr << log_name() << "Zip code forest:" << std::endl;
-        zip_code_forest.print_self(&seeds);
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Zip code forest:" << std::endl;
+            zip_code_forest.print_self(&seeds);
+        }
     }
 #endif
 

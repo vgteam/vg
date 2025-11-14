@@ -381,6 +381,21 @@ ostream& operator<<(ostream& out, const TracedScore& value);
  */
 void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
 
+struct transition_info {
+    // Index of the source anchor within the list of anchors
+    size_t from_anchor;
+    // Index of the destination anchor
+    size_t to_anchor;
+    // Distance between anchors in the graph
+    size_t graph_distance;
+    // Distance between anchors in the read
+    size_t read_distance;
+    
+    // Constructor; read_distance defaults to max if not given
+    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
+        : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
+};
+
 /**
  * Iteratee function type which can be called with each transition between
  * anchors.
@@ -388,7 +403,7 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
  * Takes two anchor numbers (source and destination), and their read and graph
  * distances, in that order.
  */
-using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
+using transition_iteratee = std::function<void(const transition_info& transition)>;
 
 /**
  * Iterator function type which lets you iterate over transitions between
@@ -435,9 +450,9 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
  * Calls ZipCodeTree.find_distances() as the core of the algorithm.
  * Used as a helper by zip_tree_transition_iterator().
  * 
- * Transitions are (source anchor, destination anchor, graph distance).
+ * Transitions have no read distance set.
  */
-std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
+std::vector<transition_info> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
@@ -450,12 +465,9 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
  * e.g. not reachable in the read.
  * 
  * Used as a helper by zip_tree_transition_iterator().
- * 
- * Transitions are taken as (source anchor, destination anchor, graph distance)
- * and output as (source anchor, destination anchor, graph distance, read distance).
  */
-std::vector<std::tuple<size_t, size_t, size_t, size_t>> calculate_transition_read_distances(
-    const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
+std::vector<transition_info> calculate_transition_read_distances(
+    const std::vector<transition_info>& all_transitions,
     const VectorView<Anchor>& to_chain,
     size_t max_read_lookback_bases);
 

@@ -1172,7 +1172,7 @@ protected:
         const string& sequence, const string& quality_bytes);
     
     /**
-     * Compute a bound on the Phred score probability of a mapping beign wrong
+     * Compute a bound on the Phred score probability of a mapping being wrong
      * due to base errors and unlocated minimizer hits prevented us from
      * finding the true alignment.
      *  
