@@ -31,6 +31,7 @@ Please cite:
 
 * [The VG Paper](https://doi.org/10.1038/nbt.4227) when using `vg`
 * [The VG Giraffe Paper](https://doi.org/10.1126/science.abg8871) when using `vg giraffe`
+* [The Long Read Giraffe Paper](https://doi.org/10.1101/2025.09.29.678807) when using `vg giraffe`'s chaining modes (`hifi`, `r10`, `chaining-sr`)
 * [The VG Call Paper](https://doi.org/10.1186/s13059-020-1941-7) when SV genotyping with `vg call`
 * [The GBZ Paper](https://doi.org/10.1093/bioinformatics/btac656) when using GBZ
 * [The HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x) when using `vg deconstruct`
