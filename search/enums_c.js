@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['recursetype_14555',['RecurseType',['../classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5',1,'vg::GraphCaller']]],
-  ['rescuealgorithm_14556',['RescueAlgorithm',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4',1,'vg::MinimizerMapper']]]
+  ['recursetype_14563',['RecurseType',['../classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5',1,'vg::GraphCaller']]],
+  ['rescuealgorithm_14564',['RescueAlgorithm',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4',1,'vg::MinimizerMapper']]]
 ];

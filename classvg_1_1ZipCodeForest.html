@@ -144,16 +144,14 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a4f247c1e2fe2d7cf7cf43ba72ee06097"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a72ed3945435b9383523db554b1068605"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a72ed3945435b9383523db554b1068605">close_snarl</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, const <a class="el" href="classvg_1_1ZipCodeForest.html#a93f9eaa38dd8024a73a2aeca456e5156">Seed</a> &amp;last_seed, bool last_is_reversed)</td></tr>
 <tr class="separator:a72ed3945435b9383523db554b1068605"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeeaa8c7aae4bb3bc8e7866b87c9eb8ef"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#aeeaa8c7aae4bb3bc8e7866b87c9eb8ef">add_distance_matrix</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, bool snarl_is_reversed, bool reverse_chain_order=false)</td></tr>
-<tr class="separator:aeeaa8c7aae4bb3bc8e7866b87c9eb8ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad6ab5155263711338fd5c57af8b63f26"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#ad6ab5155263711338fd5c57af8b63f26">reverse_chains_in_snarl</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth)</td></tr>
-<tr class="separator:ad6ab5155263711338fd5c57af8b63f26"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af0b8337aa133b4f4cf51a65be37e126e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#af0b8337aa133b4f4cf51a65be37e126e">add_distance_matrix</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, bool snarl_is_reversed)</td></tr>
+<tr class="separator:af0b8337aa133b4f4cf51a65be37e126e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a938f2d3c36ab09c5c7a80f33b9ac365c"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1seed__info__t.html">seed_info_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a938f2d3c36ab09c5c7a80f33b9ac365c">get_edge_seeds</a> (const <a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth) const</td></tr>
 <tr class="separator:a938f2d3c36ab09c5c7a80f33b9ac365c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a152f1bf73ad3f6569b7cfc7b6d64a07e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a152f1bf73ad3f6569b7cfc7b6d64a07e">add_edges_to_end</a> (vector&lt; <a class="el" href="classvg_1_1ZipCodeForest.html#a6f4d116fc7bbdf877de9a8968133f5d5">tree_item_t</a> &gt; &amp;dist_matrix, <a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, const vector&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1seed__info__t.html">seed_info_t</a> &gt; &amp;edge_seeds, bool snarl_is_reversed, bool is_cyclic_snarl) const</td></tr>
 <tr class="separator:a152f1bf73ad3f6569b7cfc7b6d64a07e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6da0e961cf485059923b12b4bad0e1f1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a6da0e961cf485059923b12b4bad0e1f1">add_edges_for_chains</a> (vector&lt; <a class="el" href="classvg_1_1ZipCodeForest.html#a6f4d116fc7bbdf877de9a8968133f5d5">tree_item_t</a> &gt; &amp;dist_matrix, <a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, const vector&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1seed__info__t.html">seed_info_t</a> &gt; &amp;edge_seeds, bool snarl_is_reversed, bool is_cyclic_snarl) const</td></tr>
-<tr class="separator:a6da0e961cf485059923b12b4bad0e1f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa495701a9416c85c785fc0e3e9d58e1b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#aa495701a9416c85c785fc0e3e9d58e1b">add_edges_for_chains</a> (vector&lt; <a class="el" href="classvg_1_1ZipCodeForest.html#a6f4d116fc7bbdf877de9a8968133f5d5">tree_item_t</a> &gt; &amp;dist_matrix, <a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, const vector&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1seed__info__t.html">seed_info_t</a> &gt; &amp;edge_seeds, bool snarl_is_reversed, bool is_cyclic_snarl) const</td></tr>
+<tr class="separator:aa495701a9416c85c785fc0e3e9d58e1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a93f9eaa38dd8024a73a2aeca456e5156"></a>
@@ -306,8 +304,8 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="aeeaa8c7aae4bb3bc8e7866b87c9eb8ef"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aeeaa8c7aae4bb3bc8e7866b87c9eb8ef">&#9670;&nbsp;</a></span>add_distance_matrix()</h2>
+<a id="af0b8337aa133b4f4cf51a65be37e126e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af0b8337aa133b4f4cf51a65be37e126e">&#9670;&nbsp;</a></span>add_distance_matrix()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -331,13 +329,7 @@ Private Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>snarl_is_reversed</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>reverse_chain_order</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>snarl_is_reversed</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -351,12 +343,12 @@ Private Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Add a triangular distance matrix for a snarl to its front The matrix starts with a CHAIN_COUNT with the number of child chains, and then is a list of EDGEs; for each item in order, all distances to it from all previous items, possibly including self-loops If reverse_chain_order is set, then all the child chains will be extracted and then put back in reverse order Returns the size of the distance matrix added (plus the CHAIN_COUNT) </p>
+<p>Add a triangular distance matrix for a snarl to its front The matrix starts with a CHAIN_COUNT with the number of child chains, and then is a list of EDGEs; for each item in order, all distances to it from all previous items, possibly including self-loops Returns the size of the distance matrix added (plus the CHAIN_COUNT) </p>
 
 </div>
 </div>
-<a id="a6da0e961cf485059923b12b4bad0e1f1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6da0e961cf485059923b12b4bad0e1f1">&#9670;&nbsp;</a></span>add_edges_for_chains()</h2>
+<a id="aa495701a9416c85c785fc0e3e9d58e1b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa495701a9416c85c785fc0e3e9d58e1b">&#9670;&nbsp;</a></span>add_edges_for_chains()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -365,7 +357,7 @@ Private Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::ZipCodeForest::add_edges_for_chains </td>
+          <td class="memname">void vg::ZipCodeForest::add_edges_for_chains </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1ZipCodeForest.html#a6f4d116fc7bbdf877de9a8968133f5d5">tree_item_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>dist_matrix</em>, </td>
@@ -412,7 +404,7 @@ Private Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#aeeaa8c7aae4bb3bc8e7866b87c9eb8ef">add_distance_matrix()</a> to add the chains' rows These are edges from everything prior to the given chain end bound Returns true if most (&gt;90%) inter-chain distances are unreachable </p>
+<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#af0b8337aa133b4f4cf51a65be37e126e">add_distance_matrix()</a> to add the chains' rows These are edges from everything prior to the given chain end bound </p>
 
 </div>
 </div>
@@ -473,7 +465,7 @@ Private Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#aeeaa8c7aae4bb3bc8e7866b87c9eb8ef">add_distance_matrix()</a> to add the last row These are edges from everything prior to the snarl end bound </p>
+<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#af0b8337aa133b4f4cf51a65be37e126e">add_distance_matrix()</a> to add the last row These are edges from everything prior to the snarl end bound </p>
 
 </div>
 </div>
@@ -692,7 +684,7 @@ Private Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#aeeaa8c7aae4bb3bc8e7866b87c9eb8ef">add_distance_matrix()</a> Look up seeds for chain edges and remember <a class="el" href="structvg_1_1ZipCodeForest_1_1seed__info__t.html">seed_info_t</a> for each Returns [c1_L, c1_R, c2_L, c2_R, ...] for each chain side in the snarl </p>
+<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#af0b8337aa133b4f4cf51a65be37e126e">add_distance_matrix()</a> Look up seeds for chain edges and remember <a class="el" href="structvg_1_1ZipCodeForest_1_1seed__info__t.html">seed_info_t</a> for each Returns [c1_L, c1_R, c2_L, c2_R, ...] for each chain side in the snarl </p>
 
 </div>
 </div>
@@ -950,43 +942,6 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Helper function for <a class="el" href="classvg_1_1ZipCodeForest.html#a499f52fbb75374e2dc06ce7998ad8fd6">sort_one_interval()</a> to sort seeds using radix sort Sorts the slice of seeds in the given interval of zipcode_sort_order, a vector of indices into seeds. Reverse order if reverse_order. The interval also has an is_reversed field, which refers to the orientation in the snarl tree. min_ and max_value are the minimum and maximum value being sorted on. If sort_by_chain_component is true, then sort on the chain component in sort_values</p>
 <p>This should run in linear time, but is dependent on the values being sorted on to have a small range </p>
-
-</div>
-</div>
-<a id="ad6ab5155263711338fd5c57af8b63f26"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad6ab5155263711338fd5c57af8b63f26">&#9670;&nbsp;</a></span>reverse_chains_in_snarl()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::ZipCodeForest::reverse_chains_in_snarl </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>forest_state</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>depth</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#aeeaa8c7aae4bb3bc8e7866b87c9eb8ef">add_distance_matrix()</a> to reverse the order of chains This is done by extracting all the chains, adding them back in reverse order, and updating the forest_state </p>
 
 </div>
 </div>
