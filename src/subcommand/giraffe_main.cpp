@@ -1816,7 +1816,7 @@ int main_giraffe(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper overlay_helper;
     // And we might load an XG
     unique_ptr<PathHandleGraph> xg_graph;
-    if (track_correctness || track_position || set_refpos || hts_output) {
+    if (show_work || track_correctness || track_position || set_refpos || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
@@ -1827,12 +1827,24 @@ int main_giraffe(int argc, char** argv) {
             xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
             base_graph = xg_graph.get();
         }
+
+        // If we want to be able to spit out positions along haplotype paths,
+        // for debugging, we need to index them for position queries.
+        std::unordered_set<std::string> extra_indexed_paths;
+        if (show_work) {
+            base_graph->for_each_path_of_sense(PathSense::HAPLOTYPE, [&](const path_handle_t& path) {
+                // Say every haplotype path is in the "extra" path set to
+                // index, so we index everything.
+                extra_indexed_paths.insert(base_graph->get_path_name(path));
+            });
+        }
+
     
         // Apply the overlay if needed.
         if (show_progress) {
             logger.info() << "Applying overlay" << endl;
         }
-        path_position_graph = overlay_helper.apply(base_graph);
+        path_position_graph = overlay_helper.apply(base_graph, extra_indexed_paths);
     }
 
     // Set up the mapper
