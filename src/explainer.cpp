@@ -5,6 +5,8 @@
 
 #include "explainer.hpp"
 
+#include "log.hpp"
+
 #include <structures/union_find.hpp>
 
 #include <handlegraph/algorithms/copy_graph.hpp>
@@ -21,9 +23,11 @@ std::atomic<size_t> Explainer::next_explanation_number {0};
 
 bool Explainer::save_explanations = false;
 
-thread_local std::string Explainer::current_read_context = "";
+thread_local std::string Explainer::current_context = "";
 
-Explainer::Explainer(bool enabled) : explanation_number(Explainer::next_explanation_number++), enabled(enabled) {
+thread_local size_t Explainer::next_context_explanation_number {0};
+
+Explainer::Explainer(bool enabled) : explanation_number(get_new_explanation_number()), enabled(enabled) {
     // Nothing to do!
 }
 
@@ -31,43 +35,55 @@ Explainer::~Explainer() {
     // Nothing to do!
 }
 
-void Explainer::set_read_context(const std::string& read_name) {
-    current_read_context = read_name;
+void Explainer::set_context(const std::string& context) {
+    if (save_explanations) {
+        current_context = context;
+        // Reset the counter for the context.
+        next_context_explanation_number = 0;
+    }
 }
 
-void Explainer::clear_read_context() {
-    current_read_context = "";
+void Explainer::clear_context() {
+    if (save_explanations) {
+        current_context.clear();
+    }
 }
 
-std::string Explainer::get_read_context() {
-    return current_read_context;
+size_t Explainer::get_new_explanation_number() {
+    if (current_context.empty()) {
+        // Use the global numbering
+        return Explainer::next_explanation_number++;
+    } else {
+        // Use the per-thread numbering
+        return Explainer::next_context_explanation_number++;
+    }
 }
+
 
 std::string Explainer::make_filename(const std::string& base_name, const std::string& extension) {
-    if (current_read_context.empty()) {
-        // No read context: use simple filename
+    if (current_context.empty()) {
+        // No context: use simple filename
         return base_name + extension;
     } else {
-        // Sanitize read name to replace characters that might be problematic in filenames
-        std::string safe_read_name = current_read_context;
-        for (char& c : safe_read_name) {
-            if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+        // Sanitize context to replace characters that might be problematic in filenames
+        std::string safe_context = current_context;
+        for (char& c : safe_context) {
+            if (c == '/' || c == '\\') {
                 c = '_';
             }
         }
 
-        // Create directory for this read if it doesn't exist
-        std::string dir_name = "explanation_" + safe_read_name;
-        // Use POSIX mkdir() to create directory
-        // Mode 0755 = rwxr-xr-x
+        // Create directory for this context if it doesn't exist
+        std::string dir_name = "explanation_" + safe_context;
         int ret = mkdir(dir_name.c_str(), 0755);
+        int mkdir_error = errno;
         // It's OK if the directory already exists (EEXIST)
-        if (ret != 0 && errno != EEXIST) {
-            // Log error but continue - the file open will fail if we can't proceed
-            std::cerr << "Warning: failed to create directory " << dir_name << ": " << strerror(errno) << std::endl;
+        if (ret != 0 && mkdir_error != EEXIST) {
+            // But if anything else happens, stop with an error.
+            logging::error("Explainer::make_filename") << "failed to create directory " << dir_name << ": " << strerror(mkdir_error) << std::endl;
         }
 
-        // Return the full path in the read's directory
+        // Return the full path in the context's directory
         return dir_name + "/" + base_name + extension;
     }
 }

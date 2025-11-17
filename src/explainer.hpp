@@ -32,6 +32,10 @@ namespace vg {
 class Explainer {
 public:
     /// Determine if explanations should be generated.
+    ///
+    /// Should be set once at the start of the program; should not be toggled
+    /// while explanations are being saved or other system state (like
+    /// contexts) are being used.
     static bool save_explanations;
 
     /// Construct an Explainer that will save to one or more files
@@ -46,14 +50,14 @@ public:
         return explaining();
     }
 
-    /// Set the current read context for organizing explanations
-    static void set_read_context(const std::string& read_name);
+    /// Set a per-thread context for organizing explanations.
+    /// Within a context, explanations are numbed from 0 (so contexts may not
+    /// be re-used, or collisions will occur).
+    /// The context may not be empty.
+    static void set_context(const std::string& context);
 
-    /// Clear the current read context
-    static void clear_read_context();
-
-    /// Get the current read context (empty string if none)
-    static std::string get_read_context();
+    /// Clear the current per-thread context
+    static void clear_context();
 
 protected:
     /// What number explanation are we? Distinguishes different objects.
@@ -64,17 +68,29 @@ protected:
 
     /// Counter used to give different explanations their own unique filenames.
     static std::atomic<size_t> next_explanation_number;
+    
+    /// Counter used to give different explanations their own unique filenames
+    /// within a per-thread context.
+    static thread_local size_t next_context_explanation_number;
 
-    /// Current read being explained (for organizing into directories)
-    static thread_local std::string current_read_context;
+    /// Current thing (possibly a read name) being explained (for organizing into directories)
+    static thread_local std::string current_context;
 
     /// Function to check if we should be explaining.
     inline bool explaining() const {
         return this->enabled && Explainer::save_explanations;
     }
 
-    /// Helper to create a filename with optional per-read directory organization
-    /// If current_read_context is set, creates a directory and puts the file there.
+    /// Helper to get a new explanation number, either from the global counter,
+    /// or within a thread-local context.
+    static size_t get_new_explanation_number();
+
+    /// Helper to create a filename accounting for any assigned per-thread
+    /// context.
+    ///
+    /// If current_context is set, ensures there is a directory for that
+    /// context, and puts the file there.
+    /// 
     /// Returns the full path to use for opening the file.
     static std::string make_filename(const std::string& base_name, const std::string& extension);
 };
@@ -85,7 +101,7 @@ protected:
 class TSVExplainer : public Explainer {
 public:
     /// Construct a TSVExplainer that will save a table to a file.
-    /// Uses the current read context from Explainer::set_read_context() if set.
+    /// Uses the current read context from Explainer::set_context() if set.
     TSVExplainer(bool enabled, const std::string& name = "data");
     /// Close out the file being explained to
     ~TSVExplainer();

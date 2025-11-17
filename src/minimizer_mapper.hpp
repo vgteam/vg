@@ -1452,7 +1452,7 @@ protected:
     static void dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph);
 
     /// Dump all chains for a read to separate TSV files.
-    /// Each chain gets its own file. Uses Explainer::set_read_context() to organize files.
+    /// Each chain gets its own file. 
     static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,

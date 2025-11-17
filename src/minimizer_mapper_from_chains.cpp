@@ -645,9 +645,9 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
 }
 
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
-
-
     
+    Explainer::set_context(aln.name());
+
     if (show_work) {
         #pragma omp critical (cerr)
         dump_debug_query(aln);
@@ -776,9 +776,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
     if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        Explainer::set_read_context(aln.name());
         dump_debug_chains(zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, this->path_graph);
-        Explainer::clear_read_context();
     }
 
     if (alignments.size() == 0) {
@@ -1066,6 +1064,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Otherwise/also, if we are dumping explanations, dump it to a file
         DotDumpExplainer<Funnel> explainer(true, funnel);
     }
+
+    Explainer::clear_context();
 
     return mappings;
 }
