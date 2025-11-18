@@ -395,7 +395,13 @@ int main_surject(int argc, char** argv) {
         if (show_progress) {
             logger.info() << "Applying overlay..." << endl;
         }
-        xgidx = overlay_helper.apply(path_handle_graph.get());
+        // Forward any already-selected target path names along as a set when
+        // making the overlay, so we will be able to access their steps through
+        // the overlay.
+        //
+        // TODO: bdsg::ReferencePathOverlay needs to become transparent somehow
+        // for non-indexed paths.
+        xgidx = overlay_helper.apply(path_handle_graph.get(), std::unordered_set<std::string>(path_names.begin(), path_names.end()));
     } else {
         // We need an XG index for the rest of the algorithm
         logger.error() << "XG index (-x) is required for surjection" << endl;

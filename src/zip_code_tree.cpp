@@ -793,7 +793,7 @@ void ZipCodeForest::add_edges_to_end(vector<tree_item_t>& dist_matrix,
     }
 }
 
-bool ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
+void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                                          forest_growing_state_t& forest_state, 
                                          const size_t& depth, const vector<seed_info_t>& edge_seeds,
                                          bool snarl_is_reversed, bool is_cyclic_snarl) const {
@@ -811,9 +811,6 @@ bool ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
     size_t chain_flank_dist;
     // Final edge distance
     size_t edge_dist;
-    // Track inter-chain edges
-    size_t total_inter_chain_edges = 0;
-    size_t reachable_inter_chain_edges = 0;
 
     // DAG snarls find distances FROM ends TO starts only
     // seed 0 ->, seed 2 ->, etc.
@@ -855,60 +852,15 @@ bool ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                             edge_seeds[to_i].rank, edge_seeds[to_i].right_side);
                 }
                 edge_dist = SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist);
-                total_inter_chain_edges++;
-                if (between_chain_dist != std::numeric_limits<size_t>::max()) {
-                    reachable_inter_chain_edges++;
-                }
             }
 
             dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_dist);
         }
     }
-    // TODO: get rid of the 10% heuristic
-    return (double) reachable_inter_chain_edges / total_inter_chain_edges < 0.1;
-}
-
-void ZipCodeForest::reverse_chains_in_snarl(forest_growing_state_t& forest_state, const size_t& depth) {
-#ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "\t\tReverse chain order in snarl at depth " << depth << endl;
-#endif
-    auto& chain_indices = forest_state.sibling_indices_at_depth[depth];
-    auto& active_zip_tree = trees[forest_state.active_tree_index].zip_code_tree;
-    vector<vector<tree_item_t>> chains;
-    vector<child_info_t> chain_info;
-    chains.reserve(chain_indices.size() - 1);
-    chain_info.reserve(chain_indices.size() - 1);
-    // Extract chains
-    for (size_t i = 1; i < chain_indices.size(); ++i) {
-        size_t chain_start_i = chain_indices[i].value;
-        size_t chain_end_i = i == chain_indices.size() - 1 ? active_zip_tree.size()
-                                                           : chain_indices[i+1].value;
-        vector<tree_item_t> cur_chain;
-        cur_chain.reserve(chain_end_i - chain_start_i);
-        for (size_t j = chain_start_i; j < chain_end_i; ++j) {
-            cur_chain.push_back(active_zip_tree[j]);
-        }
-        chains.push_back(cur_chain);
-        chain_info.push_back(chain_indices[i]);
-    }
-    // Erase old chains
-    active_zip_tree.erase(active_zip_tree.begin() + chain_indices[1].value, active_zip_tree.end());
-    // Add back chains in reverse order
-    for (int64_t i = chains.size() - 1; i >= 0; --i) {
-        size_t new_chain_start_i = active_zip_tree.size();
-        active_zip_tree.insert(active_zip_tree.end(), chains[i].begin(), chains[i].end());
-        // Update chain_indices to point to new location of chain
-        chain_indices[chains.size() - i] = chain_info[i];
-        chain_indices[chains.size() - i].value = new_chain_start_i;
-    }
 }
 
 size_t ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state, 
-                                          const size_t& depth, bool snarl_is_reversed,
-                                          bool reverse_chain_order) {
-    if (reverse_chain_order) {
-        reverse_chains_in_snarl(forest_state, depth);
-    }
+                                          const size_t& depth, bool snarl_is_reversed) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\tadd distances for snarl at depth " << depth << endl;
     print_self(forest_state.seeds);
@@ -935,17 +887,7 @@ size_t ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
         dist_matrix.emplace_back(ZipCodeTree::EDGE, std::numeric_limits<size_t>::max());
     }
 
-    bool no_inter_chain_edges = add_edges_for_chains(dist_matrix, forest_state, depth, edge_seeds, 
-                                                     snarl_is_reversed, is_cyclic_snarl);
-    // Regular snarls never have inter-chain edges,
-    // and cyclic snarls have an arbitrary order,
-    // but irregular snarls might need to be reversed
-    // TODO: fix this beyond duct tape
-    if (edge_seeds[0].zipcode.get_code_type(depth) == ZipCode::IRREGULAR_SNARL
-        && no_inter_chain_edges && !reverse_chain_order) {
-        // We can try again with the opposite chain order
-        return add_distance_matrix(forest_state, depth, snarl_is_reversed, true);
-    }
+    add_edges_for_chains(dist_matrix, forest_state, depth, edge_seeds, snarl_is_reversed, is_cyclic_snarl);
     add_edges_to_end(dist_matrix, forest_state, depth, edge_seeds, snarl_is_reversed, is_cyclic_snarl);
 
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -2301,20 +2243,40 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
     }
 
     for (auto& sub_interval : sub_intervals) {
-        // Snarls are already sorted by a topological order of
-        // the orientation of the zip tree, so don't reverse them
-        // And don't reverse the sort if that has
-        // already been taken into account in the value finding
-        bool reverse_order = (sub_interval.code_type == ZipCode::REGULAR_SNARL 
-                              || sub_interval.code_type == ZipCode::IRREGULAR_SNARL) 
-                             ? false
-                             : sub_interval.is_reversed; 
+        bool is_reversed = sub_interval.is_reversed;
+        
+        if (interval.code_type == ZipCode::REGULAR_SNARL 
+            || interval.code_type == ZipCode::IRREGULAR_SNARL
+            || interval.code_type == ZipCode::CYCLIC_SNARL) {
+#ifdef DEBUG_ZIP_CODE_SORTING
+            cerr << "\tRecalculate orientation for snarl using zipcode definition" << endl;
+#endif
+            // For a snarl, use zipcode definition of reversed,
+            // in order to get correct rank ordering
+            //
+            // Doing seed_is_reversed_at_depth() --> get_is_reversed_in_parent()
+            // would be nice, but actually swapping all uses leads to lots of
+            // other orientation issues in the zip tree. However, we do need
+            // to know the distance index's understanding of orientation. For
+            // just snarl rank sorting, at the very least.
+            is_reversed = false;
+            const Seed& seed = seeds->at(zipcode_sort_order[sub_interval.interval_start]);
+            for (size_t depth = 0; depth <= sub_interval.depth ; depth++) {
+                if (seed.zipcode.get_is_reversed_in_parent(depth)) {
+#ifdef DEBUG_ZIP_CODE_SORTING
+                    cerr << "Reverse at depth " << depth << ": " << seed.zipcode.get_code_type(depth) << endl;
+#endif
+                    is_reversed = !is_reversed;
+                }
+            }
+        }
+        
         // Sort the given interval using the value-getter and orientation
         if (use_radix) {
             radix_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, 
-                                reverse_order, min_sort_value, max_sort_value);
+                                is_reversed, min_sort_value, max_sort_value);
         } else {
-            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, reverse_order);
+            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, is_reversed);
         }
     }
     return;

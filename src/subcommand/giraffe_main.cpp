@@ -1794,12 +1794,12 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the distance index
     if (show_progress) {
-        logger.info() << "Loading Distance Index v2" << endl;
+        logger.info() << "Loading Distance Index v3" << endl;
     }
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     if (show_progress) {
-        logger.info() << "Paging in Distance Index v2" << endl;
+        logger.info() << "Paging in Distance Index v3" << endl;
     }
     std::chrono::time_point<std::chrono::system_clock> preload_start = std::chrono::system_clock::now();
     // Make sure the distance index is paged in from disk.
@@ -1867,7 +1867,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         logger.info() << "Loading and initialization: "
                       << init_seconds.count() << " seconds" << endl;
-        logger.info() << "Of which Distance Index v2 paging: "
+        logger.info() << "Of which Distance Index v3 paging: "
                       << di2_preload_seconds.count() << " seconds" << endl;
     }
     

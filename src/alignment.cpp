@@ -771,7 +771,7 @@ vector<tuple<string, char, string>> parse_sam_tags(const string& tags) {
         if (tag.empty()) {
             continue;
         }
-        if (tag.size() < 6 || tag[2] != ':' || tag[4] != ':') {
+        if (tag.size() < 5 || tag[2] != ':' || tag[4] != ':') {
             std::cerr << ("error: failed to parse malformed SAM tag '" + tag + "'\n");
             exit(1);
         }
@@ -1033,18 +1033,12 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                 // we handle these tags separately
                 continue;
             }
-            
+
+            // This is already guaranteed to be exactly 2 characters by parse_sam_tags()
             const char* tag_id = get<0>(tag).c_str();
             char tag_type = get<1>(tag);
+            // The value may be empty (in cases like a string tag with an empty string value)
             const string& tag_val = get<2>(tag);
-            if (get<0>(tag).size() != 2) {
-                cerr << ("error: SAM tag label " + get<0>(tag) + " is not 2 characters long\n");
-                exit(1);
-            }
-            if (tag_val.empty()) {
-                cerr << ("error: SAM tag " + get<0>(tag) + " is missing a value\n");
-                exit(1);
-            }
             
             switch (tag_type) {
                 case 'A':
@@ -1106,6 +1100,10 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                 case 'B':
                 {
                     // the array of values has its own sub-type for entries
+                    if (tag_val.empty()) {
+                        std::cerr << "error: SAM array tag " << get<0>(tag) << " is missing an item type" << std::endl;
+                        exit(1);
+                    }
                     char subtype = tag_val.front();
                     switch (subtype) {
                         case 'c':
