@@ -4091,10 +4091,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // don't bother with the normal loader/saver system.
         FlatFileBackTranslation translation(infile_translation);
 
-        // TODO: We need a GBZ constructor that takes a translation object.
-        gbwtgraph::GBZ gbz;
-        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
-        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, &translation);
+        gbwt::GBWT index;
+        load_gbwt(index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+        gbwtgraph::GBZ gbz(std::move(index), *xg_index, &translation);
 
         // We need to compute pggname manually, because a generic HandleGraph
         // does not contain the name of the parent graph. And we use nullptr,
@@ -4134,10 +4133,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_in(infile_xg, xg_filename);
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
 
-        // TODO: We need a GBZ constructor that takes a translation object.
-        gbwtgraph::GBZ gbz;
-        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
-        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, algorithms::find_translation(xg_index.get()));
+        gbwt::GBWT index;
+        load_gbwt(index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+        gbwtgraph::GBZ gbz(std::move(index), *xg_index, algorithms::find_translation(xg_index.get()));
 
         // We need to compute pggname manually, because a generic HandleGraph
         // does not contain the name of the parent graph. And we use nullptr,

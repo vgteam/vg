@@ -1584,11 +1584,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         if (config.show_progress) {
             config.logger.info() << "Starting the construction" << std::endl;
         }
-        // TODO: We should have a GBZ constructor that takes a HandleGraph and a translation directly.
-        gbwtgraph::GBZ gbz;
-        gbz.index = std::move(*gbwts.get_compressed());
-        gbz.graph = gbwtgraph::GBWTGraph(
-            gbz.index, *(graphs.path_graph), 
+        gbwtgraph::GBZ gbz(
+            std::move(*gbwts.get_compressed()), *(graphs.path_graph),
             vg::algorithms::find_translation(graphs.path_graph.get())
         );
         graphs.clear(); // We no longer need the graph.
