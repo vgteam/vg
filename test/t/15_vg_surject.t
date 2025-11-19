@@ -5,8 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-
-plan tests 57
+plan tests 74
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -41,7 +40,7 @@ is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) 
 head -c -10 j.gam >j-truncated.gam
 vg surject -p x -x x.xg -t 1 j-truncated.gam >/dev/null 2>log.txt
 is "${?}" "1" "vg surject stops when the input read file is truncated"
-is "$(grep "truncate" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
+is "$(grep "truncated input" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
 rm -f j-truncated.gam log.txt
 
 is $(vg surject -x x.xg -t 1 -s x.gam | grep AS | wc -l) 100 "vg surject reports alignment scores"
@@ -183,7 +182,7 @@ is "$?" 0 "vg surject correctly fetches base path length from input file"
 
 is "$(vg surject -x j.vg -b --graph-aln r.gam | samtools view | grep 'GR:Z:' | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with the graph-space alignment"
 
-rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.sub.vg j.sub.gcsa r.sub.gam r.sub.sam r.sub.sam
+rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.vg j.gcsa j.gcsa.lcp j.sub.vg j.sub.gcsa j.sub.gcsa.lcp r.sub.gam r.sub.sam r.sub.sam path_info.tsv
 
 vg surject -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
 is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion"
@@ -223,3 +222,44 @@ rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp tiny.vg
 
 is "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --prune-low-cplx --sam-output --gaf-input surject/opposite_strands.gaf | grep -v "^@" | cut -f3-12 | sort | uniq | wc -l)" 1 "vg surject low compelxity pruning gets the same alignment regardless of read orientation"
 
+vg autoindex -p d -w map -g graphs/long_deletion.gfa
+printf "@read\nGGGAGAGAGAGAGA\n+\nHHHHHHHHHHHHHH\n" > d.fq
+vg map -d d -f d.fq > d.gam
+vg surject -u -b -x d.xg d.gam > d.bam
+is "$(samtools view -f 2048 d.bam | wc -l)" "1" "Supplementary alignments can be produced"
+is "$(samtools view -F 2048 d.bam | grep "SA:Z:" | wc -l)" "1" "Primary alignments get the SA tag for supplementaries"
+vg view -ak d.gam > d.gamp
+vg surject -u -b -x d.xg -m d.gamp > d2.bam
+is "$(samtools view -f 2048 d2.bam | wc -l)" "1" "Supplementary alignments can be produced with GAMP input"
+is "$(samtools view -F 2048 d2.bam | grep "SA:Z:" | wc -l)" "1" "Primary alignments get the SA tag for supplementaries with GAMP input"
+printf "@read\nTTTCTCTCTCTCTC\n+\nHHHHHHHHHHHHHH\n" > e.fq
+vg map -d d -f d.fq -f e.fq > e.gam
+vg surject -u -b -x d.xg -i e.gam > e.bam
+is "$(samtools view -f 2048 e.bam | wc -l)" "2" "Paired supplementary alignments can be produced"
+is $(samtools view -f 2048 e.bam | awk '{if ($7 == "=" || $7 == x) {print $0}}' | wc -l) "2" "Paired supplementary alignments have correct mate contig"
+is $(samtools view -f 2112 e.bam | awk '{print $8}') $(samtools view -F 2048 -f 128 e.bam | awk '{print $4}') "Read 1 of paired supplementary alignments has correct mate position"
+is $(samtools view -f 2176 e.bam | awk '{print $8}') $(samtools view -F 2048 -f 64 e.bam | awk '{print $4}') "Read 2 of paired supplementary alignments has correct mate position"
+vg view -ak e.gam > e.gamp
+vg surject -u -m -b -x d.xg -i e.gamp > e2.bam
+is "$(samtools view -f 2048 e2.bam | wc -l)" "2" "Paired supplementary alignments can be produced with GAMP input"
+is $(samtools view -f 2048 e2.bam | awk '{if ($7 == "=" || $7 == x) {print $0}}' | wc -l) "2" "Paired supplementary alignments have correct mate contig with GAMP input"
+is $(samtools view -f 2112 e2.bam | awk '{print $8}') $(samtools view -F 2048 -f 128 e2.bam | awk '{print $4}') "Read 1 of paired supplementary alignments has correct mate position with GAMP input"
+is $(samtools view -f 2176 e2.bam | awk '{print $8}') $(samtools view -F 2048 -f 64 e2.bam | awk '{print $4}') "Read 2 of paired supplementary alignments has correct mate position with GAMP input"
+
+vg autoindex -p f -w map -g graphs/long_inversion.gfa
+vg map -d f -f d.fq > f.gam
+vg surject -u -b -x f.xg f.gam > f.bam
+is "$(samtools view -f 2048 f.bam | wc -l)" "1" "Supplementary alignment can be produced with an inversion"
+is "$(samtools view f.bam | cut -f 3 | uniq | wc -l)" "1" "Inversion supplementary is on the same contig"
+is "$(samtools view -F 16 f.bam | wc -l)" "1" "One of inverted primary/supplementary pair is on forward strand"
+is "$(samtools view -f 16 f.bam | wc -l)" "1" "One of inverted primary/supplementary pair is on reverse strand"
+
+rm d.xg d.gcsa d.gcsa.lcp d.fq d.gam d.gamp d.bam d2.bam e.fq e.gam e.gamp e.bam e2.bam f.xg f.gcsa f.gcsa.lcp f.gam f.bam
+
+vg gbwt -G graphs/haplotypes.gfa -g haplotypes.gbz --gbz-format
+vg view -JGa reads/haplotypes_read.json >read.gam
+vg surject -x haplotypes.gbz -p 'KOLF2.1J#1#chr1_1#0' --sam-output read.gam >surjected.sam
+
+is "$(cat surjected.sam | tail -n1 | cut -f3)" "KOLF2.1J#1#chr1_1#0" "surjecting explicitly to a haplotype in a GBZ puts a read on that haplotype"
+
+rm haplotypes.gbz read.gam surjected.sam

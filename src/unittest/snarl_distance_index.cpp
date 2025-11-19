@@ -156,7 +156,43 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Distances for past-the-end positions", "[snarl_distance]" ) {
+            VG graph;
+                
+            Node* n1 = graph.create_node("GC");
+            Node* n2 = graph.create_node("T");
+
+            Edge* e1 = graph.create_edge(n1, n2);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+            SECTION("Forward distances") {
+                // Start of node 1 to past the end of node 1
+                REQUIRE(distance_index.minimum_distance(1, false, 0, 1, false, 2) == 2);
+                // Start of node 1 to past the end of node 2
+                REQUIRE(distance_index.minimum_distance(1, false, 0, 2, false, 1) == 3);
+                // Past the end of node 1 to start of node 2
+                REQUIRE(distance_index.maximum_distance(1, false, 2, 2, false, 0) == 0);
+                // Past the end of node 1 to past the end of node 2
+                REQUIRE(distance_index.minimum_distance(1, false, 2, 2, false, 1) == 1);
+                // Start of node 2 to past the end of node 2
+                REQUIRE(distance_index.minimum_distance(2, false, 0, 2, false, 1) == 1);
+            }
+            SECTION("Backward distances") {
+                // End of node 1 to past the start of node 1
+                REQUIRE(distance_index.minimum_distance(1, true, 0, 1, true, 2) == 2);
+                // Past the start of node 2 to past the start of node 1
+                REQUIRE(distance_index.maximum_distance(2, true, 1, 1, true, 2) == 2);
+                // End of node 2 to past the start of node 1
+                REQUIRE(distance_index.minimum_distance(2, true, 0, 1, true, 2) == 3);
+                // Past the start of node 2 to end of node 1
+                REQUIRE(distance_index.minimum_distance(2, true, 1, 1, true, 0) == 0);
+                // End of node 2 to past the start of node 2
+                REQUIRE(distance_index.minimum_distance(2, true, 0, 2, true, 1) == 1);
+            }
+        }
+        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
         
             VG graph;
                 
@@ -6546,6 +6582,27 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n7->id(), false, 0,  false,&graph) == 8);
                 REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n8->id(), false, 0, false, &graph) == 8);
                 REQUIRE(distance_index.minimum_distance(n8->id(), false, 0, n2->id(), true,  0, false, &graph) == 1);
+            }
+            SECTION( "Is oversized" ) {
+                net_handle_t node_1 = distance_index.get_node_net_handle(n1->id());
+                net_handle_t snarl;
+                distance_index.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                    snarl=other;
+                    return false;
+                });
+                REQUIRE(distance_index.is_oversized_snarl(snarl));
+            }
+            SECTION( "Is not oversized with size limit equal to snarl size " ) {
+                SnarlDistanceIndex distance_index2;
+                // Exactly equal to the snarl size
+                fill_in_distance_index(&distance_index2, &graph, &snarl_finder, 7);
+                net_handle_t node_1 = distance_index2.get_node_net_handle(n1->id());
+                net_handle_t snarl;
+                distance_index2.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                    snarl=other;
+                    return false;
+                });
+                REQUIRE(!distance_index2.is_oversized_snarl(snarl));
             }
         }
         TEST_CASE( "Nested oversized snarl","[snarl_distance]" ) {

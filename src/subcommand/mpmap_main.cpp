@@ -43,11 +43,10 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstream& strm) {
+pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(const Logger& logger, ifstream& strm) {
     
     auto bail = [&]() {
-        cerr << "error:[vg mpmap] Could not parse intron length distribution file." << endl;
-        exit(1);
+        logger.error() << "Could not parse intron length distribution file" << endl;
     };
     
     string line;
@@ -84,6 +83,18 @@ pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstr
         }
     }
     return make_pair(weights, params);
+}
+
+static void error_if_negative(const Logger& logger, double value, const string& longform,
+                              const string& description, bool also_ban_zero = false,
+                              bool zero_will_disable = false) {
+    if (value < 0 || (also_ban_zero && value == 0)) {
+        string requirement = (also_ban_zero || zero_will_disable) ? "positive" 
+                                                                  : "nonnegative";
+        string disable_text = zero_will_disable ? " or 0 to disable" : "";
+        logger.error() << description << " (" << longform << ") must be " << requirement
+                       << disable_text << "; you passed " << value << endl;
+    }
 }
 
 void help_mpmap(char** argv) {
@@ -210,6 +221,7 @@ void help_mpmap(char** argv) {
 
 
 int main_mpmap(int argc, char** argv) {
+    Logger logger("vg mpmap");
     
     if (argc == 2) {
         help_mpmap(argv);
@@ -301,13 +313,13 @@ int main_mpmap(int argc, char** argv) {
     int hit_max = 1024;
     int hit_max_arg = numeric_limits<int>::min();
     int hard_hit_max_muliplier = 3;
-    int min_mem_length = 1;
+    int MIN_MEM_LENGTH = 1; // This isn't exposed to the command line
     int min_clustering_mem_length = 0;
     int min_clustering_mem_length_arg = numeric_limits<int>::min();
     bool use_stripped_match_alg = false;
     int default_strip_length = 10;
     int stripped_match_alg_strip_length = default_strip_length;
-    int stripped_match_alg_max_length = 0; // no maximum yet
+    int STRIPPED_MATCH_ALG_MAX_LENGTH = 0; // This isn't exposed to the command line
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
     bool use_fanout_match_alg = false;
@@ -326,7 +338,7 @@ int main_mpmap(int argc, char** argv) {
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
     double reseed_diff_arg = numeric_limits<double>::lowest();
-    double reseed_exp = 0.065;
+    double RESEED_EXP = 0.065; // This isn't exposed to the command line
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
     bool use_tvs_clusterer = false;
@@ -384,7 +396,7 @@ int main_mpmap(int argc, char** argv) {
     bool suppress_multicomponent_splitting = false;
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
-    int max_alignment_gap = 5000;
+    int MAX_ALIGNMENT_GAP = 5000; // This isn't exposed to the command line
     bool use_pessimistic_tail_alignment = false;
     double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
@@ -527,35 +539,21 @@ int main_mpmap(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                graph_name = optarg;
-                if (graph_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide Graph file with -x." << endl;
-                    exit(1);
-                }
+                graph_name = require_exists(logger, optarg);
                 break;
                 
             case 'g':
-                gcsa_name = optarg;
-                if (gcsa_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide GCSA file with -g." << endl;
-                    exit(1);
-                }
+                gcsa_name = require_exists(logger, optarg);
+                // We also need the LCP index
+                require_exists(logger, gcsa_name + ".lcp");
                 break;
                 
             case 'H':
-                gbwt_name = optarg;
-                if (gbwt_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide GBWT index file with -H" << endl;
-                    exit(1);
-                }
+                gbwt_name = require_exists(logger, optarg);
                 break;
                 
             case 'd':
-                distance_index_name = optarg;
-                if (distance_index_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide distance index file with -d" << endl;
-                    exit(1);
-                }
+                distance_index_name = require_exists(logger, optarg);
                 if (!use_tvs_clusterer) {
                     use_min_dist_clusterer = true;
                 }
@@ -563,14 +561,20 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_MAX_RESCUE_ATTEMPTS:
                 max_rescue_attempts = parse<int>(optarg);
+                error_if_negative(logger, max_rescue_attempts, "--max-rescues",
+                                  "Maximum number of rescue attempts", false, true);
                 break;
                 
             case OPT_SECONDARY_RESCUE_ATTEMPTS:
                 secondary_rescue_attempts_arg = parse<int>(optarg);
+                error_if_negative(logger, secondary_rescue_attempts_arg, "--max-secondary-rescues",
+                                  "Maximum number of rescue attempts for secondary mappings", false, true);
                 break;
                 
             case OPT_SECONDARY_MAX_DIFF:
                 secondary_rescue_score_diff = parse<double>(optarg);
+                error_if_negative(logger, secondary_rescue_score_diff, "--secondary-diff",
+                                  "Max score difference for candidates clusters for secondary rescue");
                 break;
                 
             case OPT_PATH_RESCUE_GRAPH:
@@ -578,7 +582,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_LINEAR_INDEX: // --linear-index
-                sublinearLS_name = optarg;
+                sublinearLS_name = require_exists(logger, optarg);
                 break;
             
             case OPT_LINEAR_PATH: // --linear-path
@@ -586,48 +590,19 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'f':
-                if (fastq_name_1.empty()) {
-                    fastq_name_1 = optarg;
-                    if (fastq_name_1.empty()) {
-                        cerr << "error:[vg mpmap] Must provide FASTQ file with -f" << endl;
-                        exit(1);
-                    }
-                }
-                else if (fastq_name_2.empty()) {
-                    fastq_name_2 = optarg;
-                    if (fastq_name_2.empty()) {
-                        cerr << "error:[vg mpmap] Must provide FASTQ file with -f" << endl;
-                        exit(1);
-                    }
-                }
-                else {
-                    cerr << "error:[vg mpmap] Cannot specify more than two FASTQ files" << endl;
-                    exit(1);
-                }
+                assign_fastq_files(logger, optarg, fastq_name_1, fastq_name_2);
                 break;
                 
             case 'G':
-                gam_file_name = optarg;
-                if (gam_file_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide GAM file with -G." << endl;
-                    exit(1);
-                }
+                gam_file_name = require_exists(logger, optarg);
                 break;
                 
             case 'N':
                 sample_name = optarg;
-                if (sample_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide sample name with -N." << endl;
-                    exit(1);
-                }
                 break;
                 
             case 'R':
                 read_group = optarg;
-                if (read_group.empty()) {
-                    cerr << "error:[vg mpmap] Must provide read group with -R." << endl;
-                    exit(1);
-                }
                 break;
                 
             case 'i':
@@ -647,7 +622,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'S':
-                ref_paths_name = optarg;
+                ref_paths_name = require_exists(logger, optarg);
                 break;
 
             case OPT_REF_NAME:
@@ -655,11 +630,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 's':
-                snarls_name = optarg;
-                if (snarls_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide snarl file with -s." << endl;
-                    exit(1);
-                }
+                snarls_name = require_exists(logger, optarg);
                 break;
                 
             case OPT_SUPPRESS_TAIL_ANCHORS:
@@ -681,22 +652,30 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SNARL_MAX_CUT:
                 snarl_cut_size = parse<int>(optarg);
+                error_if_negative(logger, snarl_cut_size, "--snarl-max-cut",
+                                  "Max snarl cut size", false, true);
                 break;
                 
             case OPT_ALT_PATHS:
                 num_alt_alns = parse<int>(optarg);
+                error_if_negative(logger, num_alt_alns, "--alt-paths", "Number of alternate snarl paths", true);
                 break;
                 
             case 'b':
                 frag_length_sample_size = parse<int>(optarg);
+                error_if_negative(logger, frag_length_sample_size, "--frag-sample",
+                                  "Fragment length distribution sample size", true);
                 break;
                 
             case 'I':
                 frag_length_mean = parse<double>(optarg);
+                error_if_negative(logger, frag_length_mean, "--frag-mean", "Fragment length mean");
                 break;
                 
             case 'D':
                 frag_length_stddev = parse<double>(optarg);
+                error_if_negative(logger, frag_length_stddev, "--frag-stddev",
+                                  "Fragment length standard deviation");
                 break;
                 
             case 'B':
@@ -705,14 +684,17 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'P':
                 max_mapping_p_value = parse<double>(optarg);
+                error_if_negative(logger, max_mapping_p_value, "--max-p-val", "Max mapping p-value", true);
                 break;
                 
             case OPT_MAX_RESCUE_P_VALUE:
                 max_rescue_p_value = parse<double>(optarg);
+                error_if_negative(logger, max_rescue_p_value, "--max-rescue-p-val", "Max rescue p-value", true);
                 break;
                 
             case 'Q':
                 max_mapq = parse<int>(optarg);
+                error_if_negative(logger, max_mapq, "--mq-max", "Maximum mapping quality", true);
                 break;
                 
             case 'a':
@@ -729,10 +711,13 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_BAND_PADDING_MULTIPLIER:
                 band_padding_multiplier = parse<double>(optarg);
+                error_if_negative(logger, band_padding_multiplier, "--padding-mult", "Band padding");
                 break;
                 
             case 'u':
                 max_map_attempts_arg = parse<int>(optarg);
+                error_if_negative(logger, max_map_attempts_arg, "--map-attempts",
+                                  "Maximum number of mapping attempts", false, true);
                 // let 0 be a sentinel for no limit and also a sentinel for not giving an arg
                 if (max_map_attempts_arg == 0) {
                     max_map_attempts_arg = numeric_limits<int>::max();
@@ -741,6 +726,8 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_MAX_PATHS:
                 population_max_paths = parse<int>(optarg);
+                error_if_negative(logger, population_max_paths, "--max-paths",
+                                  "Maximum number of paths per alignment for population scoring");
                 break;
                 
             case OPT_TOP_TRACEBACKS:
@@ -749,10 +736,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'M':
                 max_num_mappings = parse<int>(optarg);
+                error_if_negative(logger, max_num_mappings, "--max-multimaps",
+                                  "Maximum number of mappings per read", true);
                 break;
                 
             case OPT_RESEED_LENGTH:
                 reseed_length_arg = parse<int>(optarg);
+                error_if_negative(logger, reseed_length_arg, "--reseed-length",
+                                  "Reseeding length", false, true);
                 break;
                 
             case 'W':
@@ -773,10 +764,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_STRIP_LENGTH:
                 stripped_match_alg_strip_length = parse<int>(optarg);
+                error_if_negative(logger, stripped_match_alg_strip_length, "--strip-length",
+                                  "Match strip length", false, true);
                 break;
                 
             case OPT_STRIP_COUNT:
                 stripped_match_alg_target_count = parse<int>(optarg);
+                error_if_negative(logger, stripped_match_alg_target_count, "--strip-count",
+                                  "Target seed count", false, true);
                 break;
                 
             case OPT_NO_GREEDY_MEM_RESTARTS:
@@ -806,10 +801,13 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'c':
                 hit_max_arg = parse<int>(optarg);
+                error_if_negative(logger, hit_max_arg, "--hit-max", "MEM hit max", false, true);
                 break;
                 
             case OPT_HARD_HIT_MAX_MULTIPLIER:
                 hard_hit_max_muliplier = parse<int>(optarg);
+                error_if_negative(logger, hard_hit_max_muliplier, "--hard-hit-mult",
+                                  "Hard MEM hit max multipler", false, true);
                 break;
                 
             case OPT_APPROX_EXP:
@@ -856,8 +854,8 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'E':
-                cerr << "warning:[vg mpmap] Long read scoring option (--long-read-scoring) is deprecated. "
-                     << "Instead, use read length preset (--read-length)." << endl;
+                logger.warn() << "Long read scoring option (--long-read-scoring) is deprecated. "
+                              << "Instead, use read length preset (--read-length)." << endl;
                 read_length = "long";
                 break;
                 
@@ -871,10 +869,12 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_MAX_MOTIF_PAIRS:
                 max_motif_pairs = parse<int>(optarg);
+                error_if_negative(logger, max_motif_pairs, "--max-motif-pairs",
+                                  "Maximum attempted splice motif pairs");
                 break;
                 
             case 'r':
-                intron_distr_name = optarg;
+                intron_distr_name = require_exists(logger, optarg);
                 break;
                 
             case 'l':
@@ -898,11 +898,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'w':
-                matrix_file_name = optarg;
-                if (matrix_file_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide matrix file with --matrix-file." << endl;
-                    exit(1);
-                }
+                matrix_file_name = require_exists(logger, optarg);
                 break;
                 
             case 'o':
@@ -926,15 +922,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 't':
-            {
-                int num_threads = parse<int>(optarg);
-                if (num_threads <= 0) {
-                    cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads
-                         << ", must set to a positive integer." << endl;
-                    exit(1);
-                }
-                omp_set_num_threads(num_threads);
-            }
+                set_thread_count(logger, optarg);
                 break;
                 
             case OPT_NO_OUTPUT:
@@ -951,12 +939,12 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (optind != argc) {
-        cerr << "error:[vg mpmap] Unused positional argument(s):";
+        auto error_msg = logger.error();
+        error_msg << "Unused positional argument(s) :";
         for (int i = optind; i < argc; ++i) {
-            cerr << " " << argv[i];
+            error_msg << " " << argv[i];
         }
-        cerr << endl;
-        exit(1);
+        error_msg << endl;
     }
     
     // normalize capitalization on preset options
@@ -1050,15 +1038,15 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (read_length != "short") {
         // short is the default
-        cerr << "error:[vg mpmap] Cannot identify read length preset (-l): " << read_length << endl;
-        exit(1);
+        logger.error() << "Cannot identify read length preset (-l): " << read_length << endl;
     }
     
     if (nt_type == "rna") {
         // RNA preset
         if (distance_index_name.empty()) {
-            cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) "
-                 << "for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
+            logger.warn() << "It is HIGHLY recommended to use a distance index (-d) "
+                          << "for clustering on splice graphs. "
+                          << "Both accuracy and speed will suffer without one." << endl;
         }
         
         // we'll assume that there might be spliced alignments
@@ -1089,8 +1077,7 @@ int main_mpmap(int argc, char** argv) {
     }
     else {
         // DNA is the default
-        cerr << "error:[vg mpmap] Cannot identify sequencing type preset (-n): " << nt_type << endl;
-        exit(1);
+        logger.error() << "Cannot identify sequencing type preset (-n): " << nt_type << endl;
     }
         
     if (single_path_alignment_mode && read_length != "long") {
@@ -1118,18 +1105,19 @@ int main_mpmap(int argc, char** argv) {
         !(hts_output && transcriptomic)) {
         // adjust parameters that produce irrelevant extra work single path mode
         if (!snarls_name.empty()) {
-            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored for "
-                 << "single path alignment formats (-F) without multipath population scoring (--max-paths)." << endl;
+            logger.warn() << "Snarl file (-s) is ignored for single path alignment formats (-F) "
+                          << "without multipath population scoring (--max-paths)." << endl;
         }
         
         if (snarl_cut_size != default_snarl_cut_size) {
-            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored for "
-                 << "single path alignment formats (-F) without multipath population scoring (--max-paths)." << endl;
+            logger.warn() << "Snarl cut limit (-X) is ignored for single path alignment formats (-F) "
+                          << "without multipath population scoring (--max-paths)." << endl;
         }
         
         if (num_alt_alns != default_num_alt_alns) {
-            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) for ignored for "
-                 << "single path alignment formats (-F) without multipath population scoring (--max-paths)." << endl;
+            logger.warn() << "Number of alternate alignments (-a) is ignored for "
+                          << "single path alignment formats (-F) "
+                          << "without multipath population scoring (--max-paths)." << endl;
         }
         
         // don't cut inside snarls or load the snarl manager
@@ -1213,441 +1201,241 @@ int main_mpmap(int argc, char** argv) {
     // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
-        cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) "
-             << "and standard deviation (-D)." << endl;
-        exit(1);
-    }
-    
-    if (!std::isnan(frag_length_mean) && frag_length_mean < 0) {
-        cerr << "error:[vg mpmap] Fragment length mean (-I) must be nonnegative." << endl;
-        exit(1);
-    }
-    
-    if (!std::isnan(frag_length_stddev) && frag_length_stddev < 0) {
-        cerr << "error:[vg mpmap] Fragment length standard deviation (-D) must be nonnegative." << endl;
-        exit(1);
+        logger.error() << "Cannot specify only one of fragment length mean (-I) "
+                       << "and standard deviation (-D)." << endl;
     }
     
     if (interleaved_input && !fastq_name_2.empty()) {
-        cerr << "error:[vg mpmap] Cannot designate both interleaved paired ends (-i) "
-             << "and separate paired end file (-f)." << endl;
-        exit(1);
+        logger.error() << "Cannot designate both interleaved paired ends (-i) "
+                       << "and separate paired end file (-f)." << endl;
     }
     
-    
     if (!fastq_name_1.empty() && !gam_file_name.empty()) {
-        cerr << "error:[vg mpmap] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
-        exit(1);
+        logger.error() << "Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
     }
     
     if (fastq_name_1.empty() && gam_file_name.empty()) {
-        cerr << "error:[vg mpmap] Must designate reads to map from either FASTQ (-f) or GAM (-G) file." << endl;
-        exit(1);
+        logger.error() << "Must designate reads to map from either FASTQ (-f) or GAM (-G) file." << endl;
     }
     
     if (!interleaved_input && fastq_name_2.empty() && same_strand) {
-        cerr << "warning:[vg mpmap] Ignoring same strand parameter (-e) because no paired end input provided." << endl;
+        logger.warn() << "Ignoring same strand parameter (-T) because no paired end input provided." << endl;
     }
     
     if (!ref_paths_name.empty() && !hts_output) {
-        cerr << "warning:[vg mpmap] Reference path file (-S) is only used "
-             << "when output format (-F) is SAM, BAM, or CRAM." << endl;
+        logger.warn() << "Reference path file (-S) is only used "
+                      << "when output format (-F) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
+    
     if (!reference_assembly_names.empty() && !hts_output) {
-        cerr << "warning:[vg mpmap] Reference assembly names (--ref-name) are only used "
-             << "when output format (-F) is SAM, BAM, or CRAM." << endl;
+        logger.warn() << "Reference assembly names (--ref-name) are only used "
+                      << "when output format (-F) is SAM, BAM, or CRAM." << endl;
         reference_assembly_names.clear();
     }
     
-    if (num_alt_alns <= 0) {
-        cerr << "error:[vg mpmap] Number of alternate snarl paths (-a) set to " << num_alt_alns
-             << ", must set to a positive integer." << endl;
-        exit(1);
-    }
-    
-    if (frag_length_sample_size <= 0) {
-        cerr << "error:[vg mpmap] Fragment length distribution sample size (-b) set to " << frag_length_sample_size
-             << ", must set to a positive integer." << endl;
-        exit(1);
-    }
-    
-    if (snarl_cut_size < 0) {
-        cerr << "error:[vg mpmap] Max snarl cut size (-X) set to " << snarl_cut_size
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
-    }
-    
-    if (max_mapping_p_value <= 0.0) {
-        cerr << "error:[vg mpmap] Max mapping p-value (-P) set to " << max_mapping_p_value
-             << ", must set to a positive number." << endl;
-        exit(1);
-    }
-    
-    if (max_rescue_p_value <= 0.0) {
-        cerr << "error:[vg mpmap] Max mapping p-value (--max-rescue-p-val) set to " << max_rescue_p_value
-             << ", must set to a positive number." << endl;
-        exit(1);
-    }
-    
     if (mapq_method == None) {
-        cerr << "error:[vg mpmap] The mapping quality method 'None' is no longer supported." << endl;
-        exit(1);
-    }
-    
-    if (max_mapq <= 0) {
-        cerr << "error:[vg mpmap] Maximum mapping quality (-Q) set to " << max_mapq
-             << ", must set to a positive integer." << endl;
-        exit(1);
-    }
-    
-    if (band_padding_multiplier < 0.0) {
-        cerr << "error:[vg mpmap] Band padding (-p) set to " << band_padding_multiplier 
-             << ", must set to a nonnegative number." << endl;
-        exit(1);
-    }
-    
-    if (max_map_attempts_arg < 0) {
-        cerr << "error:[vg mpmap] Maximum number of mapping attempts (-u) set to " << max_map_attempts_arg
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
-    }
-    
-    if (population_max_paths < 0) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for "
-             << "population scoring (--max-paths) set to " << population_max_paths
-             << ", must set to a nonnegative integer." << endl;
-        exit(1);
+        logger.error() << "The mapping quality method 'None' is no longer supported." << endl;
     }
     
     if (population_max_paths != 10 && population_max_paths != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
         // Don't allow anything but the default or the "disabled" setting without an index.
         // TODO: This restriction makes neat auto-generation of command line options for different conditions hard.
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring "
-             << "(--max-paths) is specified but population database (-H or --linear-index) "
-             << "was not provided." << endl;
-        exit(1);
+        logger.error() << "Maximum number of paths per alignment for population scoring "
+                       << "(--max-paths) is specified but population database (-H or --linear-index) "
+                       << "was not provided." << endl;
     }
     
     if (always_check_population && gbwt_name.empty() && sublinearLS_name.empty()) {
-        cerr << "error:[vg mpmap] Cannot --always-check-population if no population database "
-             << "(-H or --linear-index) is provided." << endl;
-        exit(1);
+        logger.error() << "Cannot --always-check-population if no population database "
+                       << "(-H or --linear-index) is provided." << endl;
     }
     
     if (force_haplotype_count != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
-        cerr << "warning:[vg mpmap] Cannot --force-haplotype-count if no population database "
-             << "(-H or --linear-index) is provided. Ignoring option." << endl;
+        logger.warn() << "Cannot --force-haplotype-count if no population database "
+                      << "(-H or --linear-index) is provided. Ignoring option." << endl;
     }
     
     if (!sublinearLS_name.empty() && !gbwt_name.empty()) {
-        cerr << "error:[vg mpmap] GBWT index (-H) and linear haplotype index (--linear-index) "
-             << "both specified. Only one can be used." << endl;
-        exit(1);
+        logger.error() << "GBWT index (-H) and linear haplotype index (--linear-index) "
+                       << "both specified. Only one can be used." << endl;
     }
     
     if (!sublinearLS_name.empty() && sublinearLS_ref_path.empty()) {
-        cerr << "error:[vg mpmap] Linear haplotype index (--linear-index) cannot be used "
-             << "without a single reference path (--linear-path)." << endl;
-        exit(1);
+        logger.error() << "Linear haplotype index (--linear-index) cannot be used "
+                       << "without a single reference path (--linear-path)." << endl;
     }
     
     if (sublinearLS_name.empty() && !sublinearLS_ref_path.empty()) {
-        cerr << "error:[vg mpmap] Linear haplotype ref path (--linear-path) cannot be used"
-             << "without an index (--linear-index)." << endl;
-        exit(1);
+        logger.error() << "Linear haplotype ref path (--linear-path) cannot be used "
+                       << "without an index (--linear-index)." << endl;
     }
     
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
-        cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to "
-             << max_map_attempts << " mappings." << endl;
-    }
-    
-    if (max_rescue_attempts < 0) {
-        cerr << "error:[vg mpmap] Maximum number of rescue attempts (--max-rescues) set to " << max_rescue_attempts 
-             << ", must set to a non-negative integer (0 for no rescue)." << endl;
-        exit(1);
+        logger.warn() << "Reporting up to " << max_num_mappings
+                      << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
     
     if (max_rescue_attempts > max_single_end_mappings_for_rescue) {
-        cerr << "warning:[vg mpmap] Maximum number of rescue attempts (--max-rescues) of " << max_rescue_attempts
-             << " is greater than number of mapping attempts for rescue " << max_single_end_mappings_for_rescue << endl;
-    }
-    
-    if (secondary_rescue_attempts < 0) {
-        cerr << "error:[vg mpmap] Maximum number of rescue attempts for "
-             << "secondary mappings (--max-secondary-rescues) set to " << secondary_rescue_attempts
-             << ", must set to a non-negative integer (0 for no rescue)." << endl;
-        exit(1);
-    }
-    
-    if (secondary_rescue_score_diff < 0.0) {
-        cerr << "error:[vg mpmap] Max score difference for candidates clusters "
-             << "for secondary rescue (--secondary-diff) set to " << secondary_rescue_score_diff
-             << ", must set to a non-negative number." << endl;
-        exit(1);
-    }
-    
-    if (max_num_mappings <= 0) {
-        cerr << "error:[vg mpmap] Maximum number of mappings per read (-M) set to " << max_num_mappings
-             << ", must set to a positive integer." << endl;
-        exit(1);
-    }
-    
-    if (reseed_length < 0) {
-        cerr << "error:[vg mpmap] Reseeding length (-r) set to " << reseed_length
-             << ", must set to a positive integer or 0 for no reseeding." << endl;
-        exit(1);
+        logger.warn() << "Maximum number of rescue attempts (--max-rescues) of " << max_rescue_attempts
+                      << " is greater than the number of mapping attempts for rescue "
+                      << max_single_end_mappings_for_rescue << endl;
     }
     
     if ((reseed_diff <= 0 || reseed_diff >= 1.0) && reseed_length != 0) {
-        cerr << "error:[vg mpmap] Reseeding length difference (-W) set to " << reseed_diff
-             << ", must set to a number between 0.0 and 1.0." << endl;
-        exit(1);
-    }
-    
-    if (reseed_exp < 0 && reseed_length != 0 && use_adaptive_reseed) {
-        cerr << "error:[vg mpmap] Reseeding exponent set to " << reseed_exp
-             << ",  must set to a nonnegative number." << endl;
-        exit(1);
-    }
-    
-    if (hard_hit_max_muliplier < 0) {
-        cerr << "error:[vg mpmap] Hard MEM hit max multipler (--hard-hit-mult) set to " << hard_hit_max_muliplier
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
-    }
-    
-    if (hit_max < 0) {
-        cerr << "error:[vg mpmap] MEM hit max (-c) set to " << hit_max 
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
+        logger.error() << "Reseeding length difference (-W) set to " << reseed_diff
+                       << ", must set to a number between 0.0 and 1.0." << endl;
     }
     
     if (hard_hit_max < hit_max && hit_max && hard_hit_max) {
-        cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max 
-             << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")." << endl;
-    }
-    
-    if (min_mem_length < 0) {
-        cerr << "error:[vg mpmap] Minimum MEM length set to " << min_mem_length 
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
+        logger.warn() << "MEM hit query limit (-c) set to " << hit_max
+                      << ", which is higher than the threshold to ignore a MEM ("
+                      << hard_hit_max << ")." << endl;
     }
     
     if (single_path_alignment_mode && agglomerate_multipath_alns) {
         // this could probably be just a warning, but it will really mess up the MAPQs
-        cerr << "error:[vg mpmap] Disconnected alignments cannot be agglomerated (-a) "
-             << "for single path alignment formats (-F)." << endl;
-        exit(1);
-    }
-    
-    if (stripped_match_alg_strip_length <= 0) {
-        cerr << "error:[vg mpmap] Match strip length (--strip-length) set to " << stripped_match_alg_strip_length
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
-    }
-    
-    if (stripped_match_alg_max_length < 0) {
-        cerr << "error:[vg mpmap] Maximum seed match length set to " << stripped_match_alg_max_length
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
-    }
-    
-    if (stripped_match_alg_target_count < 0) {
-        cerr << "error:[vg mpmap] Target seed count (--strip-count) set to " << stripped_match_alg_target_count
-             << ", must set to a positive integer or 0 for no maximum." << endl;
-        exit(1);
+        logger.error() << "Disconnected alignments cannot be agglomerated "
+                       << "(-a) for single path alignment formats (-F)." << endl;
     }
     
     if (stripped_match_alg_target_count != default_strip_count && !use_stripped_match_alg) {
-        cerr << "warning:[vg mpmap] Target stripped match count (--strip-count) set to "
-             << stripped_match_alg_target_count << ", but stripped algorithm (--stripped-match) was not selected. "
-             << "Ignoring strip count." << endl;
+        logger.warn() << "Target stripped match count (--strip-count) set to "
+                      << stripped_match_alg_target_count
+                      << ", but stripped algorithm (--stripped-match) was not selected. "
+                      << "Ignoring strip count." << endl;
     }
     
     if (stripped_match_alg_strip_length != default_strip_length && !use_stripped_match_alg) {
-        cerr << "warning:[vg mpmap] Strip length (--strip-length) set to " << stripped_match_alg_strip_length 
-             << ", but stripped algorithm (--stripped-match) was not selected. Ignoring strip length." << endl;
+        logger.warn() << "Strip length (--strip-length) set to " << stripped_match_alg_strip_length
+                      << ", but stripped algorithm (--stripped-match) was not selected. "
+                      << "Ignoring strip length." << endl;
     }
     
     // people shouldn't really be setting these anyway, but there may be combinations of presets that do this
 //    if (use_fanout_match_alg && use_stripped_match_alg) {
-//        cerr << "error:[vg mpmap] Cannot perform both stripped and fan-out match algorithms." << endl;
-//        exit(1);
+//        logger.error() << "Cannot perform both stripped and fan-out match algorithms." << endl;
 //    }
     
     if (likelihood_approx_exp < 1.0) {
-        cerr << "error:[vg mpmap] Likelihood approximation exponent (--approx-exp) set to " 
-             << likelihood_approx_exp << ", must set to at least 1.0." << endl;
-        exit(1);
+        logger.error() << "Likelihood approximation exponent (--approx-exp) set to "
+                       << likelihood_approx_exp << ", must set to at least 1.0." << endl;
     }
     
     if (cluster_ratio < 0.0 || cluster_ratio >= 1.0) {
-        cerr << "error:[vg mpmap] Cluster drop ratio (-C) set to " << cluster_ratio 
-             << ", must set to a number between 0.0 and 1.0." << endl;
-        exit(1);
+        logger.error() << "Cluster drop ratio (--drop-subgraph) set to " << cluster_ratio
+                       << ", must set to a number between 0.0 and 1.0." << endl;
     }
     
     if (use_tvs_clusterer && distance_index_name.empty()) {
-        cerr << "error:[vg mpmap] The Target Value Search clusterer (-v) requires a distance index (-d)." << endl;
-        exit(1);
+        logger.error() << "The Target Value Search clusterer (-v) requires a distance index (-d)." << endl;
     }
     
     if (use_min_dist_clusterer && distance_index_name.empty()) {
-        cerr << "error:[vg mpmap] The minimum distance clusterer (--min-dist-cluster) requires a distance index (-d)." << endl;
-        exit(1);
+        logger.error() << "The minimum distance clusterer (--min-dist-cluster) "
+                       << "requires a distance index (-d)." << endl;
     }
     
     if (use_min_dist_clusterer && use_tvs_clusterer) {
-        cerr << "error:[vg mpmap] Cannot perform both minimum distance clustering (--min-dist-cluster) "
-             << "and target value clustering (-v)." << endl;
-        exit(1);
+        logger.error() << "Cannot perform both minimum distance clustering (--min-dist-cluster) "
+                       << "and target value clustering (-v)." << endl;
     }
     
     if (greedy_min_dist && !use_min_dist_clusterer) {
-        cerr << "warning:[vg mpmap] greedy minimum distance clustering (--greedy-min-dist) "
-             << "is ignored if not using minimum distance clustering (-d)" << endl;
+        logger.warn() << "greedy minimum distance clustering (--greedy-min-dist) "
+                      << "is ignored if not using minimum distance clustering (-d)." << endl;
     }
     
     if (greedy_min_dist && component_min_dist) {
-        cerr << "error:[vg mpmap] cannot simultaneously use greedy (--greedy-min-dist) and "
-             << "component (--component-min-dist) clustering" << endl;
-        exit(1);
+        logger.error() << "cannot simultaneously use greedy (--greedy-min-dist) and "
+                       << "component (--component-min-dist) clustering" << endl;
     }
     
     if (no_clustering && !distance_index_name.empty() && !snarls_name.empty()) {
-        cerr << "warning:[vg mpmap] No clustering option (--no-cluster) causes distance index (-d) "
-             << "to be ignored when snarls (-s) are provided. This option is activated by default for "
-             << "'very-short' read lengths (-l)." << endl;
+        logger.warn() << "No clustering option (--no-cluster) causes distance index (-d) "
+                      << "to be ignored when snarls (-s) are provided. This option is activated by default for "
+                      << "'very-short' read lengths (-l)." << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
-        cerr << "error:[vg mpmap] Suboptimal path likelihood root (--prune-exp) set to "
-             << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
-        exit(1);
-    }
-    
-    if (max_alignment_gap < 0) {
-        cerr << "error:[vg mpmap] Max alignment grap set to " << max_alignment_gap 
-             << ", must set to a non-negative integer." << endl;
-        exit(1);
+        logger.error() << "Suboptimal path likelihood root (--prune-exp) set to "
+                       << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
     }
     
     if (filter_short_mems && (short_mem_filter_factor < 0.0 || short_mem_filter_factor > 1.0)) {
-        cerr << "error:[vg mpmap] Short MEM filtraction factor (--filter-factor) set to "
-             << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
-        exit(1);
+        logger.error() << "Short MEM filtration factor (--filter-factor) set to "
+                       << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
     }
     
     if (no_splice_log_odds <= 0.0) {
-        cerr << "warning:[vg mpmap] Log odds against splicing (--splice-odds) set to " << no_splice_log_odds
-             << ", non-positive values can lead to spurious identification of spliced alignments." << endl;
-    }
-    
-    if (max_motif_pairs < 0) {
-        cerr << "error:[vg mpmap] Maximum attempted splice motif pairs (--max-motif-pairs) set to "
-             << max_motif_pairs << ", must set to a non-negative number." << endl;
-        exit(1);
+        logger.warn() << "Log odds against splicing (--splice-odds) set to " << no_splice_log_odds
+                      << "; non-positive values can lead to spurious identification of spliced alignments." << endl;
     }
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) 
         && !matrix_file_name.empty())  {
-        cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) "
-             << "and custom match/mismatch score (-q/-z) simultaneously." << endl;
-        exit(1);
+        logger.error() << "Cannot choose custom scoring matrix (-w)  "
+                       << "and custom match/mismatch score (-q/-z) simultaneously." << endl;
     }
     
     if (match_score > std::numeric_limits<int8_t>::max() || mismatch_score > std::numeric_limits<int8_t>::max()
         || gap_open_score > std::numeric_limits<int8_t>::max() || gap_extension_score > std::numeric_limits<int8_t>::max()
         || full_length_bonus > std::numeric_limits<int8_t>::max() || match_score < 0 || mismatch_score < 0
         || gap_open_score < 0 || gap_extension_score < 0 || full_length_bonus < 0) {
-        cerr << "error:[vg mpmap] All alignment scoring parameters (-qzoyL) must be between 0 and " 
-             << (int) std::numeric_limits<int8_t>::max() << endl;
-        exit(1);
+        logger.error() << "All alignment scoring parameters (-qzoyL) must be between 0 and "
+                       << std::numeric_limits<int8_t>::max() << "." << endl;
     }
     
     // ensure required parameters are provided
     
     if (graph_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires a graph (-x)" << endl;
-        exit(1);
+        logger.error() << "Multipath mapping requires a graph (-x)." << endl;
     }
     
     if (gcsa_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index (-g)" << endl;
-        exit(1);
+        logger.error() << "Multipath mapping requires a GCSA2 index (-g)." << endl;
     }
     
     
 #ifdef mpmap_instrument_mem_statistics
     if (auto_calibrate_mismapping_detection) {
-        cerr << "error:[vg mpmap] set calibration off when profiling MEM statistics" << endl;
-        exit(1);
+        logger.error() << "set calibration off when profiling MEM statistics" << endl;
     }
 #endif
     
     // create in-memory objects
     
-    ifstream graph_stream(graph_name);
-    if (!graph_stream) {
-        cerr << "error:[vg mpmap] Cannot open graph file " << graph_name << endl;
-        exit(1);
-    }
-    graph_stream.close();
-    
     ifstream gcsa_stream(gcsa_name);
     if (!gcsa_stream) {
-        cerr << "error:[vg mpmap] Cannot open GCSA2 file " << gcsa_name << endl;
-        exit(1);
+        logger.error() << "Cannot open GCSA2 file: " << gcsa_name << endl;
     }
     
     string lcp_name = gcsa_name + ".lcp";
     ifstream lcp_stream(lcp_name);
-    if (!lcp_stream) {
-        cerr << "error:[vg mpmap] Cannot open LCP file " << lcp_name << endl;
-        exit(1);
-    }
 
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
         matrix_stream.open(matrix_file_name);
-        if (!matrix_stream) {
-            cerr << "error:[vg mpmap] Cannot open scoring matrix file " << matrix_file_name << endl;
-            exit(1);
-        }
     }
     
     ifstream intron_distr_stream;
     if (!intron_distr_name.empty()) {
         intron_distr_stream.open(intron_distr_name);
-        if (!intron_distr_stream) {
-            cerr << "error:[vg mpmap] Cannot open intron length distribution file " << intron_distr_name << endl;
-            exit(1);
-        }
     }
     
     ifstream distance_index_stream;
     if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
         distance_index_stream.open(distance_index_name);
-        if (!distance_index_stream) {
-            cerr << "error:[vg mpmap] Cannot open distance index file " << distance_index_name << endl;
-            exit(1);
-        }
     }
     
     ifstream snarl_stream;
     if (!snarls_name.empty()) {
         if (distance_index_name.empty() || no_clustering) {
             snarl_stream.open(snarls_name);
-            if (!snarl_stream) {
-                cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
-                exit(1);
-            }
         }
         else {
-            cerr << "warning:[vg mpmap] Snarls file (-s) is unnecessary and will be ignored "
-                 << "when the distance index (-d) is provided." << endl;
+            logger.warn() << "Snarls file (-s) is unnecessary and will be ignored "
+                          << "when the distance index (-d) is provided." << endl;
         }
     }
     
@@ -1655,29 +1443,10 @@ int main_mpmap(int argc, char** argv) {
     ifstream ls_stream;
     if (!gbwt_name.empty()) {
         gbwt_stream.open(gbwt_name);
-        if (!gbwt_stream) {
-            cerr << "error:[vg mpmap] Cannot open GBWT file " << gbwt_name << endl;
-            exit(1);
-        }
     }
     else if (!sublinearLS_name.empty()) {
         // We want to use sublinear Li and Stephens as our haplotype scoring approach
         ls_stream.open(sublinearLS_name);
-        if (!ls_stream) {
-            cerr << "error:[vg mpmap] Cannot open sublinear Li & Stevens file " << sublinearLS_name << endl;
-            exit(1);
-        }
-    }
-    
-    // check to make sure we can open the reads
-    for (string reads_name : {fastq_name_1, fastq_name_2, gam_file_name}) {
-        if (!reads_name.empty() && reads_name != "-") {
-            ifstream test_read_stream(reads_name);
-            if (!test_read_stream) {
-                cerr << "error:[vg mpmap] Cannot open reads file " << reads_name << endl;
-                exit(1);
-            }
-        }
     }
     
     // Count our threads
@@ -1723,7 +1492,7 @@ int main_mpmap(int argc, char** argv) {
                     }
                 }
             }
-            cerr << "[vg mpmap] elapsed time " << strm.str() << ": " << progress << endl;
+            logger.info() << "elapsed time " << strm.str() << ": " << progress << endl;
             progress_mutex.unlock();
         }
     };
@@ -1740,7 +1509,7 @@ int main_mpmap(int argc, char** argv) {
     vector<double> intron_mixture_weights;
     vector<pair<double, double>> intron_component_params;
     if (!intron_distr_name.empty()) {
-        tie(intron_mixture_weights, intron_component_params) = parse_intron_distr_file(intron_distr_stream);
+        tie(intron_mixture_weights, intron_component_params) = parse_intron_distr_file(logger, intron_distr_stream);
     }
     
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -1808,15 +1577,16 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (path_handle_graph->get_path_count() == 0 && distance_index_name.empty()) {
-        cerr << "warning:[vg mpmap] Using a distance index (-d) for clustering is highly recommended "
-             << "for graphs that lack embedded paths. Speed and accuracy are likely to suffer severely without one." << endl;
+        logger.warn() << "Using a distance index (-d) for clustering is highly recommended "
+                      << "for graphs that lack embedded paths. Speed and accuracy "
+                      << "are likely to suffer severely without one." << endl;
     }
     else if (path_handle_graph->get_path_count() == 0
              && get_rescue_graph_from_paths
              && (interleaved_input || !fastq_name_2.empty())) {
-        cerr << "warning:[vg mpmap] Identifying rescue subgraphs using embedded paths (--path-rescue-graph) "
-             << "is impossible on graphs that lack embedded paths. Pair rescue will not be used on this graph, "
-             << "potentially hurting accuracy." << endl;
+        logger.warn() << "Identifying rescue subgraphs using embedded paths (--path-rescue-graph) "
+                      << "is impossible on graphs that lack embedded paths. Pair rescue "
+                      << "will not be used on this graph, potentially hurting accuracy." << endl;
     }
     
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -1949,8 +1719,7 @@ int main_mpmap(int argc, char** argv) {
 
         if (gbwt.get() == nullptr) {
             // Complain if we couldn't.
-            cerr << "error:[vg mpmap] unable to load gbwt index file" << endl;
-            exit(1);
+            logger.error() << "unable to load GBWT index file" << endl;
         }
     
         // We have the GBWT available for scoring haplotypes
@@ -2040,9 +1809,9 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.sub_mem_count_thinning = sub_mem_count_thinning;
     multipath_mapper.sub_mem_thinning_burn_in = int(ceil(log(total_seq_length) / log(4.0))) + sub_mem_thinning_burn_in_diff;
     multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
-    multipath_mapper.min_mem_length = min_mem_length;
+    multipath_mapper.min_mem_length = MIN_MEM_LENGTH;
     multipath_mapper.stripped_match_alg_strip_length = stripped_match_alg_strip_length;
-    multipath_mapper.stripped_match_alg_max_length = stripped_match_alg_max_length;
+    multipath_mapper.stripped_match_alg_max_length = STRIPPED_MATCH_ALG_MAX_LENGTH;
     multipath_mapper.stripped_match_alg_target_count = stripped_match_alg_target_count;
     multipath_mapper.use_greedy_mem_restarts = use_greedy_mem_restarts;
     multipath_mapper.greedy_restart_min_length = greedy_restart_min_length;
@@ -2057,7 +1826,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_fans_out = max_fans_out;
     multipath_mapper.fanout_length_threshold = int(ceil(log(total_seq_length) / log(4.0))) + fanout_pruning_diff;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
-    multipath_mapper.adaptive_diff_exponent = reseed_exp;
+    multipath_mapper.adaptive_diff_exponent = RESEED_EXP;
     multipath_mapper.use_approx_sub_mem_count = false;
     multipath_mapper.prefilter_redundant_hits = prefilter_redundant_hits;
     multipath_mapper.precollapse_order_length_hits = precollapse_order_length_hits;
@@ -2104,7 +1873,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
-    multipath_mapper.max_alignment_gap = max_alignment_gap;
+    multipath_mapper.max_alignment_gap = MAX_ALIGNMENT_GAP;
     multipath_mapper.use_pessimistic_tail_alignment = use_pessimistic_tail_alignment;
     multipath_mapper.pessimistic_gap_multiplier = pessimistic_gap_multiplier;
     multipath_mapper.restrained_graph_extraction = restrained_graph_extraction;
@@ -2252,11 +2021,22 @@ int main_mpmap(int argc, char** argv) {
         if (hts_output) {
             // we need to surject and compute path positions
             path_positions.resize(mp_alns.size());
-            for (size_t i = 0; i < mp_alns.size(); ++i) {
-                auto& path_pos = path_positions[i];
-                mp_alns[i] = surjector->surject(mp_alns[i], surjection_paths,
-                                                get<0>(path_pos), get<2>(path_pos), get<1>(path_pos),
-                                                true, transcriptomic);
+            for (size_t i = 0, n = mp_alns.size(); i < n; ++i) {
+                
+                vector<tuple<string, int64_t, bool>> suppl_positions;
+                auto mp_aln_suppls = surjector->surject(mp_alns[i], surjection_paths, suppl_positions,
+                                                        true, transcriptomic);
+                assert(mp_aln_suppls.size() != 0);
+                
+                mp_alns[i] = std::move(mp_aln_suppls.front());
+                get<0>(path_positions[i]) = std::move(get<0>(suppl_positions.front()));
+                get<1>(path_positions[i]) = get<2>(suppl_positions.front());
+                get<2>(path_positions[i]) = get<1>(suppl_positions.front());
+                for (size_t j = 1; j < mp_aln_suppls.size(); ++j) {
+                    mp_alns.emplace_back(std::move(mp_aln_suppls[j]));
+                    path_positions.emplace_back(std::move(get<0>(suppl_positions[j])),
+                                                get<2>(suppl_positions[j]), get<1>(suppl_positions[j]));
+                }
             }
         }
         
@@ -2328,33 +2108,11 @@ int main_mpmap(int argc, char** argv) {
         vector<pair<multipath_alignment_t, multipath_alignment_t>> mp_aln_pairs;
         bool proper_paired = multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer);
         
-        
         if (!same_strand) {
             for (auto& mp_aln_pair : mp_aln_pairs) {
                 rev_comp_multipath_alignment_in_place(&mp_aln_pair.second, [&](vg::id_t node_id) {
                     return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
                 });
-            }
-        }
-        
-        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> path_positions;
-        vector<int64_t> tlen_limits;
-        if (hts_output) {
-            // we need to surject and compute path positions
-            path_positions.resize(mp_aln_pairs.size());
-            // hackily either give no limit or an unattainable limit to communicate pairedness
-            tlen_limits.resize(mp_aln_pairs.size(),
-                               proper_paired ? numeric_limits<int32_t>::max() : -1);
-            
-            for (size_t i = 0; i < mp_aln_pairs.size(); ++i) {
-                auto& path_pos_1 = path_positions[i].first;
-                auto& path_pos_2 = path_positions[i].second;
-                mp_aln_pairs[i].first = surjector->surject(mp_aln_pairs[i].first, surjection_paths,
-                                                           get<0>(path_pos_1), get<2>(path_pos_1), get<1>(path_pos_1),
-                                                           true, transcriptomic);
-                mp_aln_pairs[i].second = surjector->surject(mp_aln_pairs[i].second, surjection_paths,
-                                                            get<0>(path_pos_2), get<2>(path_pos_2), get<1>(path_pos_2),
-                                                            true, transcriptomic);
             }
         }
         
@@ -2365,13 +2123,101 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         
+        // do surjection if necessary
+        vector<pair<multipath_alignment_t, multipath_alignment_t>> output_mp_aln_pairs;
+        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> path_positions;
+        vector<int64_t> tlen_limits;
+        vector<multipath_alignment_t> supplementary1, supplementary2;
+        vector<tuple<string, bool, int64_t>> suppl_positions1, suppl_positions2;
+        if (hts_output) {
+            // we need to surject and compute path positions
+            
+            for (size_t i = 0; i < mp_aln_pairs.size(); ++i) {
+                vector<tuple<string, int64_t, bool>> positions1, positions2;
+                auto surjections1 = surjector->surject(mp_aln_pairs[i].first, surjection_paths, positions1, true, transcriptomic);
+                auto surjections2 = surjector->surject(mp_aln_pairs[i].second, surjection_paths, positions2, true, transcriptomic);
+                
+                // find the non-supplementary primaries
+                size_t non_suppl1 = -1, non_suppl2 = -1;
+                for (size_t j = 0; j < surjections1.size(); ++j) {
+                    if (!is_supplementary(surjections1[j])) {
+                        non_suppl1 = j;
+                        break;
+                    }
+                }
+                for (size_t j = 0; j < surjections2.size(); ++j) {
+                    if (!is_supplementary(surjections2[j])) {
+                        non_suppl2 = j;
+                        break;
+                    }
+                }
+
+                if (non_suppl1 != -1 && non_suppl2 != -1) {
+                    // output primaries
+                    output_mp_aln_pairs.emplace_back(std::move(surjections1[non_suppl1]), std::move(surjections2[non_suppl2]));
+                    path_positions.emplace_back(make_tuple(get<0>(positions1[non_suppl1]), get<2>(positions1[non_suppl1]), get<1>(positions1[non_suppl1])),
+                                                make_tuple(get<0>(positions2[non_suppl2]), get<2>(positions2[non_suppl2]), get<1>(positions2[non_suppl2])));
+                }
+                
+                // annotate supplementaries with mate info
+                for (bool is_read_1 : {true, false}) {
+                    auto& surjections = is_read_1 ? surjections1 : surjections2;
+                    const auto& positions = is_read_1 ? positions1 : positions2;
+                    const auto& mate_positions = is_read_1 ? positions2 : positions1;
+                    auto& supplementary = is_read_1 ? supplementary1 : supplementary2;
+                    auto& suppl_positions = is_read_1 ? suppl_positions1 : suppl_positions2;
+                    size_t non_suppl = is_read_1 ? non_suppl1 : non_suppl2;
+                    size_t mate_non_suppl = is_read_1 ? non_suppl2 : non_suppl1;
+                    for (size_t j = 0; j < surjections.size(); ++j) {
+                        if (j == non_suppl && mate_non_suppl != -1) {
+                            continue;
+                        }
+                        string mate_path;
+                        int64_t mate_pos = -1;
+                        bool mate_rev = false;
+                        if (mate_non_suppl != -1) {
+                            tie(mate_path, mate_rev, mate_pos) = mate_positions[mate_non_suppl];
+                        }
+                        surjections[j].set_annotation("mate_info", mate_info(mate_path, mate_pos, mate_rev, !is_read_1));
+                        supplementary.emplace_back(std::move(surjections[j]));
+                        suppl_positions.emplace_back(get<0>(positions[j]), get<2>(positions[j]), get<1>(positions[j]));
+                    }
+                }
+            }
+        }
+        else {
+            output_mp_aln_pairs = std::move(mp_aln_pairs);
+        }
+        
+        // hackily either give no limit or an unattainable limit to communicate pairedness
+        tlen_limits.resize(output_mp_aln_pairs.size(),
+                           proper_paired ? numeric_limits<int32_t>::max() : -1);
+        
         if (!no_output) {
             if (!hts_output) {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs));
+                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(output_mp_aln_pairs));
+                // note: supplementaries are only generated in the HTS output branch, otherwise we need to preserve interleaving
             }
             else {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs),
+                bool read1_mapped = (!output_mp_aln_pairs.empty() || !supplementary1.empty());
+                bool read2_mapped = (!output_mp_aln_pairs.empty() || !supplementary2.empty());
+                bool read1_rev = false, read2_rev = false;
+                // TODO: should I get the rev value from the non-supplementary?
+                if (read1_mapped) {
+                    read1_rev = !output_mp_aln_pairs.empty() ? get<1>(path_positions.front().first) : get<1>(suppl_positions1.front());
+                }
+                if (read2_mapped) {
+                    read2_rev = !output_mp_aln_pairs.empty() ? get<1>(path_positions.front().second) : get<1>(suppl_positions2.front());
+                }
+                
+                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(output_mp_aln_pairs),
                                     &path_positions, &tlen_limits);
+                
+                if (!supplementary1.empty() || !supplementary2.empty()) {
+                    emitter->emit_paired_independent(alignment_1.name(), alignment_2.name(),
+                                                     std::move(supplementary1), std::move(supplementary2),
+                                                     &suppl_positions1, &suppl_positions2);
+                }
             }
         }
         
@@ -2427,32 +2273,68 @@ int main_mpmap(int argc, char** argv) {
                 convert_Ts_to_Us(mp_aln);
             }
         }
-            
-        // keep an equal number to protect interleaving
-        mp_alns_1.resize(min(mp_alns_1.size(), mp_alns_2.size()));
-        mp_alns_2.resize(min(mp_alns_1.size(), mp_alns_2.size()));
         
-        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> path_positions;
-        vector<int64_t> tlen_limits;
         if (hts_output) {
             // we need to surject and compute path positions
-            path_positions.resize(mp_alns_1.size());
-            // hackily give unattainable limit to indicate no proper pairing
-            tlen_limits.resize(mp_alns_1.size(), -1);
             
+            vector<tuple<string, bool, int64_t>> path_positions_1, path_positions_2;
+            vector<multipath_alignment_t> output_mp_alns_1, output_mp_alns_2;
+            size_t primary_idx_1 = -1, primary_idx_2 = -1;
             for (size_t i = 0; i < mp_alns_1.size(); ++i) {
-                auto& path_pos_1 = path_positions[i].first;
-                auto& path_pos_2 = path_positions[i].second;
-                mp_alns_1[i] = surjector->surject(mp_alns_1[i], surjection_paths,
-                                                  get<0>(path_pos_1), get<2>(path_pos_1), get<1>(path_pos_1),
-                                                  true, transcriptomic);
-                mp_alns_2[i] = surjector->surject(mp_alns_2[i], surjection_paths,
-                                                  get<0>(path_pos_2), get<2>(path_pos_2), get<1>(path_pos_2),
-                                                  true, transcriptomic);
+                vector<tuple<string, int64_t, bool>> positions;
+                auto surjected = surjector->surject(mp_alns_1[i], surjection_paths, positions, true, transcriptomic);
+                for (size_t j = 0; j < surjected.size(); ++j) {
+                    if (primary_idx_1 == -1 && !is_supplementary(surjected[j])) {
+                        // the first non-supplementary alignment is the primary
+                        primary_idx_1 = output_mp_alns_1.size();
+                    }
+                    output_mp_alns_1.emplace_back(std::move(surjected[j]));
+                    path_positions_1.emplace_back(std::move(get<0>(positions[j])), get<2>(positions[j]), get<1>(positions[j]));
+                }
+            }
+            for (size_t i = 0; i < mp_alns_2.size(); ++i) {
+                vector<tuple<string, int64_t, bool>> positions;
+                auto surjected = surjector->surject(mp_alns_2[i], surjection_paths, positions, true, transcriptomic);
+                for (size_t j = 0; j < surjected.size(); ++j) {
+                    if (primary_idx_2 == -1 && !is_supplementary(surjected[j])) {
+                        // the first non-supplementary alignment is the primary
+                        primary_idx_2 = output_mp_alns_2.size();
+                    }
+                    output_mp_alns_2.emplace_back(std::move(surjected[j]));
+                    path_positions_2.emplace_back(std::move(get<0>(positions[j])), get<2>(positions[j]), get<1>(positions[j]));
+                }
+            }
+
+            // reads are not paired, but we still choose a primary for the opposite read in the pair
+            // and communicate the relevant information about it for BAM output
+            for (bool is_read_1 : {true, false}) {
+                auto& output_mp_alns = is_read_1 ? output_mp_alns_1 : output_mp_alns_2;
+                auto& mate_positions = is_read_1 ? path_positions_2 : path_positions_1;
+                size_t mate_primary_idx = is_read_1 ? primary_idx_2 : primary_idx_1;
+                for (size_t i = 0; i < output_mp_alns.size(); ++i) {
+                    auto& output_mp_aln = output_mp_alns[i];
+                    string mate_path;
+                    int64_t mate_pos = -1;
+                    bool mate_rev = false;
+                    if (mate_primary_idx != -1) {
+                        tie(mate_path, mate_rev, mate_pos) = mate_positions[mate_primary_idx];
+                    }
+                    output_mp_aln.set_annotation("mate_info", mate_info(mate_path, mate_pos, mate_rev, !is_read_1));
+                }
+            }
+            
+            if (!no_output) {
+                // TODO: should I try to get the rev value from the non-supplementary?
+                emitter->emit_paired_independent(alignment_1.name(), alignment_2.name(),
+                                                 std::move(output_mp_alns_1), std::move(output_mp_alns_2),
+                                                 &path_positions_1, &path_positions_2);
             }
         }
-        
-        if (!no_output) {
+        else {
+            // keep an equal number to protect interleaving
+            mp_alns_1.resize(min(mp_alns_1.size(), mp_alns_2.size()));
+            mp_alns_2.resize(min(mp_alns_1.size(), mp_alns_2.size()));
+            
             // reorganize into pairs
             vector<pair<multipath_alignment_t, multipath_alignment_t>> mp_aln_pairs;
             mp_aln_pairs.reserve(mp_alns_1.size());
@@ -2460,12 +2342,9 @@ int main_mpmap(int argc, char** argv) {
                 mp_aln_pairs.emplace_back(std::move(mp_alns_1[i]), std::move(mp_alns_2[i]));
             }
             
-            if (!hts_output) {
+            if (!no_output) {
                 emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs));
-            }
-            else {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs),
-                                    &path_positions, &tlen_limits);
+
             }
         }
         
@@ -2514,8 +2393,7 @@ int main_mpmap(int argc, char** argv) {
         
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
-                cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
-                exit(1);
+                logger.error() << "Cannot open GAM file " << gam_file_name << endl;
             }
             
             if (interleaved_input) {
@@ -2549,11 +2427,11 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         else {
-            cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size 
-                 << " (-b) unambiguous read pair mappings to estimate fragment length ditribution. "
-                 << "This can happen due to data issues (e.g. unpaired reads being mapped as pairs) "
-                 << "or because the sample size is too large for the read set. "
-                 << "Mapping read pairs as independent single-ended reads." << endl;
+            logger.warn() << "Could not find " << frag_length_sample_size
+                          << " (-b) unambiguous read pair mappings to estimate fragment length distribution. "
+                          << "This can happen due to data issues (e.g. unpaired reads being mapped as pairs) "
+                          << "or because the sample size is too large for the read set. "
+                          << "Mapping read pairs as independent single-ended reads." << endl;
             
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {

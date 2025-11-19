@@ -48,27 +48,27 @@ is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number o
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -v - >x.vg
 is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output produces the expected number of chunks"
 
-is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | grep -v deprecated | wc -l)" 0 "duplicate warnings can be suppressed when loading as vg::VG"
+is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | grep warning | grep -v deprecated | wc -l)" 0 "duplicate warnings can be suppressed when loading as vg::VG"
 
 rm x.vg
 
 vg view -Fv overlaps/two_snvs_assembly1.gfa >/dev/null 2>errors.txt
 is "${?}" "1" "gfa graphs with overlaps are rejected"
-is "$(cat errors.txt | grep -v deprecated | wc -l)" "2" "GFA import produces a concise error message when overlaps are present"
+is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l)" "1" "GFA import produces a concise error message when overlaps are present"
 
 vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null 2>errors.txt
 is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its sequences"
-is "$(cat errors.txt | grep -v deprecated | wc -l)" "2" "GFA import produces a concise error message in that case"
+is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l)" "1" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
 
-vg paths -M -x test/graphs/rgfa_with_reference.rgfa > paths.truth.txt
-vg view test/graphs/rgfa_with_reference.rgfa | vg paths -M -x - > paths.test.txt
+vg paths -M -x graphs/rgfa_with_reference.rgfa | sort > paths.truth.txt
+vg view graphs/rgfa_with_reference.rgfa | vg paths -M -x - | sort > paths.test.txt
 cmp paths.test.txt paths.truth.txt
 is "${?}" "0" "vg view preserves path metadata of rGFA file"
 
-vg paths -M -x test/graphs/gfa_with_reference.gfa > paths.truth.txt
-vg view test/graphs/gfa_with_reference.gfa | vg paths -M -x - > paths.test.txt
+vg paths -M -x graphs/gfa_with_reference.gfa | sort > paths.truth.txt
+vg view graphs/gfa_with_reference.gfa | vg paths -M -x - | sort > paths.test.txt
 cmp paths.test.txt paths.truth.txt
 is "${?}" "0" "vg view preserves path metadata of GFA file"
 

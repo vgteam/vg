@@ -51,7 +51,7 @@ void register_loader_saver_hash_graph() {
         [](const message_sender_function_t& for_each_message) -> void* {
     
         // Allocate a HashGraph that's really a ConvertedHashGraph, to mark
-        // that we converted form Protobuf.
+        // that we converted from Protobuf.
         bdsg::HashGraph* hash_graph = new vg::io::ConvertedHashGraph();
         
         // Load into it

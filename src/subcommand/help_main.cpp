@@ -18,12 +18,12 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_help(char** argv){
+void help_help(char** argv) {
     cerr << "usage: " << argv[0] << " help" << endl
          << endl;
 }
 
-int main_help(int argc, char** argv){
+int main_help(int argc, char** argv) {
 
     cerr << "vg: variation graph tool, version " << Version::get_short() << endl
          << endl

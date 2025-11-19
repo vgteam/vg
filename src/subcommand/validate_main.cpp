@@ -34,6 +34,7 @@ void help_validate(char** argv) {
 }
 
 int main_validate(int argc, char** argv) {
+    Logger logger("vg validate");
 
     if (argc <= 2) {
         help_validate(argv);
@@ -73,7 +74,7 @@ int main_validate(int argc, char** argv) {
                 break;
 
             case 'a':
-                gam_path = optarg;
+                gam_path = require_exists(logger, optarg);
                 break;
                 
             case 'A':
@@ -222,5 +223,5 @@ int main_validate(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_validate("validate", "validate the semantics of a graph or gam", DEVELOPMENT, main_validate);
+static Subcommand vg_validate("validate", "validate the semantics of a graph or GAM", DEVELOPMENT, main_validate);
 

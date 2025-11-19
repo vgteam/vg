@@ -34,6 +34,8 @@
 
 // Turn on debugging prints
 //#define debug
+// Turn on recombintion debugging prints
+//#define debug_rec
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump the zip code forest
@@ -184,80 +186,132 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
     }
 }
 
-void MinimizerMapper::dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph) {
+void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
+                                         const std::vector<Seed>& seeds,
+                                         const VectorView<Minimizer>& minimizers,
+                                         const std::vector<std::vector<size_t>>& fragments,
+                                         const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                         const std::vector<std::vector<size_t>>& chains,
+                                         const std::vector<size_t>& chain_source_tree,
+                                         const PathPositionHandleGraph* path_graph) {
     if (!path_graph) {
         // We don't have a path positional graph for this
         return;
     }
 
-    // Log the best bucket's seed positions in read and linear reference
-    TSVExplainer exp(true, name + "-dotplot");
+    // Loop through all chains
+    for (size_t chain_num = 0; chain_num < chains.size(); chain_num++) {
+        // For each chain, create a separate TSV file
 
-    // Determine the positions of all the involved seeds.
-    std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
-    for (auto& kv : seed_sets) {
-        for (const std::vector<size_t> included_seeds : kv.second) {
-            for (auto& seed_num : included_seeds) {
-                // For each seed in the run
-                auto& seed = seeds.at(seed_num);
+        auto& tree_num = chain_source_tree.at(chain_num);
 
-                auto found = seed_positions.find(seed_num);
-                if (found == seed_positions.end()) {
-                    // If we don't know the seed's positions yet, get them
-                    seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+        // Find all the seeds in its zip tree
+        vector<size_t> involved_seeds;
+        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num)) {
+            involved_seeds.push_back(found.seed);   
+        }
+
+        // Start making a list of things to show.
+        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
+        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
+        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(chain_num)});
+
+        // Find all the fragments we passed for this tree
+        std::vector<std::vector<size_t>> relevant_fragments;
+        const auto& tree_fragments = good_fragments_in.at(tree_num);
+        for (const auto& fragment_num : tree_fragments) {
+            // Get all the seeds in each fragment
+            const std::vector<size_t>& fragment = fragments.at(fragment_num);
+            relevant_fragments.push_back(fragment);
+        }
+        seed_sets.emplace_back("frag", std::move(relevant_fragments));
+
+        // Sort everything in read order
+        for (auto& seed_set : seed_sets) {
+            for (auto& run : seed_set.second) {
+                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
+                    auto& seed_a = seeds.at(seed_index_a);
+                    auto& seed_b = seeds.at(seed_index_b);
+
+                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
+
+                });
+            }
+        }
+
+        // Create a name for this chain's file
+        std::string chain_file_name = "chain" + std::to_string(chain_num) + "-dotplot";
+
+        // Now we need to actually dump the data to a TSV
+        // The read context should already be set by the caller
+        TSVExplainer exp(true, chain_file_name);
+
+        // Determine the positions of all the involved seeds.
+        std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
+        for (auto& kv : seed_sets) {
+            for (const std::vector<size_t> included_seeds : kv.second) {
+                for (auto& seed_num : included_seeds) {
+                    // For each seed in the run
+                    auto& seed = seeds.at(seed_num);
+
+                    auto found = seed_positions.find(seed_num);
+                    if (found == seed_positions.end()) {
+                        // If we don't know the seed's positions yet, get them
+                        seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                    }
                 }
             }
         }
-    }
-                
-    for (auto& kv : seed_sets) {
-        // For each named seed set
-        const std::string& marker = kv.first;
-        for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
-            // For each run of seeds in it
-            const std::vector<size_t>& included_seeds = kv.second[run_number];
-            for (auto& seed_num : included_seeds) {
-                // For each seed in the run
-                auto& seed = seeds.at(seed_num);
-                
-                // Get its effective path positions
-                auto& offsets = seed_positions.at(seed_num);
 
-                for (auto& handle_and_positions : offsets) {
-                    std::string path_name = path_graph->get_path_name(handle_and_positions.first);
-                    for (auto& position : handle_and_positions.second) {
-                        // For each position on a ref path that this seed is at, log a line
+        for (auto& kv : seed_sets) {
+            // For each named seed set
+            const std::string& marker = kv.first;
+            for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
+                // For each run of seeds in it
+                const std::vector<size_t>& included_seeds = kv.second[run_number];
+                for (auto& seed_num : included_seeds) {
+                    // For each seed in the run
+                    auto& seed = seeds.at(seed_num);
+
+                    // Get its effective path positions
+                    auto& offsets = seed_positions.at(seed_num);
+
+                    for (auto& handle_and_positions : offsets) {
+                        std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+                        for (auto& position : handle_and_positions.second) {
+                            // For each position on a ref path that this seed is at, log a line
+                            exp.line();
+                            if (!marker.empty()) {
+                                // Contig and a marker and a subscript
+                                exp.field(path_name + "-" + marker + "-" + std::to_string(run_number));
+                            } else {
+                                // Contig alone
+                                exp.field(path_name);
+                            }
+                            // Offset on contig of the pin point
+                            exp.field(position.first);
+                            // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                            exp.field(minimizers[seed.source].pin_offset());
+                        }
+                    }
+                    if (offsets.empty()) {
+                        // Note that we don't actually have a position
                         exp.line();
                         if (!marker.empty()) {
-                            // Contig and a marker and a subscript
-                            exp.field(path_name + "-" + marker + "-" + std::to_string(run_number));
+                            // Sentinel and a marker and a subscript
+                            exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
                         } else {
-                            // Contig alone
-                            exp.field(path_name);
+                            // Sentinel alone
+                            exp.field("NO_PATH");
                         }
-                        // Offset on contig of the pin point
-                        exp.field(position.first);
+                        // Put it at 0 on no path
+                        exp.field(0);
                         // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                         exp.field(minimizers[seed.source].pin_offset());
                     }
                 }
-                if (offsets.empty()) {
-                    // Note that we don't actually have a position
-                    exp.line();
-                    if (!marker.empty()) {
-                        // Sentinel and a marker and a subscript
-                        exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
-                    } else {
-                        // Sentinel alone
-                        exp.field("NO_PATH");
-                    }
-                    // Put it at 0 on no path
-                    exp.field(0);
-                    // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
-                    exp.field(minimizers[seed.source].pin_offset());
-                }
-            }
 
+            }
         }
     }
 }
@@ -290,7 +344,8 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
         }
         // For each seed in the tree, find what minimizer it comes from
         if (found.seed >= seeds.size()) {
-            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed) + " but we only have " + std::to_string(seeds.size()) + " seeds");
+            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed)
+                                    + " but we only have " + std::to_string(seeds.size()) + " seeds");
         }
         size_t source = seeds.at(found.seed).source;
         if (!present.contains(source)) {
@@ -590,9 +645,9 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
 }
 
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
-
-
     
+    Explainer::set_context(aln.name());
+
     if (show_work) {
         #pragma omp critical (cerr)
         dump_debug_query(aln);
@@ -640,17 +695,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            std::cerr << log_name() << "Zip code forest:";
-            zip_code_forest.print_self(&seeds, &minimizers);
+            std::cerr << log_name() << "Zip code forest:" << std::endl;
+            zip_code_forest.print_self(&seeds);
         }
     }
 #endif
+
     // Turn all the seeds into anchors. Either we'll fragment them directly or
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
-
-
+    
     // Now we need to chain into fragments.
     // Each fragment needs to end up with a seeds array of seed numbers, and a
     // coverage float on the read, for downstream
@@ -722,12 +777,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchors = 0;
     size_t best_chain_anchor_length = 0;
 
+    // Dump all chains if requested (do this before alignments, while chains still exist)
+    if (show_work && !chains.empty() && this->path_graph != nullptr) {
+        dump_debug_chains(zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, this->path_graph);
+    }
+
     if (alignments.size() == 0) {
-        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors, 
+        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors,
                              chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
                              best_chain_anchors, best_chain_anchor_length, funnel);
     }
-        
+
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -1008,6 +1068,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         DotDumpExplainer<Funnel> explainer(true, funnel);
     }
 
+    Explainer::clear_context();
+
     return mappings;
 }
 
@@ -1177,10 +1239,8 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             vector<bool> added_seed (seeds.size(), false);
             vector<size_t> selected_seeds;
             for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
-                if (!added_seed[found.seed]) {
-                    selected_seeds.push_back(found.seed);
-                    added_seed[found.seed] = true;
-                }
+                selected_seeds.push_back(found.seed);
+                added_seed[found.seed] = true;
             }
             
             if (show_work) {
@@ -1412,8 +1472,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
             // And what seeds should count as explored when we take an anchor
             const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
-            
-            
 
             if (track_provenance) {
                 funnel.substage("fragment");
@@ -1453,6 +1511,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                this->rec_penalty_fragment,
                 this->max_fragments,
                 for_each_transition,
                 this->item_bonus,
@@ -1505,7 +1564,38 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 // Translate fragments into seed numbers and not local anchor numbers.
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size() * 2);
+                // Keep track of the paths consistent with the fragment
+                size_t fragment_start_paths = UINT64_MAX;
+                size_t fragment_end_paths = UINT64_MAX;
                 for (auto& selected_number : scored_fragment.second) {
+                    bool recombination = false;
+#ifdef debug_rec
+                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_start_paths() == anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_end_paths());
+                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_start_paths() != 0);
+                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_end_paths() != 0);
+#endif
+                    
+                    auto paths_update = anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_paths();
+                    if (recombination) {
+                        // If we already had a recombination, start paths are set, we can only update end paths.
+                        fragment_end_paths &= paths_update.second;
+                        if (fragment_end_paths == 0) {
+                            fragment_end_paths = paths_update.second;
+                        }
+                    } else {
+                        
+                        if ((fragment_start_paths & paths_update.first) == 0) {
+#ifdef debug_rec
+                            cerr << log_name() << "Recombinant fragment at anchor " << anchor_view[selected_number] << " with paths " << paths_update.first << endl;
+#endif
+                            // If we have no paths, we have a recombination event. start and end paths are not the same.
+                            fragment_end_paths = paths_update.second;
+                            recombination = true;
+                        }  else {
+                            fragment_start_paths &= paths_update.first;
+                            fragment_end_paths = fragment_start_paths;
+                        }
+                    }
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
@@ -1520,14 +1610,20 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 }
                 // Remember the score
                 fragment_scores.push_back(scored_fragment.first);
+
                 // And make an anchor of it right now, for chaining later.
                 // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
+                fragment_anchors.emplace_back(
+                    algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back())
+                );
+                fragment_anchors.back().set_paths(fragment_start_paths, fragment_end_paths);            
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
                 multiplicity_by_fragment.emplace_back((float)item_count);
-
+#ifdef debug_rec
+                cerr << "fragment score: " << fragment_scores.back() << " with length: "<< scored_fragment.second.size() << " Paths: "<< fragment_anchors.back().anchor_start_paths() << " " << fragment_anchors.back().anchor_end_paths() << endl;
+#endif
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.introduce();
@@ -1555,6 +1651,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
                     }
                 }
+
                 if (track_provenance && show_work && result < MANY_LIMIT) {
                     for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
                         // Log each range on a path associated with the fragment.
@@ -1570,7 +1667,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     }
                 }
             }
-
             
             if (track_provenance) {
                 // Say we're done with this 
@@ -1847,6 +1943,18 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                                 std::cerr << " " << s;
                             } 
                             std::cerr << std::endl;
+                            
+                            // get recombination count
+                            size_t recombination_count = 0;
+                            size_t current_paths = UINT64_MAX;
+                            for (size_t s : chains.back()) {
+                                current_paths &= seeds.at(s).paths;
+                                if (current_paths == 0) {
+                                    recombination_count++;
+                                    current_paths = seeds.at(s).paths;
+                                }
+                            }
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " has " << recombination_count << " recombinations." << std::endl;
                         }
                         if (track_provenance) {
                             for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
@@ -1915,6 +2023,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                this->rec_penalty_chain, 
                 this->max_alignments,
                 for_each_transition,
                 this->item_bonus,
@@ -1998,6 +2107,18 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                                 std::cerr << " " << s;
                             } 
                             std::cerr << std::endl;
+
+                            // get recombination count
+                            size_t recombination_count = 0;
+                            size_t current_paths = UINT64_MAX;
+                            for (size_t s : chains.back()) {
+                                current_paths &= seeds.at(s).paths;
+                                if (current_paths == 0) {
+                                    recombination_count++;
+                                    current_paths = seeds.at(s).paths;
+                                }
+                            }
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " has " << recombination_count << " recombinations." << std::endl;
                         }
                         if (track_provenance) {
                             for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
@@ -2099,50 +2220,6 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
         }
     }
 
-    if (show_work && best_chain != std::numeric_limits<size_t>::max()) {
-        // Dump the best chain
-
-        auto& tree_num = chain_source_tree.at(best_chain);
-        
-        // Find all the seeds in its zip tree
-        vector<size_t> involved_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num)) {
-            involved_seeds.push_back(found.seed);   
-        }
-
-        // Start making a list of things to show. 
-        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
-        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
-        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(best_chain)});
-
-        // Find all the fragments we passed for this tree
-        std::vector<std::vector<size_t>> relevant_fragments;
-        const auto& tree_fragments = good_fragments_in.at(tree_num);
-        for (const auto& fragment_num : tree_fragments) {
-            // Get all the seeds in each fragment
-            const std::vector<size_t>& fragment = fragments.at(fragment_num);
-            relevant_fragments.push_back(fragment);
-        }
-        seed_sets.emplace_back("frag", std::move(relevant_fragments));
-
-        // Sort everything in read order
-        for (auto& seed_set : seed_sets) {
-            for (auto& run : seed_set.second) {
-                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
-                    auto& seed_a = seeds.at(seed_index_a);
-                    auto& seed_b = seeds.at(seed_index_b);
-                    
-                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
-    
-                });
-            }
-        }
-
-
-        dump_debug_dotplot("best-chain", minimizers, seeds, seed_sets, this->path_graph);
-
-    }
-    
     // Find its coverage
     if (best_chain != std::numeric_limits<size_t>::max()) {
         best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
@@ -2606,7 +2683,8 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
             return chain_score_estimates.at(chain_number);
         } else {
             // Use base-level alignment score to rank alignments
-            return alignments.at(alignment_number).score();
+            // Tiebreak by identity (always > 0 and <= 1)
+            return alignments.at(alignment_number).score() + identity(alignments.at(alignment_number).path());
         }
     };
     
@@ -3138,7 +3216,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             link_alignment = WFAAlignment::make_empty();
             link_alignment_source = "empty";
-        } else if (link_length > 0 && link_length <= max_chain_connection) {
+        } else if (link_length > 0 && link_length <= max_chain_connection && graph_dist * link_length <= max_dp_cells) {
             // If it's not empty and is a reasonable size, align it.
             // Make sure to walk back the left anchor so it is outside of the region to be aligned.
             pos_t left_anchor = (*here).graph_end();
@@ -3236,11 +3314,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
             // Fall back to another alignment method
             
-            if (linking_bases.size() > max_middle_dp_length) {
+            if (linking_bases.size() > max_middle_dp_length || graph_dist * link_length > max_dp_cells) {
                 // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " due to DP size limits, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
                 }
                 // Just jump to right tail
                 break;
@@ -4191,6 +4269,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     size_t hint_start;
     size_t margin_left;
     size_t margin_right;
+    auto paths = seed.paths;
     if (source.value.is_reverse) {
         // Seed stores the final base of the match in the graph.
         // So get the past-end position.
@@ -4237,7 +4316,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
-    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive); 
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive, paths); 
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {

@@ -146,6 +146,8 @@ struct VGIndexes {
     static vector<IndexName> get_default_short_giraffe_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe on long reads
     static vector<IndexName> get_default_long_giraffe_indexes();
+    /// A list of the identifiers of the default indexes to run vg giraffe on long reads with path minimizers
+    static vector<IndexName> get_default_long_path_giraffe_indexes();
 };
 
 /**
@@ -210,6 +212,10 @@ public:
     // IndexingPlan can't be a child class, but it needs to be able to
     // get_index, so it has to be a friend.
     friend class IndexingPlan;
+
+    // Whether files given to provide() should be checked for existence
+    // This should always be true except in unit tests
+    bool check_files = true;
 
     /// Constructor
     IndexRegistry() = default;

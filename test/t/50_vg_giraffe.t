@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 65
+plan tests 69
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -14,7 +14,8 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min -z x.shortread.zipcodes x.xg
+vg gbwt -x x.xg -g xx.gbz --gbz-format x.gbwt
+vg minimizer -k 29 -w 11 -d x.dist -o x.shortread.withzip.min -z x.shortread.zipcodes xx.gbz
 
 
 # For later tests we expect this to make x.giraffe.gbz so we can't have an x.gbz around.
@@ -25,6 +26,11 @@ rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
 vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + zips + dist specified without crashing"
+
+vg minimizer -d x.dist --rec-mode -o wrong.min -z wrong.zipcodes xx.gbz
+vg giraffe -Z x.giraffe.gbz -m wrong.min -z wrong.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "1" "a minimizer index with the wrong payload type is rejected"
+rm -f wrong.min wrong.zipcodes
 
 rm -f x.giraffe.gbz
 vg gbwt -x x.xg -g x.gg x.gbwt
@@ -80,7 +86,8 @@ rm -f mapped-nobonus.gam
 
 is "$(vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq -o BAM --add-graph-aln | samtools view | grep "GR:Z:" | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with graph alignment"
 
-vg minimizer -k 29 -b -s 18 -d x.dist -g x.gbwt -o x.sync x.xg
+vg minimizer -k 29 -c -s 18 -d x.dist -o x.sync xx.gbz
+rm -f xx.gbz # not needed anymore
 
 vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
@@ -116,6 +123,13 @@ is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//'
 
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr > /dev/null 2>&1
+# Check that at least some TSV files and directories were created 
+is "$(find explanation_read1 -name '*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
+is "$(ls -d explanation_* 2>/dev/null | wc -l | tr -d ' ')" "3" "Explanation directories are created per read"
+
+rm -rf explanation_*
 rm -f x.vg x.xg x.gbwt x.shortread.zipcodes x.shortread.withzip.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
 
@@ -247,6 +261,7 @@ is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null
 
 vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
+is "$(grep '^@' mapped.gaf | wc -l)" "1" "GAF has a header"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt
@@ -259,7 +274,7 @@ rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 vg construct -S -a -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >1mb1kgp.vg 2>/dev/null
 vg index -j 1mb1kgp.dist  1mb1kgp.vg
 vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraffe Distance Index:1mb1kgp.dist" -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz
-vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains --set-refpos
+vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --track-provenance --align-from-chains --set-refpos
 # This is an 8001 bp read with 1 insert and 1 substitution
 # 7999 * 1 + 1 * -4 + -6 + 5 + 5 = 7999
 is "$(vg view -aj longread.gam | jq -r '.score')" "7999" "A long read can be correctly aligned"
@@ -268,5 +283,5 @@ is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
-rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
+rm -f longread.gam 1mb1kgp.vg 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
 

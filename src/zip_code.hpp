@@ -40,6 +40,8 @@ struct MIPayload;
 /// It should be unique and hashable
 typedef std::string net_identifier_t;
 
+// Forward declaration.
+class ZipCodeCollection;
 
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
  * A zip code will contain all the information necessary to compute the minimum distance between two 
@@ -66,10 +68,25 @@ class ZipCode {
     public:
 
         //Fill in an empty zipcode given a position
-        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder = true);
+        void fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder = true);
+
+        using code_type = gbwtgraph::KmerEncoding::code_type;
+        typedef std::pair<code_type, code_type> payload_type;
 
         //Fill in an empty zipcode using the information that was stored in a payload
-        void fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload); 
+        void fill_in_zipcode_from_payload(const code_type* payload);
+
+        // Fill in an empty zipcode from a payload value.
+        void fill_in_zipcode_from_payload(payload_type payload) {
+            fill_in_zipcode_from_payload(reinterpret_cast<const code_type*>(&payload));
+        }
+ 
+        // Fill in an empty zipcode from:
+        // 1. The minimizer payload, if it is non-empty.
+        // 2. The oversized zipcode list, if it is provided and the payload indicates an oversized zipcode.
+        // 3. From the position in the graph, if neither of the above provided a zipcode.
+        void fill_in_zipcode(const code_type* payload, const ZipCodeCollection* oversized_zipcodes,
+                             const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
 
         //Get the exact minimum distance between two positions and their zip codes
         //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance
@@ -108,8 +125,7 @@ class ZipCode {
         // switch from zipcodes to payloads and back
 
         //Encode zip code so it can be stored in the payload
-        gbwtgraph::Payload get_payload_from_zip() const;
-        typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
+        payload_type get_payload_from_zip() const;
 
 
         ///How many bytes were used to store this zipcode?
@@ -117,7 +133,7 @@ class ZipCode {
             return zipcode.byte_count();
         }
 
-    //TODO: Make this private:
+        //TODO: Make this private:
         //The actual data for a zipcode is a vector of ints
         varint_vector_t zipcode;
 
@@ -649,11 +665,10 @@ std::ostream& operator<<(std::ostream& out, const ZipCode& decoder);
     usable by the clusterer
 */
 struct MIPayload {    
-    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
-    //typedef std::pair<code_type, code_type> payload_type;
+    using code_type = ZipCode::code_type;
+    using payload_type = ZipCode::payload_type;
 
-
-    constexpr static gbwtgraph::Payload NO_CODE = {0, 0};
+    constexpr static payload_type NO_CODE = {0, 0};
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max();
 
 

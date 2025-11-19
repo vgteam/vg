@@ -37,7 +37,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -81,7 +81,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -151,7 +151,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -260,7 +260,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -382,7 +382,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -427,7 +427,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -489,7 +489,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -573,7 +573,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -621,7 +621,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -754,7 +754,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -828,7 +828,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -865,7 +865,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -902,7 +902,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -938,7 +938,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -972,7 +972,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -997,7 +997,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1023,7 +1023,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1049,7 +1049,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1075,7 +1075,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1131,7 +1131,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1187,7 +1187,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (auto pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
@@ -1245,7 +1245,7 @@ namespace unittest {
             for (size_t i=  0 ; i < positions.size() ; i++ ) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -1309,7 +1309,7 @@ namespace unittest {
             for (size_t i=  0 ; i < positions.size() ; i++ ) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -1401,7 +1401,7 @@ namespace unittest {
             for (size_t i=  0 ; i < positions.size() ; i++ ) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -1488,7 +1488,7 @@ namespace unittest {
             vector<MinimizerMapper::Minimizer> minimizers;
             for (auto pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
@@ -1588,7 +1588,7 @@ namespace unittest {
             vector<MinimizerMapper::Minimizer> minimizers;
             for (auto pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
@@ -1652,7 +1652,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1742,7 +1742,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1774,7 +1774,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1804,7 +1804,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1829,7 +1829,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1856,7 +1856,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1883,7 +1883,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -1909,7 +1909,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2009,7 +2009,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2040,7 +2040,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2069,7 +2069,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2100,7 +2100,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2156,7 +2156,7 @@ namespace unittest {
             vector<MinimizerMapper::Minimizer> minimizers;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
 
@@ -2223,7 +2223,7 @@ namespace unittest {
             vector<MinimizerMapper::Minimizer> minimizers;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
 
@@ -2292,7 +2292,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size() ; i++) {
                 pos_t pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, i, zipcode});
 
@@ -2335,7 +2335,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size() ; i++) {
                 pos_t pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, i, zipcode});
 
@@ -2412,7 +2412,7 @@ namespace unittest {
             vector<MinimizerMapper::Minimizer> minimizers;
             for (auto pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
@@ -2465,7 +2465,7 @@ namespace unittest {
             vector<MinimizerMapper::Minimizer> minimizers;
             for (auto pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
@@ -2511,7 +2511,7 @@ namespace unittest {
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (pos_t pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos);
             zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
         }
@@ -2553,7 +2553,7 @@ namespace unittest {
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (pos_t pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos);
             zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
         }
@@ -2602,7 +2602,7 @@ namespace unittest {
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (pos_t pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos);
             zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
         }
@@ -2652,7 +2652,7 @@ namespace unittest {
         vector<MinimizerMapper::Minimizer> minimizers;
         for (pos_t pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos);
             zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
 
@@ -2717,7 +2717,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size(); ++i) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -2781,7 +2781,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2801,7 +2801,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2843,7 +2843,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2862,7 +2862,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2906,7 +2906,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2925,7 +2925,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2944,7 +2944,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -2962,7 +2962,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
@@ -3024,7 +3024,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size() ; ++i) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -3068,7 +3068,7 @@ namespace unittest {
 
         for (auto pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos.first);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos.first);
                 zipcode.fill_in_full_decoder();
             seeds.push_back({ pos.first, pos.second, zipcode});
         }
@@ -3126,7 +3126,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size() ; ++i) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(dist_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -3202,7 +3202,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size() ; ++i) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(dist_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -3252,7 +3252,7 @@ namespace unittest {
             for (size_t i = 0 ; i < positions.size() ; ++i) {
                 auto pos = positions[i];
                 ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_zipcode_from_pos(dist_index, pos.first);
                 zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
@@ -3313,7 +3313,7 @@ namespace unittest {
     //        for (size_t i = 0 ; i < positions.size() ; ++i) {
     //            auto pos = positions[i];
     //            ZipCode zipcode;
-    //            zipcode.fill_in_zipcode(dist_index, pos.first);
+    //            zipcode.fill_in_zipcode_from_pos(dist_index, pos.first);
     //            zipcode.fill_in_full_decoder();
     //            seeds.push_back({ pos.first, i, zipcode});
 
@@ -3381,7 +3381,7 @@ namespace unittest {
                                            offset1 );
 
                     ZipCode zipcode;
-                    zipcode.fill_in_zipcode(distance_index, pos);
+                    zipcode.fill_in_zipcode_from_pos(distance_index, pos);
                     zipcode.fill_in_full_decoder();
 
                     seeds.push_back({ pos, (size_t)j, zipcode});

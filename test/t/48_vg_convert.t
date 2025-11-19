@@ -108,12 +108,13 @@ printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:4
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 #this is what we expect back, mut.gaf where insertions and snps are converted to Ns:
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
-vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 > mut.cs.back.gaf
+vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 | grep -v "^@" > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"
 rm -f mut.cs.gaf mut.cg.gaf mut.cs.exp.gaf
 
-rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path mut.seq mut-back.seq
+rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf
+rm -f mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path mut.seq mut-back.seq mut.cs.back.gaf
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz > z.vg 2> /dev/null
 vg sim -n 10000 -s 23 -a -x z.vg > sim.gam
@@ -133,13 +134,14 @@ diff sim-map-back.gaf sim-map.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam ->gaf makes same gaf each time on 1mb1kgp simulated reads"
 
 printf '{"name": "split", "path": {"mapping": [{"edit": [{"from_length": 13, "to_length": 13}], "position": {"node_id": "1", "offset": "10"}}, {"edit": [{"from_length": 2, "to_length": 2}], "position": {"node_id": "3", "offset": "5"}}]}}' | vg view -JaG - > split.gam
-vg convert zflat.vg -G split.gam > split.gaf
+vg convert zflat.vg -G split.gam | grep -v "^@" > split.gaf
 is "$(awk '{print $13}' split.gaf)" "cs:Z::13-CCAGTGCTCGCATC:2" "split alignment converted using deletions to represent internal offsets"
-vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - > split-back.gaf
+vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - | grep -v "^@" > split-back.gaf
 diff split.gaf split-back.gaf
 is "$?" 0 "vg convert gam -> gaf ->gam -> gaf makes same gaf each time for split alignment"
 
-rm -f z.vg zflat.vg sim.gam sim-map.gam sim-map-back.gam sim-map.gaf.gz sim-map.sequence sim-map-back.sequence sim-map-back.gaf sim-map.gaf split.gam split.gaf split-back.gaf
+rm -f z.vg zflat.vg zflat.gcsa sim.gam sim-map.gam sim-map-back.gam sim-map.gaf.gz sim-map.sequence
+rm -f sim-map-back.sequence sim-map-back.gaf sim-map.gaf split.gam split.gaf split-back.gaf
 
 printf "H\tVN:Z:1.0
 S\t73333\tGGTGGGCGAGGACCTCCACACGTGTCACCA
@@ -350,6 +352,8 @@ is $? 0 "HashGraph to GFA conversion writing walks as paths"
 is "$(grep "^W" no-walks.gfa | wc -l)" "0" "HashGraph to GFA conversion writing walks as paths produces no walks"
 is "$(grep "^P" no-walks.gfa | wc -l)" ""$(grep "^[PW]" correct.gfa | wc -l)"" "HashGraph to GFA conversion writing walks as paths produces all expected paths"
 
+rm no-walks.gfa
+
 # GBZ to GFA with paths and walks (needs 1 thread)
 vg convert --gbwtgraph-algorithm  -f -t 1 components.gbz > gbz.gfa
 is $? 0 "GBZ to GFA conversion with paths and walks, GBWTGraph algorithm"
@@ -509,4 +513,4 @@ diff out.gaf out2.gaf
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAF check)"
 vg validate ref.vg -a out2.gam
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAM check)"
-rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam
+rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam out2.gaf

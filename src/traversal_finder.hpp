@@ -42,6 +42,7 @@ using PathInterval = pair<step_handle_t, step_handle_t>;
 string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, int64_t max_steps = 10);
 // replaces pb2json(snarl)
 string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle);
+string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval);
 
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
@@ -418,7 +419,7 @@ protected:
     const PathHandleGraph& graph;
 
     /// Use this to check if our snarl runs through a reference path
-    /// (may be overkill, but can be used for sanity checking)
+    /// (may be overkill, but can be used for debugging)
     PathTraversalFinder path_finder;
     
     /// The SnarlManager managiung the snarls we use

@@ -29,9 +29,9 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each(string& filename, function<void(Alignment&)> lambda,
-                 const PathPositionHandleGraph* graph);
+                 const PathPositionHandleGraph* graph, bool allow_missing_contig = false);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
-                          const PathPositionHandleGraph* graph);
+                          const PathPositionHandleGraph* graph, bool allow_missing_contig = false);
 
 // FASTQ-input functions
 
@@ -104,11 +104,15 @@ void cigar_mapping(const bam1_t *b, Mapping& mapping);
 /// Convert a BAM record to an Alignment.
 /// May throw AlignmentEmbeddingError if the BAM record is inconsistent with
 /// the provided graph.
+/// Unless set_missing_contig_to_unmapped is true, will also error if a read
+/// is aligned to a contig which is not in the graph.
+/// If true, then those reads are treated as unmapped instead.
 Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
                            const map<int, path_handle_t>& tid_path_handle,
                            const bam_hdr_t *bh,
-                           const PathPositionHandleGraph* graph);
+                           const PathPositionHandleGraph* graph,
+                           bool set_missing_contig_to_unmapped = false);
 /// Convert a BAM record to an Alignment without a graph.
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
@@ -237,6 +241,12 @@ int32_t determine_flag(const Alignment& alignment,
 /// suppress softclips up to that length. This will necessitate adjusting pos,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+    
+/// Convert a spliced alignment against a path to a cigar. The alignment must be
+/// colinear along a path and contain only mappings on the path, but it can have
+/// deletions relative to the path that follow edges in the graph.
+vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const PathPositionHandleGraph& graph, const string& path_name, 
+                                                   int64_t pos, bool rev, int64_t min_splice_length);
 
 /// Merge runs of successive I/D operations into a single I and D, remove 0-length
 /// operations, and merge adjacent operations of the same type
@@ -312,6 +322,17 @@ pair<string, string> middle_signature(const Alignment& aln1, const Alignment& al
 /// Return whether the path is a perfect match (i.e. contains no non-match edits)
 /// and has no soft clips (e.g. like in vg stats -a)
 bool is_perfect(const Alignment& alignment);
+bool is_supplementary(const Alignment& alignment);
+// The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
+pair<int64_t, int64_t> aligned_interval(const Alignment& aln);
+
+// create an annotation string required to properly set the SAM fields/flags of a supplementary alignment
+// the arguments all refer to properties of the primary *mate* alignment
+// the path name saved in the info is the base path name, with any subrange info reflected in the position
+string mate_info(const string& path, int32_t pos, bool rev_strand, bool is_read1);
+// parse the annotation string, returns tuple of (mate path name, mate path pos, mate rev strand, mate is read1) 
+tuple<string, int32_t, bool, bool> parse_mate_info(const string& info);
+
 /// Return whether the Alignment represents a mapped read (true) or an
 /// unaligned read (false). Uses the GAM read_mapped flag, but also sniffs for
 /// mapped reads which forgot to set it.
@@ -443,7 +464,7 @@ public:
 /// coordinates, error messages will describe 1-based coordinates.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse);
-/// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
+/// Same as above, but uses the given Mapping, translated directly from a CIGAR string, as a source of edits.
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
 ///
 /// Throws AlignmentEmbeddingError if the region goes out of range, or tries to

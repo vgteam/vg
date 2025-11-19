@@ -32,18 +32,20 @@ using namespace std;
 using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
-public:
+    public:
+    // Definitions used with minimizer indexes.
+    using MinimizerIndex = gbwtgraph::DefaultMinimizerIndex;
+    using payload_type = ZipCode::payload_type;
 
     /**
-     * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
-     * as we only use it for correctness tracking.
+     * Construct a new MinimizerMapper using the given indexes.
+     * The PathPositionHandleGraph can be nullptr, as we only use it for correctness tracking.
      */
-
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         SnarlDistanceIndex* distance_index,
-         const ZipCodeCollection* zipcodes,
-         const PathPositionHandleGraph* path_graph = nullptr);
+                    const MinimizerIndex& minimizer_index,
+                    SnarlDistanceIndex* distance_index,
+                    const ZipCodeCollection* zipcodes,
+                    const PathPositionHandleGraph* path_graph = nullptr);
 
     using AlignerClient::set_alignment_scores;
     virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
@@ -253,7 +255,7 @@ public:
     /// read length is less than the limit.
     static constexpr size_t default_gapless_extension_limit = 0;
     size_t gapless_extension_limit = default_gapless_extension_limit;
-
+    
     /// How many bases should we look back in the graph when making fragments?
     static constexpr size_t default_fragment_max_graph_lookback_bases = 300;
     size_t fragment_max_graph_lookback_bases = default_fragment_max_graph_lookback_bases;
@@ -353,6 +355,12 @@ public:
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
+    /// Recombination penalty for fragmenting. This is added to the score of a transition if there are no shared hapotypes.
+    static constexpr int default_rec_penalty_fragment = 0;
+    int rec_penalty_fragment = default_rec_penalty_fragment;
+    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared hapotypes.
+    static constexpr int default_rec_penalty_chain = 0;
+    int rec_penalty_chain = default_rec_penalty_chain;
     // How many points should we treat a non-gap connection base as producing, at chaining?
     static constexpr double default_points_per_possible_match = 0;
     double points_per_possible_match = default_points_per_possible_match;
@@ -572,11 +580,11 @@ public:
      * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
      */
     struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        MinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
-        size_t hits; // How many hits does the minimizer have?
-        const typename gbwtgraph::DefaultMinimizerIndex::value_type* occs;
+        MinimizerIndex::multi_value_type occs; // (pointer to hits, number of hits)
+
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
@@ -622,6 +630,11 @@ public:
             string sequence = value.key.decode(length);
             return value.is_reverse ? reverse_complement(sequence) : sequence;
         }
+
+        /// Number of hits for this minimizer.
+        inline size_t hits() const {
+            return this->occs.second;
+        }
     };
     
 protected:
@@ -632,7 +645,7 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static gbwtgraph::Payload no_chain_info() {
+    inline static payload_type no_chain_info() {
         return MIPayload::NO_CODE;  
     } 
     
@@ -663,7 +676,14 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness or position tracking.
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    const MinimizerIndex& minimizer_index;
+
+    // caching common information about the minimizer index
+    int32_t k;
+    int32_t w;
+    bool payload_with_paths; // Does the payload for minimizer hits include path information in addition to a zipcode?
+    bool uses_syncmers; // TODO: We could discard the syncmer support.
+    
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
     /// This is our primary graph.
@@ -1152,7 +1172,7 @@ protected:
         const string& sequence, const string& quality_bytes);
     
     /**
-     * Compute a bound on the Phred score probability of a mapping beign wrong
+     * Compute a bound on the Phred score probability of a mapping being wrong
      * due to base errors and unlocated minimizer hits prevented us from
      * finding the true alignment.
      *  
@@ -1430,6 +1450,17 @@ protected:
     /// Dump dotplot information for seeds.
     /// Displays one or more named collections of runs of seeds.
     static void dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph);
+
+    /// Dump all chains for a read to separate TSV files.
+    /// Each chain gets its own file. 
+    static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
+                                   const std::vector<Seed>& seeds,
+                                   const VectorView<Minimizer>& minimizers,
+                                   const std::vector<std::vector<size_t>>& fragments,
+                                   const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                   const std::vector<std::vector<size_t>>& chains,
+                                   const std::vector<size_t>& chain_source_tree,
+                                   const PathPositionHandleGraph* path_graph);
 
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);

@@ -29,6 +29,7 @@
 #include "../utility.hpp"
 
 #include <bdsg/hash_graph.hpp>
+#include <crash.hpp>
 
 namespace vg {
 namespace algorithms {
@@ -37,7 +38,8 @@ using namespace std;
 
 // Make sure all of vg's print operators are available.
 using vg::operator<<;
-
+using path_flags_t = uint64_t;
+static constexpr int MAX_PATHS = 64;
 //#define debug_chaining
 
 /**
@@ -46,6 +48,7 @@ using vg::operator<<;
  */
 class Anchor {
 public:
+   
     /// Get the start position in the read of this anchor's match.
     inline size_t read_start() const {
         return start;
@@ -144,20 +147,119 @@ public:
         return skippable;
     }
     
+    // Paths information
+
+    inline void clear_paths() {
+        start_paths = 0;
+        end_paths = 0;
+    }
+
+    /// Set the haplotypes supported by this anchor
+    /// Maximum number limited to 64 for now
+    
+
+    inline void set_paths(const path_flags_t anchor_paths) {
+        start_paths = anchor_paths;
+        end_paths = anchor_paths;
+    }
+
+    inline void set_paths(size_t anchor_start_paths, size_t anchor_end_paths) {
+        start_paths = anchor_start_paths;
+        end_paths = anchor_end_paths;
+    }
+
+    inline void set_paths(const std::vector<size_t>& anchor_paths) {
+        clear_paths();
+        for (size_t path : anchor_paths) {
+            add_path(path);
+        }
+    }
+    
+    /// Add new paths to the supported haplotypes
+    inline void add_paths(const std::vector<size_t>& anchor_paths) {
+        for (size_t path : anchor_paths) {
+            add_path(path);
+        }
+    }
+
+    inline void add_path(size_t path) {
+        crash_unless(path < MAX_PATHS);
+        start_paths |= (1UL << path);
+        end_paths |= (1UL << path);
+    }
+
+    /// Update the paths supported by an anchor
+    inline void update_paths(const path_flags_t& new_paths) {
+        update_start_paths(new_paths);
+        update_end_paths(new_paths);
+    }
+
+    inline void update_start_paths(const path_flags_t& new_paths) {
+        start_paths &= new_paths;
+    }
+
+    inline void update_end_paths(const path_flags_t& new_paths) {
+        end_paths &= new_paths;
+    }
+
+    inline void update_paths(const std::vector<size_t>& haplotypes) {
+        path_flags_t new_paths = 0;
+        for (size_t haplotype : haplotypes) {
+            new_paths |= (1UL << haplotype);
+        }
+        update_paths(new_paths);
+    }
+
+    /// Get the supported paths, as a 64 bit integer, where each bit is set to 1 if the respective path is supported
+    inline const std::pair<path_flags_t, path_flags_t> anchor_paths() const {
+        return {start_paths, end_paths};
+    }
+
+    inline path_flags_t anchor_start_paths() const {
+        return start_paths;
+    }
+
+    inline path_flags_t anchor_end_paths() const {
+        return end_paths;
+    }
+
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCode* hint = nullptr, size_t hint_start = 0, bool skippable = false) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_zip(hint), end_zip(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after), skippable(skippable) {
-        // Nothing to do!
-    }
-    
+    inline Anchor(size_t read_start, const pos_t &graph_start, size_t length,
+              size_t margin_before, size_t margin_after, int score,
+              size_t seed_number = std::numeric_limits<size_t>::max(),
+              ZipCode *hint = nullptr, size_t hint_start = 0,
+              bool skippable = false, path_flags_t paths = 0)
+    : start(read_start), size(length), margin_before(margin_before),
+      margin_after(margin_after), start_pos(graph_start),
+      end_pos(advance(graph_start, length)), points(score),
+      start_seed(seed_number), end_seed(seed_number), start_zip(hint),
+      end_zip(hint), start_offset(hint_start), end_offset(length - hint_start),
+      seed_length(margin_before + length + margin_after), skippable(skippable),
+      start_paths(paths), end_paths(paths) {
+    // Nothing to do!
+}
+
+
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_zip(first.start_hint()), end_zip(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2), skippable(first.is_skippable() || last.is_skippable()) {
-        // Nothing to do!
-    }
+    inline Anchor(const Anchor &first, const Anchor &last,
+              size_t extra_margin_before, size_t extra_margin_after, int score)
+    : start(first.read_start()), size(last.read_end() - first.read_start()),
+      margin_before(first.margin_before + extra_margin_before),
+      margin_after(last.margin_after + extra_margin_after),
+      start_pos(first.graph_start()), end_pos(last.graph_end()), points(score),
+      start_seed(first.seed_start()), end_seed(last.seed_end()),
+      start_zip(first.start_hint()), end_zip(last.end_hint()),
+      start_offset(first.start_offset), end_offset(last.end_offset),
+      seed_length((first.base_seed_length() + last.base_seed_length()) / 2),
+      skippable(first.is_skippable() || last.is_skippable()),
+      start_paths(first.start_paths), end_paths(last.end_paths) {
+    // Nothing to do!
+}
 
     // Act like data
     Anchor() = default;
@@ -182,6 +284,8 @@ protected:
     size_t end_offset;
     size_t seed_length;
     bool skippable;
+    path_flags_t start_paths;
+    path_flags_t end_paths;
 };
 
 /// Explain an Anchor to the given stream
@@ -200,7 +304,7 @@ public:
     /// What's the default value for an empty table cell?
     /// Use a function instead of a constant because that's easier when we're just a header.
     inline static TracedScore unset() {
-        return {0, nowhere()};
+        return {0, nowhere(), 0};
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
@@ -212,6 +316,9 @@ public:
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
     
+    /// Update the paths supported by this score and return a modified copy
+    TracedScore set_shared_paths(const std::pair<size_t,size_t>& new_paths) const;
+
     /// Compare for equality
     inline bool operator==(const TracedScore& other) const {
         return score == other.score && source == other.source;
@@ -241,6 +348,8 @@ public:
     int score;
     // Index of source score among possibilities/traceback pointer
     size_t source;
+    /// Supported paths
+    path_flags_t paths;
 };
 
 }
@@ -272,6 +381,21 @@ ostream& operator<<(ostream& out, const TracedScore& value);
  */
 void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
 
+struct transition_info {
+    // Index of the source anchor within the list of anchors
+    size_t from_anchor;
+    // Index of the destination anchor
+    size_t to_anchor;
+    // Distance between anchors in the graph
+    size_t graph_distance;
+    // Distance between anchors in the read
+    size_t read_distance;
+    
+    // Constructor; read_distance defaults to max if not given
+    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
+        : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
+};
+
 /**
  * Iteratee function type which can be called with each transition between
  * anchors.
@@ -279,7 +403,7 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
  * Takes two anchor numbers (source and destination), and their read and graph
  * distances, in that order.
  */
-using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
+using transition_iteratee = std::function<void(const transition_info& transition)>;
 
 /**
  * Iterator function type which lets you iterate over transitions between
@@ -351,7 +475,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            double gap_scale = 1.0,
                            double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
-                           bool show_work = false);
+                           int recomb_penalty = 0,
+                           bool show_work = false
+                        );
 
 /**
  * Trace back through in the given DP table from the best chain score.
@@ -389,6 +515,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const HandleGraph& graph,
                                                    int gap_open,
                                                    int gap_extension,
+                                                   int recomb_penalty = 0,
                                                    size_t max_chains = 1,
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                                    int item_bonus = 0,
@@ -412,6 +539,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
+                                          int recomb_penalty = 0,
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           int item_bonus = 0,
                                           double item_scale = 1.0,
@@ -432,6 +560,11 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
 /// This produces a penalty (positive number).
 int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
+
+/// Determine if adding the new anchor would cause a recombination event
+/// with respect to the old anchor, given their supported paths.
+/// Returns 0 if no recombination, or 1 if there is a recombination.
+int check_recombination(const Anchor& from, const Anchor& to);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());

@@ -26,7 +26,8 @@ ostream& operator<<(ostream& out, const Anchor& anchor) {
     if (margin_left) {
         out << "(" << margin_left << ")";
     }
-    out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
+    out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() 
+        << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
     if (margin_right) {
         out << "(" << margin_right << ")";
     }
@@ -57,7 +58,29 @@ TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t o
 }
 
 TracedScore TracedScore::add_points(int adjustment) const {
-    return {this->score + adjustment, this->source};
+    return {this->score + adjustment, this->source, this->paths};
+}
+
+TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {
+    size_t updated_paths;
+    if(new_paths.first == new_paths.second) {
+       // if the paths are the same, there is no recombination inside the anchor. check if there is a recombination between anchors now
+        if ((this->paths & new_paths.first) == 0) {
+           // there is a recombination between anchors, so we "reset" the current paths
+            updated_paths = new_paths.first;
+        } else {
+            // there is no recombination between anchors, so we update the current paths
+            updated_paths = this->paths & new_paths.first;
+        }
+    } else {
+        // Otherwise, we have a recombinant anchor, we don't care about the recombination inside the anchor, we just "reset" the current paths
+        updated_paths = new_paths.second;
+    }
+    return {
+        this->score,
+        this->source,
+        updated_paths
+    };
 }
 
 void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
@@ -98,7 +121,8 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
         // destination item, in the read. Then when we look for possible
         // predecessors of the destination item, we can start just before there and
         // look left.
-        vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Anchor& a, const Anchor& b) {
+        vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(),
+        [&](const Anchor& a, const Anchor& b) {
             return a.read_end() < b.read_end();
         });
         // We use first overlapping instead of last non-overlapping because we can
@@ -129,7 +153,9 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 #endif
 
 #ifdef debug_chaining
-            cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
+            cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start()
+                 << " is #" << *first_overlapping_it << " past-ending at "
+                 << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
 #endif
             
             // Set up lookback control algorithm.
@@ -168,7 +194,8 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                     if (read_distance > max_lookback_bases) {
                         // This is further in the read than the real hard limit.
 #ifdef debug_chaining
-                    cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
+                        cerr << "\t\tDisregard due to read distance " << read_distance 
+                             << " over limit " << max_lookback_bases << endl;
 #endif
                         break;
                     } 
@@ -176,13 +203,15 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                 
                 // Now it's safe to make a distance query
                 
-                // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
-                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
+                // How far do we go in the graph?
+                // Don't bother finding out exactly if it is too much longer than in the read.
+                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, 
+                                                           read_distance + max_indel_bases);
                 
                 std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
                 if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
                     // Transition seems possible, so yield it.
-                    callback(*predecessor_index_it, i, read_distance, graph_distance);
+                    callback(transition_info(*predecessor_index_it, i, graph_distance, read_distance));
                 }
             } 
         }
@@ -298,7 +327,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 #endif
 
             // Send it along.
-            callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
+            callback(transition_info(source_anchor_index, dest_anchor_index, graph_distance, read_distance)); 
         };
 
         // If we find we are actually walking through the graph in opposition
@@ -414,6 +443,15 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     }
 }
 
+/// If the current anchor shares paths with the chain, pay a penalty.
+int check_recombination(const TracedScore& from, const Anchor& to) {
+    if ((from.paths & to.anchor_start_paths()) == 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
@@ -426,6 +464,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            double gap_scale,
                            double points_per_possible_match,
                            size_t max_indel_bases,
+                           int recomb_penalty,
                            bool show_work) {
     
 #ifdef debug_chaining
@@ -457,34 +496,39 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere()};
+        chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
     }
 
     // We will run this over every transition in a good DP order.
-    auto iteratee = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+    auto iteratee = [&](const transition_info& transition) {
+        if (show_work) {
+            cerr << "DP: " << transition.from_anchor << "->" << transition.to_anchor 
+                 << " rd " << transition.read_distance << " gd " << transition.graph_distance << endl;
+        }
         
-        crash_unless(chain_scores.size() > to_anchor);
-        crash_unless(chain_scores.size() > from_anchor);
+        crash_unless(chain_scores.size() > transition.to_anchor);
+        crash_unless(chain_scores.size() > transition.from_anchor);
         
         // For each item
-        auto& here = to_chain[to_anchor];
+        auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
         auto item_points = here.score() * item_scale + item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
-            here_gvnode = "i" + std::to_string(to_anchor);
+            here_gvnode = "i" + std::to_string(transition.to_anchor);
         }
         
         // If we come from nowhere, we get those points.
-        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {(int)item_points, TracedScore::nowhere()});
+        chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], 
+                                                      {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()});
         
         // For each source we could come from
-        auto& source = to_chain[from_anchor];
+        auto& source = to_chain[transition.from_anchor];
             
         if (show_work) {
-            cerr << "\t\tCome from score " << chain_scores[from_anchor]
+            cerr << "\t\tCome from score " << chain_scores[transition.from_anchor]
                 << " across " << source << " to " << here << endl;
         }
             
@@ -495,13 +539,16 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         int jump_points;
             
         // Decide how much length changed
-        size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
+        size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
+                                                                                     : transition.graph_distance - transition.read_distance;
         // TODO: remove this!
         // How much could be matches/mismatches, double-counting with bases in the exclusion zones?
-        size_t possible_match_length = std::min(read_distance, graph_distance);
+        size_t possible_match_length = std::min(transition.read_distance, transition.graph_distance);
         
         if (show_work) {
-            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << ((read_distance > graph_distance) ? " seems plausible" : " would be required") << endl;
+            cerr << "\t\t\tFor read distance " << transition.read_distance << " and graph distance " << transition.graph_distance
+                 << " an indel of length " << indel_length
+                 << ((transition.read_distance > transition.graph_distance) ? " seems plausible" : " would be required") << endl;
         }
 
         if (indel_length > max_indel_bases) {
@@ -533,22 +580,27 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // here.
             jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
 
+            // add recombination penalty if necessary
+            jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * recomb_penalty;
+
             // We can also account for the non-indel material, which we assume will have some identity in it.
             jump_points += possible_match_length * points_per_possible_match;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
             // Get the score we are coming from
-            TracedScore source_score = TracedScore::score_from(chain_scores, from_anchor);
+            TracedScore source_score = TracedScore::score_from(chain_scores, transition.from_anchor);
             
             // And the score with the transition and the points from the item
-            TracedScore from_source_score = source_score.add_points(jump_points + item_points);
+            TracedScore from_source_score = source_score.add_points(jump_points + item_points)
+                                                        .set_shared_paths(here.anchor_paths());
             
             // Remember that we could make this jump
-            chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);
+            chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], from_source_score);
                                            
             if (show_work) {
-                cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
+                cerr << "\t\tWe can reach #" << transition.to_anchor << " with " << source_score << " + " << jump_points
+                     << " from transition + " << item_points << " from item = " << from_source_score << endl;
             }
             
             if (diagram) {
@@ -556,8 +608,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                     // Only explain edges that were actual candidates since we
                     // won't let local score go negative
                     
-                    std::string source_gvnode = "i" + std::to_string(from_anchor);
-                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                    std::string source_gvnode = "i" + std::to_string(transition.from_anchor);
+                    // Suggest that we have an edge, where the edges that are
+                    // the best routes here are the most likely to actually show up.
                     diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
                         {"label", std::to_string(jump_points)},
                         {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
@@ -586,7 +639,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[to_anchor];
 
         if (show_work) {
-            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
+            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
+                 << " is " << chain_scores[to_anchor] << endl;
         }
         
         if (diagram) {
@@ -594,7 +648,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             auto item_points = here.score() * item_scale + item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
-            label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
+            label_stream << "#" << to_anchor << " " << here << " = " << item_points
+                         << "/" << chain_scores[to_anchor].score;
             diagram.add_node(here_gvnode, {
                 {"label", label_stream.str()}
             });
@@ -607,9 +662,12 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // Show the item as connected to its source graph node
             diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
             // Make the next graph node along the same strand
-            std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
+            std::string graph_gvnode2 = ("n" + std::to_string(id(graph_start) 
+                                         + (is_rev(graph_start) ? -1 : 1))
+                                         + (is_rev(graph_start) ? "r" : "f"));
             diagram.ensure_node(graph_gvnode2, {
-                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) 
+                                         + (is_rev(graph_start) ? "-" : "+")},
                 {"shape", "box"}
             });
             // And show them as connected. 
@@ -692,7 +750,8 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
     }
     
     // Sort the tracebacks by penalty, ascending
-    std::sort(tracebacks.begin(), tracebacks.end(), [](const std::pair<std::vector<size_t>, int>& a, const std::pair<std::vector<size_t>, int>& b) {
+    std::sort(tracebacks.begin(), tracebacks.end(), 
+    [](const std::pair<std::vector<size_t>, int>& a, const std::pair<std::vector<size_t>, int>& b) {
         // Return true if a has the smaller penalty and belongs first
         return a.second < b.second;
     });
@@ -710,6 +769,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const HandleGraph& graph,
                                                    int gap_open,
                                                    int gap_extension,
+                                                   int recomb_penalty,
                                                    size_t max_chains,
                                                    const transition_iterator& for_each_transition,
                                                    int item_bonus,
@@ -737,9 +797,11 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              gap_scale,
                                                              points_per_possible_match,
                                                              max_indel_bases,
+                                                             recomb_penalty,
                                                              show_work);
     // Then do the tracebacks
-    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
+    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(
+        chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -754,7 +816,6 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
         // Move over the list of items and convert penalty to score
         to_return.emplace_back(best_past_ending_score_ever.score - traceback.second, std::move(traceback.first));
     }
-    
     return to_return;
 }
 
@@ -763,6 +824,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
+                                          int recomb_penalty,
                                           const transition_iterator& for_each_transition,
                                           int item_bonus,
                                           double item_scale,
@@ -776,6 +838,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         graph,
         gap_open,
         gap_extension,
+        recomb_penalty,
         1,
         for_each_transition,
         item_bonus,
@@ -786,14 +849,16 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
     ).front();
 }
 
-int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension) {
+int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, 
+                     const HandleGraph& graph, int gap_open, int gap_extension) {
     
     if (to_chain.empty()) {
         return 0;
     } else {
         // Do the DP but without the traceback.
         vector<TracedScore> chain_scores;
-        TracedScore winner = algorithms::chain_items_dp(chain_scores, to_chain, distance_index, graph, gap_open, gap_extension);
+        TracedScore winner = algorithms::chain_items_dp(
+            chain_scores, to_chain, distance_index, graph, gap_open, gap_extension);
         return winner.score;
     }
 }
@@ -803,7 +868,8 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 //#define double_check_distances
 //#define stop_on_mismatch
 //#define replace_on_mismatch
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
+size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index,
+                          const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
@@ -871,7 +937,8 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
             false, &graph);
     }
     if (distance > distance_limit) {
-        // Zip code logic can have to compute a number over the limit, and in that case will return it.
+        // Zip code logic can have to compute a number over the limit,
+        // and in that case will return it.
         // Cut it off here.
         distance = std::numeric_limits<size_t>::max();
     }

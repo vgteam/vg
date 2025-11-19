@@ -7,6 +7,7 @@
 
 #include "crash.hpp"
 #include "annotation.hpp"
+#include "gbwtgraph_helper.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
@@ -51,20 +52,23 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    const MinimizerIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
     const ZipCodeCollection* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph), minimizer_index(minimizer_index),
+    path_graph(path_graph),
+    minimizer_index(minimizer_index),
+    k(minimizer_index.k()), w(minimizer_index.w()),
+    payload_with_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
+    uses_syncmers(minimizer_index.uses_syncmers()),
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
     choose_band_padding(algorithms::pad_band_random_walk()),
-    fragment_length_distr(1000,1000,0.95) {
-    
-    // The GBWTGraph needs a GBWT
+    fragment_length_distr(1000,1000,0.95)
+{
     crash_unless(graph.index != nullptr);
 }
 
@@ -222,6 +226,9 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
         exp.key("read_exclusion_end");
         exp.value(anchors[index].read_exclusion_start());
         
+        // added info of supported paths
+        exp.key("paths");
+        exp.value(static_cast<std::size_t>(anchors[index].anchor_start_paths()));
         exp.object_end();
     }
     exp.array_end();
@@ -303,7 +310,7 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
                     return;
                 }
 
-                std::cerr << log_name() << "Minimizer " << index << ": " << m.forward_sequence() << "@" << m.forward_offset() << " with " << m.hits << " hits" << std::endl;
+                std::cerr << log_name() << "Minimizer " << index << ": " << m.forward_sequence() << "@" << m.forward_offset() << " with " << m.hits() << " hits" << std::endl;
             } else if (rank == MANY_LIMIT) {
                 if (region_start == 0 && length_limit == sequence.size()) {
                     // Report as if we have a count
@@ -380,7 +387,7 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
             }
             
             // Tag with metadata
-            cerr << " (#" << index << ", " << m.hits << " hits)" << endl;
+            cerr << " (#" << index << ", " << m.hits() << " hits)" << endl;
         }
     }
 }
@@ -533,7 +540,7 @@ void MinimizerMapper::dump_debug_seeds(const VectorView<Minimizer>& minimizers, 
             const Seed& seed = seeds[seed_index];
             const Minimizer& minimizer = minimizers[seed.source];
             cerr << log_name() << "Seed read:" << minimizer.value.offset << (minimizer.value.is_reverse ? '-' : '+') << " = " << seed.pos
-                << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
+                << " from minimizer " << seed.source << "(" << minimizer.hits() << "), #" << seed_index << endl;
         }
     } else {
         // Describe the seeds in aggregate
@@ -547,8 +554,8 @@ void MinimizerMapper::dump_debug_seeds(const VectorView<Minimizer>& minimizers, 
             const Minimizer& minimizer = minimizers[seed.source];
             min_read_pos = std::min(min_read_pos, (size_t)minimizer.value.offset);
             max_read_pos = std::max(max_read_pos, (size_t)minimizer.value.offset);
-            min_hits = std::min(min_hits, minimizer.hits);
-            max_hits = std::max(max_hits, minimizer.hits);
+            min_hits = std::min(min_hits, minimizer.hits());
+            max_hits = std::max(max_hits, minimizer.hits());
         }
         cerr << log_name() << selected_seeds.size() << " seeds in read:" << min_read_pos << "-" << max_read_pos << " with " << min_hits << "-" << max_hits << " hits" << endl;
     }
@@ -621,7 +628,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
-
+  
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
@@ -3353,7 +3360,8 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const VectorVie
     std::sort(sorted_ids.begin(), sorted_ids.end());
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
-        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
+        gbwtgraph::hits_in_subgraph(this->minimizer_index, minimizer.occs, sorted_ids, [&](MinimizerIndex::value_type hit) {
+            pos_t pos = hit.first.decode();
             if (minimizer.value.is_reverse) {
                 size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
                 pos = reverse_base_pos(pos, node_length);
@@ -3482,11 +3490,11 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     double base_score = 1.0 + std::log(this->hard_hit_cap);
     // Get minimizers and their window agglomeration starts and lengths
     // Starts and lengths are all 0 if we are using syncmers.
-    vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
+    std::vector<std::tuple<MinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
         this->minimizer_index.minimizer_regions(sequence);
     for (auto& m : minimizers) {
         double score = 0.0;
-        auto hits = this->minimizer_index.find(get<0>(m));
+        MinimizerIndex::multi_value_type hits = this->minimizer_index.find(get<0>(m));
         if (hits.second > 0) {
             if (hits.second <= this->hard_hit_cap) {
                 score = base_score - std::log(hits.second);
@@ -3496,14 +3504,13 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
         }
         
         // Length of the match from this minimizer or syncmer
-        int32_t match_length = (int32_t) minimizer_index.k();
+        int32_t match_length = this->k;
         // Number of candidate kmers that this minimizer is minimal of
-        int32_t candidate_count = this->minimizer_index.uses_syncmers() ? 1 : (int32_t) minimizer_index.w();
-        
+        int32_t candidate_count = this->uses_syncmers ? 1 : this->w;
         auto& value = std::get<0>(m);
         size_t agglomeration_start = std::get<1>(m);
         size_t agglomeration_length = std::get<2>(m);
-        if (this->minimizer_index.uses_syncmers()) {
+        if (this->uses_syncmers) {
             // The index says the start and length are 0. Really they should be where the k-mer is.
             // So start where the k-mer is on the forward strand
             agglomeration_start = value.is_reverse ? (value.offset - (match_length - 1)) : value.offset;
@@ -3511,7 +3518,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
             agglomeration_length = match_length;
         }
         
-        result.push_back({ value, agglomeration_start, agglomeration_length, hits.second, hits.first,
+        result.push_back({ value, agglomeration_start, agglomeration_length, hits,
                             match_length, candidate_count, score });
     }
 
@@ -3561,14 +3568,14 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
     score_unique.emplace_back(std::log(0.95));
 
     for (const auto& minimizer : minimizers_in_read_order) {
-        if (minimizer.hits == 0) {
+        if (minimizer.hits() == 0) {
             continue;
         }
 
         //The score for emitting this minimizer from unique or repetitive states
         //If there is one hit, then this is a unique minimizer
-        double emit_unique_score = minimizer.hits == 1 ? emit_same_score : emit_diff_score;
-        double emit_repetitive_score = minimizer.hits == 1 ? emit_diff_score : emit_same_score;
+        double emit_unique_score = minimizer.hits() == 1 ? emit_same_score : emit_diff_score;
+        double emit_repetitive_score = minimizer.hits() == 1 ? emit_diff_score : emit_same_score;
 
         //The score for each state from each other state
         double score_from_repetitive_to_unique = score_repetitive.back() + switch_score + emit_unique_score;
@@ -3601,7 +3608,7 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
     int min_i = minimizers_in_read_order.size()-1;
     for (int score_i = prev_best_unique.size()-1 ; score_i >= 0 ; score_i --) {
         //Jump to the next minimizer with hits
-        while (min_i >= 0 && minimizers_in_read_order[min_i].hits == 0){
+        while (min_i >= 0 && minimizers_in_read_order[min_i].hits() == 0){
             min_i--;
         }
 
@@ -3701,8 +3708,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         size_t total_hits = 0;
         size_t with_hits = 0;
         for (auto& m : minimizers) {
-            total_hits += m.hits;
-            if (m.hits > 0) {
+            total_hits += m.hits();
+            if (m.hits() > 0) {
                 with_hits++;
             }
         }
@@ -3771,7 +3778,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     // The better minimizer is the one that does match the reference, or
                     // if both match the reference it is the one that has more score. Or if both have equal score it is the more minimal one.
                     // That happens to be how we defined the Minimizer operator<.
-                    return (min_a.hits > 0 && min_b.hits == 0) || (min_a.hits > 0 && min_b.hits > 0 && min_a < min_b);
+                    return (min_a.hits() > 0 && min_b.hits() == 0) || (min_a.hits() > 0 && min_b.hits() > 0 && min_a < min_b);
                 }, [&](size_t sampled) -> void {
                     // This minimizer is actually best in a window
                     downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
@@ -3791,8 +3798,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         size_t total_hits = 0;
         size_t with_hits = 0;
         for (const Minimizer* m : downsampled) {
-            total_hits += m->hits;
-            if (m->hits > 0) {
+            total_hits += m->hits();
+            if (m->hits() > 0) {
                 with_hits++;
             }
         }
@@ -3830,13 +3837,13 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     minimizer_filters.emplace_back(
         "window-downsampling", 
         [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
-        [&](const Minimizer& m) { return (double)m.hits; },
+        [&](const Minimizer& m) { return (double)m.hits(); },
         [](const Minimizer& m) {},
         [](const Minimizer& m) {}
     );
     minimizer_filters.emplace_back(
         "any-hits", 
-        [&](const Minimizer& m) { return m.hits > 0; },
+        [&](const Minimizer& m) { return m.hits() > 0; },
         [](const Minimizer& m) { return nan(""); },
         [](const Minimizer& m) {},
         [](const Minimizer& m) {}
@@ -3881,9 +3888,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                             read_coverage[i] = true;
                         }
                     }
-                    worst_kept_hits = std::max(m.hits, worst_kept_hits);
+                    worst_kept_hits = std::max(m.hits(), worst_kept_hits);
                     return true;
-                } else if (m.hits > worst_kept_hits) {
+                } else if (m.hits() > worst_kept_hits) {
                     return false;
                 } else {
                     //TODO: Fix funnel stuff 
@@ -3915,7 +3922,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         minimizer_filters.emplace_back(
             "hit-cap||score-fraction",
             [&](const Minimizer& m) {
-                return (m.hits <= this->hit_cap) || // We pass if we are under the soft hit cap
+                return (m.hits() <= this->hit_cap) || // We pass if we are under the soft hit cap
                 (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hit cap and we need the score
                 (taking_run); // Or we already took one duplicate and we want to finish out the run 
             },
@@ -3950,10 +3957,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         if (i >= limit) {
             // We are starting a new run
             start = i; limit = i + 1;
-            run_hits = minimizers[i].hits;
+            run_hits = minimizers[i].hits();
             for (size_t j = i + 1; j < minimizers.size() && minimizers[j].value.key == minimizers[i].value.key; j++) {
                 limit++;
-                run_hits += minimizers[j].hits;
+                run_hits += minimizers[j].hits();
             }
             // We haven't taken the first thing in the run yet.
             taking_run = false;
@@ -4011,43 +4018,31 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // minimizers which we also took.
 
             // Locate the hits.
-            for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = minimizer.occs[j].position.decode();
+            for (size_t j = 0; j < minimizer.hits(); j++) {
+                MinimizerIndex::value_type occ = this->minimizer_index.get_value(minimizer.occs, j);
+
+                pos_t hit = occ.first.decode();
                 // Reverse the hits for a reverse minimizer
                 if (minimizer.value.is_reverse) {
                     size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
+
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 seeds.emplace_back();
                 seeds.back().pos = hit;
                 seeds.back().source = i;
 
-                //Get the zipcode
-                if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
-                    //If the zipcocde wasn't saved, then calculate it
-                    seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-                    seeds.back().zipcode.fill_in_full_decoder();
-                } else if (minimizer.occs[j].payload.first == 0) {
-                    //If the minimizer stored the index into a list of zipcodes
-                    if (!this->zipcodes->empty()) {
-                        //If we have the oversized zipcodes
-                        seeds.back().zipcode = zipcodes->at(minimizer.occs[j].payload.second);
-                    } else {
-                        //If we don't have the oversized payloads, then fill in the zipcode using the pos
-                        seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-                        seeds.back().zipcode.fill_in_full_decoder();
-                    }
-                } else {
-                    //If the zipcode was saved in the payload
-                    seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
+                // Handle the payload.
+                seeds.back().zipcode.fill_in_zipcode(occ.second, this->zipcodes, *(this->distance_index), hit);
+                if (this->payload_with_paths) {
+                    seeds.back().paths = occ.second[MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE];
                 }
-
             }
-            
+
             if (this->track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
-                funnel.expand(i, minimizer.hits);
+                funnel.expand(i, minimizer.hits());
             }
                 
         } else {
@@ -4980,7 +4975,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 right_frontier.push_back(pareto_point(seq_len - extension.mismatch_positions.back() - 1, right_penalty));
             }
         }
-        size_t window_length = this->minimizer_index.uses_syncmers() ? this->minimizer_index.k() : (this->minimizer_index.k() + this->minimizer_index.w() - 1);
+        size_t window_length = this->uses_syncmers ? this->k : (this->k + this->w - 1);
         left_frontier.push_back(pareto_point(window_length - 1, 0));
         right_frontier.push_back(pareto_point(window_length - 1, 0));
     }
@@ -5611,6 +5606,7 @@ double MinimizerMapper::distance_to_annotation(int64_t distance) const {
     double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
     return max(min((double) distance, max_int_double), -max_int_double);
 }
+
 
 }
 

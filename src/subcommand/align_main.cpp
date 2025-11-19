@@ -52,6 +52,7 @@ void help_align(char** argv) {
 }
 
 int main_align(int argc, char** argv) {
+    Logger logger("vg align");
 
     string seq;
     string seq_name;
@@ -147,11 +148,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = optarg;
-            if (matrix_file_name.empty()) {
-                cerr << "error:[vg align] Must provide matrix file with --matrix-file." << endl;
-                exit(1);
-            }
+            matrix_file_name = require_exists(logger, optarg);
             break;
 
         case 'r':
@@ -175,16 +172,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case 'w':
-            {
-                std::string to_parse(optarg);
-                auto comma_index = to_parse.find(",");
-                if (comma_index == std::string::npos || comma_index == 0 || comma_index + 1 == to_parse.size()) {
-                    std::cerr << "error:[vg align] Argument to --between must be two comma-separated psoitions." << std::endl;
-                    exit(1);
-                }
-                left_anchor = parse<pos_t>(to_parse.substr(0, comma_index));
-                right_anchor = parse<pos_t>(to_parse.substr(comma_index + 1)); 
-            }
+            tie(left_anchor, right_anchor) = parse_pair<pos_t, pos_t>(logger, optarg, ',', "--rename");
             break;
 
         case 'h':
@@ -203,16 +191,13 @@ int main_align(int argc, char** argv) {
 
     if (!vg::is_empty(left_anchor) || !vg::is_empty(right_anchor)) {
         if (!ref_seq.empty()) {
-            std::cerr << "error:[vg align] Cannot align between positions when using a reference sequence." << std::endl;
-            exit(1);
+            logger.error() << "Cannot align between positions when using a reference sequence." << std::endl;
         }
         if (pinned_alignment) {
-            std::cerr << "error:[vg align] Alignign between positions always uses pinned alignment." << std::endl;
-            exit(1);
+            logger.error() << "Aligning between positions always uses pinned alignment." << std::endl;
         }
         if (banded_global) {
-            std::cerr << "error:[vg align] Alignign between positions always uses banded global alignment." << std::endl;
-            exit(1);
+            logger.error() << "Aligning between positions always uses banded global alignment." << std::endl;
         }
     }
 
@@ -227,18 +212,12 @@ int main_align(int argc, char** argv) {
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
       matrix_stream.open(matrix_file_name);
-      if (!matrix_stream) {
-          cerr << "error:[vg align] Cannot open scoring matrix file " << matrix_file_name << endl;
-          exit(1);
-      }
     }
-    
 
     Alignment alignment;
     if (!ref_seq.empty()) {
         if (!matrix_file_name.empty()) {
-            cerr << "error:[vg align] Custom scoring matrix not supported in reference sequence mode " << endl;
-            exit(1);
+            logger.error() << "Custom scoring matrix not supported in reference sequence mode" << std::endl;
         }
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
@@ -309,7 +288,7 @@ int main_align(int argc, char** argv) {
     }
 
     if (output_json) {
-        cout << pb2json(alignment) << endl;
+        cout << pb2json(alignment) << std::endl;
     } else {
         function<Alignment(size_t)> lambda =
             [&alignment] (size_t n) {

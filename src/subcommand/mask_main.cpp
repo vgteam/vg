@@ -18,7 +18,7 @@ using namespace vg::subcommand;
 using namespace vg::io;
 using namespace std;
 
-vector<tuple<string, size_t, size_t>> parse_bed(istream& in){
+vector<tuple<string, size_t, size_t>> parse_bed(istream& in) {
     
     vector<tuple<string, size_t, size_t>> regions;
     
@@ -59,6 +59,7 @@ void help_mask(char** argv) {
 }    
 
 int main_mask(int argc, char** argv) {
+    Logger logger("vg mask");
     
     string bed_filepath;
     string snarls_filepath;
@@ -91,13 +92,13 @@ int main_mask(int argc, char** argv) {
                 help_mask(argv);
                 return 1;
             case 'b':
-                bed_filepath = optarg;
+                bed_filepath = require_exists(logger, optarg);
                 break;
             case 'g':
                 gbz_input = true;
                 break;
             case 's':
-                snarls_filepath = optarg;
+                snarls_filepath = require_exists(logger, optarg);
                 break;
             default:
                 help_mask(argv);
@@ -107,26 +108,12 @@ int main_mask(int argc, char** argv) {
     
     
     if (argc - optind != 1) {
-        cerr << "error: vg mask requires exactly 1 positional argument" << endl;
         help_mask(argv);
-        return 1;
+        logger.error() << "vg mask requires exactly 1 positional argument" << endl;
     }
 
     if (bed_filepath.empty()) {
-        cerr << "error: vg mask requires an input BED file from -b / --bed" << endl;
-        return 1;
-    }
-    if (bed_filepath != "-") {
-        if (!ifstream(bed_filepath)) {
-            cerr << "error: could not open BED file from " << bed_filepath << endl;
-            return 1;
-        }
-    }
-    if (!snarls_filepath.empty() && snarls_filepath != "-") {
-        if (!ifstream(snarls_filepath)) {
-            cerr << "error: could not open snarls file from " << snarls_filepath << endl;
-            return 1;
-        }
+        logger.error() << "vg mask requires an input BED file from -b / --bed" << endl;
     }
     
     // load the graph
