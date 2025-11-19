@@ -2501,8 +2501,8 @@ std::string sample_haplotypes(
     if (progress) {
         logger.info() << "Building GBWTGraph" << std::endl;
     }
-    gbwtgraph::GBWTGraph sampled_graph = gbz.graph.subgraph(sampled_gbwt);
-    save_gbz(sampled_gbwt, sampled_graph, output_name, progress);
+    gbwtgraph::GBZ sampled_graph(std::move(sampled_gbwt), gbz);
+    save_gbz(sampled_graph, output_name, progress);
 
     return output_name;
 }

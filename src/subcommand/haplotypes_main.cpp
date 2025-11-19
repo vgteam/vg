@@ -632,17 +632,17 @@ void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, 
         config.logger.info() << "Building GBWTGraph" << std::endl;
     }
     double checkpoint = gbwt::readTimer();
-    gbwtgraph::GBWTGraph output_graph = gbz.graph.subgraph(merged);
+    gbwtgraph::GBZ output_graph(std::move(merged), gbz);
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         config.logger.info() << "Built the GBWTGraph in " << seconds << " seconds" << std::endl;
     }
-    save_gbz(merged, output_graph, config.gbz_output, config.verbosity >= Haplotypes::verbosity_basic);
+    save_gbz(output_graph, config.gbz_output, config.verbosity >= Haplotypes::verbosity_basic);
 
     // Validate the graph.
     if (config.validate) {
         // TODO: How could we validate the haplotypes?
-        validate_subgraph(config.logger, gbz.graph, output_graph, config.verbosity);
+        validate_subgraph(config.logger, gbz.graph, output_graph.graph, config.verbosity);
     }
 }
 
