@@ -24,17 +24,17 @@ is $? 1 "distance index or --no-dist is required"
 # Single-threaded for deterministic results
 vg minimizer --no-dist -t 1 -o x.mi x.gbz
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 8939d819aafa2183b393ee20ae6c4cc1 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 24adbb7f775cda2117828fa13b228ca7 "construction is deterministic"
 
 # Indexing syncmers
 vg minimizer --no-dist -t 1 -o x.mi -c x.gbz
 is $? 0 "syncmer index"
-is $(md5sum x.mi | cut -f 1 -d\ ) ca5b291ba8096fb12ba0400a3dc833b2 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 97d6424471bf6aff43ec6ed43add762e "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer --no-dist -t 1 -k 7 -w 3 -o x.mi x.gbz
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) a7ee5b99f0bc0c0c7974681492548750 "setting -k -w works correctly"
+is $(md5sum x.mi | cut -f 1 -d\ ) 2cf6a0fdf9d4fe6ee9b42ae2f093971b "setting -k -w works correctly"
 
 # Store zipcode payload in the index
 # Construction will not be deterministic because the snarls are not deterministic

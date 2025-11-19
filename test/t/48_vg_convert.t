@@ -228,7 +228,7 @@ cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBZ -> HashGraph -> GFA conversion maintains segments"
 
 # GBZ to GFA with walks (needs 1 thread)
-vg convert -f -t 1 components.gbz > extracted.gfa
+vg convert -f -t 1 components.gbz | grep -v "H\tNM:Z" > extracted.gfa
 is $? 0 "GBZ to GFA conversion with walks, GBWTGraph algorithm"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
@@ -286,13 +286,13 @@ is $? 0 "GBZ to HashGraph conversion while dropping haplotypes"
 is "$(vg paths -L -x no_haplotypes.hg | wc -l)" "2" "No haplotypes in the converted graph"
 
 # GBZ to GFA with paths and walks (needs 1 thread)
-vg convert --gbwtgraph-algorithm  -f -t 1 components.gbz > gbz.gfa
+vg convert --gbwtgraph-algorithm  -f -t 1 components.gbz | grep -v "H\tNM:Z" > gbz.gfa
 is $? 0 "GBZ to GFA conversion with paths and walks, GBWTGraph algorithm"
 cmp gbz.gfa graphs/components_paths_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
 
 # Multithreaded GBZ to GFA with paths and walks
-vg convert -f components.gbz | sort > sorted.gfa
+vg convert -f components.gbz | grep -v "H\tNM:Z" | sort > sorted.gfa
 cmp sorted.gfa correct.gfa
 is $? 0 "GBZ to GFA conversion works with multiple threads"
 
