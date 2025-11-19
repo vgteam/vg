@@ -4014,11 +4014,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         unique_ptr<gbwtgraph::SequenceSource> seq_source;
         tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
         
-        // convert sequences into gbwt graph
-        gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
-        
-        // save together as a GBZ
-        save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        // convert sequences into GBZ and save
+        gbwtgraph::GBZ gbz(gbwt_index, seq_source);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -4093,10 +4091,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // don't bother with the normal loader/saver system.
         FlatFileBackTranslation translation(infile_translation);
 
+        // TODO: We need a GBZ constructor that takes a translation object.
         gbwtgraph::GBZ gbz;
         load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
-        // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
         gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, &translation);
+
+        // We need to compute pggname manually, because a generic HandleGraph
+        // does not contain the name of the parent graph. And we use nullptr,
+        // because we currently cannot determine the name from another souce.
+        gbz.compute_pggname(nullptr);
 
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
@@ -4131,10 +4134,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_in(infile_xg, xg_filename);
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
 
+        // TODO: We need a GBZ constructor that takes a translation object.
         gbwtgraph::GBZ gbz;
         load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
-        // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
         gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, algorithms::find_translation(xg_index.get()));
+
+        // We need to compute pggname manually, because a generic HandleGraph
+        // does not contain the name of the parent graph. And we use nullptr,
+        // because we currently cannot determine the name from another souce.
+        gbz.compute_pggname(nullptr);
 
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);

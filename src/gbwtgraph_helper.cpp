@@ -439,7 +439,7 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
 
     if (distance_index == nullptr) {
-        gbwtgraph::index_haplotypes(gbz.graph, index, [](const pos_t&) { return nullptr; });
+        gbwtgraph::index_haplotypes(gbz, index, [](const pos_t&) { return nullptr; });
     } else {
         // Cache payloads before building the index.
         // A zipcode only depends on the node id.
@@ -456,9 +456,9 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
             }
         };
         if (params.paths_in_payload) {
-            gbwtgraph::index_haplotypes_with_paths(gbz.graph, index, get_payload);
+            gbwtgraph::index_haplotypes_with_paths(gbz, index, get_payload);
         } else {
-            gbwtgraph::index_haplotypes(gbz.graph, index, get_payload);
+            gbwtgraph::index_haplotypes(gbz, index, get_payload);
         }
     }
 
