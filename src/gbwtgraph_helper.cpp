@@ -227,6 +227,36 @@ void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::st
 
 //------------------------------------------------------------------------------
 
+void require_compatible_graphs_impl(
+    const gbwtgraph::GraphName& first_name, const std::string& first_decription,
+    const gbwtgraph::GraphName& second_name, const std::string& second_description,
+    GraphCompatibilityFlags flags
+) {
+    if (!(flags & GRAPH_COMPATIBILITY_STRICT)) {
+        if (!first_name.has_name() || !second_name.has_name()) {
+            return;
+        }
+    }
+
+    if (first_name.same(second_name)) {
+        return;
+    }
+    if (flags & GRAPH_COMPATIBILITY_SUBGRAPH) {
+        if (first_name.subgraph_of(second_name)) {
+            return;
+        }
+    }
+
+    std::cerr << "error: \"" << first_decription << "\" and \"" << second_description << "\" are not compatible" << std::endl;
+    if (flags & GRAPH_COMPATIBILITY_VERBOSE) {
+        std::string relationship = first_name.describe_relationship(second_name, first_decription, second_description);
+        std::cerr << relationship << std::endl;
+    }
+    std::exit(EXIT_FAILURE);
+}
+
+//------------------------------------------------------------------------------
+
 std::string MinimizerIndexParameters::validate() const {
     if (this->k < 1 || this->k > gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH) {
         return "k-mer length must be between 1 and " + std::to_string(gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH);

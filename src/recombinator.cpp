@@ -17,6 +17,7 @@ namespace vg {
 
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
+constexpr std::uint32_t Haplotypes::Header::VERSION_WITH_TAGS;
 constexpr std::uint32_t Haplotypes::Header::MIN_VERSION;
 constexpr std::uint64_t Haplotypes::Header::DEFAULT_K;
 
@@ -302,6 +303,7 @@ size_t Haplotypes::TopLevelChain::simple_sds_size() const {
 
 void Haplotypes::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<Header>(this->header, out);
+    this->tags.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->jobs_for_paths, out);
     for (auto& chain : this->chains) {
         chain.simple_sds_serialize(out);
@@ -327,6 +329,11 @@ void Haplotypes::simple_sds_load(std::istream& in) {
         std::string msg = "Haplotypes::simple_sds_load(): Expected version " + std::to_string(Header::MIN_VERSION)
             + " to " + std::to_string(Header::VERSION) + ", got version " + std::to_string(this->header.version);
         throw sdsl::simple_sds::InvalidData(msg);
+    }
+
+    // Tags are present from version 6 onwards.
+    if (this->header.version >= Header::VERSION_WITH_TAGS) {
+        this->tags.simple_sds_load(in);
     }
 
     this->jobs_for_paths = sdsl::simple_sds::load_vector<size_t>(in);
@@ -389,6 +396,11 @@ std::vector<size_t> Haplotypes::assign_reference_paths(const gbwtgraph::GBZ& gbz
     return result;
 }
 
+void Haplotypes::set_graph_name(const gbwtgraph::GBZ& gbz) {
+    gbwtgraph::GraphName name = gbz.graph_name();
+    name.set_tags(this->tags);
+}
+
 //------------------------------------------------------------------------------
 
 HaplotypePartitioner::HaplotypePartitioner(
@@ -433,8 +445,10 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         parameters.print(std::cerr);
     }
 
+    // TODO: Should this be a constructor?
     Haplotypes result;
     result.header.k = this->minimizer_index.k();
+    result.set_graph_name(this->gbz);
 
     // Determine GBWT construction jobs.
     double start = gbwt::readTimer();

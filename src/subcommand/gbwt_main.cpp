@@ -456,8 +456,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
     // Values are description and list of prohibited characters.
     const std::map<std::string, std::pair<std::string, std::unordered_set<char>>> KNOWN_TAGS = {
-        {gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, 
-            {"a space-separated list of PanSN-valid sample/assembly names of references in the graph", {'#'}}}
+        {
+            gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG,
+            {"a space-separated list of PanSN-valid sample/assembly names of references in the graph", {'#'}}
+        }
     };
 
     static struct option long_options[] =

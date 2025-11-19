@@ -305,6 +305,10 @@ void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::
     out << "  " << header.top_level_chains << " top-level chains with " << header.total_subchains << " subchains" << std::endl;
     out << "  " << header.total_kmers << " kmers of length " << header.k << std::endl;
     out << std::endl;
+
+    if (header.version >= Haplotypes::Header::VERSION_WITH_TAGS) {
+        list_tags(in, true, index_type, out);
+    }
 }
 
 //----------------------------------------------------------------------------
