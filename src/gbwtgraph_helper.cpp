@@ -248,10 +248,8 @@ void require_compatible_graphs_impl(
     }
 
     std::cerr << "error: \"" << first_decription << "\" and \"" << second_description << "\" are not compatible" << std::endl;
-    if (flags & GRAPH_COMPATIBILITY_VERBOSE) {
-        std::string relationship = first_name.describe_relationship(second_name, first_decription, second_description);
-        std::cerr << relationship << std::endl;
-    }
+    std::string relationship = first_name.describe_relationship(second_name, first_decription, second_description);
+    std::cerr << relationship << std::endl;
     std::exit(EXIT_FAILURE);
 }
 

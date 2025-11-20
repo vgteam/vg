@@ -74,9 +74,7 @@ enum GraphCompatibilityFlags {
     // Require both graphs to have names.
     GRAPH_COMPATIBILITY_STRICT = 0x01,
     // Allow the first graph to be a subgraph of the second graph.
-    GRAPH_COMPATIBILITY_SUBGRAPH = 0x02,
-    // Print extended information about the relationship between the graphs.
-    GRAPH_COMPATIBILITY_VERBOSE = 0x04
+    GRAPH_COMPATIBILITY_SUBGRAPH = 0x02
 };
 
 /// Implementation of require_compatible_graphs().
@@ -95,8 +93,7 @@ void require_compatible_graphs_impl(
  * If either object does not have a name, the check will succeed, unless strict
  * mode is enabled. By default, the names should be the same (the corresponding
  * graphs are identical). If subgraph is true, the first object may be for a
- * subgraph of the second object. If verbose is true, extended information about
- * the possible relationship between the graphs is printed.
+ * subgraph of the second object.
  */
 template <class T1, class T2>
 void require_compatible_graphs(

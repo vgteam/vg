@@ -154,11 +154,7 @@ int main_haplotypes(int argc, char** argv) {
                                  << config.haplotype_input << std::endl;
         }
         haplotypes.load_from(config.haplotype_input);
-        GraphCompatibilityFlags flags = (
-            config.verbosity >= Haplotypes::verbosity_detailed ?
-            GRAPH_COMPATIBILITY_VERBOSE : GRAPH_COMPATIBILITY_DEFAULT
-        );
-        require_compatible_graphs(gbz, "GBZ graph", haplotypes, "Haplotype information", flags);
+        require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
     }
 
     // Save haplotype information if necessary.

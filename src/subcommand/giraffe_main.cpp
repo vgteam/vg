@@ -1791,6 +1791,7 @@ int main_giraffe(int argc, char** argv) {
         logger.info() << "Loading GBZ" << endl;
     }
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
+    require_compatible_graphs(*gbz, "GBZ", *minimizer_index, "Minimizer Index");
 
     // Grab the distance index
     if (show_progress) {
