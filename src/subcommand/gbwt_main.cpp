@@ -54,7 +54,7 @@ struct GBWTConfig {
     gbwt::MergeParameters merge_parameters;
 
     // GBZ construction.
-    bool gbz_format = true;
+    bool set_pggname = false;
 
     // Other parameters and flags.
     bool show_progress = false;
@@ -303,7 +303,8 @@ void help_gbwt(char** argv) {
     std::cerr << "      --path-fields X     parse metadata as haplotypes, mapping regex submatches" << std::endl;
     std::cerr << "                          to these fields instead of vg-parser-compatible rules" << std::endl;
     std::cerr << "      --translation FILE  write the segment to node translation table to FILE" << std::endl;
-    std::cerr << "  -Z, --gbz-input         extract GBWT & GBWTGraph from GBZ from (one) input arg" << std::endl;
+    std::cerr << "  -Z, --gbz-input         use GBZ as input GBWT and input graph (one input arg)" << std::endl;
+    std::cerr << "      --set-pggname       compute the pggname for the GBZ if not already present" << std::endl;
     std::cerr << "  -E, --index-paths       index the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "                          (requires -x, no input args)" << std::endl;
     std::cerr << "  -A, --alignment-input   index the alignments in the GAF files specified" << std::endl;
@@ -437,7 +438,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PATH_REGEX = 1115;
     constexpr int OPT_PATH_FIELDS = 1116;
     constexpr int OPT_TRANSLATION = 1117;
-    constexpr int OPT_GAM_FORMAT = 1118;
+    constexpr int OPT_SET_PGGNAME = 1118;
+    constexpr int OPT_GAM_FORMAT = 1119;
     constexpr int OPT_CHUNK_SIZE = 1200;
     constexpr int OPT_POS_BUFFER = 1201;
     constexpr int OPT_THREAD_BUFFER = 1202;
@@ -503,6 +505,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: GBZ
         { "gbz-input", no_argument, 0, 'Z' },
+        { "set-pggname", no_argument, 0, OPT_SET_PGGNAME },
 
         // Input GBWT construction: paths
         { "index-paths", no_argument, 0, 'E' },
@@ -710,6 +713,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.build = GBWTConfig::build_gbz;
             config.produces_one_gbwt = true;
             break;
+        case OPT_SET_PGGNAME:
+            config.set_pggname = true;
+            break;
 
         // Input GBWT construction: Paths
         case 'E':
@@ -835,12 +841,11 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.include_named_paths = true;
             break;
 
-        // GBWTGraph
+        // GBZ
         case 'g':
             config.graph_output = ensure_writable(config.logger, optarg);
             break;
         case OPT_GBZ_FORMAT:
-            config.gbz_format = true;
             break;
 
         // Build r-index
@@ -1332,6 +1337,17 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             config.logger.info() << "Input type: GBZ" << std::endl;
         }
         graphs.load_gbz(gbwts, config);
+        if (config.set_pggname) {
+            std::string pggname = graphs.gbz_graph->pggname();
+            if (pggname.empty()) {
+                if (config.show_progress) {
+                    config.logger.info() << "Determining pggname for GBZ" << std::endl;
+                }
+                graphs.gbz_graph->compute_pggname(nullptr);
+                pggname = graphs.gbz_graph->pggname();
+            }
+            config.logger.info() << "Graph name: " << pggname << std::endl;
+        }
     } else if (config.build == GBWTConfig::build_paths) {
         if(config.show_progress) {
             config.logger.info() << "Input type: embedded paths" << std::endl;
