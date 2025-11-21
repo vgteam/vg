@@ -15,7 +15,7 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/pad_band.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 //#define debug_decompose_algorithm
 //#define debug_shift_pruning
 
@@ -2511,7 +2511,13 @@ namespace vg {
         
         // Don't let people do this twice.
         assert(!has_reachability_edges);
-        
+       
+#ifdef debug_multipath_alignment
+        SubgraphExplainer graph_dump(true);
+        graph_dump.subgraph(graph);
+#endif
+
+
         // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
         // so we can skip traversing over the entire graph
         if (path_nodes.size() <= 1) {
@@ -3263,6 +3269,9 @@ namespace vg {
                             
                             // these are non-colinear, so add it to the non-colinear shell
                             if (next_end_node.begin >= end_node.begin || next_end_node.end >= end_node.end) {
+#ifdef debug_multipath_alignment
+                                std::cerr << "Definitely noncolinear from an end: make sure " << end_here.first << " is in noncolinear shell for " << end << std::endl;
+#endif
                                 if (noncolinear_shell.count(end_here.first)) {
                                     noncolinear_shell[end_here.first] = std::min(end_here.second, noncolinear_shell[end_here.first]);
                                 }
@@ -3308,6 +3317,9 @@ namespace vg {
                             
                             // we can't easily guarantee that this is non-colinear or colinear, so we're just going to treat it
                             // as non-colinear and accept some risk of this creating redundant edges to later nodes
+#ifdef debug_multipath_alignment
+                            std::cerr << "Ambiguous colinearity from an end: make sure " << end_here.first << " is in noncolinear shell for " << end << std::endl;
+#endif
                             if (noncolinear_shell.count(end_here.first)) {
                                 noncolinear_shell[end_here.first] = std::min(end_here.second, noncolinear_shell[end_here.first]);
                             }
@@ -3451,6 +3463,10 @@ namespace vg {
                                 if (start_node_from_length == 0) {
                                     start_node_from_length = path_from_length(start_node.path);
                                 }
+
+#ifdef debug_multipath_alignment
+                                std::cerr << "Noncolinear from a start: make sure " << candidate_end << " is in noncolinear shell for " << start << std::endl;
+#endif
                                 if (noncolinear_shell.count(candidate_end)) {
                                     noncolinear_shell[candidate_end] = std::min(candidate_dist + start_node_from_length,
                                                                                 noncolinear_shell[candidate_end]);
@@ -3906,7 +3922,7 @@ namespace vg {
 #endif
         
     }
-    
+
     void MultipathAlignmentGraph::clear_reachability_edges() {
         // Don't let people clear the edges if they are clear already.
         // That suggests that someone has gotten confused over whether they should exist or not.
@@ -6048,7 +6064,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         }
         return gap_length;
     }
-    
+   
+#define debug_multipath_alignment
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner,
                                          const GSSWAligner* dp_aligner, size_t max_alt_alns, bool dynamic_alt_alns,
@@ -6056,8 +6073,14 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                          unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
-        cerr << "doing tail alignments to:" << endl;
-        to_dot(cerr);
+        cerr << "doing tail alignments to " << path_nodes.size() << " path nodes" << endl;
+        size_t tail_count = 0;
+        for (auto& path_node : path_nodes) {
+            if (path_node.edges.empty() && path_node.end != alignment.sequence().end()) {
+                tail_count++;
+            }
+        }
+        std::cerr << "\tof which " << tail_count << " will be tails" << std::endl;
 #endif
         
         // TODO: magic number
@@ -6088,7 +6111,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         vector<bool> is_source_node(path_nodes.size(), true);
         for (size_t j = 0; j < path_nodes.size(); j++) {
             PathNode& path_node = path_nodes.at(j);
-#ifdef debug_multipath_alignment
+#ifdef debug_trace_tail_alignment
             cerr << "Visit PathNode " << j << " with " << path_node.edges.size() << " outbound edges" << endl;
 #endif
             if (!path_node.edges.empty()) {
@@ -6096,7 +6119,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 for (const pair<size_t, size_t>& edge : path_node.edges) {
                     // Make everywhere we go as not a source
                     is_source_node[edge.first] = false;
-#ifdef debug_multipath_alignment
+#ifdef debug_trace_tail_alignment
                     cerr << "Edge " << j << " -> " << edge.first << " makes " << edge.first << " not a source" << endl;
 #endif
                 }
@@ -6104,7 +6127,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             else if (path_node.end != alignment.sequence().end()) {
 
 #ifdef debug_multipath_alignment
-                cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
+                cerr << "doing right end alignment from sink node " << j << endl;
+#endif
+#ifdef debug_trace_tail_alignment
+                cerr << "\twith path " << debug_string(path_node.path) << " and sequence ";
                 for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                     cerr << *iter;
                 }
@@ -6136,6 +6162,12 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                                                                            false,         // search forward
                                                                                            false);        // no need to preserve cycles (in a DAG)
                 
+#ifdef debug_multipath_alignment
+                std::cerr << "Going to align " << aligning_tail_length << "/" << tail_length
+                        << " bp of tail against " << tail_graph.get_total_length()
+                        << " bp of graph extracted for target length " << target_length << std::endl;
+#endif
+
                 size_t num_alt_alns;
                 if (dynamic_alt_alns) {
                     size_t num_paths = handlealgs::count_walks(&tail_graph);
@@ -6168,6 +6200,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 
 #ifdef debug_multipath_alignment
                 cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph extracted from " << end_pos << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                 tail_graph.for_each_handle([&](const handle_t& handle) {
                     cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                     tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
@@ -6247,6 +6281,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
 #ifdef debug_multipath_alignment
                 cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                 for (size_t i = 0; i < alt_alignments.size(); ++i) {
                     cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
                 }
@@ -6361,6 +6397,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         
 #ifdef debug_multipath_alignment
                     cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph extracted from " << begin_pos << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                     tail_graph.for_each_handle([&](const handle_t& handle) {
                         cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                         tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
@@ -6428,6 +6466,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     }
 #ifdef debug_multipath_alignment
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                     for (size_t i = 0; i < alt_alignments.size(); ++i) {
                         cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
                     }
@@ -6480,17 +6520,16 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                  }
              }
          }
-        
 #ifdef debug_multipath_alignment
         cerr << "made alignments for " << to_return[false].size() << " source PathNodes and " << to_return[true].size() << " sink PathNodes" << endl;
         if (sources != nullptr) {
             cerr << "Identified " << sources->size() << " source PathNodes" << endl;
         }
 #endif 
-        
         // Return all the alignments, organized by tail and subpath
         return to_return;
     }
+
     
     bool MultipathAlignmentGraph::empty() const {
         return path_nodes.empty();
@@ -6600,7 +6639,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
         }
     }
-    
+#undef debug_multipath_alignment
+
     void MultipathAlignmentGraph::to_dot(ostream& out, const Alignment* alignment) const {
         // We track the VG graph nodes we talked about already.
         set<id_t> mentioned_nodes;

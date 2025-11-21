@@ -763,5 +763,67 @@ TEST_CASE("Tail alignments can be decomposed", "[multipathalignmentgraph]") {
     // TODO: should check the unshared blocks, but i'm too lazy
 }
 
+TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolinear shells", "[multipath][mapping][multipathalignmentgraph]" ) {
+
+    size_t scale = 2000;
+
+    // Generate a stick graph
+    HashGraph graph;
+    handle_t prev;
+    for (size_t i = 0; i < scale; i++) {
+        handle_t h = graph.create_handle("A");
+        if (i > 0) {
+            graph.create_edge(prev, h);
+        }
+        prev = h;
+    }
+
+    // Make snarls on it
+    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    SnarlDistanceIndex dist_index;
+    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+    
+    // We need a fake read
+    string read(scale, 'A');
+    
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
+    Alignment query;
+    query.set_sequence(read);
+    
+    // Make an Aligner to use for the actual aligning and the scores
+    Aligner aligner;
+        
+    // Make an identity projection translation
+    auto identity = MultipathAlignmentGraph::create_identity_projection_trans(graph);
+    
+    // Make up a fake MEM
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs (so they don't move)
+    std::list<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    // Note that this is also a memcluster_t
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    mem_hits.second = 1.0;
+    
+    for (size_t i = 0; i < scale; i += 5) {
+        auto query_start = query.sequence().begin() + (i % (scale));
+        auto query_end = query_start + 1;
+        // Make a MEM in the read of 1 bp, all across the length
+        mems.emplace_back(query_start, query_end, make_pair(1, 1), 1);
+        // Put it on a node's forward strand, doubled up over the first half as if the read loops
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(1 + (i % (scale / 4)), false, 0));
+    }
+
+    // Make the MultipathAlignmentGraph to test
+    vector<size_t> provenance;
+    MultipathAlignmentGraph mpg(graph, mem_hits, identity, provenance);
+    
+}
+
 }
 }
