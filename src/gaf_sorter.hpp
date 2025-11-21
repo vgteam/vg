@@ -77,17 +77,10 @@ struct GAFSorterRecord {
     /// Missing key. Records without a key are sorted to the end.
     constexpr static std::uint64_t MISSING_KEY = std::numeric_limits<std::uint64_t>::max();
 
-    /// Node offset for the GBWT starting position of the forward orientation
-    /// may be stored in this tag.
-    const static std::string GBWT_OFFSET_TAG; // "GB:i:"
-
     /// Types of keys that can be derived from the value.
     enum key_type {
         /// (minimum node id, maximum node id) in the path.
         key_node_interval,
-        /// GBWT starting position for the forward orientation.
-        /// Derived from the path and tag "GB:i:".
-        key_gbwt_pos,
         /// Hash of the value for random shuffling.
         key_hash,
     };

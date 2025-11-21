@@ -65,7 +65,6 @@ namespace vg {
 // Public class constants.
 
 constexpr std::uint64_t GAFSorterRecord::MISSING_KEY;
-const std::string GAFSorterRecord::GBWT_OFFSET_TAG = "GB:i:";
 
 constexpr size_t GAFSorterRecord::STRAND_FIELD;
 constexpr size_t GAFSorterRecord::PATH_FIELD;
@@ -99,32 +98,6 @@ void GAFSorterRecord::set_key(key_type type) {
             this->key = MISSING_KEY;
         } else {
             this->key = (static_cast<std::uint64_t>(min_id) << 32) | max_id;
-        }
-    } else if (type == key_gbwt_pos) {
-        std::uint32_t node_id = std::numeric_limits<std::uint32_t>::max();
-        bool is_reverse = false;
-        std::uint32_t offset = std::numeric_limits<std::uint32_t>::max();
-        this->for_each_field([&](size_t i, str_view value) -> bool {
-            if (i == PATH_FIELD && value.size > 1) {
-                auto result = from_chars(value.data + 1, value.data + value.size, node_id);
-                if (result.ec != std::errc()) {
-                    return false;
-                }
-                is_reverse = (value[0] == '<');
-            } else if (i >= MANDATORY_FIELDS) {
-                size_t tag_size = GBWT_OFFSET_TAG.size();
-                if (value.size > tag_size && value.substr(0, tag_size) == GBWT_OFFSET_TAG) {
-                    auto result = from_chars(value.data + tag_size, value.data + value.size, offset);
-                    return false;
-                }
-            }
-            return true;
-        });
-        if (node_id == std::numeric_limits<std::uint32_t>::max() || offset == std::numeric_limits<std::uint32_t>::max()) {
-            // We either did not find both fields or failed to parse them.
-            this->key = MISSING_KEY;
-        } else {
-            this->key = (static_cast<std::uint64_t>(node_id) << 33) | (static_cast<std::uint64_t>(is_reverse) << 32) | offset;
         }
     } else if (type == key_hash) {
         this->key = hasher(this->value);
