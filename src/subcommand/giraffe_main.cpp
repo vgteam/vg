@@ -2080,6 +2080,8 @@ int main_giraffe(int argc, char** argv) {
                 );
 
                 // Emit GAF header lines now, if applicable.
+                // TODO: We should have a function that can take any graph and any alignment emitter
+                // and determine if there is any header information it can emit.
                 io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(alignment_emitter.get());
                 if (gaf_emitter != nullptr) {
                     gbwtgraph::GraphName graph_name = gbz->graph_name();

@@ -3,6 +3,8 @@
 #include "../xg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
+#include "../gbzgraph.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/handle_graph.hpp>
@@ -38,6 +40,7 @@ void help_pack(char** argv) {
          << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
+void check_file_compatibility(const HandleGraph* graph, const std::string& gaf_filename);
 
 int main_pack(int argc, char** argv) {
     Logger logger("vg pack");
@@ -223,6 +226,8 @@ int main_pack(int argc, char** argv) {
                 vg::io::for_each_parallel(in, lambda, batch_size);
             });
     } else if (!gaf_in.empty()) {
+        check_file_compatibility(handle_graph.get(), gaf_in);
+
         // we use this interface so we can ignore sequence, which takes a lot of time to parse
         // and is unused by pack
         function<size_t(nid_t)> node_to_length = [&graph](nid_t node_id) {
@@ -255,6 +260,24 @@ int main_pack(int argc, char** argv) {
     }
 
     return 0;
+}
+
+void check_file_compatibility(const HandleGraph* graph, const std::string& gaf_filename) {
+    const GBZGraph* gbz_graph = dynamic_cast<const GBZGraph*>(graph);
+    if (gbz_graph == nullptr) {
+        // We cannot determine graph names for non-GBZ graphs.
+        return;
+    }
+
+    gbwtgraph::GraphName graph_name = gbz_graph->gbz.graph_name();
+    std::vector<std::string> gaf_header_lines = vg::io::read_gaf_header_lines(gaf_filename);
+    gbwtgraph::GraphName gaf_name(gaf_header_lines);
+
+    // If both the graph and the GAF have graph name information, we require
+    // that the reference graph for the alignments in the GAF file is a
+    // subgraph (or the same as) the basis graph we're packing over.
+    GraphCompatibilityFlags flags = GRAPH_COMPATIBILITY_SUBGRAPH;
+    require_compatible_graphs_impl(gaf_name, "GAF input", graph_name, "basis graph", flags);
 }
 
 // Register subcommand

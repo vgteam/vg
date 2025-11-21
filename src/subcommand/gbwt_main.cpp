@@ -1346,7 +1346,9 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                 graphs.gbz_graph->compute_pggname(nullptr);
                 pggname = graphs.gbz_graph->pggname();
             }
-            config.logger.info() << "Graph name: " << pggname << std::endl;
+            if (config.show_progress) {
+                config.logger.info() << "Graph name: " << pggname << std::endl;
+            }
         }
     } else if (config.build == GBWTConfig::build_paths) {
         if(config.show_progress) {
