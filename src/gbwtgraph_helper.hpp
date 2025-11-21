@@ -77,6 +77,9 @@ enum GraphCompatibilityFlags {
     GRAPH_COMPATIBILITY_SUBGRAPH = 0x02
 };
 
+GraphCompatibilityFlags operator|(GraphCompatibilityFlags a, GraphCompatibilityFlags b);
+GraphCompatibilityFlags& operator|=(GraphCompatibilityFlags& a, GraphCompatibilityFlags b);
+
 /// Implementation of require_compatible_graphs().
 void require_compatible_graphs_impl(
     const gbwtgraph::GraphName& first_name, const std::string& first_decription,
@@ -105,6 +108,22 @@ void require_compatible_graphs(
     gbwtgraph::GraphName second_name = second.graph_name();
     require_compatible_graphs_impl(first_name, first_decription, second_name, second_description, flags);
 }
+
+/**
+ * Checks that the given GAF file can use the given graph as a reference,
+ * according to the gbwtgraph::GraphName information possibly stored in GAF
+ * headers and graph tags. Prints an error message and exits on failure.
+ *
+ * If both handle_graph and gbz are provided, gbz takes precedence. If both
+ * the GAF and the graph have graph names, the graph used in the GAF must be a
+ * subgraph of or identical to the provided graph. If at least one of them
+ * lacks a name, the check will succeed, unless strict mode is enabled.
+ */
+void require_compatible_reference(
+    const std::string& gaf_filename,
+    const HandleGraph* handle_graph, const gbwtgraph::GBZ* gbz,
+    bool strict
+);
 
 //------------------------------------------------------------------------------
 

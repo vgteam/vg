@@ -1,7 +1,9 @@
 #include "gbwtgraph_helper.hpp"
 #include "gbwt_helper.hpp"
+#include "gbzgraph.hpp"
 
 #include <gbwtgraph/index.h>
+#include <vg/io/alignment_io.hpp>
 
 namespace vg {
 
@@ -227,6 +229,15 @@ void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::st
 
 //------------------------------------------------------------------------------
 
+GraphCompatibilityFlags operator|(GraphCompatibilityFlags a, GraphCompatibilityFlags b) {
+    return static_cast<GraphCompatibilityFlags>(static_cast<int>(a) | static_cast<int>(b));
+}
+
+GraphCompatibilityFlags& operator|=(GraphCompatibilityFlags& a, GraphCompatibilityFlags b) {
+    a = a | b;
+    return a;
+}
+
 void require_compatible_graphs_impl(
     const gbwtgraph::GraphName& first_name, const std::string& first_decription,
     const gbwtgraph::GraphName& second_name, const std::string& second_description,
@@ -251,6 +262,38 @@ void require_compatible_graphs_impl(
     std::string relationship = first_name.describe_relationship(second_name, first_decription, second_description);
     std::cerr << relationship << std::endl;
     std::exit(EXIT_FAILURE);
+}
+
+void require_compatible_reference(
+    const std::string& gaf_filename,
+    const HandleGraph* handle_graph, const gbwtgraph::GBZ* gbz,
+    bool strict
+) {
+    if (handle_graph == nullptr && gbz == nullptr) {
+        return;
+    }
+
+    gbwtgraph::GraphName graph_name;
+    if (gbz != nullptr) {
+        graph_name = gbz->graph_name();
+    } else {
+        // GBZGraph is the only HandleGraph implementation that currently supports graph names.
+        const GBZGraph* gbz_graph = dynamic_cast<const GBZGraph*>(handle_graph);
+        if (gbz_graph == nullptr) {
+            return;
+        }
+        graph_name = gbz_graph->gbz.graph_name();
+    }
+
+    // This will exit if the file does not exist and do nothing if the file is stdin ("-").
+    std::vector<std::string> gaf_header_lines = vg::io::read_gaf_header_lines(gaf_filename);
+    gbwtgraph::GraphName gaf_name(gaf_header_lines);
+
+    GraphCompatibilityFlags flags = GRAPH_COMPATIBILITY_SUBGRAPH;
+    if (strict) {
+        flags |= GRAPH_COMPATIBILITY_STRICT;
+    }
+    require_compatible_graphs_impl(gaf_name, "GAF file", graph_name, "reference graph", flags);
 }
 
 //------------------------------------------------------------------------------
