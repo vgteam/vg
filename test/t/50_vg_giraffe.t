@@ -249,7 +249,7 @@ is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null
 
 vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
-is "$(grep '^@' mapped.gaf | wc -l)" "1" "GAF has a header"
+is "$(grep '^@' mapped.gaf | wc -l)" "2" "GAF has a header"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt

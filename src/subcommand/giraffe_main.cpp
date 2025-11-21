@@ -2074,9 +2074,18 @@ int main_giraffe(int argc, char** argv) {
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
                 // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
-                alignment_emitter = get_alignment_emitter(output_filename, output_format,
-                                                          paths, thread_count,
-                                                          emitter_graph, flags);
+                alignment_emitter = get_alignment_emitter(
+                    output_filename, output_format,
+                    paths, thread_count, emitter_graph, flags
+                );
+
+                // Emit GAF header lines now, if applicable.
+                io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(alignment_emitter.get());
+                if (gaf_emitter != nullptr) {
+                    gbwtgraph::GraphName graph_name = gbz->graph_name();
+                    std::vector<std::string> header_lines = graph_name.gaf_header_lines();
+                    gaf_emitter->emit_header_lines(header_lines);
+                }
             }
 
             // Stick any metadata in the emitter near the front of the stream.
