@@ -3,6 +3,7 @@
 #include "../xg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/handle_graph.hpp>
@@ -37,7 +38,6 @@ void help_pack(char** argv) {
          << "  -t, --threads N        use N threads [numCPUs]" << endl
          << "  -h, --help             print this help message to stderr and exit" << endl;
 }
-
 
 int main_pack(int argc, char** argv) {
     Logger logger("vg pack");
@@ -223,6 +223,8 @@ int main_pack(int argc, char** argv) {
                 vg::io::for_each_parallel(in, lambda, batch_size);
             });
     } else if (!gaf_in.empty()) {
+        require_compatible_reference(gaf_in, handle_graph.get(), nullptr, false);
+
         // we use this interface so we can ignore sequence, which takes a lot of time to parse
         // and is unused by pack
         function<size_t(nid_t)> node_to_length = [&graph](nid_t node_id) {

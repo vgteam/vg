@@ -1791,6 +1791,7 @@ int main_giraffe(int argc, char** argv) {
         logger.info() << "Loading GBZ" << endl;
     }
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
+    require_compatible_graphs(*gbz, "GBZ", *minimizer_index, "Minimizer Index");
 
     // Grab the distance index
     if (show_progress) {
@@ -2085,9 +2086,20 @@ int main_giraffe(int argc, char** argv) {
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
                 // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
-                alignment_emitter = get_alignment_emitter(output_filename, output_format,
-                                                          paths, thread_count,
-                                                          emitter_graph, flags);
+                alignment_emitter = get_alignment_emitter(
+                    output_filename, output_format,
+                    paths, thread_count, emitter_graph, flags
+                );
+
+                // Emit GAF header lines now, if applicable.
+                // TODO: We should have a function that can take any graph and any alignment emitter
+                // and determine if there is any header information it can emit.
+                io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(alignment_emitter.get());
+                if (gaf_emitter != nullptr) {
+                    gbwtgraph::GraphName graph_name = gbz->graph_name();
+                    std::vector<std::string> header_lines = graph_name.gaf_header_lines();
+                    gaf_emitter->emit_header_lines(header_lines);
+                }
             }
 
             // Stick any metadata in the emitter near the front of the stream.
@@ -2513,8 +2525,8 @@ std::string sample_haplotypes(
     if (progress) {
         logger.info() << "Building GBWTGraph" << std::endl;
     }
-    gbwtgraph::GBWTGraph sampled_graph = gbz.graph.subgraph(sampled_gbwt);
-    save_gbz(sampled_gbwt, sampled_graph, output_name, progress);
+    gbwtgraph::GBZ sampled_graph(std::move(sampled_gbwt), gbz);
+    save_gbz(sampled_graph, output_name, progress);
 
     return output_name;
 }

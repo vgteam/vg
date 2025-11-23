@@ -58,6 +58,7 @@ void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filena
 void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress = false);
 
 /// Save GBWT and GBWTGraph to the GBZ file.
+/// NOTE: GBZ tags will be empty, apart from the source tag.
 void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
 
 /// Save GBZ to separate GBWT / GBWTGraph files.
@@ -65,6 +66,64 @@ void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std
 
 /// Save a minimizer index to the file.
 void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
+
+//------------------------------------------------------------------------------
+
+enum GraphCompatibilityFlags {
+    GRAPH_COMPATIBILITY_DEFAULT = 0x00,
+    // Require both graphs to have names.
+    GRAPH_COMPATIBILITY_STRICT = 0x01,
+    // Allow the first graph to be a subgraph of the second graph.
+    GRAPH_COMPATIBILITY_SUBGRAPH = 0x02
+};
+
+GraphCompatibilityFlags operator|(GraphCompatibilityFlags a, GraphCompatibilityFlags b);
+GraphCompatibilityFlags& operator|=(GraphCompatibilityFlags& a, GraphCompatibilityFlags b);
+
+/// Implementation of require_compatible_graphs().
+void require_compatible_graphs_impl(
+    const gbwtgraph::GraphName& first_name, const std::string& first_decription,
+    const gbwtgraph::GraphName& second_name, const std::string& second_description,
+    GraphCompatibilityFlags flags
+);
+
+/**
+ * Checks that the objects are compatible with each other, according to the
+ * gbwtgraph::GraphName information possibly stored in the tags. Prints an error
+ * message and exits on failure.
+ *
+ * Both objects must have a graph_name() method returning gbwtgraph::GraphName.
+ * If either object does not have a name, the check will succeed, unless strict
+ * mode is enabled. By default, the names should be the same (the corresponding
+ * graphs are identical). If subgraph is true, the first object may be for a
+ * subgraph of the second object.
+ */
+template <class T1, class T2>
+void require_compatible_graphs(
+    const T1& first, const std::string& first_decription,
+    const T2& second, const std::string& second_description,
+    GraphCompatibilityFlags flags = GRAPH_COMPATIBILITY_DEFAULT
+) {
+    gbwtgraph::GraphName first_name = first.graph_name();
+    gbwtgraph::GraphName second_name = second.graph_name();
+    require_compatible_graphs_impl(first_name, first_decription, second_name, second_description, flags);
+}
+
+/**
+ * Checks that the given GAF file can use the given graph as a reference,
+ * according to the gbwtgraph::GraphName information possibly stored in GAF
+ * headers and graph tags. Prints an error message and exits on failure.
+ *
+ * If both handle_graph and gbz are provided, gbz takes precedence. If both
+ * the GAF and the graph have graph names, the graph used in the GAF must be a
+ * subgraph of or identical to the provided graph. If at least one of them
+ * lacks a name, the check will succeed, unless strict mode is enabled.
+ */
+void require_compatible_reference(
+    const std::string& gaf_filename,
+    const HandleGraph* handle_graph, const gbwtgraph::GBZ* gbz,
+    bool strict
+);
 
 //------------------------------------------------------------------------------
 

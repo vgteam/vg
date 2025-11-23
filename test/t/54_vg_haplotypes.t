@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 32
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -16,14 +16,19 @@ plan tests 27
 vg gbwt -G haplotype-sampling/micb-kir3dl1.gfa --gbz-format -g full.gbz -r full.ri
 vg index -j full.dist full.gbz
 
-# Build the haplotype information and sample the haplotypes separately
+# Generate haplotype information
 vg haplotypes --validate --subchain-length 300 -H full.hapl full.gbz
 is $? 0 "generating haplotype information"
+is "$(vg describe full.hapl | grep 'pggname = ')" "$(vg describe full.gbz | grep 'pggname = ')" "graph name was copied to haplotype information"
+
+# Sample haplotypes separately
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference -g indirect.gbz full.gbz
 is $? 0 "sampling from existing haplotype information"
 is $(vg gbwt -S -Z indirect.gbz) 3 "1 generated + 2 reference samples"
 is $(vg gbwt -C -Z indirect.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z indirect.gbz) 6 "4 generated + 2 reference haplotypes"
+is "$(vg describe indirect.gbz | grep -c 'pggname = ')" 1 "sampled GBZ contains graph name"
+is "$(vg describe indirect.gbz | grep -c 'subgraph = ')" 1 "sampled GBZ contains a subgraph relationship"
 
 # Sample the haplotypes directly
 vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff --include-reference -g direct.gbz full.gbz
@@ -81,6 +86,11 @@ is $? 0 "Giraffe integration with a specified reference sample"
 cmp diploid3.gbz GRCh38.HG003.gbz
 is $? 0 "the sampled graph is identical to a manually sampled one"
 
+# Attempts to use mismatched files fail
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff -g /dev/null diploid.gbz 2> log.txt
+is $? 1 "sampling with mismatched GBZ and haplotype information fails"
+is $(grep -c "error.*are not compatible" log.txt) 1 "an appropriate error message is printed"
+
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz
@@ -88,3 +98,4 @@ rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam
 rm -f GRCh38.HG003.* HG003_GRCh38.gam
+rm -f log.txt
