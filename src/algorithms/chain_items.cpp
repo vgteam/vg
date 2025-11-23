@@ -58,7 +58,7 @@ TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t o
 }
 
 TracedScore TracedScore::add_points(int adjustment) const {
-    return {this->score + adjustment, this->source};
+    return {this->score + adjustment, this->source, this->paths};
 }
 
 TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {

@@ -1451,6 +1451,17 @@ protected:
     /// Displays one or more named collections of runs of seeds.
     static void dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph);
 
+    /// Dump all chains for a read to separate TSV files.
+    /// Each chain gets its own file. 
+    static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
+                                   const std::vector<Seed>& seeds,
+                                   const VectorView<Minimizer>& minimizers,
+                                   const std::vector<std::vector<size_t>>& fragments,
+                                   const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                   const std::vector<std::vector<size_t>>& chains,
+                                   const std::vector<size_t>& chain_source_tree,
+                                   const PathPositionHandleGraph* path_graph);
+
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);
     

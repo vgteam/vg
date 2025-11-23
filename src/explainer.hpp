@@ -27,15 +27,20 @@ namespace vg {
 
 /**
  * Base explainer class. Handles making sure each explanation has a different unique number.
+ * Also provides support for organizing explanations into per-read directories.
  */
 class Explainer {
 public:
     /// Determine if explanations should be generated.
+    ///
+    /// Should be set once at the start of the program; should not be toggled
+    /// while explanations are being saved or other system state (like
+    /// contexts) are being used.
     static bool save_explanations;
 
     /// Construct an Explainer that will save to one or more files
     Explainer(bool enabled);
-    
+
     /// Close out the files being explained to
     virtual ~Explainer();
 
@@ -45,20 +50,49 @@ public:
         return explaining();
     }
 
+    /// Set a per-thread context for organizing explanations.
+    /// Within a context, explanations are numbed from 0 (so contexts may not
+    /// be re-used, or collisions will occur).
+    /// The context may not be empty.
+    static void set_context(const std::string& context);
+
+    /// Clear the current per-thread context
+    static void clear_context();
+
 protected:
     /// What number explanation are we? Distinguishes different objects.
     size_t explanation_number;
-    
+
     /// Determines if this explainer should generate explanations.
     bool enabled;
 
     /// Counter used to give different explanations their own unique filenames.
     static std::atomic<size_t> next_explanation_number;
+    
+    /// Counter used to give different explanations their own unique filenames
+    /// within a per-thread context.
+    static thread_local size_t next_context_explanation_number;
+
+    /// Current thing (possibly a read name) being explained (for organizing into directories)
+    static thread_local std::string current_context;
 
     /// Function to check if we should be explaining.
     inline bool explaining() const {
         return this->enabled && Explainer::save_explanations;
     }
+
+    /// Helper to get a new explanation number, either from the global counter,
+    /// or within a thread-local context.
+    static size_t get_new_explanation_number();
+
+    /// Helper to create a filename accounting for any assigned per-thread
+    /// context.
+    ///
+    /// If current_context is set, ensures there is a directory for that
+    /// context, and puts the file there.
+    /// 
+    /// Returns the full path to use for opening the file.
+    static std::string make_filename(const std::string& base_name, const std::string& extension);
 };
 
 /**
@@ -67,6 +101,7 @@ protected:
 class TSVExplainer : public Explainer {
 public:
     /// Construct a TSVExplainer that will save a table to a file.
+    /// Uses the current read context from Explainer::set_context() if set.
     TSVExplainer(bool enabled, const std::string& name = "data");
     /// Close out the file being explained to
     ~TSVExplainer();
@@ -247,8 +282,10 @@ DotDumpExplainer<T>::DotDumpExplainer(bool enabled, const T& to_dump) : Explaine
     if (!explaining()) {
         return;
     }
-    // Open the dot file
-    std::ofstream out("dotdump" + std::to_string(explanation_number) + ".dot");
+    // Open the dot file using the per-read directory system
+    std::string base_name = "dotdump" + std::to_string(explanation_number);
+    std::string filename = make_filename(base_name, ".dot");
+    std::ofstream out(filename);
     // And dump to it
     to_dump.to_dot(out);
 }

@@ -243,6 +243,11 @@ int main_augment(int argc, char** argv) {
         }
     });
 
+    if (argc == 2) {
+        help_augment(argv, parser);
+        return 1;
+    }
+
     // Parse the command line options, updating optind.
     parser.parse(argc, argv);
 
