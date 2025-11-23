@@ -5,17 +5,18 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 10
+plan tests 11
 
 
 # Indexing a single graph
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
-vg gbwt -x x.vg -v small/xy2.vcf.gz -g x.gbz --gbz-format
+vg gbwt -x x.vg -v small/xy2.vcf.gz -g x.gbz
 vg index -j x.dist x.gbz
 
 # Default construction
 vg minimizer --no-dist -o x.mi x.gbz
 is $? 0 "default parameters"
+is "$(vg describe x.mi | grep 'pggname =')" "$(vg describe x.gbz | grep 'pggname =')" "Graph name was copied to minimizer index"
 
 # Construction fails without a distance index
 vg minimizer -o x.mi x.gbz 2> /dev/null

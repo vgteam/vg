@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 83
+plan tests 84
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -228,8 +228,10 @@ cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBZ -> HashGraph -> GFA conversion maintains segments"
 
 # GBZ to GFA with walks (needs 1 thread)
-vg convert -f -t 1 components.gbz | grep -v "H\tNM:Z" > extracted.gfa
+vg convert -f -t 1 components.gbz > full.gfa
 is $? 0 "GBZ to GFA conversion with walks, GBWTGraph algorithm"
+is "$(grep -c '^H\tNM:Z' full.gfa)" 1 "graph name was copied from GBZ to GFA"
+grep -v "^H\tNM:Z" full.gfa > extracted.gfa
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
 
@@ -248,7 +250,7 @@ is $? 0 "GFA -> HashGraph -> GFA conversion maintains segments, links, walks, an
 rm -f components.gbwt components.gg components.gbz
 rm -f components.hg
 rm -f sorted.gfa converted.gfa correct.gfa
-rm -f extracted.gfa
+rm -f full.gfa extracted.gfa
 
 # GFA to GBZ with paths and walks
 vg gbwt -g components.gbz --gbz-format -G graphs/components_paths_walks.gfa

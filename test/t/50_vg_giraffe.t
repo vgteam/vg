@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 66
+plan tests 69
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -115,11 +115,17 @@ is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | 
 is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 2"
 is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved on read 1"
 
+# Attempts to use mismatched files fail
+vg gbwt -G graphs/components_walks.gfa -g wrong.gbz
+vg giraffe -Z wrong.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -f reads/small.middle.ref.fq > /dev/null 2> log.txt
+is "${?}" "1" "mapping with mismatched GBZ and minimizer index fails"
+is "$(grep -c 'error.*are not compatible' log.txt)" "1" "appropriate error message is printed"
 
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
 rm -f x.vg x.xg x.gbwt x.shortread.zipcodes x.shortread.withzip.min x.sync x.dist
-rm -f x.giraffe.gbz
+rm -f x.giraffe.gbz wrong.gbz
+rm -f log.txt
 
 
 cp small/x.fa .
@@ -249,7 +255,8 @@ is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null
 
 vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
-is "$(grep '^@' mapped.gaf | wc -l)" "2" "GAF has a header"
+is "$(grep -c '^@' mapped.gaf)" 2 "GAF has a header"
+is "$(grep -c '^@RN' mapped.gaf)" 1 "GAF has a reference name header"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt

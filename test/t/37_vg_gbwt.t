@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 149
+plan tests 158
 
 
 # Build vg graphs for two chromosomes
@@ -230,6 +230,15 @@ rm -f x.extract
 vg gbwt -x x.vg -g x.gbz x.gbwt
 is $? 0 "GBZ construction from GBWT"
 is $(md5sum x.gbz | cut -f 1 -d\ ) c25b16aa5315e98be8f6cead13bc567c "GBZ was serialized correctly"
+is "$(vg describe x.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
+
+# Try unsetting and setting the name
+vg gbwt --unset-pggname -Z x.gbz -g x.gbz
+is $? 0 "Graph name can be unset"
+is "$(vg describe x.gbz | grep -c 'pggname =')" 0 "GBZ does not contain graph name after unsetting"
+vg gbwt --set-pggname -Z x.gbz -g x.gbz
+is $? 0 "Graph name can be set"
+is "$(vg describe x.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name after setting"
 
 # Build and serialize GBZ from VCF
 vg gbwt -x x.vg -g x2.gbz -v small/xy2.vcf.gz
@@ -255,6 +264,7 @@ is $(vg gbwt -c -Z xy.cover.gbz) 32 "path cover: 32 paths"
 is $(vg gbwt -C -Z xy.cover.gbz) 2 "path cover: 2 contigs"
 is $(vg gbwt -H -Z xy.cover.gbz) 16 "path cover: 16 haplotypes"
 is $(vg gbwt -S -Z xy.cover.gbz) 16 "path cover: 16 samples"
+is "$(vg describe xy.cover.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
 
 rm -f xy.cover.gbz
 
@@ -352,6 +362,7 @@ is $? 0 "GBZ construction from GFA"
 is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 125428508faa78b96c4e752374a534b1 "GBZ was serialized correctly"
 vg gbwt -Z gfa2.gbz -o /dev/null --translation gfa2.trans
 is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
+is "$(vg describe gfa2.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
 
 # Build GBZ from GFA with node chopping
 vg gbwt -g chopping.gbz --max-node 2 --translation chopping.trans -G graphs/chopping_walks.gfa
@@ -364,6 +375,8 @@ is $(wc -l < chopping.trans) 9 "chopping: 9 translations"
 vg gbwt -Z chopping.gbz -o /dev/null --translation from_gbz.trans
 is $? 0 "Translation can be extracted from GBZ"
 is $(wc -l < from_gbz.trans) 8 "from GBZ: 8 translations"
+is "$(vg describe chopping.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
+is "$(vg describe chopping.gbz | grep -c 'translation =')" 1 "GBZ contains a translation relationship"
 
 # Build GBZ from GFA with both paths and walks
 vg gbwt -g ref_paths.gbz --translation ref_paths.trans -G graphs/components_paths_walks.gfa

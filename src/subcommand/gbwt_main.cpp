@@ -55,6 +55,7 @@ struct GBWTConfig {
 
     // GBZ construction.
     bool set_pggname = false;
+    bool unset_pggname = false;
 
     // Other parameters and flags.
     bool show_progress = false;
@@ -305,6 +306,7 @@ void help_gbwt(char** argv) {
     std::cerr << "      --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "  -Z, --gbz-input         use GBZ as input GBWT and input graph (one input arg)" << std::endl;
     std::cerr << "      --set-pggname       compute the pggname for the GBZ if not already present" << std::endl;
+    std::cerr << "      --unset-pggname     clear the stored pggname for the GBZ if present" << std::endl;
     std::cerr << "  -E, --index-paths       index the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "                          (requires -x, no input args)" << std::endl;
     std::cerr << "  -A, --alignment-input   index the alignments in the GAF files specified" << std::endl;
@@ -439,7 +441,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PATH_FIELDS = 1116;
     constexpr int OPT_TRANSLATION = 1117;
     constexpr int OPT_SET_PGGNAME = 1118;
-    constexpr int OPT_GAM_FORMAT = 1119;
+    constexpr int OPT_UNSET_PGGNAME = 1119;
+    constexpr int OPT_GAM_FORMAT = 1120;
     constexpr int OPT_CHUNK_SIZE = 1200;
     constexpr int OPT_POS_BUFFER = 1201;
     constexpr int OPT_THREAD_BUFFER = 1202;
@@ -506,6 +509,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // Input GBWT construction: GBZ
         { "gbz-input", no_argument, 0, 'Z' },
         { "set-pggname", no_argument, 0, OPT_SET_PGGNAME },
+        { "unset-pggname", no_argument, 0, OPT_UNSET_PGGNAME },
 
         // Input GBWT construction: paths
         { "index-paths", no_argument, 0, 'E' },
@@ -715,6 +719,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case OPT_SET_PGGNAME:
             config.set_pggname = true;
+            break;
+        case OPT_UNSET_PGGNAME:
+            config.unset_pggname = true;
             break;
 
         // Input GBWT construction: Paths
@@ -1349,6 +1356,10 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             if (config.show_progress) {
                 config.logger.info() << "Graph name: " << pggname << std::endl;
             }
+        }
+        if (config.unset_pggname) {
+            gbwtgraph::GraphName empty;
+            empty.set_tags(graphs.gbz_graph->tags);
         }
     } else if (config.build == GBWTConfig::build_paths) {
         if(config.show_progress) {
