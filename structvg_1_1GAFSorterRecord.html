@@ -82,7 +82,6 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
 <tr class="memitem:a5477d463227b6ad929b450b0cdd83cfb"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfb">key_type</a> { <a class="el" href="structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfbaf9a71ba4d23e34153b6507e2f2d53274">key_node_interval</a>, 
-<a class="el" href="structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfba04d5c73c9ce8346dfd1587c8ebb73089">key_gbwt_pos</a>, 
 <a class="el" href="structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfbab289fdb6e1e895ff886997d637013e6d">key_hash</a>
  }</td></tr>
 <tr class="memdesc:a5477d463227b6ad929b450b0cdd83cfb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Types of keys that can be derived from the value.  <a href="structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfb">More...</a><br /></td></tr>
@@ -141,8 +140,6 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:ae7cf5ead7652d874ee15b202e57952f5"><td class="memItemLeft" align="right" valign="top">constexpr static std::uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#ae7cf5ead7652d874ee15b202e57952f5">MISSING_KEY</a> = std::numeric_limits&lt;std::uint64_t&gt;::max()</td></tr>
 <tr class="memdesc:ae7cf5ead7652d874ee15b202e57952f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Missing key. Records without a key are sorted to the end.  <a href="structvg_1_1GAFSorterRecord.html#ae7cf5ead7652d874ee15b202e57952f5">More...</a><br /></td></tr>
 <tr class="separator:ae7cf5ead7652d874ee15b202e57952f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af86061efe647b873fc9c010fe82692e8"><td class="memItemLeft" align="right" valign="top">const static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#af86061efe647b873fc9c010fe82692e8">GBWT_OFFSET_TAG</a> = &quot;GB:i:&quot;</td></tr>
-<tr class="separator:af86061efe647b873fc9c010fe82692e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaea1e3c5491f49a3876258159b1ba234"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#aaea1e3c5491f49a3876258159b1ba234">STRAND_FIELD</a> = 4</td></tr>
 <tr class="memdesc:aaea1e3c5491f49a3876258159b1ba234"><td class="mdescLeft">&#160;</td><td class="mdescRight">0-based field number for the strand/orientation in a GAF line.  <a href="structvg_1_1GAFSorterRecord.html#aaea1e3c5491f49a3876258159b1ba234">More...</a><br /></td></tr>
 <tr class="separator:aaea1e3c5491f49a3876258159b1ba234"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -171,8 +168,6 @@ Static Public Attributes</h2></td></tr>
 <p>Types of keys that can be derived from the value. </p>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a5477d463227b6ad929b450b0cdd83cfbaf9a71ba4d23e34153b6507e2f2d53274"></a>key_node_interval&#160;</td><td class="fielddoc"><p>(minimum node id, maximum node id) in the path. </p>
-</td></tr>
-<tr><td class="fieldname"><a id="a5477d463227b6ad929b450b0cdd83cfba04d5c73c9ce8346dfd1587c8ebb73089"></a>key_gbwt_pos&#160;</td><td class="fielddoc"><p>GBWT starting position for the forward orientation. Derived from the path and tag "GB:i:". </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a5477d463227b6ad929b450b0cdd83cfbab289fdb6e1e895ff886997d637013e6d"></a>key_hash&#160;</td><td class="fielddoc"><p>Hash of the value for random shuffling. </p>
 </td></tr>
@@ -470,29 +465,6 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="af86061efe647b873fc9c010fe82692e8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af86061efe647b873fc9c010fe82692e8">&#9670;&nbsp;</a></span>GBWT_OFFSET_TAG</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const std::string vg::GAFSorterRecord::GBWT_OFFSET_TAG = &quot;GB:i:&quot;</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p><a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> offset for the GBWT starting position of the forward orientation may be stored in this tag. </p>
-
-</div>
-</div>
 <a id="a25c35b1957997419e59a51b720976ac1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a25c35b1957997419e59a51b720976ac1">&#9670;&nbsp;</a></span>hasher</h2>
 

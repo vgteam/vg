@@ -140,11 +140,17 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68d4b34e9075418b258faefd221c71ed"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a68d4b34e9075418b258faefd221c71ed">assign_reference_paths</a> (const gbwtgraph::GBZ &amp;gbz, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
 <tr class="separator:a68d4b34e9075418b258faefd221c71ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d515dc8e89de822d4d8722080291386"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a5d515dc8e89de822d4d8722080291386">set_graph_name</a> (const gbwtgraph::GBZ &amp;gbz)</td></tr>
+<tr class="separator:a5d515dc8e89de822d4d8722080291386"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa64fd433203823e4e9f63c1e65f7d702"><td class="memItemLeft" align="right" valign="top">gbwtgraph::GraphName&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aa64fd433203823e4e9f63c1e65f7d702">graph_name</a> () const</td></tr>
+<tr class="separator:aa64fd433203823e4e9f63c1e65f7d702"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:ac2671cb0e5d0cdf19a8aa849ec9a2577"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Haplotypes_1_1Header.html">Header</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ac2671cb0e5d0cdf19a8aa849ec9a2577">header</a></td></tr>
 <tr class="separator:ac2671cb0e5d0cdf19a8aa849ec9a2577"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1878ebcf830e7090d4db9d15524499aa"><td class="memItemLeft" align="right" valign="top">gbwt::Tags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a1878ebcf830e7090d4db9d15524499aa">tags</a></td></tr>
+<tr class="separator:a1878ebcf830e7090d4db9d15524499aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9f3d8db67fd1488075960f77b361c161"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a9f3d8db67fd1488075960f77b361c161">jobs_for_paths</a></td></tr>
 <tr class="separator:a9f3d8db67fd1488075960f77b361c161"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabf788ef8783a229fa095209bf61d7eb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">TopLevelChain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aabf788ef8783a229fa095209bf61d7eb">chains</a></td></tr>
@@ -155,8 +161,8 @@ Public Attributes</h2></td></tr>
 <p>The graph is partitioned into top-level chains, which are further partitioned into subchains. Each subchain contains a set of kmers and a collection of sequences. Each sequence is defined by a bitvector marking the kmers that are present.</p>
 <p>At the moment, the kmers are minimizers with a single occurrence in the graph. The requirement is that each kmer is specific to a single subchain and does not occur anywhere else in either orientation. (If no haplotype crosses a snarl, that snarl is broken into a suffix and a prefix, and those subchains may share kmers.)</p>
 <p>NOTE: This assumes that the top-level chains are linear, not cyclical.</p>
-<p>Versions:</p>
-<ul>
+<p>Versions:</p><ul>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 6: Tags for storing metadata, such as graph names. Compatible with version 5.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 5: Every path in the graph is assigned to a construction job. This allows including reference paths that do not visit any snarls in the sampled graph. Not compatible with earlier versions.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 4: Subchains can have fragmented haplotypes instead of a single GBWT sequence always crossing from start to end. Compatible with version 3.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 3: Subchains use smaller integers when possible. Compatible with version 2.</li>
@@ -280,6 +286,32 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns the number of weakly connected components. </p>
+
+</div>
+</div>
+<a id="aa64fd433203823e4e9f63c1e65f7d702"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa64fd433203823e4e9f63c1e65f7d702">&#9670;&nbsp;</a></span>graph_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwtgraph::GraphName vg::Haplotypes::graph_name </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns the graph name (pggname) information stored in the tags. </p>
 
 </div>
 </div>
@@ -432,6 +464,25 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a5d515dc8e89de822d4d8722080291386"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5d515dc8e89de822d4d8722080291386">&#9670;&nbsp;</a></span>set_graph_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Haplotypes::set_graph_name </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Sets graph name (pggname) information based on the given GBZ graph. </p>
+
+</div>
+</div>
 <a id="a908ed1a2f1147a2162051be87e5ba389"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a908ed1a2f1147a2162051be87e5ba389">&#9670;&nbsp;</a></span>simple_sds_load()</h2>
 
@@ -526,6 +577,20 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">std::vector&lt;size_t&gt; vg::Haplotypes::jobs_for_paths</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1878ebcf830e7090d4db9d15524499aa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1878ebcf830e7090d4db9d15524499aa">&#9670;&nbsp;</a></span>tags</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::Tags vg::Haplotypes::tags</td>
         </tr>
       </table>
 </div><div class="memdoc">

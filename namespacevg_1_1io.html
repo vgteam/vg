@@ -220,6 +220,8 @@ Functions</h2></td></tr>
 <tr class="separator:a4b6ad53e3fc9e4c143221b213932db70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2f9f4db8b0374c57d2963881784c40d3"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2f9f4db8b0374c57d2963881784c40d3">get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through)</td></tr>
 <tr class="separator:a2f9f4db8b0374c57d2963881784c40d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10287ea72e1ef077bc659e85e0ff7c29"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a10287ea72e1ef077bc659e85e0ff7c29">read_gaf_header_lines</a> (const std::string &amp;filename)</td></tr>
+<tr class="separator:a10287ea72e1ef077bc659e85e0ff7c29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa357ed5eaa447e495149c7bd7df356b9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aa357ed5eaa447e495149c7bd7df356b9">get_next_record_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record)</td></tr>
 <tr class="separator:aa357ed5eaa447e495149c7bd7df356b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f27b2a472320e0e45a130b73827d1fd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a0f27b2a472320e0e45a130b73827d1fd">get_next_interleaved_record_pair_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record1, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record2)</td></tr>
@@ -2235,6 +2237,24 @@ template&lt;typename T &gt; </div>
           <td>(</td>
           <td class="paramtype">short&#160;</td>
           <td class="paramname"><em>i</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a10287ea72e1ef077bc659e85e0ff7c29"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10287ea72e1ef077bc659e85e0ff7c29">&#9670;&nbsp;</a></span>read_gaf_header_lines()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; std::string &gt; vg::io::read_gaf_header_lines </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
           <td></td>
         </tr>
       </table>

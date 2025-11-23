@@ -82,8 +82,7 @@ Public Types</h2></td></tr>
 <a class="el" href="structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685a3d8e97f8cfdd8470a45ff88c44fa92b5">build_paths</a>, 
 <br />
 &#160;&#160;<a class="el" href="structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685a201fc68403f7cdb0cf4ef1de93a31715">build_alignments</a>, 
-<a class="el" href="structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685aae3fd4fc7fbce391a0d89a09dab5b5d7">build_gbz</a>, 
-<a class="el" href="structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685a53ad04440251531f5f139c800eea46b8">build_gbwtgraph</a>
+<a class="el" href="structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685aae3fd4fc7fbce391a0d89a09dab5b5d7">build_gbz</a>
 <br />
  }</td></tr>
 <tr class="separator:ab9b3a2e3dd7bdbd76f43dc418f4bc685"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -150,8 +149,10 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a07b86c3ec44037b22504eb86d9ebd78d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77aea6d71d3a6904f01eeccf1f950318"><td class="memItemLeft" align="right" valign="top">gbwt::MergeParameters&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGBWTConfig.html#a77aea6d71d3a6904f01eeccf1f950318">merge_parameters</a></td></tr>
 <tr class="separator:a77aea6d71d3a6904f01eeccf1f950318"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14fe1675f26aa9b74381640c4cffdd47"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGBWTConfig.html#a14fe1675f26aa9b74381640c4cffdd47">gbz_format</a> = false</td></tr>
-<tr class="separator:a14fe1675f26aa9b74381640c4cffdd47"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af853cf21832f6f4f062c56527784e0d0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGBWTConfig.html#af853cf21832f6f4f062c56527784e0d0">set_pggname</a> = false</td></tr>
+<tr class="separator:af853cf21832f6f4f062c56527784e0d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6ec0d5b19027f831f704df15c7ec651b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGBWTConfig.html#a6ec0d5b19027f831f704df15c7ec651b">unset_pggname</a> = false</td></tr>
+<tr class="separator:a6ec0d5b19027f831f704df15c7ec651b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a075b0013542a10eb0708e94f20cb18a6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGBWTConfig.html#a075b0013542a10eb0708e94f20cb18a6">show_progress</a> = false</td></tr>
 <tr class="separator:a075b0013542a10eb0708e94f20cb18a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9a0bd4ea251be07cbe2336a93981b614"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGBWTConfig.html#a9a0bd4ea251be07cbe2336a93981b614">count_paths</a> = false</td></tr>
@@ -222,7 +223,6 @@ Public Attributes</h2></td></tr>
 <tr><td class="fieldname"><a id="ab9b3a2e3dd7bdbd76f43dc418f4bc685a3d8e97f8cfdd8470a45ff88c44fa92b5"></a>build_paths&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="ab9b3a2e3dd7bdbd76f43dc418f4bc685a201fc68403f7cdb0cf4ef1de93a31715"></a>build_alignments&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="ab9b3a2e3dd7bdbd76f43dc418f4bc685aae3fd4fc7fbce391a0d89a09dab5b5d7"></a>build_gbz&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="ab9b3a2e3dd7bdbd76f43dc418f4bc685a53ad04440251531f5f139c800eea46b8"></a>build_gbwtgraph&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -565,20 +565,6 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">std::string GBWTConfig::gbwtgraph_name</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a14fe1675f26aa9b74381640c4cffdd47"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a14fe1675f26aa9b74381640c4cffdd47">&#9670;&nbsp;</a></span>gbz_format</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool GBWTConfig::gbz_format = false</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -949,6 +935,20 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="af853cf21832f6f4f062c56527784e0d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af853cf21832f6f4f062c56527784e0d0">&#9670;&nbsp;</a></span>set_pggname</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool GBWTConfig::set_pggname = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a075b0013542a10eb0708e94f20cb18a6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a075b0013542a10eb0708e94f20cb18a6">&#9670;&nbsp;</a></span>show_progress</h2>
 
@@ -999,6 +999,20 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">std::set&lt;std::string&gt; GBWTConfig::to_remove</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6ec0d5b19027f831f704df15c7ec651b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ec0d5b19027f831f704df15c7ec651b">&#9670;&nbsp;</a></span>unset_pggname</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool GBWTConfig::unset_pggname = false</td>
         </tr>
       </table>
 </div><div class="memdoc">

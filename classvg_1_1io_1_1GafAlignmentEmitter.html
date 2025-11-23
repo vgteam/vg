@@ -91,8 +91,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad7b537251b10534375e90a22b795b9cc"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#ad7b537251b10534375e90a22b795b9cc">GafAlignmentEmitter</a> (const string &amp;filename, const string &amp;format, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;_graph, size_t max_threads, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *<a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2e7cff4276d5f1cd7857f91d8970be0e">translate_through</a>=nullptr)</td></tr>
 <tr class="separator:ad7b537251b10534375e90a22b795b9cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8c76602efdaadba7319ca5103bc9107"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#ab8c76602efdaadba7319ca5103bc9107">~GafAlignmentEmitter</a> ()</td></tr>
-<tr class="memdesc:ab8c76602efdaadba7319ca5103bc9107"><td class="mdescLeft">&#160;</td><td class="mdescRight">Finish and drstroy a <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html">VGAlignmentEmitter</a>.  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#ab8c76602efdaadba7319ca5103bc9107">More...</a><br /></td></tr>
+<tr class="memdesc:ab8c76602efdaadba7319ca5103bc9107"><td class="mdescLeft">&#160;</td><td class="mdescRight">Finish and destroy a <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a>.  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#ab8c76602efdaadba7319ca5103bc9107">More...</a><br /></td></tr>
 <tr class="separator:ab8c76602efdaadba7319ca5103bc9107"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3653808c8729ca747b04ddaa920ea691"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a3653808c8729ca747b04ddaa920ea691">emit_header_lines</a> (const std::vector&lt; std::string &gt; &amp;header_lines)</td></tr>
+<tr class="separator:a3653808c8729ca747b04ddaa920ea691"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b4af0175e6a6b928d77bc2ab9085e17"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2b4af0175e6a6b928d77bc2ab9085e17">emit_singles</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln_batch)</td></tr>
 <tr class="memdesc:a2b4af0175e6a6b928d77bc2ab9085e17"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of Alignments.  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2b4af0175e6a6b928d77bc2ab9085e17">More...</a><br /></td></tr>
 <tr class="separator:a2b4af0175e6a6b928d77bc2ab9085e17"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -182,7 +184,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Create a <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a> writing to the given file (or "-"). Also writes an empty header to the file. </p>
+<p>Create a <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a> writing to the given file (or "-"). Also writes an file header with a version number. </p>
 
 </div>
 </div>
@@ -201,11 +203,31 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Finish and drstroy a <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html">VGAlignmentEmitter</a>. </p>
+<p>Finish and destroy a <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a>. </p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a3653808c8729ca747b04ddaa920ea691"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3653808c8729ca747b04ddaa920ea691">&#9670;&nbsp;</a></span>emit_header_lines()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::GafAlignmentEmitter::emit_header_lines </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>header_lines</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Emit a batch of header lines, which are assumed to start with '@' and not end with '<br  />
+'. A file header ("@HD") with a version number is written automatically on construction. This operation is not thread safe and must be done before emitting any alignments. </p>
+
+</div>
+</div>
 <a id="a7f9275cb4115e8ea629a8c58f468ac66"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7f9275cb4115e8ea629a8c58f468ac66">&#9670;&nbsp;</a></span>emit_mapped_pairs()</h2>
 

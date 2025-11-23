@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">gbwtgraph_helper.hpp File Reference</div>  </div>
@@ -94,6 +95,14 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:aa6989559acdcb387b00f34e7f8159042"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa6989559acdcb387b00f34e7f8159042">vg::GraphCompatibilityFlags</a> { <a class="el" href="namespacevg.html#aa6989559acdcb387b00f34e7f8159042a82aaaff71fefccbbc29381ebeabf788f">vg::GRAPH_COMPATIBILITY_DEFAULT</a> = 0x00, 
+<a class="el" href="namespacevg.html#aa6989559acdcb387b00f34e7f8159042a544d879dc55ba26a06c00d2190b385a2">vg::GRAPH_COMPATIBILITY_STRICT</a> = 0x01, 
+<a class="el" href="namespacevg.html#aa6989559acdcb387b00f34e7f8159042a1717a24e836fb12eead9daa96e68054a">vg::GRAPH_COMPATIBILITY_SUBGRAPH</a> = 0x02
+ }</td></tr>
+<tr class="separator:aa6989559acdcb387b00f34e7f8159042"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:ab35317ee2bc53165662dd776516f341d"><td class="memItemLeft" align="right" valign="top">gbwtgraph::GFAParsingParameters&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab35317ee2bc53165662dd776516f341d">vg::get_best_gbwtgraph_gfa_parsing_parameters</a> ()</td></tr>
@@ -117,15 +126,26 @@ Functions</h2></td></tr>
 <tr class="memitem:a017e7cda40a98b4b044507ab78a34da9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a017e7cda40a98b4b044507ab78a34da9">vg::save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:a017e7cda40a98b4b044507ab78a34da9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to the file.  <a href="namespacevg.html#a017e7cda40a98b4b044507ab78a34da9">More...</a><br /></td></tr>
 <tr class="separator:a017e7cda40a98b4b044507ab78a34da9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6beaace0e6d90b654dc9c382afb39ce0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6beaace0e6d90b654dc9c382afb39ce0">vg::save_gbz</a> (const gbwt::GBWT &amp;index, gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress=false)</td></tr>
-<tr class="memdesc:a6beaace0e6d90b654dc9c382afb39ce0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBWT and GBWTGraph to the GBZ file.  <a href="namespacevg.html#a6beaace0e6d90b654dc9c382afb39ce0">More...</a><br /></td></tr>
-<tr class="separator:a6beaace0e6d90b654dc9c382afb39ce0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e65e6d30eb069448ca696a10cafe64f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e65e6d30eb069448ca696a10cafe64f">vg::save_gbz</a> (const gbwt::GBWT &amp;index, gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress)</td></tr>
+<tr class="separator:a2e65e6d30eb069448ca696a10cafe64f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7669e457f62e6f197f3120086a091e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">vg::save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
 <tr class="memdesc:af7669e457f62e6f197f3120086a091e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to separate GBWT / GBWTGraph files.  <a href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">More...</a><br /></td></tr>
 <tr class="separator:af7669e457f62e6f197f3120086a091e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7885143ca20185816afadc669813f12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7885143ca20185816afadc669813f12">vg::save_minimizer</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:af7885143ca20185816afadc669813f12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a minimizer index to the file.  <a href="namespacevg.html#af7885143ca20185816afadc669813f12">More...</a><br /></td></tr>
 <tr class="separator:af7885143ca20185816afadc669813f12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad6e009b152dab1a696475b26e0b271af"><td class="memItemLeft" align="right" valign="top">GraphCompatibilityFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad6e009b152dab1a696475b26e0b271af">vg::operator|</a> (GraphCompatibilityFlags a, GraphCompatibilityFlags b)</td></tr>
+<tr class="separator:ad6e009b152dab1a696475b26e0b271af"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aacb3dad46f3fb26882788880a18278a2"><td class="memItemLeft" align="right" valign="top">GraphCompatibilityFlags &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aacb3dad46f3fb26882788880a18278a2">vg::operator|=</a> (GraphCompatibilityFlags &amp;a, GraphCompatibilityFlags b)</td></tr>
+<tr class="separator:aacb3dad46f3fb26882788880a18278a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac1a127fa764d3d6c9c7a6c29d300d9d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac1a127fa764d3d6c9c7a6c29d300d9d8">vg::require_compatible_graphs_impl</a> (const gbwtgraph::GraphName &amp;first_name, const std::string &amp;first_decription, const gbwtgraph::GraphName &amp;second_name, const std::string &amp;second_description, GraphCompatibilityFlags flags)</td></tr>
+<tr class="memdesc:ac1a127fa764d3d6c9c7a6c29d300d9d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Implementation of <a class="el" href="namespacevg.html#a710eb116974e6cdbc7ee5e8ffb7f3b05">require_compatible_graphs()</a>.  <a href="namespacevg.html#ac1a127fa764d3d6c9c7a6c29d300d9d8">More...</a><br /></td></tr>
+<tr class="separator:ac1a127fa764d3d6c9c7a6c29d300d9d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a710eb116974e6cdbc7ee5e8ffb7f3b05"><td class="memTemplParams" colspan="2">template&lt;class T1 , class T2 &gt; </td></tr>
+<tr class="memitem:a710eb116974e6cdbc7ee5e8ffb7f3b05"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a710eb116974e6cdbc7ee5e8ffb7f3b05">vg::require_compatible_graphs</a> (const T1 &amp;first, const std::string &amp;first_decription, const T2 &amp;second, const std::string &amp;second_description, GraphCompatibilityFlags flags=GRAPH_COMPATIBILITY_DEFAULT)</td></tr>
+<tr class="separator:a710eb116974e6cdbc7ee5e8ffb7f3b05"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8ed8eea808a0709b8272aa03b1cbb0d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae8ed8eea808a0709b8272aa03b1cbb0d">vg::require_compatible_reference</a> (const std::string &amp;gaf_filename, const HandleGraph *handle_graph, const gbwtgraph::GBZ *gbz, bool strict)</td></tr>
+<tr class="separator:ae8ed8eea808a0709b8272aa03b1cbb0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a129b727ee45c9c55491653888fbe7417"><td class="memItemLeft" align="right" valign="top">gbwtgraph::DefaultMinimizerIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a129b727ee45c9c55491653888fbe7417">vg::build_minimizer_index</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex *distance_index, ZipCodeCollection *oversized_zipcodes, const MinimizerIndexParameters &amp;params)</td></tr>
 <tr class="separator:a129b727ee45c9c55491653888fbe7417"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadc0e3f2c2a95cff87a70fa1fcd46f65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aadc0e3f2c2a95cff87a70fa1fcd46f65">vg::require_payload</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, MinimizerIndexParameters::PayloadType expected_payload)</td></tr>

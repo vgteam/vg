@@ -81,6 +81,7 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
 <tr class="memitem:aad418d9725da4ccbb6c60055eb5e9033"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033">index_type</a> { <a class="el" href="structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033a1dc536bf1ea474d215a9a7e0c7663924">index_none</a>, 
+<a class="el" href="structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033af9373a37e1f531d059e7e7f87664c344">index_external</a>, 
 <a class="el" href="structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033a8733ef08a80d49962c42b2f3286f9dff">index_compressed</a>, 
 <a class="el" href="structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033a79071bcf44e60960f566a4fe9590d63d">index_dynamic</a>
  }</td></tr>
@@ -88,12 +89,20 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a04c6ffcbc3e61113395ce681d7d3191b"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a04c6ffcbc3e61113395ce681d7d3191b">get_compressed</a> ()</td></tr>
+<tr class="memdesc:a04c6ffcbc3e61113395ce681d7d3191b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a pointer to the compressed GBWT in use, if any.  <a href="structvg_1_1GBWTHandler.html#a04c6ffcbc3e61113395ce681d7d3191b">More...</a><br /></td></tr>
+<tr class="separator:a04c6ffcbc3e61113395ce681d7d3191b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa03cf40194be108eac71b255ff7f8ffb"><td class="memItemLeft" align="right" valign="top">const gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#aa03cf40194be108eac71b255ff7f8ffb">get_compressed</a> () const</td></tr>
+<tr class="memdesc:aa03cf40194be108eac71b255ff7f8ffb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a const pointer to the compressed GBWT in use, if any.  <a href="structvg_1_1GBWTHandler.html#aa03cf40194be108eac71b255ff7f8ffb">More...</a><br /></td></tr>
+<tr class="separator:aa03cf40194be108eac71b255ff7f8ffb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40007a32d020290a72aaef0e830454c4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a40007a32d020290a72aaef0e830454c4">use_compressed</a> ()</td></tr>
 <tr class="separator:a40007a32d020290a72aaef0e830454c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a88de75253b3b9b54e844d0a20ff9a5c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a88de75253b3b9b54e844d0a20ff9a5c7">use_dynamic</a> ()</td></tr>
 <tr class="separator:a88de75253b3b9b54e844d0a20ff9a5c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8062238f984f4c521cef46cfc2961626"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a8062238f984f4c521cef46cfc2961626">use</a> (gbwt::GBWT &amp;new_index)</td></tr>
 <tr class="separator:a8062238f984f4c521cef46cfc2961626"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a9cd527b613ebefdcc67c74f9f62423"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a7a9cd527b613ebefdcc67c74f9f62423">use_external</a> (gbwt::GBWT &amp;new_index)</td></tr>
+<tr class="separator:a7a9cd527b613ebefdcc67c74f9f62423"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a574972e799a708837a0e2e481926f87a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a574972e799a708837a0e2e481926f87a">use</a> (gbwt::DynamicGBWT &amp;new_index)</td></tr>
 <tr class="separator:a574972e799a708837a0e2e481926f87a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed5e6775de6c9c96c78a752903a5a3ac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#aed5e6775de6c9c96c78a752903a5a3ac">unbacked</a> ()</td></tr>
@@ -108,9 +117,12 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:ab411b9b6da9c6f80918cc64718761490"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#ab411b9b6da9c6f80918cc64718761490">compressed</a></td></tr>
-<tr class="memdesc:ab411b9b6da9c6f80918cc64718761490"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compressed GBWT.  <a href="structvg_1_1GBWTHandler.html#ab411b9b6da9c6f80918cc64718761490">More...</a><br /></td></tr>
-<tr class="separator:ab411b9b6da9c6f80918cc64718761490"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaca3d665c9222e6107a32aeafa6a16a8"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#aaca3d665c9222e6107a32aeafa6a16a8">compressed_owned</a></td></tr>
+<tr class="memdesc:aaca3d665c9222e6107a32aeafa6a16a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compressed GBWT stored within the handler.  <a href="structvg_1_1GBWTHandler.html#aaca3d665c9222e6107a32aeafa6a16a8">More...</a><br /></td></tr>
+<tr class="separator:aaca3d665c9222e6107a32aeafa6a16a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f3cc91627efea48ba9f04de71d29d31"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a4f3cc91627efea48ba9f04de71d29d31">compressed_external</a> = nullptr</td></tr>
+<tr class="memdesc:a4f3cc91627efea48ba9f04de71d29d31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compressed GBWT stored somewhere else.  <a href="structvg_1_1GBWTHandler.html#a4f3cc91627efea48ba9f04de71d29d31">More...</a><br /></td></tr>
+<tr class="separator:a4f3cc91627efea48ba9f04de71d29d31"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fddb1a69a6f6ec6c28016ca13c35894"><td class="memItemLeft" align="right" valign="top">gbwt::DynamicGBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html#a1fddb1a69a6f6ec6c28016ca13c35894">dynamic</a></td></tr>
 <tr class="memdesc:a1fddb1a69a6f6ec6c28016ca13c35894"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dynamic GBWT.  <a href="structvg_1_1GBWTHandler.html#a1fddb1a69a6f6ec6c28016ca13c35894">More...</a><br /></td></tr>
 <tr class="separator:a1fddb1a69a6f6ec6c28016ca13c35894"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -140,6 +152,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="aad418d9725da4ccbb6c60055eb5e9033a1dc536bf1ea474d215a9a7e0c7663924"></a>index_none&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="aad418d9725da4ccbb6c60055eb5e9033af9373a37e1f531d059e7e7f87664c344"></a>index_external&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="aad418d9725da4ccbb6c60055eb5e9033a8733ef08a80d49962c42b2f3286f9dff"></a>index_compressed&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="aad418d9725da4ccbb6c60055eb5e9033a79071bcf44e60960f566a4fe9590d63d"></a>index_dynamic&#160;</td><td class="fielddoc"></td></tr>
 </table>
@@ -163,6 +176,44 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Clear the in-memory index. </p>
+
+</div>
+</div>
+<a id="a04c6ffcbc3e61113395ce681d7d3191b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a04c6ffcbc3e61113395ce681d7d3191b">&#9670;&nbsp;</a></span>get_compressed() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const gbwt::GBWT * vg::GBWTHandler::get_compressed </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns a pointer to the compressed GBWT in use, if any. </p>
+
+</div>
+</div>
+<a id="aa03cf40194be108eac71b255ff7f8ffb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa03cf40194be108eac71b255ff7f8ffb">&#9670;&nbsp;</a></span>get_compressed() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const gbwt::GBWT* vg::GBWTHandler::get_compressed </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns a const pointer to the compressed GBWT in use, if any. </p>
 
 </div>
 </div>
@@ -279,20 +330,55 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Member Data Documentation</h2>
-<a id="ab411b9b6da9c6f80918cc64718761490"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab411b9b6da9c6f80918cc64718761490">&#9670;&nbsp;</a></span>compressed</h2>
+<a id="a7a9cd527b613ebefdcc67c74f9f62423"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a9cd527b613ebefdcc67c74f9f62423">&#9670;&nbsp;</a></span>use_external()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">gbwt::GBWT vg::GBWTHandler::compressed</td>
+          <td class="memname">void vg::GBWTHandler::use_external </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>new_index</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Start using this external compressed GBWT. The handler does not take ownership of the index. This GBWT is not backed by a file. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="a4f3cc91627efea48ba9f04de71d29d31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f3cc91627efea48ba9f04de71d29d31">&#9670;&nbsp;</a></span>compressed_external</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT* vg::GBWTHandler::compressed_external = nullptr</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Compressed GBWT. </p>
+<p>Compressed GBWT stored somewhere else. </p>
+
+</div>
+</div>
+<a id="aaca3d665c9222e6107a32aeafa6a16a8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaca3d665c9222e6107a32aeafa6a16a8">&#9670;&nbsp;</a></span>compressed_owned</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT vg::GBWTHandler::compressed_owned</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Compressed GBWT stored within the handler. </p>
 
 </div>
 </div>
