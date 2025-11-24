@@ -594,8 +594,8 @@ public:
         /// Include named and reference paths.
         bool include_reference = false;
 
-        /// Haplotypes which may not be used, even if they score well.
-        unordered_set<std::string> banned_haplotypes;
+        /// Contigs which may not be used, even if they score well.
+        unordered_set<std::string> banned_contigs;
 
         // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.

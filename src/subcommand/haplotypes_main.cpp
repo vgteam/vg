@@ -244,7 +244,7 @@ void help_haplotypes(char** argv, bool developer_options) {
                                              << "[" << haplotypes_defaults::badness() << "]" << std::endl;
     std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
-    std::cerr << "      --ban-haplotype NAME     don't select contig NAME, no matter its score" << std::endl;
+    std::cerr << "      --ban-contig NAME        don't select contig NAME, no matter its score" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "  -v, --verbosity N            verbosity level [0]" << std::endl;
@@ -280,7 +280,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_BADNESS = 1309;
     constexpr int OPT_INCLUDE_REFERENCE = 1310;
     constexpr int OPT_SET_REFERENCE = 1311;
-    constexpr int OPT_BAN_HAPLOTYPE = 1312;
+    constexpr int OPT_BAN_CONTIG = 1312;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
 
@@ -308,7 +308,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "badness", required_argument, 0, OPT_BADNESS },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
-        { "ban-haplotype", required_argument, 0, OPT_BAN_HAPLOTYPE },
+        { "ban-contig", required_argument, 0, OPT_BAN_CONTIG },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -436,8 +436,8 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_SET_REFERENCE:
             this->reference_samples.insert(optarg);
             break;
-        case OPT_BAN_HAPLOTYPE:
-            this->recombinator_parameters.banned_haplotypes.insert(optarg);
+        case OPT_BAN_CONTIG:
+            this->recombinator_parameters.banned_contigs.insert(optarg);
             break;
 
         case 'v':

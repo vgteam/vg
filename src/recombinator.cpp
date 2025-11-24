@@ -1936,7 +1936,7 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         gbwt::size_type path_id = gbwt::Path::id(sequence_id);
         gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
 
-        if (parameters.banned_haplotypes.count(path_name.contig_name) > 0) {
+        if (parameters.banned_contigs.count(path_name.contig_name) > 0) {
             if (verbosity >= Haplotypes::verbosity_debug) {
                 cerr << "Excluding haplotype " << path_name.contig_name
                      << " (sequence id " << seq_offset << ")" << endl;
