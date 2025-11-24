@@ -1919,7 +1919,8 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     double coverage,
     Recombinator::Statistics* statistics,
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
-    const Recombinator::Parameters& parameters
+    const Recombinator::Parameters& parameters,
+    HaplotypePartitioner::Verbosity verbosity
 ) {
     // Classify the kmers.
     std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
@@ -1927,9 +1928,24 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     // Select the haplotypes greedily.
     std::vector<std::pair<size_t, double>> selected_haplotypes;
     std::vector<std::pair<size_t, double>> remaining_haplotypes;
+
+    // Collect all possible haplotypes which could be sampled from
     for (size_t seq_offset = 0; seq_offset < subchain.sequences.size(); seq_offset++) {
-        remaining_haplotypes.push_back( { seq_offset, 0.0 });
+        // Metadata to make sure this haplotype isn't among the banned
+        gbwt::size_type sequence_id = subchain.sequences[seq_offset].first;
+        gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+        gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
+
+        if (parameters.banned_haplotypes.count(path_name.contig_name) > 0) {
+            if (verbosity >= Haplotypes::verbosity_detailed) {
+                cerr << "Excluding haplotype " << path_name.contig_name
+                     << " (sequence id " << seq_offset << ")" << endl;
+            }
+        } else {
+            remaining_haplotypes.push_back( { seq_offset, 0.0 });
+        }
     }
+
     while (selected_haplotypes.size() < parameters.num_haplotypes && !remaining_haplotypes.empty()) {
         // Score the remaining haplotypes.
         for (size_t i = 0; i < remaining_haplotypes.size(); i++) {
@@ -2043,7 +2059,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Select the haplotypes greedily. If we are doing diploid sampling and we get
             // extra fragments, store them for later processing.
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
-                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
+                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters, this->verbosity
             );
             if (this->verbosity >= Haplotypes::verbosity_detailed) {
                 for (size_t i = 0; i < selected_haplotypes.size(); i++) {
