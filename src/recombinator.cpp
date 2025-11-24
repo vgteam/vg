@@ -1937,7 +1937,7 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
 
         if (parameters.banned_haplotypes.count(path_name.contig_name) > 0) {
-            if (verbosity >= Haplotypes::verbosity_detailed) {
+            if (verbosity >= Haplotypes::verbosity_debug) {
                 cerr << "Excluding haplotype " << path_name.contig_name
                      << " (sequence id " << seq_offset << ")" << endl;
             }
@@ -2050,7 +2050,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 throw std::runtime_error("Recombinator::generate_haplotypes(): nontrivial chain " + std::to_string(chain.offset) + " contains a subchain with full haplotypes");
             }
             assert(!subchain.sequences.empty());
-            if (this->verbosity >= Haplotypes::verbosity_detailed) {
+            if (this->verbosity >= Haplotypes::verbosity_debug) {
                 cerr << "Processing subchain " << (subchain_id + 1) << " / " << chain.subchains.size()
                      << " at offset " << chain.offset 
                      << " spanning nodes " << subchain.start << "-" << subchain.end << endl;
@@ -2061,7 +2061,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters, this->verbosity
             );
-            if (this->verbosity >= Haplotypes::verbosity_detailed) {
+            if (this->verbosity >= Haplotypes::verbosity_debug) {
                 for (size_t i = 0; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
                     gbwt::size_type path_id = gbwt::Path::id(sequence_id);
