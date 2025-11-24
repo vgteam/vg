@@ -2034,12 +2034,26 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 throw std::runtime_error("Recombinator::generate_haplotypes(): nontrivial chain " + std::to_string(chain.offset) + " contains a subchain with full haplotypes");
             }
             assert(!subchain.sequences.empty());
+            if (this->verbosity >= Haplotypes::verbosity_detailed) {
+                cerr << "Processing subchain " << (subchain_id + 1) << " / " << chain.subchains.size()
+                     << " at offset " << chain.offset 
+                     << " spanning nodes " << subchain.start << "-" << subchain.end << endl;
+            }
 
             // Select the haplotypes greedily. If we are doing diploid sampling and we get
             // extra fragments, store them for later processing.
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
             );
+            if (this->verbosity >= Haplotypes::verbosity_detailed) {
+                for (size_t i = 0; i < selected_haplotypes.size(); i++) {
+                    gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
+                    gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+                    gbwt::FullPathName path_name = this->gbz.index.metadata.fullPath(path_id);
+                    cerr << "Haplotype " << (i+1) << ": " << path_name.contig_name 
+                         << " (sequence id " << sequence_id << " & path id " << path_id << ")" << endl;
+                }
+            }
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
