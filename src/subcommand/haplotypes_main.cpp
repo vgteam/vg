@@ -227,6 +227,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "      --preset STR             use preset X {default, haploid, diploid}" << std::endl;
     std::cerr << "      --coverage N             kmer coverage in KFF file (default: estimate)" << std::endl;
+    std::cerr << "                               use 'median' to estimate median instead of mode" << std::endl;
     std::cerr << "      --num-haplotypes N       generate N haplotypes [" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "                               with --diploid-sampling, use N candidates "
                                              << "[" << haplotypes_defaults::candidates() << "]" << std::endl;
@@ -388,7 +389,11 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 break;
             }
         case OPT_COVERAGE:
-            this->recombinator_parameters.coverage = parse<size_t>(optarg);
+            if (std::string(optarg) == "median") {
+                this->recombinator_parameters.coverage = std::numeric_limits<size_t>::max();
+            } else {
+                this->recombinator_parameters.coverage = parse<size_t>(optarg);
+            }
             break;
         case OPT_NUM_HAPLOTYPES:
             this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);

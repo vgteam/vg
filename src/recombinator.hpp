@@ -479,6 +479,7 @@ public:
     constexpr static double BADNESS_THRESHOLD = 4.0;
 
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
+    /// Use the max size_t to estimate via the median instead of the mode.
     constexpr static size_t COVERAGE = 0;
 
     /// Block size (in kmers) for reading KFF files.

@@ -1558,7 +1558,13 @@ void Recombinator::Parameters::print(std::ostream& out) const {
         out << "- diploid scoring (absent " << this->absent_score << ", het " << this->het_adjustment << ", present " << this->present_discount << ")" << std::endl;
     }
     if (this->coverage > 0) {
-        out << "- kmer coverage " << this->coverage << std::endl;
+        out << "- kmer coverage ";
+        if (this->coverage == std::numeric_limits<size_t>::max()) {
+            out << "estimated as median";
+        } else {
+            out << this->coverage;
+        }
+        out << std::endl;
     }
     if (this->diploid_sampling) {
         out << "- diploid sampling (" << this->num_haplotypes << " candidates";
@@ -1625,7 +1631,7 @@ double get_or_estimate_coverage(
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& counts,
     const Recombinator::Parameters& parameters,
     Haplotypes::Verbosity verbosity) {
-    if (parameters.coverage > 0) {
+    if (parameters.coverage > 0 && parameters.coverage != std::numeric_limits<size_t>::max()) {
         return parameters.coverage;
     }
 
@@ -1651,6 +1657,11 @@ double get_or_estimate_coverage(
             << ", mean " << statistics.mean
             << ", stdev " << statistics.stdev
             << ", mode " << statistics.mode;
+    }
+
+    // max size_t indicates to use median instead of mode
+    if (parameters.coverage == std::numeric_limits<size_t>::max()) {
+        return statistics.median;
     }
 
     // In the default (non-haploid) scoring model, if mode < median, we try
