@@ -2062,19 +2062,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters, this->verbosity
             );
-            #pragma omp critical
-            if (this->verbosity >= Haplotypes::verbosity_debug) {
-                cerr << "For subchain " << (subchain_id + 1) << " / " << chain.subchains.size()
-                     << " at offset " << chain.offset 
-                     << " spanning nodes " << subchain.start << "-" << subchain.end << ":" << endl;
-                for (size_t i = 0; i < selected_haplotypes.size(); i++) {
-                    gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
-                    gbwt::size_type path_id = gbwt::Path::id(sequence_id);
-                    gbwt::FullPathName path_name = this->gbz.index.metadata.fullPath(path_id);
-                    cerr << "Haplotype " << (i+1) << ": " << path_name.contig_name 
-                         << " (sequence id " << sequence_id << " & path id " << path_id << ")" << endl;
-                }
-            }
+            
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
