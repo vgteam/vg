@@ -1206,14 +1206,19 @@ namespace unittest {
                     REQUIRE(reverse_views[{1, true}][2].distance == 8);
                     REQUIRE(reverse_views[{1, true}][2].is_reversed == true);
 
-                    // 3-1 can see the rest of its chain
+                    // 3-1 can see the rest of its chain,
+                    // and should also exit the snarl to 1+0
                     // Not rev since we're going L->R
                     REQUIRE(reverse_views.count({3, false}));
-                    REQUIRE(reverse_views[{3, false}].size() == 1);
+                    REQUIRE(reverse_views[{3, false}].size() == 2);
                     // Edge to 3-0
                     REQUIRE(reverse_views[{3, false}][0].seed == 2);
                     REQUIRE(reverse_views[{3, false}][0].distance == 1);
                     REQUIRE(reverse_views[{3, false}][0].is_reversed == false);
+                    // Edge to 1+0
+                    REQUIRE(reverse_views[{3, false}][1].seed == 0);
+                    REQUIRE(reverse_views[{3, false}][1].distance == 5);
+                    REQUIRE(reverse_views[{3, false}][1].is_reversed == false);
 
                     // 5+0 can see the seeds on 3 & 1
                     REQUIRE(reverse_views.count({4, false}));
