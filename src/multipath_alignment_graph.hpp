@@ -174,7 +174,20 @@ namespace vg {
                                      size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                      double pessimistic_tail_gap_multiplier);
         
-        /// Add edges between reachable nodes and split nodes at overlaps
+        /// Add edges between reachable nodes and split nodes at overlaps.
+        ///
+        /// On completion, all overlap-colinear MEMs have been broken up into
+        /// colinear MEMs, and all colinear MEMs have been connected with
+        /// edges.
+        ///
+        /// MEMs are "colinear" if the first comes before the second in both
+        /// the read and the graph, and there is no intervening MEM such that
+        /// the first and intervening MEM, and the intervening and second MEM,
+        /// are colinear.
+        ///
+        /// MEMs are "overlap-colinear" if a suffix of the first MEM's
+        /// alignment is a prefix of the second MEM's alignment. TODO: Is that
+        /// true or does it also cover containment?  
         void add_reachability_edges(const HandleGraph& vg,
                                     const function<pair<id_t, bool>(id_t)>& project,
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
@@ -296,6 +309,30 @@ namespace vg {
         /// If path nodes partially overlap, merge the sections that overlap into a single path node
         void merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
                                                    vector<size_t>& path_node_provenance);
+
+        
+        /// Add reachability edges and split and connect overlap-colinear MEMs
+        /// in the case where the underlying target graph is a stick.
+        ///
+        /// Use a stick-specific algorithm to detect colinear and
+        /// overlap-colinear MEMs.
+        ///
+        /// topological_order gives a topological order of the target graph
+        void add_reachability_edges_easy(const HandleGraph& vg,
+                                         const function<pair<id_t, bool>(id_t)>& project,
+                                         const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                         const vector<handle_t>& topological_order,
+                                         vector<size_t>* path_node_provenance = nullptr);
+
+        /// Add reachability edges and split and connect overlap-cominear MEMs
+        /// in the general case.
+        ///
+        /// topological_order gives a topological order of the target graph
+        void add_reachability_edges_general(const HandleGraph& vg,
+                                            const function<pair<id_t, bool>(id_t)>& project,
+                                            const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                            const vector<handle_t>& topological_order,
+                                            vector<size_t>* path_node_provenance = nullptr);
 
         /// Split path_nodes nodes at overlaps.
         ///

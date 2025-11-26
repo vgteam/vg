@@ -2482,6 +2482,125 @@ namespace vg {
                                                          const function<pair<id_t, bool>(id_t)>& project,
                                                          const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                          vector<size_t>* path_node_provenance) {
+    
+        // Don't let people do this twice.
+        assert(!has_reachability_edges);
+
+        // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
+        // so we can skip traversing over the entire graph
+        if (path_nodes.size() <= 1) {
+#ifdef debug_multipath_alignment
+            cerr << "skipping reachability computation because there are " << path_nodes.size() << " path nodes" << endl;
+#endif
+            has_reachability_edges = true;
+            return;
+        }
+
+#ifdef debug_multipath_alignment
+        cerr << "computing reachability" << endl;
+#endif
+        
+#ifdef debug_multipath_alignment
+        SubgraphExplainer graph_dump(true);
+        graph_dump.subgraph(graph);
+#endif
+
+        // get a topological order over the nodes in the graph to iterate over
+        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
+
+        // Check if the graph (which is known to be a DAG) is a stick. A stick
+        // will be connected straight through in topological order.
+        bool is_stick = true;
+        for (size_t i = 0; is_stick && i + 1 < topological_order.size(); i++) {
+            // To be a stick, the connecting edge must exist.
+            bool saw_edge = false;
+            graph.follow_edges(topological_order[i], false, [&](const handle_t next_handle) {
+                if (next_handle != topological_order[i + 1]) {
+                    // If we're connected to anything other than the next
+                    // handle in the order, we're not a stick.
+                    is_stick = false;
+                    return false;
+                }
+                saw_edge = true;
+                return true;
+            });
+            if (!saw_edge) {
+                is_stick = false;
+            }
+        }
+        // We don't need to worry about the left-side edges, or edges on the
+        // final node in the topological order,b ecause the graph is known to
+        // be a DAG.
+        
+        if (is_stick) {
+            // We can use the easy implementation
+            this->add_reachability_edges_easy(graph, project, injection_trans, topological_order, path_node_provenance);
+        } else {
+            // We need to use the full-power, slower implementation
+            this->add_reachability_edges_general(graph, project, injection_trans, topological_order, path_node_provenance);
+        }
+
+
+    }
+
+    void MultipathAlignmentGraph::add_reachability_edges_easy(const HandleGraph& graph,
+                                                                 const function<pair<id_t, bool>(id_t)>& project,
+                                                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                                 const vector<handle_t>& topological_order,
+                                                                 vector<size_t>* path_node_provenance) {
+            
+        // TODO: implement
+
+        // MEMs are colinear if they are colinear in the read and colinear in
+        // the graph.
+        //
+        // MEMs are overlap-colinear if they overlap in the read and the
+        // corresponding parts of their paths also coincide.
+        
+        // First, we need to treat the graph as a linear space. So, we walk the
+        // topological order's path through the graph, and make a map from
+        // graph node ID to offset in the linear graph walk.
+
+        // Then we sort everything along the read, first by start, then by end,
+        // and get a vector of indexes of MEMs, ordered in that sort order.
+
+        // Then we have to look for overlap-colinear MEMs. We go through the
+        // sorted order, keeping track of the MEMs we haven't left yet in the
+        // read, and their corresponding range of positions in the graph path.
+        // While the next MEM doesn't begin before the end of the
+        // earliest-ending one we haven't left yet, we leave it. Then we handle
+        // an overlap in the read between the new MEM and all not-yet-left
+        // MEMs. To handle the overlap, we look for an overlap in the graph
+        // path positions. If we don't have one, it's not overlap-colinear. If
+        // we do have an overlap in graph range, we look at the actual paths'
+        // alignments, cut out the corresponding regions of each based on the
+        // read-space overlap, and make sure they are equal alignments. If so,
+        // we say we're overlap-colinear.
+
+        // To find the normal colinear cases, we loop over each sorted MEM. For
+        // each MEM, we scan forward from it until we find a successor MEM that
+        // is colinear in the read and also colinear along the graph walk, or
+        // until we hit the end of the MEM sort order. (This is quadradic, but
+        // it should only actually explode if we have a bunch of things, none
+        // of which can connect to anything.) We only need to worry about the
+        // first hit because colinearity isn't supposed to be transitive.
+
+        // When we find a colinear MEM, we add the edges entry and move on to
+        // the next start MEM.
+        
+        // Then after we make the colinear reachability edges, we make the call
+        // to split up the overlap-colinear MEMs and the reachability edges
+        // between them.
+
+
+
+    }
+
+    void MultipathAlignmentGraph::add_reachability_edges_general(const HandleGraph& graph,
+                                                                 const function<pair<id_t, bool>(id_t)>& project,
+                                                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                                 const vector<handle_t>& topological_order,
+                                                                 vector<size_t>* path_node_provenance) {
                                                          
         
         // We're going to make "reachability" edges, which connect MEMs (which
@@ -2504,29 +2623,6 @@ namespace vg {
         // Our MEMs all live in path_nodes, and are identified by their indexes
         // there.
         
-        
-#ifdef debug_multipath_alignment
-        cerr << "computing reachability" << endl;
-#endif
-        
-        // Don't let people do this twice.
-        assert(!has_reachability_edges);
-       
-#ifdef debug_multipath_alignment
-        SubgraphExplainer graph_dump(true);
-        graph_dump.subgraph(graph);
-#endif
-
-
-        // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
-        // so we can skip traversing over the entire graph
-        if (path_nodes.size() <= 1) {
-#ifdef debug_multipath_alignment
-            cerr << "skipping reachability computation because there are " << path_nodes.size() << " path nodes" << endl;
-#endif
-            has_reachability_edges = true;
-            return;
-        }
         
         // now we calculate reachability between the walked paths so we know which ones
         // to connect with intervening alignments
@@ -2579,6 +2675,8 @@ namespace vg {
             return false;
         };
         
+        
+        
         // record the start and end node ids of every path
         // Maps from node ID to the list of MEM numbers that start on that node.
         unordered_map<id_t, vector<size_t>> path_starts;
@@ -2589,7 +2687,23 @@ namespace vg {
             path_starts[path.mapping(0).position().node_id()].push_back(i);
             path_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
-        
+
+        // Sort the MEMs starting and ending on each node in node sequence order.
+        // MEMs that start/end earlier will appear earlier in the vector for the node they start/end on.
+        // We don't need to worry about strand because the graph is a DAG.
+        for (pair<const id_t, vector<size_t>>& node_starts : path_starts) {
+            std::sort(node_starts.second.begin(), node_starts.second.end(),
+                      [&](const size_t idx_1, const size_t idx_2) {
+                return start_offset(idx_1) < start_offset(idx_2);
+            });
+        }
+        for (pair<const id_t, vector<size_t>>& node_ends : path_ends) {
+            std::sort(node_ends.second.begin(), node_ends.second.end(),
+                      [&](const size_t idx_1, const size_t idx_2) {
+                return end_offset(idx_1) < end_offset(idx_2);
+            });
+        }
+
 #ifdef debug_multipath_alignment
         cerr << "recorded starts: " << endl;
         for (const auto& rec : path_starts) {
@@ -2608,24 +2722,8 @@ namespace vg {
             }
             cerr << endl;
         }
-#endif
-        
-        
-        // Sort the MEMs starting and ending on each node in node sequence order.
-        // MEMs that start/end earlier will appear earlier in the vector for the node they start/end on.
-        for (pair<const id_t, vector<size_t>>& node_starts : path_starts) {
-            std::sort(node_starts.second.begin(), node_starts.second.end(),
-                      [&](const size_t idx_1, const size_t idx_2) {
-                return start_offset(idx_1) < start_offset(idx_2);
-            });
-        }
-        for (pair<const id_t, vector<size_t>>& node_ends : path_ends) {
-            std::sort(node_ends.second.begin(), node_ends.second.end(),
-                      [&](const size_t idx_1, const size_t idx_2) {
-                return end_offset(idx_1) < end_offset(idx_2);
-            });
-        }
-        
+#endif 
+
         // The "ranges" that are used below (range_start, range_end, etc.)
         // refer to intervals in these sorted per-node lists in path_starts and
         // path_ends corresponding to sets of MEMs that all start or end at the
@@ -2660,8 +2758,7 @@ namespace vg {
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_ends_from_end;
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
-        // get a topological order over the nodes in the graph to iterate over
-        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
+        
         for (int64_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
             
@@ -3170,6 +3267,7 @@ namespace vg {
         // will use this to navigate between the MEMs in a way that respects graph reachability so that this
         // phase of the algorithm only needs to pay attention to read colinearity and transitive reducibility
         
+        // TODO: What exactly is a noncolinear shell???
         vector<unordered_map<size_t, size_t>> noncolinear_shells(path_nodes.size());
         
         // map from index_from to maps of index_onto to (overlap to length, overlap from length, dist)
