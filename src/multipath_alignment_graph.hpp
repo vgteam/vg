@@ -247,7 +247,7 @@ namespace vg {
         size_t max_shift() const;
         
         void prune_high_shift_edges(size_t prune_diff, bool prohibit_new_sources, bool prohibit_new_sinks);
-        
+
     protected:
         
         /// Nodes representing walked MEMs in the graph
@@ -260,6 +260,9 @@ namespace vg {
         /// If this is set and you want it unset, use clear_reachability_edges().
         /// If this is unset and you want it set, use add_reachability_edges().
         bool has_reachability_edges = false;
+
+        /// Field for tracking amount of work done during construction, for testability.
+        size_t build_queue_count = 0;
         
         /// Trim down the given PathNode of everything except softclips.
         /// Return true if it all gets trimmed away and should be removed.

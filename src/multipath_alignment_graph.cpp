@@ -3176,7 +3176,7 @@ namespace vg {
         unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
         // map from path index to set of indexes whose start occurs on the path
         unordered_map<size_t, set<size_t>> path_starts_on_path;
-        
+
         for (size_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
             
@@ -3242,6 +3242,7 @@ namespace vg {
                             
                             pair<size_t, size_t> start_here = start_queue.top();
                             start_queue.pop();
+                            build_queue_count++;
                             
                             // don't keep looking backward earlier than the start of the current path
                             if (start_here.first == end) {
@@ -3264,6 +3265,7 @@ namespace vg {
                             
                             pair<size_t, size_t> end_here = end_queue.top();
                             end_queue.pop();
+                            build_queue_count++;
                             
                             PathNode& next_end_node = path_nodes[end_here.first];
                             
@@ -3284,6 +3286,8 @@ namespace vg {
                             // if we get this far, the two paths are colinear or overlap-colinear, so we won't add it to the
                             // non-colinear shell. now we need to decide whether to keep searching backward. we'll check a
                             // few conditions that will guarantee that the rest of the search is redundant
+
+                            // TODO: we actually still might add it to the non-colinear shell. Is that correct?
 
                             // TODO: this actually isn't a full set of criteria, we don't just want to know if there is an
                             // edge, we want to know if it is reachable along any series of edges...
@@ -3357,6 +3361,7 @@ namespace vg {
                             
                             pair<size_t, size_t> start_here = start_queue.top();
                             start_queue.pop();
+                            build_queue_count++;
                             
 #ifdef debug_multipath_alignment
                             cerr << "traversing start " << start_here.first << " at distance " << start_here.second << endl;
@@ -3383,6 +3388,7 @@ namespace vg {
                             size_t candidate_end, candidate_dist;
                             tie(candidate_end, candidate_dist) = end_queue.top();
                             end_queue.pop();
+                            build_queue_count++;
                             
 #ifdef debug_multipath_alignment
                             cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;

@@ -19,7 +19,9 @@ namespace unittest {
 
 class TestMultipathAlignmentGraph : public MultipathAlignmentGraph {
 public:
+    using MultipathAlignmentGraph::MultipathAlignmentGraph;
     using MultipathAlignmentGraph::decompose_alignments;
+    using MultipathAlignmentGraph::build_queue_count;
 };
 
 TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
@@ -765,7 +767,7 @@ TEST_CASE("Tail alignments can be decomposed", "[multipathalignmentgraph]") {
 
 TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolinear shells", "[multipath][mapping][multipathalignmentgraph]" ) {
 
-    size_t scale = 2000;
+    size_t scale = 50;
 
     // Generate a stick graph
     HashGraph graph;
@@ -821,7 +823,10 @@ TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolin
 
     // Make the MultipathAlignmentGraph to test
     vector<size_t> provenance;
-    MultipathAlignmentGraph mpg(graph, mem_hits, identity, provenance);
+    TestMultipathAlignmentGraph mpg(graph, mem_hits, identity, provenance);
+
+    // Make sure we didn't do huge amounts of work
+    REQUIRE(mpg.build_queue_count < (scale / 5 * 2));
     
 }
 
