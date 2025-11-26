@@ -464,6 +464,11 @@ public:
      * handle the chains going in the opposite orientation, since the ones in
      * the same orientation will have already seen the traversal's starting
      * position by exiting the snarl.
+     * 
+     * Since a seed in a cyclic snarl may exit in either direction, the iterator
+     * "saves" one point (the opposite of its current direction), remembering
+     * the stack state and index, to be restored later. Then, when the main
+     * iterator hits the end, it can restore the saved state and continue.
      */
     class distance_iterator {
     public:
@@ -479,6 +484,10 @@ public:
 
         /// Move index in right_to_left direction
         inline void move_index() {
+            if (index == end_index) {
+                // Refuse to move past the end
+                return;
+            }
             if (right_to_left) {
                 --index;
             } else {
@@ -494,7 +503,19 @@ public:
         inline bool operator!=(const distance_iterator& other) const { return !(*this == other); }
 
         /// Is the iteration done?
-        inline bool done() const { return index == end_index; }
+        inline bool done() {
+            // Attempt to use saved traversals if we hit the end
+            if (index == end_index) {
+                if (pending_traversals.empty()) {
+                    return true;
+                } else {
+                    use_saved_traversal();
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
         
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
@@ -514,7 +535,7 @@ public:
         /// Where we are in the stored tree.
         size_t index;
         /// Where we have to stop
-        const size_t end_index;
+        size_t end_index;
         /// Where we started from
         const size_t original_index;
         /// Within each parent snarl, which chain are we in?
@@ -529,6 +550,16 @@ public:
         const vector<tree_item_t>& zip_code_tree;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
+        // Other traversals that we have to do later
+        // Stored as (stack_data, index, right_to_left, current_state)
+        std::stack<std::tuple<std::stack<size_t>, size_t, bool, State>> pending_traversals;
+
+        /// Restore to the point of a saved traversal.
+        void use_saved_traversal();
+
+        /// Save a traversal exiting a cyclic snarl in the opposite direction
+        /// as the current one, e.g. using an edge C1_R -> SNARL_START
+        void save_opposite_cyclic_snarl_exit(size_t chain_num);
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.
@@ -562,6 +593,10 @@ public:
         /// Stack a single value from a triangular distance matrix
         void stack_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
 
+        /// Helper for stack_matrix_value()
+        /// Get a value from a triangular distance matrix
+        size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
+
         /// Helper for stack_snarl_distances()
         /// Stack a single value below the running distance
         void stack_below_top(size_t value);
@@ -575,7 +610,7 @@ public:
         inline void state(State new_state) { current_state = new_state; }
 
         /// Stop parsing because nothing else can be below the distance limit.
-        /// This moves the current iterator it.
+        /// This moves the current index to end_index.
         void halt();
 
         /// Throw a domain_error that the current state/symbol combo is unimplemented.
@@ -613,9 +648,7 @@ public:
         void initialize_chain();
 
         /// Decide what to do right after entering a new snarl.
-        /// Return whether the initialization was successful,
-        /// i.e. whether the snarl was a non-root snarl.
-        bool initialize_snarl(size_t chain_num);
+        void initialize_snarl(size_t chain_num);
 
         /// Decide what to do when re-entering a snarl,
         /// having already stacked up distances
