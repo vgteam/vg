@@ -550,9 +550,30 @@ public:
         const vector<tree_item_t>& zip_code_tree;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
+
+        /// State of a saved traversal, with various context
+        /// to set the member variables back to
+        struct iterator_state {
+            size_t index;
+            bool right_to_left;
+            std::stack<size_t> stack_data;
+            std::stack<size_t> chain_numbers;
+            State current_state;
+
+            /// Default constructor
+            iterator_state(size_t index,
+                           bool right_to_left,
+                           std::stack<size_t> stack_data,
+                           std::stack<size_t> chain_numbers,
+                           State current_state)
+                : index(index),
+                  right_to_left(right_to_left),
+                  stack_data(stack_data),
+                  chain_numbers(chain_numbers),
+                  current_state(current_state) {}
+        };
         // Other traversals that we have to do later
-        // Stored as (stack_data, index, right_to_left, current_state)
-        std::stack<std::tuple<std::stack<size_t>, size_t, bool, State>> pending_traversals;
+        std::stack<iterator_state> pending_traversals;
 
         /// Restore to the point of a saved traversal.
         void use_saved_traversal();

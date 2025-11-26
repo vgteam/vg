@@ -1774,6 +1774,7 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
 
 void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chain_num) {
     std::stack<size_t> save_stack = stack_data;
+    std::stack<size_t> save_chain_numbers = chain_numbers;
     size_t snarl_start_i = index - current_item().get_value();
     
     // Exit out the bound that we're NOT pointing at
@@ -1798,7 +1799,8 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
         std::cerr << "\tSave exit from cyclic snarl at index " << save_index 
                   << " with running distance " << save_stack.top() << std::endl;
 #endif
-        pending_traversals.emplace(save_stack, save_index, !right_to_left, S_SCAN_CHAIN);
+        pending_traversals.emplace(save_index, !right_to_left, save_stack,
+                                   save_chain_numbers, S_SCAN_CHAIN);
     }
 }
 
@@ -1905,14 +1907,12 @@ void ZipCodeTree::distance_iterator::continue_snarl() {
 void ZipCodeTree::distance_iterator::use_saved_traversal() {
     auto next_traversal = pending_traversals.top();
     pending_traversals.pop();
-    // Restore stack
-    stack_data = std::get<0>(next_traversal);
-    // Jump to saved index
-    index = std::get<1>(next_traversal);
-    // Restore direction
-    right_to_left = std::get<2>(next_traversal);
     // Restore state
-    state(std::get<3>(next_traversal));
+    stack_data = next_traversal.stack_data;
+    chain_numbers = next_traversal.chain_numbers;
+    index = next_traversal.index;
+    right_to_left = next_traversal.right_to_left;
+    state(next_traversal.current_state);
     // Swap end index to match new direction
     end_index = right_to_left ? 0 : (zip_code_tree.size() - 1);
 #ifdef debug_parse
