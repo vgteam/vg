@@ -479,6 +479,7 @@ public:
     constexpr static double BADNESS_THRESHOLD = 4.0;
 
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
+    /// Use the max size_t to estimate via the median instead of the mode.
     constexpr static size_t COVERAGE = 0;
 
     /// Block size (in kmers) for reading KFF files.
@@ -593,6 +594,9 @@ public:
 
         /// Include named and reference paths.
         bool include_reference = false;
+
+        /// Contigs which may not be used, even if they score well.
+        unordered_set<std::string> banned_contigs;
 
         // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.

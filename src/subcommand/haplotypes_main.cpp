@@ -227,6 +227,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "      --preset STR             use preset X {default, haploid, diploid}" << std::endl;
     std::cerr << "      --coverage N             kmer coverage in KFF file (default: estimate)" << std::endl;
+    std::cerr << "                               use 'median' to estimate median instead of mode" << std::endl;
     std::cerr << "      --num-haplotypes N       generate N haplotypes [" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "                               with --diploid-sampling, use N candidates "
                                              << "[" << haplotypes_defaults::candidates() << "]" << std::endl;
@@ -244,6 +245,7 @@ void help_haplotypes(char** argv, bool developer_options) {
                                              << "[" << haplotypes_defaults::badness() << "]" << std::endl;
     std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
+    std::cerr << "      --ban-contig NAME        don't select contig NAME, no matter its score" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "  -v, --verbosity N            verbosity level [0]" << std::endl;
@@ -279,6 +281,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_BADNESS = 1309;
     constexpr int OPT_INCLUDE_REFERENCE = 1310;
     constexpr int OPT_SET_REFERENCE = 1311;
+    constexpr int OPT_BAN_CONTIG = 1312;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
 
@@ -306,6 +309,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "badness", required_argument, 0, OPT_BADNESS },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
+        { "ban-contig", required_argument, 0, OPT_BAN_CONTIG },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -385,7 +389,11 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 break;
             }
         case OPT_COVERAGE:
-            this->recombinator_parameters.coverage = parse<size_t>(optarg);
+            if (std::string(optarg) == "median") {
+                this->recombinator_parameters.coverage = std::numeric_limits<size_t>::max();
+            } else {
+                this->recombinator_parameters.coverage = parse<size_t>(optarg);
+            }
             break;
         case OPT_NUM_HAPLOTYPES:
             this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
@@ -432,6 +440,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_SET_REFERENCE:
             this->reference_samples.insert(optarg);
+            break;
+        case OPT_BAN_CONTIG:
+            this->recombinator_parameters.banned_contigs.insert(optarg);
             break;
 
         case 'v':
