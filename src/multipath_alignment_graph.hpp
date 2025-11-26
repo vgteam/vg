@@ -21,6 +21,10 @@ namespace vg {
     
     
     // TODO: put in MultipathAlignmentGraph namespace
+    
+    /// Represents a single component alignment between part of a string and a
+    /// path through the target graph, withing a MultipathAlignmentGraph. Also
+    /// holds edge data for which other PathNodes can succeed it.
     class PathNode {
     public:
         string::const_iterator begin;
@@ -145,13 +149,6 @@ namespace vg {
                                          double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
                                          vector<size_t>& path_node_provenance);
         
-        /// Clear reachability edges, so that add_reachability_edges can be run
-        /// (possibly after modifying the graph).
-        void clear_reachability_edges();
-        
-        /// Get the number of reachability edges in the graph.
-        size_t count_reachability_edges() const;
-        
         /// Remove the ends of paths, up to a maximum length, if they cause the path
         /// to extend past a branch point in the graph.
         void trim_to_branch_points(const HandleGraph* graph, size_t max_trim_length = 1);
@@ -182,7 +179,14 @@ namespace vg {
                                     const function<pair<id_t, bool>(id_t)>& project,
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                     vector<size_t>* path_node_provenance = nullptr);
-                                    
+
+        /// Clear reachability edges, so that add_reachability_edges can be run
+        /// (possibly after modifying the graph).
+        void clear_reachability_edges();
+        
+        /// Get the number of reachability edges in the graph.
+        size_t count_reachability_edges() const;
+
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a multipath_alignment_t. Reachability edges must
         /// be in the graph. The Alignment passed *must* be the same Alignment
@@ -292,6 +296,22 @@ namespace vg {
         /// If path nodes partially overlap, merge the sections that overlap into a single path node
         void merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
                                                    vector<size_t>& path_node_provenance);
+
+        /// Split path_nodes nodes at overlaps.
+        ///
+        /// confirmed_overlaps is a map from index_from to maps of index_onto
+        /// to (overlap to length, overlap from length, dist). This means that
+        /// it is keyed by source path_nodes index for the earlier MEM, and
+        /// then destination path_nodes index for the later MEM. The values are
+        /// the amount of overlaps between the alignment fragments in the read,
+        /// then in the graph, and then the path length for the overlap edge.
+        /// TODO: what is that really?
+        ///
+        /// If path_node_provenance is set, it will be updated as path_nodes is
+        /// modified, to maintain provenance information about which value in
+        /// path_nodes came from what.
+        void split_at_overlap_edges(const unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>>& confirmed_overlaps,
+                                    vector<size_t>* path_node_provenance = nullptr);
         
         void jitter_homopolymer_ends(const HandleGraph& graph,
                                      vector<size_t>& path_node_provenance,

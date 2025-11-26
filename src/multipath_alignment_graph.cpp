@@ -3663,6 +3663,59 @@ namespace vg {
             }
         }
         
+        this->split_at_overlap_edges(confirmed_overlaps, path_node_provenance);
+        
+        // Go to the state where we know the reachability edges exist.
+        has_reachability_edges = true;
+        
+#ifdef debug_multipath_alignment
+        cerr << "final graph after adding reachability edges:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            PathNode& path_node = path_nodes.at(i);
+            cerr << i;
+            if (path_node_provenance) {
+                cerr << " (hit " << path_node_provenance->at(i) << ")";
+            }
+            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
+            cerr << "\t";
+            for (auto edge : path_node.edges) {
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
+            }
+            cerr << endl;
+        }
+#endif
+        
+    }
+
+    void MultipathAlignmentGraph::clear_reachability_edges() {
+        // Don't let people clear the edges if they are clear already.
+        // That suggests that someone has gotten confused over whether they should exist or not.
+        assert(has_reachability_edges);
+    
+        for (auto& node : path_nodes) {
+            // Just clear all the edges from each node.
+            // add_reachability_edges can rebuild them all.
+            node.edges.clear();
+        }
+        
+        // Go to the state where reachability edges don't exist
+        has_reachability_edges = false;
+        
+    }
+    
+    size_t MultipathAlignmentGraph::count_reachability_edges() const {
+        if (!has_reachability_edges) {
+            return 0;
+        }
+        size_t count = 0;
+        for (auto& node : path_nodes) {
+            count += node.edges.size();
+        }
+        return count;
+    }
+
+    void MultipathAlignmentGraph::split_at_overlap_edges(const unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>>& confirmed_overlaps,
+                                                         vector<size_t>* path_node_provenance) {
 #ifdef debug_multipath_alignment
         cerr << "breaking nodes at overlap edges" << endl;
 #endif
@@ -3906,54 +3959,6 @@ namespace vg {
                 }
             }
         }
-        
-        // Go to the state where we know the reachability edges exist.
-        has_reachability_edges = true;
-        
-#ifdef debug_multipath_alignment
-        cerr << "final graph after adding reachability edges:" << endl;
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& path_node = path_nodes.at(i);
-            cerr << i;
-            if (path_node_provenance) {
-                cerr << " (hit " << path_node_provenance->at(i) << ")";
-            }
-            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
-            cerr << "\t";
-            for (auto edge : path_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
-        
-    }
-
-    void MultipathAlignmentGraph::clear_reachability_edges() {
-        // Don't let people clear the edges if they are clear already.
-        // That suggests that someone has gotten confused over whether they should exist or not.
-        assert(has_reachability_edges);
-    
-        for (auto& node : path_nodes) {
-            // Just clear all the edges from each node.
-            // add_reachability_edges can rebuild them all.
-            node.edges.clear();
-        }
-        
-        // Go to the state where reachability edges don't exist
-        has_reachability_edges = false;
-        
-    }
-    
-    size_t MultipathAlignmentGraph::count_reachability_edges() const {
-        if (!has_reachability_edges) {
-            return 0;
-        }
-        size_t count = 0;
-        for (auto& node : path_nodes) {
-            count += node.edges.size();
-        }
-        return count;
     }
     
     // Kahn's algorithm
