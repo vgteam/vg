@@ -1655,10 +1655,10 @@ double get_or_estimate_coverage(
     double coverage = statistics.mode;
     bool reliable = (statistics.mode >= statistics.median);
 
-    // Second attempt: If we do diploid sampling, the most common count may
+    // Second attempt: If we do diploid scoring, the most common count may
     // be for heterozygous kmers. We therefore try to find a secondary peak
     // at ~2x mode and use it if it is good enough and above the median.
-    if (!reliable && parameters.diploid_sampling) {
+    if (!reliable && !parameters.haploid_scoring) {
         size_t low = 1.7 * statistics.mode, high = 2.3 * statistics.mode;
         size_t peak = count_to_frequency[coverage];
         size_t best = low, secondary = count_to_frequency[low];
