@@ -1930,8 +1930,7 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     double coverage,
     Recombinator::Statistics* statistics,
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
-    const Recombinator::Parameters& parameters,
-    HaplotypePartitioner::Verbosity verbosity
+    const Recombinator::Parameters& parameters
 ) {
     // Classify the kmers.
     std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
@@ -2060,9 +2059,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Select the haplotypes greedily. If we are doing diploid sampling and we get
             // extra fragments, store them for later processing.
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
-                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters, this->verbosity
+                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
             );
-            
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
