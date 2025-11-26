@@ -97,4 +97,5 @@ rm -f indirect.gbz direct.gbz no_ref.gbz
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam
+rm -f GRCh38.HG003.* HG003_GRCh38.gam
 rm -f log.txt
