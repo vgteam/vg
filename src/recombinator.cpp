@@ -1644,8 +1644,6 @@ double get_or_estimate_coverage(
 
     // Use mode as the initial estimate for coverage.
     auto statistics = summary_statistics(count_to_frequency);
-    double coverage = statistics.mode;
-    bool reliable = true;
     if (verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Coverage: median " << statistics.median
             << ", mean " << statistics.mean
@@ -1653,9 +1651,14 @@ double get_or_estimate_coverage(
             << ", mode " << statistics.mode;
     }
 
-    // In the default (non-haploid) scoring model, if mode < median, we try
-    // to find a secondary peak at ~2x mode and use it if it is good enough.
-    if (statistics.mode < statistics.median && !parameters.haploid_scoring) {
+    // First attempt: The most common kmer count is the true coverage.
+    double coverage = statistics.mode;
+    bool reliable = (statistics.mode >= statistics.median);
+
+    // Second attempt: If we do diploid sampling, the most common count may
+    // be for heterozygous kmers. We therefore try to find a secondary peak
+    // at ~2x mode and use it if it is good enough and above the median.
+    if (!reliable && parameters.diploid_sampling) {
         size_t low = 1.7 * statistics.mode, high = 2.3 * statistics.mode;
         size_t peak = count_to_frequency[coverage];
         size_t best = low, secondary = count_to_frequency[low];
@@ -1669,9 +1672,13 @@ double get_or_estimate_coverage(
         }
         if (best >= size_t(statistics.median) && secondary >= peak / 2) {
             coverage = best;
-        } else {
-            reliable = false;
+            reliable = true;
         }
+    }
+
+    // Third attempt: Use the median as an unreliable estimate.
+    if (!reliable) {
+        coverage = statistics.median;
     }
 
     if (verbosity >= Haplotypes::verbosity_detailed) {
@@ -1808,8 +1815,8 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     const Recombinator::Parameters& parameters
 ) {
     // TODO: What are the proper thresholds?
-    double absent_threshold = coverage * 0.1;
-    double heterozygous_threshold = coverage / std::log(4.0);
+    double absent_threshold = (parameters.haploid_scoring ? coverage * 0.2 : coverage * 0.1);
+    double heterozygous_threshold = (parameters.haploid_scoring ? 0.0 : coverage / std::log(4.0));
     double homozygous_threshold = coverage * 2.5;
 
     // Determine the type of each kmer in the sample and the score for the kmer.
@@ -1822,7 +1829,7 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
         if (count < absent_threshold) {
             kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
             selected_kmers++;
-        } else if (count < heterozygous_threshold && !parameters.haploid_scoring) {
+        } else if (count < heterozygous_threshold) {
             kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
             selected_kmers++;
         } else if (count < homozygous_threshold) {
