@@ -22,6 +22,9 @@ public:
     using MultipathAlignmentGraph::MultipathAlignmentGraph;
     using MultipathAlignmentGraph::decompose_alignments;
     using MultipathAlignmentGraph::build_queue_count;
+    using MultipathAlignmentGraph::add_reachability_edges_easy;
+    using MultipathAlignmentGraph::add_reachability_edges_general;
+    using MultipathAlignmentGraph::path_nodes;
 };
 
 TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
@@ -827,7 +830,121 @@ TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolin
 
     // Make sure we didn't do huge amounts of work
     REQUIRE(mpg.build_queue_count < (scale / 5 * 2));
-    
+
+}
+
+TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construction produce the same results", "[multipath][mapping][multipathalignmentgraph]" ) {
+
+    // Create a simple stick graph
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("GATTACA");
+    handle_t h2 = graph.create_handle("TTGG");
+    handle_t h3 = graph.create_handle("AACCTT");
+    handle_t h4 = graph.create_handle("GGCC");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+
+    // Make a topological order
+    vector<handle_t> topo_order = {h1, h2, h3, h4};
+
+    // Create identity projection (returns a map)
+    auto identity_map = MultipathAlignmentGraph::create_identity_projection_trans(graph);
+    // Convert to a function
+    auto identity = MultipathAlignmentGraph::create_projector(identity_map);
+
+    // Create a read that aligns to this graph
+    string read = "GATTACATTGGAACCTTGGCC";
+    Alignment query;
+    query.set_sequence(read);
+
+    // Create some MEMs with overlaps
+    std::list<MaximalExactMatch> mems;
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    mem_hits.second = 1.0;
+
+    // MEM 1: "GATTACA" at position 0-7 in read, maps to node 1
+    auto query_start1 = query.sequence().begin();
+    auto query_end1 = query_start1 + 7;
+    mems.emplace_back(query_start1, query_end1, make_pair(1, 1), 7);
+    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h1), false, 0));
+
+    // MEM 2: "TTGG" at position 5-9 in read (overlaps with MEM 1), maps to node 2
+    auto query_start2 = query.sequence().begin() + 5;
+    auto query_end2 = query_start2 + 4;
+    mems.emplace_back(query_start2, query_end2, make_pair(1, 1), 4);
+    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h2), false, 0));
+
+    // MEM 3: "AACCTT" at position 9-15 in read, maps to node 3
+    auto query_start3 = query.sequence().begin() + 9;
+    auto query_end3 = query_start3 + 6;
+    mems.emplace_back(query_start3, query_end3, make_pair(1, 1), 6);
+    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h3), false, 0));
+
+    // MEM 4: "GGCC" at position 15-19 in read, maps to node 4
+    auto query_start4 = query.sequence().begin() + 15;
+    auto query_end4 = query_start4 + 4;
+    mems.emplace_back(query_start4, query_end4, make_pair(1, 1), 4);
+    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h4), false, 0));
+
+    // Create two identical MultipathAlignmentGraphs
+    vector<size_t> provenance_easy;
+    TestMultipathAlignmentGraph mpg_easy(graph, mem_hits, identity_map, provenance_easy);
+
+    vector<size_t> provenance_general;
+    TestMultipathAlignmentGraph mpg_general(graph, mem_hits, identity_map, provenance_general);
+
+    // Clear any existing reachability edges (in case they were added during construction)
+    mpg_easy.clear_reachability_edges();
+    mpg_general.clear_reachability_edges();
+
+    // Empty injection_trans (no node ID translation needed for this simple test)
+    unordered_multimap<id_t, pair<id_t, bool>> injection_trans;
+
+    // Add reachability edges using the easy method
+    mpg_easy.add_reachability_edges_easy(graph, identity, injection_trans, topo_order, &provenance_easy);
+
+    // Add reachability edges using the general method
+    mpg_general.add_reachability_edges_general(graph, identity, injection_trans, topo_order, &provenance_general);
+
+    // Compare the number of edges
+    size_t easy_edge_count = mpg_easy.count_reachability_edges();
+    size_t general_edge_count = mpg_general.count_reachability_edges();
+
+    REQUIRE(easy_edge_count == general_edge_count);
+
+    // Compare the number of path nodes (in case splitting happened differently)
+    REQUIRE(mpg_easy.path_nodes.size() == mpg_general.path_nodes.size());
+
+    // Compare the edges for each path node
+    for (size_t i = 0; i < mpg_easy.path_nodes.size(); i++) {
+        auto& easy_node = mpg_easy.path_nodes[i];
+        auto& general_node = mpg_general.path_nodes[i];
+
+        // Same number of edges
+        REQUIRE(easy_node.edges.size() == general_node.edges.size());
+
+        // Sort edges for comparison (they might be in different orders)
+        auto easy_edges = easy_node.edges;
+        auto general_edges = general_node.edges;
+
+        sort(easy_edges.begin(), easy_edges.end());
+        sort(general_edges.begin(), general_edges.end());
+
+        // Compare each edge
+        for (size_t j = 0; j < easy_edges.size(); j++) {
+            REQUIRE(easy_edges[j].first == general_edges[j].first);  // target node
+            REQUIRE(easy_edges[j].second == general_edges[j].second); // distance
+        }
+
+        // Compare read intervals
+        REQUIRE(easy_node.begin == general_node.begin);
+        REQUIRE(easy_node.end == general_node.end);
+
+        // Compare paths
+        REQUIRE(easy_node.path == general_node.path);
+    }
 }
 
 }

@@ -2233,6 +2233,131 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
     return make_pair(p1, p2);
 }
 
+// cut a path_mapping_t at a to_length offset
+pair<path_mapping_t, path_mapping_t> cut_mapping(const path_mapping_t& m, size_t offset) {
+    path_mapping_t left, right;
+
+    // both result mappings will be in the same orientation as the original
+    left.mutable_position()->set_is_reverse(m.position().is_reverse());
+    right.mutable_position()->set_is_reverse(m.position().is_reverse());
+
+    // left always has the position of the input mapping
+    *left.mutable_position() = m.position();
+
+    // nothing to cut
+    if (offset == 0) {
+        // we will get a 0-length left
+        right = m;
+    } else if (offset >= mapping_to_length(m)) {
+        // or a 0-length right
+        left = m;
+    } else {
+        // we need to cut the mapping
+
+        // find the cut point and build the two mappings
+        size_t seen = 0;
+        size_t j = 0;
+        // loop over those before our position
+        for ( ; j < m.edit_size() && seen < offset; ++j) {
+            const edit_t& e = m.edit(j);
+            if (seen + e.to_length() > offset) {
+                // we need to divide this edit
+                // Convert to protobuf, cut, then convert back
+                Edit proto_edit;
+                to_proto_edit(e, proto_edit);
+                auto proto_edits = cut_edit_at_to(proto_edit, seen + e.to_length() - offset);
+                from_proto_edit(proto_edits.first, *left.add_edit());
+                from_proto_edit(proto_edits.second, *right.add_edit());
+            } else {
+                // this would be the last edit before the target position
+                *left.add_edit() = e;
+            }
+            seen += e.to_length();
+        }
+        // now we add to the second path
+        for ( ; j < m.edit_size(); ++j) {
+            *right.add_edit() = m.edit(j);
+        }
+    }
+    // The right mapping has a position on this same node
+    right.mutable_position()->set_node_id(m.position().node_id());
+    right.mutable_position()->set_offset(left.position().offset() + mapping_from_length(left));
+
+    return make_pair(left, right);
+}
+
+// divide the path_t at a path-relative offset as measured in to_length from start
+pair<path_t, path_t> cut_path(const path_t& path, size_t offset) {
+    path_t p1, p2;
+    size_t seen = 0;
+    size_t i = 0;
+    if (!path.mapping_size()) {
+        return make_pair(path, path);
+    }
+
+    // seek forward to the cut point
+    for ( ; i < path.mapping_size() && seen < offset; ++i) {
+        const path_mapping_t& m = path.mapping(i);
+        // the position is in this node, so make the cut
+        if (seen + mapping_to_length(m) == offset) {
+            *p1.add_mapping() = m;
+        } else if (seen + mapping_to_length(m) > offset) {
+            auto mappings = cut_mapping(m, offset - seen);
+            // and save the cuts
+            *p1.add_mapping() = mappings.first;
+            *p2.add_mapping() = mappings.second;
+            ++i; // we don't increment our mapping index when we break here
+            seen += mapping_to_length(m); // same problem
+            break;
+        } else {
+            // otherwise keep adding the mappings onto our first path
+            *p1.add_mapping() = m;
+        }
+        seen += mapping_to_length(m);
+    }
+
+    // add in the rest of the edits
+    for ( ; i < path.mapping_size(); ++i) {
+        const path_mapping_t& m = path.mapping(i);
+        *p2.add_mapping() = m;
+    }
+
+    return make_pair(p1, p2);
+}
+
+// extract a subpath from start_offset to end_offset (measured in to_length)
+path_t extract_subpath(const path_t& path, size_t start_offset, size_t end_offset) {
+    // Handle edge cases
+    if (start_offset >= end_offset) {
+        return path_t(); // return empty path
+    }
+
+    size_t path_len = path_to_length(path);
+    if (start_offset >= path_len) {
+        return path_t(); // return empty path
+    }
+
+    // Clamp end_offset to path length
+    if (end_offset > path_len) {
+        end_offset = path_len;
+    }
+
+    // If we're extracting the whole path, just return it
+    if (start_offset == 0 && end_offset == path_len) {
+        return path;
+    }
+
+    // Cut at start to get everything from start onward
+    auto first_cut = cut_path(path, start_offset);
+    path_t suffix = first_cut.second;
+
+    // Cut the suffix at (end_offset - start_offset) to get just the middle part
+    size_t middle_length = end_offset - start_offset;
+    auto second_cut = cut_path(suffix, middle_length);
+
+    return second_cut.first;
+}
+
 bool maps_to_node(const Path& p, id_t id) {
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         if (p.mapping(i).position().node_id() == id) return true;

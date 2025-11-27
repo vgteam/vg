@@ -2540,6 +2540,23 @@ namespace vg {
             this->add_reachability_edges_general(graph, project, injection_trans, topological_order, path_node_provenance);
         }
 
+#ifdef debug_multipath_alignment
+        cerr << "final graph after adding reachability edges:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            PathNode& path_node = path_nodes.at(i);
+            cerr << i;
+            if (path_node_provenance) {
+                cerr << " (hit " << path_node_provenance->at(i) << ")";
+            }
+            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
+            cerr << "\t";
+            for (auto edge : path_node.edges) {
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
+            }
+            cerr << endl;
+        }
+#endif
+
 
     }
 
@@ -2548,21 +2565,61 @@ namespace vg {
                                                                  const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                                  const vector<handle_t>& topological_order,
                                                                  vector<size_t>* path_node_provenance) {
-            
-        // TODO: implement
 
         // MEMs are colinear if they are colinear in the read and colinear in
         // the graph.
         //
         // MEMs are overlap-colinear if they overlap in the read and the
         // corresponding parts of their paths also coincide.
-        
+
         // First, we need to treat the graph as a linear space. So, we walk the
         // topological order's path through the graph, and make a map from
         // graph node ID to offset in the linear graph walk.
 
+        // Build a map from node ID to offset in the linear graph walk
+        unordered_map<id_t, size_t> node_to_offset;
+        size_t linear_offset = 0;
+        for (const handle_t& handle : topological_order) {
+            node_to_offset[graph.get_id(handle)] = linear_offset;
+            linear_offset += graph.get_length(handle);
+        }
+
+        // Helper functions to get MEM positions in read and graph space
+        auto start_offset_read = [&](size_t idx) -> size_t {
+            return path_nodes[idx].begin - path_nodes[0].begin;
+        };
+
+        auto end_offset_read = [&](size_t idx) -> size_t {
+            return path_nodes[idx].end - path_nodes[0].begin;
+        };
+
+        auto start_offset_graph = [&](size_t idx) -> size_t {
+            const path_t& path = path_nodes[idx].path;
+            id_t start_node_id = path.mapping(0).position().node_id();
+            return node_to_offset[start_node_id] + path.mapping(0).position().offset();
+        };
+
+        auto end_offset_graph = [&](size_t idx) -> size_t {
+            const path_t& path = path_nodes[idx].path;
+            const path_mapping_t& last_mapping = path.mapping(path.mapping_size() - 1);
+            id_t end_node_id = last_mapping.position().node_id();
+            return node_to_offset[end_node_id] + last_mapping.position().offset() + mapping_from_length(last_mapping);
+        };
+
         // Then we sort everything along the read, first by start, then by end,
         // and get a vector of indexes of MEMs, ordered in that sort order.
+
+        vector<size_t> sorted_mems;
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            sorted_mems.push_back(i);
+        }
+
+        sort(sorted_mems.begin(), sorted_mems.end(), [&](size_t a, size_t b) {
+            if (path_nodes[a].begin != path_nodes[b].begin) {
+                return path_nodes[a].begin < path_nodes[b].begin;
+            }
+            return path_nodes[a].end < path_nodes[b].end;
+        });
 
         // Then we have to look for overlap-colinear MEMs. We go through the
         // sorted order, keeping track of the MEMs we haven't left yet in the
@@ -2577,6 +2634,72 @@ namespace vg {
         // read-space overlap, and make sure they are equal alignments. If so,
         // we say we're overlap-colinear.
 
+        // Map from index_onto to maps of index_from to (read_overlap, graph_overlap, dist)
+        unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
+
+        // Track MEMs we're currently inside, sorted by end position in read
+        // Pairs of (end offset in read, MEM index)
+        set<pair<size_t, size_t>> active_mems;
+
+        for (size_t mem_idx : sorted_mems) {
+            // Remove MEMs that have ended before this one starts
+            while (!active_mems.empty() && active_mems.begin()->first <= start_offset_read(mem_idx)) {
+                active_mems.erase(active_mems.begin());
+            }
+
+            // Check for overlaps with all active MEMs
+            for (const auto& active : active_mems) {
+                size_t prev_idx = active.second;
+
+                // Check if there's an overlap in the read
+                if (path_nodes[prev_idx].end > path_nodes[mem_idx].begin) {
+                    size_t read_overlap = path_nodes[prev_idx].end - path_nodes[mem_idx].begin;
+
+                    // Compute the graph overlap (from_length) by finding how much graph
+                    // sequence the later MEM's path consumes for this read overlap
+                    size_t graph_overlap = corresponding_from_length(path_nodes[mem_idx].path, read_overlap, false);
+
+                    // Check if there's also an overlap in graph positions (for validation)
+                    size_t prev_end_graph = end_offset_graph(prev_idx);
+                    size_t mem_start_graph = start_offset_graph(mem_idx);
+
+                    if (prev_end_graph > mem_start_graph) {
+                        // There is a graph overlap, so these MEMs might be overlap-colinear
+                        // Extract the overlapping portions of both paths to verify they match
+
+                        // From prev_idx: extract the SUFFIX (last read_overlap bases)
+                        // prev_idx.path: [----------XXXX]
+                        //                         ^ extract from here to end
+                        size_t prev_path_len = path_nodes[prev_idx].end - path_nodes[prev_idx].begin;
+                        size_t prev_overlap_start = prev_path_len - read_overlap;
+                        path_t prev_overlap_subpath = extract_subpath(
+                            path_nodes[prev_idx].path,
+                            prev_overlap_start,
+                            prev_path_len);
+
+                        // From mem_idx: extract the PREFIX (first read_overlap bases)
+                        // mem_idx.path: [XXXX----------]
+                        //               ^ extract from start to read_overlap
+                        path_t mem_overlap_subpath = extract_subpath(
+                            path_nodes[mem_idx].path,
+                            0,
+                            read_overlap);
+
+                        // Compare the extracted subpaths for equality
+                        if (prev_overlap_subpath == mem_overlap_subpath) {
+                            // Paths match! Confirm overlap-colinear
+                            // The distance is 0 for directly detected overlaps (no intermediate path)
+                            confirmed_overlaps[mem_idx][prev_idx] = make_tuple(read_overlap, graph_overlap, 0);
+                        }
+                        // If paths don't match, don't record the overlap
+                    }
+                }
+            }
+
+            // Add this MEM to active set
+            active_mems.insert(make_pair(end_offset_read(mem_idx), mem_idx));
+        }
+
         // To find the normal colinear cases, we loop over each sorted MEM. For
         // each MEM, we scan forward from it until we find a successor MEM that
         // is colinear in the read and also colinear along the graph walk, or
@@ -2587,13 +2710,37 @@ namespace vg {
 
         // When we find a colinear MEM, we add the edges entry and move on to
         // the next start MEM.
-        
+
+        for (size_t i = 0; i < sorted_mems.size(); i++) {
+            size_t from_idx = sorted_mems[i];
+
+            // Scan forward to find the first colinear successor
+            for (size_t j = i + 1; j < sorted_mems.size(); j++) {
+                size_t to_idx = sorted_mems[j];
+
+                // Check if they're colinear in the read (no overlap, from ends before to starts)
+                if (path_nodes[from_idx].end <= path_nodes[to_idx].begin) {
+                    // Check if they're also colinear in the graph
+                    if (end_offset_graph(from_idx) <= start_offset_graph(to_idx)) {
+                        // They're colinear! Add an edge
+                        size_t graph_dist = start_offset_graph(to_idx) - end_offset_graph(from_idx);
+                        path_nodes[from_idx].edges.emplace_back(to_idx, graph_dist);
+
+                        // Found the first colinear successor, don't look further
+                        break;
+                    }
+                }
+            }
+        }
+
         // Then after we make the colinear reachability edges, we make the call
         // to split up the overlap-colinear MEMs and the reachability edges
         // between them.
 
+        this->split_at_overlap_edges(confirmed_overlaps, path_node_provenance);
 
-
+        // Mark that reachability edges have been added
+        has_reachability_edges = true;
     }
 
     void MultipathAlignmentGraph::add_reachability_edges_general(const HandleGraph& graph,
@@ -3765,24 +3912,6 @@ namespace vg {
         
         // Go to the state where we know the reachability edges exist.
         has_reachability_edges = true;
-        
-#ifdef debug_multipath_alignment
-        cerr << "final graph after adding reachability edges:" << endl;
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& path_node = path_nodes.at(i);
-            cerr << i;
-            if (path_node_provenance) {
-                cerr << " (hit " << path_node_provenance->at(i) << ")";
-            }
-            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
-            cerr << "\t";
-            for (auto edge : path_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
-        
     }
 
     void MultipathAlignmentGraph::clear_reachability_edges() {
