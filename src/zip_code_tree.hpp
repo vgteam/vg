@@ -550,6 +550,9 @@ public:
         const vector<tree_item_t>& zip_code_tree;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
+        /// Best distance for each snarl exit we've seen
+        /// Stored as {snarl start index : (start dist, end dist)}
+        std::unordered_map<size_t, std::pair<size_t, size_t>> best_snarl_exits;
 
         /// State of a saved traversal, with various context
         /// to set the member variables back to
@@ -572,7 +575,7 @@ public:
                   chain_numbers(chain_numbers),
                   current_state(current_state) {}
         };
-        // Other traversals that we have to do later
+        /// Other traversals that we have to do later
         std::stack<iterator_state> pending_traversals;
 
         /// Restore to the point of a saved traversal.
@@ -617,6 +620,10 @@ public:
         /// Helper for stack_matrix_value()
         /// Get a value from a triangular distance matrix
         size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
+
+        /// Helper which simplifies the call to stack_matrix_value()
+        /// Get a distance to the start or end of a snarl
+        size_t get_snarl_bound_distance(size_t snarl_start_i, size_t row, bool to_end);
 
         /// Helper for stack_snarl_distances()
         /// Stack a single value below the running distance

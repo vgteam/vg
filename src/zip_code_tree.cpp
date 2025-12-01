@@ -1654,13 +1654,7 @@ void ZipCodeTree::distance_iterator::stack_snarl_distances(size_t snarl_start_i,
         cur_row = chain_num * 2 - (right_side ? 0 : 1);
 
         // Very bottom of the stack is the distance to a snarl bound
-        if (right_side) {
-            // Heading towards the snarl end
-            stack_matrix_value(dist_matrix_start, true, cur_row, num_chains * 2 + 1);
-        } else {
-            // Heading towards the snarl start
-            stack_matrix_value(dist_matrix_start, true, cur_row, 0);
-        }
+        stack_below_top(get_snarl_bound_distance(snarl_start_i, cur_row, right_side));
 
         // Cyclic snarl always stacks all lefts on top, then all rights 
         // We process left to right then "bounce" right to left
@@ -1734,6 +1728,58 @@ size_t ZipCodeTree::distance_iterator::get_matrix_value(size_t matrix_start_i, b
     return zip_code_tree.at(matrix_start_i + within_matrix_i).get_value();
 }
 
+size_t ZipCodeTree::distance_iterator::get_snarl_bound_distance(size_t snarl_start_i, size_t row, bool to_end) {
+    // Read snarl header
+    bool is_cyclic = zip_code_tree.at(snarl_start_i).get_is_cyclic();
+    // SNARL_START, then CHAIN_COUNT, then distance matrix
+    size_t dist_matrix_start = snarl_start_i + 2;
+    size_t edge_dist;
+
+    // Distance to a snarl bound
+    if (to_end) {
+        size_t num_chains = zip_code_tree.at(dist_matrix_start - 1).get_value();
+        size_t last_row = is_cyclic ? num_chains * 2 + 1
+                                    : num_chains;
+        edge_dist = get_matrix_value(dist_matrix_start, true, row, last_row);
+    } else {
+        // Heading towards the snarl start
+        edge_dist = get_matrix_value(dist_matrix_start, true, row, 0);
+    }
+
+#ifdef debug_parse
+    std::cerr << "\tTo current running parent distance " << top() << " add edge " 
+              << (edge_dist == std::numeric_limits<size_t>::max() ? "inf" : std::to_string(edge_dist))
+              << " to get to snarl bound" << std::endl;
+#endif
+    size_t total_dist = SnarlDistanceIndex::sum(top(), edge_dist);
+
+    auto old_dist = best_snarl_exits.find(snarl_start_i);
+    if (old_dist == best_snarl_exits.end()) {
+        // Never tried to exit this snarl before; create entry
+        std::pair<size_t, size_t> exit_dists;
+        if (to_end) {
+            exit_dists = {std::numeric_limits<size_t>::max(), total_dist};
+        } else {
+            exit_dists = {total_dist, std::numeric_limits<size_t>::max()};
+        }
+        best_snarl_exits.emplace_hint(old_dist, snarl_start_i, exit_dists);
+    } else if (to_end && old_dist->second.second > total_dist) {
+        // Update best distance to snarl end
+        old_dist->second.second = total_dist;
+    } else if (!to_end && old_dist->second.first > total_dist) {
+        // Update best distance to snarl start
+        old_dist->second.first = total_dist;
+    } else {
+#ifdef debug_parse
+        std::cerr << "\tSkipping snarl exit with running distance " 
+                  << total_dist << " since better known exit exists." << std::endl;
+#endif
+        total_dist = std::numeric_limits<size_t>::max();
+    }
+
+    return total_dist;
+}
+
 void ZipCodeTree::distance_iterator::stack_below_top(size_t value) {
     dup();
     top() = value;
@@ -1780,18 +1826,18 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
     // Exit out the bound that we're NOT pointing at
     // (L->R exits at the start, R->L at the end)
     size_t save_index;
-    size_t edge_distance;
+    size_t save_distance;
     if (right_to_left) {
         save_index = snarl_start_i + zip_code_tree.at(snarl_start_i).get_other_bound_offset() + 1;
         size_t num_chains = zip_code_tree.at(snarl_start_i + 1).get_value();
         // Distance from left side of chain to end of snarl
-        edge_distance = get_matrix_value(snarl_start_i + 2, true, chain_num * 2 - 1, num_chains * 2 + 1);
+        save_distance = get_snarl_bound_distance(snarl_start_i, chain_num * 2 - 1, true);
     } else {
         save_index = snarl_start_i - 1;
         // Distance from right side of chain to start of snarl
-        edge_distance = get_matrix_value(snarl_start_i + 2, true, chain_num * 2, 0);
+        save_distance = get_snarl_bound_distance(snarl_start_i, chain_num * 2, false);
     }
-    save_stack.top() = SnarlDistanceIndex::sum(save_stack.top(), edge_distance);
+    save_stack.top() = save_distance;
     
     // Only save the traversal if it's usable
     if (save_stack.top() < distance_limit && save_index > 0 && save_index < (zip_code_tree.size() - 1)) {
