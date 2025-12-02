@@ -741,8 +741,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                              fragments, fragment_scores, fragment_anchors, fragment_source_tree,
                              minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, 
                              minimizer_explored, multiplicity_by_alignment, rng, funnel);
-
-
     
     // For each chain, we need:
     // The chain itself, pointing into seeds
@@ -1476,55 +1474,76 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 funnel.substage("fragment");
             }
             
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Computing fragments over " << anchor_indexes.size() << " anchors" << endl;
-                }
-            }
-#ifdef debug
-            if (show_work) {
-                // Log the chaining problem so we can try it again elsewhere.
-                this->dump_chaining_problem(anchors_to_fragment, anchor_indexes, gbwt_graph);
-            }
-#endif
-            
-            // Compute lookback and indel limits based on read length.
-            // Important since seed density goes down on longer reads.
-            size_t graph_lookback_limit = std::max(this->fragment_max_graph_lookback_bases, (size_t)(this->fragment_max_graph_lookback_bases_per_base * aln.sequence().size()));
-            size_t read_lookback_limit = std::max(this->fragment_max_read_lookback_bases, (size_t)(this->fragment_max_read_lookback_bases_per_base * aln.sequence().size()));
-            size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
-
-            // Find fragments over the seeds in the zip code tree
-            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                seeds,
-                zip_code_forest.trees[item_num],
-                graph_lookback_limit,
-                read_lookback_limit
-            ); 
             // Make a view of the anchors we will fragment over
             VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
-            std::vector<std::pair<int, std::vector<size_t>>> results = algorithms::find_best_chains(
-                anchor_view,
-                *distance_index,
-                gbwt_graph,
-                get_regular_aligner()->gap_open,
-                get_regular_aligner()->gap_extension,
-                this->rec_penalty_fragment,
-                this->max_fragments,
-                for_each_transition,
-                this->item_bonus,
-                this->item_scale,
-                this->fragment_gap_scale,
-                this->fragment_points_per_possible_match,
-                indel_limit,
-                false
-            );
-            if (show_work) {
+
+            // This will hold our fragmenting results
+            std::vector<std::pair<int, std::vector<size_t>>> results;
+
+            if (do_fragmenting) {
+                // We want to actually to fragmenting.
+                // TODO: THe bypass logic is ugly; remove it!
+            
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Computing fragments over " << anchor_view.size() << " anchors" << endl;
+                    }
+                }
+    #ifdef debug
+                if (show_work) {
+                    // Log the chaining problem so we can try it again elsewhere.
+                    this->dump_chaining_problem(anchors_to_fragment, anchor_indexes, gbwt_graph);
+                }
+    #endif
+                
+                // Compute lookback and indel limits based on read length.
+                // Important since seed density goes down on longer reads.
+                size_t graph_lookback_limit = std::max(this->fragment_max_graph_lookback_bases, (size_t)(this->fragment_max_graph_lookback_bases_per_base * aln.sequence().size()));
+                size_t read_lookback_limit = std::max(this->fragment_max_read_lookback_bases, (size_t)(this->fragment_max_read_lookback_bases_per_base * aln.sequence().size()));
+                size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
+
+                // Find fragments over the seeds in the zip code tree
+                algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                    seeds,
+                    zip_code_forest.trees[item_num],
+                    graph_lookback_limit,
+                    read_lookback_limit
+                ); 
+                results = algorithms::find_best_chains(
+                    anchor_view,
+                    *distance_index,
+                    gbwt_graph,
+                    get_regular_aligner()->gap_open,
+                    get_regular_aligner()->gap_extension,
+                    this->rec_penalty_fragment,
+                    this->max_fragments,
+                    for_each_transition,
+                    this->item_bonus,
+                    this->item_scale,
+                    this->fragment_gap_scale,
+                    this->fragment_points_per_possible_match,
+                    indel_limit,
+                    false
+                );
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
+                        << " running " << anchors_to_fragment[anchor_indexes.front()] << " to " << anchors_to_fragment[anchor_indexes.back()] << std::endl;
+                }
+            } else {
+                // We want to fake a bunch of 1-item "fragments" at the same score as the items.
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
-                    << " running " << anchors_to_fragment[anchor_indexes.front()] << " to " << anchors_to_fragment[anchor_indexes.back()] << std::endl;
+                {
+                    cerr << log_name() << "Creating fake fragments for " << anchor_view.size() << " anchors" << endl;
+                }
+
+                for (size_t i = 0; i < anchor_view.size(); i++) {
+                    results.emplace_back(anchor_view[i].score(), std::vector<size_t>({i}));
+                }
             }
+
+
             for (size_t result = 0; result < results.size(); result++) {
                 // For each result
                 auto& scored_fragment = results[result];
@@ -1775,14 +1794,14 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
         for (auto& fragment_num : kv.second) {
             // For each fragment
             auto fragment_score = fragment_scores.at(fragment_num);
-            if (fragment_score >= fragment_score_threshold_overall) {
+            if (!do_fragmenting || fragment_score >= fragment_score_threshold_overall) {
                 // If its score is high enough vs. the best
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.pass("fragment-score-fraction||fragment-max-min-score||fragment-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
                 }
 
-                if (fragment_score >= fragment_min_score) {
+                if (!do_fragmenting || fragment_score >= fragment_min_score) {
                     // And its score is high enough overall
 
                     if (track_provenance) {
@@ -1849,7 +1868,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
     }
 
     process_until_threshold_b<double>(fragment_set_scores,
-        fragment_set_score_threshold, min_chaining_problems, max_chaining_problems, rng, 
+        do_fragmenting ? fragment_set_score_threshold : std::numeric_limits<double>::max(), min_chaining_problems, max_chaining_problems, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
             // This tree's fragment set is good enough.
             // Called in descending score order

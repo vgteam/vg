@@ -255,6 +255,10 @@ class MinimizerMapper : public AlignerClient {
     /// read length is less than the limit.
     static constexpr size_t default_gapless_extension_limit = 0;
     size_t gapless_extension_limit = default_gapless_extension_limit;
+
+    /// Actually do fragmenting instead of just passing every seed/extension through as a fragment.
+    static constexpr bool default_do_fragmenting = true;
+    bool do_fragmenting = default_do_fragmenting;
     
     /// How many bases should we look back in the graph when making fragments?
     static constexpr size_t default_fragment_max_graph_lookback_bases = 300;
