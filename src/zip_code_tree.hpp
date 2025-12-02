@@ -460,20 +460,26 @@ public:
      * 
      * For example, since previous chains in a cyclic snarl will have already
      * visited all other chains, later chains do not have to visit previous ones.
-     * Similarly, when the traversal enters a cyclic snarl, it only has to
-     * handle the chains going in the opposite orientation, since the ones in
-     * the same orientation will have already seen the traversal's starting
-     * position by exiting the snarl.
+     * Similarly, the traversal should never have to enter a cyclic snarl from
+     * the outside, since any possible transition crossing the snarl boundary
+     * will be found by traversals starting from seeds inside the snarl.
      * 
      * Since a seed in a cyclic snarl may exit in either direction, the iterator
      * "saves" one point (the opposite of its current direction), remembering
      * the stack state and index, to be restored later. Then, when the main
      * iterator hits the end, it can restore the saved state and continue.
+     * 
+     * The iterator implements simple memorization of snarl exit distances. This
+     * is done for only cyclic snarls, as they are the only ones that literarlly
+     * turn one traversal into two via the exit-in-both-directions behavior.
+     * Each time the iterator calculates the running distance to exit a cyclic
+     * snarl, it will check if it has ever seen a better or equal distance, and
+     * if so will pretend that the distance is infinite/unreachable.
      */
     class distance_iterator {
     public:
-        /// Make a reverse iterator starting from start_index, until
-        /// the given rend, with the given distance limit.
+        /// Make a reverse iterator starting from start_index,
+        /// going in the given direction, and with an optional distance limit
         distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
@@ -486,6 +492,8 @@ public:
         inline void move_index() {
             if (index == end_index) {
                 // Refuse to move past the end
+                // This might happen due to race conditions added
+                // with the save-and-reload behavior
                 return;
             }
             if (right_to_left) {
@@ -552,7 +560,7 @@ public:
         std::stack<size_t> stack_data;
         /// Best distance for each snarl exit we've seen
         /// Stored as {snarl start index : (start dist, end dist)}
-        std::unordered_map<size_t, std::pair<size_t, size_t>> best_snarl_exits;
+        std::unordered_map<size_t, std::pair<size_t, size_t>> best_cyclic_snarl_exits;
 
         /// State of a saved traversal, with various context
         /// to set the member variables back to
@@ -615,15 +623,19 @@ public:
 
         /// Helper for stack_snarl_distances()
         /// Stack a single value from a triangular distance matrix
+        /// row and col are zero-indexed within the matrix
         void stack_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
 
         /// Helper for stack_matrix_value()
         /// Get a value from a triangular distance matrix
+        /// row and col are zero-indexed within the matrix
         size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
 
         /// Helper which simplifies the call to stack_matrix_value()
-        /// Get a distance to the start or end of a snarl
-        size_t get_snarl_bound_distance(size_t snarl_start_i, size_t row, bool to_end);
+        /// Get a distance to the start or end of a CYCLIC snarl
+        /// Also handles the memorization with best_cyclic_snarl_exits
+        /// row is zero-indexed within the matrix
+        size_t get_cyclic_snarl_bound_distance(size_t snarl_start_i, size_t row, bool to_end);
 
         /// Helper for stack_snarl_distances()
         /// Stack a single value below the running distance
