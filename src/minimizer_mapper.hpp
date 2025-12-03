@@ -243,52 +243,11 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_zipcode_tree_coverage_threshold = 0.3;
     double zipcode_tree_coverage_threshold = default_zipcode_tree_coverage_threshold;
 
-    /// How many things should we produce fragments for, min?
-    static constexpr size_t default_min_to_fragment = 4;
-    size_t min_to_fragment = default_min_to_fragment;
-
-    /// How many things should we produce fragments for, max?
-    static constexpr size_t default_max_to_fragment = 10;
-    size_t max_to_fragment = default_max_to_fragment;
-    
-    /// Do gapless extension to the seeds in each tree before fragmenting the tree if the 
+    /// Do gapless extension to the seeds in each tree before chaining the tree if the
     /// read length is less than the limit.
     static constexpr size_t default_gapless_extension_limit = 0;
     size_t gapless_extension_limit = default_gapless_extension_limit;
-
-    /// Actually do fragmenting instead of just passing every seed/extension through as a fragment.
-    static constexpr bool default_do_fragmenting = false;
-    bool do_fragmenting = default_do_fragmenting;
     
-    /// How many bases should we look back in the graph when making fragments?
-    static constexpr size_t default_fragment_max_graph_lookback_bases = 300;
-    size_t fragment_max_graph_lookback_bases = default_fragment_max_graph_lookback_bases;
-    /// How many bases should we look back in the graph when making fragments, per base of read length?
-    static constexpr double default_fragment_max_graph_lookback_bases_per_base = 0.03;
-    double fragment_max_graph_lookback_bases_per_base = default_fragment_max_graph_lookback_bases_per_base;
-    /// How many bases should we look back in the read when making fragments?
-    static constexpr size_t default_fragment_max_read_lookback_bases = std::numeric_limits<size_t>::max();
-    size_t fragment_max_read_lookback_bases = default_fragment_max_read_lookback_bases;
-    /// How many bases should we look back in the read when making fragments, per base of read length?
-    static constexpr double default_fragment_max_read_lookback_bases_per_base = 1.0;
-    double fragment_max_read_lookback_bases_per_base = default_fragment_max_read_lookback_bases_per_base;
-    /// How many fragments should we try and make when fragmenting something?
-    static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
-    size_t max_fragments = default_max_fragments;
-    
-    /// How much of a multiple should we apply to each transition's gap penalty
-    /// at fragmenting?
-    static constexpr double default_fragment_gap_scale = 1.0;
-    double fragment_gap_scale = default_fragment_gap_scale;
-    // How many points should we treat a non-gap connection base as producing, at fragmenting?
-    static constexpr double default_fragment_points_per_possible_match = 0;
-    double fragment_points_per_possible_match = default_fragment_points_per_possible_match;
-    /// How many bases of indel should we allow in fragments?
-    static constexpr size_t default_fragment_max_indel_bases = 2000;
-    size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
-    /// How many bases of indel should we allow in fragments per base of read length?
-    static constexpr double default_fragment_max_indel_bases_per_base = 0.2;
-    double fragment_max_indel_bases_per_base = default_fragment_max_indel_bases_per_base;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will try to WFA align? Passing strings longer than ~100bp
@@ -300,39 +259,13 @@ class MinimizerMapper : public AlignerClient {
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
-    /// How good should a fragment be in order to keep it? Fragments with
-    /// scores less than this fraction of the best fragment's score
-    /// will not be used.
-    static constexpr double default_fragment_score_fraction = 0.1;
-    double fragment_score_fraction = default_fragment_score_fraction;
-    
-    /// How high should we get the score threshold based on the best fragment's score get?
-    static constexpr double default_fragment_max_min_score = std::numeric_limits<double>::max();
-    double fragment_max_min_score = default_fragment_max_min_score;
-
-    /// What minimum score in points should a fragment have in order to keep
-    /// it? Needs to be set to some kind of significance threshold.
-    static constexpr double default_fragment_min_score = 60;
-    double fragment_min_score = default_fragment_min_score;
-
-    /// If a fragment set's score is smaller than the best 
-    /// fragment set's score by more than this much, don't align it
-    static constexpr double default_fragment_set_score_threshold = 0;
-    double fragment_set_score_threshold = default_fragment_set_score_threshold;
-
-    /// Disregard the fragment set score thresholds when they would give us
-    /// fewer than this many chainign problems done.
+    /// Do at least this many chaining problems.
     static constexpr int default_min_chaining_problems = 1;
     int min_chaining_problems = default_min_chaining_problems;
     
     /// Do no more than this many chaining problems.
     static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
     int max_chaining_problems = default_max_chaining_problems;
-
-    /// Sometimes we don't do chaining but instead turn fragments directly into chains
-    /// If this is 0, then do chaining. Otherwise take up to this many fragments and turn them into chains
-    static constexpr size_t default_max_direct_to_chain = 0;
-    size_t max_direct_to_chain = default_max_direct_to_chain;
 
     /// How many bases should we look back in the graph when chaining?
     static constexpr size_t default_max_graph_lookback_bases = 3000;
@@ -347,22 +280,18 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_max_read_lookback_bases_per_base = 1.0;
     double max_read_lookback_bases_per_base = default_max_read_lookback_bases_per_base;
 
-    /// How much of a bonus should we give to each item in
-    /// fragmenting/chaining?
+    /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score
-    /// in fragmenting/chaining?
+    /// in chaining?
     static constexpr double default_item_scale = 1.0;
     double item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
-    /// Recombination penalty for fragmenting. This is added to the score of a transition if there are no shared hapotypes.
-    static constexpr int default_rec_penalty_fragment = 0;
-    int rec_penalty_fragment = default_rec_penalty_fragment;
-    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared hapotypes.
+    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared haplotypes.
     static constexpr int default_rec_penalty_chain = 0;
     int rec_penalty_chain = default_rec_penalty_chain;
     // How many points should we treat a non-gap connection base as producing, at chaining?
@@ -905,47 +834,32 @@ protected:
     };
 
     /**
-     * Given a collection of zipcode trees, score the trees and do fragmenting on the best trees.
-     * 
-     * This will fill in the given vectors of fragments, fragment scores, etc.
+     * Given a collection of zipcode trees, score the trees and do chaining on the best trees.
+     *
+     * This will fill in the given vectors of chains, chain scores, etc.
      *
      * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
      * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
-    void do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                  const vector<algorithms::Anchor>& seed_anchors,
-                                  std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
-                                  std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
-                                  std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
-                                  std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
-                                  LazyRNG& rng, Funnel& funnel) const;
-    
-    /**
-     * Given a collection of fragments, filter down to the good ones and do chaining on them
-     */
-    void do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers, 
-                                  const std::vector<std::vector<size_t>>& fragments, const std::vector<double>& fragment_scores, 
-                                  const std::vector<algorithms::Anchor>& fragment_anchors, const std::vector<size_t>& fragment_source_tree,
-                                  const std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, const std::vector<double>& multiplicity_by_fragment,
-                                  std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree, 
-                                  std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count, 
-                                  std::vector<double>& multiplicity_by_chain, vector<double>& multiplicity_by_tree,
-                                  std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
-                                  LazyRNG& rng, Funnel& funnel) const;
+    void do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                              const vector<algorithms::Anchor>& seed_anchors,
+                              std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
+                              std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                              std::vector<double>& multiplicity_by_chain,
+                              std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
+                              LazyRNG& rng, Funnel& funnel) const;
 
     /**
      * Collect stats about the best chains for annotating the final alignment
      */
-    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                               const std::vector<std::vector<size_t>>& fragments,
-                               const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
                                const std::vector<std::vector<size_t>>& chains,
                                const std::vector<size_t>& chain_source_tree,
                                const vector<algorithms::Anchor>& seed_anchors,
                                const std::vector<int>& chain_score_estimates,
-                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
-                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length, 
+                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
+                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
                                Funnel& funnel) const ;
 
     void do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
@@ -1460,8 +1374,6 @@ protected:
     static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
-                                   const std::vector<std::vector<size_t>>& fragments,
-                                   const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
                                    const std::vector<std::vector<size_t>>& chains,
                                    const std::vector<size_t>& chain_source_tree,
                                    const PathPositionHandleGraph* path_graph);

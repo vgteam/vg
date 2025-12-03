@@ -189,8 +189,6 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
 void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                          const std::vector<Seed>& seeds,
                                          const VectorView<Minimizer>& minimizers,
-                                         const std::vector<std::vector<size_t>>& fragments,
-                                         const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
                                          const std::vector<std::vector<size_t>>& chains,
                                          const std::vector<size_t>& chain_source_tree,
                                          const PathPositionHandleGraph* path_graph) {
@@ -215,16 +213,6 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
         std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
         seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
         seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(chain_num)});
-
-        // Find all the fragments we passed for this tree
-        std::vector<std::vector<size_t>> relevant_fragments;
-        const auto& tree_fragments = good_fragments_in.at(tree_num);
-        for (const auto& fragment_num : tree_fragments) {
-            // Get all the seeds in each fragment
-            const std::vector<size_t>& fragment = fragments.at(fragment_num);
-            relevant_fragments.push_back(fragment);
-        }
-        seed_sets.emplace_back("frag", std::move(relevant_fragments));
 
         // Sort everything in read order
         for (auto& seed_set : seed_sets) {
@@ -705,29 +693,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
     
-    // Now we need to chain into fragments.
-    // Each fragment needs to end up with a seeds array of seed numbers, and a
-    // coverage float on the read, for downstream
-    // processing.
-
-    // Now compute fragments into these variables.
-    // What seeds are visited in what order in the fragment?
-    std::vector<std::vector<size_t>> fragments;
-    // What score does each fragment have?
-    std::vector<double> fragment_scores;
-    // What are the fragments themselves as combined anchors, for chaining later?
-    std::vector<algorithms::Anchor> fragment_anchors;
-    // Which zip code tree did each fragment come from, so we know how to chain them?
-    std::vector<size_t> fragment_source_tree;
-    // How many of each minimizer ought to be considered explored by each fragment?
-    // TODO: This is a lot of counts and a lot of allocations and should maybe be a 2D array if we really need it?
-    std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
-    // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
-    // here with the multiplicity of the trees for each fragment
-    std::vector<double> multiplicity_by_fragment;
-
     // If we do gapless extension, then it is possible to find full-length gapless extensions at this stage
-    // If we have at least two good gapless extensions, then we will turn them directly into alignments
+    // If we have at least one good gapless extension, then we will turn them directly into alignments
     // and skip the later stages. Store alignments from gapless extensions here
 
     // We will fill this with all computed alignments in estimated score order
@@ -737,11 +704,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
 
-    do_fragmenting_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                             fragments, fragment_scores, fragment_anchors, fragment_source_tree,
-                             minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, 
-                             minimizer_explored, multiplicity_by_alignment, rng, funnel);
-    
     // For each chain, we need:
     // The chain itself, pointing into seeds
     std::vector<std::vector<size_t>> chains;
@@ -753,18 +715,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> minimizer_kept_chain_count;
     // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
     std::vector<double> multiplicity_by_chain;
-    vector<double> multiplicity_by_tree(zip_code_forest.trees.size(), 0);
-    // Filter down to just the good fragments, sorted by read start
-    std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
 
-    if (alignments.size() == 0) {
-        do_chaining_on_fragments(aln, zip_code_forest, seeds, minimizers, 
-                                 fragments, fragment_scores, fragment_anchors, fragment_source_tree, minimizer_kept_fragment_count,
-                                 multiplicity_by_fragment,
-                                 chains, chain_source_tree, chain_score_estimates, minimizer_kept_chain_count, multiplicity_by_chain, 
-                                 multiplicity_by_tree,
-                                 good_fragments_in, rng, funnel); 
-    }
+    do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
+                         chains, chain_source_tree, chain_score_estimates,
+                         minimizer_kept_chain_count, multiplicity_by_chain,
+                         alignments, minimizer_explored, multiplicity_by_alignment,
+                         rng, funnel);
 
     //Fill in chain stats for annotating the final alignment
     bool best_chain_correct = false;
@@ -776,11 +732,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
     if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, this->path_graph);
+        dump_debug_chains(zip_code_forest, seeds, minimizers, chains, chain_source_tree, this->path_graph);
     }
 
     if (alignments.size() == 0) {
-        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors,
+        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, chains, chain_source_tree, seed_anchors,
                              chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
                              best_chain_anchors, best_chain_anchor_length, funnel);
     }
@@ -1004,12 +960,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (track_provenance) {
         if (track_correctness) {
-            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), fragments.size(), funnel);
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), chains.size(), funnel);
         }
     }
-    
-    // Special fragment and chain statistics
-    set_compressed_annotation(mappings[0], "fragment_scores", fragment_scores);
+
+    // Special chain statistics
+    set_compressed_annotation(mappings[0], "chain_scores", chain_score_estimates);
     if (track_correctness) {
         set_annotation(mappings[0], "best_chain.correct", best_chain_correct);
     }
@@ -1070,19 +1026,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     return mappings;
 }
 
-void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, 
+void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest,
         const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
         const vector<algorithms::Anchor>& seed_anchors,
-        std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
-        std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
-        std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
-        std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment, 
+        std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
+        std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+        std::vector<double>& multiplicity_by_chain,
+        std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
         LazyRNG& rng, Funnel& funnel) const {
 
-    // Keep track of which fragment each alignment comes from for the funnel
-    std::vector<size_t> alignment_source_fragment;
+    // Keep track of which chain each alignment comes from for the funnel
+    std::vector<size_t> alignment_source_chain;
 
-    // For now, multiplicity_by_fragment just stores how many trees had equal or better score. After going through all
+    // For now, multiplicity_by_chain just stores how many trees had equal or better score. After going through all
     // trees and counting how many are kept, each value will be divided by the number of trees kept
     size_t kept_tree_count = 0;
 
@@ -1102,7 +1058,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
     for (size_t i = 0; i < zip_code_forest.trees.size(); i++) {
         // For each zip code tree
-        
+
         // Score it
         std::pair<double, double> metrics = this->score_tree(zip_code_forest, i, minimizers, seeds, aln.sequence().size(), funnel);
         auto& score = metrics.first;
@@ -1129,7 +1085,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
     // We will set a score cutoff based on the best, but move it down to the
     // second best if it does not include the second best and the second best
     // is within pad_zipcode_tree_score_threshold of where the cutoff would
-    // otherwise be. This ensures that we won't throw away all but one 
+    // otherwise be. This ensures that we won't throw away all but one
     // based on score alone, unless it is really bad.
     double tree_score_cutoff = best_tree_score - zipcode_tree_score_threshold;
     if (tree_score_cutoff - pad_zipcode_tree_score_threshold < second_best_tree_score) {
@@ -1145,16 +1101,15 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
 
 
-
     if (track_provenance) {
-        funnel.stage("fragment");
-        funnel.substage("fragment");
+        funnel.stage("chain");
+        funnel.substage("chain");
     }
-    
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "=====Creating fragments=====" << endl;
+            cerr << log_name() << "=====Creating chains=====" << endl;
         }
     }
 
@@ -1192,43 +1147,43 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             return greater_than(tree_coverages[a], tree_coverages[b])
                 || (equalish(tree_coverages[a], tree_coverages[b]) && greater_than(tree_scores[a], tree_scores[b]));
 
-        }, this->zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
-            // Handle sufficiently good fragmenting problems in descending score order
-            
+        }, this->zipcode_tree_coverage_threshold, this->min_chaining_problems, this->max_chaining_problems, rng, [&](size_t item_num, size_t item_count) -> bool {
+            // Handle sufficiently good chaining problems in descending score order
+
             if (track_provenance) {
                 funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
-                funnel.pass("max-to-fragment", item_num);
+                funnel.pass("max-chaining-problems", item_num);
             }
 
             // First check against the additional score filter
-            if (zipcode_tree_score_threshold != 0 && tree_scores[item_num] < tree_score_cutoff 
-                && kept_tree_count >= min_to_fragment) {
-                // If the score isn't good enough and we already kept at least min_to_fragment trees,
+            if (zipcode_tree_score_threshold != 0 && tree_scores[item_num] < tree_score_cutoff
+                && kept_tree_count >= min_chaining_problems) {
+                // If the score isn't good enough and we already kept at least min_chaining_problems trees,
                 // ignore this tree
                 if (track_provenance) {
                     funnel.fail("zipcode-tree-score-threshold", item_num, tree_scores[item_num]);
                 }
                 return false;
             }
-            
+
             if (track_provenance) {
-                funnel.pass("zipcode-tree-score-threshold", item_num, tree_scores[item_num]); 
+                funnel.pass("zipcode-tree-score-threshold", item_num, tree_scores[item_num]);
             }
 
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Making fragments for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
+                    cerr << log_name() << "Making chains for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
                 }
             }
-            
+
             kept_tree_count++;
 
             if (track_provenance) {
-                // Say we're working on this 
+                // Say we're working on this
                 funnel.processing_input(item_num);
             }
-          
+
             // Also make a list of all the seeds in the problem.
             // This lets us select the single-seed anchors to use.
 
@@ -1239,12 +1194,12 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 selected_seeds.push_back(found.seed);
                 added_seed[found.seed] = true;
             }
-            
+
             if (show_work) {
                 dump_debug_seeds(minimizers, seeds, selected_seeds);
             }
 
-            // If we do gapless extension, we will use these anchors to fragment instead of the seed ones.
+            // If we do gapless extension, we will use these anchors to chain instead of the seed ones.
             std::vector<algorithms::Anchor> extension_anchors;
             // And each of them (or of the seed anchors, if we use those) represents this run of seed numbers to put into the final chain.
             std::vector<std::vector<size_t>> extension_seed_sequences;
@@ -1254,7 +1209,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             std::vector<size_t> extension_anchor_indexes;
 
             if (do_gapless_extension) {
-                // Instead of fragmenting directly on the seeds, fragment on gapless extensions of the seeds.
+                // Instead of chaining directly on the seeds, chain on gapless extensions of the seeds.
 
                 if (track_provenance) {
                     funnel.substage("gapless_extension");
@@ -1279,7 +1234,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 //If there are full-length extensions that are good enough, then just turn them into alignments.
                 if (GaplessExtender::full_length_extensions(tree_extensions)) {
                     for (size_t extension_i = 0 ; extension_i < tree_extensions.size() ; extension_i++) {
-                        if (tree_extensions[extension_i].full() && 
+                        if (tree_extensions[extension_i].full() &&
                             tree_extensions[extension_i].mismatches() <= this->default_max_extension_mismatches) {
 
                             // For all good-scoring full-length extensions, make them into alignments
@@ -1295,8 +1250,8 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                             this->extension_to_alignment(tree_extensions[extension_i], alignments.back());
 
                             if (track_provenance) {
-                                //We want to know which "fragment" this came from
-                                alignment_source_fragment.emplace_back(fragments.size());
+                                //We want to know which "chain" this came from
+                                alignment_source_chain.emplace_back(chains.size());
                             }
 
                             multiplicity_by_alignment.emplace_back(item_count);
@@ -1313,29 +1268,29 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                         }
                     }
                 }
-                // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
-                // Then skip fragmenting for this tree
+                // If we got at least one full-length extension as an alignment,
+                // Then skip chaining for this tree
                 if (alignments.size() >= 1) {
                     if (track_provenance) {
-                        //We might have already done some fragmenting so the funnel might already have started on that stage
-                        //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
+                        //We might have already done some chaining so the funnel might already have started on that stage
+                        //So to get the funnel to track the gapless extensions properly, we need to make a fake chaining
                         //stage for these too
                         // Tell the funnel
-                        //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);!
+                        //TODO: idk what score to give it funnel.score(funnel.latest(), scored_chain.first);!
 
                         funnel.project(item_num);
 
                         funnel.processed_input();
 
-                        //Add an entry to the list of fragments so we know which fragment num to give the alignments
+                        //Add an entry to the list of chains so we know which chain num to give the alignments
                         //This is just so the funnel can track everything
-                        fragments.emplace_back();
+                        chains.emplace_back();
 
                     }
                     return true;
                 }
 
-                
+
                 // We can't actually handle the same seed being used as the
                 // endpoint of multiple anchors in the chaining. So we need to
                 // go through the gapless extensions in score order and make
@@ -1457,96 +1412,81 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     }
                 }
             }
-            
+
             // Figure out what anchors we want to view.
-            const std::vector<algorithms::Anchor>& anchors_to_fragment = do_gapless_extension ? extension_anchors : seed_anchors;
+            const std::vector<algorithms::Anchor>& anchors_to_chain = do_gapless_extension ? extension_anchors : seed_anchors;
             // And what seeds each represents
             const std::vector<std::vector<size_t>>& anchor_seed_sequences = do_gapless_extension ? extension_seed_sequences : seed_seed_sequences;
             // And what subset/in what order
             std::vector<size_t>& anchor_indexes = do_gapless_extension ? extension_anchor_indexes : selected_seeds;
             // Sort anchors by read start of seeded region
-            algorithms::sort_anchor_indexes(anchors_to_fragment, anchor_indexes);
+            algorithms::sort_anchor_indexes(anchors_to_chain, anchor_indexes);
 
             // And what seeds should count as explored when we take an anchor
             const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
 
             if (track_provenance) {
-                funnel.substage("fragment");
+                funnel.substage("chain");
             }
-            
-            // Make a view of the anchors we will fragment over
-            VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
 
-            // This will hold our fragmenting results
+            // Make a view of the anchors we will chain over
+            VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
+
+            // This will hold our chaining results
             std::vector<std::pair<int, std::vector<size_t>>> results;
 
-            if (do_fragmenting) {
-                // We want to actually to fragmenting.
-                // TODO: THe bypass logic is ugly; remove it!
-            
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Computing fragments over " << anchor_view.size() << " anchors" << endl;
-                    }
-                }
-    #ifdef debug
-                if (show_work) {
-                    // Log the chaining problem so we can try it again elsewhere.
-                    this->dump_chaining_problem(anchors_to_fragment, anchor_indexes, gbwt_graph);
-                }
-    #endif
-                
-                // Compute lookback and indel limits based on read length.
-                // Important since seed density goes down on longer reads.
-                size_t graph_lookback_limit = std::max(this->fragment_max_graph_lookback_bases, (size_t)(this->fragment_max_graph_lookback_bases_per_base * aln.sequence().size()));
-                size_t read_lookback_limit = std::max(this->fragment_max_read_lookback_bases, (size_t)(this->fragment_max_read_lookback_bases_per_base * aln.sequence().size()));
-                size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
-
-                // Find fragments over the seeds in the zip code tree
-                algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                    seeds,
-                    zip_code_forest.trees[item_num],
-                    graph_lookback_limit,
-                    read_lookback_limit
-                ); 
-                results = algorithms::find_best_chains(
-                    anchor_view,
-                    *distance_index,
-                    gbwt_graph,
-                    get_regular_aligner()->gap_open,
-                    get_regular_aligner()->gap_extension,
-                    this->rec_penalty_fragment,
-                    this->max_fragments,
-                    for_each_transition,
-                    this->item_bonus,
-                    this->item_scale,
-                    this->fragment_gap_scale,
-                    this->fragment_points_per_possible_match,
-                    indel_limit,
-                    false
-                );
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
-                        << " running " << anchors_to_fragment[anchor_indexes.front()] << " to " << anchors_to_fragment[anchor_indexes.back()] << std::endl;
-                }
-            } else {
-                // We want to fake a bunch of 1-item "fragments" at the same score as the items.
+            if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Creating fake fragments for " << anchor_view.size() << " anchors" << endl;
+                    cerr << log_name() << "Computing chains over " << anchor_view.size() << " anchors" << endl;
                 }
+            }
+#ifdef debug
+            if (show_work) {
+                // Log the chaining problem so we can try it again elsewhere.
+                this->dump_chaining_problem(anchors_to_chain, anchor_indexes, gbwt_graph);
+            }
+#endif
 
-                for (size_t i = 0; i < anchor_view.size(); i++) {
-                    results.emplace_back(anchor_view[i].score(), std::vector<size_t>({i}));
-                }
+            // Compute lookback and indel limits based on read length.
+            // Important since seed density goes down on longer reads.
+            size_t graph_lookback_limit = std::max(this->max_graph_lookback_bases, (size_t)(this->max_graph_lookback_bases_per_base * aln.sequence().size()));
+            size_t read_lookback_limit = std::max(this->max_read_lookback_bases, (size_t)(this->max_read_lookback_bases_per_base * aln.sequence().size()));
+            size_t indel_limit = std::max(this->max_indel_bases, (size_t)(this->max_indel_bases_per_base * aln.sequence().size()));
+
+            // Find chains over the seeds in the zip code tree
+            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                seeds,
+                zip_code_forest.trees[item_num],
+                graph_lookback_limit,
+                read_lookback_limit
+            );
+            results = algorithms::find_best_chains(
+                anchor_view,
+                *distance_index,
+                gbwt_graph,
+                get_regular_aligner()->gap_open,
+                get_regular_aligner()->gap_extension,
+                this->rec_penalty_chain,
+                this->max_alignments,
+                for_each_transition,
+                this->item_bonus,
+                this->item_scale,
+                this->gap_scale,
+                this->points_per_possible_match,
+                indel_limit,
+                false
+            );
+            if (show_work) {
+                #pragma omp critical (cerr)
+                cerr << log_name() << "Found " << results.size() << " chains in zip code tree " << item_num
+                    << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
 
             for (size_t result = 0; result < results.size(); result++) {
                 // For each result
-                auto& scored_fragment = results[result];
+                auto& scored_chain = results[result];
                 if (show_work) {
 #ifdef debug
                     if(true)
@@ -1554,16 +1494,16 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     if (result < MANY_LIMIT)
 #endif
                     {
-                        if (!scored_fragment.second.empty()) {
+                        if (!scored_chain.second.empty()) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "\tFragment with score " << scored_fragment.first
-                                    << " and length " << scored_fragment.second.size()
-                                    << " running " << anchor_view[scored_fragment.second.front()]
-                                    << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
+                                cerr << log_name() << "\tChain with score " << scored_chain.first
+                                    << " and length " << scored_chain.second.size()
+                                    << " running " << anchor_view[scored_chain.second.front()]
+                                    << " to " << anchor_view[scored_chain.second.back()] << std::endl;
 #ifdef debug
-                                
-                                for (auto& anchor_number : scored_fragment.second) {
+
+                                for (auto& anchor_number : scored_chain.second) {
                                     std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
                                 }
 #endif
@@ -1572,93 +1512,54 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                         }
                     } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more fragments>" << std::endl;
+                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more chains>" << std::endl;
                     }
                 }
 
-                // Count how many of each minimizer is in each fragment produced
-                minimizer_kept_fragment_count.emplace_back(minimizers.size(), 0);
+                // Count how many of each minimizer is in each chain produced
+                minimizer_kept_chain_count.emplace_back(minimizers.size(), 0);
 
-                // Translate fragments into seed numbers and not local anchor numbers.
-                fragments.emplace_back();
-                fragments.back().reserve(scored_fragment.second.size() * 2);
-                // Keep track of the paths consistent with the fragment
-                size_t fragment_start_paths = UINT64_MAX;
-                size_t fragment_end_paths = UINT64_MAX;
-                for (auto& selected_number : scored_fragment.second) {
-                    bool recombination = false;
-#ifdef debug_rec
-                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_start_paths() == anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_end_paths());
-                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_start_paths() != 0);
-                    assert(anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_end_paths() != 0);
-#endif
-                    
-                    auto paths_update = anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_paths();
-                    if (recombination) {
-                        // If we already had a recombination, start paths are set, we can only update end paths.
-                        fragment_end_paths &= paths_update.second;
-                        if (fragment_end_paths == 0) {
-                            fragment_end_paths = paths_update.second;
-                        }
-                    } else {
-                        
-                        if ((fragment_start_paths & paths_update.first) == 0) {
-#ifdef debug_rec
-                            cerr << log_name() << "Recombinant fragment at anchor " << anchor_view[selected_number] << " with paths " << paths_update.first << endl;
-#endif
-                            // If we have no paths, we have a recombination event. start and end paths are not the same.
-                            fragment_end_paths = paths_update.second;
-                            recombination = true;
-                        }  else {
-                            fragment_start_paths &= paths_update.first;
-                            fragment_end_paths = fragment_start_paths;
-                        }
-                    }
+                // Translate chains into seed numbers and not local anchor numbers.
+                chains.emplace_back();
+                chains.back().reserve(scored_chain.second.size() * 2);
+                for (auto& selected_number : scored_chain.second) {
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
-                        // And get all the seeds it actually uses in sequence and put them in the fragment.
-                        fragments.back().push_back(seed_number);
+                        // And get all the seeds it actually uses in sequence and put them in the chain.
+                        chains.back().push_back(seed_number);
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
                         // TODO: Can we get the gapless extension logic to count this for us for that codepath?
-                        minimizer_kept_fragment_count.back()[seeds[seed_number].source]++;
+                        minimizer_kept_chain_count.back()[seeds[seed_number].source]++;
                     }
                 }
                 // Remember the score
-                fragment_scores.push_back(scored_fragment.first);
+                chain_score_estimates.push_back(scored_chain.first);
 
-                // And make an anchor of it right now, for chaining later.
-                // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.emplace_back(
-                    algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back())
-                );
-                fragment_anchors.back().set_paths(fragment_start_paths, fragment_end_paths);            
                 // Remember how we got it
-                fragment_source_tree.push_back(item_num);
+                chain_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
-                multiplicity_by_fragment.emplace_back((float)item_count);
-#ifdef debug_rec
-                cerr << "fragment score: " << fragment_scores.back() << " with length: "<< scored_fragment.second.size() << " Paths: "<< fragment_anchors.back().anchor_start_paths() << " " << fragment_anchors.back().anchor_end_paths() << endl;
-#endif
+                multiplicity_by_chain.emplace_back((float)item_count);
+
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.introduce();
-                    funnel.score(funnel.latest(), scored_fragment.first);
+                    funnel.score(funnel.latest(), scored_chain.first);
                     // We come from all the seeds directly
                     // TODO: Include all the middle seeds when gapless extending!
-                    funnel.also_merge_group(2, fragments.back().begin(), fragments.back().end());
+                    funnel.also_merge_group(2, chains.back().begin(), chains.back().end());
                     // And are related to the problem
                     funnel.also_relevant(1, item_num);
                 }
 
                 if (track_position && result < MANY_LIMIT) {
-                    // Add position annotations for the good-looking fragments.
+                    // Add position annotations for the good-looking chains.
                     // Should be much faster than full correctness tracking from every seed.
                     crash_unless(this->path_graph);
-                    for (auto& boundary : {anchor_view[scored_fragment.second.front()].graph_start(), anchor_view[scored_fragment.second.back()].graph_end()}) {
-                        // For each end of the fragment
+                    for (auto& boundary : {anchor_view[scored_chain.second.front()].graph_start(), anchor_view[scored_chain.second.back()].graph_end()}) {
+                        // For each end of the chain
                         auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100);
                         for (auto& handle_and_positions : offsets) {
                             for (auto& position : handle_and_positions.second) {
@@ -1672,7 +1573,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
                 if (track_provenance && show_work && result < MANY_LIMIT) {
                     for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                        // Log each range on a path associated with the fragment.
+                        // Log each range on a path associated with the chain.
                         #pragma omp critical (cerr)
                         std::cerr << log_name() << "\t\tAt linear reference "
                             << this->path_graph->get_path_name(handle_and_range.first)
@@ -1685,21 +1586,21 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     }
                 }
             }
-            
+
             if (track_provenance) {
-                // Say we're done with this 
+                // Say we're done with this
                 funnel.processed_input();
             }
-            
+
             return true;
-            
+
         }, [&](size_t item_num) -> void {
             // There are too many sufficiently good problems to do
             if (track_provenance) {
                 funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
-                funnel.fail("max-to-fragment", item_num);
+                funnel.fail("max-chaining-problems", item_num);
             }
-            
+
         }, [&](size_t item_num) -> void {
             // This item is not sufficiently good.
             if (track_provenance) {
@@ -1708,10 +1609,10 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
         });
 
     if (alignments.size() >= 1) {
-        //If we did get alignments from fragmenting, boot them through the funnel all at once
+        //If we did get alignments from chaining, boot them through the funnel all at once
         funnel.stage("extension_to_alignment");
-        for (size_t fragment_num : alignment_source_fragment) {
-            funnel.project(fragment_num);
+        for (size_t chain_num : alignment_source_chain) {
+            funnel.project(chain_num);
         }
         //Get the actual multiplicity from the counts
         for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; i++) {
@@ -1723,502 +1624,24 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
     } else {
 
         //Get the actual multiplicity from the counts
-        for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-            multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
-                                        ?  multiplicity_by_fragment[i] - (float)kept_tree_count
+        for (size_t i = 0 ; i < multiplicity_by_chain.size() ; i++) {
+            multiplicity_by_chain[i] = multiplicity_by_chain[i] >= kept_tree_count
+                                        ?  multiplicity_by_chain[i] - (float)kept_tree_count
                                         : 0.0;
         }
     }
 
 }
 
-void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, 
-        const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
-        const std::vector<std::vector<size_t>>& fragments, const std::vector<double>& fragment_scores, 
-        const std::vector<algorithms::Anchor>& fragment_anchors, const std::vector<size_t>& fragment_source_tree,
-        const std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, const std::vector<double>& multiplicity_by_fragment,
-        std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree, std::vector<int>& chain_score_estimates,
-        std::vector<std::vector<size_t>>& minimizer_kept_chain_count, std::vector<double>& multiplicity_by_chain,
-        std::vector<double>& multiplicity_by_tree,
-        std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
-        LazyRNG& rng, Funnel& funnel) const {
- 
-    // Now glom the fragments together into chains 
-    if (track_provenance) {
-        funnel.stage("chain");
-    }
-    
-    if (track_provenance) {
-        funnel.substage("chain");
-    }
-    // Get all the fragment numbers for each zip code tree we actually used, so we can chain each independently again.
-    // TODO: Stop reswizzling so much.
-    std::unordered_map<size_t, std::vector<size_t>> tree_to_fragments;
-    for (size_t i = 0; i < fragment_source_tree.size(); i++) {
-        tree_to_fragments[fragment_source_tree[i]].push_back(i);
-#ifdef debug
-        if (multiplicity_by_tree[fragment_source_tree[i]] != 0) {
-            assert(multiplicity_by_tree[fragment_source_tree[i]] == multiplicity_by_fragment[i]);
-        }
-#endif
-        multiplicity_by_tree[fragment_source_tree[i]] = multiplicity_by_fragment[i];
-    }
-    
-    // Get the score of the top-scoring fragment in each collection.
-    std::unordered_map<size_t, double> best_fragment_score_in;
-    // And overall
-    double best_fragment_score = 0;
-    for (auto& kv : tree_to_fragments) {
-        for (auto& fragment_num : kv.second) {
-            // Max in the score of each fragment 
-            best_fragment_score_in[kv.first] = std::max(best_fragment_score_in[kv.first], fragment_scores.at(fragment_num));
-            best_fragment_score = std::max(best_fragment_score, best_fragment_score_in[kv.first]);
-        }
-    }
-    
-    // Decide on how good fragments have to be to keep.
-    double fragment_score_threshold = std::min(best_fragment_score * fragment_score_fraction, fragment_max_min_score);
-    double fragment_score_threshold_overall = std::max(fragment_score_threshold, fragment_min_score);
 
-    for (auto& kv : tree_to_fragments) {
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Keeping, of the " << kv.second.size() << " fragments in " << kv.first << ", those with score of at least "  << fragment_score_threshold_overall << endl;
-            }
-        }
-        
-        size_t fragments_kept = 0;
 
-        // Keep the fragments that have good scores.
-        for (auto& fragment_num : kv.second) {
-            // For each fragment
-            auto fragment_score = fragment_scores.at(fragment_num);
-            if (!do_fragmenting || fragment_score >= fragment_score_threshold_overall) {
-                // If its score is high enough vs. the best
-                if (track_provenance) {
-                    // Tell the funnel
-                    funnel.pass("fragment-score-fraction||fragment-max-min-score||fragment-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
-                }
-
-                if (!do_fragmenting || fragment_score >= fragment_min_score) {
-                    // And its score is high enough overall
-
-                    if (track_provenance) {
-                        // Tell the funnel
-                        funnel.pass("fragment-min-score", fragment_num, fragment_score);
-                    }
-
-                    // Keep it.
-                    good_fragments_in[kv.first].push_back(fragment_num);
-                    fragments_kept++;
-                } else {
-                    // If its score is not high enough overall
-                    if (track_provenance) {
-                        // Tell the funnel
-                        funnel.fail("fragment-min-score", fragment_num, fragment_score);
-                    }
-                }
-            } else {
-                // If its score is not high enough vs. the best
-                if (track_provenance) {
-                    // Tell the funnel
-                    funnel.fail("fragment-score-fraction||fragment-max-min-score||fragment-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
-                } 
-            }
-        }
-        
-        if (fragments_kept > 1) {
-            // Only access the vector if we put stuff in it, to avoid making
-            // empty vectors. And only sort if there are multiple fragments. 
-            
-            // Now sort anchors by read start. Don't bother with shadowing.
-            algorithms::sort_anchor_indexes(fragment_anchors, good_fragments_in[kv.first]);
-        }
-
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "\tKept " << fragments_kept << "/" << kv.second.size() << " fragments." << endl;
-            }
-        }
-    }
-
-    // Draft trees to chain all the fragments of based on how good their fragment sets look. 
-    std::vector<size_t> trees_with_good_fragments;
-    std::vector<double> fragment_set_scores;
-    trees_with_good_fragments.reserve(good_fragments_in.size());
-    fragment_set_scores.reserve(good_fragments_in.size());
-    for (auto& kv : good_fragments_in) {
-        // Make a vector of the numbers of all the still-eligible trees
-        trees_with_good_fragments.push_back(kv.first);
-        // And score each set of fragments
-        double fragment_set_score = 0;
-        for (auto& anchor_index : kv.second) {
-            fragment_set_score += fragment_anchors.at(anchor_index).score();
-        }
-        fragment_set_scores.push_back(fragment_set_score);
-    }
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "=====Creating chains=====" << endl;
-        }
-    }
-
-    process_until_threshold_b<double>(fragment_set_scores,
-        do_fragmenting ? fragment_set_score_threshold : std::numeric_limits<double>::max(), min_chaining_problems, max_chaining_problems, rng, 
-        [&](size_t processed_num, size_t item_count) -> bool {
-            // This tree's fragment set is good enough.
-            // Called in descending score order
-            
-            // TODO: How should this connect to multiplicity_by_tree? Given that we're dropping whole trees again?
-
-            // Look up which tree this is
-            size_t tree_num = trees_with_good_fragments.at(processed_num);
-            auto& tree_fragments = good_fragments_in[tree_num];
-
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Tree " << tree_num << " has a good enough fragment set (score=" << fragment_set_scores[processed_num] << ")" << endl;
-                    if (track_correctness) {
-                        for (auto& fragment_num : tree_fragments) {
-                            if (funnel.was_correct(fragment_num)) {
-                                cerr << log_name() << "\tCORRECT!" << endl;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (track_provenance) {
-                for (auto& fragment_num : tree_fragments) {
-                    funnel.pass("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
-                    funnel.pass("max-chaining-problems", fragment_num);
-                }
-            }
-
-            //If we are not doing chaining, then just turn the best max_direct_to_chain_per_tree fragments into chains
-            if (max_direct_to_chain > 0) {
-                process_until_threshold_a(tree_fragments.size(),(std::function<double(size_t)>) [&](size_t i) -> double {
-                    return fragment_scores[tree_fragments[i]];
-                }, 0, 1, max_direct_to_chain, rng, 
-                [&](size_t fragment_num, size_t fragment_count) {
-                    // This alignment makes it
-                    // Called in score order
-
-                    // Get its fragment number out of all fragments
-                    size_t fragment_num_overall = tree_fragments.at(fragment_num);
-                    
-                    // Go get that fragment
-                    auto& fragment = fragments.at(fragment_num_overall);
-                        
-                    // Each fragment becomes a chain of seeds
-                    chains.emplace_back();
-                    auto& chain = chains.back();
-                    // Append all the seed numbers to the chain
-                    std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
-
-                    // The chain has a source
-                    chain_source_tree.push_back(tree_num);
-                    // And a score
-                    chain_score_estimates.emplace_back(fragment_scores.at(fragment_num_overall));
-
-                    // And counts of each minimizer kept
-                    minimizer_kept_chain_count.emplace_back();
-                    auto& minimizer_kept = minimizer_kept_chain_count.back();
-                    auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
-                    if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
-                        minimizer_kept.resize(fragment_minimizer_kept.size());
-                    }
-                    for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
-                        minimizer_kept[i] += fragment_minimizer_kept[i];
-                    }
-
-                    //Remember the multiplicity from the fragments. For now, it is just based on
-                    //the trees so it doesn't matter which fragment this comes from
-                    multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
-                    
-                    
-                    if (track_provenance) {
-                        funnel.pass("max-direct-chain",tree_fragments.at(fragment_num));
-                        // Say that this fragment became a chain
-                        funnel.project(fragment_num_overall);
-                        // With the same score
-                        funnel.score(funnel.latest(), chain_score_estimates.back());
-                    }
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " is made from single local fragment: " 
-                                      << fragment_num << std::endl;
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " is made from single global fragment: "
-                                      << fragment_num_overall << std::endl;
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " contains seeds:";
-                            for (auto& s : chains.back()) {
-                                std::cerr << " " << s;
-                            } 
-                            std::cerr << std::endl;
-                            
-                            // get recombination count
-                            size_t recombination_count = 0;
-                            size_t current_paths = UINT64_MAX;
-                            for (size_t s : chains.back()) {
-                                current_paths &= seeds.at(s).paths;
-                                if (current_paths == 0) {
-                                    recombination_count++;
-                                    current_paths = seeds.at(s).paths;
-                                }
-                            }
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " has " << recombination_count << " recombinations." << std::endl;
-                        }
-                        if (track_provenance) {
-                            for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                                // Log each range on a path associated with the chain.
-                                #pragma omp critical (cerr)
-                                std::cerr << log_name() << "\tAt linear reference "
-                                    << this->path_graph->get_path_name(handle_and_range.first)
-                                    << ":" << handle_and_range.second.first
-                                    << "-" << handle_and_range.second.second << std::endl;
-                            }
-                        }
-                        if (track_correctness && funnel.is_correct(funnel.latest())) {
-                            #pragma omp critical (cerr)
-                            cerr << log_name() << "\tCORRECT!" << endl;
-                        }
-                    } 
-                    return true;
-
-                }, [&](size_t fragment_num) {
-                    // We already have enough fragments, although this one has a good score
-                    // We take all fragments to chains
-                    //TODO: Do I need to fail the funnel here? I don't think there's a funnel item yet
-                    if (track_provenance){
-                        funnel.fail("max-direct-chain",tree_fragments.at(fragment_num));
-                    }
-                    return;
-       
-                }, [&](size_t fragment_num) {
-                    // This fragment does not have a sufficiently good score
-                    // Score threshold is 0; this should never happen
-                    crash_unless(false);
-                    return;
-                });
-
-                return true;
-            }
-
-            // Get a view of all the good fragments.
-            // TODO: Should we just not make a global fragment anchor list?
-            VectorView<algorithms::Anchor> fragment_view {fragment_anchors, tree_fragments};
-            
-            // We should not be making empty entries
-            crash_unless(!fragment_view.empty());
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                std::cerr << log_name() << "Chaining fragments from zip code tree " << tree_num << std::endl;
-            } 
-
-            // Compute lookback and indel limits based on read length.
-            // Important since seed density goes down on longer reads.
-            size_t graph_lookback_limit = std::max(this->max_graph_lookback_bases, (size_t)(this->max_graph_lookback_bases_per_base * aln.sequence().size()));
-            size_t read_lookback_limit = std::max(this->max_read_lookback_bases, (size_t)(this->max_read_lookback_bases_per_base * aln.sequence().size()));
-            size_t indel_limit = std::max(this->max_indel_bases, (size_t)(this->max_indel_bases_per_base * aln.sequence().size()));
-
-            // Chain up the fragments
-            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                seeds,
-                zip_code_forest.trees[tree_num],
-                graph_lookback_limit,
-                read_lookback_limit
-            );
-            std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
-                fragment_view,
-                *distance_index,
-                gbwt_graph,
-                get_regular_aligner()->gap_open,
-                get_regular_aligner()->gap_extension,
-                this->rec_penalty_chain, 
-                this->max_alignments,
-                for_each_transition,
-                this->item_bonus,
-                this->item_scale,
-                this->gap_scale,
-                this->points_per_possible_match,
-                indel_limit,
-                show_work
-            );
-            
-            for (size_t result = 0; result < chain_results.size(); result++) {
-                auto& chain_result = chain_results[result];
-                // Each chain of fragments becomes a chain of seeds
-                chains.emplace_back();
-                auto& chain = chains.back();
-                // With a source
-                chain_source_tree.push_back(tree_num);
-                // With a score
-                chain_score_estimates.emplace_back(0);
-                int& score = chain_score_estimates.back();
-                // And counts of each minimizer kept
-                minimizer_kept_chain_count.emplace_back();
-                auto& minimizer_kept = minimizer_kept_chain_count.back();
-                //Remember the multiplicity from the fragments. For now, it is just based on
-                //the trees so it doesn't matter which fragment this comes from
-                multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
-                
-                // We record the fragments that merge into each chain for reporting.
-                std::vector<size_t> chain_fragment_nums_overall;
-                chain_fragment_nums_overall.reserve(chain_result.second.size());
-                
-                for (const size_t& local_fragment: chain_result.second) {
-                    // For each fragment in the chain
-                               
-                    // Get its fragment number out of all fragments
-                    size_t fragment_num_overall = tree_fragments.at(local_fragment);
-                    
-                    // Save it
-                    chain_fragment_nums_overall.push_back(fragment_num_overall);
-                    
-                    // Go get that fragment
-                    auto& fragment = fragments.at(fragment_num_overall);
-                        
-                    // And append all the seed numbers to the chain
-                    std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
-                    
-                    // And count the score
-                    score += fragment_scores.at(fragment_num_overall);
-                    
-                    // And count the kept minimizers
-                    auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
-                    if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
-                        minimizer_kept.resize(fragment_minimizer_kept.size());
-                    }
-                    for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
-                        minimizer_kept[i] += fragment_minimizer_kept[i];
-                    }
-                }
-                if (track_provenance) {
-                    // Say all those fragments became a chain
-                    funnel.merge_group(chain_fragment_nums_overall.begin(), chain_fragment_nums_overall.end());
-                    // With the total score
-                    funnel.score(funnel.latest(), score);
-                }
-                if (show_work) {
-                    if (result < MANY_LIMIT) {
-                        #pragma omp critical (cerr)
-                        {
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from local fragments:";
-                            for (auto& f : chain_result.second) {
-                                std::cerr << " " << f;
-                            } 
-                            std::cerr << std::endl;
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from global fragments:";
-                            for (auto& f : chain_fragment_nums_overall) {
-                                std::cerr << " " << f;
-                            } 
-                            std::cerr << std::endl;
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " contains seeds:";
-                            for (auto& s : chains.back()) {
-                                std::cerr << " " << s;
-                            } 
-                            std::cerr << std::endl;
-
-                            // get recombination count
-                            size_t recombination_count = 0;
-                            size_t current_paths = UINT64_MAX;
-                            for (size_t s : chains.back()) {
-                                current_paths &= seeds.at(s).paths;
-                                if (current_paths == 0) {
-                                    recombination_count++;
-                                    current_paths = seeds.at(s).paths;
-                                }
-                            }
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " has " << recombination_count << " recombinations." << std::endl;
-                        }
-                        if (track_provenance) {
-                            for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                                // Log each range on a path associated with the chain.
-                                #pragma omp critical (cerr)
-                                std::cerr << log_name() << "\tAt linear reference "
-                                    << this->path_graph->get_path_name(handle_and_range.first)
-                                    << ":" << handle_and_range.second.first
-                                    << "-" << handle_and_range.second.second << std::endl;
-                            }
-                        }
-                        if (track_correctness && funnel.is_correct(funnel.latest())) {
-                            #pragma omp critical (cerr)
-                            cerr << log_name() << "\tCORRECT!" << endl;
-                        }
-                    } else if (result == MANY_LIMIT) {
-                        #pragma omp critical (cerr)
-                        std::cerr << log_name() << "<" << (chain_results.size() - result) << " more chains>" << std::endl;
-                    }
-                } 
-            }
-
-            return true;
-
-        }, [&](size_t processed_num) -> void {
-            // There are too many sufficiently good fragment sets.
-            size_t tree_num = trees_with_good_fragments.at(processed_num);
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Tree " << tree_num << " skipped because too many trees have good enough fragment sets (score=" << fragment_set_scores[processed_num] << ")" << endl;
-                    if (track_correctness) {
-                        for (auto& fragment_num : good_fragments_in[tree_num]) {
-                            if (funnel.was_correct(fragment_num)) {
-                                cerr << log_name() << "\tCORRECT!" << endl;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (track_provenance) {
-                for (auto& fragment_num : good_fragments_in[tree_num]) {
-                    funnel.pass("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
-                    funnel.fail("max-chaining-problems", fragment_num);
-                }
-            }
-        }, [&](size_t processed_num) -> void {
-            // This fragment set is not sufficiently good.
-            size_t tree_num = trees_with_good_fragments.at(processed_num);
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Tree " << tree_num << " skipped because its fragment set is not good enough (score=" << fragment_set_scores[processed_num] << ")" << endl;
-                    if (track_correctness) {
-                        for (auto& fragment_num : good_fragments_in[tree_num]) {
-                            if (funnel.was_correct(fragment_num)) {
-                                cerr << log_name() << "\tCORRECT!" << endl;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (track_provenance) {
-                for (auto& fragment_num : good_fragments_in[tree_num]) {
-                    funnel.fail("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
-                }
-            }
-        });
-
-}
-
-void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                            const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                           const std::vector<std::vector<size_t>>& fragments,
-                                           const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
                                            const std::vector<std::vector<size_t>>& chains,
                                            const std::vector<size_t>& chain_source_tree,
                                            const vector<algorithms::Anchor>& seed_anchors,
                                            const std::vector<int>& chain_score_estimates,
-                                           bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
+                                           bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
                                            double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
                                            Funnel& funnel) const {
     // Find the best chain
