@@ -257,7 +257,7 @@ class MinimizerMapper : public AlignerClient {
     size_t gapless_extension_limit = default_gapless_extension_limit;
 
     /// Actually do fragmenting instead of just passing every seed/extension through as a fragment.
-    static constexpr bool default_do_fragmenting = true;
+    static constexpr bool default_do_fragmenting = false;
     bool do_fragmenting = default_do_fragmenting;
     
     /// How many bases should we look back in the graph when making fragments?

@@ -381,10 +381,10 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "do gapless extension to seeds in a tree before fragmenting if the read length is less than this"
     );
     chaining_opts.add_flag(
-        "skip-fragmenting",
+        "do-fragmenting",
         &MinimizerMapper::do_fragmenting,
         MinimizerMapper::default_do_fragmenting,
-        "skip fragmenting"
+        "do fragmenting"
     );
     chaining_opts.add_range(
         "fragment-max-graph-lookback-bases",
