@@ -1521,10 +1521,9 @@ ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
                                                   std::stack<size_t> chain_numbers,
                                                   bool right_to_left,
                                                   size_t distance_limit) :
-    index(start_index), original_index(start_index), end_index(right_to_left ? 0 : (zip_code_tree.size() - 1)),
-    zip_code_tree(zip_code_tree), chain_numbers(chain_numbers), 
-    right_to_left(right_to_left), original_right_to_left(right_to_left),
-    distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
+    original_index(start_index), end_index(right_to_left ? 0 : (zip_code_tree.size() - 1)),
+    zip_code_tree(zip_code_tree), original_right_to_left(right_to_left), distance_limit(distance_limit),
+    pos(start_index, right_to_left, std::stack<size_t>(), chain_numbers, S_START) {
     if (done()) {
         // We are an end iterator. Nothing else to do.
         return;
@@ -1579,23 +1578,23 @@ auto ZipCodeTree::distance_iterator::operator*() const -> seed_result_t {
 #ifdef check_parse
     crash_unless(!done());
     crash_unless(current_item().get_type() == SEED);
-    crash_unless(!stack_data.empty());
+    crash_unless(!pos.stack_data.empty());
 #endif
     // We know the running distance to this seed will be at the top of the stack
     // If we're at the exact same position, the distance must be 0
-    size_t distance = stack_data.top();
-    bool is_reversed = right_to_left ? current_item().get_is_reversed()
-                                     : !current_item().get_is_reversed();
+    size_t distance = pos.stack_data.top();
+    bool is_reversed = pos.right_to_left ? current_item().get_is_reversed()
+                                         : !current_item().get_is_reversed();
     return {distance, current_item().get_value(), is_reversed};
 }
 
 auto ZipCodeTree::distance_iterator::push(size_t value) -> void {
-    stack_data.push(value);
+    pos.stack_data.push(value);
 }
 
 auto ZipCodeTree::distance_iterator::pop() -> size_t {
-    size_t value = stack_data.top();
-    stack_data.pop();
+    size_t value = pos.stack_data.top();
+    pos.stack_data.pop();
     return value;
 }
 
@@ -1603,25 +1602,25 @@ auto ZipCodeTree::distance_iterator::top() -> size_t& {
 #ifdef check_parse
     crash_unless(depth() > 0);
 #endif
-    return stack_data.top();
+    return pos.stack_data.top();
 }
 
 auto ZipCodeTree::distance_iterator::dup() -> void {
-    push(stack_data.top());
+    push(pos.stack_data.top());
 }
 
 auto ZipCodeTree::distance_iterator::depth() const -> size_t {
-    return stack_data.size();
+    return pos.stack_data.size();
 }
 
 auto ZipCodeTree::distance_iterator::swap() -> void {
     // Grab the top item
-    size_t temp = stack_data.top();
-    stack_data.pop();
+    size_t temp = pos.stack_data.top();
+    pos.stack_data.pop();
     // Swap it with what was under it
-    std::swap(temp, stack_data.top());
+    std::swap(temp, pos.stack_data.top());
     // And put that back on top
-    stack_data.push(temp);
+    pos.stack_data.push(temp);
 }
 
 void ZipCodeTree::distance_iterator::stack_snarl_distances(size_t snarl_start_i, size_t chain_num, bool right_side) {
@@ -1794,9 +1793,9 @@ void ZipCodeTree::distance_iterator::skip_chain() {
     // Discard distance for this chain
     pop();
     // Jump to other bound
-    index = pop();
+    pos.index = pop();
 #ifdef debug_parse
-    std::cerr << "Skip chain, jump to index " << index << std::endl;
+    std::cerr << "Skip chain, jump to index " << pos.index << std::endl;
 #endif
     // We skipped because we want to try other chains in this snarl
     continue_snarl();
@@ -1804,7 +1803,7 @@ void ZipCodeTree::distance_iterator::skip_chain() {
 
 void ZipCodeTree::distance_iterator::initialize_chain() {
     // Where *would* we jump, if we jumped?
-    push(index + current_item().get_other_bound_offset());
+    push(pos.index + current_item().get_other_bound_offset());
     swap();
     if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
@@ -1816,20 +1815,20 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
         skip_chain();
     } else {
         // Do the chain
-        current_state = S_SCAN_CHAIN;
+        pos.state = S_SCAN_CHAIN;
     }
 }
 
 void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chain_num) {
-    std::stack<size_t> save_stack = stack_data;
-    std::stack<size_t> save_chain_numbers = chain_numbers;
-    size_t snarl_start_i = index - current_item().get_value();
+    std::stack<size_t> save_stack = pos.stack_data;
+    std::stack<size_t> save_chain_numbers = pos.chain_numbers;
+    size_t snarl_start_i = pos.index - current_item().get_value();
     
     // Exit out the bound that we're NOT pointing at
     // (L->R exits at the start, R->L at the end)
     size_t save_index;
     size_t save_distance;
-    if (right_to_left) {
+    if (pos.right_to_left) {
         save_index = snarl_start_i + zip_code_tree.at(snarl_start_i).get_other_bound_offset() + 1;
         size_t num_chains = zip_code_tree.at(snarl_start_i + 1).get_value();
         // Distance from left side of chain to end of snarl
@@ -1847,7 +1846,7 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
         std::cerr << "\tSave exit from cyclic snarl at index " << save_index 
                   << " with running distance " << save_stack.top() << std::endl;
 #endif
-        pending_traversals.emplace(save_index, !right_to_left, save_stack,
+        pending_traversals.emplace(save_index, !pos.right_to_left, save_stack,
                                    save_chain_numbers, S_SCAN_CHAIN);
     }
 }
@@ -1855,7 +1854,7 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
 void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
 #ifdef debug_parse
     std::cerr << "Initialize snarl from chain number " << chain_num 
-              << " going " << (right_to_left ? "right to left" : "left to right")
+              << " going " << (pos.right_to_left ? "right to left" : "left to right")
               << " with running distance " << top() << std::endl;
 #endif
     if (current_item().get_value() == std::numeric_limits<size_t>::max()) {
@@ -1869,9 +1868,9 @@ void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
     }
 
     // Grab distances for this snarl
-    size_t snarl_start_i = index - current_item().get_value();
+    size_t snarl_start_i = pos.index - current_item().get_value();
     bool is_cyclic = zip_code_tree.at(snarl_start_i).get_is_cyclic();
-    bool start_right_to_left = right_to_left;
+    bool start_right_to_left = pos.right_to_left;
 
     if (is_cyclic) {
         if (chain_num == 0 || chain_num == std::numeric_limits<size_t>::max()) {
@@ -1881,12 +1880,12 @@ void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
             // Drop chain running distance
             pop();
             // Jump to snarl end
-            index = snarl_start_i;
-            if (!right_to_left) {
-                index += zip_code_tree.at(snarl_start_i).get_other_bound_offset();
+            pos.index = snarl_start_i;
+            if (!pos.right_to_left) {
+                pos.index += zip_code_tree.at(snarl_start_i).get_other_bound_offset();
             }
 #ifdef debug_parse
-            std::cerr << "Skip cyclic snarl, jump to index " << index << std::endl;
+            std::cerr << "Skip cyclic snarl, jump to index " << pos.index << std::endl;
 #endif
             // Don't process further distances
             return;
@@ -1899,11 +1898,11 @@ void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
 
             // Now, work out what to do for this traversal
             // Memorize previous direction
-            push(right_to_left ? 1 : 0);
+            push(pos.right_to_left ? 1 : 0);
             // Put previous direction underneath the parent running distance
             swap();
             // Cyclic snarls always go left to right first
-            right_to_left = false;
+            pos.right_to_left = false;
         }
     }
 
@@ -1919,7 +1918,7 @@ void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
 #endif
         // We want to start with the leftmost chain
         // Jump to CHAIN_COUNT
-        index = snarl_start_i + 1;
+        pos.index = snarl_start_i + 1;
         // Distance matrix has chains & bounds
         size_t node_count = current_item().get_value() + 1;
         // Skip past distance matrix with N chains and thus N+1 nodes
@@ -1929,10 +1928,10 @@ void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
         // A DAG snarl's matrix has 1 row per chain plus 2 for bounds
         // and it does NOT store self-loop distances (i.e. no main diagonal)
         // That means (N+1) rows, so the matrix is the (N+1) triangle number
-        index += is_cyclic ? (node_count*2 * (node_count*2 + 1)) / 2
-                           : (node_count * (node_count + 1)) / 2;
+        pos.index += is_cyclic ? (node_count*2 * (node_count*2 + 1)) / 2
+                               : (node_count * (node_count + 1)) / 2;
 #ifdef debug_parse
-        std::cerr << "Jump to index " << index << " after distance matrix" << std::endl;
+        std::cerr << "Jump to index " << pos.index << " after distance matrix" << std::endl;
 #endif
     }
 }
@@ -1943,30 +1942,24 @@ void ZipCodeTree::distance_iterator::continue_snarl() {
 #ifdef debug_parse
         std::cerr << "Continuing cyclic snarl" << std::endl;
 #endif
-        current_state = S_SCAN_CYCLIC_SNARL;
+        pos.state = S_SCAN_CYCLIC_SNARL;
     } else {
 #ifdef debug_parse
         std::cerr << "Continuing DAG snarl" << std::endl;
 #endif
-        current_state = S_SCAN_DAG_SNARL;
+        pos.state = S_SCAN_DAG_SNARL;
     }
 }
 
 void ZipCodeTree::distance_iterator::use_saved_traversal() {
-    auto next_traversal = pending_traversals.top();
+    pos = pending_traversals.top();
     pending_traversals.pop();
-    // Restore state
-    stack_data = next_traversal.stack_data;
-    chain_numbers = next_traversal.chain_numbers;
-    index = next_traversal.index;
-    right_to_left = next_traversal.right_to_left;
-    current_state = next_traversal.current_state;
     // Swap end index to match new direction
-    end_index = right_to_left ? 0 : (zip_code_tree.size() - 1);
+    end_index = pos.right_to_left ? 0 : (zip_code_tree.size() - 1);
 #ifdef debug_parse
-    std::cerr << "Resuming saved traversal at index " << index 
-              << " going " << (right_to_left ? "right to left" : "left to right")
-              << " in state " << current_state << std::endl;
+    std::cerr << "Resuming saved traversal at index " << pos.index 
+              << " going " << (pos.right_to_left ? "right to left" : "left to right")
+              << " in state " << pos.state << std::endl;
 #endif
 }
 
@@ -1974,20 +1967,20 @@ auto ZipCodeTree::distance_iterator::halt() -> void {
 #ifdef debug_parse
     std::cerr << "Halt iteration!" << std::endl;
 #endif
-    index = end_index;
+    pos.index = end_index;
 }
 
 void ZipCodeTree::distance_iterator::unimplemented_error() {
     throw std::domain_error("Unimplemented symbol " + std::to_string(current_item().get_type()) 
-                                    + " for state " + std::to_string(current_state));
+                                    + " for state " + std::to_string(pos.state));
 }
 
 auto ZipCodeTree::distance_iterator::tick() -> bool {
 #ifdef debug_parse
-    std::cerr << "Tick for state " << current_state << " on symbol " << current_item().get_type() 
-              << " at entry " << index << std::endl;
+    std::cerr << "Tick for state " << pos.state << " on symbol " << current_item().get_type() 
+              << " at entry " << pos.index << std::endl;
     std::cerr << "Stack: ";
-    std::stack<size_t> temp_stack = stack_data;
+    std::stack<size_t> temp_stack = pos.stack_data;
     while (!temp_stack.empty()) {
         std::cerr << (temp_stack.top() == std::numeric_limits<size_t>::max() ? "inf" 
                                                                              : std::to_string(temp_stack.top())) 
@@ -1996,7 +1989,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
     }
     std::cerr << std::endl;
 #endif
-    switch (current_state) {
+    switch (pos.state) {
     case S_START:
         // Initial state.
         //
@@ -2006,7 +1999,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             std::cerr << "Skip over seed " << current_item().get_value() << std::endl;
 #endif
             push(0);
-            current_state = S_SCAN_CHAIN;
+            pos.state = S_SCAN_CHAIN;
         } else {
             unimplemented_error(); 
         }
@@ -2020,8 +2013,8 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // snarl's parent snarl, etc.
         if (current_item().get_type() == SEED) {
             // Calculate which direction this seed would be traversed in
-            bool cur_is_rev = right_to_left ? current_item().get_is_reversed() 
-                                            : !current_item().get_is_reversed();
+            bool cur_is_rev = pos.right_to_left ? current_item().get_is_reversed() 
+                                                : !current_item().get_is_reversed();
             bool origin_is_rev = original_right_to_left ? zip_code_tree.at(original_index).get_is_reversed()
                                                         : !zip_code_tree.at(original_index).get_is_reversed();
             if (top() > 0 && cur_is_rev == origin_is_rev) {
@@ -2056,7 +2049,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 // be added to all the stored distances.
                 // Note that there may be 0 stored distances
                 // if we are below the top-level snarl.
-                if (chain_numbers.empty()) {
+                if (pos.chain_numbers.empty()) {
                     // Finished top-level chain, so we are done.
 #ifdef debug_parse
                     std::cerr << "Halt because we are at the top-level chain." << std::endl;
@@ -2066,8 +2059,8 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
 #ifdef debug_parse
                     std::cerr << "\tNever entered snarl; collect distances from zipcode tree." << std::endl;
 #endif
-                    size_t chain_num = chain_numbers.top();
-                    chain_numbers.pop();
+                    size_t chain_num = pos.chain_numbers.top();
+                    pos.chain_numbers.pop();
                     initialize_snarl(chain_num);
                 }
             } else {
@@ -2116,13 +2109,13 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             // Top of the stack should be the parent running distance
             // Jump to the start of the snarl
             // Use snarl start offset from previous chain
-            ++index;
-            index -= current_item().get_value() ;
+            ++pos.index;
+            pos.index -= current_item().get_value() ;
             // Resume scanning chain
-            current_state = S_SCAN_CHAIN;
+            pos.state = S_SCAN_CHAIN;
         } else if (exited_snarl()) {
             // Stack holds running distance to use for the parent chain
-            current_state = S_SCAN_CHAIN;
+            pos.state = S_SCAN_CHAIN;
         } else if (entered_chain()) {
             // We've encountered a chain to look at, and the running distance
             // into the chain is already on the stack.
@@ -2141,9 +2134,9 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         if (current_item().get_type() == SNARL_END) {
             // Finished left sides, now doing right sides.
 #ifdef check_parse
-            crash_unless(!right_to_left);
+            crash_unless(!pos.right_to_left);
 #endif
-            right_to_left = true;
+            pos.right_to_left = true;
         } else if (current_item().get_type() == EDGE) {
             // Hit distance matrix again; finished snarl
             // Put original direction over distance to bound
@@ -2153,20 +2146,20 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                       << (top() == 1 ? "right to left" : "left to right" ) << std::endl;
 #endif
             // The top of the stack will be the original direction we were going
-            right_to_left = (pop() == 1);
-            ++index;
-            size_t snarl_start_i = index - current_item().get_value();
-            if (right_to_left) {
+            pos.right_to_left = (pop() == 1);
+            ++pos.index;
+            size_t snarl_start_i = pos.index - current_item().get_value();
+            if (pos.right_to_left) {
                 // Jump to snarl start
-                index = snarl_start_i;
+                pos.index = snarl_start_i;
             } else {
                 // Jump to snarl end
-                index = zip_code_tree.at(snarl_start_i).get_other_bound_offset() + snarl_start_i;
+                pos.index = zip_code_tree.at(snarl_start_i).get_other_bound_offset() + snarl_start_i;
             }
 #ifdef debug_parse
-            std::cerr << "Jump to index " << index << endl;
+            std::cerr << "Jump to index " << pos.index << endl;
 #endif
-            current_state = S_SCAN_CHAIN;
+            pos.state = S_SCAN_CHAIN;
         } else if (entered_chain()) {
             // We've encountered a chain to look at, and the running distance
             // into the chain is already on the stack.
@@ -2176,7 +2169,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         }
         break;
     default:
-        throw std::domain_error("Unimplemented state " + std::to_string(current_state)); 
+        throw std::domain_error("Unimplemented state " + std::to_string(pos.state)); 
     }
     // Unless we yield something, we don't want to pause the scan here.
     return false;
