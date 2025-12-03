@@ -646,9 +646,6 @@ public:
         /// Current state of the automaton
         State current_state;
 
-        /// Adopt a new state.
-        inline void state(State new_state) { current_state = new_state; }
-
         /// Stop parsing because nothing else can be below the distance limit.
         /// This moves the current index to end_index.
         void halt();

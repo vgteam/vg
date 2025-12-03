@@ -1816,7 +1816,7 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
         skip_chain();
     } else {
         // Do the chain
-        state(S_SCAN_CHAIN);
+        current_state = S_SCAN_CHAIN;
     }
 }
 
@@ -1943,12 +1943,12 @@ void ZipCodeTree::distance_iterator::continue_snarl() {
 #ifdef debug_parse
         std::cerr << "Continuing cyclic snarl" << std::endl;
 #endif
-        state(S_SCAN_CYCLIC_SNARL);
+        current_state = S_SCAN_CYCLIC_SNARL;
     } else {
 #ifdef debug_parse
         std::cerr << "Continuing DAG snarl" << std::endl;
 #endif
-        state(S_SCAN_DAG_SNARL);
+        current_state = S_SCAN_DAG_SNARL;
     }
 }
 
@@ -1960,7 +1960,7 @@ void ZipCodeTree::distance_iterator::use_saved_traversal() {
     chain_numbers = next_traversal.chain_numbers;
     index = next_traversal.index;
     right_to_left = next_traversal.right_to_left;
-    state(next_traversal.current_state);
+    current_state = next_traversal.current_state;
     // Swap end index to match new direction
     end_index = right_to_left ? 0 : (zip_code_tree.size() - 1);
 #ifdef debug_parse
@@ -2006,7 +2006,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             std::cerr << "Skip over seed " << current_item().get_value() << std::endl;
 #endif
             push(0);
-            state(S_SCAN_CHAIN);
+            current_state = S_SCAN_CHAIN;
         } else {
             unimplemented_error(); 
         }
@@ -2119,10 +2119,10 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             ++index;
             index -= current_item().get_value() ;
             // Resume scanning chain
-            state(S_SCAN_CHAIN);
+            current_state = S_SCAN_CHAIN;
         } else if (exited_snarl()) {
             // Stack holds running distance to use for the parent chain
-            state(S_SCAN_CHAIN);
+            current_state = S_SCAN_CHAIN;
         } else if (entered_chain()) {
             // We've encountered a chain to look at, and the running distance
             // into the chain is already on the stack.
@@ -2166,7 +2166,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
 #ifdef debug_parse
             std::cerr << "Jump to index " << index << endl;
 #endif
-            state(S_SCAN_CHAIN);
+            current_state = S_SCAN_CHAIN;
         } else if (entered_chain()) {
             // We've encountered a chain to look at, and the running distance
             // into the chain is already on the stack.
