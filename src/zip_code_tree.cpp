@@ -1558,11 +1558,8 @@ auto ZipCodeTree::distance_iterator::operator++() -> distance_iterator& {
 #endif
         move_index();
     }
-    while (!done()) {
-        if (tick()) {
-            // We hit a seed to yield
-            return *this;
-        }
+    while (!done() && !tick()) {
+        // Skip to the next seed we actually want to yield, or to the end
         move_index();
     }
 #ifdef debug_parse

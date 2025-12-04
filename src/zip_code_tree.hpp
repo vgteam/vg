@@ -489,17 +489,20 @@ public:
         distance_iterator& operator++();
 
         /// Move index in right_to_left direction
+        /// If we hit the end and have pending traversals, use one
         inline void move_index() {
-            if (pos.index == end_index) {
+            if (!done()) {
                 // Refuse to move past the end
                 // This might happen due to race conditions added
                 // with the save-and-reload behavior
-                return;
+                if (pos.right_to_left) {
+                    --pos.index;
+                } else {
+                    ++pos.index;
+                }
             }
-            if (pos.right_to_left) {
-                --pos.index;
-            } else {
-                ++pos.index;
+            if (done() && !pending_traversals.empty()) {
+                use_saved_traversal();
             }
         }
 
@@ -511,19 +514,7 @@ public:
         inline bool operator!=(const distance_iterator& other) const { return !(*this == other); }
 
         /// Is the iteration done?
-        inline bool done() {
-            // Attempt to use saved traversals if we hit the end
-            if (pos.index == end_index) {
-                if (pending_traversals.empty()) {
-                    return true;
-                } else {
-                    use_saved_traversal();
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        }
+        inline bool done() const { return pos.index == end_index; }
         
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
