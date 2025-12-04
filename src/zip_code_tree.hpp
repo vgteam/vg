@@ -485,6 +485,12 @@ public:
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
+        // Iterators are copyable and movable
+        distance_iterator(const distance_iterator& other) = default;
+        distance_iterator(distance_iterator&& other) = default;
+        distance_iterator& operator=(const distance_iterator& other) = default;
+        distance_iterator& operator=(distance_iterator&& other) = default;
+
         /// Move in right_to_left direction until we hit another seed or the end
         distance_iterator& operator++();
 
@@ -545,8 +551,8 @@ public:
         /// Stored as {snarl start index : (start dist, end dist)}
         std::unordered_map<size_t, std::pair<size_t, size_t>> best_cyclic_snarl_exits;
 
-        /// State of a saved traversal, with various context
-        /// to set the member variables back to
+        /// A specific snapshot of the iterator's position
+        /// which includes necessary state information (e.g. stack)
         struct iteration_position {
             /// Where we are in the stored tree.
             size_t index;
@@ -571,16 +577,11 @@ public:
                   chain_numbers(chain_numbers),
                   state(state) {}
 
-            iteration_position(iteration_position&&) noexcept = default;
-            /// Move assignment operator
-            iteration_position &operator =(iteration_position&& other) noexcept {
-                index = std::move(other.index);
-                right_to_left = std::move(other.right_to_left);
-                stack_data = std::move(other.stack_data);
-                chain_numbers = std::move(other.chain_numbers);
-                state = std::move(other.state);
-                return *this;
-            }
+            // Copyable and movable
+            iteration_position(const iteration_position& other) = default;
+            iteration_position(iteration_position&& other) = default;
+            iteration_position& operator=(const iteration_position& other) = default;
+            iteration_position& operator=(iteration_position&& other) = default;
         };
         /// The iterator's current position (state, direction, stack, etc.)
         iteration_position pos;
