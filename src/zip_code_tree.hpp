@@ -565,6 +565,7 @@ public:
             std::stack<size_t> stack_data;
             /// Within each parent snarl, which chain are we in?
             std::stack<size_t> chain_numbers;
+            /// What state the automaton is in
             State state;
 
             /// Default constructor
@@ -578,6 +579,17 @@ public:
                   stack_data(stack_data),
                   chain_numbers(chain_numbers),
                   state(state) {}
+
+            iteration_position(iteration_position&&) noexcept = default;
+            /// Move assignment operator
+            iteration_position &operator =(iteration_position&& other) noexcept {
+                index = std::move(other.index);
+                right_to_left = std::move(other.right_to_left);
+                stack_data = std::move(other.stack_data);
+                chain_numbers = std::move(other.chain_numbers);
+                state = std::move(other.state);
+                return *this;
+            }
         };
         /// The iterator's current position (state, direction, stack, etc.)
         iteration_position pos;

@@ -1952,7 +1952,7 @@ void ZipCodeTree::distance_iterator::continue_snarl() {
 }
 
 void ZipCodeTree::distance_iterator::use_saved_traversal() {
-    pos = pending_traversals.top();
+    pos = std::move(pending_traversals.top());
     pending_traversals.pop();
     // Swap end index to match new direction
     end_index = pos.right_to_left ? 0 : (zip_code_tree.size() - 1);
