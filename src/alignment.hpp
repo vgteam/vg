@@ -475,6 +475,167 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
 
+/// Encode the information necessary to reconstruct a supplementary alignment as a string for annotation
+string supplementary_annotation(const Alignment& supplementary);
+
+/// Decode a supplementary alignment annotation string into its alignments
+vector<Alignment> decode_supplementary_annotation(const Alignment& primary, const HandleGraph& graph);
+
+/// Returns indexes into an vector-like container of Alignments that correspond to supplementary alignments to the primary
+///  min_read_coverage      Require the supplementaries and primary to cover this fraction of the read
+///  max_separation         Require the separation or overlap between supplementaries to be at most this many bases
+///  min_score_fraction     Require each supplementary to have this fraction of the primary's score
+///  min_size               Require each supplementary to align at least this many bases
+template<class AlignmentVector>
+vector<size_t> identify_supplementaries(const AlignmentVector& alignments, double min_read_coverage, size_t max_separation, 
+                                        double min_score_fraction, size_t min_size, size_t primary_idx = 0) {
+
+    assert(min_read_coverage >= 0.0 && min_read_coverage <= 1.0 && min_score_fraction >= 0.0 && min_score_fraction <= 1.0);
+
+    vector<size_t> supplementaries;
+
+    if (alignments.size() > 1) {
+
+        size_t seq_size = alignments[0].sequence().size();
+
+        size_t min_total_cov = ceil(min_read_coverage * seq_size);
+        int64_t min_score = ceil(min_score_fraction * alignments[primary_idx].score());
+
+        // do sparse DP over part of the read to determine which set of intervals achieves the highest read coverage, subject
+        // to the constraints
+        auto do_dp = [&](vector<tuple<size_t, size_t, size_t>>& intervals, size_t begin, size_t end) -> vector<size_t> {
+
+            std::sort(intervals.begin(), intervals.end());  
+
+            // map from (end index -> (total coverage, final interval))
+            map<size_t, pair<size_t, size_t>> dp;
+            vector<size_t> backpointer(intervals.size(), numeric_limits<size_t>::max());
+
+            for (size_t i = 0; i < intervals.size(); ++i) {
+
+                const auto& interval = intervals[i];
+                
+                // look for the best feasible previous DP entry
+                // TODO: this could have better worst-case guarantees with a key-value RMQ
+                auto max_it = dp.end();
+                for (auto it = dp.lower_bound(get<0>(interval) - max_separation); it != dp.end() && it->first <= get<0>(interval) + max_separation; ++it) {
+                    if (max_it == dp.end() || max_it->second.first - max<int64_t>(max_it->first - get<0>(interval), 0) < it->second.first) {
+                        max_it = it;
+                    } 
+                }
+
+                if (max_it != dp.end() || get<0>(interval) <= begin + max_separation) {
+                    // we can make an entry into the DP structure
+
+                    size_t prev_idx = numeric_limits<size_t>::max();
+                    size_t cov = 0;
+                    if (max_it != dp.end()) {
+                        prev_idx = max_it->second.second;
+                        cov = max_it->second.first - max<int64_t>(max_it->second.first - get<0>(interval), 0);
+                    }
+                    cov += get<1>(interval) - get<0>(interval);
+                    backpointer[i] = prev_idx;
+
+                    auto dp_val = make_pair(cov, i);
+                    auto insert_it = dp.emplace(get<1>(interval), dp_val);
+                    if (!insert_it.second) {
+                        // there is already an interval ending at this index, take the max
+                        if (insert_it.first->second.first < dp_val.first) {
+                            insert_it.first->second = dp_val;
+                        }
+                    }
+                }
+            }
+
+            // traceback the optimum
+            vector<size_t> traceback;
+            auto final_it = dp.lower_bound(max<int64_t>(begin, end - max_separation));
+            if (final_it != dp.end()) {
+                // there is a feasible solution
+                traceback.emplace_back(final_it->second.second);
+                while (backpointer[traceback.back()] != numeric_limits<size_t>::max()) {
+                    traceback.emplace_back(backpointer[traceback.back()]);
+                }
+                reverse(traceback.begin(), traceback.end());
+            }
+
+            return traceback;
+        };
+
+        auto primary_interval = aligned_interval(alignments[primary_idx]);
+
+        if (primary_interval.second - primary_interval.first >= min_size && alignments[primary_idx].score() >= min_score) {
+
+            // records of (begin read pos, end read pos, idx of alignment)
+            vector<tuple<size_t, size_t, size_t>> left_side, right_side;
+
+            for (size_t i = 0; i < alignments.size(); ++i) {
+                if (i == primary_idx) {
+                    continue;
+                }
+                auto interval = aligned_interval(alignments[i]);
+                // filter to alignments that meet the minimum thresholds
+                if (alignments[i].score() >= min_score && interval.second - interval.first >= min_size) {
+                    if (interval.second <= primary_interval.first + max_separation) {
+                        left_side.emplace_back(interval.first, interval.second, i);
+                    }
+                    else if (interval.first >= primary_interval.second - max_separation) {
+                        right_side.emplace_back(interval.first, interval.second, i);
+                    }
+                }
+            }
+
+            // do DP on each side and combine the tracebacks        
+            vector<tuple<size_t, size_t, size_t>> full_traceback;
+            for (auto i : do_dp(left_side, 0, primary_interval.first)) {
+                full_traceback.push_back(left_side[i]);
+            }
+            full_traceback.emplace_back(primary_interval.first, primary_interval.second, primary_idx);
+            for (auto i : do_dp(right_side, primary_interval.second, seq_size)) {
+                full_traceback.push_back(right_side[i]);
+            }
+
+            // compute the total read coverage with sweep line algorithm
+            if (!is_sorted(full_traceback.begin(), full_traceback.end())) {
+                // TODO: is this even possible? maybe in some weird cases where the max separation is larger than the min size
+                sort(full_traceback.begin(), full_traceback.end());
+            }
+            size_t total_cov = 0;
+            pair<size_t, size_t> curr_interval(0, 0);
+            for (const auto& interval : full_traceback) {
+                if (get<0>(interval) <= curr_interval.second) {
+                    curr_interval.second = max(curr_interval.second, get<1>(interval));
+                }
+                else {
+                    total_cov += (curr_interval.second - curr_interval.first);
+                    curr_interval.first = get<0>(interval);
+                    curr_interval.second = get<1>(interval);
+                }
+            }
+            total_cov += (curr_interval.second - curr_interval.first);
+            if (aligned_interval(alignments[get<2>(full_traceback.front())]).first <= max_separation &&
+                aligned_interval(alignments[get<2>(full_traceback.back())]).second >= max<int64_t>(seq_size - max_separation, 0) &&
+                total_cov >= min_total_cov) {
+                // the supplementaries and primary jointly cover the entire read, the result of DP is feasible
+                
+                for (auto& interval : full_traceback) {
+                    if (get<2>(interval) != primary_idx) {
+                        supplementaries.push_back(get<2>(interval));
+                    }
+                }
+
+                sort(supplementaries.begin(), supplementaries.end());
+            }
+        }
+    }
+
+    return supplementaries;
+}
+
+
+
+
+
 }
 
 #endif
