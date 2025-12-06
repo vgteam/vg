@@ -972,5 +972,89 @@ TEST_CASE("Supplementary alignments can be generated", "[surject]") {
     }
 }
 
+TEST_CASE("Supplementary alignments can be retrieved from annotation", "[surject]") {
+
+    bdsg::HashGraph graph;
+
+    path_handle_t p1 = graph.create_path_handle("1");
+    path_handle_t p2 = graph.create_path_handle("2");
+    path_handle_t p3 = graph.create_path_handle("3");
+
+    handle_t h1 = graph.create_handle("GGGCCGAGTA");
+    handle_t h2 = graph.create_handle("AGGCACCTCT");
+    handle_t h3 = graph.create_handle("TCCCATTCGT");
+
+    graph.append_step(p1, h1);
+    graph.append_step(p2, h2);
+    graph.append_step(p3, h3);
+
+    bdsg::PositionOverlay pos_graph(&graph);
+    Surjector surjector(&pos_graph);
+    surjector.report_supplementary = true;
+
+    unordered_set<path_handle_t> paths{p1, p2, p3};
+
+    Alignment primary, supp1, supp2;
+    for (auto aln_pair : {make_pair(&primary, h1), make_pair(&supp1, h2), make_pair(&supp2, h3)}) {
+        auto& aln = *aln_pair.first;
+        aln.set_sequence(graph.get_sequence(h1) + graph.get_sequence(h2) + graph.get_sequence(h3));
+        aln.set_quality(string(aln.sequence().size(), 40));
+
+        auto h = aln_pair.second;
+        auto m = aln.mutable_path()->add_mapping();
+        auto p = m->mutable_position();
+        p->set_node_id(graph.get_id(h));
+        p->set_is_reverse(false);
+        p->set_offset(0);
+
+        auto seq = graph.get_sequence(h);
+        size_t i = aln.sequence().find(seq);
+        if (i != 0) {
+            auto e = m->add_edit();
+            e->set_from_length(0);
+            e->set_to_length(i);
+            e->set_sequence(aln.sequence().substr(0, i));
+        }
+
+        auto e = m->add_edit();
+        e->set_from_length(graph.get_length(h));
+        e->set_to_length(graph.get_length(h));
+
+        if (i + graph.get_length(h) < aln.sequence().size()) {
+            auto e = m->add_edit();
+            e->set_from_length(0);
+            e->set_to_length(aln.sequence().size() - i - graph.get_length(h));
+            e->set_sequence(aln.sequence().substr(i + graph.get_length(h), aln.sequence().size()));
+        }
+    }
+
+    set_annotation<string>(primary, "supplementaries", supplementary_annotation(supp1) + supplementary_annotation(supp2));
+
+    vector<tuple<string, int64_t, bool>> positions;
+    auto surjected = surjector.surject(primary, paths, positions, true, false);
+
+    REQUIRE(surjected.size() == 3);
+
+    for (const auto& aln : surjected) {
+        REQUIRE(aln.sequence() == primary.sequence());
+        REQUIRE(aln.quality() == primary.quality());
+        auto validity = alignment_is_valid(aln, &graph, true);
+        REQUIRE(validity.problem == AlignmentValidity::OK);
+    }
+
+    unordered_set<string> paths_surjected;
+    for (size_t i = 0; i < surjected.size(); ++i) {
+        const auto& pos = positions[i];
+        paths_surjected.insert(get<0>(pos));
+        if (get<0>(pos) == graph.get_path_name(p1)) {
+            REQUIRE(!is_supplementary(surjected[i]));
+        }
+        else {
+            REQUIRE(is_supplementary(surjected[i]));
+        }
+    }
+    REQUIRE(paths_surjected.size() == 3);
+}
+
 }
 }

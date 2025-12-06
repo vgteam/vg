@@ -137,47 +137,249 @@ using namespace std;
         return surjected;
     }
 
-    vector<Alignment> Surjector::multi_surject(const Alignment& source,
-                                               const unordered_set<path_handle_t>& paths,
-                                               bool allow_negative_scores,
-                                               bool preserve_deletions) const {
-        
-        // TODO: redundant with non-multi now that it can emit multiple alignment records
-        vector<Alignment> surjected;
-        vector<tuple<string, int64_t, bool>> positions;
-        surject_internal(&source, nullptr, &surjected, nullptr, paths, positions,
-                         true, allow_negative_scores, preserve_deletions);
-        
-        for (size_t i = 0; i < surjected.size(); ++i) {
-            surjected[i].clear_refpos();
-            auto* pos = surjected[i].add_refpos();
-            pos->set_name(get<0>(positions[i]));
-            pos->set_offset(get<1>(positions[i]));
-            pos->set_is_reverse(get<2>(positions[i]));
-        }
-        
-        return surjected;
-    }
-
     vector<Alignment> Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
                                          vector<tuple<string, int64_t, bool>>& positions_out, bool allow_negative_scores,
                                          bool preserve_deletions) const {
-        vector<Alignment> surjected;
-        surject_internal(&source, nullptr, &surjected, nullptr, paths, positions_out,
-                         false, allow_negative_scores, preserve_deletions);
-        return surjected;
-    }
 
-    vector<Alignment> Surjector::multi_surject(const Alignment& source,
-                                               const unordered_set<path_handle_t>& paths,
-                                               vector<tuple<string, int64_t, bool>>& positions_out,
-                                               bool allow_negative_scores,
-                                               bool preserve_deletions) const {
-        // TODO: redundant with non-multi now that it can emit multiple alignment records
         vector<Alignment> surjected;
-        surject_internal(&source, nullptr, &surjected, nullptr, paths, positions_out,
-                         true, allow_negative_scores, preserve_deletions);
-        
+
+        if (!has_annotation(source, "supplementaries") || !report_supplementary) {
+            // no supplementaries or not interested in supplementaries, we only need to worry about the primary
+            surject_internal(&source, nullptr, &surjected, nullptr, paths, positions_out,
+                             allow_negative_scores, preserve_deletions);
+        }
+        else {
+            // the mapper identified supplementaries, retrieve them
+            vector<Alignment> mapper_supplementaries = decode_supplementary_annotation(source, *graph);
+
+#ifdef debug_anchored_surject
+            cerr << "alignment has mapper-identified supplementaries:" << endl;
+            for (const auto& aln : mapper_supplementaries) {
+                cerr << pb2json(aln) << endl;
+            }
+#endif
+            // figure out which interval should be assigned to the primary 
+
+            // collect the supplementary intervals (begin, end, idx)
+            vector<tuple<size_t, size_t, size_t>> suppl_intervals;
+            suppl_intervals.reserve(mapper_supplementaries.size());
+            for (size_t i = 0; i < mapper_supplementaries.size(); ++i) {
+                const auto& suppl = mapper_supplementaries[i];
+                auto interval = aligned_interval(suppl);
+                if (interval.second < interval.first) {
+                    // unaligned -- TODO: this shouldn't ever happen though, remove this?
+                    continue;
+                }
+                suppl_intervals.emplace_back(interval.first, interval.second, i);
+            }
+            auto primary_interval = aligned_interval(source);
+            suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, -1);
+            sort(suppl_intervals.begin(), suppl_intervals.end());
+
+            // make hard-clipped Alignments
+            for (size_t i = 0; i < suppl_intervals.size(); ++i) {
+
+                const auto& interval = suppl_intervals[i];
+                const auto& unclipped = get<2>(interval) < mapper_supplementaries.size() ? mapper_supplementaries[get<2>(interval)] : source;
+                
+                Alignment clipped;
+
+                // copy over metadata
+                clipped.set_score(unclipped.score());
+                clipped.set_mapping_quality(unclipped.mapping_quality());
+                clipped.set_name(source.name());
+                clipped.set_read_group(source.read_group());
+                clipped.set_sample_name(source.sample_name());
+                clipped.set_is_secondary(source.is_secondary());
+                if (source.has_fragment_next()) {
+                    *clipped.mutable_fragment_next() = source.fragment_next();
+                }
+                if (source.has_fragment_prev()) {
+                    *clipped.mutable_fragment_prev() = source.fragment_prev();
+                }
+                if (Annotation<Alignment>::get(source).fields().size() > 1) {
+                    // there are additional annotations to the supplementaries that we already parsed
+                    *clipped.mutable_annotation() = source.annotation();
+                    // don't pass through the mapper supplementaries
+                    clear_annotation(clipped, "supplementaries");
+                }
+                if (&unclipped != &source) {
+                    set_annotation<bool>(clipped, "supplementary", true);
+                }
+
+                // possibly expand the sequence interval into "unclaimed" adjacent sequence
+                size_t left_bnd = i != 0 ? get<1>(suppl_intervals[i - 1]) : 0;
+                size_t right_bnd = i + 1 < suppl_intervals.size() ? get<0>(suppl_intervals[i + 1]) : source.sequence().size();
+                size_t subseq_begin = min(left_bnd, get<0>(interval));
+                size_t subseq_end = max(right_bnd, get<1>(interval));
+
+#ifdef debug_anchored_surject
+                cerr << "hard clipping ";
+                if (get<2>(interval) >= mapper_supplementaries.size()) {
+                    cerr << "primary alignment";
+                }
+                else {
+                    cerr << "supplementary " << get<2>(interval);
+                }
+                cerr << " to the interval " << subseq_begin << ":" << subseq_end << " for surjection" << endl;
+#endif
+
+                // make the clipped sequence
+                clipped.set_sequence(source.sequence().substr(subseq_begin, subseq_end - subseq_begin));
+                if (!source.quality().empty()) {
+                    clipped.set_quality(source.quality().substr(subseq_begin, subseq_end - subseq_begin));
+                }
+
+                auto clipped_path = clipped.mutable_path();
+                const auto& unclipped_path = unclipped.path();
+                for (size_t m = 0; m < unclipped_path.mapping_size(); ++m) {
+                    const auto& unclipped_mapping = unclipped_path.mapping(m);
+                    auto clipped_mapping = clipped_path->add_mapping();
+                    *clipped_mapping->mutable_position() = unclipped_mapping.position();
+                    if (m != 0 && m + 1 != unclipped_path.mapping_size()) {
+                        // internal mapping
+                        *clipped_mapping = unclipped_mapping;
+                        clipped_mapping->set_rank(clipped_path->mapping_size());
+                    }
+                    else {
+                        // first and/or last mapping
+                        for (size_t e = 0; e < unclipped_mapping.edit_size(); ++e) {
+                            if (m == 0 && e == 0 && subseq_begin != 0) {
+                                // initial hard-clip
+                                const auto& softclip_edit = unclipped_mapping.edit(e);
+                                assert(softclip_edit.from_length() == 0);
+                                if (subseq_begin < softclip_edit.to_length()) {
+                                    auto clipped_edit = clipped_mapping->add_edit();
+                                    clipped_edit->set_from_length(0);
+                                    clipped_edit->set_to_length(softclip_edit.to_length() - subseq_begin);
+                                    clipped_edit->set_sequence(softclip_edit.sequence().substr(softclip_edit.to_length() - clipped_edit->to_length(), clipped_edit->to_length()));
+                                }
+                            }
+                            else if (m + 1 == unclipped_path.mapping_size() && e + 1 == unclipped_mapping.edit_size()
+                                     && subseq_end != source.sequence().size()) {
+                                // final hard-clip
+                                const auto& softclip_edit = unclipped_mapping.edit(e);
+                                assert(softclip_edit.from_length() == 0);
+                                if (source.sequence().size() - softclip_edit.to_length() < subseq_end) {
+                                    auto clipped_edit = clipped_mapping->add_edit();
+                                    clipped_edit->set_from_length(0);
+                                    clipped_edit->set_to_length(subseq_end + softclip_edit.to_length() - source.sequence().size());
+                                    clipped_edit->set_sequence(softclip_edit.sequence().substr(0, clipped_edit->to_length()));
+                                }
+                            }
+                            else {
+                                // internal edit
+                                *clipped_mapping->add_edit() = unclipped_mapping.edit(e);
+                            }
+                        }
+
+                        if (clipped_mapping->edit_size() == 0) {
+                            // the only edits were filtered out, don't leave an empty mapping
+                            clipped_path->mutable_mapping()->RemoveLast();
+                        }
+                        else {
+                            clipped_mapping->set_rank(clipped_path->mapping_size());
+                        }
+                    }
+                }
+#ifdef debug_anchored_surject
+                cerr << "hard-clipped surjection input:" << endl;
+                cerr << pb2json(clipped) << endl;
+#endif
+                // do the surjection
+                vector<Alignment> clipped_surjected;
+                vector<tuple<string, int64_t, bool>> clipped_positions_out;
+                surject_internal(&clipped, nullptr, &clipped_surjected, nullptr, paths, clipped_positions_out,
+                                 allow_negative_scores, preserve_deletions);
+
+#ifdef debug_anchored_surject
+                cerr << "got hard-clipped surjections:" << endl;
+                for (const auto& surj : clipped_surjected) {
+                    cerr << pb2json(surj) << endl;
+                }
+                size_t curr_surj_size = surjected.size();
+#endif
+
+                // restore soft-clips and add to output
+                for (size_t j = 0; j < clipped_surjected.size(); ++j) {
+                    auto& clipped_surj = clipped_surjected[j];
+
+                    clipped_surj.set_sequence(source.sequence());
+                    clipped_surj.set_quality(source.quality());
+
+                    if (clipped_surj.path().mapping_size() != 0) {
+                        
+                        if (subseq_begin != 0) {
+                            // restore a softclip on the front
+                            auto first_mapping = clipped_surj.mutable_path()->mutable_mapping(0);
+                            auto first_edit = first_mapping->mutable_edit(0);
+                            if (first_edit->from_length() == 0) {
+                                first_edit->set_sequence(clipped_surj.sequence().substr(0, subseq_begin) + first_edit->sequence());
+                                first_edit->set_to_length(first_edit->sequence().size());
+                            }
+                            else {
+                                auto softclip_edit = first_mapping->add_edit();
+                                softclip_edit->set_from_length(0);
+                                softclip_edit->set_to_length(subseq_begin);
+                                softclip_edit->set_sequence(clipped_surj.sequence().substr(0, subseq_begin));
+                                // move it to the front
+                                for (size_t k = first_mapping->edit_size() - 1; k > 0; --k) {
+                                    first_mapping->mutable_edit()->SwapElements(k, k - 1);
+                                }
+                            }
+                        }
+                        if (subseq_end != source.sequence().size()) {
+                            // restore a softclip on the back
+                            auto final_mapping = clipped_surj.mutable_path()->mutable_mapping(clipped_surj.path().mapping_size() - 1);
+                            auto final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
+                            if (final_edit->from_length() == 0) {
+                                final_edit->set_sequence(final_edit->sequence() + 
+                                                        clipped_surj.sequence().substr(subseq_end, clipped_surj.sequence().size() - subseq_end));
+                                final_edit->set_to_length(final_edit->sequence().size());
+                            }
+                            else {
+                                auto softclip_edit = final_mapping->add_edit();
+                                softclip_edit->set_from_length(0);
+                                softclip_edit->set_sequence(clipped_surj.sequence().substr(subseq_end, clipped_surj.sequence().size() - subseq_end));
+                                softclip_edit->set_to_length(softclip_edit->sequence().size());
+                            }
+                        }
+                    }
+
+                    surjected.emplace_back(std::move(clipped_surj));
+                    positions_out.emplace_back(std::move(clipped_positions_out[j]));
+                }
+#ifdef debug_anchored_surject
+                cerr << "de-clipped surjections:" << endl;
+                for (size_t i = curr_surj_size; i < surjected.size(); ++i) {
+                    cerr << pb2json(surjected[i]) << endl;
+                }
+#endif
+            }
+        }
+
+        add_SA_tag(surjected, positions_out, *graph, preserve_deletions);
+
+#ifdef debug_anchored_surject
+        cerr << "added SA tags (if any):" << endl;
+        for (size_t i = 0; i < surjected.size(); ++i) {
+            const auto& surj = surjected[i];
+            cerr << '\t' << i << ": ";
+            if (has_annotation(surj, "tags")) {
+                cerr << get_annotation<string>(surj, "tags");
+            }
+            else {
+                cerr << "(none)";
+            }
+            cerr << endl;
+        }
+#endif
+
+
+        if (annotate_with_graph_alignment) {
+            annotate_graph_cigar(surjected, source, positions_out);
+        }
+
         return surjected;
     }
 
@@ -187,28 +389,21 @@ using namespace std;
 
         vector<multipath_alignment_t> surjected;
         surject_internal(nullptr, &source, nullptr, &surjected, paths, positions_out,
-                         false, allow_negative_scores, preserve_deletions);
+                         allow_negative_scores, preserve_deletions);
         
-        return surjected;
-    }
+        add_SA_tag(surjected, positions_out, *graph, preserve_deletions);
 
-    vector<multipath_alignment_t> Surjector::multi_surject(const multipath_alignment_t& source,
-                                                           const unordered_set<path_handle_t>& paths,
-                                                           vector<tuple<string, int64_t, bool>>& positions_out,
-                                                           bool allow_negative_scores,
-                                                           bool preserve_deletions) const {
-        // TODO: redundant with non-multi now that it can emit multiple alignment records
-        vector<multipath_alignment_t> surjected;
-        surject_internal(nullptr, &source, nullptr, &surjected, paths, positions_out,
-                         true, allow_negative_scores, preserve_deletions);
-        
+        if (annotate_with_graph_alignment) {
+            annotate_graph_cigar(surjected, source, positions_out);
+        }
+
         return surjected;
     }
     
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                                      vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                                      const unordered_set<path_handle_t>& paths,
-                                     vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
+                                     vector<tuple<string, int64_t, bool>>& positions_out,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
         
@@ -248,8 +443,7 @@ using namespace std;
                 cerr << "error[Surjector::surject]: offending alignemnt: " << pb2json(*source_aln) << endl; 
                 exit(1);
             }
-        }
-        
+        }        
         
         // do we need to simplify a complicated multipath alignment?
         multipath_alignment_t simplified_source_mp_aln;
@@ -417,15 +611,9 @@ using namespace std;
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
-                if (annotate_with_graph_alignment) {
-                    annotate_graph_cigar(*mp_alns_out, *source_mp_aln, false);
-                }
             }
             else {
                 alns_out->emplace_back(make_null_alignment(*source_aln));
-                if (annotate_with_graph_alignment) {
-                    annotate_graph_cigar(*alns_out, *source_aln, false);
-                }
             }
             return;
         }
@@ -442,7 +630,7 @@ using namespace std;
         
         // choose which path strands we will output
         vector<pair<path_handle_t, bool>> strands_to_output;
-        if (all_paths) {
+        if (multimap_to_all_paths) {
             vector<tuple<int32_t, path_handle_t, bool>> path_strands;
             if (source_aln) {
                 // give each path strand the alignment score if it is primary or 0 if it is supplementary (to deprioritize)
@@ -545,10 +733,6 @@ using namespace std;
                     if (annotate_with_all_path_scores) {
                         set_annotation(alns_out->back(), "all_scores", annotation_string);
                     }
-                    
-                    if (annotate_with_graph_alignment) {
-                        annotate_graph_cigar(*alns_out, *source_aln, path_strand.second);
-                    }
                 }
                 else {
                     auto& surjection = mp_aln_surjections[path_strand][j];
@@ -569,9 +753,6 @@ using namespace std;
                     if (annotate_with_all_path_scores) {
                         mp_alns_out->back().set_annotation("all_scores", annotation_string);
                     }
-                    if (annotate_with_graph_alignment) {
-                        annotate_graph_cigar(*mp_alns_out, *source_mp_aln, path_strand.second);
-                    }
 #ifdef debug_anchored_surject
                     cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
 #endif
@@ -586,16 +767,6 @@ using namespace std;
 #ifdef debug_anchored_surject
                 cerr << "chose path " << get<0>(positions_out.back()) << " at position " << get<1>(positions_out.back()) << (get<2>(positions_out.back()) ? "-" : "+") << endl;
 #endif
-            }
-
-            // annotate the primary with an SA tag for supplementaries
-            if (num_suppls > 1) {
-                if (source_aln) {
-                    add_SA_tag(*alns_out, positions_out, memoizing_graph, preserve_deletions);
-                }
-                else {
-                    add_SA_tag(*mp_alns_out, positions_out, memoizing_graph, preserve_deletions);
-                }
             }
         }
     }
@@ -3704,6 +3875,7 @@ using namespace std;
             surj.first.set_read_group(source.read_group());
             surj.first.set_sample_name(source.sample_name());
             surj.first.set_mapping_quality(source.mapping_quality());
+            surj.first.set_is_secondary(source.is_secondary());
             if (source.has_fragment_next()) {
                 *surj.first.mutable_fragment_next() = source.fragment_next();
             }
@@ -5264,28 +5436,26 @@ using namespace std;
         return null;
     }
 
-    void Surjector::annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const {
-        auto cigar = graph_cs_cigar(source, *graph, rev_strand);
-        if (cigar.empty()) {
+    void Surjector::annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, const vector<tuple<string, int64_t, bool>>& positions) const {
+        if (source.path().mapping_size() == 0) {
             return;
         }
-        for (auto& surjection : surjections) {
-            set_annotation(surjection, "graph_cigar", cigar);
+        for (size_t i = 0; i < surjections.size(); ++i) {
+            set_annotation(surjections[i], "graph_cigar", graph_cs_cigar(source, *graph, get<2>(positions[i])));
         }
     }
 
-    void Surjector::annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const {
-        
-        Alignment opt;
-        optimal_alignment(source, opt, false);
+    void Surjector::annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, 
+                                         const vector<tuple<string, int64_t, bool>>& positions) const {
         
         // TODO: repetitive with Alignment version
-        auto cigar = graph_cs_cigar(opt, *graph, rev_strand);
-        if (cigar.empty()) {
+        Alignment opt;
+        optimal_alignment(source, opt, false);
+        if (opt.path().mapping_size() == 0) {
             return;
         }
-        for (auto& surjection : surjections) {
-            surjection.set_annotation("graph_cigar", cigar);
+        for (size_t i = 0; i < surjections.size(); ++i) {
+            surjections[i].set_annotation("graph_cigar", graph_cs_cigar(opt, *graph, get<2>(positions[i])));
         }
     }
 
@@ -5376,7 +5546,7 @@ using namespace std;
             }
             else {
                 // add onto SA existing tag
-                split[sa_idx] += ";" + sa_val;
+                split[sa_idx] += sa_val;
                 stringstream strm;
                 for (size_t i = 0; i < split.size(); ++i) {
                     if (i) {

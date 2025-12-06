@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 71
+plan tests 79
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -250,6 +250,22 @@ is "$(samtools view xy.bam | wc -l | sed 's/^[[:space:]]*//')" "2000" "GBZ-based
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
 rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+
+vg autoindex -w giraffe -p x -g graphs/disconnected.gfa
+vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected.fq > x.gam
+is "$(vg view -aj x.gam | grep supplementaries | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments"
+vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -o BAM --supplementary -f reads/disconnected.fq > x.bam
+is "$(samtools view -f 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM output converts supplementary alignment annotation into BAM records"
+is "$(samtools view -F 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM output has a primary when converting supplementary alignment annotation"
+is "$(samtools view x.bam | grep 'SA:Z:' | wc -l | sed 's/^[[:space:]]*//')" "2" "Supplementary and primary BAM records have SA tag"
+vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected_pair.fq -i --fragment-mean 200 --fragment-stdev 50 > x.gam
+is "$(vg view -aj x.gam | grep supplementaries | wc -l | sed 's/^[[:space:]]*//')" "2" "paired graph alignments can be annotated with supplementary alignments"
+vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -o BAM --supplementary -f reads/disconnected_pair.fq -i --fragment-mean 200 --fragment-stdev 50 > x.bam
+is "$(samtools view -f 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "2" "paired BAM output converts supplementary alignment annotation into BAM records"
+is "$(samtools view -F 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "2" "paired BAM output has a primary when converting supplementary alignment annotation"
+is "$(samtools view x.bam | grep 'SA:Z:' | wc -l | sed 's/^[[:space:]]*//')" "4" "Supplementary and primary BAM records have SA tag for paired reads"
+
+rm x.giraffe.gbz x.dist x.shortread.withzip.min x.shortread.zipcodes x.gam x.bam
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
