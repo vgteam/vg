@@ -124,7 +124,7 @@ var searchData=
   ['end_5fhandle_1542',['end_handle',['../structvg_1_1Haplotypes_1_1Subchain.html#a7cee546f2ab356b0ed2920209011c2e5',1,'vg::Haplotypes::Subchain']]],
   ['end_5fhint_1543',['end_hint',['../classvg_1_1algorithms_1_1Anchor.html#a4911502b781ce9d07369a4e2ccb5d27a',1,'vg::algorithms::Anchor']]],
   ['end_5fhint_5foffset_1544',['end_hint_offset',['../classvg_1_1algorithms_1_1Anchor.html#afea64615714994d6e170242e1c4b17fc',1,'vg::algorithms::Anchor']]],
-  ['end_5findex_1545',['end_index',['../classvg_1_1ZipCodeTree_1_1distance__iterator.html#ab6255cfce598db2cae5f077b31787066',1,'vg::ZipCodeTree::distance_iterator']]],
+  ['end_5findex_1545',['end_index',['../classvg_1_1ZipCodeTree_1_1distance__iterator.html#a43cfc2473be5f819cc2ecd413626267e',1,'vg::ZipCodeTree::distance_iterator']]],
   ['end_5foffset_1546',['end_offset',['../classvg_1_1algorithms_1_1Anchor.html#ab6c13fc2cdf7820ec92036d406dde823',1,'vg::algorithms::Anchor']]],
   ['end_5fpaths_1547',['end_paths',['../classvg_1_1algorithms_1_1Anchor.html#a9c9f0358fb604fa8333b809ac0080ba3',1,'vg::algorithms::Anchor']]],
   ['end_5fpos_1548',['end_pos',['../classvg_1_1algorithms_1_1Anchor.html#abecd5e7de3a068e14f96fe05adaf4e29',1,'vg::algorithms::Anchor']]],
