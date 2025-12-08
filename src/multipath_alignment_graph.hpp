@@ -266,6 +266,10 @@ namespace vg {
         void prune_high_shift_edges(size_t prune_diff, bool prohibit_new_sources, bool prohibit_new_sinks);
 
     protected:
+
+        /// Default constructor for unit testing.
+        /// After using it, you need to create_match_nodes() and add_reachability_edges() yourself.
+        MultipathAlignmentGraph() = default;
         
         /// Nodes representing walked MEMs in the graph
         vector<PathNode> path_nodes;

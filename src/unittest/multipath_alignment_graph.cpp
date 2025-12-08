@@ -24,6 +24,7 @@ public:
     using MultipathAlignmentGraph::build_queue_count;
     using MultipathAlignmentGraph::add_reachability_edges_easy;
     using MultipathAlignmentGraph::add_reachability_edges_general;
+    using MultipathAlignmentGraph::create_match_nodes;
     using MultipathAlignmentGraph::path_nodes;
 };
 
@@ -835,78 +836,80 @@ TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolin
 
 TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construction produce the same results", "[multipath][mapping][multipathalignmentgraph]" ) {
 
-    // Create a simple stick graph
+    size_t scale = 50;
+
+    // Generate a stick graph
     HashGraph graph;
-    handle_t h1 = graph.create_handle("GATTACA");
-    handle_t h2 = graph.create_handle("TTGG");
-    handle_t h3 = graph.create_handle("AACCTT");
-    handle_t h4 = graph.create_handle("GGCC");
+    handle_t prev;
+    for (size_t i = 0; i < scale; i++) {
+        handle_t h = graph.create_handle("A");
+        if (i > 0) {
+            graph.create_edge(prev, h);
+        }
+        prev = h;
+    }
 
-    graph.create_edge(h1, h2);
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
-
-    // Make a topological order
-    vector<handle_t> topo_order = {h1, h2, h3, h4};
-
-    // Create identity projection (returns a map)
-    auto identity_map = MultipathAlignmentGraph::create_identity_projection_trans(graph);
-    // Convert to a function
-    auto identity = MultipathAlignmentGraph::create_projector(identity_map);
-
-    // Create a read that aligns to this graph
-    string read = "GATTACATTGGAACCTTGGCC";
+    // Make snarls on it
+    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    SnarlDistanceIndex dist_index;
+    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+    
+    // We need a fake read
+    string read(scale, 'A');
+    
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
     Alignment query;
     query.set_sequence(read);
-
-    // Create some MEMs with overlaps
+    
+    // Make an Aligner to use for the actual aligning and the scores
+    Aligner aligner;
+        
+    // Make an identity projection translation
+    auto identity_trans = MultipathAlignmentGraph::create_identity_projection_trans(graph);
+    auto identity = MultipathAlignmentGraph::create_projector(identity_trans);
+    
+    // Make up a fake MEM
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs (so they don't move)
     std::list<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    // Note that this is also a memcluster_t
     pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
     mem_hits.second = 1.0;
+    
+    for (size_t i = 0; i < scale; i += 5) {
+        auto query_start = query.sequence().begin() + (i % (scale));
+        auto query_end = query_start + 1;
+        // Make a MEM in the read of 1 bp, all across the length
+        mems.emplace_back(query_start, query_end, make_pair(1, 1), 1);
+        // Put it on a node's forward strand, doubled up over the first half as if the read loops
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(1 + (i % (scale / 4)), false, 0));
+    } 
 
-    // MEM 1: "GATTACA" at position 0-7 in read, maps to node 1
-    auto query_start1 = query.sequence().begin();
-    auto query_end1 = query_start1 + 7;
-    mems.emplace_back(query_start1, query_end1, make_pair(1, 1), 7);
-    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h1), false, 0));
+    auto injection_trans = TestMultipathAlignmentGraph::create_injection_trans(identity_trans);
 
-    // MEM 2: "TTGG" at position 5-9 in read (overlaps with MEM 1), maps to node 2
-    auto query_start2 = query.sequence().begin() + 5;
-    auto query_end2 = query_start2 + 4;
-    mems.emplace_back(query_start2, query_end2, make_pair(1, 1), 4);
-    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h2), false, 0));
-
-    // MEM 3: "AACCTT" at position 9-15 in read, maps to node 3
-    auto query_start3 = query.sequence().begin() + 9;
-    auto query_end3 = query_start3 + 6;
-    mems.emplace_back(query_start3, query_end3, make_pair(1, 1), 6);
-    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h3), false, 0));
-
-    // MEM 4: "GGCC" at position 15-19 in read, maps to node 4
-    auto query_start4 = query.sequence().begin() + 15;
-    auto query_end4 = query_start4 + 4;
-    mems.emplace_back(query_start4, query_end4, make_pair(1, 1), 4);
-    mem_hits.first.emplace_back(&mems.back(), make_pos_t(graph.get_id(h4), false, 0));
+    vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
 
     // Create two identical MultipathAlignmentGraphs
+    TestMultipathAlignmentGraph mpg_easy;
+    TestMultipathAlignmentGraph mpg_general;
+    
     vector<size_t> provenance_easy;
-    TestMultipathAlignmentGraph mpg_easy(graph, mem_hits, identity_map, provenance_easy);
+    mpg_easy.create_match_nodes(graph, mem_hits, identity, injection_trans, provenance_easy, 0, nullptr);
 
     vector<size_t> provenance_general;
-    TestMultipathAlignmentGraph mpg_general(graph, mem_hits, identity_map, provenance_general);
-
-    // Clear any existing reachability edges (in case they were added during construction)
-    mpg_easy.clear_reachability_edges();
-    mpg_general.clear_reachability_edges();
-
-    // Empty injection_trans (no node ID translation needed for this simple test)
-    unordered_multimap<id_t, pair<id_t, bool>> injection_trans;
-
+    mpg_general.create_match_nodes(graph, mem_hits, identity, injection_trans, provenance_easy, 0, nullptr);
+    
     // Add reachability edges using the easy method
-    mpg_easy.add_reachability_edges_easy(graph, identity, injection_trans, topo_order, &provenance_easy);
+    mpg_easy.add_reachability_edges_easy(graph, identity, injection_trans, topological_order, &provenance_easy);
 
     // Add reachability edges using the general method
-    mpg_general.add_reachability_edges_general(graph, identity, injection_trans, topo_order, &provenance_general);
+    mpg_general.add_reachability_edges_general(graph, identity, injection_trans, topological_order, &provenance_general);
 
     // Compare the number of edges
     size_t easy_edge_count = mpg_easy.count_reachability_edges();
@@ -925,7 +928,7 @@ TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construct
         // Same number of edges
         REQUIRE(easy_node.edges.size() == general_node.edges.size());
 
-        // Sort edges for comparison (they might be in different orders)
+        // Sort edges for comparison, to allow different orders
         auto easy_edges = easy_node.edges;
         auto general_edges = general_node.edges;
 
