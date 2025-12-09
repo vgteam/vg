@@ -152,209 +152,29 @@ using namespace std;
             // the mapper identified supplementaries, retrieve them
             vector<Alignment> mapper_supplementaries = decode_supplementary_annotation(source, *graph);
 
-#ifdef debug_anchored_surject
-            cerr << "alignment has mapper-identified supplementaries:" << endl;
-            for (const auto& aln : mapper_supplementaries) {
-                cerr << pb2json(aln) << endl;
-            }
-#endif
-            // figure out which interval should be assigned to the primary 
-
-            // collect the supplementary intervals (begin, end, idx)
-            vector<tuple<size_t, size_t, size_t>> suppl_intervals;
-            suppl_intervals.reserve(mapper_supplementaries.size());
-            for (size_t i = 0; i < mapper_supplementaries.size(); ++i) {
-                const auto& suppl = mapper_supplementaries[i];
-                auto interval = aligned_interval(suppl);
-                if (interval.second < interval.first) {
-                    // unaligned -- TODO: this shouldn't ever happen though, remove this?
-                    continue;
-                }
-                suppl_intervals.emplace_back(interval.first, interval.second, i);
-            }
-            auto primary_interval = aligned_interval(source);
-            suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, -1);
-            sort(suppl_intervals.begin(), suppl_intervals.end());
-
-            // make hard-clipped Alignments
-            for (size_t i = 0; i < suppl_intervals.size(); ++i) {
-
-                const auto& interval = suppl_intervals[i];
-                const auto& unclipped = get<2>(interval) < mapper_supplementaries.size() ? mapper_supplementaries[get<2>(interval)] : source;
+            auto hard_clipped_alns = generate_hard_clipped_alignments(source, mapper_supplementaries);
+            
+            for (const auto& clipped : hard_clipped_alns) {
                 
-                Alignment clipped;
-
-                // copy over metadata
-                clipped.set_score(unclipped.score());
-                clipped.set_mapping_quality(unclipped.mapping_quality());
-                clipped.set_name(source.name());
-                clipped.set_read_group(source.read_group());
-                clipped.set_sample_name(source.sample_name());
-                clipped.set_is_secondary(source.is_secondary());
-                if (source.has_fragment_next()) {
-                    *clipped.mutable_fragment_next() = source.fragment_next();
-                }
-                if (source.has_fragment_prev()) {
-                    *clipped.mutable_fragment_prev() = source.fragment_prev();
-                }
-                if (Annotation<Alignment>::get(source).fields().size() > 1) {
-                    // there are additional annotations to the supplementaries that we already parsed
-                    *clipped.mutable_annotation() = source.annotation();
-                    // don't pass through the mapper supplementaries
-                    clear_annotation(clipped, "supplementaries");
-                }
-                if (&unclipped != &source) {
-                    set_annotation<bool>(clipped, "supplementary", true);
-                }
-
-                // possibly expand the sequence interval into "unclaimed" adjacent sequence
-                size_t left_bnd = i != 0 ? get<1>(suppl_intervals[i - 1]) : 0;
-                size_t right_bnd = i + 1 < suppl_intervals.size() ? get<0>(suppl_intervals[i + 1]) : source.sequence().size();
-                size_t subseq_begin = min(left_bnd, get<0>(interval));
-                size_t subseq_end = max(right_bnd, get<1>(interval));
-
-#ifdef debug_anchored_surject
-                cerr << "hard clipping ";
-                if (get<2>(interval) >= mapper_supplementaries.size()) {
-                    cerr << "primary alignment";
-                }
-                else {
-                    cerr << "supplementary " << get<2>(interval);
-                }
-                cerr << " to the interval " << subseq_begin << ":" << subseq_end << " for surjection" << endl;
-#endif
-
-                // make the clipped sequence
-                clipped.set_sequence(source.sequence().substr(subseq_begin, subseq_end - subseq_begin));
-                if (!source.quality().empty()) {
-                    clipped.set_quality(source.quality().substr(subseq_begin, subseq_end - subseq_begin));
-                }
-
-                auto clipped_path = clipped.mutable_path();
-                const auto& unclipped_path = unclipped.path();
-                for (size_t m = 0; m < unclipped_path.mapping_size(); ++m) {
-                    const auto& unclipped_mapping = unclipped_path.mapping(m);
-                    auto clipped_mapping = clipped_path->add_mapping();
-                    *clipped_mapping->mutable_position() = unclipped_mapping.position();
-                    if (m != 0 && m + 1 != unclipped_path.mapping_size()) {
-                        // internal mapping
-                        *clipped_mapping = unclipped_mapping;
-                        clipped_mapping->set_rank(clipped_path->mapping_size());
-                    }
-                    else {
-                        // first and/or last mapping
-                        for (size_t e = 0; e < unclipped_mapping.edit_size(); ++e) {
-                            if (m == 0 && e == 0 && subseq_begin != 0) {
-                                // initial hard-clip
-                                const auto& softclip_edit = unclipped_mapping.edit(e);
-                                assert(softclip_edit.from_length() == 0);
-                                if (subseq_begin < softclip_edit.to_length()) {
-                                    auto clipped_edit = clipped_mapping->add_edit();
-                                    clipped_edit->set_from_length(0);
-                                    clipped_edit->set_to_length(softclip_edit.to_length() - subseq_begin);
-                                    clipped_edit->set_sequence(softclip_edit.sequence().substr(softclip_edit.to_length() - clipped_edit->to_length(), clipped_edit->to_length()));
-                                }
-                            }
-                            else if (m + 1 == unclipped_path.mapping_size() && e + 1 == unclipped_mapping.edit_size()
-                                     && subseq_end != source.sequence().size()) {
-                                // final hard-clip
-                                const auto& softclip_edit = unclipped_mapping.edit(e);
-                                assert(softclip_edit.from_length() == 0);
-                                if (source.sequence().size() - softclip_edit.to_length() < subseq_end) {
-                                    auto clipped_edit = clipped_mapping->add_edit();
-                                    clipped_edit->set_from_length(0);
-                                    clipped_edit->set_to_length(subseq_end + softclip_edit.to_length() - source.sequence().size());
-                                    clipped_edit->set_sequence(softclip_edit.sequence().substr(0, clipped_edit->to_length()));
-                                }
-                            }
-                            else {
-                                // internal edit
-                                *clipped_mapping->add_edit() = unclipped_mapping.edit(e);
-                            }
-                        }
-
-                        if (clipped_mapping->edit_size() == 0) {
-                            // the only edits were filtered out, don't leave an empty mapping
-                            clipped_path->mutable_mapping()->RemoveLast();
-                        }
-                        else {
-                            clipped_mapping->set_rank(clipped_path->mapping_size());
-                        }
-                    }
-                }
-#ifdef debug_anchored_surject
-                cerr << "hard-clipped surjection input:" << endl;
-                cerr << pb2json(clipped) << endl;
-#endif
                 // do the surjection
                 vector<Alignment> clipped_surjected;
                 vector<tuple<string, int64_t, bool>> clipped_positions_out;
-                surject_internal(&clipped, nullptr, &clipped_surjected, nullptr, paths, clipped_positions_out,
+                surject_internal(&get<0>(clipped), nullptr, &clipped_surjected, nullptr, paths, clipped_positions_out,
                                  allow_negative_scores, preserve_deletions);
-
+                
+                
+                restore_hard_clips(clipped_surjected, source, get<1>(clipped), get<2>(clipped));
+                
 #ifdef debug_anchored_surject
-                cerr << "got hard-clipped surjections:" << endl;
+                cerr << "after restoring soft-clips:" << endl;
                 for (const auto& surj : clipped_surjected) {
                     cerr << pb2json(surj) << endl;
                 }
-                size_t curr_surj_size = surjected.size();
 #endif
-
-                // restore soft-clips and add to output
                 for (size_t j = 0; j < clipped_surjected.size(); ++j) {
-                    auto& clipped_surj = clipped_surjected[j];
-
-                    clipped_surj.set_sequence(source.sequence());
-                    clipped_surj.set_quality(source.quality());
-
-                    if (clipped_surj.path().mapping_size() != 0) {
-                        
-                        if (subseq_begin != 0) {
-                            // restore a softclip on the front
-                            auto first_mapping = clipped_surj.mutable_path()->mutable_mapping(0);
-                            auto first_edit = first_mapping->mutable_edit(0);
-                            if (first_edit->from_length() == 0) {
-                                first_edit->set_sequence(clipped_surj.sequence().substr(0, subseq_begin) + first_edit->sequence());
-                                first_edit->set_to_length(first_edit->sequence().size());
-                            }
-                            else {
-                                auto softclip_edit = first_mapping->add_edit();
-                                softclip_edit->set_from_length(0);
-                                softclip_edit->set_to_length(subseq_begin);
-                                softclip_edit->set_sequence(clipped_surj.sequence().substr(0, subseq_begin));
-                                // move it to the front
-                                for (size_t k = first_mapping->edit_size() - 1; k > 0; --k) {
-                                    first_mapping->mutable_edit()->SwapElements(k, k - 1);
-                                }
-                            }
-                        }
-                        if (subseq_end != source.sequence().size()) {
-                            // restore a softclip on the back
-                            auto final_mapping = clipped_surj.mutable_path()->mutable_mapping(clipped_surj.path().mapping_size() - 1);
-                            auto final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
-                            if (final_edit->from_length() == 0) {
-                                final_edit->set_sequence(final_edit->sequence() + 
-                                                        clipped_surj.sequence().substr(subseq_end, clipped_surj.sequence().size() - subseq_end));
-                                final_edit->set_to_length(final_edit->sequence().size());
-                            }
-                            else {
-                                auto softclip_edit = final_mapping->add_edit();
-                                softclip_edit->set_from_length(0);
-                                softclip_edit->set_sequence(clipped_surj.sequence().substr(subseq_end, clipped_surj.sequence().size() - subseq_end));
-                                softclip_edit->set_to_length(softclip_edit->sequence().size());
-                            }
-                        }
-                    }
-
-                    surjected.emplace_back(std::move(clipped_surj));
+                    surjected.emplace_back(std::move(clipped_surjected[j]));
                     positions_out.emplace_back(std::move(clipped_positions_out[j]));
                 }
-#ifdef debug_anchored_surject
-                cerr << "de-clipped surjections:" << endl;
-                for (size_t i = curr_surj_size; i < surjected.size(); ++i) {
-                    cerr << pb2json(surjected[i]) << endl;
-                }
-#endif
             }
         }
 
@@ -5523,6 +5343,201 @@ using namespace std;
     vector<pair<int, char>> Surjector::get_cigar(const multipath_alignment_t& surjected, const tuple<string, int64_t, bool>& position, 
                                                  const PathPositionHandleGraph& graph, bool spliced) const {
         return cigar_against_path(surjected, get<0>(position), get<2>(position), get<1>(position), graph, min_splice_length);
+    }
+
+    vector<tuple<Alignment, size_t, size_t>> Surjector::generate_hard_clipped_alignments(const Alignment& source, const vector<Alignment>& supplementaries) const {
+        
+#ifdef debug_anchored_surject
+        cerr << "alignment has mapper-identified supplementaries:" << endl;
+        for (const auto& aln : supplementaries) {
+            cerr << pb2json(aln) << endl;
+        }
+#endif
+        
+        vector<tuple<Alignment, size_t, size_t>> clipped_alns;
+        clipped_alns.reserve(supplementaries.size() + 1);
+        
+        // collect the supplementary intervals (begin, end, idx)
+        vector<tuple<size_t, size_t, size_t>> suppl_intervals;
+        suppl_intervals.reserve(supplementaries.size());
+        for (size_t i = 0; i < supplementaries.size(); ++i) {
+            const auto& suppl = supplementaries[i];
+            auto interval = aligned_interval(suppl);
+            if (interval.second < interval.first) {
+                // unaligned -- TODO: this shouldn't ever happen though, remove this?
+                continue;
+            }
+            suppl_intervals.emplace_back(interval.first, interval.second, i);
+        }
+        auto primary_interval = aligned_interval(source);
+        suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, -1);
+        sort(suppl_intervals.begin(), suppl_intervals.end());
+        
+        // make hard-clipped Alignments
+        for (size_t i = 0; i < suppl_intervals.size(); ++i) {
+            
+            const auto& interval = suppl_intervals[i];
+            const auto& unclipped = get<2>(interval) < supplementaries.size() ? supplementaries[get<2>(interval)] : source;
+            
+            clipped_alns.emplace_back();
+            auto& clipped = get<0>(clipped_alns.back());
+            
+            // copy over metadata
+            clipped.set_score(unclipped.score());
+            clipped.set_mapping_quality(unclipped.mapping_quality());
+            clipped.set_name(source.name());
+            clipped.set_read_group(source.read_group());
+            clipped.set_sample_name(source.sample_name());
+            clipped.set_is_secondary(source.is_secondary());
+            if (source.has_fragment_next()) {
+                *clipped.mutable_fragment_next() = source.fragment_next();
+            }
+            if (source.has_fragment_prev()) {
+                *clipped.mutable_fragment_prev() = source.fragment_prev();
+            }
+            if (Annotation<Alignment>::get(source).fields().size() > 1) {
+                // there are additional annotations to the supplementaries that we already parsed
+                *clipped.mutable_annotation() = source.annotation();
+                // don't pass through the mapper supplementaries
+                clear_annotation(clipped, "supplementaries");
+            }
+            if (&unclipped != &source) {
+                set_annotation<bool>(clipped, "supplementary", true);
+            }
+            
+            // possibly expand the sequence interval into "unclaimed" adjacent sequence
+            size_t left_bnd = i != 0 ? get<1>(suppl_intervals[i - 1]) : 0;
+            size_t right_bnd = i + 1 < suppl_intervals.size() ? get<0>(suppl_intervals[i + 1]) : source.sequence().size();
+            size_t subseq_begin = min(left_bnd, get<0>(interval));
+            size_t subseq_end = max(right_bnd, get<1>(interval));
+            get<1>(clipped_alns.back()) = subseq_begin;
+            get<2>(clipped_alns.back()) = subseq_end;
+            
+#ifdef debug_anchored_surject
+            cerr << "hard clipping ";
+            if (get<2>(interval) >= supplementaries.size()) {
+                cerr << "primary alignment";
+            }
+            else {
+                cerr << "supplementary " << get<2>(interval);
+            }
+            cerr << " to the interval " << subseq_begin << ":" << subseq_end << " for surjection" << endl;
+#endif
+            
+            // make the clipped sequence
+            clipped.set_sequence(source.sequence().substr(subseq_begin, subseq_end - subseq_begin));
+            if (!source.quality().empty()) {
+                clipped.set_quality(source.quality().substr(subseq_begin, subseq_end - subseq_begin));
+            }
+            
+            auto clipped_path = clipped.mutable_path();
+            const auto& unclipped_path = unclipped.path();
+            for (size_t m = 0; m < unclipped_path.mapping_size(); ++m) {
+                const auto& unclipped_mapping = unclipped_path.mapping(m);
+                auto clipped_mapping = clipped_path->add_mapping();
+                *clipped_mapping->mutable_position() = unclipped_mapping.position();
+                if (m != 0 && m + 1 != unclipped_path.mapping_size()) {
+                    // internal mapping
+                    *clipped_mapping = unclipped_mapping;
+                    clipped_mapping->set_rank(clipped_path->mapping_size());
+                }
+                else {
+                    // first and/or last mapping
+                    for (size_t e = 0; e < unclipped_mapping.edit_size(); ++e) {
+                        if (m == 0 && e == 0 && subseq_begin != 0) {
+                            // initial hard-clip
+                            const auto& softclip_edit = unclipped_mapping.edit(e);
+                            assert(softclip_edit.from_length() == 0);
+                            if (subseq_begin < softclip_edit.to_length()) {
+                                auto clipped_edit = clipped_mapping->add_edit();
+                                clipped_edit->set_from_length(0);
+                                clipped_edit->set_to_length(softclip_edit.to_length() - subseq_begin);
+                                clipped_edit->set_sequence(softclip_edit.sequence().substr(softclip_edit.to_length() - clipped_edit->to_length(), clipped_edit->to_length()));
+                            }
+                        }
+                        else if (m + 1 == unclipped_path.mapping_size() && e + 1 == unclipped_mapping.edit_size()
+                                 && subseq_end != source.sequence().size()) {
+                            // final hard-clip
+                            const auto& softclip_edit = unclipped_mapping.edit(e);
+                            assert(softclip_edit.from_length() == 0);
+                            if (source.sequence().size() - softclip_edit.to_length() < subseq_end) {
+                                auto clipped_edit = clipped_mapping->add_edit();
+                                clipped_edit->set_from_length(0);
+                                clipped_edit->set_to_length(subseq_end + softclip_edit.to_length() - source.sequence().size());
+                                clipped_edit->set_sequence(softclip_edit.sequence().substr(0, clipped_edit->to_length()));
+                            }
+                        }
+                        else {
+                            // internal edit
+                            *clipped_mapping->add_edit() = unclipped_mapping.edit(e);
+                        }
+                    }
+                    
+                    if (clipped_mapping->edit_size() == 0) {
+                        // the only edits were filtered out, don't leave an empty mapping
+                        clipped_path->mutable_mapping()->RemoveLast();
+                    }
+                    else {
+                        clipped_mapping->set_rank(clipped_path->mapping_size());
+                    }
+                }
+            }
+#ifdef debug_anchored_surject
+            cerr << "hard-clipped surjection input:" << endl;
+            cerr << pb2json(clipped) << endl;
+#endif
+        }
+        
+        return clipped_alns;
+    }
+
+    void Surjector::restore_hard_clips(vector<Alignment>& clipped_surjected, const Alignment& source, size_t subseq_begin, size_t subseq_end) const {
+        // restore soft-clips
+        for (size_t j = 0; j < clipped_surjected.size(); ++j) {
+            auto& clipped_surj = clipped_surjected[j];
+            
+            clipped_surj.set_sequence(source.sequence());
+            clipped_surj.set_quality(source.quality());
+            
+            if (clipped_surj.path().mapping_size() != 0) {
+                
+                if (subseq_begin != 0) {
+                    // restore a softclip on the front
+                    auto first_mapping = clipped_surj.mutable_path()->mutable_mapping(0);
+                    auto first_edit = first_mapping->mutable_edit(0);
+                    if (first_edit->from_length() == 0) {
+                        first_edit->set_sequence(clipped_surj.sequence().substr(0, subseq_begin) + first_edit->sequence());
+                        first_edit->set_to_length(first_edit->sequence().size());
+                    }
+                    else {
+                        auto softclip_edit = first_mapping->add_edit();
+                        softclip_edit->set_from_length(0);
+                        softclip_edit->set_to_length(subseq_begin);
+                        softclip_edit->set_sequence(clipped_surj.sequence().substr(0, subseq_begin));
+                        // move it to the front
+                        for (size_t k = first_mapping->edit_size() - 1; k > 0; --k) {
+                            first_mapping->mutable_edit()->SwapElements(k, k - 1);
+                        }
+                    }
+                }
+                if (subseq_end != source.sequence().size()) {
+                    // restore a softclip on the back
+                    auto final_mapping = clipped_surj.mutable_path()->mutable_mapping(clipped_surj.path().mapping_size() - 1);
+                    auto final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
+                    if (final_edit->from_length() == 0) {
+                        final_edit->set_sequence(final_edit->sequence() +
+                                                 clipped_surj.sequence().substr(subseq_end, clipped_surj.sequence().size() - subseq_end));
+                        final_edit->set_to_length(final_edit->sequence().size());
+                    }
+                    else {
+                        auto softclip_edit = final_mapping->add_edit();
+                        softclip_edit->set_from_length(0);
+                        softclip_edit->set_sequence(clipped_surj.sequence().substr(subseq_end, clipped_surj.sequence().size() - subseq_end));
+                        softclip_edit->set_to_length(softclip_edit->sequence().size());
+                    }
+                }
+            }
+        }
     }
 
     string Surjector::update_tag_string_for_SA(const string& tags, const string& sa_val) {
