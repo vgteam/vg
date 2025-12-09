@@ -321,6 +321,9 @@ namespace vg {
         /// Use a stick-specific algorithm to detect colinear and
         /// overlap-colinear MEMs.
         ///
+        /// Note that this may produce some transitive edges, which may be
+        /// different than the ones the general algorithm produces.
+        ///
         /// topological_order gives a topological order of the target graph
         void add_reachability_edges_easy(const HandleGraph& vg,
                                          const function<pair<nid_t, bool>(nid_t)>& project,
@@ -330,6 +333,8 @@ namespace vg {
 
         /// Add reachability edges and split and connect overlap-cominear MEMs
         /// in the general case.
+        ///
+        /// Note that this may produce some transitive edges.
         ///
         /// topological_order gives a topological order of the target graph
         void add_reachability_edges_general(const HandleGraph& vg,

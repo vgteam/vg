@@ -834,9 +834,9 @@ TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolin
 
 }
 
-TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construction produce the same results", "[multipath][mapping][multipathalignmentgraph]" ) {
+TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construction produce the same non-transitive edges", "[multipath][mapping][multipathalignmentgraph]" ) {
 
-    size_t scale = 25;
+    size_t scale = 250;
 
     // Generate a stick graph
     HashGraph graph;
@@ -905,21 +905,38 @@ TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construct
     vector<size_t> provenance_general;
     mpg_general.create_match_nodes(graph, mem_hits, identity, injection_trans, provenance_easy, 0, nullptr);
     
+#ifdef debug
     std::cerr << "Computing easy result" << std::endl;
+#endif
 
     // Add reachability edges using the easy method
     mpg_easy.add_reachability_edges_easy(graph, identity, injection_trans, topological_order, &provenance_easy);
 
+#ifdef debug
     std::cerr << "Computing general result" << std::endl;
+#endif
 
     // Add reachability edges using the general method
     mpg_general.add_reachability_edges_general(graph, identity, injection_trans, topological_order, &provenance_general);
 
+    // Neityher method guarantees not to produce transitive edges, and they
+    // might produce different transitive edges. So make sure to remove
+    // transitive edges. This needs a topological order of MEMs.
+    std::vector<size_t> mem_order_general;
+    mpg_general.topological_sort(mem_order_general);
+    mpg_general.remove_transitive_edges(mem_order_general);
+
+    std::vector<size_t> mem_order_easy;
+    mpg_easy.topological_sort(mem_order_easy);
+    mpg_easy.remove_transitive_edges(mem_order_easy);
+
+#ifdef debug
     std::cerr << "Easy Result" << std::endl;
     mpg_easy.to_dot(std::cerr, &query);
 
     std::cerr << "General Result" << std::endl;
     mpg_general.to_dot(std::cerr, &query);
+#endif
 
     // Compare the number of path nodes (in case splitting happened differently)
     REQUIRE(mpg_easy.path_nodes.size() == mpg_general.path_nodes.size());

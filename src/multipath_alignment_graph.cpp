@@ -2644,6 +2644,13 @@ namespace vg {
             return a_end_pos.offset() < b_end_pos.offset();
         });
 
+#ifdef debug_multipath_alignment
+        for (size_t i = 0; i + 1 < graph_order.size(); i++) {
+            crash_unless(start_offset_graph(graph_order[i]) <= start_offset_graph(graph_order[i+1]));
+            std::cerr << "Graph order " << i << ": MEM " << graph_order[i] << " at graph offset " << start_offset_graph(graph_order[i]) << " is at or before MEM " << graph_order[i+1] << " at graph offset " << start_offset_graph(graph_order[i+1]) << std::endl;
+        }
+#endif
+
         // Now we make a lookup table to find each MEM's position in the graph order
         std::vector<size_t> graph_index_of(graph_order.size());
         for (size_t i = 0; i < graph_order.size(); i++) {
@@ -2657,9 +2664,17 @@ namespace vg {
         for (size_t read_index = 0; read_index < read_order.size(); read_index++) {
             // Then we walk through all the MEMs in the read.
             size_t predecessor = read_order[read_index];
+
+#ifdef debug_multipath_alignment
+            std::cerr << "Look for transitions from " << predecessor << std::endl;
+#endif
             
+            // Record a search start
+            build_queue_count++;
+
             // For each, we find its position in the graph.
             size_t graph_index = graph_index_of[predecessor];
+            crash_unless(graph_order[graph_index] == predecessor);
 
             // We put an entry in here if we see a potential successor at all,
             // and a true if that successor was acceptable. When we again see a
@@ -2677,10 +2692,20 @@ namespace vg {
                 // when we find something.
 
                 // For each potential successor in the graph or the read
-                size_t successor = (i % 2 == 0) ? read_order[read_index + (i/2)] : graph_order[read_index + (i/2)];
-                
+                size_t successor = (i % 2 == 0) ? read_order.at(read_index + (i/2)) : graph_order.at(graph_index + (i/2));
+
+#ifdef debug_multipath_alignment
+                std::cerr << "\tFound successor " << successor << " at order offset " << (i / 2) << " in " << ((i % 2 == 0) ? "read" : "graph") << std::endl;
+#endif
+
+                // We should never see something as a successor of itself.
+                crash_unless(successor != predecessor);
+
                 auto found = acceptable_successors.find(successor);
                 if (found != acceptable_successors.end()) {
+#ifdef debug_multipath_alignment
+                    std::cerr << "\t\tHas been seen before" << std::endl;
+#endif
                     // When we find a successor we've seen before, we don't have to process it.
                     if (found->second) {
                         // But if it was an acceptable successor the first time
@@ -2688,10 +2713,16 @@ namespace vg {
                         // both the graph and the read and we've handled
                         // everything before it in both the graph and the read,
                         // so it blocks further edges and we can stop.
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\t\tWas acceptable. Stop." << std::endl;
+#endif
                         break;
                     }
                 } else {
                     // We found a novel successor
+#ifdef debug_multipath_alignment
+                    std::cerr << "\t\tIs novel" << std::endl;
+#endif
 
                     // Remember we found it. Assume it's not acceptable for now.
                     auto acceptable_entry = acceptable_successors.emplace_hint(found, successor, false);
@@ -2703,6 +2734,11 @@ namespace vg {
                     if (read_from <= read_to && graph_from <= graph_to) {
                         // The predecessor ends before the successor starts on
                         // both sides, so it is colinear.
+
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\tPredecessor ends in time in both read (" << read_from << "<=" << read_to << ") and graph (" << graph_from << "<=" << graph_to << "): colinear" << std::endl;
+#endif
+
                         path_nodes[predecessor].edges.emplace_back(successor, graph_to - graph_from);
 
                         // Record as an acceptable successor
@@ -2715,6 +2751,10 @@ namespace vg {
                         // The predecessor overlaps the successor in the read
                         // and the graph, and starts at or before it in both.
                         // They might be overlap-colinear.
+                        
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\tMay be overlap-colinear" << std::endl;
+#endif
 
                         // TODO: We assume there aren't any duplicate,
                         // coinciding paths.
@@ -2739,19 +2779,35 @@ namespace vg {
                         if (predecessor_overlap == successor_overlap) {
                             // The overlapping part in the read is the same
                             // path in the graph. These are overlap-colinear.
+                            
+#ifdef debug_multipath_alignment
+                            std::cerr << "\t\t\tSame path in overlapping read region: overlap-colinear" << std::endl;
+#endif
 
                             // The distance is 0 for overlap-colinear MEMs.
                             confirmed_overlaps[predecessor][successor] = make_tuple(read_overlap, path_from_length(predecessor_overlap), 0);
                             
                             // Record that we found an acceptable successor.
                             acceptable_entry->second = true;
+                        } else {
+#ifdef debug_multipath_alignment
+                            std::cerr << "\t\t\tDifferent paths in overlapping read region: no relationship" << std::endl;
+#endif
                         }
+                    } else {
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\tNo sensible overlap in read (" << read_from << " vs. " << read_to << ") or graph (" << graph_from << " vs. " << graph_to << "): no relationship" << std::endl;
+#endif
                     }
                     // If neither, it's not an acceptable successor. Don't mark
                     // it and keep going.
                 }
             }
         }
+
+#ifdef debug_multipath_alignment
+        std::cerr << "Found " << confirmed_overlaps.size() << " prececessors with overlap-colinear successors" << std::endl;
+#endif
 
         // When we get here, we've found all the successor relationships that
         // are in both the read order and the graph order (either the direct
