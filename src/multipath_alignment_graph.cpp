@@ -6382,7 +6382,6 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         return gap_length;
     }
    
-#define debug_multipath_alignment
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner,
                                          const GSSWAligner* dp_aligner, size_t max_alt_alns, bool dynamic_alt_alns,
@@ -6956,7 +6955,6 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
         }
     }
-#undef debug_multipath_alignment
 
     void MultipathAlignmentGraph::to_dot(ostream& out, const Alignment* alignment) const {
         // We track the VG graph nodes we talked about already.
