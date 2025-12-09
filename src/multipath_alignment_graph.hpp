@@ -346,7 +346,12 @@ namespace vg {
         /// then destination path_nodes index for the later MEM. The values are
         /// the amount of overlaps between the alignment fragments in the read,
         /// then in the graph, and then the path length for the overlap edge.
+        /// 
         /// TODO: what is that really?
+        ///
+        /// The path length for the overlap edge is 0 when the MEMs are
+        /// "overlap colinear", where a suffix of the first is a prefix of the
+        /// second.
         ///
         /// If path_node_provenance is set, it will be updated as path_nodes is
         /// modified, to maintain provenance information about which value in

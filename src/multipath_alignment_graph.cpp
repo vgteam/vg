@@ -15,7 +15,7 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/pad_band.hpp"
 
-#define debug_multipath_alignment
+//#define debug_multipath_alignment
 //#define debug_decompose_algorithm
 //#define debug_shift_pruning
 
@@ -2638,38 +2638,50 @@ namespace vg {
         unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
 
         // Track MEMs we're currently inside, sorted by end position in read
-        // Pairs of (end offset in read, MEM index)
+        // This holds pairs of (end offset in read, MEM index).
+        // TODO: This should be a priority queue so we don't have to scan the
+        // whole thing to remove stuf we've passed in the read. We should only
+        // need to scan until the first thing we haven't passed in the read.
         set<pair<size_t, size_t>> active_mems;
 
         for (size_t mem_idx : sorted_mems) {
-            // Remove MEMs that have ended before this one starts
+            std::cerr << "Visit MEM " << mem_idx << " from " << start_offset_read(mem_idx) << " to " << end_offset_read(mem_idx) << " in read" << std::endl;
+
             while (!active_mems.empty() && active_mems.begin()->first <= start_offset_read(mem_idx)) {
+                // Remove thei MEM from the active set if it ended before this one starts
+                std::cerr << "\tMEM " << active_mems.begin()->second << " ends at " << active_mems.begin()->first << " in read and so stops earlier." << std::endl;
+
                 active_mems.erase(active_mems.begin());
             }
 
-            // Check for overlaps with all active MEMs
-            for (const auto& active : active_mems) {
-                size_t prev_idx = active.second;
+            for (const auto& prev : active_mems) {
+                // See if this previous MEM overlaps the current MEM
+                size_t prev_idx = prev.second;
 
-                // Check if there's an overlap in the read
                 if (path_nodes[prev_idx].end > path_nodes[mem_idx].begin) {
+                    // They overlap in the read
                     size_t read_overlap = path_nodes[prev_idx].end - path_nodes[mem_idx].begin;
 
-                    // Compute the graph overlap (from_length) by finding how much graph
-                    // sequence the later MEM's path consumes for this read overlap
-                    size_t graph_overlap = corresponding_from_length(path_nodes[mem_idx].path, read_overlap, false);
+                    std::cerr << "\tFound " << read_overlap << " bp overlap in read with MEM " << prev_idx << std::endl;
 
-                    // Check if there's also an overlap in graph positions (for validation)
+                    // Check if there's also an overlap in graph positions
                     size_t prev_end_graph = end_offset_graph(prev_idx);
                     size_t mem_start_graph = start_offset_graph(mem_idx);
 
                     if (prev_end_graph > mem_start_graph) {
-                        // There is a graph overlap, so these MEMs might be overlap-colinear
-                        // Extract the overlapping portions of both paths to verify they match
+                        std::cerr << "\t\tPrevious MEM overlaps current MEM in graph (ends at " << prev_end_graph << " bp in graph, while current starts at " << mem_start_graph << " bp)" << std::endl;
 
-                        // From prev_idx: extract the SUFFIX (last read_overlap bases)
-                        // prev_idx.path: [----------XXXX]
-                        //                         ^ extract from here to end
+                        // TODO: This doesn't actually ensure a graph overlap
+                        // even in terms of linear interval covered; the
+                        // previous MEM might just be later in the graph than
+                        // the current MEM.
+
+                        // There is a graph overlap, so these MEMs might be overlap-colinear
+                        // Extract the overlapping portions of both paths to check if they match.
+                        
+                        // TODO: This doesn't handle containment
+
+                        // From prev_idx: extract the suffix (last read_overlap bases along the read)
                         size_t prev_path_len = path_nodes[prev_idx].end - path_nodes[prev_idx].begin;
                         size_t prev_overlap_start = prev_path_len - read_overlap;
                         path_t prev_overlap_subpath = extract_subpath(
@@ -2677,21 +2689,24 @@ namespace vg {
                             prev_overlap_start,
                             prev_path_len);
 
-                        // From mem_idx: extract the PREFIX (first read_overlap bases)
-                        // mem_idx.path: [XXXX----------]
-                        //               ^ extract from start to read_overlap
+                        // From mem_idx: extract the prefix (first read_overlap bases along the read)
                         path_t mem_overlap_subpath = extract_subpath(
                             path_nodes[mem_idx].path,
                             0,
                             read_overlap);
 
-                        // Compare the extracted subpaths for equality
                         if (prev_overlap_subpath == mem_overlap_subpath) {
-                            // Paths match! Confirm overlap-colinear
-                            // The distance is 0 for directly detected overlaps (no intermediate path)
-                            confirmed_overlaps[mem_idx][prev_idx] = make_tuple(read_overlap, graph_overlap, 0);
+                            // Paths match
+                            // Record the MEMs as overlap-colinear.
+
+                            std::cerr << "\t\tPrevious MEM is overlap-colinear" << std::endl;
+
+                            // The distance is 0 for overlap-colinear MEMs.
+                            confirmed_overlaps[mem_idx][prev_idx] = make_tuple(read_overlap, path_from_length(prev_overlap_subpath), 0);
+                        } else {
+                            // If paths don't match, don't record the overlap
+                            std::cerr << "\t\tMEMs overlap in read and graph but take different alignments and so are not overlap-colinear" << std::endl;
                         }
-                        // If paths don't match, don't record the overlap
                     }
                 }
             }
@@ -2700,13 +2715,19 @@ namespace vg {
             active_mems.insert(make_pair(end_offset_read(mem_idx), mem_idx));
         }
 
-        // To find the normal colinear cases, we loop over each sorted MEM. For
-        // each MEM, we scan forward from it until we find a successor MEM that
-        // is colinear in the read and also colinear along the graph walk, or
-        // until we hit the end of the MEM sort order. (This is quadradic, but
-        // it should only actually explode if we have a bunch of things, none
-        // of which can connect to anything.) We only need to worry about the
-        // first hit because colinearity isn't supposed to be transitive.
+        std::cerr << confirmed_overlaps.size() << " MEMs are overlap-colinear with successors." << std::endl;
+
+        // To find the normal colinear cases, we loop over each MEM from the
+        // sorted list. For each MEM, we scan forward from it until we find a
+        // successor MEM that is colinear in the read and also colinear along
+        // the graph walk, or until we hit the end of the MEM sort order. (This
+        // is quadradic, but it should only actually explode if we have a bunch
+        // of things, none of which can connect to anything.) We only need to
+        // worry about the first hit because colinearity isn't supposed to be
+        // transitive.
+        
+        // TODO: That's not really true; we need to worry about other hits that
+        // aren't themselves colinear with that first hit.
 
         // When we find a colinear MEM, we add the edges entry and move on to
         // the next start MEM.
@@ -2714,20 +2735,33 @@ namespace vg {
         for (size_t i = 0; i < sorted_mems.size(); i++) {
             size_t from_idx = sorted_mems[i];
 
+            std::cerr << "Scan from MEM " << from_idx << " from " << start_offset_read(from_idx) << " to " << end_offset_read(from_idx) << " in read" << std::endl;
+
             // Scan forward to find the first colinear successor
             for (size_t j = i + 1; j < sorted_mems.size(); j++) {
                 size_t to_idx = sorted_mems[j];
 
+                std::cerr << "\tFound MEM " << to_idx << " from " << start_offset_read(to_idx) << " to " << end_offset_read(to_idx) << " in read" << std::endl;
+
                 // Check if they're colinear in the read (no overlap, from ends before to starts)
                 if (path_nodes[from_idx].end <= path_nodes[to_idx].begin) {
+                    std::cerr << "\t\tColinear in read" << std::endl;
+
                     // Check if they're also colinear in the graph
                     if (end_offset_graph(from_idx) <= start_offset_graph(to_idx)) {
-                        // They're colinear! Add an edge
+                        // They're colinear!
+                        std::cerr << "\t\tColinear in graph (from " << end_offset_graph(from_idx) << " bp to " << start_offset_graph(to_idx) << " bp)" << std::endl;
+
+                        // Add an edge
                         size_t graph_dist = start_offset_graph(to_idx) - end_offset_graph(from_idx);
                         path_nodes[from_idx].edges.emplace_back(to_idx, graph_dist);
 
+                        std::cerr << "\t\t\tAdded edge" << std::endl;
+
                         // Found the first colinear successor, don't look further
                         break;
+                    } else {
+                        std::cerr << "\t\tNot colinear in graph (from " << end_offset_graph(from_idx) << " bp to " << start_offset_graph(to_idx) << " bp)" << std::endl;
                     }
                 }
             }

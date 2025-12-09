@@ -2325,7 +2325,6 @@ pair<path_t, path_t> cut_path(const path_t& path, size_t offset) {
     return make_pair(p1, p2);
 }
 
-// extract a subpath from start_offset to end_offset (measured in to_length)
 path_t extract_subpath(const path_t& path, size_t start_offset, size_t end_offset) {
     // Handle edge cases
     if (start_offset >= end_offset) {
