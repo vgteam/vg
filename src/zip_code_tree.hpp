@@ -460,41 +460,67 @@ public:
      * 
      * For example, since previous chains in a cyclic snarl will have already
      * visited all other chains, later chains do not have to visit previous ones.
-     * Similarly, when the traversal enters a cyclic snarl, it only has to
-     * handle the chains going in the opposite orientation, since the ones in
-     * the same orientation will have already seen the traversal's starting
-     * position by exiting the snarl.
+     * Similarly, the traversal should never have to enter a cyclic snarl from
+     * the outside, since any possible transition crossing the snarl boundary
+     * will be found by traversals starting from seeds inside the snarl.
+     * 
+     * Since a seed in a cyclic snarl may exit in either direction, the iterator
+     * "saves" one point (the opposite of its current direction), remembering
+     * the stack state and index, to be restored later. Then, when the main
+     * iterator hits the end, it can restore the saved state and continue.
+     * 
+     * The iterator implements simple memorization of snarl exit distances. This
+     * is done for only cyclic snarls, as they are the only ones that literarlly
+     * turn one traversal into two via the exit-in-both-directions behavior.
+     * Each time the iterator calculates the running distance to exit a cyclic
+     * snarl, it will check if it has ever seen a better or equal distance, and
+     * if so will pretend that the distance is infinite/unreachable.
      */
     class distance_iterator {
     public:
-        /// Make a reverse iterator starting from start_index, until
-        /// the given rend, with the given distance limit.
+        /// Make a reverse iterator starting from start_index,
+        /// going in the given direction, and with an optional distance limit
         distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
+        // Iterators are copyable and movable
+        distance_iterator(const distance_iterator& other) = default;
+        distance_iterator(distance_iterator&& other) = default;
+        distance_iterator& operator=(const distance_iterator& other) = default;
+        distance_iterator& operator=(distance_iterator&& other) = default;
+
         /// Move in right_to_left direction until we hit another seed or the end
         distance_iterator& operator++();
 
         /// Move index in right_to_left direction
+        /// If we hit the end and have pending traversals, use one
         inline void move_index() {
-            if (right_to_left) {
-                --index;
-            } else {
-                ++index;
+            if (!done()) {
+                // Refuse to move past the end
+                // This might happen due to race conditions added
+                // with the save-and-reload behavior
+                if (pos.right_to_left) {
+                    --pos.index;
+                } else {
+                    ++pos.index;
+                }
+            }
+            if (done() && !pending_traversals.empty()) {
+                use_saved_traversal();
             }
         }
 
         /// Compare for equality to see if we hit end
         /// This just trusts that the two iterators are for the same tree
-        inline bool operator==(const distance_iterator& other) const { return index == other.index; }
+        inline bool operator==(const distance_iterator& other) const { return pos.index == other.pos.index; }
 
         /// Compare for inequality
         inline bool operator!=(const distance_iterator& other) const { return !(*this == other); }
 
         /// Is the iteration done?
-        inline bool done() const { return index == end_index; }
+        inline bool done() const { return pos.index == end_index; }
         
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
@@ -511,24 +537,65 @@ public:
         };
 
     private:
-        /// Where we are in the stored tree.
-        size_t index;
         /// Where we have to stop
-        const size_t end_index;
+        size_t end_index;
         /// Where we started from
         const size_t original_index;
-        /// Within each parent snarl, which chain are we in?
-        std::stack<size_t> chain_numbers;
         /// Distance limit we will go up to
         size_t distance_limit;
-        /// Whether we are looking right to left (true) or left to right (false)
-        bool right_to_left;
         /// Original direction
         const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
-        /// Stack for computing distances.
-        std::stack<size_t> stack_data;
+        /// Best distance for each snarl exit we've seen
+        /// Stored as {snarl start index : (start dist, end dist)}
+        std::unordered_map<size_t, std::pair<size_t, size_t>> best_cyclic_snarl_exits;
+
+        /// A specific snapshot of the iterator's position
+        /// which includes necessary state information (e.g. stack)
+        struct iteration_position {
+            /// Where we are in the stored tree.
+            size_t index;
+            /// Whether we are looking right to left (true) or left to right (false)
+            bool right_to_left;
+            /// Stack for computing distances.
+            std::stack<size_t> stack_data;
+            /// Within each parent snarl, which chain are we in?
+            std::stack<size_t> chain_numbers;
+            /// What state the automaton is in
+            State state;
+
+            /// Default constructor
+            iteration_position(size_t index,
+                               bool right_to_left,
+                               std::stack<size_t> stack_data,
+                               std::stack<size_t> chain_numbers,
+                               State state)
+                : index(index),
+                  right_to_left(right_to_left),
+                  stack_data(stack_data),
+                  chain_numbers(chain_numbers),
+                  state(state) {}
+
+            // Copyable and movable
+            iteration_position(const iteration_position& other) = default;
+            iteration_position(iteration_position&& other) = default;
+            iteration_position& operator=(const iteration_position& other) = default;
+            iteration_position& operator=(iteration_position&& other) = default;
+        };
+        /// The iterator's current position (state, direction, stack, etc.)
+        iteration_position pos;
+        /// Starting positions of other traversals that we will do later
+        /// When the current traversal can no longer go on,
+        /// we pop one of these and set the current position to it
+        std::stack<iteration_position> pending_traversals;
+
+        /// Set current iteration_position to the top of pending_traversals
+        void use_saved_traversal();
+
+        /// Save a traversal exiting a cyclic snarl in the opposite direction
+        /// as the current one, e.g. using an edge C1_R -> SNARL_START
+        void save_opposite_cyclic_snarl_exit(size_t chain_num);
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.
@@ -560,7 +627,19 @@ public:
 
         /// Helper for stack_snarl_distances()
         /// Stack a single value from a triangular distance matrix
+        /// row and col are zero-indexed within the matrix
         void stack_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
+
+        /// Helper for stack_matrix_value()
+        /// Get a value from a triangular distance matrix
+        /// row and col are zero-indexed within the matrix
+        size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
+
+        /// Helper which simplifies the call to stack_matrix_value()
+        /// Get a distance to the start or end of a CYCLIC snarl
+        /// Also handles the memorization with best_cyclic_snarl_exits
+        /// row is zero-indexed within the matrix
+        size_t get_cyclic_snarl_bound_distance(size_t snarl_start_i, size_t row, bool to_end);
 
         /// Helper for stack_snarl_distances()
         /// Stack a single value below the running distance
@@ -568,39 +647,33 @@ public:
 
         // Helper functions for the automaton's state machine
 
-        /// Current state of the automaton
-        State current_state;
-
-        /// Adopt a new state.
-        inline void state(State new_state) { current_state = new_state; }
-
         /// Stop parsing because nothing else can be below the distance limit.
-        /// This moves the current iterator it.
+        /// This moves the current index to end_index.
         void halt();
 
         /// Throw a domain_error that the current state/symbol combo is unimplemented.
         void unimplemented_error();
 
         /// What item does index point to?
-        inline tree_item_t current_item() const { return zip_code_tree.at(index); }
+        inline tree_item_t current_item() const { return zip_code_tree.at(pos. index); }
 
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
         inline bool entered_snarl() const {
-            return (right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END)
-                    || (!right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START);
+            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END)
+                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START);
         }
         inline bool exited_snarl() const {
-            return (right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START)
-                    || (!right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END);
+            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START)
+                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END);
         }
         inline bool entered_chain() const {
-            return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END)
-                    || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START);
+            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END)
+                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START);
         }
         inline bool exited_chain() const {
-            return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START)
-                    || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END);
+            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START)
+                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END);
         }
 
         /// Skip the current chain, jumping to the matching end
@@ -613,16 +686,14 @@ public:
         void initialize_chain();
 
         /// Decide what to do right after entering a new snarl.
-        /// Return whether the initialization was successful,
-        /// i.e. whether the snarl was a non-root snarl.
-        bool initialize_snarl(size_t chain_num);
+        void initialize_snarl(size_t chain_num);
 
         /// Decide what to do when re-entering a snarl,
         /// having already stacked up distances
         void continue_snarl();
 
         /// Tick the automaton, looking at the symbol at *it and updating the
-        /// stack and current_state. Returns true to yield a value at the
+        /// stack and state. Returns true to yield a value at the
         /// current symbol, or to halt, and false otherwise.
         bool tick();
 
