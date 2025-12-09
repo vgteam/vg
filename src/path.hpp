@@ -558,6 +558,12 @@ pos_t final_position(const path_t& path);
 int corresponding_to_length(const path_t& path, int from_length, bool from_end);
 int corresponding_from_length(const path_t& path, int to_length, bool from_end);
 
+pair<path_t, path_t> cut_path(const path_t& path, size_t offset);
+pair<path_mapping_t, path_mapping_t> cut_mapping(const path_mapping_t& m, size_t offset);
+/// Extract a subpath from start_offset to end_offset (measured in to_length,
+/// along the read side)
+path_t extract_subpath(const path_t& path, size_t start_offset, size_t end_offset);
+
 string debug_string(const path_t& path);
 string debug_string(const path_mapping_t& mapping);
 string debug_string(const edit_t& edit);
