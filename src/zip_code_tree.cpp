@@ -1858,7 +1858,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
 #ifdef debug_parse
     std::cerr << "Tick for state " << current_state << " on symbol " << it->get_type() << " at entry " << (rend - it + 1) << std::endl;
 #endif
-    switch (pos.state) {
+    switch (current_state) {
     case S_START:
         // Initial state.
         //
@@ -2118,7 +2118,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     default:
-        throw std::domain_error("Unimplemented state " + std::to_string(pos.state)); 
+        throw std::domain_error("Unimplemented state " + std::to_string(current_state)); 
     }
     // Unless we yield something, we don't want to pause the scan here.
     return false;
