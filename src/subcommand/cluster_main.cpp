@@ -374,6 +374,7 @@ int main_cluster(int argc, char** argv) {
 
     // Grab the GBZ
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
+    require_compatible_graphs(*gbz, "GBZ", *minimizer_index, "Minimizer Index");
 
     //Get the distance index
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));

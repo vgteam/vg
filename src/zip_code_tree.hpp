@@ -336,11 +336,11 @@ public:
         void state(State new_state);
 
         /// Stop parsing because nothing else can be below the distance limit.
-        /// This moves the current iterator it.
+        /// This moves the current index to end_index.
         void halt();
 
         /// Tick the automaton, looking at the symbol at *it and updating the
-        /// stack and current_state. Returns true to yield a value at the
+        /// stack and state. Returns true to yield a value at the
         /// current symbol, or to halt, and false otherwise.
         bool tick();
 

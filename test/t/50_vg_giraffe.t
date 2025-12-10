@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 69
+plan tests 71
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -14,7 +14,7 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg gbwt -x x.xg -g xx.gbz --gbz-format x.gbwt
+vg gbwt -x x.xg -g xx.gbz x.gbwt
 vg minimizer -k 29 -w 11 -d x.dist -o x.shortread.withzip.min -z x.shortread.zipcodes xx.gbz
 
 
@@ -31,11 +31,6 @@ vg minimizer -d x.dist --rec-mode -o wrong.min -z wrong.zipcodes xx.gbz
 vg giraffe -Z x.giraffe.gbz -m wrong.min -z wrong.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "1" "a minimizer index with the wrong payload type is rejected"
 rm -f wrong.min wrong.zipcodes
-
-rm -f x.giraffe.gbz
-vg gbwt -x x.xg -g x.gg x.gbwt
-vg giraffe -g x.gg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "0" "a read can be mapped with gg + gbwt + min + zips + dist specified without crashing"
 
 rm -f x.shortread.withzip.min
 rm -f x.shortread.zipcodes
@@ -120,6 +115,11 @@ is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | 
 is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 2"
 is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved on read 1"
 
+# Attempts to use mismatched files fail
+vg gbwt -G graphs/components_walks.gfa -g wrong.gbz
+vg giraffe -Z wrong.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -f reads/small.middle.ref.fq > /dev/null 2> log.txt
+is "${?}" "1" "mapping with mismatched GBZ and minimizer index fails"
+is "$(grep -c 'error.*are not compatible' log.txt)" "1" "appropriate error message is printed"
 
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
@@ -130,9 +130,8 @@ is "$(find explanation_read1 -name '*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1"
 is "$(ls -d explanation_* 2>/dev/null | wc -l | tr -d ' ')" "3" "Explanation directories are created per read"
 
 rm -rf explanation_*
-rm -f x.vg x.xg x.gbwt x.shortread.zipcodes x.shortread.withzip.min x.sync x.dist x.gg
-rm -f x.giraffe.gbz
-
+rm -f x.giraffe.gbz wrong.gbz
+rm -f log.txt
 
 cp small/x.fa .
 cp small/x.vcf.gz .
@@ -185,10 +184,10 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 rm -f x.giraffe.gbz
 
-rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .
@@ -242,7 +241,7 @@ is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l | sed 's/^[[:space
 is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l | sed 's/^[[:space:]]*//')" "2000" "paired reads all have nonzero correct minimizer coverage"
 
 rm -f x.vg xy.sam xy.json
-rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
@@ -250,7 +249,7 @@ is "$(samtools view xy.bam | wc -l | sed 's/^[[:space:]]*//')" "2000" "GBZ-based
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
-rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
@@ -261,7 +260,8 @@ is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null
 
 vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
-is "$(grep '^@' mapped.gaf | wc -l)" "1" "GAF has a header"
+is "$(grep -c '^@' mapped.gaf)" 2 "GAF has a header"
+is "$(grep -c '^@RN' mapped.gaf)" 1 "GAF has a reference name header"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt

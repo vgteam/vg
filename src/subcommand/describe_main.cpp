@@ -185,6 +185,22 @@ static vg::subcommand::Subcommand vg_chains("describe", "identify and describe f
 
 //----------------------------------------------------------------------------
 
+void list_tags(std::ifstream& in, bool simple_sds, const std::string& index_type, std::ostream& out) {
+    gbwt::Tags tags;
+    if (simple_sds) {
+        tags.simple_sds_load(in);
+    } else {
+        tags.load(in);
+    }
+    out << index_type << " tags:" << std::endl;
+    for (const auto& tag : tags.tags) {
+        out << "  " << tag.first << " = " << tag.second << std::endl;
+    }
+    out << std::endl;
+}
+
+//----------------------------------------------------------------------------
+
 void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostream& out) {
     out << index_type << " header:" << std::endl;
     gbwt::GBWTHeader header = load_and_validate_header<gbwt::GBWTHeader>(in);
@@ -202,17 +218,7 @@ void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostrea
     out << "  " << (metadata ? "Contains" : "Does not contain") << " path metadata" << std::endl;
     out << std::endl;
 
-    out << index_type << " tags:" << std::endl;
-    gbwt::Tags tags;
-    if (simple_sds) {
-        tags.simple_sds_load(in);
-    } else {
-        tags.load(in);
-    }
-    for (const auto& tag : tags.tags) {
-        out << "  " << tag.first << " = " << tag.second << std::endl;
-    }
-    out << std::endl;
+    list_tags(in, simple_sds, index_type, out);
 }
 
 void describe_r_index(std::ifstream& in, const std::string& index_type, std::ostream& out) {
@@ -240,13 +246,7 @@ void describe_gbz(std::ifstream& in, const std::string& index_type, std::ostream
     out << "  Version " << header.version << std::endl;
     out << std::endl;
 
-    out << index_type << " tags:" << std::endl;
-    gbwt::Tags tags;
-    tags.simple_sds_load(in);
-    for (const auto& tag : tags.tags) {
-        out << "  " << tag.first << " = " << tag.second << std::endl;
-    }
-    out << std::endl;
+    list_tags(in, true, index_type, out);
 
     describe_gbwt(in, "GBWT", out);
 }
@@ -271,13 +271,7 @@ void describe_minimizer_index(std::ifstream& in, const std::string& index_type, 
     out << "  " << key_bits << "-bit keys and " << payload_words << "-word payloads" << std::endl;
     out << std::endl;
 
-    out << index_type << " tags:" << std::endl;
-    gbwt::Tags tags;
-    tags.load(in);
-    for (const auto& tag : tags.tags) {
-        out << "  " << tag.first << " = " << tag.second << std::endl;
-    }
-    out << std::endl;
+    list_tags(in, false, index_type, out);
 }
 
 //----------------------------------------------------------------------------
@@ -311,6 +305,10 @@ void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::
     out << "  " << header.top_level_chains << " top-level chains with " << header.total_subchains << " subchains" << std::endl;
     out << "  " << header.total_kmers << " kmers of length " << header.k << std::endl;
     out << std::endl;
+
+    if (header.version >= Haplotypes::Header::VERSION_WITH_TAGS) {
+        list_tags(in, true, index_type, out);
+    }
 }
 
 //----------------------------------------------------------------------------

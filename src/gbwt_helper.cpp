@@ -179,18 +179,38 @@ void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bo
 
 //------------------------------------------------------------------------------
 
-void GBWTHandler::use_compressed() {
+gbwt::GBWT* GBWTHandler::get_compressed() {
     if (this->in_use == index_compressed) {
+        return &this->compressed_owned;
+    } else if (this->in_use == index_external) {
+        return this->compressed_external;
+    } else {
+        return nullptr;
+    }
+}
+
+const gbwt::GBWT* GBWTHandler::get_compressed() const {
+    if (this->in_use == index_compressed) {
+        return &this->compressed_owned;
+    } else if (this->in_use == index_external) {
+        return this->compressed_external;
+    } else {
+        return nullptr;
+    }
+}
+
+void GBWTHandler::use_compressed() {
+    if (this->in_use == index_compressed || this->in_use == index_external) {
         return;
     } else if (this->in_use == index_dynamic) {
         if (this->show_progress) {
             std::cerr << "Converting dynamic GBWT into compressed GBWT" << std::endl;
         }
-        this->compressed = gbwt::GBWT(this->dynamic);
+        this->compressed_owned = gbwt::GBWT(this->dynamic);
         this->dynamic = gbwt::DynamicGBWT();
         this->in_use = index_compressed;
     } else {
-        load_gbwt(this->compressed, this->filename, this->show_progress);
+        load_gbwt(this->compressed_owned, this->filename, this->show_progress);
         this->in_use = index_compressed;
     }
 }
@@ -198,12 +218,13 @@ void GBWTHandler::use_compressed() {
 void GBWTHandler::use_dynamic() {
     if (this->in_use == index_dynamic) {
         return;
-    } else if (this->in_use == index_compressed) {
+    } else if (this->in_use == index_compressed || this->in_use == index_external) {
         if (this->show_progress) {
             std::cerr << "Converting compressed GBWT into dynamic GBWT" << std::endl;
         }
-        this->dynamic = gbwt::DynamicGBWT(this->compressed);
-        this->compressed = gbwt::GBWT();
+        this->dynamic = gbwt::DynamicGBWT(*this->get_compressed());
+        this->compressed_owned = gbwt::GBWT();
+        this->compressed_external = nullptr;
         this->in_use = index_dynamic;
     } else {
         load_gbwt(this->dynamic, this->filename, this->show_progress);
@@ -214,8 +235,15 @@ void GBWTHandler::use_dynamic() {
 void GBWTHandler::use(gbwt::GBWT& new_index) {
     this->clear();
     this->unbacked();
-    this->compressed.swap(new_index);
+    this->compressed_owned.swap(new_index);
     this->in_use = index_compressed;
+}
+
+void GBWTHandler::use_external(gbwt::GBWT& new_index) {
+    this->clear();
+    this->unbacked();
+    this->compressed_external = &new_index;
+    this->in_use = index_external;
 }
 
 void GBWTHandler::use(gbwt::DynamicGBWT& new_index) {
@@ -233,8 +261,8 @@ void GBWTHandler::serialize(const std::string& new_filename) {
     if (this->in_use == index_none) {
         std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
         return;
-    } else if (this->in_use == index_compressed) {
-        save_gbwt(this->compressed, new_filename, this->show_progress);
+    } else if (this->in_use == index_compressed || this->in_use == index_external) {
+        save_gbwt(*this->get_compressed(), new_filename, this->show_progress);
     } else {
         save_gbwt(this->dynamic, new_filename, this->show_progress);
     }
@@ -242,7 +270,8 @@ void GBWTHandler::serialize(const std::string& new_filename) {
 }
 
 void GBWTHandler::clear() {
-    this->compressed = gbwt::GBWT();
+    this->compressed_owned = gbwt::GBWT();
+    this->compressed_external = nullptr;
     this->dynamic = gbwt::DynamicGBWT();
     this->in_use = index_none;
 }

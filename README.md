@@ -91,7 +91,7 @@ On other distros, or if you do not have root access, you will need to perform th
                          automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
                          npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
-                         libzstd-dev pybind11-dev python3-pybind11
+                         libzstd-dev pybind11-dev python3-pybind11 libssl-dev
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
@@ -149,7 +149,7 @@ VG depends on a number of packages being installed on the system where it is bei
 
 You can use MacPorts to install VG's dependencies:
 
-    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp boost zstd pybind11
+    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp boost zstd pybind11 openssl
     
 
 ##### Using Homebrew

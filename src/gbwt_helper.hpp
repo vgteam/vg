@@ -97,15 +97,19 @@ void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bo
 
 //------------------------------------------------------------------------------
 
+// FIXME: External GBWT stored in GBZ?
 /**
  * Helper class that stores either a GBWT or a DynamicGBWT and loads them from a file
  * or converts between them when necessary.
  */
 struct GBWTHandler {
-    enum index_type { index_none, index_compressed, index_dynamic };
+    enum index_type { index_none, index_external, index_compressed, index_dynamic };
 
-    /// Compressed GBWT.
-    gbwt::GBWT compressed;
+    /// Compressed GBWT stored within the handler.
+    gbwt::GBWT compressed_owned;
+
+    /// Compressed GBWT stored somewhere else.
+    gbwt::GBWT* compressed_external = nullptr;
 
     /// Dynamic GBWT.
     gbwt::DynamicGBWT dynamic;
@@ -119,6 +123,12 @@ struct GBWTHandler {
     /// Print progress information to stderr when loading/converting indexes.
     bool show_progress = false;
 
+    /// Returns a pointer to the compressed GBWT in use, if any.
+    gbwt::GBWT* get_compressed();
+
+    /// Returns a const pointer to the compressed GBWT in use, if any.
+    const gbwt::GBWT* get_compressed() const;
+
     /// Switch to a compressed GBWT, converting it from the dynamic GBWT or reading it
     /// from a file if necessary.
     void use_compressed();
@@ -130,6 +140,10 @@ struct GBWTHandler {
     /// Start using this compressed GBWT. Clears the index used as the argument.
     /// The GBWT is not backed by a file.
     void use(gbwt::GBWT& new_index);
+
+    /// Start using this external compressed GBWT. The handler does not take ownership
+    /// of the index. This GBWT is not backed by a file.
+    void use_external(gbwt::GBWT& new_index);
 
     /// Start using this dynamic GBWT. Clears the index used as the argument.
     /// The GBWT is not backed by a file.
