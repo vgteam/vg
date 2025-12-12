@@ -21,6 +21,8 @@ LOAD_DOCKER=""
 DOCKER_TAG=""
 # If not specified, use this default
 DOCKER_TAG_DEFAULT="vgci-docker-vg-local"
+# Should we prepull toil-vg Docker containers?
+PREPULL=1
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
@@ -30,11 +32,11 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@45782c7ba5a372e7c3587ac1c63f4895176fc828"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@88365694a895df8b00afccd20613032c2fe94b44"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
-# or "git+https://github.com/DataBiosphere/toil.git@3ab74776a3adebd6db75de16985ce9d734f60743#egg=toil[aws,mesos]"
-TOIL_PACKAGE="git+https://github.com/DataBiosphere/toil.git@9041c54d9802add8973e31eddd8ba33529218f94#egg=toil[aws,mesos]"
+# or "toil[wdl,aws,mesos]@git+https://github.com/DataBiosphere/toil.git@52aa2979f23c24001837b2808552973e7bb263e6"
+TOIL_PACKAGE="toil[wdl,aws,mesos]@git+https://github.com/DataBiosphere/toil.git@3d7ead876bcccb3279a97baee253852c91e1f061"
 # What tests should we run?
 # Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
 # Must have the Python file in it or Pytest can't find the tests.
@@ -43,9 +45,9 @@ PYTEST_TEST_SPEC="vgci/vgci.py"
 # What scratch directory should we use to run the tests?
 # If unset we use vgci_work and don't persist it.
 # If set, must start with / or ./ because it is used to make toil-vg IOstores
-SAVE_WORK_DIR=
-# What test result directory shoudl we load, if any?
-LOAD_WORK_DIR=
+SAVE_WORK_DIR=""
+# What test result directory should we load, if any?
+LOAD_WORK_DIR=""
 # Save JUnit test report to this file
 SAVE_JUNIT=""
 # Import JUnit test report from this file instead of running tests.
@@ -71,6 +73,7 @@ usage() {
     printf "\t-d FILE\tSave built Docker to the given file.\n"
     printf "\t-D FILE\tLoad a previously built Docker from a file instead of building.\n"
     printf "\t-T TAG\tLoad a previously built Docker from the given tag/specifier instead of building.\n"
+    printf "\t-P\tSkip pre-pulling Docker containers.\n"
     printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
     printf "\t-k\t\tKeep on-disk output from tests. \n"
     printf "\t-i\t\tKeep intermediate on-disk output from tests. \n"
@@ -85,7 +88,7 @@ usage() {
     exit 1
 }
 
-while getopts "ld:D:T:rkisp:t:w:W:j:J:H" o; do
+while getopts "ld:D:T:Prkisp:t:w:W:j:J:H" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
@@ -98,6 +101,9 @@ while getopts "ld:D:T:rkisp:t:w:W:j:J:H" o; do
             ;;
         T)
             DOCKER_TAG="${OPTARG}"
+            ;;
+        P)
+            PREPULL=0
             ;;
         r)
             REUSE_VENV=1
@@ -300,7 +306,7 @@ if ([ "${DO_TEST}" != "0" ] || [ "${DO_REPORT}" != "0" ]) && [ ! -z "${LOAD_DOCK
 then
     # Just load the Docker instead of building.
     # It will set the tag it was saved from.
-    # We need it both for testing and reportign because both need the vg version
+    # We need it both for testing and reporting because both need the vg version
     docker load -i "${LOAD_DOCKER}"
 fi
 
@@ -309,7 +315,11 @@ if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf .env
 fi
 if [ ! -e .env ]; then
-    virtualenv --python=python3  .env
+    if which virtualenv >/dev/null ; then
+        virtualenv --python=python3 .env
+    else
+        python3 -m venv .env
+    fi
 fi
 . .env/bin/activate
 
@@ -338,7 +348,7 @@ then
     fi
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn for
-    # running toil-vg mapeval, and dateutils and reqests for
+    # running toil-vg mapeval, and dateutils and requests for
     # ./mins_since_last_build.py. Need exactly the right version of requests
     # for the Python Docker API to work (see
     # <https://github.com/docker/docker-py/issues/3256>).
@@ -397,11 +407,13 @@ then
         VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`
         printf "vg-docker-version ${DOCKER_TAG}\n" >> vgci_cfg.tsv
         
-        # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
-        # individual test results (looking at you, rocker/tidyverse:3.4.2)
-        # Allow two tries
-        for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
-        for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
+        if [ "${PREPULL}" == "1" ] ; then
+            # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
+            # individual test results (looking at you, rocker/tidyverse:3.4.2)
+            # Allow two tries
+            for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker inspect $img >/dev/null || docker pull $img ; done
+            for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker inspect $img >/dev/null || docker pull $img ; done
+        fi
     fi
 
     mkdir -p "${SAVE_WORK_DIR:-./vgci-work}"

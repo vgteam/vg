@@ -20,6 +20,7 @@ import shutil
 import glob
 import traceback
 import io
+import json
 from datetime import datetime
 
 import tsv
@@ -38,9 +39,10 @@ log = logging.getLogger(__name__)
 
 class VGCITest(TestCase):
     """
-    Continuous Integration VG tests.  All depend on toil-vg being installed.  Along with 
-    toil[aws,mesos].  They are somewhat derived from the toil-vg unittests, but are
-    much slower.  
+    Continuous Integration VG tests. Almost all depend on toil-vg being
+    installed (note that this file also imports from toil-vg), along with
+    toil[wdl,aws,mesos]. They are somewhat derived from the toil-vg unittests, but
+    are much slower.  
     """
     def setUp(self):
         # Make sure logging is available for all the tests
@@ -107,9 +109,14 @@ class VGCITest(TestCase):
                         elif toks[0] == 'force_outstore' and toks[1].lower() == 'true':
                             self.force_outstore = True
 
+    def _toil_io_opts(self):
+        """ Some common toil options we always want to use """
+        opts = ['--realTimeLogging=True', '--logInfo', '--workDir', self.workdir]
+        return opts
+
     def _toil_vg_io_opts(self):
         """ Some common toil-vg options we always want to use """
-        opts = ['--realTimeLogging', '--realTimeStderr', '--logInfo', '--workDir', self.workdir]
+        opts = self._toil_io_opts() + ['--realTimeStderr']
         if self.force_outstore:
             opts += ['--force_outstore']
         return opts
@@ -304,6 +311,73 @@ class VGCITest(TestCase):
         print(("Run toil-vg with {}".format(cmd)))
         
         subprocess.check_call(cmd, shell=True)
+
+    def _giraffe_dv_run(self, sample_name, chrom, gbz_path, fq_path,
+                        true_vcf_path, fasta_path, interleaved, tech, tag):
+        """
+        Run the GiraffeDeepVariant WDL workflow and produce rtg vcfeval results.
+        """
+
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+
+        workflow_spec = "https://raw.githubusercontent.com/vgteam/vg_wdl/8b9b3d169ec257facfbc2fd2b50fa6cdf5f922f0/workflows/giraffe_and_deepvariant.wdl"
+
+        output_json = os.path.join(out_store, "output.json")
+        input_json = "input.json"
+
+        dv_model = {
+            "illumina": "WGS",
+            "hifi": "PACBIO",
+            "r10": "ONT_R104"
+        }[tech]
+
+        max_mem_gb = 8
+
+        json_data = {
+            "GiraffeDeepVariant.INPUT_READ_FILE_1": fq_path,
+            "GiraffeDeepVariant.GBZ_FILE": gbz_path,
+            "GiraffeDeepVariant.REFERENCE_PREFIX": "GRCh38#0#",
+            "GiraffeDeepVariant.SAMPLE_NAME": sample_name,
+            "GiraffeDeepVariant.PAIRED_READS": interleaved,
+            "GiraffeDeepVariant.INTERLEAVED_READS": interleaved,
+            "GiraffeDeepVariant.GIRAFFE_PRESET": "default" if tech == "illumina" else tech,
+            "GiraffeDeepVariant.HAPLOTYPE_SAMPLING": True,
+            "GiraffeDeepVariant.OUTPUT_SINGLE_BAM": True,
+            "GiraffeDeepVariant.DV_MODEL_TYPE": dv_model,
+            "GiraffeDeepVariant.TRUTH_VCF": true_vcf_path,
+            "GiraffeDeepVariant.TRUTH_VCF_INDEX": true_vcf_path + ".tbi",
+            "GiraffeDeepVariant.SPLIT_READ_CORES": min(8, self.cores),
+            "GiraffeDeepVariant.SPLIT_READ_MEM": max_mem_gb,
+            "GiraffeDeepVariant.KMER_COUNTING_MEM": max_mem_gb,
+            "GiraffeDeepVariant.HAPLOTYPE_INDEXING_MEM": max_mem_gb,
+            "GiraffeDeepVariant.INDEX_MINIMIZER_MEM": max_mem_gb,
+            "GiraffeDeepVariant.MAP_CORES": min(8, self.cores),
+            "GiraffeDeepVariant.MAP_MEM": max_mem_gb,
+            "GiraffeDeepVariant.BAM_PREPROCESS_MEM": max_mem_gb,
+            "GiraffeDeepVariant.CALL_CORES": min(8, self.cores),
+            "GiraffeDeepVariant.CALL_MEM": max_mem_gb,
+            "GiraffeDeepVariant.EVAL_MEM": max_mem_gb,
+            "GiraffeDeepVariant.VG_DOCKER": self.vg_docker
+        }
+
+        with open(input_json, "w") as fp:
+            json.dump(json_data, fp)
+        
+        cmd = [
+            "toil-wdl-runner",
+            workflow_spec,
+            input_json,
+            "-o", out_store,
+            "-m", output_json,
+            "--jobstore", job_store,
+        ] + self._toil_io_opts()
+        if self.container:
+            cmd.extend(["--container", self.container])
+        subprocess.check_call(cmd)
+
+
+
 
     def _make_gbwt(self, sample, vg_file, vcf_file, region, tag=''):
         """
@@ -1235,7 +1309,7 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         # Using 100k simulated reads from snp1kg BRCA1, realign against all
         # these other BRCA1 graphs and make sure the realignments are
-        # sufficiently good. Compare all realignment scores agaisnt the scores
+        # sufficiently good. Compare all realignment scores against the scores
         # for the primary graph.
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
@@ -1456,3 +1530,28 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'cactus', True)
+
+    @timeout_decorator.timeout(9600)
+    def test_giraffe_brca1_hprc2(self):
+        """
+        Sampling, indexing, mapping, and calling bakeof F1 test for HPRC 2.0
+        graph, but still with NA12878 and GRCh38 and the Platinum Genomes truth
+        set and Illumina reads.
+        """
+        log.info("Test start at {}".format(datetime.now()))
+        
+        region="BRCA1"
+        graph="hprc-v2.0-mc-grch38.ec1M"
+        tag_ext=''
+
+        tag = '{}-{}{}'.format(region, graph, tag_ext)
+        chrom, offset = self._bakeoff_coords(region)
+        
+        self._giraffe_dv_run('NA12878', chrom,
+                             self._input('{}-{}.gbz'.format(graph, region)),
+                             self._input('platinum_NA12878_{}.fq.gz'.format(region)),
+                             self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
+                             self._input('chr{}.fa.gz'.format(chrom)),
+                             True, "illumina", tag)
+        
+        self._verify_f1('NA12878', tag)
