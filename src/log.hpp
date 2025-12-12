@@ -1,3 +1,6 @@
+#ifndef VG_LOG_HPP_INCLUDED
+#define VG_LOG_HPP_INCLUDED
+
 #include <string>
 #include <iostream>
 
@@ -102,3 +105,5 @@ public:
     }
 };
 }
+
+#endif
