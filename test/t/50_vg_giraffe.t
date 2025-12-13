@@ -1,4 +1,4 @@
-f#!/usr/bin/env bash
+#!/usr/bin/env bash
 
 BASH_TAP_ROOT=../deps/bash-tap
 . ../deps/bash-tap/bash-tap-bootstrap
