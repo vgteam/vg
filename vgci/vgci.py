@@ -1588,6 +1588,10 @@ class VGCITest(TestCase):
                              self._input('{}-{}.gbz'.format(graph, region)),
                              self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                              self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
+                             # TODO: Need to re-extract the graph to have the
+                             # [] offset, which surject understands and will
+                             # let us work with the whole-genome-coordinate
+                             # truth set.
                              self._input('chr{}.fa.gz'.format(chrom)),
                              True, "illumina", tag)
         
