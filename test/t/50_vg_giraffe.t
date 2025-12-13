@@ -1,11 +1,11 @@
-#!/usr/bin/env bash
+f#!/usr/bin/env bash
 
 BASH_TAP_ROOT=../deps/bash-tap
 . ../deps/bash-tap/bash-tap-bootstrap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 79
+plan tests 80
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -253,7 +253,9 @@ rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist
 
 vg autoindex -w giraffe -p x -g graphs/disconnected.gfa
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected.fq > x.gam
-is "$(vg view -aj x.gam | grep supplementaries | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments"
+is "$(vg view -aj x.gam | grep supplementaries | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments in GAM format"
+vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected.fq -o GAF > x.gaf
+is "$(vg view -aj x.gam | grep 'sa:Z:' | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments in GAF format"
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -o BAM --supplementary -f reads/disconnected.fq > x.bam
 is "$(samtools view -f 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM output converts supplementary alignment annotation into BAM records"
 is "$(samtools view -F 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM output has a primary when converting supplementary alignment annotation"
@@ -265,7 +267,7 @@ is "$(samtools view -f 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "2" "paire
 is "$(samtools view -F 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "2" "paired BAM output has a primary when converting supplementary alignment annotation"
 is "$(samtools view x.bam | grep 'SA:Z:' | wc -l | sed 's/^[[:space:]]*//')" "4" "Supplementary and primary BAM records have SA tag for paired reads"
 
-rm x.giraffe.gbz x.dist x.shortread.withzip.min x.shortread.zipcodes x.gam x.bam
+rm x.giraffe.gbz x.dist x.shortread.withzip.min x.shortread.zipcodes x.gam x.bam x.gaf
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
