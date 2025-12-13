@@ -30,6 +30,7 @@ from toil_vg.vg_toil import parse_args
 from toil_vg.context import Context
 from toil_vg.vg_common import make_url, toil_call
 from toil_vg.vg_construct import run_make_haplo_thread_graphs
+from toil_vg.vg_vcfeval import parse_f1
 
 from toil.common import Toil
 from toil.job import Job
@@ -321,7 +322,7 @@ class VGCITest(TestCase):
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
 
-        workflow_spec = "https://raw.githubusercontent.com/vgteam/vg_wdl/8b9b3d169ec257facfbc2fd2b50fa6cdf5f922f0/workflows/giraffe_and_deepvariant.wdl"
+        workflow_spec = "https://raw.githubusercontent.com/vgteam/vg_wdl/8134f7880ffdac7581dd4ca324e97c31fcb26f51/workflows/giraffe_and_deepvariant.wdl"
 
         output_json = os.path.join(out_store, "output.json")
         input_json = "input.json"
@@ -332,12 +333,17 @@ class VGCITest(TestCase):
             "r10": "ONT_R104"
         }[tech]
 
+        # Make sure we don't use more memory for anything than CI is likely to
+        # have.
         max_mem_gb = 8
-
-        json_data = {
+        
+        # Prepare WDL input parameters
+        input_data = {
             "GiraffeDeepVariant.INPUT_READ_FILE_1": fq_path,
             "GiraffeDeepVariant.GBZ_FILE": gbz_path,
-            "GiraffeDeepVariant.REFERENCE_PREFIX": "GRCh38#0#",
+            "GiraffeDeepVariant.REFERENCE_FILE": fasta_path,
+            # Note that the linear reference and truth VCF use plain number contigs (17, etc.)
+            "GiraffeDeepVariant.REFERENCE_PREFIX": "GRCh38#0#chr",
             "GiraffeDeepVariant.SAMPLE_NAME": sample_name,
             "GiraffeDeepVariant.PAIRED_READS": interleaved,
             "GiraffeDeepVariant.INTERLEAVED_READS": interleaved,
@@ -358,12 +364,14 @@ class VGCITest(TestCase):
             "GiraffeDeepVariant.CALL_CORES": min(8, self.cores),
             "GiraffeDeepVariant.CALL_MEM": max_mem_gb,
             "GiraffeDeepVariant.EVAL_MEM": max_mem_gb,
-            "GiraffeDeepVariant.VG_DOCKER": self.vg_docker
+            "GiraffeDeepVariant.VG_DOCKER": self.vg_docker,
+            "GiraffeDeepVariant.DV_USE_GPUS": False,
         }
 
         with open(input_json, "w") as fp:
-            json.dump(json_data, fp)
+            json.dump(input_data, fp)
         
+        # Run the workflow
         cmd = [
             "toil-wdl-runner",
             workflow_spec,
@@ -376,8 +384,31 @@ class VGCITest(TestCase):
             cmd.extend(["--container", self.container])
         subprocess.check_call(cmd)
 
+        # Read the output JSON
+        output_data = json.parse(open(output_json))
 
+        # Grab the path for GiraffeDeepVariant.output_vcfeval_evaluation_archive
+        tgz_path = output_data["GiraffeDeepVariant.output_vcfeval_evaluation_archive"]
 
+        # Untar that file into the outstore
+        with tarfile.open(tgz_path) as tar:
+            try:
+                # Try the actually-secure version first.
+                tar.extractall(path=out_store, filter='data')
+            except TypeError:
+                # We can skip security actually because we just wrote this
+                # tarfile ourselves.
+                tar.extractall(path=out_store)
+
+        # Look at vcfeval_results/summary.txt in the outstore
+        summary_path = os.path.join(out_store, "vcfeval_results/summary.txt")
+
+        # Use parse_f1 on that path to get an F1
+        f1_score = parse_f1(summary_path)
+
+        # Save the F1 to {sample}_vcfeval_output_f1.txt or vcfeval_output_f1.txt in the outstore
+        with open(os.path.join(out_store, self._f1_file_name(sample_name)), "w") as fp:
+            fp.write(f"{f1_score}\n")
 
     def _make_gbwt(self, sample, vg_file, vcf_file, region, tag=''):
         """
@@ -549,13 +580,19 @@ class VGCITest(TestCase):
                         toks += ['N/A', 'N/A']
                     print('\t'.join([str(tok) for tok in toks]))
         
-    def _verify_f1(self, sample, tag='', threshold=None):
-        # grab the f1.txt file from the output store
+    def _f1_file_name(self, sample):
+        """
+        Get the basename for the file with the F1 score in it, based on the sample name (if any).
+        """
         if sample:
             f1_name = '{}_vcfeval_output_f1.txt'.format(sample)
         else:
             f1_name = 'vcfeval_output_f1.txt'
-        f1_path = os.path.join(self._outstore(tag), f1_name)
+        return f1_name
+
+    def _verify_f1(self, sample, tag='', threshold=None):
+        # grab the f1.txt file from the output store
+        f1_path = os.path.join(self._outstore(tag), self._f1_file_name(sample))
         with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
             
