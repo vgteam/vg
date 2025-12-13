@@ -458,6 +458,7 @@ int main_surject(int argc, char** argv) {
     }
     surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
     surjector.report_supplementary = report_supplementary;
+    surjector.multimap_to_all_paths = multimap;
 
     // Count our threads
     int thread_count = vg::get_thread_count();
@@ -545,16 +546,9 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src1);
                     set_metadata(src2);
                     
-                    // Surject and emit.
-                    vector<Alignment> surjected1, surjected2;
-                    if (multimap) {
-                        surjected1 = std::move(surjector.multi_surject(src1, paths, subpath_global, spliced));
-                        surjected2 = std::move(surjector.multi_surject(src2, paths, subpath_global, spliced));
-                    }
-                    else {
-                        surjected1 = std::move(surjector.surject(src1, paths, subpath_global, spliced));
-                        surjected2 = std::move(surjector.surject(src2, paths, subpath_global, spliced));
-                    }
+                    // Surject
+                    auto surjected1 = surjector.surject(src1, paths, subpath_global, spliced);
+                    auto surjected2 = surjector.surject(src2, paths, subpath_global, spliced);
                     
                     // pair up non-supplementary alignments
                     unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
@@ -660,12 +654,7 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src);
                     
                     // Surject and emit the single read.
-                    if (multimap) {
-                        alignment_emitter->emit_singles(surjector.multi_surject(src, paths, subpath_global, spliced));
-                    }
-                    else {
-                        alignment_emitter->emit_singles(surjector.surject(src, paths, subpath_global, spliced));
-                    }
+                    alignment_emitter->emit_singles(surjector.surject(src, paths, subpath_global, spliced));
                     total_reads_surjected++;
                     if (watchdog) {
                         watchdog->check_out(thread_num);
@@ -745,17 +734,10 @@ int main_surject(int argc, char** argv) {
                         
                         // TODO: highly repetitive with the version above for Alignments
                         // surject and record path positions
-                        vector<multipath_alignment_t> surjected1, surjected2;
                         vector<tuple<string, int64_t, bool>> positions1, positions2;
-                        if (multimap) {
-                            surjected1 = std::move(surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced));
-                            surjected2 = std::move(surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced));
-                        }
-                        else {
-                            surjected1 = std::move(surjector.surject(mp_src1, paths, positions1, subpath_global, spliced));
-                            surjected2 = std::move(surjector.surject(mp_src2, paths, positions2, subpath_global, spliced));
+                        auto surjected1 = surjector.surject(mp_src1, paths, positions1, subpath_global, spliced);
+                        auto surjected2 = surjector.surject(mp_src2, paths, positions2, subpath_global, spliced);
 
-                        }
                         // pair up non-supplementary alignments
                         unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
                         for (size_t i = 0; i < surjected1.size(); ++i) {
@@ -869,15 +851,10 @@ int main_surject(int argc, char** argv) {
                         
                         // surject and record path positions
                         vector<tuple<string, bool, int64_t>> positions;
-                        vector<multipath_alignment_t> surjected;
                         
                         vector<tuple<string, int64_t, bool>> surject_positions;
-                        if (multimap) {
-                            surjected = std::move(surjector.multi_surject(mp_src, paths, surject_positions, subpath_global, spliced));
-                        }
-                        else {
-                            surjected = std::move(surjector.surject(mp_src, paths, surject_positions, subpath_global, spliced));
-                        }
+                        auto surjected = surjector.surject(mp_src, paths, surject_positions, subpath_global, spliced);
+
                         // positions are in different orders in these two interfaces
                         for (auto& position : surject_positions) {
                             positions.emplace_back(std::move(get<0>(position)), get<2>(position), get<1>(position));

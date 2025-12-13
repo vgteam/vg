@@ -39,27 +39,49 @@ void SurjectingAlignmentEmitter::surject_paired_alignments_in_place(vector<Align
     for (size_t i = 0; i < alns1.size(); ++i) {
         auto surjected1 = surjector.surject(alns1[i], paths, surject_subpath_global);
         auto surjected2 = surjector.surject(alns2[i], paths, surject_subpath_global);
-        for (size_t j = 0; j < surjected1.size(); ++j) {
-            if (has_annotation(surjected1[j], "supplementary") && get_annotation<bool>(surjected1[j], "supplementary")) {
+        if (surjected1.size() > 1 || surjected2.size() > 1) {
+
+            // find the primaries
+            size_t primary_idx1 = -1, primary_idx2 = -1;
+            for (size_t j = 0; j < surjected1.size(); ++j) {
+                if (!has_annotation(surjected1[j], "supplementary") || !get_annotation<bool>(surjected1[j], "supplementary")) {
+                    primary_idx1 = j;
+                    break;
+                }
+            }
+            for (size_t j = 0; j < surjected2.size(); ++j) {
+                if (!has_annotation(surjected2[j], "supplementary") || !get_annotation<bool>(surjected2[j], "supplementary")) {
+                    primary_idx2 = j;
+                    break;
+                }
+            }
+
+            // annotate supplementaries with primary mate info
+            const auto& primary_pos1 = surjected1[primary_idx1].refpos(0);
+            const auto& primary_pos2 = surjected2[primary_idx2].refpos(0);
+            for (size_t j = 0; j < surjected1.size(); ++j) {
+                if (j == primary_idx1) {
+                    continue;
+                }
                 supplementary_alns.emplace_back(std::move(surjected1[j]));
-                const auto& mate_pos = surjected2.front().refpos(0);
                 set_annotation(supplementary_alns.back(), "mate_info", 
-                               mate_info(mate_pos.name(), mate_pos.offset(), mate_pos.is_reverse(), false));
+                               mate_info(primary_pos2.name(), primary_pos2.offset(), primary_pos2.is_reverse(), false));
             }
-            else {
-                alns1[i] = std::move(surjected1[j]);
-            }
-        }
-        for (size_t j = 0; j < surjected2.size(); ++j) {
-            if (has_annotation(surjected2[j], "supplementary") && get_annotation<bool>(surjected2[j], "supplementary")) {
+            for (size_t j = 0; j < surjected2.size(); ++j) {
+                if (j == primary_idx1) {
+                    continue;
+                }
                 supplementary_alns.emplace_back(std::move(surjected2[j]));
-                const auto& mate_pos = surjected1.front().refpos(0);
                 set_annotation(supplementary_alns.back(), "mate_info", 
-                               mate_info(mate_pos.name(), mate_pos.offset(), mate_pos.is_reverse(), true));
+                               mate_info(primary_pos1.name(), primary_pos1.offset(), primary_pos1.is_reverse(), true));
             }
-            else {
-                alns2[i] = std::move(surjected2[j]);
-            }
+
+            alns1[i] = std::move(surjected1[primary_idx1]);
+            alns2[i] = std::move(surjected2[primary_idx2]);
+        }
+        else {
+            alns1[i] = std::move(surjected1.front());
+            alns2[i] = std::move(surjected2.front());
         }
     }
 }
