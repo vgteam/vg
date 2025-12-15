@@ -247,7 +247,7 @@ test-job:
   # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
   # We will find our share of tests from vgci/test-list.txt and run them
   # We ought to run one job per test, but we can wrap around.
-  parallel: 6
+  parallel: 7
   cache:
     key: docker-pull-cache
     paths:

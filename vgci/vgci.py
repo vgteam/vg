@@ -315,7 +315,8 @@ class VGCITest(TestCase):
         subprocess.check_call(cmd, shell=True)
 
     def _giraffe_dv_run(self, sample_name, chrom, gbz_path, fq_path,
-                        true_vcf_path, fasta_path, interleaved, tech, tag):
+                        true_vcf_path, bed_regions_path, fasta_path,
+                        interleaved, tech, tag):
         """
         Run the GiraffeDeepVariant WDL workflow and produce rtg vcfeval results.
         """
@@ -368,6 +369,9 @@ class VGCITest(TestCase):
             "GiraffeDeepVariant.VG_DOCKER": self.vg_docker,
             "GiraffeDeepVariant.DV_USE_GPUS": False,
         }
+
+        if bed_regions_path is not None:
+            input_data["GiraffeDeepVariant.RESTRICT_REGIONS_BED"] = bed_regions_path
 
         with open(input_json, "w") as fp:
             json.dump(input_data, fp)
@@ -1573,9 +1577,11 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'cactus', True)
 
-    @timeout_decorator.timeout(9600)
+    @timeout_decorator.timeout(1200)
     def test_giraffe_brca1_hprc2(self):
         """
+        Test Giraffe/DeepVariant on BRCA1.
+
         Sampling, indexing, mapping, and calling bakeof F1 test for HPRC 2.0
         graph, but still with NA12878 and GRCh38 and the Platinum Genomes truth
         set and Illumina reads.
@@ -1593,7 +1599,38 @@ class VGCITest(TestCase):
                              self._input('{}-{}.gbz'.format(graph, region)),
                              self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                              self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
+                             None,
                              self._input('chr{}.fa.gz'.format(chrom)),
                              True, "illumina", tag)
 
         self._verify_f1('NA12878', tag)
+
+
+    @timeout_decorator.timeout(7200)
+    def test_giraffe_chr21_hprc2(self):
+        """
+        Test Giraffe/DeepVariant on chr21.
+
+        Sampling, indexing, mapping, and calling bakeof F1 test for HPRC 2.0
+        graph, with HG002 and CHM13 and the GIAB beta assembly-based truth set,
+        with HiFi reads.
+        """
+        log.info("Test start at {}".format(datetime.now()))
+
+        region="CHR21"
+        graph="hprc-v2.0-mc-chm13.ec1M"
+        tag_ext=''
+
+        tag = '{}-{}{}'.format(region, graph, tag_ext)
+        # None of the regions moved contigs since 38
+        chrom, _ = self._bakeoff_coords(region)
+
+        self._giraffe_dv_run('HG002', chrom,
+                             self._input('{}-{}.gbz'.format(graph, region)),
+                             self._input('hg002v1.0.1_hifi_revio_pbmay24.pri.{}.fq.gz'.format(region)),
+                             self._input('CHM13v2.0_HG2-T2TQ100-V1.1.{}.vcf.gz'.format(region)),
+                             self._input('CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.{}.bed'.format(region)),
+                             self._input('chm13v2.0-Nonly.CHR{}.fa.gz'.format(chrom)),
+                             False, "hifi", tag)
+
+        self._verify_f1('HG002', tag)
