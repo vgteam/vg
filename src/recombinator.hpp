@@ -594,6 +594,9 @@ public:
         /// Include named and reference paths.
         bool include_reference = false;
 
+        /// Samples whose haplotypes shouldn't be used, even if they score well.
+        unordered_set<std::string> banned_samples;
+
         // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.
         enum preset_t {
