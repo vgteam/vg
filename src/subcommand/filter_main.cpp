@@ -548,8 +548,15 @@ int main_filter(int argc, char** argv) {
         filter.graph = xindex;
     };
     
+    // Make sure that this is a GAM (or the parser gets confused)
+    std::string gam_file = get_input_file_name(optind, argc, argv);
+    if (gam_file != "-" && !ends_with(gam_file, ".gam")) {
+        logger.error() << "Input alignment file " << gam_file 
+                       << " does not appear to be a GAM" << std::endl;
+    }
+
     // Read in the alignments and filter them.
-    get_input_file(optind, argc, argv, [&](istream& in) {
+    get_input_file(gam_file, [&](istream& in) {
         // Open up the alignment stream
         
         // Read in the alignments and filter them.
