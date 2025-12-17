@@ -86,6 +86,7 @@
  */
 
 #include "../utility.hpp"
+#include "../log.hpp"
 
 #include <map>
 #include <functional>
@@ -1248,7 +1249,9 @@ inline void Preset::apply(BaseOptionGroup& parser) const {
         // Apply the entry
         bool applied = parser.preset(*entry);
         // Make sure it worked
-        assert(applied);
+        if (!applied) {
+            logging::error("Preset::apply") << "Could not apply preset for " << entry->option << std::endl; 
+        }
     }
 }
 

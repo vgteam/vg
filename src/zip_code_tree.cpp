@@ -583,8 +583,9 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             // If it was the snarl itself, then the next child added to the chain
             // will be the next open_chain, but I
             // haven't implemented this yet- it won't change the correctness
-            bool chain_after_snarl = forest_state.open_chains.back().first >= active_zip_tree.size();
-            if (depth > 0 && forest_state.open_chains.size() > 0 && chain_after_snarl) {
+            bool chain_after_snarl = !forest_state.open_chains.empty() &&
+                forest_state.open_chains.back().first >= active_zip_tree.size();
+            if (depth > 0 && chain_after_snarl) {
                 // If a chain slice could have started at or after this snarl
 #ifdef DEBUG_ZIP_CODE_TREE
                 assert(forest_state.open_chains.back().second);
