@@ -5,7 +5,7 @@
 
 # Pull in an image that has our apt packages pre-installed, to save time installing them for every test.
 # Make sure to use :latest so we re-check and re-pull if needed on every run.
-image: quay.io/vgteam/vg_ci_prebake:latest
+image: quay.io/vgteam/vg_ci_prebake:test-2025
 
 workflow:
   auto_cancel:
@@ -15,7 +15,7 @@ before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # And the CI report upload needs uuidgen from uuid-runtime
-  - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp uuid-runtime libgnutls28-dev doxygen libzstd-dev bcftools
+  - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev-is-python3 npm nodejs node-gyp uuid-runtime libgnutls28-dev doxygen libzstd-dev bcftools
   - which junit-merge || sudo npm install -g junit-merge
   # Configure Docker to use a mirror for Docker Hub and restart the daemon
   - |
@@ -247,7 +247,7 @@ test-job:
   # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
   # We will find our share of tests from vgci/test-list.txt and run them
   # We ought to run one job per test, but we can wrap around.
-  parallel: 6
+  parallel: 7
   cache:
     key: docker-pull-cache
     paths:
