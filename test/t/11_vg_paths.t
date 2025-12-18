@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 29
+plan tests 33
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -45,6 +45,18 @@ is $(vg paths -x x.xg -g x.gbwt -F | wc -l) 28 "Fasta extracted from threads has
 vg paths --paths-by fakename -v x.vg -F > out.txt 2> err.txt
 is $(cat out.txt | wc -l) 0 "no paths are reported for invalid path name"
 is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 paths are matched"
+
+touch empty.fa
+vg construct -r empty.fa > empty.vg
+vg gbwt --index-paths -x empty.vg -o empty.gbwt
+
+vg paths --list -g empty.gbwt 2> err.txt
+is $? 1 "vg paths exits with error when no paths are found"
+is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in gbwt"
+
+vg paths --list -x empty.vg 2> err.txt
+is $? 1 "vg paths exits with error when no paths are found"
+is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in vg"
 
 is $(vg msga -w 20 -f msgas/s.fa | vg paths -v - -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
@@ -104,6 +116,7 @@ diff x4.path x4.norm.path
 is $? 0 "path normalizer correctly snapped all equivalent paths to x4"
 
 rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
+rm -f empty.vg empty.gbwt empty.fa
 
 
    

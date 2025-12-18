@@ -531,6 +531,9 @@ int main_paths(int argc, char** argv) {
     } else if (graph) {
         
         // Handle queries from the graph
+        if (graph->get_path_count() == 0) {
+            logger.error() << "graph does not contain any paths" << std::endl;
+        }
         
         // Make a helper to loop over the selected paths in the graph
         auto for_each_selected_path = [&](const std::function<void(const path_handle_t)>& iteratee) {
