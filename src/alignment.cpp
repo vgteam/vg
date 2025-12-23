@@ -3898,4 +3898,6 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     }
     return aln;
 }
+
+
 }

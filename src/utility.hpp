@@ -558,6 +558,45 @@ public:
     }
 };
 
+/**
+ * A vector of pointers that is wrapped so that the vector elements are returned
+ * as references instead of pointers
+ */
+template<class Item>
+class IndirectVectorView {
+public:
+    IndirectVectorView() = default;
+    ~IndirectVectorView() = default;
+    IndirectVectorView(const IndirectVectorView& other) = default;
+    IndirectVectorView(IndirectVectorView&& other) = default;
+    IndirectVectorView& operator=(const IndirectVectorView& other) = default;
+    IndirectVectorView& operator=(IndirectVectorView&& other) = default;
+    
+    void push_back(Item& item) {
+        return items.push_back(&item);
+    }
+    
+    const Item& operator[](size_t index) const {
+        return *items[index];
+    }
+    
+    Item& operator[](size_t index) {
+        return *items[index];
+    }
+    
+    size_t size() const {
+        return items.size();
+    }
+    
+    bool empty() const {
+        return items.size();
+    }
+    
+private:
+    
+    vector<Item*> items;
+};
+
 /// Vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);
     

@@ -5,12 +5,18 @@
 
 #include <iostream>
 #include <string>
+#include <google/protobuf/util/message_differencer.h>
+
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../alignment.hpp"
 #include "../vg.hpp"
 #include "../xg.hpp"
+#include "../handle.hpp"
+#include "../annotation.hpp"
 #include "catch.hpp"
+
+#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 namespace unittest {
@@ -461,6 +467,286 @@ TEST_CASE("Conversion to GAF removes an unused final node", "[alignment][gaf]") 
         std::string difference_string = gaf.opt_fields["cs"].second;
         std::string true_difference_string = ":5*AT:1+AC";
         REQUIRE(difference_string == true_difference_string);
+    }
+}
+
+TEST_CASE("Supplementary alignments can identified and processed", "[alignment][supplementary]") {
+
+    string seq = "CAAGTTCTGCTTTCTGCGAT";
+    string qual(seq.size(), 40);
+    string name = "read";
+    string group = "group";
+    string samp = "samp";
+
+    Alignment primary, supp1, supp2, irrelevant;
+    for (auto aln :  {&primary, &supp1, &supp2, &irrelevant}) {
+        aln->set_sequence(seq);
+        aln->set_quality(qual);
+        aln->set_name(name);
+        aln->set_read_group(group);
+        aln->set_sample_name(samp);
+    }
+
+    {
+        // CAAGTTCTGCTTTCTGCGAT
+        // ......CTGCTTTC......
+        auto path = primary.mutable_path();
+        auto m = path->add_mapping();
+        m->set_rank(1);
+        auto p = m->mutable_position();
+        p->set_node_id(1);
+        p->set_offset(4);
+        p->set_is_reverse(false);
+        auto e1 = m->add_edit();
+        e1->set_from_length(0);
+        e1->set_to_length(6);
+        e1->set_sequence("CAAGTT");
+        auto e2 = m->add_edit();
+        e2->set_from_length(8);
+        e2->set_to_length(8);
+        auto e3 = m->add_edit();
+        e3->set_from_length(0);
+        e3->set_to_length(6);
+        e3->set_sequence("TGCGAT");
+        primary.set_score(8);
+        primary.set_mapping_quality(40);
+    }
+
+    {
+        // C-AAGTTCTGCTTTCTGCGAT
+        // CAAAGGT.............
+        auto path = supp1.mutable_path();
+        auto m = path->add_mapping();
+        m->set_rank(1);
+        auto p = m->mutable_position();
+        p->set_node_id(4);
+        p->set_offset(2);
+        p->set_is_reverse(true);
+        auto e1 = m->add_edit();
+        e1->set_from_length(1);
+        e1->set_to_length(1);
+        auto e2 = m->add_edit();
+        e2->set_from_length(1);
+        e2->set_to_length(0);
+        auto e3 = m->add_edit();
+        e3->set_from_length(3);
+        e3->set_to_length(3);
+        auto e4 = m->add_edit();
+        e4->set_from_length(1);
+        e4->set_to_length(1);
+        e4->set_sequence("T");
+        auto e5 = m->add_edit();
+        e5->set_from_length(1);
+        e5->set_to_length(1);
+        auto e6 = m->add_edit();
+        e6->set_from_length(0);
+        e6->set_to_length(14);
+        e6->set_sequence("CTGCTTTCTGCGAT");
+        supp1.set_score(5);
+        supp1.set_mapping_quality(15);
+    }
+
+    {
+        // CAAGTTCTGCTTTCTGCGAT
+        // ..............TGC-AT
+        auto path = supp2.mutable_path();
+        auto m1 = path->add_mapping();
+        m1->set_rank(1);
+        auto p1 = m1->mutable_position();
+        p1->set_node_id(10);
+        p1->set_offset(4);
+        p1->set_is_reverse(false);
+        auto e0 = m1->add_edit();
+        e0->set_from_length(0);
+        e0->set_to_length(14);
+        e0->set_sequence("CAAGTTCTGCTTTC");
+        auto e1 = m1->add_edit();
+        e1->set_from_length(3);
+        e1->set_to_length(3);
+        auto m2 = path->add_mapping();
+        m2->set_rank(2);
+        auto p2 = m2->mutable_position();
+        p2->set_node_id(11);
+        p2->set_offset(0);
+        p2->set_is_reverse(true);
+        auto e2 = m2->add_edit();
+        e2->set_from_length(0);
+        e2->set_to_length(1);
+        e2->set_sequence("G");
+        auto e3 = m2->add_edit();
+        e3->set_from_length(2);
+        e3->set_to_length(2);
+        supp2.set_score(5);
+        supp2.set_mapping_quality(10);
+    }
+
+    {
+        // CAAGTTCTGCTTTCTGCGAT
+        // .......TGCTTT.......
+        auto path = irrelevant.mutable_path();
+        auto m = path->add_mapping();
+        m->set_rank(1);
+        auto p = m->mutable_position();
+        p->set_node_id(20);
+        p->set_offset(0);
+        p->set_is_reverse(false);
+        auto e1 = m->add_edit();
+        e1->set_from_length(0);
+        e1->set_to_length(7);
+        e1->set_sequence("CAAGTTC");
+        auto e2 = m->add_edit();
+        e2->set_from_length(6);
+        e2->set_to_length(6);
+        auto e3 = m->add_edit();
+        e3->set_from_length(0);
+        e3->set_to_length(7);
+        e3->set_sequence("CTGCGAT");
+        irrelevant.set_score(5);
+        irrelevant.set_mapping_quality(1);
+    }
+
+    bdsg::HashGraph graph;
+    auto h1 = graph.create_handle("ATATCTGCTTTC", 1);
+    auto h4 = graph.create_handle(reverse_complement("GGCAAAGGT"), 4);
+    auto h10 = graph.create_handle("CCGCTGC", 10);
+    auto h11 = graph.create_handle(reverse_complement("ATTC"), 11);
+    auto h20 = graph.create_handle("TGCTTT", 20);
+    graph.create_edge(h1, graph.flip(h11));
+
+    SECTION("Supplementaries can be correctly identified among a list of Alignments") {
+
+        vector<Alignment> alns{primary, supp1, supp2, irrelevant};
+
+        size_t min_size = 5;
+        size_t separation = 1;
+        double read_coverage = 0.95;
+        double score_fraction = 0.5;
+
+        SECTION("Can identify a complete partition of the read") {
+
+            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            sort(supps.begin(), supps.end());
+            REQUIRE(supps == vector<size_t>{1, 2});
+        }
+
+        SECTION("Respects the mininmum size constraint") {
+            min_size = 6;
+            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+            min_size = 7;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.empty());
+        }
+
+        SECTION("Respects the mininmum score constraint") {
+            score_fraction = 5.0 / 8.0;
+            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+            score_fraction = 0.7;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.empty());
+        }
+
+        SECTION("Respects read coverage constraint") {
+
+            read_coverage = 1.0;
+            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+
+            auto m = alns[2].mutable_path()->mutable_mapping(0);
+
+            // move an aligned base into softclip
+            auto e1 = m->mutable_edit(0);
+            auto e2 = m->mutable_edit(1);
+            e1->set_sequence("CAAGTTCTGCTTTCT");
+            e1->set_to_length(15);
+            e2->set_from_length(2);
+            e2->set_to_length(2);
+
+            read_coverage = 0.95;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+
+            read_coverage = 0.96;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 0);
+        }
+
+        SECTION("Respects separation constraint") {
+
+            separation = 0;
+            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+
+            auto m = alns[2].mutable_path()->mutable_mapping(0);
+
+            // move an aligned base into softclip
+            auto e1 = m->mutable_edit(0);
+            auto e2 = m->mutable_edit(1);
+            e1->set_sequence("CAAGTTCTGCTTTCT");
+            e1->set_to_length(15);
+            e2->set_from_length(2);
+            e2->set_to_length(2);
+
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 0);
+
+            separation = 1;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+
+            // add a base of overlap
+            e1->set_sequence("CAAGTTCTGCTTT");
+            e1->set_to_length(13);
+            e2->set_from_length(4);
+            e2->set_to_length(4);
+            m->mutable_position()->set_offset(3);
+
+            separation = 0;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 0);
+
+            separation = 1;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+            
+            // return it to the original state
+            e1->set_sequence("CAAGTTCTGCTTTC");
+            e1->set_to_length(14);
+            e2->set_from_length(3);
+            e2->set_to_length(3);
+
+            // split it into two alignments
+
+            alns.emplace_back(alns[2]);
+            auto& split1 = alns[2];
+            auto& split2 = alns.back();
+            split1.mutable_path()->mutable_mapping()->RemoveLast();
+            auto m2 = split2.mutable_path()->mutable_mapping(0);
+            *m2 = split2.path().mapping(1);
+            split2.mutable_path()->mutable_mapping()->RemoveLast();
+
+            // fix up the softclips
+            auto e3 = m->add_edit();
+            e3->set_to_length(0);
+            e3->set_to_length(3);
+            e3->set_sequence("GAT");
+            auto e4 = m2->mutable_edit(0);
+            e4->set_from_length(0);
+            e4->set_to_length(18);
+            e4->set_sequence("CAAGTTCTGCTTTCTGCG");
+
+            min_size = 1;
+            score_fraction = 0.1;
+
+            separation = 1;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 3);
+
+            separation = 0;
+            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            REQUIRE(supps.size() == 0);
+        }
     }
 }
 
