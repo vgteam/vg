@@ -475,11 +475,6 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
 
-/// Encode the information necessary to reconstruct a supplementary alignment as a string for annotation
-string supplementary_annotation(const Alignment& supplementary);
-
-/// Decode a supplementary alignment annotation string into its alignments
-vector<Alignment> decode_supplementary_annotation(const Alignment& primary, const HandleGraph& graph);
 
 /// Returns indexes into an vector-like container of Alignments that correspond to supplementary alignments to the primary
 ///  min_read_coverage      Require the supplementaries and primary to cover this fraction of the read

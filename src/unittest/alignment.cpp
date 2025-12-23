@@ -613,29 +613,6 @@ TEST_CASE("Supplementary alignments can identified and processed", "[alignment][
     auto h20 = graph.create_handle("TGCTTT", 20);
     graph.create_edge(h1, graph.flip(h11));
 
-    SECTION("Supplementary alignments can be stored in and decoded from annotation") {
-        set_annotation<string>(primary, "supplementaries",  supplementary_annotation(supp1) + supplementary_annotation(supp2));
-
-        auto decoded = decode_supplementary_annotation(primary, graph);
-
-        for (auto& aln : decoded) {
-            REQUIRE(is_supplementary(aln));
-            aln.clear_annotation(); // for comparison
-        }
-
-        using diff = google::protobuf::util::MessageDifferencer;
-
-        REQUIRE(decoded.size() == 2);
-        if (diff::Equals(decoded.front(), supp1)) {
-            REQUIRE(diff::Equals(decoded.front(), supp1));
-            REQUIRE(diff::Equals(decoded.back(), supp2));
-        }
-        else {
-            REQUIRE(diff::Equals(decoded.front(), supp2));
-            REQUIRE(diff::Equals(decoded.back(), supp1));
-        }
-    }
-
     SECTION("Supplementaries can be correctly identified among a list of Alignments") {
 
         vector<Alignment> alns{primary, supp1, supp2, irrelevant};

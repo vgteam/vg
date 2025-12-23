@@ -1192,7 +1192,9 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             scores[0] += score_diff;
         }
         // Store them in an annotation on the primary
-        add_supplementary_tag(mappings.front(), supplementaries);
+        for (auto& supp : supplementaries) {
+            *mappings.front().add_supplementary() = std::move(supp);
+        }
     }
     
     if (track_provenance) {
@@ -2774,7 +2776,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     scores[0] += score_diff;
                 }
 
-                add_supplementary_tag(mappings[r].front(), suppl_alignments);
+                for (auto& suppl_aln : suppl_alignments) {
+                    *mappings[r].front().add_supplementary() = std::move(suppl_aln);
+                }
             }
         }
         
@@ -3540,16 +3544,6 @@ void MinimizerMapper::fix_dozeu_end_deletions(Alignment& alignment) const {
 }
 
 //-----------------------------------------------------------------------------
-
-void MinimizerMapper::add_supplementary_tag(Alignment& primary, const vector<Alignment>& supplementaries) const {
-
-    stringstream strm;
-    for (const auto& supp : supplementaries) {
-        strm << supplementary_annotation(supp);
-    }
-    
-    set_annotation<string>(primary, "supplementaries", strm.str());
-}
 
 
 array<vector<MinimizerMapper::read_alignment_index_t>, 2> 

@@ -276,7 +276,7 @@ using namespace std;
             choose_primary_internal(surjections, annotate_supplementary);
         }
         
-        vector<tuple<Alignment, size_t, size_t>> generate_hard_clipped_alignments(const Alignment& source, const vector<Alignment>& supplementaries) const;
+        vector<tuple<Alignment, size_t, size_t>> generate_hard_clipped_alignments(const Alignment& source) const;
 
         void restore_hard_clips(vector<Alignment>& clipped_surjected, const Alignment& source, size_t subseq_begin, size_t subseq_end) const;
         

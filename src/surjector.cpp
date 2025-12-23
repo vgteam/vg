@@ -143,16 +143,15 @@ using namespace std;
 
         vector<Alignment> surjected;
 
-        if (!has_annotation(source, "supplementaries") || !report_supplementary) {
+        if (source.supplementary_size() == 0 || !report_supplementary) {
             // no supplementaries or not interested in supplementaries, we only need to worry about the primary
             surject_internal(&source, nullptr, &surjected, nullptr, paths, positions_out,
                              allow_negative_scores, preserve_deletions);
         }
         else {
-            // the mapper identified supplementaries, retrieve them
-            vector<Alignment> mapper_supplementaries = decode_supplementary_annotation(source, *graph);
+            // the mapper identified supplementaries
 
-            auto hard_clipped_alns = generate_hard_clipped_alignments(source, mapper_supplementaries);
+            auto hard_clipped_alns = generate_hard_clipped_alignments(source);
             
             for (const auto& clipped : hard_clipped_alns) {
                 
@@ -5345,23 +5344,23 @@ using namespace std;
         return cigar_against_path(surjected, get<0>(position), get<2>(position), get<1>(position), graph, min_splice_length);
     }
 
-    vector<tuple<Alignment, size_t, size_t>> Surjector::generate_hard_clipped_alignments(const Alignment& source, const vector<Alignment>& supplementaries) const {
+    vector<tuple<Alignment, size_t, size_t>> Surjector::generate_hard_clipped_alignments(const Alignment& source) const {
         
 #ifdef debug_anchored_surject
         cerr << "alignment has mapper-identified supplementaries:" << endl;
-        for (const auto& aln : supplementaries) {
+        for (const auto& aln : source.supplementary()) {
             cerr << pb2json(aln) << endl;
         }
 #endif
         
         vector<tuple<Alignment, size_t, size_t>> clipped_alns;
-        clipped_alns.reserve(supplementaries.size() + 1);
+        clipped_alns.reserve(source.supplementary_size() + 1);
         
         // collect the supplementary intervals (begin, end, idx)
         vector<tuple<size_t, size_t, size_t>> suppl_intervals;
-        suppl_intervals.reserve(supplementaries.size());
-        for (size_t i = 0; i < supplementaries.size(); ++i) {
-            const auto& suppl = supplementaries[i];
+        suppl_intervals.reserve(source.supplementary_size() + 1);
+        for (size_t i = 0; i < source.supplementary_size(); ++i) {
+            const auto& suppl = source.supplementary(i);
             auto interval = aligned_interval(suppl);
             if (interval.second < interval.first) {
                 // unaligned -- TODO: this shouldn't ever happen though, remove this?
@@ -5377,7 +5376,7 @@ using namespace std;
         for (size_t i = 0; i < suppl_intervals.size(); ++i) {
             
             const auto& interval = suppl_intervals[i];
-            const auto& unclipped = get<2>(interval) < supplementaries.size() ? supplementaries[get<2>(interval)] : source;
+            const auto& unclipped = get<2>(interval) < source.supplementary_size() ? source.supplementary(get<2>(interval)) : source;
             
             clipped_alns.emplace_back();
             auto& clipped = get<0>(clipped_alns.back());
@@ -5395,12 +5394,8 @@ using namespace std;
             if (source.has_fragment_prev()) {
                 *clipped.mutable_fragment_prev() = source.fragment_prev();
             }
-            if (Annotation<Alignment>::get(source).fields().size() > 1) {
-                // there are additional annotations to the supplementaries that we already parsed
-                *clipped.mutable_annotation() = source.annotation();
-                // don't pass through the mapper supplementaries
-                clear_annotation(clipped, "supplementaries");
-            }
+            *clipped.mutable_annotation() = source.annotation();
+            
             if (&unclipped != &source) {
                 set_annotation<bool>(clipped, "supplementary", true);
             }
@@ -5415,7 +5410,7 @@ using namespace std;
             
 #ifdef debug_anchored_surject
             cerr << "hard clipping ";
-            if (get<2>(interval) >= supplementaries.size()) {
+            if (get<2>(interval) >= source.supplementary_size()) {
                 cerr << "primary alignment";
             }
             else {

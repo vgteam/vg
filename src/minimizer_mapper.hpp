@@ -1081,10 +1081,6 @@ protected:
                                                                   array<Funnel, 2>& funnels) const;
 
 
-    /**
-     * Store the a set of supplementary alignments as a tag on the primary alignment
-     */
-    void add_supplementary_tag(Alignment& primary, const vector<Alignment>& supplementaries) const;
 
 //-----------------------------------------------------------------------------
 

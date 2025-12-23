@@ -253,15 +253,15 @@ rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist
 
 vg autoindex -w giraffe -p x -g graphs/disconnected.gfa
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected.fq > x.gam
-is "$(vg view -aj x.gam | grep supplementaries | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments in GAM format"
+is "$(vg view -aj x.gam | jq -c .supplementary | jq length)" "1" "graph alignments can be annotated with supplementary alignments in GAM format"
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected.fq -o GAF > x.gaf
-is "$(vg view -aj x.gam | grep 'sa:Z:' | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments in GAF format"
+is "$(grep -E 'sa:Z:[a-zA-Z0-9=,<>]+;' x.gaf | wc -l | sed 's/^[[:space:]]*//')" "1" "graph alignments can be annotated with supplementary alignments in GAF format"
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -o BAM --supplementary -f reads/disconnected.fq > x.bam
 is "$(samtools view -f 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM output converts supplementary alignment annotation into BAM records"
 is "$(samtools view -F 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM output has a primary when converting supplementary alignment annotation"
 is "$(samtools view x.bam | grep 'SA:Z:' | wc -l | sed 's/^[[:space:]]*//')" "2" "Supplementary and primary BAM records have SA tag"
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes --supplementary -f reads/disconnected_pair.fq -i --fragment-mean 200 --fragment-stdev 50 > x.gam
-is "$(vg view -aj x.gam | grep supplementaries | wc -l | sed 's/^[[:space:]]*//')" "2" "paired graph alignments can be annotated with supplementary alignments"
+is "$(vg view -aj x.gam | jq -c .supplementary | jq length | uniq)" "1" "paired graph alignments can be annotated with supplementary alignments"
 vg giraffe -Z x.giraffe.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -o BAM --supplementary -f reads/disconnected_pair.fq -i --fragment-mean 200 --fragment-stdev 50 > x.bam
 is "$(samtools view -f 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "2" "paired BAM output converts supplementary alignment annotation into BAM records"
 is "$(samtools view -F 2048 x.bam | wc -l | sed 's/^[[:space:]]*//')" "2" "paired BAM output has a primary when converting supplementary alignment annotation"
