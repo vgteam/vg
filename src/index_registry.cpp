@@ -1958,7 +1958,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             auto log_msg = info(context);
-            log_msg << " Constructing";
+            log_msg << "Constructing";
             if (has_transcripts) {
                 log_msg << " spliced";
             }
