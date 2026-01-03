@@ -1935,7 +1935,14 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     std::vector<std::pair<size_t, double>> selected_haplotypes;
     std::vector<std::pair<size_t, double>> remaining_haplotypes;
     for (size_t seq_offset = 0; seq_offset < subchain.sequences.size(); seq_offset++) {
-        remaining_haplotypes.push_back( { seq_offset, 0.0 });
+        // Metadata to make sure this haplotype isn't among the banned
+        gbwt::size_type sequence_id = subchain.sequences[seq_offset].first;
+        gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+        gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
+
+        if (parameters.banned_samples.find(path_name.sample_name) == parameters.banned_samples.end()) {
+            remaining_haplotypes.push_back( { seq_offset, 0.0 });
+        }
     }
     while (selected_haplotypes.size() < parameters.num_haplotypes && !remaining_haplotypes.empty()) {
         // Score the remaining haplotypes.

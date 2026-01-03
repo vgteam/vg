@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 15
+plan tests 17
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -13,6 +13,11 @@ vg sim -x x.xg -l 100 -n 5000 -e 0.01 -i 0.001 -a > x.gam
 
 # sanity check: does passing no options preserve input
 is $(vg filter x.gam | vg view -a - | jq . | grep mapping | wc -l) 5000 "vg filter with no options preserves input."
+
+# Passing a non-GAM gives a useful error
+vg filter x.vg 2> err.txt
+is $? 1 "vg filter fails on non-GAM input"
+is "$(grep 'does not appear to be a GAM' err.txt | wc -l)" 1 "vg filter gives useful error message on non-GAM input"
 
 # Downsampling works
 SAMPLED_COUNT=$(vg filter x.gam --downsample 0.5 | vg view -aj - | wc -l)
@@ -83,6 +88,6 @@ is "$(echo '{"sequence": "GATTACA", "name": "read1", "annotation": {"features": 
 is "$(echo '{"sequence": "GATTACA", "name": "read1"}' | vg view -JGa - | vg filter -P - | vg view -aj - | wc -l)" "0" "unmapped reads can be filtered out"
 
 
-rm -f x.gam filter_chunk*.gam chunks.bed
+rm -f x.gam filter_chunk*.gam chunks.bed err.txt
 rm -f x.vg x.xg paired.gam paired.sam paired.annotated.gam single.gam single.sam filtered.gam filtered.sam
                                                                
