@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 158
+plan tests 160
 
 
 # Build vg graphs for two chromosomes
@@ -364,6 +364,12 @@ vg gbwt -Z gfa2.gbz -o /dev/null --translation gfa2.trans
 is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
 is "$(vg describe gfa2.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
 
+# Build GBZ from grammar-compressed GFA
+vg gbwt -g gfa_grammar.gbz -G graphs/components_walks_compressed.gfa
+is $? 0 "GBZ construction from grammar-compressed GFA"
+cmp gfa_grammar.gbz gfa2.gbz
+is $? 0 "grammar-compressed GFA produces identical GBZ"
+
 # Build GBZ from GFA with node chopping
 vg gbwt -g chopping.gbz --max-node 2 --translation chopping.trans -G graphs/chopping_walks.gfa
 is $? 0 "GBZ construction from GFA with chopping"
@@ -388,7 +394,7 @@ is $(vg gbwt -S -Z ref_paths.gbz) 2 "ref paths: 2 samples"
 is $(wc -l < ref_paths.trans) 0 "ref paths: 0 translations"
 
 rm -f gfa.gbwt
-rm -f gfa2.trans gfa2.gbz
+rm -f gfa2.trans gfa2.gbz gfa_grammar.gbz
 rm -f ref_paths.gbz ref_paths.trans
 rm -f chopping.gbz chopping.trans from_gbz.trans
 

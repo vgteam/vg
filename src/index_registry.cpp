@@ -4930,7 +4930,8 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                     }
                 }
             }
-            else if (line_type == 'W') {
+            else if (line_type == 'W' || line_type == 'Z') {
+                // Ordinary or grammar-compressed walk line.
                 if (strm.get() != '\t') {
                     error(context) << "W-line does not have tab following line type" << endl;
                 }
