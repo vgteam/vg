@@ -406,6 +406,7 @@ then
         # Test the Dockerized vg
         VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`
         printf "vg-docker-version ${DOCKER_TAG}\n" >> vgci_cfg.tsv
+        printf "container Docker\n" >> vgci_cfg.tsv
         
         if [ "${PREPULL}" == "1" ] ; then
             # Pull down the docker images, so time costs (and instability) of doing so doesn't affect

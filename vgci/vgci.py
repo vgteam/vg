@@ -62,7 +62,7 @@ class VGCITest(TestCase):
         self.vg_data = 'https://public.gi.ucsc.edu/~anovak/vg-data'
         self.input_store = self.vg_data + '/bakeoff'
         self.vg_docker = None
-        self.container = None # Use default in toil-vg, which is Docker
+        self.container = None # Use value from config file, if any.
         self.verify = True
         self.do_teardown = True
         # This baseline nedds to be updated by CI, so we put it in S3 even
