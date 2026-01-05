@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 32
+plan tests 34
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -42,6 +42,12 @@ is $? 0 "sampling without adding reference"
 is $(vg gbwt -S -Z no_ref.gbz) 1 "1 sample"
 is $(vg gbwt -C -Z no_ref.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z no_ref.gbz) 4 "4 haplotypes"
+
+# Sample banning the selection of CHM13
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --ban-sample CHM13 -g ban_ref.gbz full.gbz
+is $? 0 "sampling banning the selection of CHM13"
+cmp ban_ref.gbz no_ref.gbz
+is $? 1 "the output changes"
 
 # Diploid sampling
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling -g diploid.gbz full.gbz
@@ -93,7 +99,7 @@ is $(grep -c "error.*are not compatible" log.txt) 1 "an appropriate error messag
 
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
-rm -f indirect.gbz direct.gbz no_ref.gbz
+rm -f indirect.gbz direct.gbz no_ref.gbz ban_ref.gbz
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam

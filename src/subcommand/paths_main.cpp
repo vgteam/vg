@@ -480,6 +480,11 @@ int main_paths(int argc, char** argv) {
                 thread_ids.push_back(i);
             }
         }
+
+        if (thread_ids.empty()) {
+            logger.warn() << "no matching paths found in GBWT index" << std::endl;
+            return 0;
+        }
         
         // Process the threads.
         for (gbwt::size_type id : thread_ids) {
@@ -526,6 +531,9 @@ int main_paths(int argc, char** argv) {
     } else if (graph) {
         
         // Handle queries from the graph
+        if (graph->get_path_count() == 0) {
+            logger.error() << "graph does not contain any paths" << std::endl;
+        }
         
         // Make a helper to loop over the selected paths in the graph
         auto for_each_selected_path = [&](const std::function<void(const path_handle_t)>& iteratee) {
@@ -600,6 +608,15 @@ int main_paths(int argc, char** argv) {
             
             
         };
+
+        unordered_set<path_handle_t> selected;
+        for_each_selected_path([&](const path_handle_t& path_handle) {
+            selected.insert(path_handle);
+        });
+        if (selected.empty()) {
+            logger.warn() << "no matching paths found in graph" << std::endl;
+            return 0;
+        }
         
         if (drop_paths || retain_paths || normalize_paths) {
             MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);

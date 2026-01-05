@@ -1958,7 +1958,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             auto log_msg = info(context);
-            log_msg << " Constructing";
+            log_msg << "Constructing";
             if (has_transcripts) {
                 log_msg << " spliced";
             }
@@ -4930,7 +4930,8 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                     }
                 }
             }
-            else if (line_type == 'W') {
+            else if (line_type == 'W' || line_type == 'Z') {
+                // Ordinary or grammar-compressed walk line.
                 if (strm.get() != '\t') {
                     error(context) << "W-line does not have tab following line type" << endl;
                 }

@@ -228,10 +228,9 @@ cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBZ -> HashGraph -> GFA conversion maintains segments"
 
 # GBZ to GFA with walks (needs 1 thread)
-vg convert -f -t 1 components.gbz > full.gfa
+vg convert -f -t 1 components.gbz > extracted.gfa
 is $? 0 "GBZ to GFA conversion with walks, GBWTGraph algorithm"
-is "$(grep -c '^H.*NM:Z' full.gfa)" 1 "graph name was copied from GBZ to GFA"
-grep -v "^H.*NM:Z" full.gfa > extracted.gfa
+is "$(grep -c '^H.*NM:Z' extracted.gfa)" 1 "graph name was copied from GBZ to GFA"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
 
@@ -250,7 +249,7 @@ is $? 0 "GFA -> HashGraph -> GFA conversion maintains segments, links, walks, an
 rm -f components.gbwt components.gg components.gbz
 rm -f components.hg
 rm -f sorted.gfa converted.gfa correct.gfa
-rm -f full.gfa extracted.gfa
+rm -f extracted.gfa
 
 # GFA to GBZ with paths and walks
 vg gbwt -g components.gbz --gbz-format -G graphs/components_paths_walks.gfa

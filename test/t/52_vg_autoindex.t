@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 60
+plan tests 62
 
 rm auto.*
 
@@ -162,6 +162,15 @@ is $(echo $?) 0 "GFA autoindexing results can be used by vg giraffe"
 
 rm auto.*
 rm g.xg
+
+vg autoindex -p auto -w giraffe -g graphs/components_walks_compressed.gfa
+is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with grammar-compressed GFA input"
+vg gbwt -G graphs/components_walks_compressed.gfa -g expected.gbz
+cmp expected.gbz auto.giraffe.gbz
+is $(echo $?) 0 "vg autoindex handles grammar-compressed GFA input correctly"
+
+rm auto.*
+rm expected.gbz
 
 vg autoindex -p auto -w giraffe -g graphs/named_with_walk.gfa 
 is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and W-lines"

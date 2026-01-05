@@ -61,13 +61,6 @@ using namespace std;
                                   vector<tuple<string, int64_t, bool>>& positions_out,
                                   bool allow_negative_scores = false,
                                   bool preserve_deletions = false) const;
-        
-        /// Same as above, but include alignments to all paths instead of only the optimal one
-        vector<Alignment> multi_surject(const Alignment& source,
-                                        const unordered_set<path_handle_t>& paths,
-                                        vector<tuple<string, int64_t, bool>>& positions_out,
-                                        bool allow_negative_scores = false,
-                                        bool preserve_deletions = false) const;
                           
         /// Extract the portions of an alignment that are on a chosen set of
         /// paths and try to align realign the portions that are off of the
@@ -88,12 +81,6 @@ using namespace std;
                                   bool allow_negative_scores = false,
                                   bool preserve_deletions = false) const;
         
-        /// Same as above, but include alignments to all paths instead of only the optimal one
-        vector<Alignment> multi_surject(const Alignment& source,
-                                        const unordered_set<path_handle_t>& paths,
-                                        bool allow_negative_scores = false,
-                                        bool preserve_deletions = false) const;
-        
         /// Same semantics as with alignments except that connections are always
         /// preserved as splices. The output consists of a multipath alignment with
         /// a single path, separated by splices (either from large deletions or from
@@ -103,13 +90,6 @@ using namespace std;
                                               vector<tuple<string, int64_t, bool>>& positions_out,
                                               bool allow_negative_scores = false,
                                               bool preserve_deletions = false) const;
-        
-        /// Same as above, but include alignments to all paths instead of only the optimal one
-        vector<multipath_alignment_t> multi_surject(const multipath_alignment_t& source,
-                                                    const unordered_set<path_handle_t>& paths,
-                                                    vector<tuple<string, int64_t, bool>>& positions_out,
-                                                    bool allow_negative_scores = false,
-                                                    bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
@@ -172,6 +152,9 @@ using namespace std;
         /// anchors with the oppsite parity (even if this is odd, or odd if
         /// this is even) 1bp longer.
         int64_t pad_suspicious_anchors_to_length = 12;
+
+        /// Return alignments to overlapping paths as secondaries instead of just the best one
+        bool multimap_to_all_paths = false;
         
         // A function for computing band padding
         std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
@@ -203,7 +186,7 @@ using namespace std;
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                               const unordered_set<path_handle_t>& paths,
-                              vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
+                              vector<tuple<string, int64_t, bool>>& positions_out,
                               bool allow_negative_scores, bool preserve_deletions) const;
         
         vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>
@@ -292,7 +275,11 @@ using namespace std;
             function<void(multipath_alignment_t&)> annotate_supplementary = [](multipath_alignment_t& mp_aln) { mp_aln.set_annotation("supplementary", true); };
             choose_primary_internal(surjections, annotate_supplementary);
         }
+        
+        vector<tuple<Alignment, size_t, size_t>> generate_hard_clipped_alignments(const Alignment& source) const;
 
+        void restore_hard_clips(vector<Alignment>& clipped_surjected, const Alignment& source, size_t subseq_begin, size_t subseq_end) const;
+        
         // helpers to add the SA tag
         template<class AlnType>
         void add_SA_tag_internal(vector<AlnType>& surjected, const vector<tuple<string, int64_t, bool>>& positions,
@@ -323,6 +310,7 @@ using namespace std;
             add_SA_tag_internal(surjected, positions, graph, spliced, update_sa);
         }
         
+        // calculate the total length of overlaps between alignments, measured in terms of read sequence
         template<class AlnType>
         int64_t total_overlap(const vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const;
         
@@ -394,9 +382,11 @@ using namespace std;
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
                                                             const string& src_quality);
         
-        void annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const;
+        void annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, 
+                                  const vector<tuple<string, int64_t, bool>>& positions) const;
         
-        void annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const;
+        void annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, 
+                                  const vector<tuple<string, int64_t, bool>>& positions) const;
         
         template<class AlnType>
         static int32_t get_score(const AlnType& aln);
@@ -510,14 +500,19 @@ using namespace std;
             return;
         }
         size_t primary_idx = -1;
-        for (size_t i = 0; i < surjected.size(); ++i) {
+        bool has_supplementary = false;
+        for (size_t i = 0; i < surjected.size() && (!has_supplementary || primary_idx == -1); ++i) {
             if (!is_supplementary(surjected[i])) {
-                primary_idx = i;
-                break;
+                if (primary_idx == -1) {
+                    primary_idx = i;
+                }
+            }
+            else {
+                has_supplementary = true;
             }
         }
-        if (primary_idx == -1) {
-            // there is no primary
+        if (primary_idx == -1 || !has_supplementary) {
+            // there is no primary or no supplementaries
             return;
         }
 
@@ -532,7 +527,7 @@ using namespace std;
 
                 const auto& pos = positions[i];
                 // note: convert to 1-based
-                strm << get<0>(pos) << ',' << (get<1>(pos) + 1) << ',' << (get<2>(pos) ? '-' : '+') << ',';
+                strm << (get<0>(pos).empty() ? string("*") : get<0>(pos)) << ',' << (get<1>(pos) >= 0 ? get<1>(pos) + 1 : (int64_t) 0) << ',' << (get<2>(pos) ? '-' : '+') << ',';
                 auto cigar = get_cigar(surj, pos, graph, spliced);
                 if (cigar.empty()) {
                     strm << '*';
@@ -542,7 +537,7 @@ using namespace std;
                         strm << op.first << op.second;
                     }
                 }
-                strm << ',' << surj.mapping_quality() << ',' << count_mismatches(surj);
+                strm << ',' << surj.mapping_quality() << ',' << count_mismatches(surj) << ';';
 
                 SA_entry[i] = std::move(strm.str());
             }
@@ -554,16 +549,11 @@ using namespace std;
                 continue;
             }
             // this is a primary or a supplementary that needs the SA tag
-            bool first = true;
             stringstream strm;
             for (size_t j = 0; j < surjected.size(); ++j) {
-                if ((j == i) || (j != primary_idx && !is_supplementary(surjected[j]))) {
+                if (j == i || (j != primary_idx && !is_supplementary(surjected[j]))) {
                     continue;
                 }
-                if (!first) {
-                    strm << ';';
-                }
-                first = false;
                 strm << SA_entry[j];
             }
 

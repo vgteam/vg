@@ -474,6 +474,27 @@ class MinimizerMapper : public AlignerClient {
     /// The algorithm used for rescue.
     RescueAlgorithm rescue_algorithm = rescue_dozeu;
     
+    /// Identify secondary alignments as supplementaries if they partition the read with the primary
+    static constexpr bool default_find_supplementaries = false;
+    bool find_supplementaries = default_find_supplementaries;
+
+    /// The minimum length of aligned sequence required in order to report a supplementary alignment
+    static constexpr size_t default_min_supplementary_size = 40;
+    size_t min_supplementary_size = default_min_supplementary_size;
+
+    /// The maximum amount of read separation or overlap between supplementary alignment(s) and the primary alignment
+    static constexpr size_t default_max_supplementary_separation = 10;
+    size_t max_supplementary_separation = default_max_supplementary_separation;
+
+    /// The minimum score of a supplementary as a fraction of the primary alignment score
+    static constexpr double default_min_supplementary_score_fraction = 0.4;
+    size_t min_supplementary_score_fraction = default_min_supplementary_score_fraction;
+
+    /// The minimum fraction of the read that the primary and the supplementaries must jointly align in order for
+    /// supplementary alignments to be reported from disjoint graph regions
+    static constexpr double default_min_supplementary_read_coverage = 0.9;
+    size_t min_supplementary_read_coverage = default_min_supplementary_read_coverage;
+
     /// Apply this sample name
     string sample_name;
     /// Apply this read group name
@@ -572,6 +593,9 @@ class MinimizerMapper : public AlignerClient {
     
 protected:
     
+    /// Types of paired alignments in paired-end mapping
+    enum PairType {paired, unpaired, rescued_from_first, rescued_from_second};
+
     /// Convert an integer distance, with limits standing for no distance, to a
     /// double annotation that can safely be parsed back from JSON into an
     /// integer if it is integral.
@@ -942,6 +966,39 @@ protected:
      * removes those deletions
      */
     void fix_dozeu_end_deletions(Alignment& rescued_alignment) const;
+
+//-----------------------------------------------------------------------------
+
+    // Supplementary alignments
+
+    /**
+     * In a vector of single end alignments, identify alignments that should be considered supplementary 
+     * alignments to the primary, remove them from the multimapping vector, and return them in a separate
+     * vector
+     */
+    vector<Alignment> identify_supplementary_alignments(vector<Alignment>& alignments, Funnel& funnel) const;
+
+    struct read_alignment_index_t;
+    struct alignment_index_t;
+    static const read_alignment_index_t NO_READ_INDEX;
+    static const alignment_index_t NO_INDEX;
+
+    /**
+     * For a paired read, identify alignments for each read, identify other alignments that should be considered
+     * supplementary alignments to the corresponding alignment in the primary pair. Candidates are identified
+     * from unpaired alignments that failed rescue attempts or for which rescue was not attempted. Supplementary
+     * alignments that are identified are removed from the paired read data structures and returned as a pair
+     * of Alignment vectors
+     */
+    array<vector<read_alignment_index_t>, 2> identify_supplementary_alignments(vector<std::array<vector<Alignment>, 2>>& alignments,
+                                                                  vector<std::array<read_alignment_index_t, 2>>& paired_alignments, 
+                                                                  vector<double>& paired_scores,
+                                                                  vector<PairType>& pair_types,
+                                                                  const vector<alignment_index_t>& unpaired_alignments,
+                                                                  const vector<bool>& attempted_rescue_from,
+                                                                  array<Funnel, 2>& funnels) const;
+
+
 
 //-----------------------------------------------------------------------------
 
@@ -1322,6 +1379,36 @@ protected:
         const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
+
+    /**
+     * Same as the process_until_threshold_b, except that items can escape the score
+     * threshold by a function-specified condition. The process_item function receives
+     * an additional bool indicating whether an item passed by threshold escape
+     */
+    template<typename Score = double>
+    void process_until_threshold_d(const vector<Score>& scores,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& get_seed,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const;
+
+    /**
+     * Same as the process_until_threshold_c, except that items can escape the score
+     * threshold by a function-specified condition. The process_item function receives
+     * an additional bool indicating whether an item passed by threshold escape
+     */
+    template<typename Score = double>
+    void process_until_threshold_e(size_t items, 
+        const function<Score(size_t)>& get_score,
+        const function<bool(size_t, size_t)>& comparator,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& get_seed,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const;
         
     // Internal debugging functions
     
@@ -1416,7 +1503,7 @@ void MinimizerMapper::process_until_threshold_b(const vector<Score>& scores,
         return scores[i];
     }, [&](size_t a, size_t b) -> bool {
         return (scores[a] > scores[b]);
-    },threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
+    }, threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Score>
@@ -1427,6 +1514,38 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
         const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const {
+
+    process_until_threshold_e(items, get_score, comparator, [](size_t){return false;}, threshold, min_count, 
+        max_count, rng, [&](size_t a, size_t b, bool e){return process_item(a, b);}, discard_item_by_count, discard_item_by_score);
+}
+
+template<typename Score>
+void MinimizerMapper::process_until_threshold_d(const vector<Score>& scores,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const {
+    
+    process_until_threshold_e(scores.size(), (function<Score(size_t)>)[&](size_t i) -> Score {
+        return scores[i];
+    }, [&](size_t a, size_t b) -> bool {
+        return (scores[a] > scores[b]);
+    }, threshold_escape, threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
+}
+
+
+template<typename Score>
+void MinimizerMapper::process_until_threshold_e(size_t items, const function<Score(size_t)>& get_score,
+        const function<bool(size_t, size_t)>& comparator,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const {
+
 
     // Sort item indexes by item score
     vector<size_t> indexes_in_order;
@@ -1467,13 +1586,15 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
         if (threshold != 0 && get_score(item_num) <= cutoff) {
             // Item would fail the score threshold
             
-            if (unskipped < min_count) {
-                // But we need it to make up the minimum number.
+            bool escape = false;
+            if (unskipped < min_count || (escape = threshold_escape(item_num))) {
+                // But we need it to make up the minimum number, or the item escapes the
+                // score threshold.
                 
                 // Go do it.
                 // If it is not skipped by the user, add it to the total number
                 // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num, better_or_equal_count[i]);
+                unskipped += (size_t) process_item(item_num, better_or_equal_count[i], escape);
             } else {
                 // We will reject it for score
                 discard_item_by_score(item_num);
@@ -1487,7 +1608,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
                 // Go do it.
                 // If it is not skipped by the user, add it to the total number
                 // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num, better_or_equal_count[i]);
+                unskipped += (size_t) process_item(item_num, better_or_equal_count[i], false);
             } else {
                 // We are out of room! Reject for count.
                 discard_item_by_count(item_num);
