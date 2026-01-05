@@ -385,8 +385,8 @@ class VGCITest(TestCase):
             "-m", output_json,
             "--jobstore", job_store,
         ] + self._toil_io_opts()
-        if self.container:
-            cmd.extend(["--container", self.container])
+        if self.container and self.container != "None":
+            cmd.extend(["--container", self.container.lower()])
         subprocess.check_call(cmd)
 
         # Read the output JSON
