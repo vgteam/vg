@@ -71,8 +71,12 @@ local-build-test-job:
   cache:
     # Gitlab isn't clever enough to fill PR caches from the main branch, so we
     # just use one megacache and hope the Makefile is smart enough to recover
-    # from the future
-    key: local-build-test-cache
+    # from the future.
+    #
+    # We make sure to key this on compiler version because the linker might
+    # demand object files from its own GCC version for link-time optimization
+    # (LTO). See <https://gcc.gnu.org/legacy-ml/gcc/2019-06/msg00231.html>.
+    key: local-build-test-cache-gcc-$COMPILER_VERSION
     paths:
       - deps/
       - include/
@@ -81,6 +85,9 @@ local-build-test-job:
       - obj/
   before_script:
     - sudo apt-get -q -y update
+    - sudo apt-get install -y gcc-${COMPILER_VERSION} g++-${COMPILER_VERSION}
+    - sudo rm -f /usr/bin/gcc && sudo ln -s /usr/bin/gcc-${COMPILER_VERSION} /usr/bin/gcc
+    - sudo rm -f /usr/bin/g++ && sudo ln -s /usr/bin/g++-${COMPILER_VERSION} /usr/bin/g++
     # We need to make sure we get the right submodule files for this version
     # and don't clobber sources with the cache. We want to have a dirty state
     # with the correct source files.
@@ -115,13 +122,14 @@ local-build-test-job:
   variables:
     VG_FULL_TRACEBACK: "1"
     GIT_SUBMODULE_STRATEGY: none
+    COMPILER_VERSION: 11
 
 # Ensure vg builds on the oldest supported compiler version.
 oldest-supported-compiler-job:
   interruptible: true
   stage: test
   cache:
-    key: oldest-supported-compiler-cache
+    key: oldest-supported-compiler-cache-gcc-$COMPILER_VERSION
     paths:
       - deps/
       - include/
@@ -150,7 +158,7 @@ oldest-supported-compiler-job:
     GIT_SUBMODULE_STRATEGY: none
     # DO NOT change this version number without updating the README to reflect
     # the requirement bump.
-    COMPILER_VERSION: 7
+    COMPILER_VERSION: 9
 
 
 # We define one job to do the Docker container build
