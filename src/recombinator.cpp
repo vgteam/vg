@@ -464,7 +464,9 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     this->distance_index.for_each_child(this->distance_index.get_root(), [&](const handlegraph::net_handle_t& chain) {
         if (this->distance_index.is_looping_chain(chain)) {
             std::string msg = "HaplotypePartitioner::partition_haplotypes(): top-level chain " +
-                std::to_string(total_chains) + " is a loop; haplotype sampling cannot be used with this graph";
+                std::to_string(total_chains) + " is a loop; haplotype sampling cannot be used with this graph\n." +
+                "This can sometimes be resolved by using the vg index -P option to specify a reference backbone " +
+                "when computing the distance index.";
             throw std::runtime_error(msg);
         }
         total_chains++;
