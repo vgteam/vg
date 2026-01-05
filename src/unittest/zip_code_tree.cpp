@@ -9,6 +9,7 @@
 #include "../integrated_snarl_finder.hpp"
 #include "random_graph.hpp"
 #include "../minimizer_mapper.hpp"
+#include "randomness.hpp"
 #include <random>
 #include <time.h>
 
@@ -3043,7 +3044,7 @@ namespace unittest {
         for (int i = 0; i < 10; i++) {
             // For each random graph
     
-            default_random_engine generator(time(NULL));
+            default_random_engine generator(test_seed_source());
             uniform_int_distribution<int> variant_count(1, 10);
             uniform_int_distribution<int> chrom_len(10, 200);
             uniform_int_distribution<int> distance_limit(5, 100);
