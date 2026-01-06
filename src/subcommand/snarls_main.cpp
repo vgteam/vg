@@ -52,6 +52,9 @@ void help_snarl(char** argv) {
          << "  -i, --ins-fasta FILE      insertions as FASTA (required for SVs by -v)" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
          << "                            of a top-level chain (may repeat)" << endl
+         << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient"
+         << "                            snarl tree. often necessary when running vg"
+         << "                            haplotypes downstream" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
 }
@@ -85,6 +88,7 @@ int main_snarl(int argc, char** argv) {
     // be longer than the maximum plausible distracting path or spurious bridge
     // edge cycle, but small enough that several of it fit in a size_t.
     constexpr size_t EXTRA_WEIGHT = 10000000000;
+    string ref_prefix;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -106,6 +110,7 @@ int main_snarl(int argc, char** argv) {
                 {"ins-fasta", required_argument, 0, 'i'},
                 {"path-traversals", no_argument, 0, 'e'},
                 {"upweight-node", required_argument, 0, 'w'},
+                {"path-prefix", required_argument, 0, 'P'},                
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
@@ -113,7 +118,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:ew:h?t:",
+        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:ew:P:h?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -173,12 +178,13 @@ int main_snarl(int argc, char** argv) {
         case 'e':
             path_traversals = true;
             break;
-
         case 'w':
             // We use += so you can repeat a node and make it even more heavier.
             extra_node_weight[parse<nid_t>(optarg)] += EXTRA_WEIGHT;
             break;
-
+        case 'P':
+            ref_prefix = optarg;
+            break;            
         case 't':
             set_thread_count(logger, optarg);
             break;
@@ -234,13 +240,22 @@ int main_snarl(int argc, char** argv) {
     // Pick a SnalrFinder
     unique_ptr<SnarlFinder> snarl_finder;
 
-    if (!extra_node_weight.empty() && algorithm != "integrated") {
-        logger.error() << "-w can only be used with -A integrated (not cactus algorithm)" << endl;
+    if ((!extra_node_weight.empty() || !ref_prefix.empty()) && algorithm != "integrated") {
+        logger.error() << "-w/-P can only be used with -A integrated (not cactus algorithm)" << endl;
     }
 
     if (algorithm == "cactus") {
         snarl_finder.reset(new CactusSnarlFinder(*graph));
     } else if (algorithm == "integrated") {
+        if (!ref_prefix.empty()) {
+            graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+                string path_name = graph->get_path_name(path_handle);
+                if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
+                }
+            });
+        }
         snarl_finder.reset(new IntegratedSnarlFinder(*graph, extra_node_weight));
     } else {
         logger.error() << "Algorithm must be 'cactus' or 'integrated', not '"
