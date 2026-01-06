@@ -246,6 +246,10 @@ Functions</h2></td></tr>
 <tr class="separator:a44d7cb48aae7d9c3621fabc6b31faa6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a63b12354bf13d6a19b5addc71fc512c7"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a63b12354bf13d6a19b5addc71fc512c7">gaf_paired_interleaved_for_each_parallel_after_wait</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size)</td></tr>
 <tr class="separator:a63b12354bf13d6a19b5addc71fc512c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae923857fa4a650fa5fe8446f4f1e79f3"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae923857fa4a650fa5fe8446f4f1e79f3">supplementary_tag_value</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;primary)</td></tr>
+<tr class="separator:ae923857fa4a650fa5fe8446f4f1e79f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39d9d8b4c911451673599bc2817e7af2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a39d9d8b4c911451673599bc2817e7af2">decode_supplementary_tag_value</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;primary, const string &amp;tag_value, const function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; &amp;node_to_length)</td></tr>
+<tr class="separator:a39d9d8b4c911451673599bc2817e7af2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac7caf6e3e258fda58ef1bd8565074f4a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ac7caf6e3e258fda58ef1bd8565074f4a">alignment_to_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
 <tr class="separator:ac7caf6e3e258fda58ef1bd8565074f4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a711294fa859b37aba71867a0dd9a035a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a711294fa859b37aba71867a0dd9a035a">alignment_to_gaf</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
@@ -758,6 +762,40 @@ Variables</h2></td></tr>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>to_off</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a39d9d8b4c911451673599bc2817e7af2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a39d9d8b4c911451673599bc2817e7af2">&#9670;&nbsp;</a></span>decode_supplementary_tag_value()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::decode_supplementary_tag_value </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>primary</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>tag_value</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_to_length</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2689,6 +2727,24 @@ template&lt;typename T &gt; </div>
           <td>(</td>
           <td class="paramtype">const string &amp;&#160;</td>
           <td class="paramname"><em>quality</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae923857fa4a650fa5fe8446f4f1e79f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae923857fa4a650fa5fe8446f4f1e79f3">&#9670;&nbsp;</a></span>supplementary_tag_value()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::io::supplementary_tag_value </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>primary</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
