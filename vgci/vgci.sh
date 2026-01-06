@@ -32,7 +32,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@65ab997fd41e5631455b02ccbd7230eb2f9219b0"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@34aca0058d9e02f15a0c452bb61e6df371235a74"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
 # or "toil[wdl,aws,mesos]@git+https://github.com/DataBiosphere/toil.git@52aa2979f23c24001837b2808552973e7bb263e6"
@@ -410,10 +410,10 @@ then
         
         if [ "${PREPULL}" == "1" ] ; then
             # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
-            # individual test results (looking at you, rocker/tidyverse:3.4.2)
-            # Allow two tries
+            # individual test results (looking at you, rocker/tidyverse)
+            # Allow two tries, and then another try with a platform the image probably has and we can probably make run.
             for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker inspect $img >/dev/null || docker pull $img ; done
-            for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker inspect $img >/dev/null || docker pull $img ; done
+            for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker inspect $img >/dev/null || docker pull $img || docker pull --platform linux/amd64 $img ; done
         fi
     fi
 
