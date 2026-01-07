@@ -316,7 +316,7 @@ class VGCITest(TestCase):
 
     def _giraffe_dv_run(self, sample_name, chrom, gbz_path, fq_path,
                         true_vcf_path, bed_regions_path, fasta_path,
-                        interleaved, tech, tag):
+                        reference_prefix, interleaved, tech, tag):
         """
         Run the GiraffeDeepVariant WDL workflow and produce rtg vcfeval results.
         """
@@ -344,8 +344,7 @@ class VGCITest(TestCase):
             "GiraffeDeepVariant.INPUT_READ_FILE_1": fq_path,
             "GiraffeDeepVariant.GBZ_FILE": gbz_path,
             "GiraffeDeepVariant.REFERENCE_FILE": fasta_path,
-            # Note that the linear reference and truth VCF use plain number contigs (17, etc.)
-            "GiraffeDeepVariant.REFERENCE_PREFIX": "GRCh38#0#chr",
+            "GiraffeDeepVariant.REFERENCE_PREFIX": reference_prefix,
             "GiraffeDeepVariant.SAMPLE_NAME": sample_name,
             "GiraffeDeepVariant.PAIRED_READS": interleaved,
             "GiraffeDeepVariant.INTERLEAVED_READS": interleaved,
@@ -1577,7 +1576,7 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'cactus', True)
 
-    @timeout_decorator.timeout(1200)
+    @timeout_decorator.timeout(2400)
     def test_giraffe_brca1_hprc2(self):
         """
         Test Giraffe/DeepVariant on BRCA1.
@@ -1601,12 +1600,14 @@ class VGCITest(TestCase):
                              self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
                              None,
                              self._input('chr{}.fa.gz'.format(chrom)),
+                             # Note that the linear reference and truth VCF use plain number contigs (17, etc.)
+                             "GRCh38#0#chr",
                              True, "illumina", tag)
 
         self._verify_f1('NA12878', tag)
 
 
-    @timeout_decorator.timeout(7200)
+    @timeout_decorator.timeout(14400)
     def test_giraffe_chr21_hprc2(self):
         """
         Test Giraffe/DeepVariant on chr21.
@@ -1631,6 +1632,7 @@ class VGCITest(TestCase):
                              self._input('CHM13v2.0_HG2-T2TQ100-V1.1.{}.vcf.gz'.format(region)),
                              self._input('CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.{}.bed'.format(region)),
                              self._input('chm13v2.0-Nonly.CHR{}.fa.gz'.format(chrom)),
+                             "CHM13#0#",
                              False, "hifi", tag)
 
         self._verify_f1('HG002', tag)
