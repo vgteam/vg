@@ -3040,6 +3040,65 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
     }
+    TEST_CASE("Failed random graphs case", "[zip_tree]") {
+        // Load an example graph
+        VG graph;
+        io::json2graph(R"({"node":[{"id": "5", "sequence": "C"}, 
+                                   {"id": "16", "sequence": "C"}, 
+                                   {"id": "12", "sequence": "G"}, 
+                                   {"id": "8", "sequence": "AACACCAGTTTCCCATGGGTTC"}, 
+                                   {"id": "17", "sequence": "CACCCACATAACGTTGTCATTATAGGA"}, 
+                                   {"id": "1", "sequence": "CGCACTAAGATAGT"}, 
+                                   {"id": "6", "sequence": "C"}, 
+                                   {"id": "11", "sequence": "GGCTATGCAGTCCTGTGTTT"}, 
+                                   {"id": "9", "sequence": "CGGCCGAGATCGTTTGTACTCCACATCCCTGTTACGCCCAAAAACCGTCTCCGAGGATGTTAAACATAGGCAGCCACGAGTTATGCGCTAACGTGATATATTGTGCTGGCTAT"}, 
+                                   {"id": "14", "sequence": "C"}, 
+                                   {"id": "3", "sequence": "AACGTAGATGAAAACTAGCATCCGGCCCCCTCCCGACCTGAGCTACGGCATGAGGGCTTACATCAGTCGTG"}, 
+                                   {"id": "7", "sequence": "G"}, 
+                                   {"id": "4", "sequence": "GTCCTGTTCCTCGGTCGTAATGTAAGGCTTGAACTGGT"}, 
+                                   {"id": "15", "sequence": "GGGGGC"}, 
+                                   {"id": "2", "sequence": "AGTTGAGGCGGGGATGCGAGGCTAGGTGCGGGG"}, 
+                                   {"id": "10", "sequence": "T"}, 
+                                   {"id": "18", "sequence": "ATGTTATGCTGCT"}, 
+                                   {"id": "13", "sequence": "C"}],
+                           "edge": [{"from": "5", "from_start": true, "to": "8", "to_end": true}, 
+                                    {"from": "16", "to": "17"}, 
+                                    {"from": "12", "to": "14"}, 
+                                    {"from": "12", "from_start": true, "to": "17", "to_end": true}, 
+                                    {"from": "1", "to": "7"}, 
+                                    {"from": "1", "to": "6"}, 
+                                    {"from": "6", "to": "8"}, 
+                                    {"from": "11", "from_start": true, "to": "15", "to_end": true}, 
+                                    {"from": "9", "to": "10"}, 
+                                    {"from": "9", "to": "16"}, 
+                                    {"from": "14", "to": "15"}, 
+                                    {"from": "7", "to": "8"}, 
+                                    {"from": "4", "to": "5"}, 
+                                    {"from": "4", "from_start": true, "to": "8", "to_end": true}, 
+                                    {"from": "2", "to": "3"}, 
+                                    {"from": "2", "to": "5", "to_end": true}, 
+                                    {"from": "2", "from_start": true, "to": "5", "to_end": true}, 
+                                    {"from": "2", "from_start": true, "to": "3"}, 
+                                    {"from": "10", "to": "17"}, 
+                                    {"from": "10", "from_start": true, "to": "15", "to_end": true}, 
+                                    {"from": "13", "to": "14"}, 
+                                    {"from": "13", "to": "15"}, 
+                                    {"from": "13", "from_start": true, "to": "17", "to_end": true}]})", &graph);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed per node") {
+            // TODO
+            vector<pos_t> positions;
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(14, false, 0);
+            positions.emplace_back(15, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
         for (int i = 0; i < 10; i++) {
             // For each random graph

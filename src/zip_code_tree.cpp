@@ -1,11 +1,11 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code_tree.hpp"
 #include "crash.hpp"
 
 // Set for verbose logging from the zip code tree parsing logic
-//#define debug_parse
+#define debug_parse
 
 // Set to compile in assertions to check the zipcode tree parsing logic
 //#define check_parse
