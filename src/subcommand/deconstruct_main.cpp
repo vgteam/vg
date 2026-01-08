@@ -296,8 +296,10 @@ int main_deconstruct(int argc, char** argv) {
     }
     
     if (refpaths.empty() && refpath_prefixes.empty()) {
-        bool found_hap;
-        // No paths specified: use them all (reference and non-alt generic)
+        // We will set this if we found any haplotypes or alt paths to use as alternatives to the reference.
+        bool found_hap = false;
+
+        // No paths specified: use all reference and non-alt generic paths as reference to deconstruct against.
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
@@ -307,8 +309,16 @@ int main_deconstruct(int argc, char** argv) {
             }
         });
 
+        if (!found_hap) {
+            // See if we have any haplotypes.
+            graph->for_each_path_of_sense(PathSense::HAPLOTYPE, [&](path_handle_t path_handle) {
+                found_hap = true;
+                return false;
+            });
+        }
+
         if (!found_hap && gbwt_index == nullptr) {
-            logger.error() << "All graph paths selected as references (leaving no alts). Please use -P/-p "
+            logger.error() << "All graph paths selected as references (leaving no alternative alleles). Please use -P/-p "
                            << "to narrow down the reference to a subset of paths, "
                            << "or GBZ/GBWT input that contains haplotype paths" << endl;
         }        
