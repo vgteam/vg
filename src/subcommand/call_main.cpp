@@ -507,10 +507,9 @@ int main_call(int argc, char** argv) {
     // No paths specified: use them all
     if (ref_paths.empty()) {
         set<string> ref_sample_names;
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                PathSense path_sense = graph->get_sense(path_handle);
-                if (!Paths::is_alt(name) && path_sense != PathSense::HAPLOTYPE) {
+                if (!Paths::is_alt(name)) {
                     string sample_name = graph->get_sample_name(path_handle);
                     if (ref_sample.empty() || sample_name == ref_sample) {                        
                         ref_paths.push_back(name);
@@ -557,7 +556,7 @@ int main_call(int argc, char** argv) {
         for (const string& ref_path : ref_paths) {
             ref_path_set[ref_path] = false;
         }
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(name, &subrange);

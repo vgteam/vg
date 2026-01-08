@@ -1162,8 +1162,8 @@ string Deconstructor::get_vcf_header() {
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
-    // find sample names from non-reference paths
-    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+    // find sample names from haplotype paths
+    graph->for_each_path_of_sense(PathSense::HAPLOTYPE, [&](const path_handle_t& path_handle) {
         string path_name = graph->get_path_name(path_handle);
         if (!this->ref_paths.count(path_name)) {
             string sample_name = graph->get_sample_name(path_handle);

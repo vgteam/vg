@@ -297,10 +297,10 @@ int main_deconstruct(int argc, char** argv) {
     
     if (refpaths.empty() && refpath_prefixes.empty()) {
         bool found_hap;
-        // No paths specified: use them all
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        // No paths specified: use them all (reference and non-alt generic)
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
-            if (!Paths::is_alt(name) && graph->get_sense(path_handle) != PathSense::HAPLOTYPE) {
+            if (!Paths::is_alt(name)) {
                 refpaths.push_back(name);
             } else {
                 found_hap = true;
@@ -337,7 +337,7 @@ int main_deconstruct(int argc, char** argv) {
 
     // process the prefixes to find ref paths
     if (!refpath_prefixes.empty()) {
-        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             for (auto& prefix : refpath_prefixes) {                    
                 if (path_name.compare(0, prefix.size(), prefix) == 0) {
