@@ -3043,47 +3043,20 @@ namespace unittest {
     TEST_CASE("Failed random graphs case", "[zip_tree]") {
         // Load an example graph
         VG graph;
-        io::json2graph(R"({"node":[{"id": "5", "sequence": "C"}, 
-                                   {"id": "16", "sequence": "C"}, 
-                                   {"id": "12", "sequence": "G"}, 
-                                   {"id": "8", "sequence": "AACACCAGTTTCCCATGGGTTC"}, 
-                                   {"id": "17", "sequence": "CACCCACATAACGTTGTCATTATAGGA"}, 
-                                   {"id": "1", "sequence": "CGCACTAAGATAGT"}, 
-                                   {"id": "6", "sequence": "C"}, 
-                                   {"id": "11", "sequence": "GGCTATGCAGTCCTGTGTTT"}, 
-                                   {"id": "9", "sequence": "CGGCCGAGATCGTTTGTACTCCACATCCCTGTTACGCCCAAAAACCGTCTCCGAGGATGTTAAACATAGGCAGCCACGAGTTATGCGCTAACGTGATATATTGTGCTGGCTAT"}, 
+        io::json2graph(R"({"node":[{"id": "17", "sequence": "C"}, 
+                                   {"id": "11", "sequence": "GGCTA"}, 
+                                   {"id": "9", "sequence": "CGGCC"}, 
                                    {"id": "14", "sequence": "C"}, 
-                                   {"id": "3", "sequence": "AACGTAGATGAAAACTAGCATCCGGCCCCCTCCCGACCTGAGCTACGGCATGAGGGCTTACATCAGTCGTG"}, 
-                                   {"id": "7", "sequence": "G"}, 
-                                   {"id": "4", "sequence": "GTCCTGTTCCTCGGTCGTAATGTAAGGCTTGAACTGGT"}, 
-                                   {"id": "15", "sequence": "GGGGGC"}, 
-                                   {"id": "2", "sequence": "AGTTGAGGCGGGGATGCGAGGCTAGGTGCGGGG"}, 
-                                   {"id": "10", "sequence": "T"}, 
-                                   {"id": "18", "sequence": "ATGTTATGCTGCT"}, 
+                                   {"id": "15", "sequence": "G"},
                                    {"id": "13", "sequence": "C"}],
-                           "edge": [{"from": "5", "from_start": true, "to": "8", "to_end": true}, 
-                                    {"from": "16", "to": "17"}, 
-                                    {"from": "12", "to": "14"}, 
-                                    {"from": "12", "from_start": true, "to": "17", "to_end": true}, 
-                                    {"from": "1", "to": "7"}, 
-                                    {"from": "1", "to": "6"}, 
-                                    {"from": "6", "to": "8"}, 
-                                    {"from": "11", "from_start": true, "to": "15", "to_end": true}, 
-                                    {"from": "9", "to": "10"}, 
-                                    {"from": "9", "to": "16"}, 
-                                    {"from": "14", "to": "15"}, 
-                                    {"from": "7", "to": "8"}, 
-                                    {"from": "4", "to": "5"}, 
-                                    {"from": "4", "from_start": true, "to": "8", "to_end": true}, 
-                                    {"from": "2", "to": "3"}, 
-                                    {"from": "2", "to": "5", "to_end": true}, 
-                                    {"from": "2", "from_start": true, "to": "5", "to_end": true}, 
-                                    {"from": "2", "from_start": true, "to": "3"}, 
-                                    {"from": "10", "to": "17"}, 
-                                    {"from": "10", "from_start": true, "to": "15", "to_end": true}, 
-                                    {"from": "13", "to": "14"}, 
-                                    {"from": "13", "to": "15"}, 
-                                    {"from": "13", "from_start": true, "to": "17", "to_end": true}]})", &graph);
+                           "edge": [{"from": "9", "to": "17"},
+                                    {"from": "17", "to": "14"},
+                                    {"from": "14", "to": "15"},
+                                    {"from": "15", "to": "11"},
+                                    {"from": "15", "to": "17"},
+                                    {"from": "13", "to": "14"},
+                                    {"from": "13", "to": "15"},
+                                    {"from": "17", "to": "13"}]})", &graph);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
@@ -3092,9 +3065,20 @@ namespace unittest {
         SECTION("One seed per node") {
             // TODO
             vector<pos_t> positions;
+            positions.emplace_back(9, false, 0);
+            positions.emplace_back(11, false, 0);
             positions.emplace_back(13, false, 0);
             positions.emplace_back(14, false, 0);
             positions.emplace_back(15, false, 0);
+            positions.emplace_back(17, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+        SECTION("Minimal failures case") {
+            // TODO
+            vector<pos_t> positions;
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(14, false, 0);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
         }
