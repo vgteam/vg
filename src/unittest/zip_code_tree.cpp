@@ -3040,7 +3040,7 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
     }
-    TEST_CASE("Failed random graphs case", "[zip_tree]") {
+    TEST_CASE("Ziptree and zip codes disagree on child chain orientation", "[zip_tree]") {
         // Load an example graph
         VG graph;
         io::json2graph(R"({"node":[{"id": "17", "sequence": "C"}, 
@@ -3063,7 +3063,8 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("One seed per node") {
-            // TODO
+            // [9+0 5 {1  inf  0  inf  inf  1  inf  3  inf  1  inf 
+            //     [17+0 1 (2  0  0  1  1  1  1 [13+0][14+0]) 0 15+0]} 0 11+0]
             vector<pos_t> positions;
             positions.emplace_back(9, false, 0);
             positions.emplace_back(11, false, 0);
@@ -3075,7 +3076,8 @@ namespace unittest {
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
         }
         SECTION("Minimal failures case") {
-            // TODO
+            // [{1  inf  1  inf  inf  2  inf  3  inf  1  inf 
+            //     [(2  0  0  1  1  1  1 [13+0][14+0])]}]
             vector<pos_t> positions;
             positions.emplace_back(13, false, 0);
             positions.emplace_back(14, false, 0);
