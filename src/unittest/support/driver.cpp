@@ -1,5 +1,6 @@
 #define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+// Make sure to grab catch relative to us
+#include "../catch.hpp"
 
 /**
  * Main function for unit test suite binaries.
