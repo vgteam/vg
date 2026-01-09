@@ -10,7 +10,7 @@
 
 #include "vg/io/json2pb.h"
 #include "catch.hpp"
-#include "randomness.hpp"
+#include "support/randomness.hpp"
 
 #include <bdsg/internal/packed_structs.hpp>
 

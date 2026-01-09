@@ -11,7 +11,7 @@
 #include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "path.hpp"
-#include "test_aligner.hpp"
+#include "support/test_aligner.hpp"
 #include "catch.hpp"
 
 #include <bdsg/hash_graph.hpp>

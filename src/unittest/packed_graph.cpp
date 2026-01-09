@@ -8,8 +8,8 @@
 #include <set>
 
 #include "vg/io/json2pb.h"
-#include "random_graph.hpp"
-#include "randomness.hpp"
+#include "support/random_graph.hpp"
+#include "support/randomness.hpp"
 
 #include "bdsg/packed_graph.hpp"
 

@@ -12,7 +12,7 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
-#include "randomness.hpp"
+#include "support/randomness.hpp"
 
 #include <map>
 #include <unordered_set>

@@ -11,7 +11,7 @@
 #include "../subpath_overlay.hpp"
 #include "../utility.hpp"
 #include "../handle.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 
 #include "../vg.hpp"
 

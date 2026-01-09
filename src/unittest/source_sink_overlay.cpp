@@ -5,7 +5,7 @@
 
 #include "catch.hpp"
 
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 
 #include "../source_sink_overlay.hpp"
 #include "../kmer.hpp"

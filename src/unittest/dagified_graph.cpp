@@ -7,7 +7,7 @@
 #include "vg/io/json2pb.h"
 #include "../dagified_graph.hpp"
 #include "../split_strand_graph.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 #include "catch.hpp"
 
 #include "bdsg/hash_graph.hpp"

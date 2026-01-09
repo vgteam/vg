@@ -10,7 +10,7 @@
 #include "../multipath_alignment_graph.hpp"
 #include "../snarl_distance_index.hpp"
 #include "catch.hpp"
-#include "test_aligner.hpp"
+#include "support/test_aligner.hpp"
 
 
 

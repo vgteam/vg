@@ -12,8 +12,8 @@
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
-#include "random_graph.hpp"
-#include "randomness.hpp"
+#include "support/random_graph.hpp"
+#include "support/randomness.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"

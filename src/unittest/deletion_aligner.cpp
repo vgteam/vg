@@ -6,7 +6,7 @@
 #include <iostream>
 #include "path.hpp"
 #include "deletion_aligner.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 #include "catch.hpp"
 
 #include "bdsg/hash_graph.hpp"
