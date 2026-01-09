@@ -3040,6 +3040,51 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
     }
+    TEST_CASE("Ziptree and zip codes disagree on child chain orientation", "[zip_tree]") {
+        // Load an example graph
+        VG graph;
+        io::json2graph(R"({"node":[{"id": "17", "sequence": "C"}, 
+                                   {"id": "11", "sequence": "GGCTA"}, 
+                                   {"id": "9", "sequence": "CGGCC"}, 
+                                   {"id": "14", "sequence": "C"}, 
+                                   {"id": "15", "sequence": "G"},
+                                   {"id": "13", "sequence": "C"}],
+                           "edge": [{"from": "9", "to": "17"},
+                                    {"from": "17", "to": "14"},
+                                    {"from": "14", "to": "15"},
+                                    {"from": "15", "to": "11"},
+                                    {"from": "15", "to": "17"},
+                                    {"from": "13", "to": "14"},
+                                    {"from": "13", "to": "15"},
+                                    {"from": "17", "to": "13"}]})", &graph);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed per node") {
+            // [9+0 5 {1  inf  0  inf  inf  1  inf  3  inf  1  inf 
+            //     [17+0 1 (2  0  0  1  1  1  1 [13+0][14+0]) 0 15+0]} 0 11+0]
+            vector<pos_t> positions;
+            positions.emplace_back(9, false, 0);
+            positions.emplace_back(11, false, 0);
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(14, false, 0);
+            positions.emplace_back(15, false, 0);
+            positions.emplace_back(17, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+        SECTION("Minimal failures case") {
+            // [{1  inf  1  inf  inf  2  inf  3  inf  1  inf 
+            //     [(2  0  0  1  1  1  1 [13+0][14+0])]}]
+            vector<pos_t> positions;
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(14, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
         for (int i = 0; i < 10; i++) {
             // For each random graph

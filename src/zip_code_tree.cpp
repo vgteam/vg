@@ -2349,40 +2349,12 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
     }
 
     for (auto& sub_interval : sub_intervals) {
-        bool is_reversed = sub_interval.is_reversed;
-        
-        if (interval.code_type == ZipCode::REGULAR_SNARL 
-            || interval.code_type == ZipCode::IRREGULAR_SNARL
-            || interval.code_type == ZipCode::CYCLIC_SNARL) {
-#ifdef DEBUG_ZIP_CODE_SORTING
-            cerr << "\tRecalculate orientation for snarl using zipcode definition" << endl;
-#endif
-            // For a snarl, use zipcode definition of reversed,
-            // in order to get correct rank ordering
-            //
-            // Doing seed_is_reversed_at_depth() --> get_is_reversed_in_parent()
-            // would be nice, but actually swapping all uses leads to lots of
-            // other orientation issues in the zip tree. However, we do need
-            // to know the distance index's understanding of orientation. For
-            // just snarl rank sorting, at the very least.
-            is_reversed = false;
-            const Seed& seed = seeds->at(zipcode_sort_order[sub_interval.interval_start]);
-            for (size_t depth = 0; depth <= sub_interval.depth ; depth++) {
-                if (seed.zipcode.get_is_reversed_in_parent(depth)) {
-#ifdef DEBUG_ZIP_CODE_SORTING
-                    cerr << "Reverse at depth " << depth << ": " << seed.zipcode.get_code_type(depth) << endl;
-#endif
-                    is_reversed = !is_reversed;
-                }
-            }
-        }
-        
         // Sort the given interval using the value-getter and orientation
         if (use_radix) {
             radix_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, 
-                                is_reversed, min_sort_value, max_sort_value);
+                                sub_interval.is_reversed, min_sort_value, max_sort_value);
         } else {
-            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, is_reversed);
+            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, sub_interval.is_reversed);
         }
     }
     return;
