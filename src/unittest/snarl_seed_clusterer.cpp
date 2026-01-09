@@ -10,7 +10,7 @@
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 #include "../snarl_seed_clusterer.hpp"
 #include <random>
 #include <time.h>
