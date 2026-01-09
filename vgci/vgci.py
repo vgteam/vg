@@ -1576,7 +1576,8 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'cactus', True)
 
-    @timeout_decorator.timeout(2400)
+    @skip("skipping test to keep runtime down")
+    @timeout_decorator.timeout(4800)
     def test_giraffe_brca1_hprc2(self):
         """
         Test Giraffe/DeepVariant on BRCA1.
@@ -1606,8 +1607,39 @@ class VGCITest(TestCase):
 
         self._verify_f1('NA12878', tag)
 
-
     @timeout_decorator.timeout(14400)
+    def test_giraffe_mhc_hprc2(self):
+        """
+        Test Giraffe/DeepVariant on MHC.
+
+        Sampling, indexing, mapping, and calling bakeof F1 test for HPRC 2.0
+        graph, but still with NA12878 and GRCh38 and the Platinum Genomes truth
+        set and Illumina reads.
+        """
+        log.info("Test start at {}".format(datetime.now()))
+
+        region="MHC"
+        graph="hprc-v2.0-mc-grch38.ec1M"
+        tag_ext=''
+
+        tag = '{}-{}{}'.format(region, graph, tag_ext)
+        chrom, offset = self._bakeoff_coords(region)
+
+        self._giraffe_dv_run('NA12878', chrom,
+                             self._input('{}-{}.gbz'.format(graph, region)),
+                             self._input('platinum_NA12878_{}.fq.gz'.format(region)),
+                             self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
+                             None,
+                             self._input('chr{}.fa.gz'.format(chrom)),
+                             # Note that the linear reference and truth VCF use plain number contigs (17, etc.)
+                             "GRCh38#0#chr",
+                             True, "illumina", tag)
+
+        self._verify_f1('NA12878', tag)
+
+
+    @skip("skipping test to keep runtime down")
+    @timeout_decorator.timeout(28800)
     def test_giraffe_chr21_hprc2(self):
         """
         Test Giraffe/DeepVariant on chr21.
