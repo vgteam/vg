@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 33
+plan tests 35
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -114,6 +114,14 @@ grep x3 norm_x4.gfa | awk '{print $3}'> x4.norm.path
 grep x5 norm_x4.gfa | awk '{print $3}' >> x4.norm.path
 diff x4.path x4.norm.path
 is $? 0 "path normalizer correctly snapped all equivalent paths to x4"
+
+vg convert --gfa-in graphs/named_with_walk.gfa > x.pg
+vg gbwt --index-paths -x x.pg -o x.gbwt
+vg gbwt --gbz-format -x x.pg x.gbwt -g x.gbz
+vg paths --list -x x.gbz >out.txt
+
+is "${?}" "0" "vg paths can list paths from a GBZ with only haplotypes"
+is "$(cat out.txt | wc -l)" "1" "vg paths sees the haplotype path in a GBZ with only haplotypes"
 
 rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
 rm -f empty.vg empty.gbwt empty.fa
