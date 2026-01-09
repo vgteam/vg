@@ -48,7 +48,7 @@ def testname_to_outstore(test_name):
     convert something like test_full_brca2_cactus to oustore-full-BRCA2-cactus
     """
     toks = test_name.replace('lrc_kir', 'lrc-kir').split('_')
-    assert toks[0] == 'test' and len(toks) >= 4
+    assert toks[0] == 'test' and len(toks) >= 4, "Cannot parse test: " + test_name
     return 'outstore-{}-{}-{}'.format(
         toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), '-'.join(toks[3:]))
 
@@ -249,7 +249,7 @@ def md_summary(xml_root):
         md = '[vg CI tests]({})'.format(pipeline_url)
     else:
         md = 'vg CI tests'
-    if xml_root:
+    if xml_root is not None:
         md += ' complete'
     else:
         md += ' never ran'
@@ -291,7 +291,7 @@ def md_summary(xml_root):
                 len(warnings), len([w for w in warnings if 'negative score' in w]))
             
     except:
-        if xml_root:
+        if xml_root is not None:
             md += ' **Error parsing Test Suite XML**\n'
     return md
     
@@ -339,7 +339,7 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
     elif in_ci:
         report += ' for no branch'
 
-    if xml_root:
+    if xml_root is not None:
         try:
             ts = parse_all_testsuite_xml(xml_root)
         except:
@@ -536,7 +536,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 report += '<a href={}>Standard Error</a></p>\n'.format(err_name)
             report += '</p>'
 
-    except int as e:
+    except Exception as e:
         report += 'Error parsing Test Case XML\n'
 
     return report
@@ -552,7 +552,7 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
         header = html_header(xml_root)
         html_file.write(header)
 
-        if xml_root:
+        if xml_root is not None:
             parsed_testcases = []
             for testcase in xml_root.iter('testcase'):
                 try:

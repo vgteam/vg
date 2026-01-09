@@ -71,7 +71,7 @@ Then, install VG's dependencies. You'll need the Protobuf and Jansson developmen
 * `hexdump` and `column` from `bsdmainutils`
 * [`npm` for testing documentation examples](https://github.com/anko/txm).
 
-On Ubuntu, you should be able to do:
+On Ubuntu 22.04, you should be able to do:
 
     make get-deps
 
@@ -93,13 +93,11 @@ On other distros, or if you do not have root access, you will need to perform th
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
                          libzstd-dev pybind11-dev python3-pybind11 libssl-dev
                          
-Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
-
-At present, you will need GCC version 7 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.2.0 is supported.
+At present, you will need GCC version 9 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 20.04 should work.
+Note that a 64-bit OS is required.
 
 #### Linux: Build
 
