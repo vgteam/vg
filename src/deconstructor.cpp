@@ -1561,6 +1561,15 @@ void Deconstructor::update_path_cover(const vector<pair<step_handle_t, step_hand
     }
 }
 
+// Strip trailing #0 phase block from path names for BED compatibility
+static string strip_zero_phase_block(const string& path_name) {
+    // Check if path ends with #0 (phase block 0)
+    if (path_name.size() >= 2 && path_name.substr(path_name.size() - 2) == "#0") {
+        return path_name.substr(0, path_name.size() - 2);
+    }
+    return path_name;
+}
+
 static string resolve_path_name(const PathPositionHandleGraph* graph,
                                 const PathInterval& path_interval,
                                 int64_t& out_start,
@@ -1774,14 +1783,16 @@ void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) con
         int64_t par_pos2;
         bool par_reversed;
 
-        // note: we subtract 1 below to convert from 1-based vcf to 0-based bed
-        out_metadata_file << Paths::strip_subrange(path_name) << "\t"
+        // note: lv0_ref_start is already 0-based from resolve_path_name (via get_position_of_step)
+        // so we output it directly for BED format (0-based, half-open)
+        // strip trailing #0 phase blocks for BED compatibility
+        out_metadata_file << strip_zero_phase_block(Paths::strip_subrange(path_name)) << "\t"
                           << pos1 << "\t"
                           << pos2 << "\t"
                           << snarl_name << "\t"
-                          << nesting_info.lv0_ref_name << "\t"
-                          << (nesting_info.lv0_ref_start -1) << "\t" 
-                          << (nesting_info.lv0_ref_start + nesting_info.lv0_ref_len -1)
+                          << strip_zero_phase_block(nesting_info.lv0_ref_name) << "\t"
+                          << nesting_info.lv0_ref_start << "\t"
+                          << (nesting_info.lv0_ref_start + nesting_info.lv0_ref_len)
                           << endl;
         
     }
