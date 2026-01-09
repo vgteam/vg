@@ -123,7 +123,7 @@ void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<R
         path_name_set.insert(region.seq);
     }
     unordered_set<string> graph_path_name_set;
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
+    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             string graph_path_name = graph->get_path_name(path_handle);
             if (path_name_set.count(Paths::strip_subrange(graph_path_name))) {
                 graph_path_name_set.insert(graph_path_name);
@@ -614,7 +614,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
     bdsg::PackedVector<> edge_depths;
     edge_depths.resize(edge_count + 1);
     
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
+    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             bool is_ref_path = check_prefixes(graph->get_path_name(path_handle));
             handle_t prev_handle;
             bool first = true;
@@ -1053,7 +1053,7 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
     
     // load up the reference paths and their ids
     unordered_set<path_handle_t> ref_paths;
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
+    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             string path_name = graph->get_path_name(path_handle);
             for (const string& ref_prefix : ref_prefixes) {
                 if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
@@ -1312,7 +1312,7 @@ void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHand
 void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose) {
     unordered_set<edge_t> edges_to_delete;
     int64_t stubbified_path_count = 0; // just for logging
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
+    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
         for (const string& ref_prefix : ref_prefixes) {
             bool was_stubbified = false;

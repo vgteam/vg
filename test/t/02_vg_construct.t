@@ -57,14 +57,14 @@ is $x1 1 "the size of the regions used in construction has no effect on the grap
 
 x2=$(for i in $(seq 100); do
     size=10;
-    threads=$(shuf -i 1-100 -n 1);
+    threads=$(shuf -i 1-$(nproc) -n 1);
     vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum;
     done | sort | uniq | wc -l)
 
 is $x2 1 "the number of threads used in construction has no effect on the graph"
 
 x3=$(for i in $(seq 100); do
-    size=$(shuf -i 1-100 -n 1);
+    size=$(shuf -i 1-$(nproc) -n 1);
     threads=$(shuf -i 1-100 -n 1);
     vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum;
     done | sort | uniq | wc -l)

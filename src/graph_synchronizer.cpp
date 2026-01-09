@@ -12,10 +12,10 @@ GraphSynchronizer::GraphSynchronizer(VG& graph) : graph(graph) {
     // build a path index after a path has been modified (since we don't keep
     // the ranks up to date internally), we need to build all the indexes up
     // front, even if we're just working on a single path.
-    graph.for_each_path_handle([&](const path_handle_t& path) {
+    graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path) {
         string name = graph.get_path_name(path);
         if (!Paths::is_alt(name)) {
-            // We only care about reference paths.
+            // We only care about reference and non-alt generic paths.
             get_path_index(name);
         }
     });

@@ -2606,7 +2606,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // need a job to do them.
         unordered_set<path_handle_t> broadcast_graph_paths_to_do;
         if (include_named_paths && broadcast_graph) {
-            broadcast_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            broadcast_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
                 // Look at all the paths in advance
                 if (broadcast_graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle))) {
                     // Skip empty paths and alt allele paths

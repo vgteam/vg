@@ -397,11 +397,14 @@ namespace vg {
         unique_ptr<PhasedGenome> genome(new PhasedGenome(snarls));
         vector<NodeTraversal> haplotype; //will add twice  
 
-        graph.for_each_path_handle([&](const path_handle_t& path){
+        // TODO: This just concatenates all the reference and generic paths.
+        // We're going to need to change this to handle multiple contigs, or
+        // multiple references in the graph, for this to really work.
+        graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path){
         // capture all variables (paths) in scope by reference 
 
             if(!Paths::is_alt(graph.get_path_name(path))) {
-            // If it isn't an alt path, we want to trace it
+            // If it isn't an alt or haplotype path, we want to trace it
   
                 for (handle_t handle : graph.scan_path(path)) {
                 // For each occurrence from start to end

@@ -362,14 +362,17 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
     size_t genome_size = 0;
 
     if (gbz.graph.get_path_count() > 0) {
-        gbz.graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-            gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
-                handle_t handle = gbz.graph.get_handle_of_step(step_handle);
-                genome_size += gbz.graph.get_length(handle);
-            });
+        gbz.graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+            std::string path_name = gbz.graph.get_path_name(path_handle);
+            if (!Paths::is_alt(path_name)) {
+                gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
+                    handle_t handle = gbz.graph.get_handle_of_step(step_handle);
+                    genome_size += gbz.graph.get_length(handle);
+                });
+            }
         });
         if (progress) {
-            std::cerr << "Estimated size based on reference / generic paths: " << genome_size << std::endl;
+            std::cerr << "Estimated size based on reference / non-alt generic paths: " << genome_size << std::endl;
         }
     }
 

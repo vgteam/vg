@@ -32,6 +32,8 @@ using path_offset_collection_t = unordered_map<path_handle_t, vector<pair<size_t
 /// Stops search when path(s) are ancountered.
 ///
 /// If path_filter is set, ignores paths for which it returns false.
+///
+/// Doesn't consider haplotype paths.
 path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
                                                   const pos_t& pos, int64_t max_search,
                                                   const std::function<bool(const path_handle_t&)>* path_filter = nullptr);
