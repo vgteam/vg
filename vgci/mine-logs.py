@@ -263,7 +263,7 @@ def md_summary(xml_root):
             md += ' for branch {}'.format(escape(branch))
         elif in_ci:
             md += ' for no branch'
-        md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
+        md += '.  View the [full report]({{REPORT_URL}}) with:\n```\naws s3 cp --recursive {{REPORT_BASE_URL}} ./report\nxdg-open report/index.html || open report/index.html\n```\n\n'
 
         ts = parse_all_testsuite_xml(xml_root)
 
