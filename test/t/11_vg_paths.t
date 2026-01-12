@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 26
+plan tests 35
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -24,7 +24,9 @@ is $(vg paths --list -g x.gbwt -H | wc -l) 2 "haplotype thread listing works fro
 # Select threads by name
 is $(vg paths --list -Q "1#0#x#" -g x.gbwt | wc -l) 1 "thread selection by name prefix works correctly"
 is $(vg paths --list -S 1 -g x.gbwt | wc -l) 2 "thread selection by sample name works correctly"
-is $(vg paths --list -S 2 -g x.gbwt | wc -l) 0 "no threads are reported for invalid samples"
+vg paths --list -S 2 -g x.gbwt > out.txt 2> err.txt
+is $(cat out.txt | wc -l) 0 "no threads are reported for invalid samples"
+is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 threads are matched"
 
 # Extract threads as alignments
 is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
@@ -40,6 +42,21 @@ vg paths -v x.vg -Q x -F > x_from_vg.fa
 diff x_from_vg.fa small/x.fa
 is $? 0 "Fasta extracted from vg is the same as the input fasta"
 is $(vg paths -x x.xg -g x.gbwt -F | wc -l) 28 "Fasta extracted from threads has correct number of lines"
+vg paths --paths-by fakename -v x.vg -F > out.txt 2> err.txt
+is $(cat out.txt | wc -l) 0 "no paths are reported for invalid path name"
+is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 paths are matched"
+
+touch empty.fa
+vg construct -r empty.fa > empty.vg
+vg gbwt --index-paths -x empty.vg -o empty.gbwt
+
+vg paths --list -g empty.gbwt 2> err.txt
+is $? 1 "vg paths exits with error when no paths are found"
+is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in gbwt"
+
+vg paths --list -x empty.vg 2> err.txt
+is $? 1 "vg paths exits with error when no paths are found"
+is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in vg"
 
 is $(vg msga -w 20 -f msgas/s.fa | vg paths -v - -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
@@ -77,7 +94,7 @@ grep x2 norm_x2.gfa | awk '{print $3}' >> x2.path
 grep x3 norm_x2.gfa | awk '{print $3}'> x2.norm.path
 grep x5 norm_x2.gfa | awk '{print $3}' >> x2.norm.path
 diff x2.path x2.norm.path
-is $? 0 "path normalizere correctly snapped all equivalent paths to x2"
+is $? 0 "path normalizer correctly snapped all equivalent paths to x2"
 
 rm -f norm_x2.gfa original.fa norm_x2.fa x2.path x2.norm.path
 
@@ -88,7 +105,7 @@ is $? 0 "path normalizer produces valid graph"
 vg paths -x graphs/path_norm_test.gfa -F | sort > original.fa
 vg paths -x norm_x4.gfa -F | sort > norm_x4.fa
 diff original.fa norm_x4.fa
-is $? 0 "path normalizer doesnt alter path sequences"
+is $? 0 "path normalizer doesn't alter path sequences"
 
 # note: x3 is x4 in reverse, so we key on that
 grep x3 norm_x4.gfa | awk '{print $3}' > x4.path
@@ -96,9 +113,18 @@ grep x3 norm_x4.gfa | awk '{print $3}' >> x4.path
 grep x3 norm_x4.gfa | awk '{print $3}'> x4.norm.path
 grep x5 norm_x4.gfa | awk '{print $3}' >> x4.norm.path
 diff x4.path x4.norm.path
-is $? 0 "path normalizere correctly snapped all equivalent paths to x4"
+is $? 0 "path normalizer correctly snapped all equivalent paths to x4"
 
-rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path
+vg convert --gfa-in graphs/named_with_walk.gfa > x.pg
+vg gbwt --index-paths -x x.pg -o x.gbwt
+vg gbwt --gbz-format -x x.pg x.gbwt -g x.gbz
+vg paths --list -x x.gbz >out.txt
+
+is "${?}" "0" "vg paths can list paths from a GBZ with only haplotypes"
+is "$(cat out.txt | wc -l)" "1" "vg paths sees the haplotype path in a GBZ with only haplotypes"
+
+rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
+rm -f empty.vg empty.gbwt empty.fa
 
 
    

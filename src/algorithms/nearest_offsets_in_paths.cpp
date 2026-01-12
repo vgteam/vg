@@ -47,8 +47,8 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
         cerr << "traversing " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+")
         << " in " << (search_left ? "leftward" : "rightward") << " direction at distance " << dist << endl;
 #endif
-        
-        for (const step_handle_t& step : graph->steps_of_handle(here)) {
+       
+        graph->for_each_step_of_sense(here, {PathSense::REFERENCE, PathSense::GENERIC}, [&](const step_handle_t& step) {
             // For each path visit that occurs on this node
 #ifdef debug
             cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
@@ -61,9 +61,9 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
 #ifdef debug
                 cerr << "handle is on ignored path " << graph->get_path_name(path_handle) << endl;
 #endif
-                continue;
+                return;
             }
-            
+
             // flip the handle back to the orientation it started in
             handle_t oriented = search_left ? graph->flip(here) : here;
             
@@ -89,7 +89,7 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
             
             // add in the search distance and add the result to the output
             return_val[path_handle].emplace_back(path_offset, rev_on_path);
-        }
+        });
         
         if (!return_val.empty()) {
             // we found the closest, we're done

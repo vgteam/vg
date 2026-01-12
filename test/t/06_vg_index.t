@@ -199,7 +199,7 @@ vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg snarls -T x.vg > snarls.pb
 is $? 0 "snarl finding with trivial snarls"
 
-vg index -j distIndex x.vg
+vg index -j distIndex x.vg -P x
 is $? 0 "building a distance index of a graph"
 
 vg convert -v x.vg | vg index -j distIndex  -

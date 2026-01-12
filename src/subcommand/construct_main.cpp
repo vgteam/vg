@@ -280,10 +280,6 @@ int main_construct(int argc, char** argv) {
             }
         }
         
-        
-        if (fasta_filenames.empty()) {
-            logger.error() << "a reference is required for graph construction" << endl;
-        }
         if (insertion_filenames.size() > 1) {
             logger.error() << "only one insertion file may be provided" << endl;
         }

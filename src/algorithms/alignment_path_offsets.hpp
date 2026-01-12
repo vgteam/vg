@@ -23,6 +23,8 @@ using namespace std;
 ///
 /// If path_filter is set, and it returns false for a path, that path is not
 /// used to annotate the read.
+///
+/// Doesn't consider haplotype paths.
 unordered_map<path_handle_t, vector<pair<size_t, bool> > >
 alignment_path_offsets(const PathPositionHandleGraph& graph,
                        const Alignment& aln,
@@ -37,7 +39,8 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
 /// is disconnected or fans out toward the sources or sinks.
 ///
 /// If path_filter is set, and it returns false for a path, that path is not
-/// used to annotate the read.
+/// used to annotate the read. If it is not set, all reference and
+/// generic-sense paths are used.
 unordered_map<path_handle_t, vector<pair<size_t, bool> > >
 multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                                  const multipath_alignment_t& mp_aln,
@@ -53,6 +56,8 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
 ///
 /// If path_filter is set, and it returns false for a path, that path is not
 /// used to annotate the read.
+///
+/// Doesn't consider haplotype paths.
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, int64_t search_limit = 0, const std::function<bool(const path_handle_t&)>* path_filter = nullptr);
 
 /// Use the graph to annotate an Alignment with the first
@@ -67,6 +72,8 @@ void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, 
 ///
 /// If path_filter is set, and it returns false for a path, that path is not
 /// used to annotate the read.
+///
+/// Doesn't consider haplotype paths.
 void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, int64_t search_limit = 0, const std::function<bool(const path_handle_t&)>* path_filter = nullptr);
 
 /// Use the graph to annotate an Alignment with positions on each reference
@@ -81,6 +88,8 @@ void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Ali
 ///
 /// If path_filter is set, and it returns false for a path, that path is not
 /// used to annotate the read.
+///
+/// Doesn't consider haplotype paths.
 void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, int64_t search_limit = 0, const std::function<bool(const path_handle_t&)>* path_filter = nullptr);
 
 /// Use the graph annotate Alignments with the first position
@@ -93,6 +102,8 @@ void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignmen
 ///
 /// If path_filter is set, and it returns false for a path, that path is not
 /// used to annotate the read.
+///
+/// Doesn't consider haplotype paths.
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, vector<Alignment>& aln, int64_t search_limit = 0, const std::function<bool(const path_handle_t&)>* path_filter = nullptr);
 
 

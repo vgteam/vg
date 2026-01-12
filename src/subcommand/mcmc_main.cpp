@@ -187,7 +187,7 @@ int main_mcmc(int argc, char** argv) {
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(name)) {
                     ref_paths.push_back(name);

@@ -1958,7 +1958,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             auto log_msg = info(context);
-            log_msg << " Constructing";
+            log_msg << "Constructing";
             if (has_transcripts) {
                 log_msg << " spliced";
             }
@@ -2606,7 +2606,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // need a job to do them.
         unordered_set<path_handle_t> broadcast_graph_paths_to_do;
         if (include_named_paths && broadcast_graph) {
-            broadcast_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            broadcast_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
                 // Look at all the paths in advance
                 if (broadcast_graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle))) {
                     // Skip empty paths and alt allele paths
@@ -4930,7 +4930,8 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                     }
                 }
             }
-            else if (line_type == 'W') {
+            else if (line_type == 'W' || line_type == 'Z') {
+                // Ordinary or grammar-compressed walk line.
                 if (strm.get() != '\t') {
                     error(context) << "W-line does not have tab following line type" << endl;
                 }

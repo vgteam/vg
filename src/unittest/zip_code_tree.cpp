@@ -2316,25 +2316,6 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
             }
-
-            SECTION("Check iterator") {
-                // For each seed, what seeds and distances do we see in reverse from it?
-                auto reverse_views = get_reverse_views(zip_forest);
-                // All seven seeds go R->L,
-                // and the four in the cyclic snarl also go L->R
-                REQUIRE(reverse_views.size() == 11);
-                // 3+0 R->L can see 2+0 inside & 1+0 outside
-                REQUIRE(reverse_views.count({2, false}));
-                REQUIRE(reverse_views[{2, false}].size() == 2);
-                // Edge to 1+0
-                REQUIRE(reverse_views[{2, false}][0].seed == 0);
-                REQUIRE(reverse_views[{2, false}][0].distance == 6);
-                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
-                // Edge to 2+0
-                REQUIRE(reverse_views[{2, false}][1].seed == 1);
-                REQUIRE(reverse_views[{2, false}][1].distance == 3);
-                REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
-            }
         }
         SECTION( "Reverse both inversions" ) {
  

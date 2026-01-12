@@ -4,3 +4,4 @@ vgci/vgci.py::VGCITest::test_sim_mhc_snp1kg vgci/vgci.py::VGCITest::test_sim_mhc
 vgci/vgci.py::VGCITest::test_call_chr21_snp1kg
 vgci/vgci.py::VGCITest::test_sim_chr21_snp1kg_trained
 vgci/vgci.py::VGCITest::test_sim_yeast_cactus
+vgci/vgci.py::VGCITest::test_giraffe_mhc_hprc2

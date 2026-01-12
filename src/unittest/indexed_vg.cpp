@@ -9,7 +9,7 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../algorithms/id_sort.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 #include "catch.hpp"
 
 namespace vg {

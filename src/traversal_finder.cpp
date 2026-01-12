@@ -72,7 +72,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     regex alt_str ("(_alt_)");
     regex back ("(_[0-9]*)");
     set<string> gpath_names;
-    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+    graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
         gpath_names.insert(graph.get_path_name(path_handle));
     });
     

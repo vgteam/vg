@@ -72,7 +72,10 @@ void help_index(char** argv) {
          << "                            if 0 then don't store distances, only the snarl tree" << endl
          << "      --no-nested-distance  only store distances along the top-level chain" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
-         << "                            of a top-level chain (may repeat)" << endl;
+         << "                            of a top-level chain (may repeat)" << endl
+         << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient"
+         << "                            snarl tree. often necessary when running vg"
+         << "                            haplotypes downstream" << endl;
 }
 
 int main_index(int argc, char** argv) {
@@ -124,6 +127,7 @@ int main_index(int argc, char** argv) {
     // edge cycle, but small enough that several of it fit in a size_t.
     // TODO: Expose to command line.
     constexpr size_t EXTRA_WEIGHT = 10000000000;
+    string ref_prefix;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -148,7 +152,6 @@ int main_index(int argc, char** argv) {
             {"store-gaf", required_argument, 0, 'F'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"actual-phasing", no_argument, 0, 'z'},
-            {"force-phasing", no_argument, 0, 'P'},
             {"discard-overlaps", no_argument, 0, 'o'},
             {"batch-size", required_argument, 0, 'B'},
             {"buffer-size", required_argument, 0, 'u'},
@@ -179,11 +182,12 @@ int main_index(int argc, char** argv) {
             {"dist-name", required_argument, 0, 'j'},
             {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
             {"upweight-node", required_argument, 0, 'w'},
+            {"path-prefix", required_argument, 0, 'P'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:w:h?",
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:w:P:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -221,7 +225,6 @@ int main_index(int argc, char** argv) {
         case 'F': // Fall through
         case 'G': // Fall through
         case 'z': // Fall through
-        case 'P': // Fall through
         case 'o': // Fall through
         case 'B': // Fall through
         case 'u': // Fall through
@@ -287,6 +290,9 @@ int main_index(int argc, char** argv) {
             // heavier.
             extra_node_weight[parse<nid_t>(optarg)] += EXTRA_WEIGHT;
             break;
+        case 'P':
+            ref_prefix = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -334,6 +340,10 @@ int main_index(int argc, char** argv) {
 
     if (!build_dist && !extra_node_weight.empty()) {
         logger.error() << "cannot up-weight nodes for snarl finding if not building distance index" << endl;
+    }
+
+    if (!build_dist && !ref_prefix.empty()) {
+        logger.error() << "cannot set reference prefix for snarl finding if not building distance index" << endl;
     }
     
     if (build_xg && build_gcsa && file_names.empty()) {
@@ -542,6 +552,25 @@ int main_index(int argc, char** argv) {
 
     //Build a snarl-based minimum distance index
     if (build_dist) {
+
+        // upweight the tips of reference paths (important for vg haplotypes)
+        function<void(const HandleGraph&)> add_ref_weights =
+            [&](const HandleGraph& hgraph) {
+                const PathHandleGraph* graph = dynamic_cast<const PathHandleGraph*>(&hgraph);
+                if (!ref_prefix.empty()) {
+                    if (graph == nullptr) {
+                        logger.error() << "-P cannot be used because graph format does not support paths" << endl;
+                    }
+                    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+                        string path_name = graph->get_path_name(path_handle);
+                        if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {
+                            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
+                            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
+                        }
+                    });
+                }
+            };
+
         if (file_names.empty() && xg_name.empty()) {
             logger.error() << "one graph is required to build a distance index" << endl;
         } else if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
@@ -557,8 +586,9 @@ int main_index(int argc, char** argv) {
                 
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
-                IntegratedSnarlFinder snarl_finder(*xg.get(), extra_node_weight);
                 // Create the SnarlDistanceIndex
+                add_ref_weights(*xg.get());
+                IntegratedSnarlFinder snarl_finder(*xg.get(), extra_node_weight);
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
@@ -574,6 +604,7 @@ int main_index(int argc, char** argv) {
                     auto& gbz = get<0>(options);
                     
                     // Create the SnarlDistanceIndex
+                    add_ref_weights(gbz->graph);
                     IntegratedSnarlFinder snarl_finder(gbz->graph, extra_node_weight);
 
                     //Make a distance index and fill it in
@@ -586,6 +617,7 @@ int main_index(int argc, char** argv) {
                     auto& graph = get<1>(options);
                     
                     // Create the SnarlDistanceIndex
+                    add_ref_weights(*graph.get());
                     IntegratedSnarlFinder snarl_finder(*graph.get(), extra_node_weight);
 
                     //Make a distance index and fill it in
