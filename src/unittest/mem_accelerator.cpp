@@ -10,7 +10,7 @@
 #include "../utility.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 
 #include <bdsg/hash_graph.hpp>
 #include <gcsa/utils.h>

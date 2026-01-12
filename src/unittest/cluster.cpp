@@ -13,7 +13,7 @@
 #include "../cluster.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../genotypekit.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 #include <fstream>
 #include <random>
 #include <time.h> 
