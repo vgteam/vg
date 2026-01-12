@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['build_5fmode_14751',['build_mode',['../structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685',1,'GBWTConfig']]]
+  ['build_5fmode_14752',['build_mode',['../structGBWTConfig.html#ab9b3a2e3dd7bdbd76f43dc418f4bc685',1,'GBWTConfig']]]
 ];

@@ -687,7 +687,8 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Gives the path positions of the alignment. If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If nearby is set, will search for a nearby path. Will recurse with nearby set if it is not set on initial call and no positions are found. Respects search_limit in bp in that case. If search_limit is 0, read length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
-<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read.</p>
+<p>Doesn't consider haplotype paths. </p>
 
 </div>
 </div>
@@ -730,7 +731,8 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with the first position it touches on each reference path. Thread safe.</p>
 <p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
-<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read.</p>
+<p>Doesn't consider haplotype paths. </p>
 
 </div>
 </div>
@@ -773,7 +775,8 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 <p>Use the graph annotate Alignments with the first position they touch on each reference path. Thread safe.</p>
 <p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
-<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read.</p>
+<p>Doesn't consider haplotype paths. </p>
 
 </div>
 </div>
@@ -816,7 +819,8 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with the first position it touches on each node it visits in each reference path. Thread safe. If no nodes on any path are visited, searches for a nearby path position to use.</p>
 <p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
-<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read.</p>
+<p>Doesn't consider haplotype paths. </p>
 
 </div>
 </div>
@@ -865,7 +869,8 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with positions on each reference path. Thread safe.</p>
 <p>If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If no positions on the path are found, looks for nearby path positions in graph space. Respects search_limit in bp in that case. If search_limit is 0, read length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
-<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read.</p>
+<p>Doesn't consider haplotype paths. </p>
 
 </div>
 </div>
@@ -4015,7 +4020,7 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Find the position of a multipath alignment on paths. Returns the lowest offset position on a path for each contiguous stretch of the multipath alignment, but multiple positions on the same path may be returned if the multipath alignment is disconnected or fans out toward the sources or sinks.</p>
-<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. If it is not set, all reference and generic-sense paths are used. </p>
 
 </div>
 </div>
@@ -4057,7 +4062,8 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Return, for the nearest position in a path to the given position, subject to the given max search distance, a mapping from path handle to all positions on each path where that pos_t occurs. Stops search when path(s) are ancountered.</p>
-<p>If path_filter is set, ignores paths for which it returns false. </p>
+<p>If path_filter is set, ignores paths for which it returns false.</p>
+<p>Doesn't consider haplotype paths. </p>
 
 </div>
 </div>

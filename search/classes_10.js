@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['qualadjaligner_7675',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg']]],
-  ['qualadjxdropaligner_7676',['QualAdjXdropAligner',['../classvg_1_1QualAdjXdropAligner.html',1,'vg']]]
+  ['qualadjaligner_7676',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg']]],
+  ['qualadjxdropaligner_7677',['QualAdjXdropAligner',['../classvg_1_1QualAdjXdropAligner.html',1,'vg']]]
 ];
