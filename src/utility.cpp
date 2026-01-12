@@ -706,6 +706,10 @@ string file_base_name(const string& filename) {
 }
 
 bool file_exists(const string& filename) {
+    if (filename == "-") {
+        // Standard input should be thought of as existing.
+        return true;
+    }
     try {
         return std::filesystem::exists(filename);
     } catch (const std::filesystem::filesystem_error& e) {
