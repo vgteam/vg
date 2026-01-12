@@ -7,6 +7,7 @@
 #include <thread>
 #include <cstdio>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <cctype>
@@ -705,14 +706,13 @@ string file_base_name(const string& filename) {
 }
 
 bool file_exists(const string& filename) {
-    // TODO: use C++17 features to actually poll existence.
-    // For now we see if we can open it.
-    if (filename == "-") {
-        // Standard input is always open
-        return true;
+    try {
+        return std::filesystem::exists(filename);
+    } catch (const std::filesystem::filesystem_error& e) {
+        logging::warn("file_exists") << "Unable to determine if " << filename << " exists: " << e.what() << std::endl;  
+        // If we can't tell it exists, it doesn't exist.
+        return false;
     }
-    ifstream in(filename);
-    return in.is_open();
 }
 
 bool file_can_be_written(const string& filename) {

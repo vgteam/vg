@@ -432,6 +432,24 @@ using namespace std;
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
             }
             else {
+                // We already constrained source_aln and alns_out to both be set if source_mp_aln is unset.
+                // But g++ 11.4 will warn that it thinks alns_out can be null here.
+                // Advise it that it can't.
+                // TODO: There's not a good way to actually silence a
+                // particular warning; we want to convince the compiler this
+                // can't happen without actually generating any code.
+#if __cplusplus >= 202302L
+                [[assume(alns_out)]];
+#elif __GNUC__ >= 13
+                __attribute__((__assume__(alns_out)));
+#elif defined(__clang__)
+                __builtin_assume(alns_out);
+#else
+                if (!alns_out) {
+                    __builtin_unreachable();
+                }
+#endif
+                
                 alns_out->emplace_back(make_null_alignment(*source_aln));
             }
             return;

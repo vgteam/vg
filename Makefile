@@ -227,8 +227,9 @@ else
     $(info OS is Linux)
     $(info Compiler $(CXX) is assumed to be GCC)
 
-    # Linux can have some old compilers so we want to work back to C++14
-    CXX_STANDARD?=14
+	# gbwtgraph uses inline variables and our oldest supported compiler has
+	# C++17, so we should use C++17
+    CXX_STANDARD?=17
 
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
