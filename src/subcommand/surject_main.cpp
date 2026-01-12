@@ -26,6 +26,7 @@
 #include "../multipath_alignment_emitter.hpp"
 #include "../crash.hpp"
 #include "../watchdog.hpp"
+#include "../explainer.hpp"
 
 
 using namespace std;
@@ -57,6 +58,8 @@ void help_surject(char** argv) {
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
          << "                            (rather than global) alignments" << endl
          << "  -T, --max-tail-len N      only align up to N bases of read tails [10000]" << endl
+         << "  -e, --max-tail-cells N    only fill up to N alignment matrix cells to align tails" << endl
+         << "                            (default: " << Surjector::DEFAULT_MAX_TAIL_CELLS << ")" << endl
          << "  -g, --max-graph-scale X   make reads unmapped if alignment target subgraph" << endl
          << "                            size exceeds read length by a factor of X " << endl
          << "                            (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
@@ -160,7 +163,8 @@ int main_surject(int argc, char** argv) {
     int64_t min_splice_length = 20;
     size_t watchdog_timeout = 10;
     bool subpath_global = true; // force full length alignments in mpmap resolution
-    size_t max_tail_len = 10000;
+    size_t max_tail_length = 10000;
+    uint64_t max_tail_cells = Surjector::DEFAULT_MAX_TAIL_CELLS;
     // This needs to be nullable so that we can use the default for spliced if doing spliced mode.
     std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
@@ -190,6 +194,7 @@ int main_surject(int argc, char** argv) {
             {"ref-sample", required_argument, 0, 'n'}, // Provide an alias to match Giraffe
             {"subpath-local", no_argument, 0, 'l'},
             {"max-tail-len", required_argument, 0, 'T'},
+            {"max-tail-cells", required_argument, 0, 'e'},
             {"max-graph-scale", required_argument, 0, 'g'},
             {"interleaved", no_argument, 0, 'i'},
             {"multimap", no_argument, 0, 'M'},
@@ -218,7 +223,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:e:g:iGmcbsuN:R:f:C:t:SPI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -249,7 +254,11 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'T':
-            max_tail_len = parse<size_t>(optarg);
+            max_tail_length = parse<size_t>(optarg);
+            break;
+
+        case 'e':
+            max_tail_cells = parse<uint64_t>(optarg);
             break;
 
         case 'g':
@@ -364,6 +373,8 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    Explainer::save_explanations = true;
+
     string file_name = get_input_file_name(optind, argc, argv);
 
     if (have_input_file(optind, argc, argv)) {
@@ -449,7 +460,8 @@ int main_surject(int argc, char** argv) {
     else {
         surjector.min_splice_length = numeric_limits<int64_t>::max();
     }
-    surjector.max_tail_length = max_tail_len;
+    surjector.max_tail_length = max_tail_length;
+    surjector.max_tail_cells = max_tail_cells;
     surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
     surjector.annotate_with_graph_alignment = annotate_with_graph_alignment;
     if (max_graph_scale) {

@@ -114,6 +114,11 @@ using namespace std;
 
         /// the maximum length of a tail that we will try to align
         size_t max_tail_length = 10000;
+        
+        /// An accessible default max_tail_cells
+        static constexpr double DEFAULT_MAX_TAIL_CELLS = 25000000000;
+        /// The maximum number of cells that we are willing to fill when aligning a tail
+        uint64_t max_tail_cells = DEFAULT_MAX_TAIL_CELLS;
 
         // the maximum number of estimated band cells that we are willing to try to fill when connecting anchors
         uint64_t max_band_cells = 8000000000;
@@ -124,7 +129,7 @@ using namespace std;
         static constexpr double DEFAULT_SUBGRAPH_LIMIT = 100 * 1024 / 125.0;
         /// How big of a graph (in graph bases per read base) should we ever try to align against for realigning surjection?
         double max_subgraph_bases_per_read_base = DEFAULT_SUBGRAPH_LIMIT;
-        /// Don't refuse to align  (graph size) * (read size) is at least this size (overrides max_subgraph_bases_per_read_base)
+        /// Don't refuse to align unless (graph size) * (read size) is at least this size (overrides max_subgraph_bases_per_read_base)
         int64_t min_absolute_align_size_to_refuse = 1024;
         
         /// in spliced surject, downsample if the base-wise average coverage by chunks is this high
