@@ -8,8 +8,8 @@ using namespace std;
 // Make sure that the default / empty payload exists as a value that can be pointed to.
 constexpr std::pair<gbwtgraph::KmerEncoding::code_type, gbwtgraph::KmerEncoding::code_type> MIPayload::NO_CODE;
 
-void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
-
+void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const pos_t& pos, 
+                                       bool fill_in_decoder, const handlegraph::HandleGraph* graph_ptr) {
     std::vector<net_handle_t> ancestors;
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
 
@@ -121,7 +121,7 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
                 }
                 return;
             }
-        } else if (distance_index.is_regular_snarl(current_ancestor)) {
+        } else if (distance_index.is_regular_snarl(current_ancestor, false, graph_ptr)) {
             snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
             zipcode.add_value(snarl_code.get_raw_code_type());
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
