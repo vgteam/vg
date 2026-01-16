@@ -83,6 +83,7 @@ void help_surject(char** argv) {
          << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
          << "                            against the provided graph" << endl
          << "  -w, --watchdog-timeout N  warn when reads take more than N seconds to surject" << endl
+         << "  -B, --reference-bonus N   add N to the score of reference paths during selection" << endl
          << "  -r, --progress            show progress" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
 }
@@ -168,6 +169,7 @@ int main_surject(int argc, char** argv) {
     bool prune_anchors = false;
     int64_t max_slide = Surjector::DEFAULT_MAX_SLIDE;
     size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
+    int32_t reference_bonus = 0;
     bool report_supplementary = false;
     bool annotate_with_all_path_scores = false;
     bool annotate_with_graph_alignment = false;
@@ -213,12 +215,13 @@ int main_surject(int argc, char** argv) {
             {"compression", required_argument, 0, 'C'},
             {"no-validate", no_argument, 0, 'V'},
             {"watchdog-timeout", required_argument, 0, 'w'},
+            {"reference-bonus", required_argument, 0, 'B'},
             {"progress", no_argument, 0, 'r'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:SPI:a:AE:LHMVw:rB:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -340,6 +343,10 @@ int main_surject(int argc, char** argv) {
         case 'r':
             show_progress = true;
             break;
+
+        case 'B':
+            reference_bonus = parse<int32_t>(optarg);
+            break;
             
         case 't':
             set_thread_count(logger, optarg);
@@ -452,6 +459,7 @@ int main_surject(int argc, char** argv) {
     surjector.max_tail_length = max_tail_len;
     surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
     surjector.annotate_with_graph_alignment = annotate_with_graph_alignment;
+    surjector.reference_bonus = reference_bonus;
     if (max_graph_scale) {
         // We have an override
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
