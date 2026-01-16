@@ -440,11 +440,13 @@ void cache_payloads(
         std::cerr << "Caching payloads" << std::endl;
     }
 
+    const handlegraph::HandleGraph* graph_ptr = (const handlegraph::HandleGraph*) &gbz.graph;
+
     gbz.graph.for_each_handle([&](const handle_t& handle) {
         nid_t node_id = gbz.graph.get_id(handle);
         ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
-        zipcode.fill_in_zipcode_from_pos(distance_index, pos);
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos, true, graph_ptr);
         payload_t payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.

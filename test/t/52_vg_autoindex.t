@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 62
+plan tests 64
 
 rm auto.*
 
@@ -204,4 +204,12 @@ is "$(vg autoindex -p auto -w map -M 512M -g graphs/linked_cycles.gfa 2>&1 | gre
 is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
 
 rm auto.*
+
+# index a graph with oversized snarls
+vg index -j auto.dist --snarl-limit 5 graphs/chain-clip.gfa 2> log.txt
+is "$(grep 'oversized snarls' log.txt | wc -l)" 1 "graph has oversized snarls"
+vg autoindex -p auto -w lr-giraffe --gfa graphs/chain-clip.gfa
+is "$(echo $?)" 0 "autoindexing successfully completes indexing of graph with oversized snarls"
+
+rm auto.* log.txt
 rm read.fq read.gam
