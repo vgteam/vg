@@ -1158,14 +1158,31 @@ string Deconstructor::get_vcf_header() {
     if (!long_ref_contig) {
         long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1 || nested_decomposition;
     }
-    this->long_ref_contig = long_ref_contig;
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
-    // find sample names from non-reference paths
-    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+    // We always want generic and reference paths, since we do our own designated deconstruction reference dropping.
+    std::unordered_set<PathSense> wanted_senses{PathSense::GENERIC, PathSense::REFERENCE};
+
+    // If we're using a GBWT, we don't want to include any haplotypes in the
+    // input graph, because we want the haplotypes from the GBWT instead (even
+    // if the haplotypes in ther input graph are actually backed by the
+    // provided GBWT). If we aren't, we want the haplotypes from the input
+    // graph included.
+    if (!gbwt) {
+        wanted_senses.insert(PathSense::HAPLOTYPE);
+    }
+
+    // TODO: Should we unify around using haplotype-sense paths and not the
+    // GBWT API?
+
+    // find sample names from paths
+    graph->for_each_path_of_sense(wanted_senses, [&](const path_handle_t& path_handle) {
         string path_name = graph->get_path_name(path_handle);
         if (!this->ref_paths.count(path_name)) {
+            // This isn't a designated decosntruction reference path.
+            // Note that we allow alt paths through here.
+
             string sample_name = graph->get_sample_name(path_handle);
             // for backward compatibility
             if (sample_name == PathMetadata::NO_SAMPLE_NAME) {

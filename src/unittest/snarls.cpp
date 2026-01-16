@@ -11,8 +11,8 @@
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
-#include "random_graph.hpp"
-#include "randomness.hpp"
+#include "support/random_graph.hpp"
+#include "support/randomness.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"

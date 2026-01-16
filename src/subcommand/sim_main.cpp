@@ -652,12 +652,12 @@ int main_sim(int argc, char** argv) {
                 path_ploidies.push_back(1.0);
                 ++sample_path_count;
             });
-
+            
             if (seen_sample_names.size() != sample_name_set.size()) {
-                // TODO: Use std::set_difference in C++17
                 auto error_msg = logger.error();
                 error_msg << "Some samples requested are not in the graph:";
                 for (auto& s : sample_name_set) {
+                    // The STL doesn't have a widget to subtract sets as of C++17.
                     if (!seen_sample_names.count(s)) {
                         error_msg << " " << s;
                     }

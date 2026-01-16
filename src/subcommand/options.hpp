@@ -913,14 +913,9 @@ struct OptionGroup : public BaseOptionGroup {
         return false;
     }
 
-    // We need to take default_value by value, and not by reference, because we
-    // often want to pass stuff that is constexpr and trying to use a reference
-    // will make us try to link against it.
-    // TODO: C++17 fixes this, so fix when we use that.
-    
     /// Add a new option that goes to the given field, with the given default.
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, char short_option, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_option(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         args.emplace_back(new Spec(name, short_option, dest, default_value, help, validator));
         if (args.size() == 1) {
             // Chain us to first arg
@@ -937,18 +932,18 @@ struct OptionGroup : public BaseOptionGroup {
     
     /// Add a new option that goes to the given field, with the given default.
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         add_option<T, Spec>(name, '\0', dest, default_value, help, validator);
     }
     
     /// Add a new option that handles range values
     template<typename T>
-    void add_range(const std::string& name, char short_option, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_range(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         add_option<T, RangeArgSpec<T, Receiver>>(name, short_option, dest, default_value, help, validator);
     }
     /// Add a new option that handles range values
     template<typename T>
-    void add_range(const std::string& name, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_range(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         add_range<T>(name, '\0', dest, default_value, help, validator);
     }
     

@@ -349,7 +349,7 @@ namespace vg {
             REQUIRE(edge_count == 7);
         }
         
-        TEST_CASE( "copy_handle_graph converter works on paths, xg to vg", "[handle][vg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on paths xg to vg", "[handle][vg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -388,8 +388,8 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-           handlealgs::copy_path_handle_graph(&xg, &vg);
-            
+            handlealgs::copy_path_handle_graph(&xg, &vg);
+
             
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
@@ -411,7 +411,7 @@ namespace vg {
                 }
             });
         }
-        TEST_CASE( "copy_handle_graph converter works on paths, xg to pg", "[handle][pg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on paths xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -450,7 +450,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-           handlealgs::copy_path_handle_graph(&xg, &pg);
+            handlealgs::copy_path_handle_graph(&xg, &pg);
             
             
             
@@ -488,7 +488,7 @@ namespace vg {
                 }
             });
         }
-        TEST_CASE( "copy_handle_graph converter works on paths, xg to hg", "[handle][hg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on paths xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -527,7 +527,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-           handlealgs::copy_path_handle_graph(&xg, &hg);
+            handlealgs::copy_path_handle_graph(&xg, &hg);
             
             
             

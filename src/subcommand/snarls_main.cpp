@@ -248,7 +248,7 @@ int main_snarl(int argc, char** argv) {
         snarl_finder.reset(new CactusSnarlFinder(*graph));
     } else if (algorithm == "integrated") {
         if (!ref_prefix.empty()) {
-            graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
@@ -345,7 +345,7 @@ int main_snarl(int argc, char** argv) {
         // it's easier to limit traversals using read support, and it takes care of
         // mapping back to the VCF via the alt paths.
         vector<string> ref_paths;
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
               ref_paths.push_back(name);
