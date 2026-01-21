@@ -66,8 +66,8 @@ void help_paths(char** argv) {
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
          << "altpath computation:" << endl
-         << "  --compute-altpaths       compute altpath cover (use -Q for reference)" << endl
-         << "  --min-altpath-len N      minimum altpath fragment length [10]" << endl
+         << "      --compute-altpaths   compute altpath cover (use -Q for reference)" << endl
+         << "      --min-altpath-len N  minimum altpath fragment length [10]" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -141,6 +141,10 @@ int main_paths(int argc, char** argv) {
     bool compute_altpaths = false;
     int64_t min_altpath_length = 10;
 
+    // Constants for long-only options
+    constexpr int OPT_COMPUTE_ALTPATHS = 1001;
+    constexpr int OPT_MIN_ALTPATH_LEN = 1002;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -178,8 +182,8 @@ int main_paths(int argc, char** argv) {
             {"threads-by", required_argument, 0, 'q'},
 
             // Altpath options
-            {"compute-altpaths", no_argument, 0, 1001},
-            {"min-altpath-len", required_argument, 0, 1002},
+            {"compute-altpaths", no_argument, 0, OPT_COMPUTE_ALTPATHS},
+            {"min-altpath-len", required_argument, 0, OPT_MIN_ALTPATH_LEN},
 
             {0, 0, 0, 0}
         };
@@ -319,12 +323,12 @@ int main_paths(int argc, char** argv) {
             set_thread_count(logger, optarg);
             break;
 
-        case 1001:
+        case OPT_COMPUTE_ALTPATHS:
             compute_altpaths = true;
             output_formats++;
             break;
 
-        case 1002:
+        case OPT_MIN_ALTPATH_LEN:
             min_altpath_length = parse<int64_t>(optarg);
             break;
 

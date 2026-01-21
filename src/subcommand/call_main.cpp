@@ -86,12 +86,12 @@ void help_call(char** argv) {
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "deconstruct-like options (for use with -n):" << endl
          << "      --altpaths            use altpath cover from graph for nesting levels" << endl
-         << "                            (requires precomputed altpaths via vg paths --compute-altpaths)" << endl
+         << "                            (requires vg paths --compute-altpaths)" << endl
          << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
          << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
          << "                            default is to cluster before genotyping" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes (requires -n)" << endl
-         << "      --include-altpaths    include alt paths in traversal finding (off by default)" << endl
+         << "      --include-altpaths    include alt paths in traversal finding" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
