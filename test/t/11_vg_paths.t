@@ -157,7 +157,8 @@ is $? 0 "altpath computation handles dangling nodes outside snarls"
 is $(vg paths -x dangling_altpath.vg -L | grep "^x_alt" | wc -l) 2 "altpath second pass covers dangling nodes"
 
 # Verify the dangling node (node 5, 8bp) is covered by checking altpath lengths include 8bp
-is $(vg paths -x dangling_altpath.vg -Q x_alt -E | awk '{sum+=$2} END {print sum}') 12 "altpaths cover both snarl node and dangling node"
+# Note: use -E with grep instead of -Q since altpaths are filtered from prefix matching
+is $(vg paths -x dangling_altpath.vg -E | grep "^x_alt" | awk '{sum+=$2} END {print sum}') 12 "altpaths cover both snarl node and dangling node"
 
 rm -f altpath_test.vg triple_altpath.vg triple_altpath_long.vg dangling_altpath.vg x.pg x.gbwt x.gbz
 
