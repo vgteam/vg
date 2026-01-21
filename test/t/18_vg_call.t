@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 19
+plan tests 24
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -190,6 +190,61 @@ diff x_subs_nocontig.vcf x_subs_override_nocontig.vcf
 is $? 0 "overriding contig length does not change calls"
 
 rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
+
+# Test: Clustering option (-L) in vg call
+vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - > small_cluster_call.gfa
+printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster_call.gfa
+printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster_call.gfa
+printf "P\tz\t1+,9+\t*\n" >> small_cluster_call.gfa
+vg view -Fv small_cluster_call.gfa > small_cluster_call.vg
+vg sim -x small_cluster_call.vg -n 100 -l 20 -a -s 1 > small_cluster_call.gam
+vg pack -x small_cluster_call.vg -g small_cluster_call.gam -o small_cluster_call.pack
+# Call without clustering
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -n > call_no_cluster.vcf 2>/dev/null
+# Call with clustering
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -n -L 0.3 > call_cluster.vcf 2>/dev/null
+is $(grep -v "^#" call_no_cluster.vcf | wc -l) $(grep -v "^#" call_cluster.vcf | wc -l) "clustering does not change number of variant sites in vg call"
+
+rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_no_cluster.vcf call_cluster.vcf
+
+# Test: Nested calling with vg call -n (basic test)
+# Use a larger graph with clear variants
+vg construct -r small/x.fa -v small/x.vcf.gz -a > nested_call_test.vg
+vg sim -x nested_call_test.vg -n 500 -l 50 -a -s 42 > nested_call_test.gam
+vg pack -x nested_call_test.vg -g nested_call_test.gam -o nested_call_test.pack
+vg call nested_call_test.vg -k nested_call_test.pack -p x -n > nested_call_test.vcf 2>/dev/null
+# Should produce at least one variant (the small/x graph has multiple variants)
+NESTED_VARIANT_COUNT=$(grep -v "^#" nested_call_test.vcf | wc -l)
+is $(if [ "$NESTED_VARIANT_COUNT" -ge 1 ]; then echo "1"; else echo "0"; fi) "1" "nested vg call produces at least one variant"
+
+rm -f nested_call_test.vg nested_call_test.gam nested_call_test.pack nested_call_test.vcf
+
+# Test: Star allele option validation (-Y requires -n)
+vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
+vg sim -x star_test.vg -n 100 -l 20 -a -s 1 > star_test.gam
+vg pack -x star_test.vg -g star_test.gam -o star_test.pack
+vg call star_test.vg -k star_test.pack -Y 2>&1 | grep -q "requires -n/--nested"
+is "$?" 0 "star allele option requires nested mode"
+
+rm -f star_test.vg star_test.gam star_test.pack
+
+# Test: Cluster-post validation (requires -L < 1.0)
+vg construct -r small/x.fa -v small/x.vcf.gz > cluster_post_test.vg
+vg sim -x cluster_post_test.vg -n 100 -l 20 -a -s 1 > cluster_post_test.gam
+vg pack -x cluster_post_test.vg -g cluster_post_test.gam -o cluster_post_test.pack
+vg call cluster_post_test.vg -k cluster_post_test.pack --cluster-post 2>&1 | grep -q "requires -L/--cluster"
+is "$?" 0 "cluster-post option requires cluster threshold"
+
+rm -f cluster_post_test.vg cluster_post_test.gam cluster_post_test.pack
+
+# Test: Altpath option validation (requires -n)
+vg construct -r small/x.fa -v small/x.vcf.gz > altpath_test.vg
+vg sim -x altpath_test.vg -n 100 -l 20 -a -s 1 > altpath_test.gam
+vg pack -x altpath_test.vg -g altpath_test.gam -o altpath_test.pack
+vg call altpath_test.vg -k altpath_test.pack --altpaths 2>&1 | grep -q "requires -n/--nested"
+is "$?" 0 "altpaths option requires nested mode"
+
+rm -f altpath_test.vg altpath_test.gam altpath_test.pack
 
 
 

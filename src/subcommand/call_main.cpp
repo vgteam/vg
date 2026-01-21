@@ -17,6 +17,8 @@
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
+#include "../altpaths.hpp"
+#include "../traversal_clusters.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -82,6 +84,14 @@ void help_call(char** argv) {
          << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
          << "  -n, --nested              activate nested calling mode (experimental)" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
+         << "deconstruct-like options (for use with -n):" << endl
+         << "      --altpaths            use altpath cover from graph for nesting levels" << endl
+         << "                            (requires precomputed altpaths via vg paths --compute-altpaths)" << endl
+         << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
+         << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
+         << "                            default is to cluster before genotyping" << endl
+         << "  -Y, --star-allele         use * alleles for spanning haplotypes (requires -n)" << endl
+         << "      --include-altpaths    include alt paths in traversal finding (off by default)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -128,6 +138,13 @@ int main_call(int argc, char** argv) {
     size_t max_allele_len = numeric_limits<size_t>::max();
     bool show_progress = false;
 
+    // Deconstruct-like options
+    bool use_altpaths = false;
+    double cluster_threshold = 1.0;
+    bool cluster_post_genotype = false;  // false = cluster before, true = cluster after
+    bool star_allele = false;
+    bool include_altpaths = false;
+
     // constants
     const size_t avg_trav_threshold = 50;
     const size_t avg_node_threshold = 50;
@@ -139,6 +156,10 @@ int main_call(int argc, char** argv) {
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
     constexpr int OPT_PROGRESS = 1000;
+    constexpr int OPT_ALTPATHS = 1001;
+    constexpr int OPT_CLUSTER_POST = 1002;
+    constexpr int OPT_INCLUDE_ALTPATHS = 1003;
+    constexpr int OPT_LEGACY = 1004;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -171,9 +192,14 @@ int main_call(int argc, char** argv) {
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
-            {"legacy", no_argument, 0, 'L'},
+            {"legacy", no_argument, 0, OPT_LEGACY},
             {"nested", no_argument, 0, 'n'},
-            {"chains", no_argument, 0, 'I'},            
+            {"chains", no_argument, 0, 'I'},
+            {"altpaths", no_argument, 0, OPT_ALTPATHS},
+            {"cluster", required_argument, 0, 'L'},
+            {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
+            {"star-allele", no_argument, 0, 'Y'},
+            {"include-altpaths", no_argument, 0, OPT_INCLUDE_ALTPATHS},
             {"threads", required_argument, 0, 't'},
             {"progress", no_argument, 0, OPT_PROGRESS },
             {"help", no_argument, 0, 'h'},
@@ -182,7 +208,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nIt:h?",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTM:nIL:Yt:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -291,13 +317,28 @@ int main_call(int argc, char** argv) {
             trav_padding = parse<size_t>(optarg);
             break;
         case 'L':
-            legacy = true;
+            cluster_threshold = parse<double>(optarg);
             break;
         case 'n':
             nested =true;
             break;
         case 'I':
             call_chains =true;
+            break;
+        case OPT_ALTPATHS:
+            use_altpaths = true;
+            break;
+        case OPT_CLUSTER_POST:
+            cluster_post_genotype = true;
+            break;
+        case 'Y':
+            star_allele = true;
+            break;
+        case OPT_INCLUDE_ALTPATHS:
+            include_altpaths = true;
+            break;
+        case OPT_LEGACY:
+            legacy = true;
             break;
         case OPT_PROGRESS:
             show_progress = true;
@@ -483,6 +524,20 @@ int main_call(int argc, char** argv) {
     }
     if (gbz_paths && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
+    }
+
+    // Validation for deconstruct-like options
+    if (star_allele && !nested) {
+        logger.error() << "-Y/--star-allele requires -n/--nested mode" << endl;
+    }
+    if (use_altpaths && !nested) {
+        logger.error() << "--altpaths requires -n/--nested mode" << endl;
+    }
+    if (cluster_post_genotype && cluster_threshold >= 1.0) {
+        logger.error() << "--cluster-post requires -L/--cluster with threshold < 1.0" << endl;
+    }
+    if (cluster_threshold < 0.0 || cluster_threshold > 1.0) {
+        logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
     }
 
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
@@ -789,6 +844,21 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
+        // Load altpath cover if requested (for nested mode)
+        unique_ptr<AltPathsCover> altpath_cover;
+        if (use_altpaths && nested) {
+            if (show_progress) logger.info() << "Loading altpath cover from graph" << endl;
+            altpath_cover = make_unique<AltPathsCover>();
+            unordered_set<path_handle_t> ref_path_handles;
+            for (const string& ref_path_name : ref_paths) {
+                if (graph->has_path(ref_path_name)) {
+                    ref_path_handles.insert(graph->get_path_handle(ref_path_name));
+                }
+            }
+            altpath_cover->load(graph, ref_path_handles);
+            if (show_progress) logger.info() << "Loaded altpath cover" << endl;
+        }
+
         if (nested) {
             graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                     *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
@@ -799,7 +869,12 @@ int main_call(int argc, char** argv) {
                                                     traversals_only,
                                                     gaf_output,
                                                     trav_padding,
-                                                    genotype_snarls));
+                                                    genotype_snarls,
+                                                    cluster_threshold,
+                                                    cluster_post_genotype,
+                                                    star_allele,
+                                                    include_altpaths,
+                                                    altpath_cover.get()));
         } else {
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),

@@ -776,5 +776,69 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
     }
 }
 
+unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,
+                                                       vector<string>& names,
+                                                       vector<vector<int>>& trav_clusters,
+                                                       vector<pair<double, int64_t>>& trav_cluster_info,
+                                                       const unordered_map<string, vector<int>>& parent_haplotypes,
+                                                       const set<string>& sample_names) {
+    // Build a map of what haplotypes are already in the traversals
+    unordered_map<string, vector<int>> sample_to_haps;
+
+    assert(names.size() == travs.size());
+    for (int64_t i = 0; i < names.size(); ++i) {
+        string sample_name = PathMetadata::parse_sample_name(names[i]);
+        // for backward compatibility
+        if (sample_name.empty()) {
+            sample_name = names[i];
+        }
+        auto phase = PathMetadata::parse_haplotype(names[i]);
+        if (!sample_name.empty() && phase == PathMetadata::NO_HAPLOTYPE) {
+            // This probably won't fit in an int. Use 0 instead.
+            phase = 0;
+        }
+        sample_to_haps[sample_name].push_back(phase);
+    }
+
+    // Find everything that's in parent_haplotypes but not the traversals,
+    // and add in dummy star-alleles for them
+    for (const auto& parent_sample_haps : parent_haplotypes) {
+        string parent_sample_name = PathMetadata::parse_sample_name(parent_sample_haps.first);
+        if (parent_sample_name.empty()) {
+            parent_sample_name = parent_sample_haps.first;
+        }
+        if (!sample_names.count(parent_sample_name)) {
+            // don't bother for purely reference samples -- we don't need to force an allele for them.
+            continue;
+        }
+        for (int parent_hap : parent_sample_haps.second) {
+            bool found = false;
+            if (sample_to_haps.count(parent_sample_haps.first)) {
+                // note: this is brute-force search, but number of haplotypes usually tiny.
+                for (int hap : sample_to_haps[parent_sample_haps.first]) {
+                    if (parent_hap == hap) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                travs.push_back(Traversal());
+                names.push_back(PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                               parent_sample_haps.first,
+                                                               "star",
+                                                               parent_hap,
+                                                               PathMetadata::NO_PHASE_BLOCK,
+                                                               PathMetadata::NO_SUBRANGE));
+                sample_to_haps[parent_sample_haps.first].push_back(parent_hap);
+                trav_clusters.push_back({(int)travs.size() - 1});
+                trav_cluster_info.push_back(make_pair(0, 0));
+            }
+        }
+    }
+
+    return sample_to_haps;
+}
+
 
 }
