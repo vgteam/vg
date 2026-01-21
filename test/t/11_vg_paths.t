@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 42
+plan tests 45
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -149,7 +149,17 @@ is $(vg paths -x triple_altpath.vg -L | grep "^x_alt" | wc -l) 2 "correct number
 vg paths -x nesting/triple_nested.gfa -Q x --compute-altpaths --min-altpath-len 100 > triple_altpath_long.vg
 is $(vg paths -x triple_altpath_long.vg -L | grep "^x_alt" | wc -l) 0 "min-altpath-len filters out short fragments"
 
-rm -f altpath_test.vg triple_altpath.vg triple_altpath_long.vg x.pg x.gbwt x.gbz
+# Test second pass coverage of dangling nodes (nodes outside snarls but on haplotype paths)
+vg paths -x nesting/dangling_node.gfa -Q x --compute-altpaths --min-altpath-len 1 > dangling_altpath.vg
+vg validate dangling_altpath.vg
+is $? 0 "altpath computation handles dangling nodes outside snarls"
+
+is $(vg paths -x dangling_altpath.vg -L | grep "^x_alt" | wc -l) 2 "altpath second pass covers dangling nodes"
+
+# Verify the dangling node (node 5, 8bp) is covered by checking altpath lengths include 8bp
+is $(vg paths -x dangling_altpath.vg -Q x_alt -E | awk '{sum+=$2} END {print sum}') 12 "altpaths cover both snarl node and dangling node"
+
+rm -f altpath_test.vg triple_altpath.vg triple_altpath_long.vg dangling_altpath.vg x.pg x.gbwt x.gbz
 
 
 

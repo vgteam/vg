@@ -12,6 +12,7 @@
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
 #include "lru_cache.h"
+#include "altpaths.hpp"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -49,11 +50,6 @@ public:
                      gbwt::GBWT* gbwt = nullptr,
                      bool nested_decomposition = false,
                      bool star_allele = false);
-
-    // write the off-reference sequences to a fasta file
-    // todo: would really like to refactor so that this can somehow
-    // go into vg paths. 
-    void save_off_ref_sequences(const string& out_fasta_filename) const;
     
 private:
 
@@ -74,21 +70,12 @@ private:
     void deconstruct_graph_top_down(SnarlManager* snarl_manager);
 
     // some information we pass from parent to child site when
-    // doing nested deconstruction
+    // doing nested deconstruction (simplified to use AltPathsCover)
     struct NestingInfo {
-        bool has_ref; // flag essentially determines if struct is initalized       
+        bool has_ref; // flag essentially determines if struct is initialized
         vector<pair<handle_t, handle_t>> child_snarls; // children of parent
         PathInterval parent_path_interval; // parent path
-        PathInterval parent_ref_interval; // reference path of parent site
-        unordered_map<string, vector<int>> sample_to_haplotypes; // parent genotpyes
-        int parent_allele; // parent allele
-        int64_t parent_len; // length of parent allele
-        int64_t parent_ref_len; // length of reference allele at parent site
-        string lv0_ref_name; // reference path name at top level
-        int64_t lv0_ref_start; // reference start position at top level
-        int64_t lv0_ref_len; // reference allele length at top level
-        int64_t lv0_alt_len; // alt allele length at top level
-        int64_t lv; // level
+        unordered_map<string, vector<int>> sample_to_haplotypes; // parent genotypes (for star alleles)
     };
     
     // write a vcf record for the given site.  returns true if a record was written
@@ -108,15 +95,10 @@ private:
                         vector<string>& out_trav_path_names,
                         vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const;
 
-    // this is a hack to add in * alleles -- these are haplotypes that we genotyped in the
-    // parent but aren't represented in any of the traversals found in the current
-    // site. *-alleles are represented as empty traversals.
-    // todo: conflicts arising from alt-cycles will be able to lead to conflicting
-    // results -- need to overhaul code to pass more detailed traversal information
-    // from parent to child to have a chance at consistently resolving
-    // star traversals are appended onto travs and trav_names
-    // this funtion returns a map containing both parent and child haploty
-    unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,    
+    // Add star (*) alleles for haplotypes that were genotyped in the parent but don't
+    // have a traversal through the current site. Star alleles are represented as empty
+    // traversals. Returns a map of sample name to haplotype phases (both parent and child).
+    unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,
                                                            vector<string>& trav_names,
                                                            vector<vector<int>>& trav_clusters,
                                                            vector<pair<double, int64_t>>& trav_cluster_info,
@@ -142,14 +124,6 @@ private:
                                               const vector<string>& trav_to_name,
                                               const vector<int>& gbwt_phases) const;
 
-    // update off-ref path cover
-    void update_path_cover(const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
-                           const vector<vector<int>>& traversal_clusters,
-                           const NestingInfo& nesting_info) const;
-
-    // second pass to add non-traversal fragments to cover
-    void fill_cover_second_pass(const SnarlManager* snarl_manager, const Snarl* snarl) const;
-
     // the underlying context-getter
     vector<nid_t> get_context(
         step_handle_t start_step,
@@ -173,10 +147,6 @@ private:
 
     // the ref paths
     set<string> ref_paths;
-
-    // the off-ref paths that may be found during nested deconstruction
-    // (buffered by thread)
-    mutable vector<unordered_set<path_handle_t>> off_ref_paths;
 
     // keep track of reference samples
     set<string> ref_samples;
@@ -215,19 +185,13 @@ private:
     // the parent and child snarls, as well as better support for nested insertions
     bool nested_decomposition = false;
 
-    // use *-alleles to represent spanning alleles that do not cross site but do go around it
-    // ex: a big containing deletion
+    // use *-alleles to represent haplotypes that span the parent site but don't
+    // traverse the current nested site (e.g., a deletion that spans a nested SNP)
     // only works with nested_decomposition
     bool star_allele = false;
 
-    // keep track of off-reference reference sequences to print to fasta at the end
-    mutable unordered_map<PathInterval, NestingInfo> off_ref_sequences;
-
-    // keep track of path cover for computing off_ref_sequences
-    mutable unordered_set<nid_t> node_cover;
-
-    // keep track of top-level reference traversals for second pass of cover
-    mutable unordered_map<handle_t, PathInterval> top_level_ref_intervals;
+    // the altpath cover for nested decomposition - provides nesting level (rank) information
+    unique_ptr<AltPathsCover> altpath_cover;
 };
 
 
