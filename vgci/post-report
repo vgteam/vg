@@ -196,12 +196,15 @@ if [ ! -z "${CI}" ]; then
     # TODO: Set this back to https:// when we set up a bucket we can make public again.
     # For now people will have to download the reports with auth to read them.
     REPORT_URL="s3://vg-data/${HTML_PATH}/index.html"
+    # For downloading the report with auth, what's the base URL?
+    REPORT_BASE_URL="s3://vg-data/${HTML_PATH}/"
     
 else
     echo "Running locally"
     
     # Report just stays in place
     REPORT_URL="file://${HTML_DIR_IN}/index.html"
+    REPORT_BASE_URL="file://${HTML_DIR_IN}/"
 fi
 
 echo "Uploaded HTML as ${REPORT_URL}"
@@ -209,7 +212,7 @@ echo "Uploaded HTML as ${REPORT_URL}"
 # TODO: upload Markdown
 # In the Markdown, "{{REPORT_URL}}" will be replaced with the URL to the uploaded HTML report.
 echo "Markdown to post:"
-cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
+cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | sed "s|{{REPORT_BASE_URL}}|${REPORT_BASE_URL}|g" | tee processed.md
 
 if [ ! -z "${CI}" ]; then
     # On cloud CI, so actually post a comment
