@@ -17,6 +17,8 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
+#include "../altpaths.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <vg/io/vpkg.hpp>
@@ -63,6 +65,9 @@ void help_paths(char** argv) {
          << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
+         << "altpath computation:" << endl
+         << "  --compute-altpaths       compute altpath cover (requires -Q to select reference)" << endl
+         << "  --min-altpath-len N      minimum altpath fragment length [10]" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -133,6 +138,8 @@ int main_paths(int argc, char** argv) {
     const size_t coverage_bins = 10;
     bool normalize_paths = false;
     bool overlay = false;
+    bool compute_altpaths = false;
+    int64_t min_altpath_length = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -169,6 +176,10 @@ int main_paths(int argc, char** argv) {
             // Hidden options for backward compatibility.
             {"threads-old", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
+
+            // Altpath options
+            {"compute-altpaths", no_argument, 0, 1001},
+            {"min-altpath-len", required_argument, 0, 1002},
 
             {0, 0, 0, 0}
         };
@@ -307,7 +318,16 @@ int main_paths(int argc, char** argv) {
         case 't':
             set_thread_count(logger, optarg);
             break;
-            
+
+        case 1001:
+            compute_altpaths = true;
+            output_formats++;
+            break;
+
+        case 1002:
+            min_altpath_length = parse<int64_t>(optarg);
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -374,6 +394,12 @@ int main_paths(int argc, char** argv) {
     if (coverage && !gbwt_file.empty()) {
         logger.error() << "coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
     }
+    if (compute_altpaths && !gbwt_file.empty()) {
+        logger.error() << "altpath computation only works on embedded graph paths, not GBWT threads" << std::endl;
+    }
+    if (compute_altpaths && path_prefix.empty()) {
+        logger.error() << "--compute-altpaths requires -Q to select reference path(s)" << std::endl;
+    }
     
     if (select_alt_paths) {
         // alt paths all have a specific prefix
@@ -416,6 +442,42 @@ int main_paths(int argc, char** argv) {
     
     
     
+    // Handle altpath computation before other operations
+    if (compute_altpaths && graph) {
+        MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
+        if (!mutable_graph) {
+            logger.error() << "graph cannot be modified for altpath computation" << std::endl;
+            return 1;
+        }
+
+        // Collect reference paths matching the prefix from -Q
+        unordered_set<path_handle_t> ref_paths;
+        graph->for_each_path_handle([&](path_handle_t ph) {
+            string path_name = graph->get_path_name(ph);
+            if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
+                ref_paths.insert(ph);
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "no paths found matching prefix: " << path_prefix << std::endl;
+            return 1;
+        }
+
+        // Compute snarls
+        IntegratedSnarlFinder finder(*graph);
+        SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
+
+        // Compute and apply altpath cover
+        AltPathsCover cover;
+        cover.clear(mutable_graph);
+        cover.compute(graph, &snarl_manager, ref_paths, min_altpath_length);
+        cover.apply(mutable_graph);
+
+        // Output the modified graph
+        vg::io::save_handle_graph(mutable_graph, cout);
+        return 0;
+    }
+
     set<string> path_names;
     if (!path_file.empty()) {
         ifstream path_stream(path_file);

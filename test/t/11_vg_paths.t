@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 35
+plan tests 42
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -126,9 +126,31 @@ is "$(cat out.txt | wc -l)" "1" "vg paths sees the haplotype path in a GBZ with 
 rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
 rm -f empty.vg empty.gbwt empty.fa
 
+# Altpath computation tests
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-altpaths --min-altpath-len 1 > altpath_test.vg
+vg validate altpath_test.vg
+is $? 0 "altpath computation produces valid graph"
 
-   
-   
+is $(vg paths -x altpath_test.vg -L | grep "^x_alt" | wc -l) 2 "altpath computation creates expected number of altpaths"
+
+is $(vg paths -x altpath_test.vg -L | grep "^x$" | wc -l) 1 "original reference path is preserved after altpath computation"
+
+# Test altpath naming convention matches pattern x_alt{N}
+is $(vg paths -x altpath_test.vg -L | grep -E "^x_alt[0-9]+$" | wc -l) 2 "altpaths follow naming convention path_altN"
+
+# Test with triple_nested.gfa which has more complex structure
+vg paths -x nesting/triple_nested.gfa -Q x --compute-altpaths --min-altpath-len 1 > triple_altpath.vg
+vg validate triple_altpath.vg
+is $? 0 "altpath computation works on complex nested structure"
+
+is $(vg paths -x triple_altpath.vg -L | grep "^x_alt" | wc -l) 2 "correct number of altpaths for triple nested graph"
+
+# Test minimum length filter
+vg paths -x nesting/triple_nested.gfa -Q x --compute-altpaths --min-altpath-len 100 > triple_altpath_long.vg
+is $(vg paths -x triple_altpath_long.vg -L | grep "^x_alt" | wc -l) 0 "min-altpath-len filters out short fragments"
+
+rm -f altpath_test.vg triple_altpath.vg triple_altpath_long.vg x.pg x.gbwt x.gbz
+
 
 
 
