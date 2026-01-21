@@ -66,7 +66,7 @@ void help_paths(char** argv) {
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
          << "altpath computation:" << endl
-         << "  --compute-altpaths       compute altpath cover (requires -Q to select reference)" << endl
+         << "  --compute-altpaths       compute altpath cover (use -Q for reference)" << endl
          << "  --min-altpath-len N      minimum altpath fragment length [10]" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl

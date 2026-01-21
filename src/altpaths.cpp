@@ -146,8 +146,107 @@ void AltPathsCover::compute(const PathHandleGraph* graph,
         node_to_interval_vector[t].clear();
     }
 
+    // second pass: greedily cover any nodes not covered by snarl traversals
+    fill_uncovered_nodes(minimum_length);
+
+    // debug: verify all nodes are covered
+    verify_cover();
+
     // remove any intervals that were made redundant by add_interval
     defragment_intervals();
+}
+
+void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
+    // Collect all uncovered nodes and the paths that pass through them
+    unordered_set<nid_t> uncovered_nodes;
+    map<string, path_handle_t> candidate_paths;  // sorted by name for deterministic ordering
+
+    graph->for_each_handle([&](handle_t handle) {
+        nid_t node_id = graph->get_id(handle);
+        if (!node_to_interval.count(node_id)) {
+            // Node is not covered - find paths through it
+            uncovered_nodes.insert(node_id);
+            graph->for_each_step_on_handle(handle, [&](step_handle_t step) {
+                path_handle_t path_handle = graph->get_path_handle_of_step(step);
+                string path_name = graph->get_path_name(path_handle);
+                // Skip existing altpaths
+                if (!is_altpath_name(path_name)) {
+                    candidate_paths[path_name] = path_handle;
+                }
+                return true;
+            });
+        }
+    });
+
+    if (uncovered_nodes.empty()) {
+        return;
+    }
+
+#ifdef debug
+#pragma omp critical(cerr)
+    cerr << "[altpaths] fill_uncovered_nodes: " << uncovered_nodes.size() << " uncovered nodes, "
+         << candidate_paths.size() << " candidate paths" << endl;
+#endif
+
+    // Greedily walk through paths, creating intervals for contiguous uncovered sequences
+    for (const auto& name_path : candidate_paths) {
+        if (uncovered_nodes.empty()) {
+            break;
+        }
+
+        bool in_interval = false;
+        step_handle_t interval_start;
+        step_handle_t interval_end;
+        int64_t interval_length = 0;
+        vector<nid_t> interval_nodes;  // track nodes in current interval
+
+        graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+
+            if (uncovered_nodes.count(node_id)) {
+                // This node is uncovered
+                if (!in_interval) {
+                    // Start a new interval
+                    in_interval = true;
+                    interval_start = step;
+                    interval_length = 0;
+                    interval_nodes.clear();
+                }
+                interval_end = graph->get_next_step(step);
+                interval_length += graph->get_length(graph->get_handle_of_step(step));
+                interval_nodes.push_back(node_id);
+            } else {
+                // This node is already covered
+                if (in_interval) {
+                    // Close the current interval
+                    if (interval_length >= minimum_length) {
+                        // Add the interval and mark nodes as covered
+                        add_interval(this->altpath_intervals, this->node_to_interval,
+                                     make_pair(interval_start, interval_end), true);
+                        for (nid_t nid : interval_nodes) {
+                            uncovered_nodes.erase(nid);
+                        }
+                    }
+                    in_interval = false;
+                }
+            }
+            return true;
+        });
+
+        // Don't forget to close any interval at the end of the path
+        if (in_interval && interval_length >= minimum_length) {
+            add_interval(this->altpath_intervals, this->node_to_interval,
+                         make_pair(interval_start, interval_end), true);
+            for (nid_t nid : interval_nodes) {
+                uncovered_nodes.erase(nid);
+            }
+        }
+    }
+
+#ifdef debug
+#pragma omp critical(cerr)
+    cerr << "[altpaths] fill_uncovered_nodes: " << uncovered_nodes.size() << " nodes still uncovered after second pass" << endl;
+#endif
 }
 
 void AltPathsCover::load(const PathHandleGraph* graph,
@@ -217,7 +316,18 @@ void AltPathsCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     });
 
     // write the altpaths
+    int64_t written_intervals = 0;
+    int64_t written_length = 0;
+    int64_t skipped_intervals = 0;
     for (int64_t i = this->num_ref_intervals; i < this->altpath_intervals.size(); ++i) {
+        // Skip empty intervals (these can be created by defragment_intervals or merging)
+        path_handle_t interval_path = graph->get_path_handle_of_step(altpath_intervals[i].first);
+        if (altpath_intervals[i].first == graph->path_end(interval_path)) {
+            skipped_intervals++;
+            cerr << "[altpaths] debug: skipping empty interval " << i << endl;
+            continue;
+        }
+
         // Find the reference path this altpath extends from by tracing back to reference
         nid_t first_node = graph->get_id(graph->get_handle_of_step(altpath_intervals[i].first));
         vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
@@ -249,11 +359,19 @@ void AltPathsCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         // Create the path as REFERENCE sense
         path_handle_t altpath_handle = mutable_graph->create_path_handle(altpath_name, false);
 
+        int64_t interval_length = 0;
         for (step_handle_t step_handle = altpath_intervals[i].first; step_handle != altpath_intervals[i].second;
              step_handle = mutable_graph->get_next_step(step_handle)) {
             mutable_graph->append_step(altpath_handle, mutable_graph->get_handle_of_step(step_handle));
+            interval_length += mutable_graph->get_length(mutable_graph->get_handle_of_step(step_handle));
         }
+        written_intervals++;
+        written_length += interval_length;
     }
+
+#ifdef debug
+    cerr << "[altpaths] apply: wrote " << written_intervals << " altpaths (" << written_length << " bp), skipped " << skipped_intervals << " empty intervals" << endl;
+#endif
 
     this->forwardize_altpaths(mutable_graph);
 }
@@ -553,6 +671,7 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
     // check the end step. if it's in an interval then it must be immediately
     // following we merge the new interval to the front of the found interval
     int64_t deleted_idx = -1;
+    step_handle_t deleted_interval_first, deleted_interval_second;  // save before decommission
     if (new_interval.second != graph->path_end(graph->get_path_handle_of_step(new_interval.second))) {
         nid_t next_node_id = graph->get_id(graph->get_handle_of_step(new_interval.second));
         if (thread_node_to_interval.count(next_node_id)) {
@@ -573,12 +692,15 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
                     }
 #endif
                     if (merged == true) {
+                        // save the interval bounds BEFORE decommissioning
+                        deleted_interval_first = next_interval.first;
+                        deleted_interval_second = next_interval.second;
+                        deleted_idx = next_idx;
                         // decomission next_interval
                         next_interval.first = graph->path_end(next_path);
                         next_interval.second = graph->path_front_end(next_path);
-                        deleted_idx = next_idx;
-                        // extend the previous interval right
-                        thread_altpath_intervals[merged_interval_idx].second = new_interval.second;
+                        // extend the previous interval right to cover both new_interval and the deleted next_interval
+                        thread_altpath_intervals[merged_interval_idx].second = deleted_interval_second;
                     } else {
                         // extend next_interval left
                         next_interval.first = new_interval.first;
@@ -599,9 +721,9 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
         thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
     }
     if (deleted_idx >= 0) {
-        // move the links to the deleted interval to the new interval
-        const pair<step_handle_t, step_handle_t>& deleted_interval = thread_altpath_intervals[deleted_idx];
-        for (step_handle_t step = deleted_interval.first; step != deleted_interval.second; step = graph->get_next_step(step)) {
+        // move the links to the deleted interval to the merged interval
+        // use saved bounds since the interval has been decommissioned
+        for (step_handle_t step = deleted_interval_first; step != deleted_interval_second; step = graph->get_next_step(step)) {
             thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
         }
     }
@@ -786,6 +908,63 @@ vector<pair<int64_t, nid_t>> AltPathsCover::get_reference_nodes(nid_t node_id, b
 
     assert(output_reference_nodes.size() > 0 && (!first || (output_reference_nodes.size() == 1)));
     return output_reference_nodes;
+}
+
+void AltPathsCover::verify_cover() const {
+    // Check that every node in the graph is covered by the altpath cover
+    int64_t total_nodes = 0;
+    int64_t total_length = 0;
+    int64_t ref_nodes = 0;
+    int64_t ref_length = 0;
+    int64_t alt_nodes = 0;
+    int64_t alt_length = 0;
+    int64_t uncovered_nodes = 0;
+    int64_t uncovered_length = 0;
+
+    graph->for_each_handle([&](handle_t handle) {
+        nid_t node_id = graph->get_id(handle);
+        int64_t node_len = graph->get_length(handle);
+        total_nodes++;
+        total_length += node_len;
+
+        if (!node_to_interval.count(node_id)) {
+            // Node is not covered - collect paths that touch it for debugging
+            uncovered_nodes++;
+            uncovered_length += node_len;
+            vector<string> touching_paths;
+            graph->for_each_step_on_handle(handle, [&](step_handle_t step) {
+                path_handle_t path_handle = graph->get_path_handle_of_step(step);
+                touching_paths.push_back(graph->get_path_name(path_handle));
+                return true;
+            });
+            cerr << "[altpaths] error: Node " << node_id
+                 << " (length " << node_len << ") not covered by altpath cover. Paths touching node:";
+            if (touching_paths.empty()) {
+                cerr << " <none>";
+            } else {
+                for (const string& path_name : touching_paths) {
+                    cerr << " " << path_name;
+                }
+            }
+            cerr << endl;
+        } else {
+            int64_t interval_idx = node_to_interval.at(node_id);
+            if (interval_idx < num_ref_intervals) {
+                ref_nodes++;
+                ref_length += node_len;
+            } else {
+                alt_nodes++;
+                alt_length += node_len;
+            }
+        }
+    });
+
+    cerr << "[altpaths] verify_cover summary:" << endl
+         << "  Total nodes: " << total_nodes << " (" << total_length << " bp)" << endl
+         << "  Reference nodes: " << ref_nodes << " (" << ref_length << " bp)" << endl
+         << "  Alt nodes: " << alt_nodes << " (" << alt_length << " bp)" << endl
+         << "  Uncovered nodes: " << uncovered_nodes << " (" << uncovered_length << " bp)" << endl
+         << "  Intervals: " << num_ref_intervals << " ref + " << (altpath_intervals.size() - num_ref_intervals) << " alt" << endl;
 }
 
 void AltPathsCover::print_stats(ostream& os) {

@@ -125,10 +125,19 @@ protected:
     // This should only be run from inside apply().
     void forwardize_altpaths(MutablePathMutableHandleGraph* mutable_graph);
 
+    // Second pass: greedily cover any nodes not covered by snarl traversals.
+    // This handles nodes that are outside of snarls or in complex regions
+    // where the traversal finder couldn't find good coverage.
+    void fill_uncovered_nodes(int64_t minimum_length);
+
     // Search back to the reference and return <distance, node_id> when found.
     // (here distance is the number of intervals crossed, aka rank)
     // "first" toggles returning the first interval found vs all of them.
     vector<pair<int64_t, nid_t>> get_reference_nodes(nid_t node_id, bool first) const;
+
+    // Debug function: verify that every node in the graph is covered by the altpath cover.
+    // Raises an error for each uncovered node, showing the node id and any paths that touch it.
+    void verify_cover() const;
 
 protected:
 
