@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
+#include "../altpaths.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gbwt_helper.hpp"
@@ -296,7 +297,7 @@ int main_deconstruct(int argc, char** argv) {
         // No paths specified: use all reference and non-alt generic paths as reference to deconstruct against.
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
-            if (!Paths::is_alt(name)) {
+            if (!Paths::is_alt(name) && !AltPathsCover::is_altpath_name(name)) {
                 refpaths.push_back(name);
             } else {
                 found_hap = true;
@@ -343,7 +344,11 @@ int main_deconstruct(int argc, char** argv) {
     if (!refpath_prefixes.empty()) {
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
-            for (auto& prefix : refpath_prefixes) {                    
+            // Skip altpaths (they match prefixes but shouldn't be used as references)
+            if (AltPathsCover::is_altpath_name(path_name)) {
+                return;
+            }
+            for (auto& prefix : refpath_prefixes) {
                 if (path_name.compare(0, prefix.size(), prefix) == 0) {
                     refpaths.push_back(path_name);
                     break;

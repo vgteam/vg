@@ -68,6 +68,7 @@ void help_paths(char** argv) {
          << "altpath computation:" << endl
          << "      --compute-altpaths   compute altpath cover (use -Q for reference)" << endl
          << "      --min-altpath-len N  minimum altpath fragment length [10]" << endl
+         << "      --include-altpaths   include altpaths in -Q prefix matching" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -140,10 +141,12 @@ int main_paths(int argc, char** argv) {
     bool overlay = false;
     bool compute_altpaths = false;
     int64_t min_altpath_length = 10;
+    bool include_altpaths = false;
 
     // Constants for long-only options
     constexpr int OPT_COMPUTE_ALTPATHS = 1001;
     constexpr int OPT_MIN_ALTPATH_LEN = 1002;
+    constexpr int OPT_INCLUDE_ALTPATHS = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -184,6 +187,7 @@ int main_paths(int argc, char** argv) {
             // Altpath options
             {"compute-altpaths", no_argument, 0, OPT_COMPUTE_ALTPATHS},
             {"min-altpath-len", required_argument, 0, OPT_MIN_ALTPATH_LEN},
+            {"include-altpaths", no_argument, 0, OPT_INCLUDE_ALTPATHS},
 
             {0, 0, 0, 0}
         };
@@ -332,6 +336,10 @@ int main_paths(int argc, char** argv) {
             min_altpath_length = parse<int64_t>(optarg);
             break;
 
+        case OPT_INCLUDE_ALTPATHS:
+            include_altpaths = true;
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -458,6 +466,10 @@ int main_paths(int argc, char** argv) {
         unordered_set<path_handle_t> ref_paths;
         graph->for_each_path_handle([&](path_handle_t ph) {
             string path_name = graph->get_path_name(ph);
+            // Skip altpaths (they match prefixes but shouldn't be used as references)
+            if (AltPathsCover::is_altpath_name(path_name)) {
+                return;
+            }
             if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
                 ref_paths.insert(ph);
             }
@@ -523,6 +535,10 @@ int main_paths(int argc, char** argv) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
                 std::string name = gbwtgraph::compose_path_name(*gbwt_index, i, sense);
+                // Skip altpaths unless --include-altpaths is specified
+                if (!include_altpaths && AltPathsCover::is_altpath_name(name)) {
+                    continue;
+                }
                 if (name.length() >= path_prefix.length() && std::equal(path_prefix.begin(), path_prefix.end(), name.begin())) {
                     thread_ids.push_back(i);
                 }
@@ -636,14 +652,19 @@ int main_paths(int argc, char** argv) {
                     if (!path_prefix.empty()) {
                         // Filter by name prefix
                         std::string path_name = graph->get_path_name(path_handle);
-                        
+
+                        // Skip altpaths (they match prefixes but shouldn't be selected by default)
+                        if (!include_altpaths && AltPathsCover::is_altpath_name(path_name)) {
+                            return;
+                        }
+
                         if (std::mismatch(path_name.begin(), path_name.end(),
                                           path_prefix.begin(), path_prefix.end()).second != path_prefix.end()) {
                             // The path does not match the prefix. Skip it.
                             return;
                         }
                     }
-                    
+
                     // It didn't fail a prefix check, so use it.
                     iteratee(path_handle);
                 });

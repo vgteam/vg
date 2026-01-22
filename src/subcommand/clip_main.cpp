@@ -7,6 +7,7 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/alignment_emitter.hpp>
 #include "../clip.hpp"
+#include "../altpaths.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
@@ -331,6 +332,10 @@ int main_clip(int argc, char** argv) {
             // load the BED regions from the reference path prefix
             pp_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
+                    // Skip altpaths (they match prefixes but shouldn't be used as references)
+                    if (AltPathsCover::is_altpath_name(path_name)) {
+                        return;
+                    }
                     subrange_t subrange;
                     path_name = Paths::strip_subrange(path_name, &subrange);
                     int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
