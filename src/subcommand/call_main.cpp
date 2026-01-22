@@ -860,21 +860,24 @@ int main_call(int argc, char** argv) {
         }
 
         if (nested) {
-            graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
-                                                    *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
-                                                    *snarl_manager,
-                                                    sample_name, *traversal_finder, ref_paths, ref_path_offsets,
-                                                    ref_path_ploidies,
-                                                    alignment_emitter.get(),
-                                                    traversals_only,
-                                                    gaf_output,
-                                                    trav_padding,
-                                                    genotype_snarls,
-                                                    cluster_threshold,
-                                                    cluster_post_genotype,
-                                                    star_allele,
-                                                    include_altpaths,
-                                                    altpath_cover.get()));
+            // Use FlowCaller with nested mode enabled
+            graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                              *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                              *snarl_manager,
+                                              sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                              ref_path_ploidies,
+                                              alignment_emitter.get(),
+                                              traversals_only,
+                                              gaf_output,
+                                              trav_padding,
+                                              genotype_snarls,
+                                              make_pair(min_allele_len, max_allele_len),
+                                              true,  // nested mode enabled
+                                              cluster_threshold,
+                                              cluster_post_genotype,
+                                              star_allele,
+                                              include_altpaths,
+                                              altpath_cover.get()));
         } else {
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
