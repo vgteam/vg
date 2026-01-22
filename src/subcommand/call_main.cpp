@@ -82,7 +82,10 @@ void help_call(char** argv) {
          << "                            not visited by the selected samples, or to all" << endl
          << "                            contigs simulated from if no samples are used." << endl
          << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
-         << "  -n, --nested              activate nested calling mode (experimental)" << endl
+         << "  -n, --nested              activate nested calling mode with top-down" << endl
+         << "                            genotype propagation (experimental)" << endl
+         << "      --bottom-up           activate nested calling mode with bottom-up" << endl
+         << "                            snarl merging (original nested algorithm)" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "deconstruct-like options (for use with -n):" << endl
          << "      --altpaths            use altpath cover from graph for nesting levels" << endl
@@ -132,6 +135,7 @@ int main_call(int argc, char** argv) {
     size_t trav_padding = 0;
     bool genotype_snarls = false;
     bool nested = false;
+    bool bottom_up = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -160,6 +164,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_CLUSTER_POST = 1002;
     constexpr int OPT_INCLUDE_ALTPATHS = 1003;
     constexpr int OPT_LEGACY = 1004;
+    constexpr int OPT_BOTTOM_UP = 1005;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -194,6 +199,7 @@ int main_call(int argc, char** argv) {
             {"trav-padding", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, OPT_LEGACY},
             {"nested", no_argument, 0, 'n'},
+            {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
             {"chains", no_argument, 0, 'I'},
             {"altpaths", no_argument, 0, OPT_ALTPATHS},
             {"cluster", required_argument, 0, 'L'},
@@ -320,10 +326,13 @@ int main_call(int argc, char** argv) {
             cluster_threshold = parse<double>(optarg);
             break;
         case 'n':
-            nested =true;
+            nested = true;
+            break;
+        case OPT_BOTTOM_UP:
+            bottom_up = true;
             break;
         case 'I':
-            call_chains =true;
+            call_chains = true;
             break;
         case OPT_ALTPATHS:
             use_altpaths = true;
@@ -412,8 +421,8 @@ int main_call(int argc, char** argv) {
     }
 
     if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max())
-        && (legacy || !vcf_filename.empty() || nested)) {
-        logger.error() << "-c/-C no supported with -v, -l or -n" << endl;
+        && (legacy || !vcf_filename.empty() || nested || bottom_up)) {
+        logger.error() << "-c/-C not supported with -v, -l, -n, or --bottom-up" << endl;
     }
     if (!ref_paths.empty() && !ref_sample.empty()) {
         logger.error() << "-S cannot be used with -p" << endl;
@@ -538,6 +547,20 @@ int main_call(int argc, char** argv) {
     }
     if (cluster_threshold < 0.0 || cluster_threshold > 1.0) {
         logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
+    }
+
+    // Validation for bottom-up mode
+    if (bottom_up && nested) {
+        logger.error() << "--bottom-up and -n/--nested are mutually exclusive" << endl;
+    }
+    if (bottom_up && star_allele) {
+        logger.error() << "-Y/--star-allele cannot be used with --bottom-up mode" << endl;
+    }
+    if (bottom_up && use_altpaths) {
+        logger.error() << "--altpaths cannot be used with --bottom-up mode" << endl;
+    }
+    if (bottom_up && cluster_threshold < 1.0) {
+        logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
     }
 
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
@@ -702,11 +725,11 @@ int main_call(int argc, char** argv) {
         if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
         packer->load_from_file(pack_filename);
         if (show_progress) logger.info() << "Loaded pack file" << endl;
-        if (nested) {
-            // Make a nested packed traversal support finder (using cached veresion important for poisson caller)
+        if (bottom_up) {
+            // Make a nested packed traversal support finder (required by NestedFlowCaller)
             support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
         } else {
-            // Make a packed traversal support finder (using cached veresion important for poisson caller)
+            // Make a packed traversal support finder (using cached version important for poisson caller)
             support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
         }
                 
@@ -860,7 +883,7 @@ int main_call(int argc, char** argv) {
         }
 
         if (nested) {
-            // Use FlowCaller with nested mode enabled
+            // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                               *snarl_manager,
@@ -878,6 +901,18 @@ int main_call(int argc, char** argv) {
                                               star_allele,
                                               include_altpaths,
                                               altpath_cover.get()));
+        } else if (bottom_up) {
+            // Use NestedFlowCaller (bottom-up snarl merging, original nested algorithm)
+            graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                    *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                    *snarl_manager,
+                                                    sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                    ref_path_ploidies,
+                                                    alignment_emitter.get(),
+                                                    traversals_only,
+                                                    gaf_output,
+                                                    trav_padding,
+                                                    genotype_snarls));
         } else {
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
