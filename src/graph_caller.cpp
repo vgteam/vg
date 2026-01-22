@@ -480,10 +480,24 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                      ref_trav_idx);
     
     // deduplicate alleles and compute the site traversals and genotype
-    map<string, int> allele_to_gt;    
-    allele_to_gt[out_variant.ref] = 0;    
+    map<string, int> allele_to_gt;
+    allele_to_gt[out_variant.ref] = 0;
+    int star_allele_idx = -1;  // index for star allele in allele_to_gt, if needed
     for (int i = 0; i < genotype.size(); ++i) {
-        if (genotype[i] == ref_trav_idx) {
+        if (genotype[i] == STAR_ALLELE_MARKER) {
+            // Star allele: haplotype spans this site but has no defined traversal here
+            if (star_allele_idx < 0) {
+                // Add star allele to allele list
+                star_allele_idx = allele_to_gt.size();
+                allele_to_gt["*"] = star_allele_idx;
+                // Add empty traversal as placeholder (won't be used for AT info)
+                site_traversals.push_back(SnarlTraversal());
+            }
+            site_genotype.push_back(star_allele_idx);
+        } else if (genotype[i] == MISSING_ALLELE_MARKER) {
+            // Missing allele: parent doesn't traverse this child, output as '.' in VCF
+            site_genotype.push_back(MISSING_ALLELE_MARKER);
+        } else if (genotype[i] == ref_trav_idx) {
             site_genotype.push_back(0);
         } else {
             string allele_string = trav_to_string(called_traversals, genotype, genotype[i], i, ref_trav_idx);
@@ -563,7 +577,11 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     stringstream vcf_gt;
     if (!genotype.empty()) {
         for (int i = 0; i < site_genotype.size(); ++i) {
-            vcf_gt << site_genotype[i];
+            if (site_genotype[i] == MISSING_ALLELE_MARKER) {
+                vcf_gt << ".";
+            } else {
+                vcf_gt << site_genotype[i];
+            }
             if (i != site_genotype.size() - 1) {
                 vcf_gt << "/";
             }
@@ -1760,10 +1778,81 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     return call_snarl_internal(managed_snarl, "", make_pair(0, 0), nullptr);
 }
 
+bool FlowCaller::extract_child_traversal(const SnarlTraversal& parent_trav,
+                                          const Snarl& child,
+                                          SnarlTraversal& out_child_trav) const {
+    // Find the child snarl's start and end in the parent traversal
+    // Need to check both forward and reverse orientations
+    int start_pos = -1;
+    int end_pos = -1;
+    bool needs_reverse = false;
+
+    nid_t child_start_id = child.start().node_id();
+    nid_t child_end_id = child.end().node_id();
+
+    for (int i = 0; i < parent_trav.visit_size(); ++i) {
+        const Visit& visit = parent_trav.visit(i);
+        nid_t visit_id = visit.node_id();
+
+        if (visit_id == child_start_id) {
+            // Check if orientation matches child's start
+            if (visit.backward() == child.start().backward()) {
+                // Forward match
+                start_pos = i;
+                needs_reverse = false;
+            } else {
+                // This could be the end in reverse orientation
+                end_pos = i;
+                needs_reverse = true;
+            }
+        }
+        if (visit_id == child_end_id) {
+            // Check if orientation matches child's end
+            if (visit.backward() == child.end().backward()) {
+                // Forward match
+                end_pos = i;
+            } else {
+                // This could be the start in reverse orientation
+                start_pos = i;
+                needs_reverse = true;
+            }
+        }
+    }
+
+    // Check if we found both endpoints
+    if (start_pos < 0 || end_pos < 0) {
+        return false;
+    }
+
+    // Ensure start comes before end (swap if traversing in reverse)
+    if (start_pos > end_pos) {
+        std::swap(start_pos, end_pos);
+        needs_reverse = !needs_reverse;
+    }
+
+    // Extract the portion from start to end
+    out_child_trav.Clear();
+    if (!needs_reverse) {
+        // Forward extraction
+        for (int i = start_pos; i <= end_pos; ++i) {
+            *out_child_trav.add_visit() = parent_trav.visit(i);
+        }
+    } else {
+        // Reverse extraction - go backwards and flip orientations
+        for (int i = end_pos; i >= start_pos; --i) {
+            Visit* v = out_child_trav.add_visit();
+            v->set_node_id(parent_trav.visit(i).node_id());
+            v->set_backward(!parent_trav.visit(i).backward());
+        }
+    }
+
+    return true;
+}
+
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                       const string& parent_ref_path_name,
                                       pair<size_t, size_t> parent_ref_interval,
-                                      const vector<int>* parent_genotype) {
+                                      const vector<SnarlTraversal>* parent_child_travs) {
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
     // I am experimenting with sending "fake" snarls through this code.  So make a local
@@ -1930,15 +2019,51 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
     bool ret_val = true;
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
+    int ploidy = ref_ploidies[ref_path_name];
 
     if (traversals_only) {
         assert(gaf_output);
         pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
         emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
+    } else if (parent_child_travs != nullptr && !parent_child_travs->empty()) {
+        // Genotype is derived from parent - match parent traversals to our traversals
+        ploidy = parent_child_travs->size();
+        for (const SnarlTraversal& parent_trav : *parent_child_travs) {
+            // Empty traversal means parent allele doesn't traverse this child
+            // Use star allele (*) if enabled, otherwise missing allele (.)
+            if (parent_trav.visit_size() == 0) {
+                trav_genotype.push_back(star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER);
+                continue;
+            }
+            // Find matching traversal in our list
+            int match_idx = -1;
+            for (int i = 0; i < travs.size() && match_idx < 0; ++i) {
+                if (travs[i] == parent_trav) {
+                    match_idx = i;
+                }
+            }
+            if (match_idx < 0) {
+                // Parent traversal not found in our list - add it
+                match_idx = travs.size();
+                travs.push_back(parent_trav);
+            }
+            trav_genotype.push_back(match_idx);
+        }
+
+        // Emit variant with derived genotype
+        bool added = true;
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;  // No call info for derived genotypes
+        if (!gaf_output) {
+            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                                 ref_offsets[ref_path_name], genotype_snarls, ploidy);
+        } else {
+            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
+            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
+        }
+        ret_val = trav_genotype.size() == ploidy && added;
     } else {
-        // use our support caller to choose our genotype
+        // Top-level snarl or no parent context - genotype from scratch using support
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        int ploidy = ref_ploidies[ref_path_name];
         std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
                                                                         make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
@@ -1957,17 +2082,43 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     }
 
     // In nested mode, recursively call child snarls
-    if (nested) {
+    if (nested && !trav_genotype.empty()) {
         // Find the managed snarl pointer so we can get its children
         const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(), snarl.start().backward());
         if (managed_ptr) {
             const vector<const Snarl*>& children = snarl_manager.children_of(managed_ptr);
             for (const Snarl* child : children) {
                 if (child && !snarl_manager.is_trivial(child, graph)) {
-                    // Pass current reference path info and genotype to children
+                    // Extract child-spanning portions from genotyped parent traversals
+                    vector<SnarlTraversal> child_travs_from_parent;
+                    bool any_real_traversals = false;
+
+                    for (int allele_idx : trav_genotype) {
+                        if (allele_idx >= 0 && allele_idx < travs.size()) {
+                            SnarlTraversal child_portion;
+                            if (extract_child_traversal(travs[allele_idx], *child, child_portion)) {
+                                child_travs_from_parent.push_back(std::move(child_portion));
+                                any_real_traversals = true;
+                            } else {
+                                // Parent allele doesn't traverse child - add empty traversal as marker
+                                // Child will use STAR_ALLELE_MARKER or MISSING_ALLELE_MARKER based on star_allele flag
+                                child_travs_from_parent.push_back(SnarlTraversal());
+                            }
+                        } else {
+                            // Invalid allele index (shouldn't happen) - add empty marker
+                            child_travs_from_parent.push_back(SnarlTraversal());
+                        }
+                    }
+
+                    // If no genotyped alleles traverse the child, skip it
+                    if (!any_real_traversals) {
+                        continue;
+                    }
+
+                    // Recursively call child with extracted traversals as genotype
                     call_snarl_internal(*child, ref_path_name,
                                         make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                        trav_genotype.empty() ? nullptr : &trav_genotype);
+                                        &child_travs_from_parent);
                 }
             }
         }

@@ -23,6 +23,16 @@ using namespace std;
 
 using vg::io::AlignmentEmitter;
 
+/// Special marker value for star alleles in genotype vectors.
+/// A star allele (*) represents a haplotype that spans a nested site in the
+/// parent but doesn't have a defined traversal at the child level.
+constexpr int STAR_ALLELE_MARKER = -2;
+
+/// Special marker value for missing alleles in genotype vectors.
+/// Used when a parent allele doesn't traverse a child snarl and star_allele
+/// mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy.
+constexpr int MISSING_ALLELE_MARKER = -1;
+
 /**
  * GraphCaller: Use the snarl decomposition to call snarls in a graph
  */
@@ -486,11 +496,22 @@ protected:
     /// When nested=true, this recursively calls children after processing the current snarl
     /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
     /// @param parent_ref_interval Reference interval from parent
-    /// @param parent_genotype Parent's genotype (traversal indices) for context propagation
+    /// @param parent_child_travs If non-null, these are traversals extracted from the parent's
+    ///                           genotype that span this child snarl. The child's genotype is
+    ///                           derived from these rather than computed from scratch.
     bool call_snarl_internal(const Snarl& snarl,
                              const string& parent_ref_path_name,
                              pair<size_t, size_t> parent_ref_interval,
-                             const vector<int>* parent_genotype);
+                             const vector<SnarlTraversal>* parent_child_travs = nullptr);
+
+    /// Extract the portion of a parent traversal that spans a child snarl
+    /// @param parent_trav The parent traversal to extract from
+    /// @param child The child snarl to extract
+    /// @param out_child_trav Output: the extracted traversal, oriented to match child snarl
+    /// @return true if the parent traversal contains the child snarl
+    bool extract_child_traversal(const SnarlTraversal& parent_trav,
+                                 const Snarl& child,
+                                 SnarlTraversal& out_child_trav) const;
 };
 
 class SnarlGraph;
