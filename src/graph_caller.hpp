@@ -365,25 +365,6 @@ protected:
 };
 
 /**
- * NestingContext: Information passed from parent snarl to child snarls
- * for use in star allele detection, off-reference calling, and proper nesting.
- */
-struct NestingContext {
-    /// Does the parent have a reference path?
-    bool has_ref = false;
-    /// Child snarls within the parent
-    vector<pair<handle_t, handle_t>> child_snarls;
-    /// Path interval on parent reference path
-    pair<step_handle_t, step_handle_t> parent_path_interval;
-    /// Map from sample name to haplotype phase IDs that traverse the parent
-    unordered_map<string, vector<int>> sample_to_haplotypes;
-    /// Reference path name from parent (for off-reference children)
-    string ref_path_name;
-    /// Reference interval from parent (for off-reference children)
-    pair<size_t, size_t> ref_interval;
-};
-
-/**
  * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find
  * traversals, and calls those based on how much support they have.
  * Should work on any graph but will not
@@ -501,11 +482,15 @@ protected:
     /// optional altpath cover for nesting level information and off-reference calling
     AltPathsCover* altpath_cover = nullptr;
 
-    /// Recursive helper for nested mode: call a snarl and optionally its children
-    bool call_snarl_recursive(const Snarl& snarl, int ploidy,
-                              const string& parent_ref_path_name,
-                              pair<size_t, size_t> parent_ref_interval,
-                              const NestingContext* parent_context);
+    /// Internal implementation of call_snarl that accepts parent context for nested mode
+    /// When nested=true, this recursively calls children after processing the current snarl
+    /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
+    /// @param parent_ref_interval Reference interval from parent
+    /// @param parent_genotype Parent's genotype (traversal indices) for context propagation
+    bool call_snarl_internal(const Snarl& snarl,
+                             const string& parent_ref_path_name,
+                             pair<size_t, size_t> parent_ref_interval,
+                             const vector<int>* parent_genotype);
 };
 
 class SnarlGraph;

@@ -1756,6 +1756,14 @@ FlowCaller::~FlowCaller() {
 }
 
 bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
+    // Entry point: call with no parent context
+    return call_snarl_internal(managed_snarl, "", make_pair(0, 0), nullptr);
+}
+
+bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
+                                      const string& parent_ref_path_name,
+                                      pair<size_t, size_t> parent_ref_interval,
+                                      const vector<int>* parent_genotype) {
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
     // I am experimenting with sending "fake" snarls through this code.  So make a local
@@ -1767,16 +1775,6 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
         // can't call one-node or out-of graph snarls.
         return false;
-    }
-
-    // In nested mode, delegate to recursive implementation
-    if (nested) {
-        // Get default ploidy from first reference path, or 2 if none
-        int default_ploidy = 2;
-        if (!ref_paths.empty() && ref_ploidies.count(ref_paths[0])) {
-            default_ploidy = ref_ploidies.at(ref_paths[0]);
-        }
-        return call_snarl_recursive(snarl, default_ploidy, "", make_pair(0, 0), nullptr);
     }
 
     // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
@@ -1931,6 +1929,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     }
 
     bool ret_val = true;
+    vector<int> trav_genotype;  // Declared outside block so we can pass to children
 
     if (traversals_only) {
         assert(gaf_output);
@@ -1938,7 +1937,6 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
         emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
     } else {
         // use our support caller to choose our genotype
-        vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
         int ploidy = ref_ploidies[ref_path_name];
         std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
@@ -1957,7 +1955,24 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
         ret_val = trav_genotype.size() == ploidy && added;
     }
-        
+
+    // In nested mode, recursively call child snarls
+    if (nested) {
+        // Find the managed snarl pointer so we can get its children
+        const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(), snarl.start().backward());
+        if (managed_ptr) {
+            const vector<const Snarl*>& children = snarl_manager.children_of(managed_ptr);
+            for (const Snarl* child : children) {
+                if (child && !snarl_manager.is_trivial(child, graph)) {
+                    // Pass current reference path info and genotype to children
+                    call_snarl_internal(*child, ref_path_name,
+                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)),
+                                        trav_genotype.empty() ? nullptr : &trav_genotype);
+                }
+            }
+        }
+    }
+
     return ret_val;
 }
 
@@ -1973,230 +1988,6 @@ string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>
     header += "\n";
     return header;
 }
-
-bool FlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
-                                       const string& parent_ref_path_name,
-                                       pair<size_t, size_t> parent_ref_interval,
-                                       const NestingContext* parent_context) {
-
-    Snarl snarl = managed_snarl;
-
-    if (snarl.start().node_id() == snarl.end().node_id() ||
-        !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
-        return false;
-    }
-
-    // Get support finder for traversal support calculations
-    const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
-
-    // Determine greedy_avg_flow based on snarl size (using shallow contents for nested)
-    bool greedy_avg_flow = false;
-    {
-        auto snarl_contents = snarl_manager.shallow_contents(&snarl, graph, false);
-        size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
-        size_t length = 0;
-        for (auto i = snarl_contents.first.begin(); i != snarl_contents.first.end() && length < len_threshold; ++i) {
-            length += graph.get_length(graph.get_handle(*i));
-        }
-        greedy_avg_flow = length > len_threshold;
-    }
-
-    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
-    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
-
-    // Find reference path through the snarl
-    // First, look for paths on start and end nodes (excluding alt paths and altpaths)
-    set<string> start_path_names;
-    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
-        string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-        if (!Paths::is_alt(name) &&
-            (include_altpaths || !AltPathsCover::is_altpath_name(name)) &&
-            (ref_path_set.empty() || ref_path_set.count(name))) {
-            start_path_names.insert(name);
-        }
-        return true;
-    });
-
-    set<string> end_path_names;
-    if (!start_path_names.empty()) {
-        graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
-            string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-            if (!Paths::is_alt(name) &&
-                (include_altpaths || !AltPathsCover::is_altpath_name(name)) &&
-                (ref_path_set.empty() || ref_path_set.count(name))) {
-                end_path_names.insert(name);
-            }
-            return true;
-        });
-    }
-
-    vector<string> common_names;
-    std::set_intersection(start_path_names.begin(), start_path_names.end(),
-                          end_path_names.begin(), end_path_names.end(),
-                          std::back_inserter(common_names));
-
-    // For nested mode: if no direct reference path, try to use parent's reference or altpath cover
-    string ref_path_name;
-    pair<int64_t, int64_t> ref_interval_coords;
-
-    if (!common_names.empty()) {
-        ref_path_name = common_names.front();
-    } else if (parent_context && !parent_context->ref_path_name.empty()) {
-        // Fall back to parent's reference path for off-reference calling
-        ref_path_name = parent_context->ref_path_name;
-        ref_interval_coords = make_pair(parent_context->ref_interval.first, parent_context->ref_interval.second);
-    } else if (!parent_ref_path_name.empty()) {
-        // Use explicit parent reference path
-        ref_path_name = parent_ref_path_name;
-        ref_interval_coords = make_pair(parent_ref_interval.first, parent_ref_interval.second);
-    } else {
-        // No reference path available
-        return false;
-    }
-
-    // Get reference interval on the path
-    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
-    if (get<0>(ref_interval) == -1) {
-        // Could not find reference interval - use parent's if available
-        if (ref_interval_coords.first != 0 || ref_interval_coords.second != 0) {
-            // Use coordinates from parent
-        } else {
-            return false;
-        }
-    } else {
-        ref_interval_coords = make_pair(get<0>(ref_interval), get<1>(ref_interval));
-        if (get<2>(ref_interval)) {
-            flip_snarl(snarl);
-            ref_interval = get_ref_interval(graph, snarl, ref_path_name);
-        }
-    }
-
-    // Build reference traversal from path steps
-    SnarlTraversal ref_trav;
-    if (get<0>(ref_interval) != -1) {
-        step_handle_t cur_step = get<3>(ref_interval);
-        step_handle_t last_step = get<4>(ref_interval);
-        if (get<2>(ref_interval)) {
-            std::swap(cur_step, last_step);
-        }
-        bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
-
-        while (true) {
-            handle_t cur_handle = graph.get_handle_of_step(cur_step);
-            Visit* visit = ref_trav.add_visit();
-            visit->set_node_id(graph.get_id(cur_handle));
-            visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
-            if (graph.get_id(cur_handle) == snarl.end().node_id()) {
-                break;
-            } else if (get<2>(ref_interval)) {
-                if (!graph.has_previous_step(cur_step)) break;
-                cur_step = graph.get_previous_step(cur_step);
-            } else {
-                if (!graph.has_next_step(cur_step)) break;
-                cur_step = graph.get_next_step(cur_step);
-            }
-        }
-    }
-
-    // Find traversals using traversal finder
-    vector<SnarlTraversal> travs;
-    FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
-    if (flow_trav_finder != nullptr) {
-        pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow);
-        travs = std::move(weighted_travs.first);
-    } else {
-        travs = traversal_finder.find_traversals(snarl);
-    }
-
-    if (travs.empty()) {
-        return false;
-    }
-
-    // Find reference traversal index
-    int ref_trav_idx = -1;
-    for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
-        if (travs[i] == ref_trav) {
-            ref_trav_idx = i;
-        }
-    }
-    if (ref_trav_idx == -1 && ref_trav.visit_size() > 0) {
-        ref_trav_idx = travs.size();
-        travs.push_back(ref_trav);
-    }
-
-    // TODO: Apply clustering if enabled (pre-genotype clustering)
-    // This requires converting SnarlTraversal to Traversal (vector<handle_t>)
-    // For now, clustering is not implemented in FlowCaller nested mode
-    vector<vector<int>> trav_clusters;
-    vector<pair<double, int64_t>> trav_cluster_info;
-    if (cluster_threshold < 1.0 && !cluster_post_genotype) {
-        // Clustering support pending - requires SnarlTraversal to Traversal conversion
-        cerr << "Warning [vg call]: Clustering (-L) not yet implemented in nested FlowCaller mode" << endl;
-    }
-
-    // TODO: Add star alleles if enabled and parent context is available
-    // This requires converting SnarlTraversal to Traversal (vector<handle_t>)
-    unordered_map<string, vector<int>> star_haplotypes;
-    if (star_allele && parent_context && !parent_context->sample_to_haplotypes.empty()) {
-        // Star allele support pending - requires SnarlTraversal to Traversal conversion
-        cerr << "Warning [vg call]: Star alleles (-Y) not yet implemented in nested FlowCaller mode" << endl;
-    }
-
-    // Get ploidy from reference path
-    int path_ploidy = ploidy;
-    if (ref_ploidies.count(ref_path_name)) {
-        path_ploidy = ref_ploidies.at(ref_path_name);
-    }
-
-    // Genotype the snarl
-    vector<int> trav_genotype;
-    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, path_ploidy, ref_path_name,
-                                                                    ref_interval_coords);
-
-    // Build nesting context for child snarls
-    NestingContext child_context;
-    child_context.has_ref = !ref_path_name.empty();
-    child_context.ref_path_name = ref_path_name;
-    child_context.ref_interval = make_pair(ref_interval_coords.first, ref_interval_coords.second);
-    // TODO: populate sample_to_haplotypes from current traversals for star allele propagation
-
-    // Recursively call child snarls
-    const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(), snarl.start().backward());
-    if (managed_ptr) {
-        for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
-            if (child) {
-                // Determine child ploidy from parent genotype
-                int child_ploidy = path_ploidy;
-                // Call child recursively
-                call_snarl_recursive(*child, child_ploidy, ref_path_name, ref_interval_coords, &child_context);
-            }
-        }
-    }
-
-    // Emit output
-    bool ret_val = true;
-    if (traversals_only) {
-        assert(gaf_output);
-        pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
-                                                          ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0);
-        emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
-    } else {
-        bool added = true;
-        if (!gaf_output) {
-            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                                 ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0, genotype_snarls, path_ploidy);
-        } else {
-            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
-                                                              ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0);
-            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
-        }
-        ret_val = trav_genotype.size() == path_ploidy && added;
-    }
-
-    return ret_val;
-}
-
 
 NestedFlowCaller::NestedFlowCaller(const PathPositionHandleGraph& graph,
                                    SupportBasedSnarlCaller& snarl_caller,
