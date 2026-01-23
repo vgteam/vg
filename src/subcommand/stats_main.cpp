@@ -35,6 +35,7 @@
 #include "../gbzgraph.hpp"
 #include "../progressive.hpp"
 #include "../traversal_finder.hpp"
+#include "../altpaths.hpp"
 
 using namespace std;
 using namespace vg;
@@ -1196,7 +1197,12 @@ int main_stats(int argc, char** argv) {
                 }
                 vector<string> ref_path_names;
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
-                    ref_path_names.push_back(graph->get_path_name(path_handle));
+                    string path_name = graph->get_path_name(path_handle);
+                    // Skip altpaths (they shouldn't influence snarl decomposition)
+                    if (AltPathsCover::is_altpath_name(path_name)) {
+                        return;
+                    }
+                    ref_path_names.push_back(path_name);
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
                 });

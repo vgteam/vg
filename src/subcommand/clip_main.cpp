@@ -363,6 +363,10 @@ int main_clip(int argc, char** argv) {
             std::unordered_map<nid_t, size_t> extra_node_weight;
             constexpr size_t EXTRA_WEIGHT = 10000000000;
             for (const Region& region : bed_regions) {
+                // Skip altpaths (they shouldn't influence snarl decomposition)
+                if (AltPathsCover::is_altpath_name(region.seq)) {
+                    continue;
+                }
                 path_handle_t path_handle = graph->get_path_handle(region.seq);
                 extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
                 extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;

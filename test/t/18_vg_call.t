@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 60
+plan tests 64
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -586,5 +586,40 @@ NA_INS_01_HAS_MISSING=$(echo "$NA_INS_01_NEST_GT" | grep -c "\.")
 is "$NA_INS_01_HAS_MISSING" "1" "-n -a: nested_snp_in_ins 0/1 nested has missing allele (.)"
 
 rm -f na_ins_ap.gfa na_ins_01.gam na_ins_01.pack na_ins_01.vcf
+
+# Test 4: triple_nested 0/0 with -n -a (with altpaths)
+# When ref bypasses all nested snarls and genotype is 0/0, only top-level emitted
+vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/triple_nested.gfa > na_tn_ap.gfa 2>/dev/null
+vg sim -x na_tn_ap.gfa -P x -n 100 -l 2 -a -s 210 > na_tn_00.gam
+vg pack -x na_tn_ap.gfa -g na_tn_00.gam -o na_tn_00.pack
+vg call na_tn_ap.gfa -k na_tn_00.pack -n -a -P x 2>/dev/null > na_tn_00.vcf
+
+# Count variant lines (should be 1: only top-level, nested not emitted since ref spans them)
+NA_TN_00_COUNT=$(grep -v "^#" na_tn_00.vcf | wc -l)
+is "$NA_TN_00_COUNT" "1" "-n -a: triple_nested 0/0 emits only top-level (ref spans all nested)"
+
+# Verify top-level is 0/0
+NA_TN_00_GT=$(grep -v "^#" na_tn_00.vcf | cut -f10 | cut -d: -f1)
+is "$NA_TN_00_GT" "0/0" "-n -a: triple_nested 0/0 top-level is 0/0"
+
+rm -f na_tn_00.gam na_tn_00.pack na_tn_00.vcf
+
+# Test 5: triple_nested 0/1 with -n -a (with altpaths)
+# When ref bypasses nested but alt traverses, nested snarls should have ./X genotype
+vg sim -x na_tn_ap.gfa -P x -n 50 -l 2 -a -s 211 > na_tn_01.gam
+vg sim -x na_tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 212 >> na_tn_01.gam
+vg pack -x na_tn_ap.gfa -g na_tn_01.gam -o na_tn_01.pack
+vg call na_tn_ap.gfa -k na_tn_01.pack -n -a -P x 2>/dev/null > na_tn_01.vcf
+
+# Count variant lines (should be 5: all nesting levels emitted with -a)
+NA_TN_01_COUNT=$(grep -v "^#" na_tn_01.vcf | wc -l)
+is "$NA_TN_01_COUNT" "5" "-n -a: triple_nested 0/1 emits all 5 nesting levels"
+
+# Nested snarls (LV > 0) should have missing allele (.) for the spanning ref
+NA_TN_01_NESTED_MISSING=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ {print $10}' | cut -d: -f1 | grep -c "\.")
+NA_TN_01_NESTED_COUNT=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+is "$NA_TN_01_NESTED_MISSING" "$NA_TN_01_NESTED_COUNT" "-n -a: triple_nested 0/1 all nested snarls have missing allele (.)"
+
+rm -f na_tn_ap.gfa na_tn_01.gam na_tn_01.pack na_tn_01.vcf
 
 

@@ -736,6 +736,10 @@ int main_call(int argc, char** argv) {
         std::unordered_map<nid_t, size_t> extra_node_weight;
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : ref_paths) {
+            // Skip altpaths (they shouldn't influence snarl decomposition)
+            if (AltPathsCover::is_altpath_name(refpath_name)) {
+                continue;
+            }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(refpath_handle)))] += EXTRA_WEIGHT;
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
