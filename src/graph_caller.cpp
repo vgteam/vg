@@ -2,6 +2,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "traversal_clusters.hpp"
+#include "altpaths.hpp"
 
 //#define debug
 
@@ -1946,8 +1947,21 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 #endif
     }
 
-    // Use parent's ref path if no direct path, otherwise use common path
-    string ref_path_name = common_names.empty() ? parent_ref_path_name : common_names.front();
+    // Use parent's ref path if no direct path, otherwise prefer base reference over altpaths
+    string ref_path_name;
+    if (common_names.empty()) {
+        ref_path_name = parent_ref_path_name;
+    } else {
+        // Prefer base reference paths over derived altpaths
+        // common_names is sorted, so we iterate to find first non-altpath
+        ref_path_name = common_names.front();  // default to first (lexicographically smallest)
+        for (const string& name : common_names) {
+            if (!AltPathsCover::is_altpath_name(name)) {
+                ref_path_name = name;
+                break;
+            }
+        }
+    }
 
     // find the reference traversal and coordinates using the path position graph interface
     tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
@@ -2334,7 +2348,14 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     pair<size_t, size_t> gt_ref_interval;
     
     if (!common_names.empty()) {
-        ref_path_name = common_names.front();
+        // Prefer base reference paths over derived altpaths
+        ref_path_name = common_names.front();  // default to first (lexicographically smallest)
+        for (const string& name : common_names) {
+            if (!AltPathsCover::is_altpath_name(name)) {
+                ref_path_name = name;
+                break;
+            }
+        }
 
         // find the reference traversal and coordinates using the path position graph interface
         ref_interval = get_ref_interval(graph, snarl, ref_path_name);
