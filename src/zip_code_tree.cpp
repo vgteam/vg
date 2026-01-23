@@ -2337,34 +2337,12 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
 
 
     for (auto& sub_interval : sub_intervals) {
-        bool is_reversed = sub_interval.is_reversed;
-        
-        if (interval.code_type == ZipCode::REGULAR_SNARL 
-            || interval.code_type == ZipCode::IRREGULAR_SNARL
-            || interval.code_type == ZipCode::CYCLIC_SNARL) {
-#ifdef DEBUG_ZIP_CODE_SORTING
-            cerr << "\tRecalculate orientation for snarl using zipcode definition" << endl;
-#endif
-            // For a snarl, use zipcode definition of reversed,
-            // in order to get correct rank ordering
-            is_reversed = false;
-            const Seed& seed = seeds->at(zipcode_sort_order[sub_interval.interval_start]);
-            for (size_t depth = 0; depth <= sub_interval.depth ; depth++) {
-                if (seed.zipcode.get_is_reversed_in_parent(depth)) {
-#ifdef DEBUG_ZIP_CODE_SORTING
-                    cerr << "Reverse at depth " << depth << ": " << seed.zipcode.get_code_type(depth) << endl;
-#endif
-                    is_reversed = !is_reversed;
-                }
-            }
-        }
-
         if (use_radix) {
             //Sort the given interval using the value-getter and orientation
-            radix_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, is_reversed, min_sort_value, max_sort_value);
+            radix_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, sub_interval.is_reversed, min_sort_value, max_sort_value);
         } else {
             //Sort the given interval using the value-getter and orientation
-            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, is_reversed);
+            default_sort_zipcodes(zipcode_sort_order, sort_values_by_seed, sub_interval, sub_interval.is_reversed);
         }
     }
     return;
