@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 24
+plan tests 41
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -219,6 +219,18 @@ is $(if [ "$NESTED_VARIANT_COUNT" -ge 1 ]; then echo "1"; else echo "0"; fi) "1"
 
 rm -f nested_call_test.vg nested_call_test.gam nested_call_test.pack nested_call_test.vcf
 
+# Test: Nested calling emits both top-level and child snarls
+# This tests the fix for nested snarl VCF emission where genotypes propagate to children
+vg view -Fv nesting/nested_snp_in_del.gfa > nested_snp.vg
+vg sim -x nested_snp.vg -n 100 -l 5 -a -s 42 > nested_snp.gam
+vg pack -x nested_snp.vg -g nested_snp.gam -o nested_snp.pack
+vg call nested_snp.vg -k nested_snp.pack -n -p x 2>/dev/null > nested_snp.vcf
+# Should have exactly 2 variant lines: one for top-level snarl (1->6) and one for nested snarl (2->5)
+NESTED_LINE_COUNT=$(grep -v "^#" nested_snp.vcf | wc -l)
+is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl variants"
+
+rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
+
 # Test: Star allele option validation (-Y requires -n)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
 vg sim -x star_test.vg -n 100 -l 20 -a -s 1 > star_test.gam
@@ -246,7 +258,179 @@ is "$?" 0 "altpaths option requires nested mode"
 
 rm -f altpath_test.vg altpath_test.gam altpath_test.pack
 
+# =============================================================================
+# Nested genotype propagation tests
+# These tests verify correct genotype propagation from parent to child snarls
+# Graph: nested_snp_in_del.gfa
+#   x (ref):  1->2->3->5->6  (allele 0 at top-level, allele 0 at nested)
+#   y0:       1->2->4->5->6  (allele 0 at top-level with SNP, allele 1 at nested)
+#   y1:       1->6           (allele 1 = deletion at top-level, star at nested)
+# =============================================================================
 
+# Test 0/0: homozygous reference - reads only from x path
+vg sim -x nesting/nested_snp_in_del.gfa -P x -n 100 -l 2 -a -s 1 > nd_00.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g nd_00.gam -o nd_00.pack
+vg call nesting/nested_snp_in_del.gfa -k nd_00.pack -n -p x 2>/dev/null > nd_00.vcf
+# 0/0 should produce no non-ref variants
+ND_00_NONREF=$(grep -v "^#" nd_00.vcf | grep -v "0/0" | wc -l)
+is "$ND_00_NONREF" "0" "nested_snp_in_del 0/0: homozygous ref produces no non-ref variants"
+
+# Test 0/1: het ref/SNP - reads from x and y0 (both traverse nested snarl)
+vg sim -x nesting/nested_snp_in_del.gfa -P x -n 50 -l 2 -a -s 10 > nd_01.gam
+vg sim -x nesting/nested_snp_in_del.gfa -m a -n 50 -l 2 -a -s 11 >> nd_01.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g nd_01.gam -o nd_01.pack
+vg call nesting/nested_snp_in_del.gfa -k nd_01.pack -n -p x 2>/dev/null > nd_01.vcf
+# Should have 2 variants (top-level and nested), both het
+ND_01_COUNT=$(grep -v "^#" nd_01.vcf | wc -l)
+is "$ND_01_COUNT" "2" "nested_snp_in_del 0/1: produces both top-level and nested variants"
+
+# Test 1/1: homozygous alt SNP - reads only from y0 path (via sample a haplotype 1)
+# We need to simulate specifically from haplotype 1 (y0) not from both haplotypes
+# Since -m a gives both haplotypes, we use -A and rely on the path structure
+vg sim -x nesting/nested_snp_in_del.gfa -A -n 100 -l 2 -a -s 20 > nd_11.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g nd_11.gam -o nd_11.pack
+vg call nesting/nested_snp_in_del.gfa -k nd_11.pack -n -p x 2>/dev/null > nd_11.vcf
+# Should produce variants (exact genotype depends on path coverage)
+ND_11_EXIT=$?
+is "$ND_11_EXIT" "0" "nested_snp_in_del 1/1: vg call completes without error"
+
+# Test 1/2: het SNP/deletion - reads from y0 and y1 (sample a has both)
+vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 30 > nd_12.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g nd_12.gam -o nd_12.pack
+vg call nesting/nested_snp_in_del.gfa -k nd_12.pack -n -p x 2>/dev/null > nd_12.vcf
+# Should have 2 variants, nested one should have missing allele
+ND_12_COUNT=$(grep -v "^#" nd_12.vcf | wc -l)
+is "$ND_12_COUNT" "2" "nested_snp_in_del 1/2: het SNP/del produces both variants"
+# Nested snarl should have missing allele (.) for deletion parent
+ND_12_MISSING=$(grep ">2>5" nd_12.vcf | grep -c "\./")
+is "$ND_12_MISSING" "1" "nested_snp_in_del 1/2: nested snarl shows missing allele for deletion"
+
+rm -f nd_00.gam nd_00.pack nd_00.vcf nd_01.gam nd_01.pack nd_01.vcf
+rm -f nd_11.gam nd_11.pack nd_11.vcf nd_12.gam nd_12.pack nd_12.vcf
+
+# =============================================================================
+# Star allele tests (-Y flag)
+# When parent allele doesn't traverse child, output * instead of .
+# =============================================================================
+
+# Test star allele output with -Y flag
+vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 40 > star.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g star.gam -o star.pack
+vg call nesting/nested_snp_in_del.gfa -k star.pack -n -Y -p x 2>/dev/null > star.vcf
+# With -Y, nested snarl should have * in ALT instead of . in GT
+# The genotype will use numeric index (e.g. 1/2) where one allele is *
+STAR_IN_ALT=$(grep ">2>5" star.vcf | cut -f5 | grep -c "\*")
+is "$STAR_IN_ALT" "1" "star allele: -Y flag produces * in ALT for spanning deletion"
+# Verify the genotype doesn't have . when -Y is used (it uses indexed * instead)
+NO_MISSING_GT=$(grep ">2>5" star.vcf | cut -f10 | grep -v "\." | wc -l)
+is "$NO_MISSING_GT" "1" "star allele: genotype uses indexed * instead of . with -Y"
+
+rm -f star.gam star.pack star.vcf
+
+# =============================================================================
+# nested_snp_in_ins.gfa tests
+# Graph structure:
+#   x (ref):  1->6                    (short ref, allele 0 at top-level)
+#   y0 (a#1): 1->2->4->5->6           (insertion with SNP A, allele 1 at top, allele 1 at nested)
+#   y1 (a#2): 1->2->3->5->6           (insertion with SNP T, allele 2 at top, allele 0 at nested)
+# Top-level snarl: 1->6, Nested snarl: 2->5
+# =============================================================================
+
+# Test 0/0: homozygous reference - reads only from x path (short ref)
+vg sim -x nesting/nested_snp_in_ins.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
+vg pack -x nesting/nested_snp_in_ins.gfa -g ni_00.gam -o ni_00.pack
+vg call nesting/nested_snp_in_ins.gfa -k ni_00.pack -n -p x 2>/dev/null > ni_00.vcf
+# 0/0 should produce no non-ref variants (or only ref calls)
+NI_00_NONREF=$(grep -v "^#" ni_00.vcf | grep -v "0/0" | wc -l)
+is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-ref variants"
+
+# Test 0/1: het ref/insertion - reads from x and y1 (a#2 haplotype)
+# Note: nested snarl (2->5) not on ref path, so only top-level variant emitted
+vg sim -x nesting/nested_snp_in_ins.gfa -P x -n 50 -l 4 -a -s 71 > ni_01.gam
+vg sim -x nesting/nested_snp_in_ins.gfa -P "a#2#y1#0" -n 50 -l 4 -a -s 72 >> ni_01.gam
+vg pack -x nesting/nested_snp_in_ins.gfa -g ni_01.gam -o ni_01.pack
+vg call nesting/nested_snp_in_ins.gfa -k ni_01.pack -n -p x 2>/dev/null > ni_01.vcf
+# Only top-level variant (nested snarl not on ref path x, can't emit to VCF)
+NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l)
+is "$NI_01_COUNT" "1" "nested_snp_in_ins 0/1: het ref/ins produces top-level variant"
+
+# Test 1/1: homozygous insertion - reads only from y1 path
+vg sim -x nesting/nested_snp_in_ins.gfa -P "a#2#y1#0" -n 100 -l 4 -a -s 73 > ni_11.gam
+vg pack -x nesting/nested_snp_in_ins.gfa -g ni_11.gam -o ni_11.pack
+vg call nesting/nested_snp_in_ins.gfa -k ni_11.pack -n -p x 2>/dev/null > ni_11.vcf
+# Only top-level variant (nested snarl not on ref path)
+NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l)
+is "$NI_11_COUNT" "1" "nested_snp_in_ins 1/1: homozygous ins produces top-level variant"
+
+# Test 1/2: het between two insertion alleles - reads from both y0 and y1
+vg sim -x nesting/nested_snp_in_ins.gfa -m a -n 100 -l 4 -a -s 74 > ni_12.gam
+vg pack -x nesting/nested_snp_in_ins.gfa -g ni_12.gam -o ni_12.pack
+vg call nesting/nested_snp_in_ins.gfa -k ni_12.pack -n -p x 2>/dev/null > ni_12.vcf
+# Only top-level variant (nested snarl not on ref path)
+NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l)
+is "$NI_12_COUNT" "1" "nested_snp_in_ins 1/2: het ins/ins produces top-level variant"
+
+rm -f ni_00.gam ni_00.pack ni_00.vcf ni_01.gam ni_01.pack ni_01.vcf
+rm -f ni_11.gam ni_11.pack ni_11.vcf ni_12.gam ni_12.pack ni_12.vcf
+
+# =============================================================================
+# Triple nested graph tests
+# Graph structure:
+#   x (ref):  1->5 (short ref, bypasses all nesting)
+#   y0 (a#1): 1->2->3->31->311->313->32->33->34->4->5 (deep insertion)
+#   y1 (a#2): 1->2->3->31->311->312->32->33->34->4->5 (different at deepest level)
+#   y2 (a#3): same as y0
+# Top-level snarl: 1->5, with 4 levels of nesting inside
+# Since ref bypasses all nesting, only top-level variant can be emitted
+# =============================================================================
+
+# Test 0/0: homozygous reference - reads only from x path
+vg sim -x nesting/triple_nested.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
+vg pack -x nesting/triple_nested.gfa -g tn_00.gam -o tn_00.pack
+vg call nesting/triple_nested.gfa -k tn_00.pack -n -p x 2>/dev/null > tn_00.vcf
+TN_00_NONREF=$(grep -v "^#" tn_00.vcf | grep -v "0/0" | wc -l)
+is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref variants"
+
+# Test 0/1: het ref/insertion - reads from x and y0
+# Need longer reads (10bp) to span the complex nested structure
+vg sim -x nesting/triple_nested.gfa -P x -n 100 -l 10 -a -s 81 > tn_01.gam
+vg sim -x nesting/triple_nested.gfa -P "a#1#y0#0" -n 100 -l 10 -a -s 82 >> tn_01.gam
+vg pack -x nesting/triple_nested.gfa -g tn_01.gam -o tn_01.pack
+vg call nesting/triple_nested.gfa -k tn_01.pack -n -p x 2>/dev/null > tn_01.vcf
+# Only top-level variant (nested snarls not on ref path)
+TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l)
+is "$TN_01_COUNT" "1" "triple_nested 0/1: het ref/ins produces top-level variant"
+
+# Test 1/1: homozygous insertion - reads only from y0 path
+vg sim -x nesting/triple_nested.gfa -P "a#1#y0#0" -n 100 -l 10 -a -s 83 > tn_11.gam
+vg pack -x nesting/triple_nested.gfa -g tn_11.gam -o tn_11.pack
+vg call nesting/triple_nested.gfa -k tn_11.pack -n -p x 2>/dev/null > tn_11.vcf
+TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l)
+is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces top-level variant"
+
+# Test 1/2: het between insertion alleles - reads from y0 and y1 (differ at deepest SNP)
+vg sim -x nesting/triple_nested.gfa -P "a#1#y0#0" -n 100 -l 10 -a -s 84 > tn_12.gam
+vg sim -x nesting/triple_nested.gfa -P "a#2#y1#0" -n 100 -l 10 -a -s 85 >> tn_12.gam
+vg pack -x nesting/triple_nested.gfa -g tn_12.gam -o tn_12.pack
+vg call nesting/triple_nested.gfa -k tn_12.pack -n -p x 2>/dev/null > tn_12.vcf
+TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l)
+is "$TN_12_COUNT" "1" "triple_nested 1/2: het ins/ins produces top-level variant"
+
+rm -f tn_00.gam tn_00.pack tn_00.vcf tn_01.gam tn_01.pack tn_01.vcf
+rm -f tn_11.gam tn_11.pack tn_11.vcf tn_12.gam tn_12.pack tn_12.vcf
+
+# =============================================================================
+# Short reference bypass tests
+# =============================================================================
+
+# Test nested_snp_in_nested_ins.gfa - ref bypasses all nested structures
+vg sim -x nesting/nested_snp_in_nested_ins.gfa -m a -n 100 -l 2 -a -s 60 > bypass.gam
+vg pack -x nesting/nested_snp_in_nested_ins.gfa -g bypass.gam -o bypass.pack
+vg call nesting/nested_snp_in_nested_ins.gfa -k bypass.pack -n -p x 2>/dev/null > bypass.vcf
+BYPASS_EXIT=$?
+is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph without crashing"
+
+rm -f bypass.gam bypass.pack bypass.vcf
 
 
 

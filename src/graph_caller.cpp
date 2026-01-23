@@ -621,6 +621,15 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 #endif
 
+    // If genotype contains missing allele but no ALT, add * as ALT to emit valid VCF
+    // This happens when one parent haplotype doesn't traverse a nested child snarl
+    bool has_missing = std::find(site_genotype.begin(), site_genotype.end(), MISSING_ALLELE_MARKER) != site_genotype.end();
+    if (has_missing && out_variant.alt.empty()) {
+        out_variant.alt.push_back("*");
+        out_variant.alleles.push_back("*");
+        out_variant.info["AT"].push_back(".");
+    }
+
     if (genotype_snarls || !out_variant.alt.empty()) {
         bool added = add_variant(out_variant);
         if (!added) {
@@ -838,7 +847,7 @@ void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(cons
             int64_t start = std::stoi(toks[0]);
             snarl.mutable_start()->set_node_id(start);
             snarl.mutable_start()->set_backward(frag[0] == '<');
-            assert(frag[toks[0].size() + 1] == '<' || frag[toks[0].size() + 1] == '<');
+            assert(frag[toks[0].size() + 1] == '<' || frag[toks[0].size() + 1] == '>');
             int64_t end = std::stoi(toks[1]);
             snarl.mutable_end()->set_node_id(abs(end));
             snarl.mutable_end()->set_backward(frag[toks[0].size() + 1] == '<');
@@ -1860,6 +1869,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // wants a pointer will crash.
     Snarl snarl = managed_snarl;
 
+#ifdef debug
+    cerr << "call_snarl_internal on " << pb2json(snarl) << " with parent_ref_path=" << parent_ref_path_name
+         << " parent_child_travs=" << (parent_child_travs ? "provided" : "null") << endl;
+#endif
+
     if (snarl.start().node_id() == snarl.end().node_id() ||
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
         // can't call one-node or out-of graph snarls.
@@ -1919,54 +1933,79 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                           std::back_inserter(common_names));
 
     if (common_names.empty()) {
-        return false;
+        // No reference path through snarl
+        // If we have parent context, we can still process using parent's ref path
+        if (parent_child_travs == nullptr || parent_ref_path_name.empty()) {
+#ifdef debug
+            cerr << "  -> returning false: no common ref path and no parent context" << endl;
+#endif
+            return false;
+        }
+#ifdef debug
+        cerr << "  -> using parent ref path: " << parent_ref_path_name << endl;
+#endif
     }
 
-    string& ref_path_name = common_names.front();
+    // Use parent's ref path if no direct path, otherwise use common path
+    string ref_path_name = common_names.empty() ? parent_ref_path_name : common_names.front();
 
     // find the reference traversal and coordinates using the path position graph interface
-    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
-    if (get<0>(ref_interval) == -1) {
-        // could not find reference path interval consisten with snarl due to orientation conflict
-        return false;
-    }
-    if (get<2>(ref_interval) == true) {
-        // calling code assumes snarl forward on reference
-        flip_snarl(snarl);
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
+    bool use_parent_interval = false;
+
+    if (common_names.empty() && parent_child_travs != nullptr) {
+        // No direct reference path - use parent's interval and traversals directly
+        ref_interval = make_tuple(parent_ref_interval.first, parent_ref_interval.second, false, step_handle_t(), step_handle_t());
+        use_parent_interval = true;
+    } else {
         ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+        if (get<0>(ref_interval) == -1) {
+            // could not find reference path interval consistent with snarl due to orientation conflict
+            return false;
+        }
+        if (get<2>(ref_interval) == true) {
+            // calling code assumes snarl forward on reference
+            flip_snarl(snarl);
+            ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+        }
     }
 
-    step_handle_t cur_step = get<3>(ref_interval);
-    step_handle_t last_step = get<4>(ref_interval);
-    if (get<2>(ref_interval)) {
-        std::swap(cur_step, last_step);
-    }
-    bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
-    
     SnarlTraversal ref_trav;
-    while (true) {
-        handle_t cur_handle = graph.get_handle_of_step(cur_step);
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(graph.get_id(cur_handle));
-        visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
-        if (graph.get_id(cur_handle) == snarl.end().node_id()) {
-            break;
-        } else if (get<2>(ref_interval) == true) {
-            if (!graph.has_previous_step(cur_step)) {
-                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
-                return false;
-            }
-            cur_step = graph.get_previous_step(cur_step);
-        } else {
-            if (!graph.has_next_step(cur_step)) {
-                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
-                return false;
-            }
-            cur_step = graph.get_next_step(cur_step);
+
+    if (!use_parent_interval) {
+        // Build reference traversal from path steps
+        step_handle_t cur_step = get<3>(ref_interval);
+        step_handle_t last_step = get<4>(ref_interval);
+        if (get<2>(ref_interval)) {
+            std::swap(cur_step, last_step);
         }
-        // todo: we can compute flow at the same time
+        bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
+
+        while (true) {
+            handle_t cur_handle = graph.get_handle_of_step(cur_step);
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(graph.get_id(cur_handle));
+            visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
+            if (graph.get_id(cur_handle) == snarl.end().node_id()) {
+                break;
+            } else if (get<2>(ref_interval) == true) {
+                if (!graph.has_previous_step(cur_step)) {
+                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
+                    return false;
+                }
+                cur_step = graph.get_previous_step(cur_step);
+            } else {
+                if (!graph.has_next_step(cur_step)) {
+                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
+                    return false;
+                }
+                cur_step = graph.get_next_step(cur_step);
+            }
+            // todo: we can compute flow at the same time
+        }
+        assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
     }
-    assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+    // If use_parent_interval, ref_trav stays empty - we'll use first parent traversal as pseudo-reference
 
     vector<SnarlTraversal> travs;
     FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
@@ -1983,6 +2022,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         cerr << "Warning [vg call]: Unable, due to bug or corrupt graph, to search for any traversals through snarl " << pb2json(managed_snarl) << endl;
         return false;
     }
+#ifdef debug
+    cerr << "  found " << travs.size() << " traversals, use_parent_interval=" << use_parent_interval << endl;
+#endif
 
     // optional traversal length clamp can, ex, avoid trying to resolve a giant snarl    
     if (allele_length_range.first > 0 || allele_length_range.second < numeric_limits<size_t>::max()) {
@@ -2004,17 +2046,39 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
     // find the reference traversal in the list of results from the traversal finder
     int ref_trav_idx = -1;
-    for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
-        // todo: is there a way to speed this up?
-        if (travs[i] == ref_trav) {
-            ref_trav_idx = i;
-        }
-    }
 
-    if (ref_trav_idx == -1) {
-        ref_trav_idx = travs.size();
-        // we didn't get the reference traversal from the finder, so we add it here
-        travs.push_back(ref_trav);
+    if (use_parent_interval) {
+        // No direct reference path - use first traversal or first parent traversal as pseudo-reference
+        // The first parent traversal is typically the "reference" from the parent's perspective
+        if (parent_child_travs != nullptr && !parent_child_travs->empty()) {
+            const SnarlTraversal& first_parent_trav = (*parent_child_travs)[0];
+            for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
+                if (travs[i] == first_parent_trav) {
+                    ref_trav_idx = i;
+                }
+            }
+            if (ref_trav_idx < 0 && first_parent_trav.visit_size() > 0) {
+                ref_trav_idx = travs.size();
+                travs.push_back(first_parent_trav);
+            }
+        }
+        // If still -1, use first traversal from finder (or 0 if none)
+        if (ref_trav_idx < 0) {
+            ref_trav_idx = travs.empty() ? -1 : 0;
+        }
+    } else {
+        for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
+            // todo: is there a way to speed this up?
+            if (travs[i] == ref_trav) {
+                ref_trav_idx = i;
+            }
+        }
+
+        if (ref_trav_idx == -1) {
+            ref_trav_idx = travs.size();
+            // we didn't get the reference traversal from the finder, so we add it here
+            travs.push_back(ref_trav);
+        }
     }
 
     bool ret_val = true;
@@ -2053,7 +2117,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // Emit variant with derived genotype
         bool added = true;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;  // No call info for derived genotypes
-        if (!gaf_output) {
+
+        // Only emit VCF if snarl is on reference path (has ref_offsets entry)
+        // Nested snarls not on reference will still have genotype propagated to children
+        if (use_parent_interval) {
+            // Snarl not on reference path - skip VCF output but continue processing
+            added = true;
+        } else if (!gaf_output) {
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                                  ref_offsets[ref_path_name], genotype_snarls, ploidy);
         } else {

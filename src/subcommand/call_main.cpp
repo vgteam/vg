@@ -72,8 +72,9 @@ void help_call(char** argv) {
          << "  -O, --gbz-translation     use the ID translation from the input GBZ to" << endl
          << "                            apply snarl names to snarl names/AT fields in output" << endl
          << "  -p, --ref-path NAME       reference path to call on (may repeat; default all)" << endl
+         << "  -P, --path-prefix NAME    call on all paths with this prefix (may repeat)" << endl
          << "  -S, --ref-sample NAME     call on all paths with this sample" << endl
-         << "                            (cannot use with -p)" << endl
+         << "                            (cannot use with -p or -P)" << endl
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
@@ -114,6 +115,7 @@ int main_call(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
+    vector<string> ref_path_prefixes;
     string ref_sample;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
@@ -189,6 +191,7 @@ int main_call(int argc, char** argv) {
             {"translation", required_argument, 0, 'N'},
             {"gbz-translation", no_argument, 0, 'O'},
             {"ref-path", required_argument, 0, 'p'},
+            {"path-prefix", required_argument, 0, 'P'},
             {"ref-sample", required_argument, 0, 'S'},            
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
@@ -214,7 +217,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTM:nIL:Yt:h?",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:nIL:Yt:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -279,6 +282,9 @@ int main_call(int argc, char** argv) {
             break;            
         case 'p':
             ref_paths.push_back(optarg);
+            break;
+        case 'P':
+            ref_path_prefixes.push_back(optarg);
             break;
         case 'S':
             ref_sample = optarg;
@@ -426,6 +432,12 @@ int main_call(int argc, char** argv) {
     }
     if (!ref_paths.empty() && !ref_sample.empty()) {
         logger.error() << "-S cannot be used with -p" << endl;
+    }
+    if (!ref_path_prefixes.empty() && !ref_sample.empty()) {
+        logger.error() << "-S cannot be used with -P" << endl;
+    }
+    if (!ref_path_prefixes.empty() && !ref_paths.empty()) {
+        logger.error() << "-P cannot be used with -p" << endl;
     }
 
     // Read the graph
@@ -581,7 +593,27 @@ int main_call(int argc, char** argv) {
             return len;
         }
     };
-    
+
+    // Process path prefixes to find ref paths
+    if (!ref_path_prefixes.empty()) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            // Never include alt paths in reference paths
+            if (Paths::is_alt(path_name)) {
+                return;
+            }
+            for (auto& prefix : ref_path_prefixes) {
+                if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                    ref_paths.push_back(path_name);
+                    break;
+                }
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "No paths found matching prefix(es)" << endl;
+        }
+    }
+
     // No paths specified: use them all
     if (ref_paths.empty()) {
         set<string> ref_sample_names;
