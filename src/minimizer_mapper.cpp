@@ -2206,7 +2206,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         unpaired_scores[r].reserve(unpaired_alignments.size());
     }
 
-
     array<vector<read_alignment_index_t>, 2> supplementaries;
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
@@ -2412,7 +2411,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     paired_alignments.back().at(r).check_for_read_in(r, alignments);
                 }
 #endif
-                
                 fragment_distances.emplace_back(fragment_dist);
                 paired_scores.emplace_back(score);
                 pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
@@ -2453,7 +2451,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
 
         if (find_supplementaries) {
-            supplementaries = std::move(identify_supplementary_alignments(alignments, paired_alignments, paired_scores, pair_types, 
+            supplementaries = std::move(identify_supplementary_alignments(alignments, paired_alignments, paired_scores,
+                                                                          fragment_distances, pair_types, better_cluster_count_by_pairs,
                                                                           unpaired_alignments, attempted_rescue_from, funnels));
         }
     }
@@ -3566,7 +3565,9 @@ array<vector<MinimizerMapper::read_alignment_index_t>, 2>
 MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alignment>, 2>>& alignments,
                                                    vector<std::array<read_alignment_index_t, 2>>& paired_alignments, 
                                                    vector<double>& paired_scores,
+                                                   vector<int64_t>& fragment_distances,
                                                    vector<MinimizerMapper::PairType>& pair_types,
+                                                   vector<size_t>& better_cluster_count_by_pairs,
                                                    const vector<alignment_index_t>& unpaired_alignments,
                                                    const vector<bool>& attempted_rescue_from,
                                                    array<Funnel, 2>& funnels) const {
@@ -3717,7 +3718,9 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
                     // Shift into the front of the vector
                     paired_alignments[i - s] = paired_alignments[i];
                     paired_scores[i - s] = paired_scores[i];
+                    fragment_distances[i - s] = fragment_distances[i];
                     pair_types[i - s] = pair_types[i];
+                    better_cluster_count_by_pairs[i - s] = better_cluster_count_by_pairs[s];
 
                 }
             }
@@ -3743,7 +3746,9 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
 
             paired_alignments.resize(paired_alignments.size() - s);
             paired_scores.resize(paired_alignments.size());
+            fragment_distances.resize(paired_alignments.size());
             pair_types.resize(paired_alignments.size());
+            better_cluster_count_by_pairs.resize(paired_alignments.size());
         }
         else {
             if (show_work) {
