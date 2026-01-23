@@ -2,6 +2,7 @@
 #define VG_SNARL_DISTANCE_HPP_INCLUDED
 
 #include <bdsg/snarl_distance_index.hpp>
+#include <bdsg/ch.hpp> 
 #include "snarls.hpp"
 #include <structures/union_find.hpp>
 #include "hash_map.hpp"

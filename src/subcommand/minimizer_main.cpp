@@ -174,7 +174,7 @@ void construct_minimizer_dispatch(
     ZipCodeCollection oversized_zipcodes;
 
     //Map node id to what gets stored in the payload - either the zipcode or index into oversized_zipcodes
-    hash_map<vg::id_t, PayloadType> node_id_to_payload;
+    vg::hash_map<vg::id_t, PayloadType> node_id_to_payload;
     node_id_to_payload.reserve(gbz->graph.max_node_id() - gbz->graph.min_node_id());
 
     // Build the index.

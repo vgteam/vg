@@ -1,4 +1,4 @@
-//#define debug_distance_indexing
+#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
 //#define debug_subgraph
@@ -790,7 +790,7 @@ Fills in required distance matrix rows for each child
 - size_limit == 0: no distances in index, so no rows
 - Top-level chain distances only: ??? 
 */
-static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, pair<SnarlDistanceIndex::temp_record_t, size_t>& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<pair<SnarlDistanceIndex::temp_record_t, size_t>>& all_children, const HandleGraph* graph, size_t size_limit); 
+static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, pair<SnarlDistanceIndex::temp_record_t, size_t>& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<pair<SnarlDistanceIndex::temp_record_t, size_t>>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
 
 /*
 Does three things:
@@ -1115,9 +1115,6 @@ void populate_snarl_index(
      * Start a dijkstra traversal from each node side in the snarl and record all distances
      */
 
-    if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {
-        temp_index.use_oversized_snarls = true;
-    }
 
     //Add the start and end nodes to the list of children so that we include them in the traversal 
     if (!temp_snarl_record.is_root_snarl) {
@@ -1125,15 +1122,21 @@ void populate_snarl_index(
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.end_node_id);
     }
 
-    if (size_limit == 0) { 
-      temp_snarl_record.include_distances = false;
-    } else if (only_top_level_chain_distances) {
-      temp_snarl_record.include_distances = false; 
-    } else if (temp_index.use_oversized_snarls) {
+    #ifdef debug_distance_indexing 
+      cerr << "is_simple: " << temp_snarl_record.is_simple << endl;
+    #endif 
+
+    if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {           
+      temp_index.use_oversized_snarls = true;
+      temp_snarl_record.is_simple = false;
       populate_hub_labeling(temp_index, snarl_index, temp_snarl_record, all_children, graph);
     } else {
-      populate_distance_matrix_if_needed(temp_index, snarl_index, temp_snarl_record, all_children, graph, size_limit);
-    }
+      if (size_limit == 0 || only_top_level_chain_distances) { 
+        temp_snarl_record.include_distances = false;
+      }
+      //also sets is_simple to false if snarl isn't simple
+      populate_distance_matrix_if_needed(temp_index, snarl_index, temp_snarl_record, all_children, graph, size_limit, only_top_level_chain_distances);
+    } 
 
     //If this is a simple snarl (one with only single nodes that connect to the start and end nodes), then
     // we want to remember if the child nodes are reversed 
@@ -1177,9 +1180,10 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
   vector<vector<HubRecord>> labels_rev; labels_rev.resize(num_vertices(ov)); 
   create_labels(labels, labels_rev, ov);
   //TODO: Put labels in temp_snarl_record
+  temp_snarl_record.hub_labels = pack_labels(labels, labels_rev);
 }
 
-void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, pair<SnarlDistanceIndex::temp_record_t, size_t>& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<pair<SnarlDistanceIndex::temp_record_t, size_t>>& all_children, const HandleGraph* graph, size_t size_limit) {
+void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, pair<SnarlDistanceIndex::temp_record_t, size_t>& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<pair<SnarlDistanceIndex::temp_record_t, size_t>>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances) {
     if (size_limit != 0 && !only_top_level_chain_distances) { 
       //If we are saving distances
       //Reserve enough space to store all possible distances

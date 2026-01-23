@@ -6493,6 +6493,25 @@ namespace vg {
             }
         }
 
+        TEST_CASE( "Tiny oversized snarl", "[snarl_distance]" ) {
+          VG graph;
+          handle_t n1 = graph.create_handle("GCA");
+          handle_t n2 = graph.create_handle("T");
+          handle_t n3 = graph.create_handle("G");
+          handle_t n4 = graph.create_handle("CTGA");  
+
+          graph.create_edge(n1, n2);
+          graph.create_edge(n1, n3);
+          graph.create_edge(n2, n3); 
+          graph.create_edge(n2, n4);  
+          graph.create_edge(n3, n4); 
+          IntegratedSnarlFinder snarl_finder(graph);
+          SnarlDistanceIndex distance_index;
+          fill_in_distance_index(&distance_index, &graph, &snarl_finder, 1); 
+
+          REQUIRE(distance_index.minimum_distance(2, false, 0, 3, false, 0, false, &graph) == 1); 
+        } 
+
         TEST_CASE( "Oversized snarl","[snarl_distance]" ) {
             VG graph;
          

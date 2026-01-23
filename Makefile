@@ -227,8 +227,8 @@ else
     $(info OS is Linux)
     $(info Compiler $(CXX) is assumed to be GCC)
 
-    # Linux can have some old compilers so we want to work back to C++14
-    CXX_STANDARD?=14
+    # C++20 for spaceship operator and ranges
+    CXX_STANDARD?=20
 
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"

@@ -143,7 +143,7 @@ int main_inject(int argc, char** argv) {
         set_crash_context(aln.name());
         if (add_identity) {
             // Calculate & save identity statistic
-            aln.set_identity(identity(aln.path()));
+            aln.set_identity(vg::identity(aln.path()));
         }
         if (rescore) {
             // Rescore the alignment
