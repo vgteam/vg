@@ -334,43 +334,47 @@ rm -f star.gam star.pack star.vcf
 #   y0 (a#1): 1->2->4->5->6           (insertion with SNP A, allele 1 at top, allele 1 at nested)
 #   y1 (a#2): 1->2->3->5->6           (insertion with SNP T, allele 2 at top, allele 0 at nested)
 # Top-level snarl: 1->6, Nested snarl: 2->5
+# NOTE: ref path x bypasses the nested snarl, so we need altpath covers to call nested variants
 # =============================================================================
 
+# Compute altpath cover first (creates x_alt1, x_alt2, etc. covering nodes not on x)
+vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/nested_snp_in_ins.gfa > ni_ap.gfa
+
 # Test 0/0: homozygous reference - reads only from x path (short ref)
-vg sim -x nesting/nested_snp_in_ins.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
-vg pack -x nesting/nested_snp_in_ins.gfa -g ni_00.gam -o ni_00.pack
-vg call nesting/nested_snp_in_ins.gfa -k ni_00.pack -n -p x 2>/dev/null > ni_00.vcf
+vg sim -x ni_ap.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
+vg pack -x ni_ap.gfa -g ni_00.gam -o ni_00.pack
+vg call ni_ap.gfa -k ni_00.pack -n -P x 2>/dev/null > ni_00.vcf
 # 0/0 should produce no non-ref variants (or only ref calls)
 NI_00_NONREF=$(grep -v "^#" ni_00.vcf | grep -v "0/0" | wc -l)
 is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-ref variants"
 
 # Test 0/1: het ref/insertion - reads from x and y1 (a#2 haplotype)
-# Note: nested snarl (2->5) not on ref path, so only top-level variant emitted
-vg sim -x nesting/nested_snp_in_ins.gfa -P x -n 50 -l 4 -a -s 71 > ni_01.gam
-vg sim -x nesting/nested_snp_in_ins.gfa -P "a#2#y1#0" -n 50 -l 4 -a -s 72 >> ni_01.gam
-vg pack -x nesting/nested_snp_in_ins.gfa -g ni_01.gam -o ni_01.pack
-vg call nesting/nested_snp_in_ins.gfa -k ni_01.pack -n -p x 2>/dev/null > ni_01.vcf
-# Only top-level variant (nested snarl not on ref path x, can't emit to VCF)
+# Note: y1 path is 5bp vs x path 2bp, so need ~2x more y1 reads for balanced boundary coverage
+vg sim -x ni_ap.gfa -P x -n 50 -l 2 -a -s 71 > ni_01.gam
+vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 72 >> ni_01.gam
+vg pack -x ni_ap.gfa -g ni_01.gam -o ni_01.pack
+vg call ni_ap.gfa -k ni_01.pack -n -P x 2>/dev/null > ni_01.vcf
+# With altpaths: both top-level and nested variants emitted
 NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l)
-is "$NI_01_COUNT" "1" "nested_snp_in_ins 0/1: het ref/ins produces top-level variant"
+is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and nested variants with altpaths"
 
 # Test 1/1: homozygous insertion - reads only from y1 path
-vg sim -x nesting/nested_snp_in_ins.gfa -P "a#2#y1#0" -n 100 -l 4 -a -s 73 > ni_11.gam
-vg pack -x nesting/nested_snp_in_ins.gfa -g ni_11.gam -o ni_11.pack
-vg call nesting/nested_snp_in_ins.gfa -k ni_11.pack -n -p x 2>/dev/null > ni_11.vcf
-# Only top-level variant (nested snarl not on ref path)
+vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 73 > ni_11.gam
+vg pack -x ni_ap.gfa -g ni_11.gam -o ni_11.pack
+vg call ni_ap.gfa -k ni_11.pack -n -P x 2>/dev/null > ni_11.vcf
+# With altpaths: both top-level and nested variants emitted
 NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l)
-is "$NI_11_COUNT" "1" "nested_snp_in_ins 1/1: homozygous ins produces top-level variant"
+is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level and nested variants with altpaths"
 
 # Test 1/2: het between two insertion alleles - reads from both y0 and y1
-vg sim -x nesting/nested_snp_in_ins.gfa -m a -n 100 -l 4 -a -s 74 > ni_12.gam
-vg pack -x nesting/nested_snp_in_ins.gfa -g ni_12.gam -o ni_12.pack
-vg call nesting/nested_snp_in_ins.gfa -k ni_12.pack -n -p x 2>/dev/null > ni_12.vcf
-# Only top-level variant (nested snarl not on ref path)
+vg sim -x ni_ap.gfa -m a -n 200 -l 2 -a -s 74 > ni_12.gam
+vg pack -x ni_ap.gfa -g ni_12.gam -o ni_12.pack
+vg call ni_ap.gfa -k ni_12.pack -n -P x 2>/dev/null > ni_12.vcf
+# With altpaths: both top-level and nested variants emitted
 NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l)
-is "$NI_12_COUNT" "1" "nested_snp_in_ins 1/2: het ins/ins produces top-level variant"
+is "$NI_12_COUNT" "2" "nested_snp_in_ins 1/2: het ins/ins produces top-level and nested variants with altpaths"
 
-rm -f ni_00.gam ni_00.pack ni_00.vcf ni_01.gam ni_01.pack ni_01.vcf
+rm -f ni_ap.gfa ni_00.gam ni_00.pack ni_00.vcf ni_01.gam ni_01.pack ni_01.vcf
 rm -f ni_11.gam ni_11.pack ni_11.vcf ni_12.gam ni_12.pack ni_12.vcf
 
 # =============================================================================
@@ -381,56 +385,65 @@ rm -f ni_11.gam ni_11.pack ni_11.vcf ni_12.gam ni_12.pack ni_12.vcf
 #   y1 (a#2): 1->2->3->31->311->312->32->33->34->4->5 (different at deepest level)
 #   y2 (a#3): same as y0
 # Top-level snarl: 1->5, with 4 levels of nesting inside
-# Since ref bypasses all nesting, only top-level variant can be emitted
+# NOTE: ref path x bypasses all nesting, so we need altpath covers to call nested variants
 # =============================================================================
 
+# Compute altpath cover first (creates x_alt1, x_alt2, etc. covering nested nodes)
+vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/triple_nested.gfa > tn_ap.gfa
+
 # Test 0/0: homozygous reference - reads only from x path
-vg sim -x nesting/triple_nested.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
-vg pack -x nesting/triple_nested.gfa -g tn_00.gam -o tn_00.pack
-vg call nesting/triple_nested.gfa -k tn_00.pack -n -p x 2>/dev/null > tn_00.vcf
+vg sim -x tn_ap.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
+vg pack -x tn_ap.gfa -g tn_00.gam -o tn_00.pack
+vg call tn_ap.gfa -k tn_00.pack -n -P x 2>/dev/null > tn_00.vcf
 TN_00_NONREF=$(grep -v "^#" tn_00.vcf | grep -v "0/0" | wc -l)
 is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref variants"
 
 # Test 0/1: het ref/insertion - reads from x and y0
-# Need longer reads (10bp) to span the complex nested structure
-vg sim -x nesting/triple_nested.gfa -P x -n 100 -l 10 -a -s 81 > tn_01.gam
-vg sim -x nesting/triple_nested.gfa -P "a#1#y0#0" -n 100 -l 10 -a -s 82 >> tn_01.gam
-vg pack -x nesting/triple_nested.gfa -g tn_01.gam -o tn_01.pack
-vg call nesting/triple_nested.gfa -k tn_01.pack -n -p x 2>/dev/null > tn_01.vcf
-# Only top-level variant (nested snarls not on ref path)
+# Note: y0 path is 11bp vs x path 2bp, so need ~5x more y0 reads for balanced boundary coverage
+vg sim -x tn_ap.gfa -P x -n 50 -l 2 -a -s 81 > tn_01.gam
+vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 82 >> tn_01.gam
+vg pack -x tn_ap.gfa -g tn_01.gam -o tn_01.pack
+vg call tn_ap.gfa -k tn_01.pack -n -P x 2>/dev/null > tn_01.vcf
+# With altpaths: all 5 nesting levels can be emitted
 TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l)
-is "$TN_01_COUNT" "1" "triple_nested 0/1: het ref/ins produces top-level variant"
+is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting level variants with altpaths"
 
 # Test 1/1: homozygous insertion - reads only from y0 path
-vg sim -x nesting/triple_nested.gfa -P "a#1#y0#0" -n 100 -l 10 -a -s 83 > tn_11.gam
-vg pack -x nesting/triple_nested.gfa -g tn_11.gam -o tn_11.pack
-vg call nesting/triple_nested.gfa -k tn_11.pack -n -p x 2>/dev/null > tn_11.vcf
+vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 83 > tn_11.gam
+vg pack -x tn_ap.gfa -g tn_11.gam -o tn_11.pack
+vg call tn_ap.gfa -k tn_11.pack -n -P x 2>/dev/null > tn_11.vcf
+# With altpaths: 2 variants emitted (top-level insertion + deepest SNP)
+# Intermediate snarls are 0/0 because y0 matches x_alt1 reference at those levels
 TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l)
-is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces top-level variant"
+is "$TN_11_COUNT" "2" "triple_nested 1/1: homozygous ins produces top-level and deepest SNP variants"
 
 # Test 1/2: het between insertion alleles - reads from y0 and y1 (differ at deepest SNP)
-vg sim -x nesting/triple_nested.gfa -P "a#1#y0#0" -n 100 -l 10 -a -s 84 > tn_12.gam
-vg sim -x nesting/triple_nested.gfa -P "a#2#y1#0" -n 100 -l 10 -a -s 85 >> tn_12.gam
-vg pack -x nesting/triple_nested.gfa -g tn_12.gam -o tn_12.pack
-vg call nesting/triple_nested.gfa -k tn_12.pack -n -p x 2>/dev/null > tn_12.vcf
+vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 84 > tn_12.gam
+vg sim -x tn_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 85 >> tn_12.gam
+vg pack -x tn_ap.gfa -g tn_12.gam -o tn_12.pack
+vg call tn_ap.gfa -k tn_12.pack -n -P x 2>/dev/null > tn_12.vcf
+# With altpaths: all 5 nesting levels can be emitted
 TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l)
-is "$TN_12_COUNT" "1" "triple_nested 1/2: het ins/ins produces top-level variant"
+is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting level variants with altpaths"
 
-rm -f tn_00.gam tn_00.pack tn_00.vcf tn_01.gam tn_01.pack tn_01.vcf
+rm -f tn_ap.gfa tn_00.gam tn_00.pack tn_00.vcf tn_01.gam tn_01.pack tn_01.vcf
 rm -f tn_11.gam tn_11.pack tn_11.vcf tn_12.gam tn_12.pack tn_12.vcf
 
 # =============================================================================
 # Short reference bypass tests
+# NOTE: ref path x bypasses nested structures, so we need altpath covers to call nested variants
 # =============================================================================
 
 # Test nested_snp_in_nested_ins.gfa - ref bypasses all nested structures
-vg sim -x nesting/nested_snp_in_nested_ins.gfa -m a -n 100 -l 2 -a -s 60 > bypass.gam
-vg pack -x nesting/nested_snp_in_nested_ins.gfa -g bypass.gam -o bypass.pack
-vg call nesting/nested_snp_in_nested_ins.gfa -k bypass.pack -n -p x 2>/dev/null > bypass.vcf
+# Compute altpath cover first (creates x_alt1, etc. covering nested nodes)
+vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/nested_snp_in_nested_ins.gfa > bypass_ap.gfa
+vg sim -x bypass_ap.gfa -m a -n 100 -l 2 -a -s 60 > bypass.gam
+vg pack -x bypass_ap.gfa -g bypass.gam -o bypass.pack
+vg call bypass_ap.gfa -k bypass.pack -n -P x 2>/dev/null > bypass.vcf
 BYPASS_EXIT=$?
-is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph without crashing"
+is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph with altpaths without crashing"
 
-rm -f bypass.gam bypass.pack bypass.vcf
+rm -f bypass_ap.gfa bypass.gam bypass.pack bypass.vcf
 
 
 
