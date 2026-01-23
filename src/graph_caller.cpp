@@ -796,6 +796,34 @@ string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const 
     }
     return ss.str();
 }
+string VCFOutputCaller::print_flipped_snarl(const Snarl& snarl, bool in_brackets) const {
+    // todo, should we canonicalize here by putting lexicographic lowest node first?
+    nid_t start_node_id = snarl.start().node_id();
+    nid_t end_node_id = snarl.end().node_id();
+    string start_node = std::to_string(start_node_id);
+    string end_node = std::to_string(end_node_id);
+    if (translation) {
+        auto i = translation->find(start_node_id);
+        if (i == translation->end()) {
+            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + start_node + " in translation file");
+        }
+        start_node = i->second.first;
+        i = translation->find(end_node_id);
+        if (i == translation->end()) {
+            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + end_node + " in translation file");
+        }
+        end_node = i->second.first;
+    }
+    stringstream ss;
+    if (in_brackets) {
+        ss << "(";
+    }
+    ss << (snarl.end().backward() ? ">" : "<") << end_node << (snarl.start().backward() ? ">" : "<") << start_node;
+    if (in_brackets) {
+        ss << ")";
+    }
+    return ss.str();
+}
 
 void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const {
     int left = -1;
@@ -1040,11 +1068,21 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         string parent_name;
         size_t ancestor_count = 0;
         const Snarl* snarl = name_to_snarl.at(name);
+
         assert(snarl != nullptr);
         // walk up the snarl tree
         while ((snarl = snarl_manager->parent_of(snarl))) {
             string cur_name = print_snarl(*snarl);
-            if (names_in_vcf.count(cur_name)) {
+
+            // Since it is possible that the snarl is actually flipped in the vcf, check for the flipped version too
+            string flipped_name = print_flipped_snarl(*snarl);
+#pragma omp critical (cerr)
+        cerr << "\tancestor snarl " << pb2json(*snarl) << " which is called " << cur_name << endl;
+        cerr << "Check for ancestor in names in vcf" << endl;
+        for (const auto& name : names_in_vcf) {
+            cerr << "\t" << name << endl;
+        }
+            if (names_in_vcf.count(cur_name) || names_in_vcf.count(flipped_name)) {
                 // only count snarls that are in the vcf
                 ++ancestor_count;
                 if (parent_name.empty()) {
@@ -1068,6 +1106,7 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
             
+
             pair<size_t, string> lv_ps = get_lv_ps_tags(name);
             string nesting_tags = ";LV=" + std::to_string(lv_ps.first);
             if (lv_ps.first != 0) {
@@ -1711,6 +1750,7 @@ FlowCaller::~FlowCaller() {
 }
 
 bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
+
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
     // I am experimenting with sending "fake" snarls through this code.  So make a local

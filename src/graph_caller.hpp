@@ -140,6 +140,8 @@ protected:
     string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
     /// legacy version of above
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
+    /// The same as above, but print the snarl as if its orientation has been flipped
+    string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
 
     /// do the opposite of above
     /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
