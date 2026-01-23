@@ -159,7 +159,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
             //Get the node
             SnarlDistanceIndex::temp_record_ref_t node_index = make_pair(SnarlDistanceIndex::TEMP_NODE, node_id);
-            SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = temp_index.get_node(node_ref);
+            SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = temp_index.get_node(node_index);
 
             temp_node_record.reversed_in_parent = false;
 
@@ -200,7 +200,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                         //For each node that this is connected to, check if we've already seen it and if we have, then
                         //union this chain and that node's chain
                         SnarlDistanceIndex::temp_record_ref_t next_index = make_pair(SnarlDistanceIndex::TEMP_NODE, next_id);
-                        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& node_record = temp_index.get_node(next_ref);
+                        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& node_record = temp_index.get_node(next_index);
                         if (node_record.node_id != 0) {
                             //If we've already seen this node, union it with the new one
                             //If we can see it by walking out from this top-level chain, then it must also be a
@@ -284,7 +284,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                         //For each node that this is connected to, check if we've already seen it and if we have, then
                         //union this chain and that node's chain
                         SnarlDistanceIndex::temp_record_ref_t next_index = make_pair(SnarlDistanceIndex::TEMP_NODE, next_id);
-                        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& node_record = temp_index.get_node(next_ref);
+                        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& node_record = temp_index.get_node(next_index);
                         if (node_record.node_id != 0) {
                             //If we've already seen this node, union it with the new one
                             //If we can see it by walking out from this top-level chain, then it must also be a
@@ -415,7 +415,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         //Record the node itself. This gets done for the start of the chain, and ends of snarls
         SnarlDistanceIndex::temp_record_ref_t node_index = make_pair(SnarlDistanceIndex::TEMP_NODE, node_id);
-        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = temp_index.get_node(node_ref);
+        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = temp_index.get_node(node_index);
         temp_node_record.node_id = node_id;
         temp_node_record.node_length = graph->get_length(snarl_end_handle);
         temp_node_record.reversed_in_parent = graph->get_is_reverse(snarl_end_handle);
@@ -488,10 +488,10 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 #endif
     for (int i = temp_index.temp_chain_records.size()-1 ; i >= 0 ; i--) {
         SnarlDistanceIndex::temp_record_ref_t chain_index = make_pair(SnarlDistanceIndex::TEMP_CHAIN, i);
-        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.get_chain(chain_ref);
+        SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.get_chain(chain_index);
 #ifdef debug_distance_indexing
         assert(!temp_chain_record.is_trivial);
-        cerr << "  At "  << (temp_chain_record.is_trivial ? " trivial " : "") << " chain " << temp_index.structure_start_end_as_string(chain_ref) << endl;
+        cerr << "  At "  << (temp_chain_record.is_trivial ? " trivial " : "") << " chain " << temp_index.structure_start_end_as_string(chain_index) << endl;
 #endif
 
         //Add the first values for the prefix sum and backwards loop vectors
@@ -803,8 +803,6 @@ Does three things:
 - Stores labels in temp_snarl_record
 */
 static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph);
-
-static std::variant<
 
 /*Fill in the snarl index.
  * The index will already know its boundaries and everything knows their relationships in the
@@ -1221,7 +1219,7 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
                 has_edges = true;
             });
             if (!has_edges) {
-                temp_index.get_node(node_ref).is_tip = true;
+                temp_index.get_node(node_index).is_tip = true;
                 temp_snarl_record.tippy_child_ranks.insert(rank);
                 temp_snarl_record.is_simple=false; //It is a tip so this isn't simple snarl
             }
@@ -1230,7 +1228,7 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
                 has_edges = true;
             });
             if (!has_edges) {
-                temp_index.temp_index.get_node(node_ref).is_tip = true;
+                temp_index.get_node(node_index).is_tip = true;
                 temp_snarl_record.tippy_child_ranks.insert(rank);
                 temp_snarl_record.is_simple=false; //It is a tip so this isn't simple snarl
             }
@@ -1392,11 +1390,11 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                 //At each of the nodes reachable from the current one, fill in the distance from the start
                 //node to the next node (current_distance). If this handle isn't leaving the snarl,
                 //add the next nodes along with the distance to the end of the next node
-                auto& node_record = temp_index.get_node(next_node_ref);
+                auto& node_record = temp_index.get_node(next_node_index);
 
                 //The index of the snarl's child that next_handle represents
                 SnarlDistanceIndex::temp_record_ref_t next_index = 
-                    get_ancestor_of_node(next_node_ref, snarl_index); 
+                    get_ancestor_of_node(next_node_index, snarl_index); 
 
                 bool next_is_tip = start_index.first == SnarlDistanceIndex::TEMP_NODE 
                           ? temp_index.get_node(start_index).is_tip 
