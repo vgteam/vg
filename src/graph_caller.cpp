@@ -1076,12 +1076,6 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
             // Since it is possible that the snarl is actually flipped in the vcf, check for the flipped version too
             string flipped_name = print_flipped_snarl(*snarl);
-#pragma omp critical (cerr)
-        cerr << "\tancestor snarl " << pb2json(*snarl) << " which is called " << cur_name << endl;
-        cerr << "Check for ancestor in names in vcf" << endl;
-        for (const auto& name : names_in_vcf) {
-            cerr << "\t" << name << endl;
-        }
             if (names_in_vcf.count(cur_name) || names_in_vcf.count(flipped_name)) {
                 // only count snarls that are in the vcf
                 ++ancestor_count;
