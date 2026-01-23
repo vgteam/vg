@@ -103,7 +103,8 @@ ifeq ($(shell uname -s),Darwin)
     LD_UTIL_RPATH_FLAGS=""
 
     # Homebrew installs a Protobuf that uses an Abseil that is built with C++17, so we need to build with at least C++17
-    CXX_STANDARD?=17
+	# C++20 for spaceship operator and ranges
+    CXX_STANDARD?=20
 
     # We may need libraries from Macports
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
