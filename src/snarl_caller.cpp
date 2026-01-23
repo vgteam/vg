@@ -485,6 +485,70 @@ void PoissonSupportSnarlCaller::set_insertion_bias(double insertion_threshold, d
     }
 }
 
+int PoissonSupportSnarlCaller::get_ref_trav_size(const vector<SnarlTraversal>& traversals, int ref_trav_idx) const {
+    int ref_trav_size = 0;
+    if (ref_trav_idx >= 0 && ref_trav_idx < (int)traversals.size()) {
+        const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
+        for (int64_t i = 1; i < (int64_t)ref_trav.visit_size() - 1; ++i) {
+            ref_trav_size += graph.get_length(graph.get_handle(ref_trav.visit(i).node_id()));
+        }
+    }
+    return ref_trav_size;
+}
+
+unique_ptr<PoissonSupportSnarlCaller::PoissonCallInfo> PoissonSupportSnarlCaller::compute_call_info(
+    const vector<int>& selected_genotype,
+    const set<vector<int>>& candidates,
+    const vector<SnarlTraversal>& traversals,
+    const set<int>& trav_subset,
+    const vector<int>& traversal_sizes,
+    const vector<double>& traversal_mapqs,
+    int ref_trav_idx,
+    double exp_depth,
+    double depth_err,
+    int max_trav_size,
+    int ref_trav_size) {
+
+    // Sort the selected genotype for comparison
+    vector<int> sorted_selected = selected_genotype;
+    std::sort(sorted_selected.begin(), sorted_selected.end());
+
+    double selected_likelihood = -numeric_limits<double>::max();
+    double best_other_likelihood = -numeric_limits<double>::max();
+    double total_likelihood = 0;
+
+    for (const auto& candidate : candidates) {
+        double gl = genotype_likelihood(candidate, traversals, trav_subset, traversal_sizes, traversal_mapqs,
+                                        ref_trav_idx, exp_depth, depth_err, max_trav_size, ref_trav_size);
+        if (candidate == sorted_selected) {
+            selected_likelihood = gl;
+        } else if (gl > best_other_likelihood) {
+            best_other_likelihood = gl;
+        }
+        total_likelihood = total_likelihood == 0 ? gl : add_log(total_likelihood, gl);
+    }
+
+    auto call_info = make_unique<PoissonCallInfo>();
+
+    // Compute posterior
+    call_info->posterior = 0;
+    if (!candidates.empty()) {
+        call_info->posterior = selected_likelihood - log(candidates.size()) - total_likelihood;
+    }
+
+    // Compute GQ
+    call_info->gq = 0;
+    if (!isnan(selected_likelihood) && !isnan(best_other_likelihood)) {
+        call_info->gq = logprob_to_phred(best_other_likelihood) - logprob_to_phred(selected_likelihood);
+    }
+
+    call_info->expected_depth = exp_depth;
+    call_info->depth_err = depth_err;
+    call_info->max_trav_size = max_trav_size;
+
+    return call_info;
+}
+
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
                                                                                          const vector<SnarlTraversal>& traversals,
                                                                                          int ref_trav_idx,
@@ -514,13 +578,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     int max_trav_size = -1;
     vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, {}, false, {}, {}, ref_trav_idx, &max_trav_size);
 
-    int ref_trav_size = 0;
-    if (ref_trav_idx >= 0) {
-        const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
-        for (int64_t i = 1; i < (int64_t)ref_trav.visit_size() - 1; ++i) {
-            ref_trav_size += graph.get_length(graph.get_handle(ref_trav.visit(i).node_id()));
-        }
-    }
+    int ref_trav_size = get_ref_trav_size(traversals, ref_trav_idx);
 
     // sort the traversals by support
     vector<int> ranked_traversals = rank_by_support(supports);
@@ -596,49 +654,148 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
     double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
-    // genotype (log) likelihoods
-    double best_genotype_likelihood = -numeric_limits<double>::max();
-    double second_best_genotype_likelihood = -numeric_limits<double>::max();
-    double total_likelihood = 0;
+    // Find the best genotype by comparing likelihoods
     vector<int> best_genotype;
+    double best_genotype_likelihood = -numeric_limits<double>::max();
     for (const auto& candidate : candidates) {
         double gl = genotype_likelihood(candidate, traversals, top_traversals, traversal_sizes, traversal_mapqs,
                                         ref_trav_idx, exp_depth, depth_err, max_trav_size, ref_trav_size);
         if (gl > best_genotype_likelihood) {
-            second_best_genotype_likelihood = best_genotype_likelihood;
             best_genotype_likelihood = gl;
             best_genotype = candidate;
-        } else if (gl > second_best_genotype_likelihood) {
-            assert(gl <= best_genotype_likelihood);
-            second_best_genotype_likelihood = gl;
         }
-        total_likelihood = total_likelihood == 0 ? gl : add_log(total_likelihood, gl);
     }
 
-    PoissonCallInfo* call_info = new PoissonCallInfo();
-
-    call_info->posterior = 0;
-    if (!candidates.empty()) {
-        // compute the posterior from our likelihoods using a uniform prior
-        call_info->posterior = best_genotype_likelihood - log(candidates.size()) - total_likelihood;  
-    }
-    
-    // GQ computed as here https://gatk.broadinstitute.org/hc/en-us/articles/360035890451?id=11075
-    // as difference between best and second best likelihoods
-    call_info->gq = 0;
-    if (!isnan(best_genotype_likelihood) && !isnan(second_best_genotype_likelihood)) {
-        call_info->gq = logprob_to_phred(second_best_genotype_likelihood) - logprob_to_phred(best_genotype_likelihood);
-    }
-
-    call_info->expected_depth = exp_depth;
-    call_info->depth_err = depth_err;
-    call_info->max_trav_size = max_trav_size;
-    
+    // Use helper to compute CallInfo (GQ, posterior, etc.)
+    unique_ptr<PoissonCallInfo> call_info = compute_call_info(
+        best_genotype, candidates, traversals, top_traversals,
+        traversal_sizes, traversal_mapqs, ref_trav_idx,
+        exp_depth, depth_err, max_trav_size, ref_trav_size);
 
 #ifdef debug
     cerr << " best genotype: "; for (auto a : best_genotype) {cerr << a <<",";} cerr << " gl=" << best_genotype_likelihood << endl;
 #endif
-    return make_pair(best_genotype, unique_ptr<SnarlCaller::CallInfo>(call_info));
+    return make_pair(best_genotype, unique_ptr<SnarlCaller::CallInfo>(call_info.release()));
+}
+
+unique_ptr<SnarlCaller::CallInfo> PoissonSupportSnarlCaller::compute_quality_for_genotype(
+    const Snarl& snarl,
+    const vector<SnarlTraversal>& traversals,
+    const vector<int>& genotype,
+    int ref_trav_idx,
+    const string& ref_path_name,
+    pair<size_t, size_t> ref_range) {
+
+    if (genotype.empty() || traversals.empty()) {
+        return nullptr;
+    }
+
+#ifdef debug
+    cerr << "Computing quality for genotype: {";
+    for (int g : genotype) { cerr << g << ","; }
+    cerr << "} on path " << ref_path_name << ":" << ref_range.first << "-" << ref_range.second << endl;
+#endif
+
+    // Get traversal sizes
+    vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
+
+    // Get mapqs
+    vector<double> traversal_mapqs;
+    if (use_mapq) {
+        traversal_mapqs = support_finder.get_traversal_mapqs(traversals);
+    }
+
+    // Get supports and max_trav_size
+    int max_trav_size = -1;
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, {}, false, {}, {}, ref_trav_idx, &max_trav_size);
+
+    // Get ref traversal size
+    int ref_trav_size = get_ref_trav_size(traversals, ref_trav_idx);
+
+    // Get expected depth from coverage index
+    double exp_depth = 0;
+    double depth_err = 0;
+    try {
+        auto depth_info = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
+        exp_depth = depth_info.first;
+        depth_err = !isnan(depth_info.second) ? depth_info.second : 0.;
+    } catch (const std::out_of_range&) {
+        // Path not in depth index - use support sum as fallback
+        Support total_support;
+        for (const auto& s : supports) {
+            total_support += s;
+        }
+        exp_depth = support_val(total_support) / genotype.size();
+    }
+
+    if (isnan(exp_depth) || exp_depth <= 0) {
+        // Can't compute meaningful quality without expected depth
+        return nullptr;
+    }
+
+    int ploidy = genotype.size();
+
+    // Build candidate genotypes for comparison
+    set<vector<int>> candidates;
+    set<int> genotype_alleles(genotype.begin(), genotype.end());
+
+    // 1. The given genotype
+    vector<int> sorted_genotype = genotype;
+    std::sort(sorted_genotype.begin(), sorted_genotype.end());
+    candidates.insert(sorted_genotype);
+
+    // 2. Reference genotype (0/0 or 0)
+    if (ploidy == 2) {
+        candidates.insert({0, 0});
+    } else {
+        candidates.insert({0});
+    }
+
+    // 3. Homozygous alternatives for alleles in genotype
+    for (int allele : genotype_alleles) {
+        if (ploidy == 2) {
+            candidates.insert({allele, allele});
+        } else {
+            candidates.insert({allele});
+        }
+    }
+
+    // 4. Het combinations with reference (for ploidy 2)
+    if (ploidy == 2) {
+        for (int allele : genotype_alleles) {
+            if (allele != 0) {
+                candidates.insert({0, allele});
+            }
+        }
+    }
+
+    // 5. Add some top-supported alternatives if not already included
+    vector<int> ranked = rank_by_support(supports);
+    size_t max_extra = std::min((size_t)5, ranked.size());
+    for (size_t i = 0; i < max_extra; ++i) {
+        int alt = ranked[i];
+        if (ploidy == 2) {
+            candidates.insert({alt, alt});
+            if (alt != 0) {
+                candidates.insert({0, alt});
+            }
+        } else {
+            candidates.insert({alt});
+        }
+    }
+
+    // Use helper to compute CallInfo (GQ, posterior, etc.)
+    unique_ptr<PoissonCallInfo> call_info = compute_call_info(
+        genotype, candidates, traversals, {},
+        traversal_sizes, traversal_mapqs, ref_trav_idx,
+        exp_depth, depth_err, max_trav_size, ref_trav_size);
+
+#ifdef debug
+    cerr << " computed gq=" << call_info->gq << " posterior=" << call_info->posterior
+         << " exp_depth=" << exp_depth << endl;
+#endif
+
+    return call_info;
 }
 
 double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotype,

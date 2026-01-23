@@ -2116,7 +2116,24 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
         // Emit variant with derived genotype
         bool added = true;
-        unique_ptr<SnarlCaller::CallInfo> trav_call_info;  // No call info for derived genotypes
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+
+        // Compute quality metrics for derived genotype
+        PoissonSupportSnarlCaller* poisson_caller = dynamic_cast<PoissonSupportSnarlCaller*>(&snarl_caller);
+        if (poisson_caller != nullptr && !trav_genotype.empty()) {
+            // Filter out special markers (STAR_ALLELE_MARKER, MISSING_ALLELE_MARKER)
+            vector<int> valid_genotype;
+            for (int g : trav_genotype) {
+                if (g >= 0 && g < (int)travs.size()) {
+                    valid_genotype.push_back(g);
+                }
+            }
+            if (!valid_genotype.empty()) {
+                trav_call_info = poisson_caller->compute_quality_for_genotype(
+                    snarl, travs, valid_genotype, ref_trav_idx,
+                    ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+            }
+        }
 
         // Only emit VCF if snarl is on reference path (has ref_offsets entry)
         // Nested snarls not on reference will still have genotype propagated to children

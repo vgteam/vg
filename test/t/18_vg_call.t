@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 41
+plan tests 60
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -322,10 +322,96 @@ vg call nesting/nested_snp_in_del.gfa -k star.pack -n -Y -p x 2>/dev/null > star
 STAR_IN_ALT=$(grep ">2>5" star.vcf | cut -f5 | grep -c "\*")
 is "$STAR_IN_ALT" "1" "star allele: -Y flag produces * in ALT for spanning deletion"
 # Verify the genotype doesn't have . when -Y is used (it uses indexed * instead)
-NO_MISSING_GT=$(grep ">2>5" star.vcf | cut -f10 | grep -v "\." | wc -l)
+# Extract just the GT field (first colon-separated field in SAMPLE column)
+NO_MISSING_GT=$(grep ">2>5" star.vcf | cut -f10 | cut -d: -f1 | grep -v "\." | wc -l)
 is "$NO_MISSING_GT" "1" "star allele: genotype uses indexed * instead of . with -Y"
 
 rm -f star.gam star.pack star.vcf
+
+# =============================================================================
+# Nested quality metrics tests
+# Verify QUAL, GQ, GL are computed for nested variant calls
+# =============================================================================
+
+# Test: nested calls should have non-zero QUAL
+vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 50 > nq.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g nq.gam -o nq.pack
+vg call nesting/nested_snp_in_del.gfa -k nq.pack -n -p x 2>/dev/null > nq.vcf
+
+# Check that nested snarl (>2>5) has non-zero QUAL
+NQ_QUAL=$(grep ">2>5" nq.vcf | cut -f6)
+NQ_HAS_QUAL=$(if [ "$NQ_QUAL" != "0" ] && [ "$NQ_QUAL" != "." ]; then echo "1"; else echo "0"; fi)
+is "$NQ_HAS_QUAL" "1" "nested call has non-zero QUAL"
+
+# Check that nested snarl has GQ in FORMAT
+NQ_FORMAT=$(grep ">2>5" nq.vcf | cut -f9)
+NQ_HAS_GQ=$(echo "$NQ_FORMAT" | grep -c "GQ")
+is "$NQ_HAS_GQ" "1" "nested call has GQ field"
+
+# Check that top-level snarl also has quality (unaffected)
+TL_QUAL=$(grep ">1>6" nq.vcf | cut -f6)
+TL_HAS_QUAL=$(if [ "$TL_QUAL" != "0" ] && [ "$TL_QUAL" != "." ]; then echo "1"; else echo "0"; fi)
+is "$TL_HAS_QUAL" "1" "top-level call still has non-zero QUAL"
+
+rm -f nq.gam nq.pack nq.vcf
+
+# Test: triple nested with altpaths should all have quality
+vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/triple_nested.gfa > tnq_ap.gfa 2>/dev/null
+vg sim -x tnq_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 51 > tnq.gam
+vg sim -x tnq_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 52 >> tnq.gam
+vg pack -x tnq_ap.gfa -g tnq.gam -o tnq.pack
+vg call tnq_ap.gfa -k tnq.pack -n -P x 2>/dev/null > tnq.vcf
+
+# All variant lines should have non-zero QUAL
+TNQ_ZERO_QUAL=$(grep -v "^#" tnq.vcf | awk -F'\t' '$6 == "0" || $6 == "."' | wc -l)
+is "$TNQ_ZERO_QUAL" "0" "triple nested calls all have non-zero QUAL"
+
+# All variant lines should have GQ in FORMAT
+TNQ_ALL_GQ=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GQ" | wc -l)
+is "$TNQ_ALL_GQ" "0" "triple nested calls all have GQ field"
+
+# All variant lines should have GL (Genotype Likelihood) in FORMAT
+TNQ_ALL_GL=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GL" | wc -l)
+is "$TNQ_ALL_GL" "0" "triple nested calls all have GL field"
+
+# All variant lines should have GP (Genotype Posterior) in FORMAT
+TNQ_ALL_GP=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GP" | wc -l)
+is "$TNQ_ALL_GP" "0" "triple nested calls all have GP field"
+
+# All variant lines should have XD (Expected Depth) in FORMAT
+TNQ_ALL_XD=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "XD" | wc -l)
+is "$TNQ_ALL_XD" "0" "triple nested calls all have XD field"
+
+# All variant lines should have AD (Allelic Depth) in FORMAT
+TNQ_ALL_AD=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "AD" | wc -l)
+is "$TNQ_ALL_AD" "0" "triple nested calls all have AD field"
+
+# GQ values should be in valid range (0-256, integers)
+TNQ_INVALID_GQ=$(grep -v "^#" tnq.vcf | awk -F'\t' '{
+    split($9, fmt, ":");
+    split($10, val, ":");
+    for (i=1; i<=length(fmt); i++) {
+        if (fmt[i] == "GQ") {
+            gq = val[i];
+            if (gq !~ /^[0-9]+$/ || gq < 0 || gq > 256) print "invalid";
+        }
+    }
+}' | wc -l)
+is "$TNQ_INVALID_GQ" "0" "triple nested calls have valid GQ values (0-256)"
+
+# All variant lines should have LV (nesting level) in INFO
+TNQ_ALL_LV=$(grep -v "^#" tnq.vcf | cut -f8 | grep -v "LV=" | wc -l)
+is "$TNQ_ALL_LV" "0" "triple nested calls all have LV tag"
+
+# Nested variants (LV > 0) should have PS (parent snarl) in INFO
+TNQ_NESTED_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 !~ /PS=/' | wc -l)
+is "$TNQ_NESTED_NO_PS" "0" "nested calls (LV>0) all have PS tag"
+
+# Top-level variants (LV=0) should NOT have PS tag
+TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /PS=/' | wc -l)
+is "$TNQ_TOPLEVEL_HAS_PS" "0" "top-level calls (LV=0) do not have PS tag"
+
+rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
 
 # =============================================================================
 # nested_snp_in_ins.gfa tests
@@ -445,5 +531,60 @@ is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref neste
 
 rm -f bypass_ap.gfa bypass.gam bypass.pack bypass.vcf
 
+# =============================================================================
+# -n -a interaction tests
+# Verify nested calling with reference output (-a) works correctly
+# =============================================================================
+
+# Test 1: nested_snp_in_del 0/0 with -n -a
+# When ref traverses nested snarl, both levels should get 0/0
+vg sim -x nesting/nested_snp_in_del.gfa -P x -n 100 -l 2 -a -s 200 > na_del.gam
+vg pack -x nesting/nested_snp_in_del.gfa -g na_del.gam -o na_del.pack
+vg call nesting/nested_snp_in_del.gfa -k na_del.pack -n -a -p x 2>/dev/null > na_del.vcf
+
+# Count variant lines (should be 2: top-level + nested)
+NA_DEL_COUNT=$(grep -v "^#" na_del.vcf | wc -l)
+is "$NA_DEL_COUNT" "2" "-n -a: nested_snp_in_del 0/0 emits both snarls"
+
+# Verify top-level is 0/0 (use awk to match ID column exactly)
+NA_DEL_TOP_GT=$(awk -F'\t' '$3 == ">1>6" {print $10}' na_del.vcf | cut -d: -f1)
+is "$NA_DEL_TOP_GT" "0/0" "-n -a: nested_snp_in_del top-level is 0/0"
+
+# Verify nested is 0/0 (use awk to match ID column exactly)
+NA_DEL_NEST_GT=$(awk -F'\t' '$3 == ">2>5" {print $10}' na_del.vcf | cut -d: -f1)
+is "$NA_DEL_NEST_GT" "0/0" "-n -a: nested_snp_in_del nested is 0/0"
+
+rm -f na_del.gam na_del.pack na_del.vcf
+
+# Test 2: nested_snp_in_ins 0/0 with -n -a (with altpaths)
+# When ref bypasses nested snarl and both alleles are ref, nested NOT emitted
+vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/nested_snp_in_ins.gfa > na_ins_ap.gfa 2>/dev/null
+vg sim -x na_ins_ap.gfa -P x -n 100 -l 2 -a -s 200 > na_ins_00.gam
+vg pack -x na_ins_ap.gfa -g na_ins_00.gam -o na_ins_00.pack
+vg call na_ins_ap.gfa -k na_ins_00.pack -n -a -P x 2>/dev/null > na_ins_00.vcf
+
+# Count variant lines (should be 1: only top-level, nested not emitted)
+NA_INS_00_COUNT=$(grep -v "^#" na_ins_00.vcf | wc -l)
+is "$NA_INS_00_COUNT" "1" "-n -a: nested_snp_in_ins 0/0 emits only top-level (ref spans nested)"
+
+rm -f na_ins_00.gam na_ins_00.pack na_ins_00.vcf
+
+# Test 3: nested_snp_in_ins 0/1 with -n -a (with altpaths)
+# When ref bypasses nested but alt traverses, nested should have ./X genotype
+vg sim -x na_ins_ap.gfa -P x -n 50 -l 2 -a -s 200 > na_ins_01.gam
+vg sim -x na_ins_ap.gfa -P "a#1#y0#0" -n 100 -l 2 -a -s 201 >> na_ins_01.gam
+vg pack -x na_ins_ap.gfa -g na_ins_01.gam -o na_ins_01.pack
+vg call na_ins_ap.gfa -k na_ins_01.pack -n -a -P x 2>/dev/null > na_ins_01.vcf
+
+# Count variant lines (should be 2: top-level + nested)
+NA_INS_01_COUNT=$(grep -v "^#" na_ins_01.vcf | wc -l)
+is "$NA_INS_01_COUNT" "2" "-n -a: nested_snp_in_ins 0/1 emits both snarls"
+
+# Verify nested has missing allele marker (.)
+NA_INS_01_NEST_GT=$(grep ">2>5" na_ins_01.vcf | cut -f10 | cut -d: -f1)
+NA_INS_01_HAS_MISSING=$(echo "$NA_INS_01_NEST_GT" | grep -c "\.")
+is "$NA_INS_01_HAS_MISSING" "1" "-n -a: nested_snp_in_ins 0/1 nested has missing allele (.)"
+
+rm -f na_ins_ap.gfa na_ins_01.gam na_ins_01.pack na_ins_01.vcf
 
 
