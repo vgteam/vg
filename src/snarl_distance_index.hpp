@@ -37,7 +37,7 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
 
 /// Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
-    pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, bool only_top_level_chain_distances, const HandleGraph* graph) ;
+    SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const HandleGraph* graph) ;
 
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, 
                                                                          size_t size_limit, bool only_top_level_chain_distances);
