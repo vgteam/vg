@@ -798,31 +798,12 @@ string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const 
 }
 string VCFOutputCaller::print_flipped_snarl(const Snarl& snarl, bool in_brackets) const {
     // todo, should we canonicalize here by putting lexicographic lowest node first?
-    nid_t start_node_id = snarl.start().node_id();
-    nid_t end_node_id = snarl.end().node_id();
-    string start_node = std::to_string(start_node_id);
-    string end_node = std::to_string(end_node_id);
-    if (translation) {
-        auto i = translation->find(start_node_id);
-        if (i == translation->end()) {
-            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + start_node + " in translation file");
-        }
-        start_node = i->second.first;
-        i = translation->find(end_node_id);
-        if (i == translation->end()) {
-            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + end_node + " in translation file");
-        }
-        end_node = i->second.first;
-    }
-    stringstream ss;
-    if (in_brackets) {
-        ss << "(";
-    }
-    ss << (snarl.end().backward() ? ">" : "<") << end_node << (snarl.start().backward() ? ">" : "<") << start_node;
-    if (in_brackets) {
-        ss << ")";
-    }
-    return ss.str();
+    Snarl flipped_snarl;
+    flipped_snarl.mutable_start()->set_node_id(snarl.end().node_id());
+    flipped_snarl.mutable_start()->set_backward(!snarl.end().backward());
+    flipped_snarl.mutable_end()->set_node_id(snarl.start().node_id());
+    flipped_snarl.mutable_end()->set_backward(!snarl.start().backward());
+    return print_snarl(flipped_snarl, in_brackets);
 }
 
 void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const {
