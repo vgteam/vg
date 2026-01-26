@@ -442,6 +442,8 @@ struct ZipCode::node_code_t {
     size_t chain_component : 32;
     size_t length : 31;
     bool is_reversed;
+    bool has_forward_loop;
+    bool has_reverse_loop;
 
     public:
 
@@ -450,24 +452,32 @@ struct ZipCode::node_code_t {
     size_t get_raw_chain_component() {return chain_component;}
     size_t get_raw_length() {return length;}
     bool get_raw_is_reversed() {return is_reversed;}
+    bool get_raw_has_forward_loop() {return has_forward_loop;}
+    bool get_raw_has_reverse_loop() {return has_reverse_loop;}
 
     ///// Raw setters
     void set_raw_prefix_sum_or_identifier(size_t val) {prefix_sum_or_identifier = val;}
     void set_raw_chain_component(size_t val) {chain_component = val;}
     void set_raw_length(size_t val) {length = val;}
     void set_raw_is_reversed(bool val) {is_reversed = val;}
+    void set_raw_has_forward_loop(bool val) {has_forward_loop = val;}
+    void set_raw_has_reverse_loop(bool val) {has_reverse_loop = val;}
 
     //// Real value setters
     size_t get_prefix_sum_or_identifier() {return prefix_sum_or_identifier == 0 ? numeric_limits<size_t>::max() : prefix_sum_or_identifier-1;}
     size_t get_chain_component() {return chain_component;}
     size_t get_length() {return length-1;}
     bool get_is_reversed() {return is_reversed;}
+    bool get_has_forward_loop() {return has_forward_loop;}
+    bool get_has_reverse_loop() {return has_reverse_loop;}
 
     ////Real value getters
     void set_prefix_sum_or_identifier(size_t val) {prefix_sum_or_identifier = val == std::numeric_limits<size_t>::max() ? 0 : val+1;}
     void set_chain_component(size_t val) {chain_component = val == std::numeric_limits<size_t>::max() ? 0 : val;}
     void set_length(size_t val) {length = val+1;}
     void set_is_reversed(bool val) {is_reversed = val;}
+    void set_has_forward_loop(bool val) {has_forward_loop = val;}
+    void set_has_reverse_loop(bool val) {has_reverse_loop = val;}
 }; 
 
 /**
@@ -557,6 +567,8 @@ struct ZipCode::snarl_code_t {
         size_t code_type : 4;
 
         bool is_reversed;
+        bool has_forward_loop;
+        bool has_reverse_loop;
 
     public:
         //We use getters and setters to deal with things that are max() but stored as 0
@@ -573,6 +585,8 @@ struct ZipCode::snarl_code_t {
         size_t get_raw_chain_component() {return chain_component;}
         size_t get_raw_code_type() {return code_type;}
         bool get_raw_is_reversed() {return is_reversed;}
+        bool get_raw_has_forward_loop() {return has_forward_loop;}
+        bool get_raw_has_reverse_loop() {return has_reverse_loop;}
 
         void set_raw_length(size_t val) {length = val;}
         void set_raw_prefix_sum_or_identifier (size_t val) {prefix_sum_or_identifier = val;}
@@ -585,8 +599,8 @@ struct ZipCode::snarl_code_t {
         void set_raw_chain_component(size_t val) {chain_component = val;}
         void set_raw_code_type(size_t val) {code_type = val;}
         void set_raw_is_reversed(bool val) {is_reversed = val;}
-
-
+        void set_raw_has_forward_loop(bool val) {has_forward_loop = val;}
+        void set_raw_has_reverse_loop(bool val) {has_reverse_loop = val;}
 
         //// Getters
         size_t get_length() {
@@ -620,6 +634,8 @@ struct ZipCode::snarl_code_t {
         size_t get_code_type() {return code_type;}
 
         bool get_is_reversed() {return is_reversed;}
+        bool get_has_forward_loop() {return has_forward_loop;}
+        bool get_has_reverse_loop() {return has_reverse_loop;}
 
         //////// Setters
         void set_length(size_t val) {
@@ -662,6 +678,13 @@ struct ZipCode::snarl_code_t {
             is_reversed = val;
         }
 
+        void set_has_forward_loop(bool val) {
+            has_forward_loop = val;
+        }
+        
+        void set_has_reverse_loop(bool val) {
+            has_reverse_loop = val;
+        }
 };
 
 

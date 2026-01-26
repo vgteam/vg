@@ -104,7 +104,9 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
             node_code_t node_code = get_node_code(current_ancestor, distance_index);
             zipcode.add_value(node_code.get_raw_prefix_sum_or_identifier());
             zipcode.add_value(node_code.get_raw_length());
-            zipcode.add_value(node_code.get_raw_is_reversed());
+            zipcode.add_value(node_code.get_raw_is_reversed()
+                              + (node_code.get_raw_has_forward_loop() << 1)
+                              + (node_code.get_raw_has_reverse_loop() << 2));
             zipcode.add_value(node_code.get_raw_chain_component());
 
         } else if (distance_index.is_chain(current_ancestor)) {
@@ -112,9 +114,6 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
             zipcode.add_value(chain_code.get_raw_snarl_rank_or_identifier());
             zipcode.add_value(chain_code.get_raw_length());
             zipcode.add_value(chain_code.get_raw_last_component());
-#ifdef DEBUG_ZIPCODE
-                assert(zipcode.data.size() == ZipCode::CHAIN_SIZE);
-#endif
             if (distance_index.is_trivial_chain(current_ancestor)) {
                 if (fill_in_decoder) {
                     fill_in_full_decoder();
@@ -123,7 +122,9 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
             }
         } else if (distance_index.is_regular_snarl(current_ancestor, false, graph_ptr)) {
             snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
-            zipcode.add_value(snarl_code.get_raw_code_type());
+            zipcode.add_value(snarl_code.get_raw_code_type()
+                              + (snarl_code.get_raw_has_forward_loop() << 1)
+                              + (snarl_code.get_raw_has_reverse_loop() << 2));
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
             zipcode.add_value(snarl_code.get_raw_length());
             zipcode.add_value(snarl_code.get_raw_child_count());
@@ -134,7 +135,9 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
             assert(distance_index.is_snarl(current_ancestor));
 #endif
             snarl_code_t snarl_code = get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
-            zipcode.add_value(snarl_code.get_raw_code_type());
+            zipcode.add_value(snarl_code.get_raw_code_type()
+                              + (snarl_code.get_raw_has_forward_loop() << 1)
+                              + (snarl_code.get_raw_has_reverse_loop() << 2));
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
             zipcode.add_value(snarl_code.get_raw_length());
             zipcode.add_value(snarl_code.get_raw_child_count());
@@ -1039,6 +1042,8 @@ ZipCode::node_code_t ZipCode::get_node_code(const net_handle_t& node, const Snar
     node_code.set_length(distance_index.minimum_length(node));
 
     node_code.set_is_reversed(distance_index.is_reversed_in_parent(node));
+    node_code.set_has_forward_loop(distance_index.get_forward_loop_value(node) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    node_code.set_has_reverse_loop(distance_index.get_reverse_loop_value(node) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
     node_code.set_chain_component(distance_index.get_chain_component(node));
 
     return node_code;
@@ -1068,6 +1073,8 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
 
     //Tag to say that it's a regular snarl
     snarl_code.set_code_type(1);
+    //snarl_code.set_has_forward_loop(distance_index.get_forward_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    //snarl_code.set_has_reverse_loop(distance_index.get_reverse_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
 
     //The number of children
     size_t child_count = 0;
@@ -1103,6 +1110,8 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
 
     //Tag to say that it's an irregular snarl
     snarl_code.set_code_type(distance_index.is_dag(snarl) ? 0 : 2);
+    //snarl_code.set_has_forward_loop(distance_index.get_forward_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    //snarl_code.set_has_reverse_loop(distance_index.get_reverse_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
 
     //The number of children
     size_t child_count = 0;
@@ -1152,7 +1161,9 @@ ZipCode::node_code_t ZipCode::unpack_node_code(size_t zipcode_level) const {
 
         //Is reversed
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
-        node_code.set_raw_is_reversed(zip_value);
+        node_code.set_raw_is_reversed(bit_is_set(zip_value, 0));
+        node_code.set_raw_has_forward_loop(bit_is_set(zip_value, 1));
+        node_code.set_raw_has_reverse_loop(bit_is_set(zip_value, 2));
         //Chain component
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         node_code.set_raw_chain_component(zip_value);
@@ -1253,7 +1264,11 @@ ZipCode::snarl_code_t ZipCode::unpack_snarl_code(size_t zipcode_level) const {
 
         //Snarl is regular
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
-        snarl_code.set_raw_code_type(zip_value);
+        // First two bits indicate the snarl type
+        snarl_code.set_raw_code_type(zip_value & 3);
+        // Next two bits indicate loopability
+        snarl_code.set_raw_has_forward_loop(bit_is_set(zip_value, 2));
+        snarl_code.set_raw_has_reverse_loop(bit_is_set(zip_value, 3));
 
         //Offset in chain
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
