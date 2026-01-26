@@ -113,7 +113,7 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
             zipcode.add_value(chain_code.get_raw_length());
             zipcode.add_value(chain_code.get_raw_last_component());
 #ifdef DEBUG_ZIPCODE
-                assert(to_add.size() == ZipCode::CHAIN_SIZE);
+                assert(zipcode.data.size() == ZipCode::CHAIN_SIZE);
 #endif
             if (distance_index.is_trivial_chain(current_ancestor)) {
                 if (fill_in_decoder) {
@@ -1315,11 +1315,11 @@ size_t ZipCode::minimum_distance_between(ZipCode& zip1, const pos_t& pos1,
 #ifdef DEBUG_ZIPCODE
 //Make sure that the zip codes actually correspond to the positions
     ZipCode check_zip1;
-    check_zip1.fill_in_zipcode(distance_index, pos1);
+    check_zip1.fill_in_zipcode_from_pos(distance_index, pos1);
     assert(zip1 == check_zip1);
 
     ZipCode check_zip2;
-    check_zip2.fill_in_zipcode(distance_index, pos2);
+    check_zip2.fill_in_zipcode_from_pos(distance_index, pos2);
     assert(zip2 == check_zip2);
 
     cerr << endl << "Minimum distance between " << pos1 << " and " << pos2 << " using zipcodes" << endl;
