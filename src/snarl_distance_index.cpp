@@ -1183,8 +1183,16 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
   vector<vector<HubRecord>> labels; labels.resize(num_vertices(ov));
   vector<vector<HubRecord>> labels_rev; labels_rev.resize(num_vertices(ov)); 
   create_labels(labels, labels_rev, ov);
-  //TODO: Put labels in temp_snarl_record
+  // Put labels in temp_snarl_record
   temp_snarl_record.hub_labels = pack_labels(labels, labels_rev);
+  std::cerr << "Hub labels as packed: "
+  for (size_t i = 0; i < temp_snarl_record.hub_labels.size(); i++) {
+    if (i > 0) {
+        std::cerr << " | ";
+    }
+    std::cerr << temp_snarl_record.hub_labels[i];
+  }
+  std::cerr << std::endl;
 }
 
 void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances) {
