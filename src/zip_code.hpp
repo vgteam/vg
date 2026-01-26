@@ -197,9 +197,12 @@ class ZipCode {
 
         //Both regular and irregular snarls have these
 
-        // This will be 0 for irregular snarls, 1 for regular, and 2 for non-dag irregular snarls
-        // cyclic snarls will be identical to irregular snarls except for SNARL_IS_REGULAR
-        const static size_t SNARL_IS_REGULAR_OFFSET = 0; 
+        // Ones bit: 0 for irregular snarls, 1 for regular
+        // Twos bit: 0 for non-cyclic snarls, 1 for cyclic snarls
+        // cyclic snarls are identical to irregular snarls except for this bit
+        // Fours bit: 1 for a forward loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        // Eights bit: 1 for a reverse loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        const static size_t SNARL_METADATA_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
         const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
@@ -222,9 +225,17 @@ class ZipCode {
         const static size_t NODE_SIZE = 4;
         const static size_t NODE_OFFSET_OFFSET = 0;
         const static size_t NODE_LENGTH_OFFSET = 1;
-        const static size_t NODE_IS_REVERSED_OFFSET = 2;
+        // Ones bit is 0 for normal, 1 for reversed
+        // Twos bit is 1 for a forward loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        // Fours bit is 1 for a reverse loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        const static size_t NODE_METADATA_OFFSET = 2;
         const static size_t NODE_CHAIN_COMPONENT_OFFSET = 3;
 
+        /// Check for a particular bit being set
+        /// Used for the bitpacked SNARL/NODE_METADATA_OFFSET values
+        inline bool bit_is_set(size_t value, size_t bit_position) const {
+            return (value & (1 << bit_position)) != 0;
+        }
 
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
@@ -241,6 +252,10 @@ class ZipCode {
         inline snarl_code_t get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
 
     public:
+
+        /// Minimum distance for flipping a flag that indicates a node/snarl
+        /// loops back on itself (SNARL_METADATA_OFFSET, NODE_METADATA_OFFSET)
+        const static size_t LOOP_DISTANCE_STORAGE_THRESHOLD = 20000;
 
         /* Functions to get the values out of the zipcode for one code
            The decoded code might not have all the values set*/
