@@ -934,7 +934,7 @@ bool ZipCode::is_externally_start_end_connected (const size_t& depth) const {
     for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
     }
-    return (zip_value & 1) != 0;
+    return bit_is_set(zip_value, 0);
 }
 bool ZipCode::is_externally_start_start_connected (const size_t& depth) const {
     assert(depth == 0);
@@ -952,7 +952,7 @@ bool ZipCode::is_externally_start_start_connected (const size_t& depth) const {
     for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
     }
-    return (zip_value & 2) != 0;
+    return bit_is_set(zip_value, 1);
 }
 bool ZipCode::is_externally_end_end_connected (const size_t& depth) const {
     assert(depth == 0);
@@ -970,7 +970,7 @@ bool ZipCode::is_externally_end_end_connected (const size_t& depth) const {
     for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
     }
-    return (zip_value & 4) != 0;
+    return bit_is_set(zip_value, 2);
 }
 
 const bool ZipCode::is_equal(const ZipCode& zip1, const ZipCode& zip2,
@@ -2052,8 +2052,8 @@ void ZipCode::fill_in_zipcode_from_payload(const code_type* payload) {
         is_chain_val = (payload[1] >> ((decoded_bytes-8)*8)) & bit_mask;
     }
     decoded_bytes++;
-    bool is_chain = is_chain_val & 1;
-    bool is_trivial_chain = is_chain_val & (1<<1);
+    bool is_chain = bit_is_set(is_chain_val, 0);
+    bool is_trivial_chain = bit_is_set(is_chain_val, 1);
 
     //Get the decoder offsets
     varint_vector_t decoder_vector;
