@@ -991,21 +991,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // Fill in the genotypes
         get_genotypes(v, trav_path_names, trav_to_allele, trav_cluster_info);
 
-        // Fill in nesting-specific (site-level) tags using altpath cover
-        if (this->nested_decomposition && this->altpath_cover) {
-            // Get the nesting level from the altpath cover using the snarl start node
-            nid_t start_node_id = graph->get_id(snarl_start);
-            int64_t level = altpath_cover->get_rank(start_node_id);
-            v.info["LV"].push_back(std::to_string(level));
-
-            // Get the reference contig name - use the variant's sequence name (which is always the reference)
-            string ref_contig = v.sequenceName;
-            string locus_name = PathMetadata::parse_locus_name(ref_contig);
-            if (locus_name == PathMetadata::NO_LOCUS_NAME) {
-                locus_name = Paths::strip_subrange(ref_contig);
-            }
-            v.info["RC"].push_back(locus_name);
-        }
+        // Note: LV and PS tags are computed by update_nesting_info_tags() in write_variants()
+        // when include_nested is true (same as vg call)
 
         if (i == 0 && out_nesting_infos != nullptr) {
             // we pass some information down to the children (simplified)
@@ -1198,10 +1185,6 @@ string Deconstructor::get_vcf_header() {
     if (include_nested) {
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-    }
-    if (this->nested_decomposition) {
-        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Nesting level from altpath cover (0=on reference path)\">" << endl;
-        stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference chromosome name from altpath cover\">" << endl;
     }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;
@@ -1398,16 +1381,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     if (gbwt != nullptr) {
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
-    }
-
-    // load the altpath cover for nested decomposition (must be pre-computed with vg paths --cover-altpaths)
-    if (nested_decomposition) {
-        unordered_set<path_handle_t> ref_path_handles;
-        for (const string& ref_path_name : ref_paths) {
-            ref_path_handles.insert(graph->get_path_handle(ref_path_name));
-        }
-        altpath_cover = make_unique<AltPathsCover>();
-        altpath_cover->load(graph, ref_path_handles);
     }
 
     string hstr = this->get_vcf_header();

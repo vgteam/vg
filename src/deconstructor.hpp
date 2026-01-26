@@ -12,7 +12,6 @@
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
 #include "lru_cache.h"
-#include "altpaths.hpp"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -189,9 +188,6 @@ private:
     // traverse the current nested site (e.g., a deletion that spans a nested SNP)
     // only works with nested_decomposition
     bool star_allele = false;
-
-    // the altpath cover for nested decomposition - provides nesting level (rank) information
-    unique_ptr<AltPathsCover> altpath_cover;
 };
 
 

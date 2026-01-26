@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 47
+plan tests 44
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -199,7 +199,6 @@ vg deconstruct nested_snp_in_nested_ins.altpaths.pg -P x -n > nested_snp_in_nest
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP"
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP"
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP"
-is $(grep "LV=2" nested_snp_in_nested_ins.vcf | grep "RC=" | wc -l) 1 "RC field present for level-2 site"
 
 rm -f nested_snp_in_nested_ins.pg nested_snp_in_nested_ins.altpaths.pg nested_snp_in_nested_ins.vcf
 
@@ -230,7 +229,6 @@ is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in 
 is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 4 "all nested sites found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=3 | wc -l) 1 "level 3 site found in triple nested"
-is $(grep "LV=3" triple_nested.vcf | grep "RC=" | wc -l) 1 "RC field propagates to level 3"
 rm -f triple_nested.pg triple_nested.altpaths.pg triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
@@ -241,11 +239,10 @@ is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l) 3 "expected number of site
 is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
 rm -f insertion_with_three_snps.pg insertion_with_three_snps.altpaths.pg multi_child.vcf
 
-# Test 3: NestingInfo field propagation - verify LV and RC fields
+# Test 3: NestingInfo field propagation - verify LV field
 vg convert -g nesting/nested_snp_in_ins.gfa -p > field_check.pg
 vg paths --compute-altpaths --min-altpath-len 0 -x field_check.pg -Q x > field_check.altpaths.pg
 vg deconstruct field_check.altpaths.pg -p x -n > field_check.vcf
-is $(grep "LV=1" field_check.vcf | grep "RC=" | wc -l) 1 "RC field correct for nested site"
 is $(grep "LV=0" field_check.vcf | wc -l) 1 "LV=0 field present for top-level site"
 rm -f field_check.pg field_check.altpaths.pg field_check.vcf
 

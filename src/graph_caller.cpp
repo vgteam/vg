@@ -1084,7 +1084,7 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         }
         return make_pair(ancestor_count, parent_name);
     };
-    
+
     // pass 2) add the LV and PS tags
 #pragma omp parallel for
     for (uint64_t i = 0; i < output_variants.size(); ++i) {
