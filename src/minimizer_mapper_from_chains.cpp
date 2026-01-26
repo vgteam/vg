@@ -1433,7 +1433,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
             VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
 
             // This will hold our chaining results
-            std::vector<std::pair<int, std::vector<size_t>>> results;
+            algorithms::ChainsResult chain_results;
 
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1461,7 +1461,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 graph_lookback_limit,
                 read_lookback_limit
             );
-            results = algorithms::find_best_chains(
+            chain_results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1479,17 +1479,19 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
             );
             if (show_work) {
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << results.size() << " chains in zip code tree " << item_num
+                cerr << log_name() << "Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
 
-            for (size_t result = 0; result < results.size(); result++) {
+            for (size_t result = 0; result < chain_results.chains.size(); result++) {
                 // For each result
-                auto& scored_chain = results[result];
-                if (show_work) {
+                auto& entry = chain_results.chains[result];
+                auto& scored_chain = entry.scored_chain;
+                auto& chain_rec_positions = entry.rec_positions;
+                if (true) {
 #ifdef debug
-                    if(true)
+                    if(show_work)
 #else
                     if (result < MANY_LIMIT)
 #endif
@@ -1498,9 +1500,19 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                             #pragma omp critical (cerr)
                             {
                                 cerr << log_name() << "\tChain with score " << scored_chain.first
-                                    << " and length " << scored_chain.second.size()
+                                    << " (rec num =" << chain_rec_positions.size() << ") and length " << scored_chain.second.size()
                                     << " running " << anchor_view[scored_chain.second.front()]
                                     << " to " << anchor_view[scored_chain.second.back()] << std::endl;
+                                if (!chain_rec_positions.empty()) {
+                                    {
+                                        cerr << log_name() << "\t\tRecombination introduced at anchors: ";
+                                        for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
+                                            if (pi) cerr << ", ";
+                                            cerr << chain_rec_positions[pi];
+                                        }
+                                        cerr << std::endl;
+                                    }
+                                }
 #ifdef debug
 
                                 for (auto& anchor_number : scored_chain.second) {
@@ -1512,7 +1524,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                         }
                     } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t<" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
                     }
                 }
 
