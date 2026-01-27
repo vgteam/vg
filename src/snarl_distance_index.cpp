@@ -1178,14 +1178,50 @@ void populate_snarl_index(
 
 void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph) {
   CHOverlay ov = make_boost_graph(temp_index, snarl_index, temp_snarl_record, all_children, graph);
+
+  // Dump CHOverlay graph to stderr for debugging
+  std::cerr << "=== CHOverlay Graph Dump ===" << std::endl;
+  std::cerr << "Vertices: " << num_vertices(ov) << ", Edges: " << num_edges(ov) << std::endl;
+  std::cerr << "--- Nodes ---" << std::endl;
+  for (auto v : boost::make_iterator_range(vertices(ov))) {
+    const NodeProp& np = ov[v];
+    std::cerr << "Node " << v << ": seqlen=" << np.seqlen
+              << " max_out=" << np.max_out
+              << " contracted_neighbors=" << np.contracted_neighbors
+              << " level=" << np.level
+              << " arc_cover=" << np.arc_cover
+              << " contracted=" << (np.contracted ? "true" : "false")
+              << " new_id=" << np.new_id << std::endl;
+  }
+  std::cerr << "--- Edges ---" << std::endl;
+  for (auto e : boost::make_iterator_range(edges(ov))) {
+    const EdgeProp& ep = ov[e];
+    std::cerr << "Edge " << source(e, ov) << " -> " << target(e, ov)
+              << ": contracted=" << (ep.contracted ? "true" : "false")
+              << " weight=" << ep.weight
+              << " arc_cover=" << ep.arc_cover
+              << " ori=" << (ep.ori ? "true" : "false") << std::endl;
+  }
+  std::cerr << "=== End CHOverlay Dump ===" << std::endl;
+
   make_contraction_hierarchy(ov);
 
   vector<vector<HubRecord>> labels; labels.resize(num_vertices(ov));
   vector<vector<HubRecord>> labels_rev; labels_rev.resize(num_vertices(ov)); 
   create_labels(labels, labels_rev, ov);
+  std::cerr << "Hub labels unpacked:" << std::endl;
+  for (const auto& node_list : {labels, labels_rev}) {
+    std::cerr << "Labels for all nodes:" << std::endl;
+    for (size_t i = 0; i < node_list.size(); i++) {
+        std::cerr << "\tLabels for rank " << i << ":" << std::endl;
+        for (const HubRecord& label : node_list[i]) {
+            std::cerr << "\t\tHub: " << label.hub << " Dist: " << label.dist << std::endl; 
+        }
+    }
+  }
   // Put labels in temp_snarl_record
   temp_snarl_record.hub_labels = pack_labels(labels, labels_rev);
-  std::cerr << "Hub labels as packed: "
+  std::cerr << "Hub labels as packed: ";
   for (size_t i = 0; i < temp_snarl_record.hub_labels.size(); i++) {
     if (i > 0) {
         std::cerr << " | ";
