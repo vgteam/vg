@@ -727,6 +727,61 @@ bool ZipCode::get_is_reversed_in_parent(const size_t& depth) const {
     }
 }
 
+bool ZipCode::get_has_forward_loop(const size_t& depth) const {
+    if (depth == 0) {
+        //If this is the root chain/snarl/node
+        return false;
+    } else if (decoder[depth].is_chain && decoder[depth-1].is_chain) {
+        //If this is a node
+        size_t zip_value;
+        size_t zip_index = decoder[depth].offset;
+        for (size_t i = 0 ; i <= ZipCode::NODE_METADATA_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        // Twos bit is the forward loopability
+        return bit_is_set(zip_value, 1);
+    } else if (!decoder[depth].is_chain) {
+        //If this is a snarl
+        size_t zip_value;
+        size_t zip_index = decoder[depth].offset;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        // Fours bit is the forward loopability
+        return bit_is_set(zip_value, 2);
+    } else {
+        // If this is a chain
+        return false;
+    }
+}
+bool ZipCode::get_has_reverse_loop(const size_t& depth) const {
+    if (depth == 0) {
+        //If this is the root chain/snarl/node
+        return false;
+    } else if (decoder[depth].is_chain && decoder[depth-1].is_chain) {
+        //If this is a node
+        size_t zip_value;
+        size_t zip_index = decoder[depth].offset;
+        for (size_t i = 0 ; i <= ZipCode::NODE_METADATA_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        // Fours bit is the reverse loopability
+        return bit_is_set(zip_value, 2);
+    } else if (!decoder[depth].is_chain) {
+        //If this is a snarl
+        size_t zip_value;
+        size_t zip_index = decoder[depth].offset;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        // Eights bit is the reverse loopability
+        return bit_is_set(zip_value, 3);
+    } else {
+        // If this is a chain
+        return false;
+    }
+}
+
 net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index) const {
     //get_net_handle_slow does the same thing so if this gets changed need to change that too
 

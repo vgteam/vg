@@ -341,6 +341,9 @@ class ZipCode {
 
         ///Is the snarl tree node backwards relative to its parent
         bool get_is_reversed_in_parent(const size_t& depth) const;
+        ///Does the snarl tree node have forward/backward loops
+        bool get_has_forward_loop(const size_t& depth) const;
+        bool get_has_reverse_loop(const size_t& depth) const;
 
         ///Get the handle of the thing at the given depth. This can only be used for
         ///Root-level structures or irregular snarls
