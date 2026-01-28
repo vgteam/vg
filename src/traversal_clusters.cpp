@@ -5,7 +5,7 @@
 #include "snarls.hpp"
 #include "clip.hpp"
 #include "algorithms/dfs.hpp"
-#include "altpaths.hpp"
+#include "augref.hpp"
 
 //#define debug
 
@@ -676,7 +676,7 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
     graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
         // Skip altpaths (they shouldn't influence snarl decomposition)
-        if (AltPathsCover::is_altpath_name(path_name)) {
+        if (AugRefCover::is_augref_name(path_name)) {
             return;
         }
         if (path_name.compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {

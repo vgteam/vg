@@ -2,7 +2,7 @@
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
 #include "traversal_clusters.hpp"
-#include "altpaths.hpp"
+#include "augref.hpp"
 
 //#define debug
 
@@ -685,8 +685,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         }
         if (ref_path_check) {
             // Prefer base reference paths over derived altpaths
-            bool current_is_altpath = !ref_trav_name.empty() && AltPathsCover::is_altpath_name(ref_trav_name);
-            bool candidate_is_altpath = AltPathsCover::is_altpath_name(path_trav_name);
+            bool current_is_altpath = !ref_trav_name.empty() && AugRefCover::is_augref_name(ref_trav_name);
+            bool candidate_is_altpath = AugRefCover::is_augref_name(path_trav_name);
 
             // Prefer non-altpath over altpath, then lexicographic within same category
             bool should_replace = ref_trav_name.empty() ||

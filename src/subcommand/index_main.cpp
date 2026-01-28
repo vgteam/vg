@@ -20,7 +20,7 @@
 #include "../utility.hpp"
 #include "../region.hpp"
 #include "../integrated_snarl_finder.hpp"
-#include "../altpaths.hpp"
+#include "../augref.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwtgraph_helper.hpp"
@@ -565,7 +565,7 @@ int main_index(int argc, char** argv) {
                     graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
                         string path_name = graph->get_path_name(path_handle);
                         // Skip altpaths (they match prefixes but shouldn't be used as references)
-                        if (AltPathsCover::is_altpath_name(path_name)) {
+                        if (AugRefCover::is_augref_name(path_name)) {
                             return;
                         }
                         if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {

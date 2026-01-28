@@ -1,19 +1,19 @@
-#ifndef VG_ALTPATHS_HPP_INCLUDED
-#define VG_ALTPATHS_HPP_INCLUDED
+#ifndef VG_AUGREF_HPP_INCLUDED
+#define VG_AUGREF_HPP_INCLUDED
 
 /**
- * \file altpaths.hpp
+ * \file augref.hpp
  *
- * Interface for computing and querying alternative path covers.
+ * Interface for computing and querying augmented reference path covers.
  *
- * An altpath cover is a set of path fragments (stored as separate paths) in the graph.
+ * An augref cover is a set of path fragments (stored as separate paths) in the graph.
  * They are always relative to an existing reference sample (ie GRCh38 or CHM13).
- * Unlike rGFA paths which use complex metadata embedding, altpaths use a simple naming
- * scheme: {base_path_name}_alt{N}
+ * Unlike rGFA paths which use complex metadata embedding, augref paths use a simple naming
+ * scheme: {base_path_name}_{N}_alt
  *
- * For example, if the reference path is "CHM13#0#chr1", altpaths would be named:
- *   - CHM13#0#chr1_alt1
- *   - CHM13#0#chr1_alt2
+ * For example, if the reference path is "CHM13#0#chr1", augref paths would be named:
+ *   - CHM13#0#chr1_1_alt
+ *   - CHM13#0#chr1_2_alt
  *   - etc.
  *
  * The data structures used in this class are always relative to the original paths
@@ -29,47 +29,57 @@ namespace vg {
 
 using namespace std;
 
-class AltPathsCover {
+class AugRefCover {
 public:
-    // The suffix used to identify altpaths
-    static const string altpath_suffix;  // "_alt"
+    // The suffix used to identify augref paths
+    static const string augref_suffix;  // "_alt"
 
-    // Create an altpath name from a base reference path name and an index.
-    // Example: make_altpath_name("CHM13#0#chr1", 1) -> "CHM13#0#chr1_alt1"
-    static string make_altpath_name(const string& base_path_name, int64_t alt_index);
+    // Create an augref path name from a base reference path name and an index.
+    // Example: make_augref_name("CHM13#0#chr1", 1) -> "CHM13#0#chr1_1_alt"
+    static string make_augref_name(const string& base_path_name, int64_t augref_index);
 
-    // Test if a path name is an altpath (contains "_alt" suffix followed by digits).
-    static bool is_altpath_name(const string& path_name);
+    // Test if a path name is an augref path (contains "_{N}_alt" suffix).
+    static bool is_augref_name(const string& path_name);
 
-    // Parse an altpath name to extract the base reference path name.
-    // Returns the original base path name, or the input if not an altpath.
-    // Example: parse_base_path("CHM13#0#chr1_alt3") -> "CHM13#0#chr1"
-    static string parse_base_path(const string& altpath_name);
+    // Parse an augref path name to extract the base reference path name.
+    // Returns the original base path name, or the input if not an augref path.
+    // Example: parse_base_path("CHM13#0#chr1_3_alt") -> "CHM13#0#chr1"
+    static string parse_base_path(const string& augref_name);
 
-    // Parse an altpath name to extract the alt index.
-    // Returns -1 if the path is not an altpath.
-    // Example: parse_alt_index("CHM13#0#chr1_alt3") -> 3
-    static int64_t parse_alt_index(const string& altpath_name);
+    // Parse an augref path name to extract the augref index.
+    // Returns -1 if the path is not an augref path.
+    // Example: parse_augref_index("CHM13#0#chr1_3_alt") -> 3
+    static int64_t parse_augref_index(const string& augref_name);
 
 public:
-    // Clear out any existing altpaths from the graph. Recommended to run this
+    // Clear out any existing augref paths from the graph. Recommended to run this
     // before compute().
     void clear(MutablePathMutableHandleGraph* graph);
 
-    // Compute the altpath cover from the graph, starting with a given set of reference paths.
+    // Compute the augref cover from the graph, starting with a given set of reference paths.
     void compute(const PathHandleGraph* graph,
                  SnarlManager* snarl_manager,
                  const unordered_set<path_handle_t>& reference_paths,
                  int64_t minimum_length);
 
-    // Load existing altpaths from the graph, assuming they've been computed already.
-    // The reference_paths should be the rank-0 paths the altpaths extend from.
+    // Load existing augref paths from the graph, assuming they've been computed already.
+    // The reference_paths should be the rank-0 paths the augref paths extend from.
     void load(const PathHandleGraph* graph,
               const unordered_set<path_handle_t>& reference_paths);
 
-    // Apply the altpath cover to a graph (must have been computed first), adding it
+    // Apply the augref cover to a graph (must have been computed first), adding it
     // as a bunch of REFERENCE-sense paths with the simplified naming scheme.
+    // If augref_sample_name is set, base paths are first copied to the new sample,
+    // and augref paths are created under the new sample name.
     void apply(MutablePathMutableHandleGraph* mutable_graph);
+
+    // Set the sample name for augref paths. When set, apply() will:
+    // 1. Copy base reference paths to this new sample (CHM13#0#chr1 -> new_sample#0#chr1)
+    // 2. Create augref paths under the new sample (new_sample#0#chr1_1_alt, etc.)
+    void set_augref_sample(const string& sample_name);
+
+    // Get the current augref sample name (empty string if not set).
+    const string& get_augref_sample() const;
 
     // Get the rank (level) of a given node (0 if on a reference path).
     int64_t get_rank(nid_t node_id) const;
@@ -98,7 +108,7 @@ protected:
     // Compute the cover for the given snarl, by greedily finding the covered paths through it.
     // The cover is added to the two "thread_" structures.
     void compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
-                       vector<pair<step_handle_t, step_handle_t>>& thread_altpath_intervals,
+                       vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                        unordered_map<nid_t, int64_t>& thread_node_to_interval);
 
     // Get intervals in traversal that are not covered according to this->node_to_interval or
@@ -106,10 +116,10 @@ protected:
     vector<pair<int64_t, int64_t>> get_uncovered_intervals(const vector<step_handle_t>& trav,
                                                            const unordered_map<nid_t, int64_t>& thread_node_to_interval);
 
-    // Add a new interval into the altpath_intervals vector and update the node_to_interval map.
+    // Add a new interval into the augref_intervals vector and update the node_to_interval map.
     // If the interval can be merged into an existing, contiguous interval, do that instead.
     // Returns true if a new interval was added, false if an existing interval was updated.
-    bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_altpath_intervals,
+    bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
                       const pair<step_handle_t, step_handle_t>& new_interval,
                       bool global = false);
@@ -120,10 +130,10 @@ protected:
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 
-    // Make sure all nodes in all altpaths are in forward orientation.
+    // Make sure all nodes in all augref paths are in forward orientation.
     // This is always possible because they are, by definition, disjoint.
     // This should only be run from inside apply().
-    void forwardize_altpaths(MutablePathMutableHandleGraph* mutable_graph);
+    void forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph);
 
     // Second pass: greedily cover any nodes not covered by snarl traversals.
     // This handles nodes that are outside of snarls or in complex regions
@@ -135,7 +145,7 @@ protected:
     // "first" toggles returning the first interval found vs all of them.
     vector<pair<int64_t, nid_t>> get_reference_nodes(nid_t node_id, bool first) const;
 
-    // Debug function: verify that every node in the graph is covered by the altpath cover.
+    // Debug function: verify that every node in the graph is covered by the augref cover.
     // Raises an error for each uncovered node, showing the node id and any paths that touch it.
     void verify_cover() const;
 
@@ -144,17 +154,31 @@ protected:
     const PathHandleGraph* graph = nullptr;
 
     // Intervals are end-exclusive (like BED).
-    vector<pair<step_handle_t, step_handle_t>> altpath_intervals;
+    vector<pair<step_handle_t, step_handle_t>> augref_intervals;
 
-    // altpath_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
+    // augref_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
     int64_t num_ref_intervals = 0;
 
     // Map from node ID to interval index.
     unordered_map<nid_t, int64_t> node_to_interval;
 
-    // Counter for generating unique altpath indices per base path.
+    // Counter for generating unique augref indices per base path.
     // Using mutable so it can be updated in apply() which is logically const for the cover.
-    mutable unordered_map<string, int64_t> base_path_alt_counter;
+    mutable unordered_map<string, int64_t> base_path_augref_counter;
+
+    // Optional sample name for augref paths. When set, base paths are copied to this
+    // sample and augref paths are created under it.
+    string augref_sample_name;
+
+    // Map from original reference path handles to their copies under augref_sample_name.
+    // Only populated when augref_sample_name is set.
+    unordered_map<path_handle_t, path_handle_t> ref_path_to_copy;
+
+    // Copy base reference paths to the augref sample.
+    // Creates new paths like "new_sample#0#chr1" from "CHM13#0#chr1".
+    // Returns a map from original path handles to new path handles.
+    void copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
+                                   const unordered_set<path_handle_t>& reference_paths);
 
     // Used when selecting traversals to make the greedy cover.
     struct RankedFragment {

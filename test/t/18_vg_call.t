@@ -249,14 +249,14 @@ is "$?" 0 "cluster-post option requires cluster threshold"
 
 rm -f cluster_post_test.vg cluster_post_test.gam cluster_post_test.pack
 
-# Test: Altpath option validation (requires -n)
-vg construct -r small/x.fa -v small/x.vcf.gz > altpath_test.vg
-vg sim -x altpath_test.vg -n 100 -l 20 -a -s 1 > altpath_test.gam
-vg pack -x altpath_test.vg -g altpath_test.gam -o altpath_test.pack
-vg call altpath_test.vg -k altpath_test.pack --altpaths 2>&1 | grep -q "requires -n/--nested"
-is "$?" 0 "altpaths option requires nested mode"
+# Test: Augref option validation (requires -n)
+vg construct -r small/x.fa -v small/x.vcf.gz > augref_test.vg
+vg sim -x augref_test.vg -n 100 -l 20 -a -s 1 > augref_test.gam
+vg pack -x augref_test.vg -g augref_test.gam -o augref_test.pack
+vg call augref_test.vg -k augref_test.pack --augref 2>&1 | grep -q "requires -n/--nested"
+is "$?" 0 "augref option requires nested mode"
 
-rm -f altpath_test.vg altpath_test.gam altpath_test.pack
+rm -f augref_test.vg augref_test.gam augref_test.pack
 
 # =============================================================================
 # Nested genotype propagation tests
@@ -355,8 +355,8 @@ is "$TL_HAS_QUAL" "1" "top-level call still has non-zero QUAL"
 
 rm -f nq.gam nq.pack nq.vcf
 
-# Test: triple nested with altpaths should all have quality
-vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/triple_nested.gfa > tnq_ap.gfa 2>/dev/null
+# Test: triple nested with augref paths should all have quality
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa > tnq_ap.gfa 2>/dev/null
 vg sim -x tnq_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 51 > tnq.gam
 vg sim -x tnq_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 52 >> tnq.gam
 vg pack -x tnq_ap.gfa -g tnq.gam -o tnq.pack
@@ -420,11 +420,11 @@ rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
 #   y0 (a#1): 1->2->4->5->6           (insertion with SNP A, allele 1 at top, allele 1 at nested)
 #   y1 (a#2): 1->2->3->5->6           (insertion with SNP T, allele 2 at top, allele 0 at nested)
 # Top-level snarl: 1->6, Nested snarl: 2->5
-# NOTE: ref path x bypasses the nested snarl, so we need altpath covers to call nested variants
+# NOTE: ref path x bypasses the nested snarl, so we need augref covers to call nested variants
 # =============================================================================
 
-# Compute altpath cover first (creates x_alt1, x_alt2, etc. covering nodes not on x)
-vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/nested_snp_in_ins.gfa > ni_ap.gfa
+# Compute augref cover first (creates x_1_alt, x_2_alt, etc. covering nodes not on x)
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/nested_snp_in_ins.gfa > ni_ap.gfa
 
 # Test 0/0: homozygous reference - reads only from x path (short ref)
 vg sim -x ni_ap.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
@@ -440,25 +440,25 @@ vg sim -x ni_ap.gfa -P x -n 50 -l 2 -a -s 71 > ni_01.gam
 vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 72 >> ni_01.gam
 vg pack -x ni_ap.gfa -g ni_01.gam -o ni_01.pack
 vg call ni_ap.gfa -k ni_01.pack -n -P x 2>/dev/null > ni_01.vcf
-# With altpaths: both top-level and nested variants emitted
+# With augref paths: both top-level and nested variants emitted
 NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l)
-is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and nested variants with altpaths"
+is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and nested variants with augref paths"
 
 # Test 1/1: homozygous insertion - reads only from y1 path
 vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 73 > ni_11.gam
 vg pack -x ni_ap.gfa -g ni_11.gam -o ni_11.pack
 vg call ni_ap.gfa -k ni_11.pack -n -P x 2>/dev/null > ni_11.vcf
-# With altpaths: both top-level and nested variants emitted
+# With augref paths: both top-level and nested variants emitted
 NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l)
-is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level and nested variants with altpaths"
+is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level and nested variants with augref paths"
 
 # Test 1/2: het between two insertion alleles - reads from both y0 and y1
 vg sim -x ni_ap.gfa -m a -n 200 -l 2 -a -s 74 > ni_12.gam
 vg pack -x ni_ap.gfa -g ni_12.gam -o ni_12.pack
 vg call ni_ap.gfa -k ni_12.pack -n -P x 2>/dev/null > ni_12.vcf
-# With altpaths: both top-level and nested variants emitted
+# With augref paths: both top-level and nested variants emitted
 NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l)
-is "$NI_12_COUNT" "2" "nested_snp_in_ins 1/2: het ins/ins produces top-level and nested variants with altpaths"
+is "$NI_12_COUNT" "2" "nested_snp_in_ins 1/2: het ins/ins produces top-level and nested variants with augref paths"
 
 rm -f ni_ap.gfa ni_00.gam ni_00.pack ni_00.vcf ni_01.gam ni_01.pack ni_01.vcf
 rm -f ni_11.gam ni_11.pack ni_11.vcf ni_12.gam ni_12.pack ni_12.vcf
@@ -471,11 +471,11 @@ rm -f ni_11.gam ni_11.pack ni_11.vcf ni_12.gam ni_12.pack ni_12.vcf
 #   y1 (a#2): 1->2->3->31->311->312->32->33->34->4->5 (different at deepest level)
 #   y2 (a#3): same as y0
 # Top-level snarl: 1->5, with 4 levels of nesting inside
-# NOTE: ref path x bypasses all nesting, so we need altpath covers to call nested variants
+# NOTE: ref path x bypasses all nesting, so we need augref covers to call nested variants
 # =============================================================================
 
-# Compute altpath cover first (creates x_alt1, x_alt2, etc. covering nested nodes)
-vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/triple_nested.gfa > tn_ap.gfa
+# Compute augref cover first (creates x_1_alt, x_2_alt, etc. covering nested nodes)
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa > tn_ap.gfa
 
 # Test 0/0: homozygous reference - reads only from x path
 vg sim -x tn_ap.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
@@ -490,15 +490,15 @@ vg sim -x tn_ap.gfa -P x -n 50 -l 2 -a -s 81 > tn_01.gam
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 82 >> tn_01.gam
 vg pack -x tn_ap.gfa -g tn_01.gam -o tn_01.pack
 vg call tn_ap.gfa -k tn_01.pack -n -P x 2>/dev/null > tn_01.vcf
-# With altpaths: all 5 nesting levels can be emitted
+# With augref paths: all 5 nesting levels can be emitted
 TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l)
-is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting level variants with altpaths"
+is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting level variants with augref paths"
 
 # Test 1/1: homozygous insertion - reads only from y0 path
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 83 > tn_11.gam
 vg pack -x tn_ap.gfa -g tn_11.gam -o tn_11.pack
 vg call tn_ap.gfa -k tn_11.pack -n -P x 2>/dev/null > tn_11.vcf
-# With altpaths: 2 variants emitted (top-level insertion + deepest SNP)
+# With augref paths: 2 variants emitted (top-level insertion + deepest SNP)
 # Intermediate snarls are 0/0 because y0 matches x_alt1 reference at those levels
 TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l)
 is "$TN_11_COUNT" "2" "triple_nested 1/1: homozygous ins produces top-level and deepest SNP variants"
@@ -508,26 +508,26 @@ vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 84 > tn_12.gam
 vg sim -x tn_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 85 >> tn_12.gam
 vg pack -x tn_ap.gfa -g tn_12.gam -o tn_12.pack
 vg call tn_ap.gfa -k tn_12.pack -n -P x 2>/dev/null > tn_12.vcf
-# With altpaths: all 5 nesting levels can be emitted
+# With augref paths: all 5 nesting levels can be emitted
 TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l)
-is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting level variants with altpaths"
+is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting level variants with augref paths"
 
 rm -f tn_ap.gfa tn_00.gam tn_00.pack tn_00.vcf tn_01.gam tn_01.pack tn_01.vcf
 rm -f tn_11.gam tn_11.pack tn_11.vcf tn_12.gam tn_12.pack tn_12.vcf
 
 # =============================================================================
 # Short reference bypass tests
-# NOTE: ref path x bypasses nested structures, so we need altpath covers to call nested variants
+# NOTE: ref path x bypasses nested structures, so we need augref covers to call nested variants
 # =============================================================================
 
 # Test nested_snp_in_nested_ins.gfa - ref bypasses all nested structures
-# Compute altpath cover first (creates x_alt1, etc. covering nested nodes)
-vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/nested_snp_in_nested_ins.gfa > bypass_ap.gfa
+# Compute augref cover first (creates x_1_alt, etc. covering nested nodes)
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/nested_snp_in_nested_ins.gfa > bypass_ap.gfa
 vg sim -x bypass_ap.gfa -m a -n 100 -l 2 -a -s 60 > bypass.gam
 vg pack -x bypass_ap.gfa -g bypass.gam -o bypass.pack
 vg call bypass_ap.gfa -k bypass.pack -n -P x 2>/dev/null > bypass.vcf
 BYPASS_EXIT=$?
-is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph with altpaths without crashing"
+is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph with augref paths without crashing"
 
 rm -f bypass_ap.gfa bypass.gam bypass.pack bypass.vcf
 
@@ -556,9 +556,9 @@ is "$NA_DEL_NEST_GT" "0/0" "-n -a: nested_snp_in_del nested is 0/0"
 
 rm -f na_del.gam na_del.pack na_del.vcf
 
-# Test 2: nested_snp_in_ins 0/0 with -n -a (with altpaths)
+# Test 2: nested_snp_in_ins 0/0 with -n -a (with augref paths)
 # When ref bypasses nested snarl and both alleles are ref, nested NOT emitted
-vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/nested_snp_in_ins.gfa > na_ins_ap.gfa 2>/dev/null
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/nested_snp_in_ins.gfa > na_ins_ap.gfa 2>/dev/null
 vg sim -x na_ins_ap.gfa -P x -n 100 -l 2 -a -s 200 > na_ins_00.gam
 vg pack -x na_ins_ap.gfa -g na_ins_00.gam -o na_ins_00.pack
 vg call na_ins_ap.gfa -k na_ins_00.pack -n -a -P x 2>/dev/null > na_ins_00.vcf
@@ -569,7 +569,7 @@ is "$NA_INS_00_COUNT" "1" "-n -a: nested_snp_in_ins 0/0 emits only top-level (re
 
 rm -f na_ins_00.gam na_ins_00.pack na_ins_00.vcf
 
-# Test 3: nested_snp_in_ins 0/1 with -n -a (with altpaths)
+# Test 3: nested_snp_in_ins 0/1 with -n -a (with augref paths)
 # When ref bypasses nested but alt traverses, nested should have ./X genotype
 vg sim -x na_ins_ap.gfa -P x -n 50 -l 2 -a -s 200 > na_ins_01.gam
 vg sim -x na_ins_ap.gfa -P "a#1#y0#0" -n 100 -l 2 -a -s 201 >> na_ins_01.gam
@@ -587,9 +587,9 @@ is "$NA_INS_01_HAS_MISSING" "1" "-n -a: nested_snp_in_ins 0/1 nested has missing
 
 rm -f na_ins_ap.gfa na_ins_01.gam na_ins_01.pack na_ins_01.vcf
 
-# Test 4: triple_nested 0/0 with -n -a (with altpaths)
+# Test 4: triple_nested 0/0 with -n -a (with augref paths)
 # When ref bypasses all nested snarls and genotype is 0/0, only top-level emitted
-vg paths --compute-altpaths -Q x --min-altpath-len 1 -x nesting/triple_nested.gfa > na_tn_ap.gfa 2>/dev/null
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa > na_tn_ap.gfa 2>/dev/null
 vg sim -x na_tn_ap.gfa -P x -n 100 -l 2 -a -s 210 > na_tn_00.gam
 vg pack -x na_tn_ap.gfa -g na_tn_00.gam -o na_tn_00.pack
 vg call na_tn_ap.gfa -k na_tn_00.pack -n -a -P x 2>/dev/null > na_tn_00.vcf
@@ -604,7 +604,7 @@ is "$NA_TN_00_GT" "0/0" "-n -a: triple_nested 0/0 top-level is 0/0"
 
 rm -f na_tn_00.gam na_tn_00.pack na_tn_00.vcf
 
-# Test 5: triple_nested 0/1 with -n -a (with altpaths)
+# Test 5: triple_nested 0/1 with -n -a (with augref paths)
 # When ref bypasses nested but alt traverses, nested snarls should have ./X genotype
 vg sim -x na_tn_ap.gfa -P x -n 50 -l 2 -a -s 211 > na_tn_01.gam
 vg sim -x na_tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 212 >> na_tn_01.gam

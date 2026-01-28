@@ -15,7 +15,7 @@
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
-#include "altpaths.hpp"
+#include "augref.hpp"
 
 namespace vg {
 
@@ -420,8 +420,8 @@ public:
                double cluster_threshold,
                bool cluster_post_genotype,
                bool star_allele,
-               bool include_altpaths,
-               AltPathsCover* altpath_cover);
+               bool include_augref,
+               AugRefCover* augref_cover);
 
     virtual ~FlowCaller();
 
@@ -486,11 +486,11 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
-    /// include alt paths in traversal finding
-    bool include_altpaths = false;
+    /// include augref paths in traversal finding
+    bool include_augref = false;
 
-    /// optional altpath cover for nesting level information and off-reference calling
-    AltPathsCover* altpath_cover = nullptr;
+    /// optional augref cover for nesting level information and off-reference calling
+    AugRefCover* augref_cover = nullptr;
 
     /// Internal implementation of call_snarl that accepts parent context for nested mode
     /// When nested=true, this recursively calls children after processing the current snarl

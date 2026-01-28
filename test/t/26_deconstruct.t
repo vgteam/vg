@@ -159,25 +159,25 @@ is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered d
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
 
 # Nesting tests now use a two-step process:
-# 1. Compute altpath cover with vg paths
-# 2. Run vg deconstruct with -n to use the pre-computed altpaths
+# 1. Compute augref cover with vg paths
+# 2. Run vg deconstruct with -n to use the pre-computed augref paths
 
 # Test: SNP inside deletion
 vg convert -g nesting/nested_snp_in_del.gfa -p > nested_snp_in_del.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x nested_snp_in_del.pg -Q x > nested_snp_in_del.altpaths.pg
-vg deconstruct nested_snp_in_del.altpaths.pg -p x -n > nested_snp_in_del.vcf
+vg paths --compute-augref --min-augref-len 0 -x nested_snp_in_del.pg -Q x > nested_snp_in_del.augref.pg
+vg deconstruct nested_snp_in_del.augref.pg -p x -n > nested_snp_in_del.vcf
 grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
 printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
 printf "T\tA\t1|.\n" >> nested_snp_in_del_truth.tsv
 diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside deletion"
 
-rm -f nested_snp_in_del.pg nested_snp_in_del.altpaths.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+rm -f nested_snp_in_del.pg nested_snp_in_del.augref.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
 # Test: SNP inside insertion with LV field checks
 vg convert -g nesting/nested_snp_in_ins.gfa -p > nested_snp_in_ins.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x nested_snp_in_ins.pg -Q x > nested_snp_in_ins.altpaths.pg
-vg deconstruct nested_snp_in_ins.altpaths.pg -p x -n > nested_snp_in_ins.vcf
+vg paths --compute-augref --min-augref-len 0 -x nested_snp_in_ins.pg -Q x > nested_snp_in_ins.augref.pg
+vg deconstruct nested_snp_in_ins.augref.pg -p x -n > nested_snp_in_ins.vcf
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
 printf "A\tT\t0|1\n" > nested_snp_in_ins_truth.tsv
 printf "C\tCAAG,CATG\t1|2\n" >> nested_snp_in_ins_truth.tsv
@@ -190,65 +190,65 @@ is $(grep LV=1 nested_snp_in_ins.vcf | wc -l) 1 "LV=1 set for nested allele of n
 grep ^##contig nested_snp_in_ins.vcf > nested_snp_in_ins_contigs.tsv
 is $(grep -c "##contig" nested_snp_in_ins_contigs.tsv) 1 "nested deconstruction gets reference contig in vcf header"
 
-rm -f nested_snp_in_ins.pg nested_snp_in_ins.altpaths.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
+rm -f nested_snp_in_ins.pg nested_snp_in_ins.augref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
 
 # Test: Double-nested SNP
 vg convert -g nesting/nested_snp_in_nested_ins.gfa -p > nested_snp_in_nested_ins.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x nested_snp_in_nested_ins.pg -Q x > nested_snp_in_nested_ins.altpaths.pg
-vg deconstruct nested_snp_in_nested_ins.altpaths.pg -P x -n > nested_snp_in_nested_ins.vcf
+vg paths --compute-augref --min-augref-len 0 -x nested_snp_in_nested_ins.pg -Q x > nested_snp_in_nested_ins.augref.pg
+vg deconstruct nested_snp_in_nested_ins.augref.pg -P x -n > nested_snp_in_nested_ins.vcf
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP"
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP"
 is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP"
 
-rm -f nested_snp_in_nested_ins.pg nested_snp_in_nested_ins.altpaths.pg nested_snp_in_nested_ins.vcf
+rm -f nested_snp_in_nested_ins.pg nested_snp_in_nested_ins.augref.pg nested_snp_in_nested_ins.vcf
 
 # Test: Nested site with cycle
 vg convert -g nesting/nested_snp_in_ins_cycle.gfa -p > nested_snp_in_ins_cycle.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x nested_snp_in_ins_cycle.pg -Q x > nested_snp_in_ins_cycle.altpaths.pg
-vg deconstruct nested_snp_in_ins_cycle.altpaths.pg -P x -n > nested_snp_in_ins_cycle.vcf
+vg paths --compute-augref --min-augref-len 0 -x nested_snp_in_ins_cycle.pg -Q x > nested_snp_in_ins_cycle.augref.pg
+vg deconstruct nested_snp_in_ins_cycle.augref.pg -P x -n > nested_snp_in_ins_cycle.vcf
 is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=0 | wc -l) 1 "level 0 found in nested cycle"
 is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=1 | wc -l) 1 "level 1 found in nested cycle"
-rm -f nested_snp_in_ins_cycle.pg nested_snp_in_ins_cycle.altpaths.pg nested_snp_in_ins_cycle.vcf
+rm -f nested_snp_in_ins_cycle.pg nested_snp_in_ins_cycle.augref.pg nested_snp_in_ins_cycle.vcf
 
 # Test: MNP handling
 vg convert -g nesting/mnp.gfa -p > mnp.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x mnp.pg -Q x > mnp.altpaths.pg
-vg deconstruct mnp.altpaths.pg -p x -n > mnp.vcf
+vg paths --compute-augref --min-augref-len 0 -x mnp.pg -Q x > mnp.augref.pg
+vg deconstruct mnp.augref.pg -p x -n > mnp.vcf
 printf "x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
 grep -v ^# mnp.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > mnp.tsv
 diff  mnp_truth.tsv mnp.tsv
 is "$?" 0 "nested deconstruction handles mnp"
 
-rm -f mnp.pg mnp.altpaths.pg mnp.vcf mnp_truth.tsv mnp.tsv
+rm -f mnp.pg mnp.augref.pg mnp.vcf mnp_truth.tsv mnp.tsv
 
 # Test 1: Deep nesting (3+ levels) - triple nested SNP
 vg convert -g nesting/triple_nested.gfa -p > triple_nested.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x triple_nested.pg -Q x > triple_nested.altpaths.pg
-vg deconstruct triple_nested.altpaths.pg -p x -n > triple_nested.vcf
+vg paths --compute-augref --min-augref-len 0 -x triple_nested.pg -Q x > triple_nested.augref.pg
+vg deconstruct triple_nested.augref.pg -p x -n > triple_nested.vcf
 is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 4 "all nested sites found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=3 | wc -l) 1 "level 3 site found in triple nested"
-rm -f triple_nested.pg triple_nested.altpaths.pg triple_nested.vcf
+rm -f triple_nested.pg triple_nested.augref.pg triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
 vg convert -g nesting/insertion_with_three_snps.gfa -p > insertion_with_three_snps.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x insertion_with_three_snps.pg -Q x > insertion_with_three_snps.altpaths.pg
-vg deconstruct insertion_with_three_snps.altpaths.pg -p x -n > multi_child.vcf
+vg paths --compute-augref --min-augref-len 0 -x insertion_with_three_snps.pg -Q x > insertion_with_three_snps.augref.pg
+vg deconstruct insertion_with_three_snps.augref.pg -p x -n > multi_child.vcf
 is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l) 3 "expected number of sites with LV field"
 is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
-rm -f insertion_with_three_snps.pg insertion_with_three_snps.altpaths.pg multi_child.vcf
+rm -f insertion_with_three_snps.pg insertion_with_three_snps.augref.pg multi_child.vcf
 
 # Test 3: NestingInfo field propagation - verify LV field
 vg convert -g nesting/nested_snp_in_ins.gfa -p > field_check.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x field_check.pg -Q x > field_check.altpaths.pg
-vg deconstruct field_check.altpaths.pg -p x -n > field_check.vcf
+vg paths --compute-augref --min-augref-len 0 -x field_check.pg -Q x > field_check.augref.pg
+vg deconstruct field_check.augref.pg -p x -n > field_check.vcf
 is $(grep "LV=0" field_check.vcf | wc -l) 1 "LV=0 field present for top-level site"
-rm -f field_check.pg field_check.altpaths.pg field_check.vcf
+rm -f field_check.pg field_check.augref.pg field_check.vcf
 
 # Test 4: Multiple reference traversals with nesting (should reduce to one)
 vg convert -g nesting/cyclic_ref_nested.gfa -p > cyclic_ref_nested.pg
-vg paths --compute-altpaths --min-altpath-len 0 -x cyclic_ref_nested.pg -Q x > cyclic_ref_nested.altpaths.pg
-vg deconstruct cyclic_ref_nested.altpaths.pg -p x -n > cyclic_ref_nested.vcf
+vg paths --compute-augref --min-augref-len 0 -x cyclic_ref_nested.pg -Q x > cyclic_ref_nested.augref.pg
+vg deconstruct cyclic_ref_nested.augref.pg -p x -n > cyclic_ref_nested.vcf
 is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
-rm -f cyclic_ref_nested.pg cyclic_ref_nested.altpaths.pg cyclic_ref_nested.vcf
+rm -f cyclic_ref_nested.pg cyclic_ref_nested.augref.pg cyclic_ref_nested.vcf

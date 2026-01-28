@@ -17,7 +17,7 @@
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
-#include "../altpaths.hpp"
+#include "../augref.hpp"
 #include "../traversal_clusters.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -89,13 +89,13 @@ void help_call(char** argv) {
          << "                            snarl merging (original nested algorithm)" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "deconstruct-like options (for use with -n):" << endl
-         << "      --altpaths            use altpath cover from graph for nesting levels" << endl
-         << "                            (requires vg paths --compute-altpaths)" << endl
+         << "      --augref              use augref cover from graph for nesting levels" << endl
+         << "                            (requires vg paths --compute-augref)" << endl
          << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
          << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
          << "                            default is to cluster before genotyping" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes (requires -n)" << endl
-         << "      --include-altpaths    include alt paths in traversal finding" << endl
+         << "      --include-augref      include augref paths in traversal finding" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -145,11 +145,11 @@ int main_call(int argc, char** argv) {
     bool show_progress = false;
 
     // Deconstruct-like options
-    bool use_altpaths = false;
+    bool use_augref = false;
     double cluster_threshold = 1.0;
     bool cluster_post_genotype = false;  // false = cluster before, true = cluster after
     bool star_allele = false;
-    bool include_altpaths = false;
+    bool include_augref = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -162,7 +162,7 @@ int main_call(int argc, char** argv) {
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
     constexpr int OPT_PROGRESS = 1000;
-    constexpr int OPT_ALTPATHS = 1001;
+    constexpr int OPT_AUGREF = 1001;
     constexpr int OPT_CLUSTER_POST = 1002;
     constexpr int OPT_INCLUDE_ALTPATHS = 1003;
     constexpr int OPT_LEGACY = 1004;
@@ -204,11 +204,11 @@ int main_call(int argc, char** argv) {
             {"nested", no_argument, 0, 'n'},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
             {"chains", no_argument, 0, 'I'},
-            {"altpaths", no_argument, 0, OPT_ALTPATHS},
+            {"augref", no_argument, 0, OPT_AUGREF},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
             {"star-allele", no_argument, 0, 'Y'},
-            {"include-altpaths", no_argument, 0, OPT_INCLUDE_ALTPATHS},
+            {"include-augref", no_argument, 0, OPT_INCLUDE_ALTPATHS},
             {"threads", required_argument, 0, 't'},
             {"progress", no_argument, 0, OPT_PROGRESS },
             {"help", no_argument, 0, 'h'},
@@ -340,8 +340,8 @@ int main_call(int argc, char** argv) {
         case 'I':
             call_chains = true;
             break;
-        case OPT_ALTPATHS:
-            use_altpaths = true;
+        case OPT_AUGREF:
+            use_augref = true;
             break;
         case OPT_CLUSTER_POST:
             cluster_post_genotype = true;
@@ -350,7 +350,7 @@ int main_call(int argc, char** argv) {
             star_allele = true;
             break;
         case OPT_INCLUDE_ALTPATHS:
-            include_altpaths = true;
+            include_augref = true;
             break;
         case OPT_LEGACY:
             legacy = true;
@@ -551,8 +551,8 @@ int main_call(int argc, char** argv) {
     if (star_allele && !nested) {
         logger.error() << "-Y/--star-allele requires -n/--nested mode" << endl;
     }
-    if (use_altpaths && !nested) {
-        logger.error() << "--altpaths requires -n/--nested mode" << endl;
+    if (use_augref && !nested) {
+        logger.error() << "--augref requires -n/--nested mode" << endl;
     }
     if (cluster_post_genotype && cluster_threshold >= 1.0) {
         logger.error() << "--cluster-post requires -L/--cluster with threshold < 1.0" << endl;
@@ -568,8 +568,8 @@ int main_call(int argc, char** argv) {
     if (bottom_up && star_allele) {
         logger.error() << "-Y/--star-allele cannot be used with --bottom-up mode" << endl;
     }
-    if (bottom_up && use_altpaths) {
-        logger.error() << "--altpaths cannot be used with --bottom-up mode" << endl;
+    if (bottom_up && use_augref) {
+        logger.error() << "--augref cannot be used with --bottom-up mode" << endl;
     }
     if (bottom_up && cluster_threshold < 1.0) {
         logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
@@ -737,7 +737,7 @@ int main_call(int argc, char** argv) {
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : ref_paths) {
             // Skip altpaths (they shouldn't influence snarl decomposition)
-            if (AltPathsCover::is_altpath_name(refpath_name)) {
+            if (AugRefCover::is_augref_name(refpath_name)) {
                 continue;
             }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
@@ -903,19 +903,19 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        // Load altpath cover if requested (for nested mode)
-        unique_ptr<AltPathsCover> altpath_cover;
-        if (use_altpaths && nested) {
-            if (show_progress) logger.info() << "Loading altpath cover from graph" << endl;
-            altpath_cover = make_unique<AltPathsCover>();
+        // Load augref cover if requested (for nested mode)
+        unique_ptr<AugRefCover> augref_cover;
+        if (use_augref && nested) {
+            if (show_progress) logger.info() << "Loading augref cover from graph" << endl;
+            augref_cover = make_unique<AugRefCover>();
             unordered_set<path_handle_t> ref_path_handles;
             for (const string& ref_path_name : ref_paths) {
                 if (graph->has_path(ref_path_name)) {
                     ref_path_handles.insert(graph->get_path_handle(ref_path_name));
                 }
             }
-            altpath_cover->load(graph, ref_path_handles);
-            if (show_progress) logger.info() << "Loaded altpath cover" << endl;
+            augref_cover->load(graph, ref_path_handles);
+            if (show_progress) logger.info() << "Loaded augref cover" << endl;
         }
 
         if (nested) {
@@ -935,8 +935,8 @@ int main_call(int argc, char** argv) {
                                               cluster_threshold,
                                               cluster_post_genotype,
                                               star_allele,
-                                              include_altpaths,
-                                              altpath_cover.get()));
+                                              include_augref,
+                                              augref_cover.get()));
         } else if (bottom_up) {
             // Use NestedFlowCaller (bottom-up snarl merging, original nested algorithm)
             graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),

@@ -15,7 +15,7 @@
 #include "../traversal_finder.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
-#include "../altpaths.hpp"
+#include "../augref.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../algorithms/find_translation.hpp"
 #include "../algorithms/back_translate.hpp"
@@ -252,7 +252,7 @@ int main_snarl(int argc, char** argv) {
             graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 // Skip altpaths (they match prefixes but shouldn't be used as references)
-                if (AltPathsCover::is_altpath_name(path_name)) {
+                if (AugRefCover::is_augref_name(path_name)) {
                     return;
                 }
                 if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {
@@ -352,7 +352,7 @@ int main_snarl(int argc, char** argv) {
         vector<string> ref_paths;
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
-            if (!Paths::is_alt(name) && !AltPathsCover::is_altpath_name(name)) {
+            if (!Paths::is_alt(name) && !AugRefCover::is_augref_name(name)) {
               ref_paths.push_back(name);
             }
         });

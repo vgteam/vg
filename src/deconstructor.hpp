@@ -69,7 +69,7 @@ private:
     void deconstruct_graph_top_down(SnarlManager* snarl_manager);
 
     // some information we pass from parent to child site when
-    // doing nested deconstruction (simplified to use AltPathsCover)
+    // doing nested deconstruction (simplified to use AugRefCover)
     struct NestingInfo {
         bool has_ref; // flag essentially determines if struct is initialized
         vector<pair<handle_t, handle_t>> child_snarls; // children of parent

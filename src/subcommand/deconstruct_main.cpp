@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
-#include "../altpaths.hpp"
+#include "../augref.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gbwt_helper.hpp"
@@ -368,7 +368,7 @@ int main_deconstruct(int argc, char** argv) {
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : refpaths) {
             // Skip altpaths (they shouldn't influence snarl decomposition)
-            if (AltPathsCover::is_altpath_name(refpath_name)) {
+            if (AugRefCover::is_augref_name(refpath_name)) {
                 continue;
             }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);

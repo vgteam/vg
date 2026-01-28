@@ -2,7 +2,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "traversal_clusters.hpp"
-#include "altpaths.hpp"
+#include "augref.hpp"
 
 //#define debug
 
@@ -1753,8 +1753,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        double cluster_threshold,
                        bool cluster_post_genotype,
                        bool star_allele,
-                       bool include_altpaths,
-                       AltPathsCover* altpath_cover) :
+                       bool include_augref,
+                       AugRefCover* augref_cover) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
@@ -1769,8 +1769,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     cluster_threshold(cluster_threshold),
     cluster_post_genotype(cluster_post_genotype),
     star_allele(star_allele),
-    include_altpaths(include_altpaths),
-    altpath_cover(altpath_cover)
+    include_augref(include_augref),
+    augref_cover(augref_cover)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -1947,16 +1947,16 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 #endif
     }
 
-    // Use parent's ref path if no direct path, otherwise prefer base reference over altpaths
+    // Use parent's ref path if no direct path, otherwise prefer base reference over augref paths
     string ref_path_name;
     if (common_names.empty()) {
         ref_path_name = parent_ref_path_name;
     } else {
-        // Prefer base reference paths over derived altpaths
-        // common_names is sorted, so we iterate to find first non-altpath
+        // Prefer base reference paths over derived augref paths
+        // common_names is sorted, so we iterate to find first non-augref path
         ref_path_name = common_names.front();  // default to first (lexicographically smallest)
         for (const string& name : common_names) {
-            if (!AltPathsCover::is_altpath_name(name)) {
+            if (!AugRefCover::is_augref_name(name)) {
                 ref_path_name = name;
                 break;
             }
@@ -2348,10 +2348,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     pair<size_t, size_t> gt_ref_interval;
     
     if (!common_names.empty()) {
-        // Prefer base reference paths over derived altpaths
+        // Prefer base reference paths over derived augref paths
         ref_path_name = common_names.front();  // default to first (lexicographically smallest)
         for (const string& name : common_names) {
-            if (!AltPathsCover::is_altpath_name(name)) {
+            if (!AugRefCover::is_augref_name(name)) {
                 ref_path_name = name;
                 break;
             }

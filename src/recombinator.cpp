@@ -1,6 +1,6 @@
 #include "recombinator.hpp"
 
-#include "altpaths.hpp"
+#include "augref.hpp"
 #include "kff.hpp"
 #include "statistics.hpp"
 #include "algorithms/component.hpp"
@@ -1732,7 +1732,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
             gbwt::size_type path_id = this->gbz.graph.named_paths[i].id;
             std::string path_name = gbwtgraph::compose_path_name(
                 this->gbz.index, path_id, this->gbz.graph.named_paths[i].sense);
-            if (AltPathsCover::is_altpath_name(path_name)) {
+            if (AugRefCover::is_augref_name(path_name)) {
                 continue;
             }
             size_t job_id = this->jobs_for_cached_paths[i];

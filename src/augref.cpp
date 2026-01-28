@@ -1,4 +1,4 @@
-#include "altpaths.hpp"
+#include "augref.hpp"
 #include <sstream>
 #include <algorithm>
 #include <queue>
@@ -11,20 +11,30 @@ namespace vg {
 
 using namespace std;
 
-const string AltPathsCover::altpath_suffix = "_alt";
+const string AugRefCover::augref_suffix = "_alt";
 
-string AltPathsCover::make_altpath_name(const string& base_path_name, int64_t alt_index) {
-    return base_path_name + altpath_suffix + to_string(alt_index);
+string AugRefCover::make_augref_name(const string& base_path_name, int64_t augref_index) {
+    // New naming convention: {base}_{N}_alt
+    return base_path_name + "_" + to_string(augref_index) + augref_suffix;
 }
 
-bool AltPathsCover::is_altpath_name(const string& path_name) {
-    // Find the last occurrence of "_alt"
-    size_t pos = path_name.rfind(altpath_suffix);
-    if (pos == string::npos || pos + altpath_suffix.length() >= path_name.length()) {
+bool AugRefCover::is_augref_name(const string& path_name) {
+    // Check for pattern: _{digits}_alt at the end
+    // Must end with "_alt"
+    if (path_name.length() < 6) {  // minimum: "x_1_alt"
         return false;
     }
-    // Check that everything after "_alt" is digits
-    for (size_t i = pos + altpath_suffix.length(); i < path_name.length(); ++i) {
+    if (path_name.substr(path_name.length() - 4) != augref_suffix) {
+        return false;
+    }
+    // Find the underscore before the digits
+    size_t alt_pos = path_name.length() - 4;  // position of "_alt"
+    size_t underscore_pos = path_name.rfind('_', alt_pos - 1);
+    if (underscore_pos == string::npos || underscore_pos == alt_pos - 1) {
+        return false;  // no underscore found, or nothing between underscore and _alt
+    }
+    // Check that everything between underscore and _alt is digits
+    for (size_t i = underscore_pos + 1; i < alt_pos; ++i) {
         if (!isdigit(path_name[i])) {
             return false;
         }
@@ -32,79 +42,91 @@ bool AltPathsCover::is_altpath_name(const string& path_name) {
     return true;
 }
 
-string AltPathsCover::parse_base_path(const string& altpath_name) {
-    if (!is_altpath_name(altpath_name)) {
-        return altpath_name;
+string AugRefCover::parse_base_path(const string& augref_name) {
+    if (!is_augref_name(augref_name)) {
+        return augref_name;
     }
-    size_t pos = altpath_name.rfind(altpath_suffix);
-    return altpath_name.substr(0, pos);
+    // Find _{N}_alt and strip it
+    size_t alt_pos = augref_name.length() - 4;  // position of "_alt"
+    size_t underscore_pos = augref_name.rfind('_', alt_pos - 1);
+    return augref_name.substr(0, underscore_pos);
 }
 
-int64_t AltPathsCover::parse_alt_index(const string& altpath_name) {
-    if (!is_altpath_name(altpath_name)) {
+int64_t AugRefCover::parse_augref_index(const string& augref_name) {
+    if (!is_augref_name(augref_name)) {
         return -1;
     }
-    size_t pos = altpath_name.rfind(altpath_suffix);
-    return stoll(altpath_name.substr(pos + altpath_suffix.length()));
+    // Extract N from _{N}_alt
+    size_t alt_pos = augref_name.length() - 4;  // position of "_alt"
+    size_t underscore_pos = augref_name.rfind('_', alt_pos - 1);
+    return stoll(augref_name.substr(underscore_pos + 1, alt_pos - underscore_pos - 1));
 }
 
-void AltPathsCover::clear(MutablePathMutableHandleGraph* graph) {
-    vector<path_handle_t> altpaths_to_remove;
+void AugRefCover::set_augref_sample(const string& sample_name) {
+    this->augref_sample_name = sample_name;
+}
+
+const string& AugRefCover::get_augref_sample() const {
+    return this->augref_sample_name;
+}
+
+void AugRefCover::clear(MutablePathMutableHandleGraph* graph) {
+    vector<path_handle_t> augref_paths_to_remove;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
-        if (is_altpath_name(graph->get_path_name(path_handle))) {
-            altpaths_to_remove.push_back(path_handle);
+        if (is_augref_name(graph->get_path_name(path_handle))) {
+            augref_paths_to_remove.push_back(path_handle);
         }
     });
-    for (path_handle_t path_handle : altpaths_to_remove) {
+    for (path_handle_t path_handle : augref_paths_to_remove) {
         graph->destroy_path(path_handle);
     }
 }
 
-void AltPathsCover::compute(const PathHandleGraph* graph,
+void AugRefCover::compute(const PathHandleGraph* graph,
                             SnarlManager* snarl_manager,
                             const unordered_set<path_handle_t>& reference_paths,
                             int64_t minimum_length) {
 
     // start from scratch
-    this->altpath_intervals.clear();
+    this->augref_intervals.clear();
     this->node_to_interval.clear();
     this->graph = graph;
 
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
-        this->altpath_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
+        this->augref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                     graph->path_end(ref_path_handle)));
         graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
             if (node_to_interval.count(node_id)) {
-                cerr << "[altpaths error]: node " << node_id << " covered by two reference paths,"
+                cerr << "[augref error]: node " << node_id << " covered by two reference paths,"
                      << " including " << graph->get_path_name(ref_path_handle) << " and "
-                     << graph->get_path_name(graph->get_path_handle_of_step(altpath_intervals.at(node_to_interval.at(node_id)).first))
-                     << ". Altpath support currently requires disjoint acyclic reference paths" << endl;
+                     << graph->get_path_name(graph->get_path_handle_of_step(augref_intervals.at(node_to_interval.at(node_id)).first))
+                     << ". Augmented reference path support currently requires disjoint acyclic reference paths" << endl;
                 exit(1);
             }
-            node_to_interval[node_id] = altpath_intervals.size() - 1;
+            node_to_interval[node_id] = augref_intervals.size() - 1;
         });
     }
-    this->num_ref_intervals = this->altpath_intervals.size();
+    this->num_ref_intervals = this->augref_intervals.size();
 
 #ifdef debug
 #pragma omp critical(cerr)
-    cerr << "[altpaths] Selected " << altpath_intervals.size() << " rank=0 reference paths" << endl;
+    cerr << "[augref] Selected " << augref_intervals.size() << " rank=0 reference paths" << endl;
 #endif
 
     // we use the path traversal finder for everything
     PathTraversalFinder path_trav_finder(*graph);
 
-    // we collect the altpath cover in parallel as a list of path fragments
+    // we collect the augref cover in parallel as a list of path fragments
     size_t thread_count = get_thread_count();
-    vector<vector<pair<step_handle_t, step_handle_t>>> altpath_intervals_vector(thread_count);
+    vector<vector<pair<step_handle_t, step_handle_t>>> augref_intervals_vector(thread_count);
     vector<unordered_map<nid_t, int64_t>> node_to_interval_vector(thread_count);
 
     // we process top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output
-        vector<pair<step_handle_t, step_handle_t>>& thread_altpath_intervals = altpath_intervals_vector[omp_get_thread_num()];
+        vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals = augref_intervals_vector[omp_get_thread_num()];
         unordered_map<nid_t, int64_t>& thread_node_to_interval = node_to_interval_vector[omp_get_thread_num()];
 
         vector<const Snarl*> queue = {snarl};
@@ -115,7 +137,7 @@ void AltPathsCover::compute(const PathHandleGraph* graph,
 
             // get the snarl cover
             compute_snarl(*cur_snarl, path_trav_finder, minimum_length,
-                          thread_altpath_intervals,
+                          thread_augref_intervals,
                           thread_node_to_interval);
 
             // recurse on the children
@@ -130,19 +152,19 @@ void AltPathsCover::compute(const PathHandleGraph* graph,
     for (int64_t t = 0; t < thread_count; ++t) {
 #ifdef debug
 #pragma omp critical(cerr)
-        cerr << "Adding " << altpath_intervals_vector[t].size() << " altpath intervals from thread " << t << endl;
+        cerr << "Adding " << augref_intervals_vector[t].size() << " augref intervals from thread " << t << endl;
 #endif
         // important to go through function rather than do a raw copy since
         // inter-top-level snarl merging may need to happen
-        for (int64_t j = 0; j < altpath_intervals_vector[t].size(); ++j) {
+        for (int64_t j = 0; j < augref_intervals_vector[t].size(); ++j) {
             // the true flag at the end disables the overlap check. since they were computed
             // in separate threads, snarls can overlap by a single node
-            const pair<step_handle_t, step_handle_t>& interval = altpath_intervals_vector[t][j];
+            const pair<step_handle_t, step_handle_t>& interval = augref_intervals_vector[t][j];
             if (interval.first != graph->path_end(graph->get_path_handle_of_step(interval.first))) {
-                add_interval(this->altpath_intervals, this->node_to_interval, altpath_intervals_vector[t][j], true);
+                add_interval(this->augref_intervals, this->node_to_interval, augref_intervals_vector[t][j], true);
             }
         }
-        altpath_intervals_vector[t].clear();
+        augref_intervals_vector[t].clear();
         node_to_interval_vector[t].clear();
     }
 
@@ -156,7 +178,7 @@ void AltPathsCover::compute(const PathHandleGraph* graph,
     defragment_intervals();
 }
 
-void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
+void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
     // Collect all uncovered nodes and the paths that pass through them
     unordered_set<nid_t> uncovered_nodes;
     map<string, path_handle_t> candidate_paths;  // sorted by name for deterministic ordering
@@ -169,8 +191,8 @@ void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
             graph->for_each_step_on_handle(handle, [&](step_handle_t step) {
                 path_handle_t path_handle = graph->get_path_handle_of_step(step);
                 string path_name = graph->get_path_name(path_handle);
-                // Skip existing altpaths
-                if (!is_altpath_name(path_name)) {
+                // Skip existing augref paths
+                if (!is_augref_name(path_name)) {
                     candidate_paths[path_name] = path_handle;
                 }
                 return true;
@@ -184,7 +206,7 @@ void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
 
 #ifdef debug
 #pragma omp critical(cerr)
-    cerr << "[altpaths] fill_uncovered_nodes: " << uncovered_nodes.size() << " uncovered nodes, "
+    cerr << "[augref] fill_uncovered_nodes: " << uncovered_nodes.size() << " uncovered nodes, "
          << candidate_paths.size() << " candidate paths" << endl;
 #endif
 
@@ -221,7 +243,7 @@ void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
                     // Close the current interval
                     if (interval_length >= minimum_length) {
                         // Add the interval and mark nodes as covered
-                        add_interval(this->altpath_intervals, this->node_to_interval,
+                        add_interval(this->augref_intervals, this->node_to_interval,
                                      make_pair(interval_start, interval_end), true);
                         for (nid_t nid : interval_nodes) {
                             uncovered_nodes.erase(nid);
@@ -235,7 +257,7 @@ void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
 
         // Don't forget to close any interval at the end of the path
         if (in_interval && interval_length >= minimum_length) {
-            add_interval(this->altpath_intervals, this->node_to_interval,
+            add_interval(this->augref_intervals, this->node_to_interval,
                          make_pair(interval_start, interval_end), true);
             for (nid_t nid : interval_nodes) {
                 uncovered_nodes.erase(nid);
@@ -245,14 +267,14 @@ void AltPathsCover::fill_uncovered_nodes(int64_t minimum_length) {
 
 #ifdef debug
 #pragma omp critical(cerr)
-    cerr << "[altpaths] fill_uncovered_nodes: " << uncovered_nodes.size() << " nodes still uncovered after second pass" << endl;
+    cerr << "[augref] fill_uncovered_nodes: " << uncovered_nodes.size() << " nodes still uncovered after second pass" << endl;
 #endif
 }
 
-void AltPathsCover::load(const PathHandleGraph* graph,
+void AugRefCover::load(const PathHandleGraph* graph,
                          const unordered_set<path_handle_t>& reference_paths) {
     // start from scratch
-    this->altpath_intervals.clear();
+    this->augref_intervals.clear();
     this->node_to_interval.clear();
     this->graph = graph;
 
@@ -261,75 +283,85 @@ void AltPathsCover::load(const PathHandleGraph* graph,
         graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
             if (graph->get_is_reverse(graph->get_handle_of_step(step_handle))) {
-                cerr << "[altpaths] error: Reversed step " << node_id << " found in rank-0 reference "
-                     << graph->get_path_name(ref_path_handle) << ". All altpath fragments must be forward-only." << endl;
+                cerr << "[augref] error: Reversed step " << node_id << " found in rank-0 reference "
+                     << graph->get_path_name(ref_path_handle) << ". All augref fragments must be forward-only." << endl;
                 exit(1);
             }
             if (node_to_interval.count(node_id)) {
-                cerr << "[altpaths] error: Cycle found on node " << node_id << " in rank-0 reference "
-                     << graph->get_path_name(ref_path_handle) << ". All altpath fragments must be acyclic." << endl;
+                cerr << "[augref] error: Cycle found on node " << node_id << " in rank-0 reference "
+                     << graph->get_path_name(ref_path_handle) << ". All augref fragments must be acyclic." << endl;
                 exit(1);
             }
-            node_to_interval[node_id] = altpath_intervals.size();
+            node_to_interval[node_id] = augref_intervals.size();
         });
-        this->altpath_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
+        this->augref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                     graph->path_end(ref_path_handle)));
     }
-    this->num_ref_intervals = this->altpath_intervals.size();
+    this->num_ref_intervals = this->augref_intervals.size();
 
-    // load existing altpaths from the graph
+    // load existing augref paths from the graph
     graph->for_each_path_handle([&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
-        if (is_altpath_name(path_name)) {
+        if (is_augref_name(path_name)) {
             graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-                node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = altpath_intervals.size();
+                node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = augref_intervals.size();
             });
-            this->altpath_intervals.push_back(make_pair(graph->path_begin(path_handle),
+            this->augref_intervals.push_back(make_pair(graph->path_begin(path_handle),
                                                         graph->path_end(path_handle)));
         }
     });
 }
 
-void AltPathsCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
+void AugRefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     assert(this->graph == static_cast<PathHandleGraph*>(mutable_graph));
 #ifdef debug
-    cerr << "applying altpath cover with " << this->num_ref_intervals << " ref intervals "
-         << " and " << this->altpath_intervals.size() << " total intervals" << endl;
+    cerr << "applying augref cover with " << this->num_ref_intervals << " ref intervals "
+         << " and " << this->augref_intervals.size() << " total intervals" << endl;
 #endif
 
-    // Reset altpath counters for each base path
-    base_path_alt_counter.clear();
+    // If augref_sample_name is set, first copy base reference paths to the new sample
+    if (!augref_sample_name.empty()) {
+        // Collect reference path handles from the reference intervals
+        unordered_set<path_handle_t> reference_paths;
+        for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
+            reference_paths.insert(graph->get_path_handle_of_step(augref_intervals[i].first));
+        }
+        copy_base_paths_to_sample(mutable_graph, reference_paths);
+    }
 
-    // First pass: determine the maximum existing alt index for each base path
-    // This ensures we don't overwrite existing altpaths
+    // Reset augref counters for each base path
+    base_path_augref_counter.clear();
+
+    // First pass: determine the maximum existing augref index for each base path
+    // This ensures we don't overwrite existing augref paths
     mutable_graph->for_each_path_handle([&](path_handle_t path_handle) {
         string path_name = mutable_graph->get_path_name(path_handle);
-        if (is_altpath_name(path_name)) {
+        if (is_augref_name(path_name)) {
             string base = parse_base_path(path_name);
-            int64_t idx = parse_alt_index(path_name);
-            if (base_path_alt_counter.count(base)) {
-                base_path_alt_counter[base] = max(base_path_alt_counter[base], idx);
+            int64_t idx = parse_augref_index(path_name);
+            if (base_path_augref_counter.count(base)) {
+                base_path_augref_counter[base] = max(base_path_augref_counter[base], idx);
             } else {
-                base_path_alt_counter[base] = idx;
+                base_path_augref_counter[base] = idx;
             }
         }
     });
 
-    // write the altpaths
+    // write the augref paths
     int64_t written_intervals = 0;
     int64_t written_length = 0;
     int64_t skipped_intervals = 0;
-    for (int64_t i = this->num_ref_intervals; i < this->altpath_intervals.size(); ++i) {
+    for (int64_t i = this->num_ref_intervals; i < this->augref_intervals.size(); ++i) {
         // Skip empty intervals (these can be created by defragment_intervals or merging)
-        path_handle_t interval_path = graph->get_path_handle_of_step(altpath_intervals[i].first);
-        if (altpath_intervals[i].first == graph->path_end(interval_path)) {
+        path_handle_t interval_path = graph->get_path_handle_of_step(augref_intervals[i].first);
+        if (augref_intervals[i].first == graph->path_end(interval_path)) {
             skipped_intervals++;
-            cerr << "[altpaths] debug: skipping empty interval " << i << endl;
+            cerr << "[augref] debug: skipping empty interval " << i << endl;
             continue;
         }
 
-        // Find the reference path this altpath extends from by tracing back to reference
-        nid_t first_node = graph->get_id(graph->get_handle_of_step(altpath_intervals[i].first));
+        // Find the reference path this augref path extends from by tracing back to reference
+        nid_t first_node = graph->get_id(graph->get_handle_of_step(augref_intervals[i].first));
         vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
 
         // Get the reference path name from the reference node
@@ -337,32 +369,49 @@ void AltPathsCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         if (!ref_nodes.empty()) {
             nid_t ref_node_id = ref_nodes.at(0).second;
             int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
-            path_handle_t ref_path_handle = graph->get_path_handle_of_step(altpath_intervals[ref_interval_idx].first);
+            path_handle_t ref_path_handle = graph->get_path_handle_of_step(augref_intervals[ref_interval_idx].first);
             base_path_name = graph->get_path_name(ref_path_handle);
             // Strip any subrange from the reference path name
             subrange_t subrange;
             base_path_name = Paths::strip_subrange(base_path_name, &subrange);
         } else {
             // Fallback to source path if no reference found (shouldn't happen)
-            path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(altpath_intervals[i].first);
+            path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(augref_intervals[i].first);
             base_path_name = graph->get_path_name(source_path_handle);
             subrange_t subrange;
             base_path_name = Paths::strip_subrange(base_path_name, &subrange);
         }
 
-        // Get next available alt index for this base path
-        int64_t alt_index = ++base_path_alt_counter[base_path_name];
+        // If augref_sample_name is set, replace the sample in base_path_name
+        if (!augref_sample_name.empty()) {
+            PathSense sense;
+            string sample, locus;
+            size_t haplotype, phase_block;
+            subrange_t subrange;
+            PathMetadata::parse_path_name(base_path_name, sense, sample, locus, haplotype, phase_block, subrange);
 
-        // Create the altpath name
-        string altpath_name = make_altpath_name(base_path_name, alt_index);
+            if (sample.empty()) {
+                // Simple path name - prepend augref sample
+                base_path_name = augref_sample_name + "#0#" + base_path_name;
+            } else {
+                // Replace sample with augref sample
+                base_path_name = PathMetadata::create_path_name(sense, augref_sample_name, locus, haplotype, phase_block, subrange);
+            }
+        }
+
+        // Get next available augref index for this base path
+        int64_t augref_index = ++base_path_augref_counter[base_path_name];
+
+        // Create the augref path name
+        string augref_name = make_augref_name(base_path_name, augref_index);
 
         // Create the path as REFERENCE sense
-        path_handle_t altpath_handle = mutable_graph->create_path_handle(altpath_name, false);
+        path_handle_t augref_handle = mutable_graph->create_path_handle(augref_name, false);
 
         int64_t interval_length = 0;
-        for (step_handle_t step_handle = altpath_intervals[i].first; step_handle != altpath_intervals[i].second;
+        for (step_handle_t step_handle = augref_intervals[i].first; step_handle != augref_intervals[i].second;
              step_handle = mutable_graph->get_next_step(step_handle)) {
-            mutable_graph->append_step(altpath_handle, mutable_graph->get_handle_of_step(step_handle));
+            mutable_graph->append_step(augref_handle, mutable_graph->get_handle_of_step(step_handle));
             interval_length += mutable_graph->get_length(mutable_graph->get_handle_of_step(step_handle));
         }
         written_intervals++;
@@ -370,24 +419,24 @@ void AltPathsCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     }
 
 #ifdef debug
-    cerr << "[altpaths] apply: wrote " << written_intervals << " altpaths (" << written_length << " bp), skipped " << skipped_intervals << " empty intervals" << endl;
+    cerr << "[augref] apply: wrote " << written_intervals << " augref paths (" << written_length << " bp), skipped " << skipped_intervals << " empty intervals" << endl;
 #endif
 
-    this->forwardize_altpaths(mutable_graph);
+    this->forwardize_augref_paths(mutable_graph);
 }
 
-int64_t AltPathsCover::get_rank(nid_t node_id) const {
+int64_t AugRefCover::get_rank(nid_t node_id) const {
     // search back to reference in order to find the rank.
     vector<pair<int64_t, nid_t>> ref_steps = this->get_reference_nodes(node_id, true);
     // Return -1 if node is in a disconnected component that can't reach reference
     return ref_steps.empty() ? -1 : ref_steps.at(0).first;
 }
 
-step_handle_t AltPathsCover::get_step(nid_t node_id) const {
+step_handle_t AugRefCover::get_step(nid_t node_id) const {
     if (!node_to_interval.count(node_id)) {
         return step_handle_t();
     }
-    const pair<step_handle_t, step_handle_t>& interval = altpath_intervals.at(node_to_interval.at(node_id));
+    const pair<step_handle_t, step_handle_t>& interval = augref_intervals.at(node_to_interval.at(node_id));
     for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
         if (graph->get_id(graph->get_handle_of_step(step)) == node_id) {
             return step;
@@ -398,7 +447,7 @@ step_handle_t AltPathsCover::get_step(nid_t node_id) const {
 
 pair<const pair<step_handle_t, step_handle_t>*,
      const pair<step_handle_t, step_handle_t>*>
-AltPathsCover::get_parent_intervals(const pair<step_handle_t, step_handle_t>& interval) const {
+AugRefCover::get_parent_intervals(const pair<step_handle_t, step_handle_t>& interval) const {
 
     pair<const pair<step_handle_t, step_handle_t>*,
          const pair<step_handle_t, step_handle_t>*> parents = make_pair(nullptr, nullptr);
@@ -409,34 +458,34 @@ AltPathsCover::get_parent_intervals(const pair<step_handle_t, step_handle_t>& in
     step_handle_t left_parent = graph->get_previous_step(interval.first);
     if (left_parent != graph->path_front_end(graph->get_path_handle_of_step(interval.first))) {
         int64_t interval_idx = this->node_to_interval.at(graph->get_id(graph->get_handle_of_step(left_parent)));
-        parents.first = &this->altpath_intervals.at(interval_idx);
+        parents.first = &this->augref_intervals.at(interval_idx);
     }
 
     step_handle_t right_parent = graph->get_next_step(interval.second);
     if (right_parent != graph->path_end(graph->get_path_handle_of_step(interval.second))) {
         int64_t interval_idx = node_to_interval.at(graph->get_id(graph->get_handle_of_step(right_parent)));
-        parents.second = &this->altpath_intervals.at(interval_idx);
+        parents.second = &this->augref_intervals.at(interval_idx);
     }
     return parents;
 }
 
-const vector<pair<step_handle_t, step_handle_t>>& AltPathsCover::get_intervals() const {
-    return this->altpath_intervals;
+const vector<pair<step_handle_t, step_handle_t>>& AugRefCover::get_intervals() const {
+    return this->augref_intervals;
 }
 
-const pair<step_handle_t, step_handle_t>* AltPathsCover::get_interval(nid_t node_id) const {
+const pair<step_handle_t, step_handle_t>* AugRefCover::get_interval(nid_t node_id) const {
     if (this->node_to_interval.count(node_id)) {
-        return &this->altpath_intervals.at(node_to_interval.at(node_id));
+        return &this->augref_intervals.at(node_to_interval.at(node_id));
     }
     return nullptr;
 }
 
-int64_t AltPathsCover::get_num_ref_intervals() const {
+int64_t AugRefCover::get_num_ref_intervals() const {
     return this->num_ref_intervals;
 }
 
-void AltPathsCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
-                                  vector<pair<step_handle_t, step_handle_t>>& thread_altpath_intervals,
+void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
+                                  vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                                   unordered_map<nid_t, int64_t>& thread_node_to_interval) {
 
     // start by finding the path traversals through the snarl
@@ -449,10 +498,10 @@ void AltPathsCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_
         // reduce protobuf usage by going back to vector of steps instead of keeping SnarlTraversals around
         for (int64_t i = 0; i < path_travs.first.size(); ++i) {
             string trav_path_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
-            if (is_altpath_name(trav_path_name)) {
-                // we ignore existing (off-reference) altpaths
+            if (is_augref_name(trav_path_name)) {
+                // we ignore existing (off-reference) augref paths
 #ifdef debug
-                cerr << "Warning : skipping existing altpath traversal " << trav_path_name << endl;
+                cerr << "Warning : skipping existing augref traversal " << trav_path_name << endl;
 #endif
                 continue;
             }
@@ -584,11 +633,11 @@ void AltPathsCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_
 #pragma omp critical(cerr)
         cerr << "adding interval with length " << interval_length << endl;
 #endif
-        add_interval(thread_altpath_intervals, thread_node_to_interval, new_interval);
+        add_interval(thread_augref_intervals, thread_node_to_interval, new_interval);
     }
 }
 
-vector<pair<int64_t, int64_t>> AltPathsCover::get_uncovered_intervals(const vector<step_handle_t>& trav,
+vector<pair<int64_t, int64_t>> AugRefCover::get_uncovered_intervals(const vector<step_handle_t>& trav,
                                                                       const unordered_map<nid_t, int64_t>& thread_node_to_interval) {
 
     vector<pair<int64_t, int64_t>> intervals;
@@ -617,7 +666,7 @@ vector<pair<int64_t, int64_t>> AltPathsCover::get_uncovered_intervals(const vect
     return intervals;
 }
 
-bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_altpath_intervals,
+bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                                  unordered_map<nid_t, int64_t>& thread_node_to_interval,
                                  const pair<step_handle_t, step_handle_t>& new_interval,
                                  bool global) {
@@ -645,7 +694,7 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
         nid_t prev_node_id = graph->get_id(graph->get_handle_of_step(before_first_step));
         if (thread_node_to_interval.count(prev_node_id)) {
             int64_t prev_idx = thread_node_to_interval[prev_node_id];
-            pair<step_handle_t, step_handle_t>& prev_interval = thread_altpath_intervals[prev_idx];
+            pair<step_handle_t, step_handle_t>& prev_interval = thread_augref_intervals[prev_idx];
             if (graph->get_path_handle_of_step(prev_interval.first) == path_handle) {
                 if (prev_interval.second == new_interval.first ||
                     (global && graph->get_previous_step(prev_interval.second) == new_interval.first)) {
@@ -677,7 +726,7 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
         nid_t next_node_id = graph->get_id(graph->get_handle_of_step(new_interval.second));
         if (thread_node_to_interval.count(next_node_id)) {
             int64_t next_idx = thread_node_to_interval[next_node_id];
-            pair<step_handle_t, step_handle_t>& next_interval = thread_altpath_intervals[next_idx];
+            pair<step_handle_t, step_handle_t>& next_interval = thread_augref_intervals[next_idx];
             path_handle_t next_path = graph->get_path_handle_of_step(next_interval.first);
             if (graph->get_path_handle_of_step(next_interval.first) == path_handle) {
                 if (next_interval.first == new_interval.second ||
@@ -701,7 +750,7 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
                         next_interval.first = graph->path_end(next_path);
                         next_interval.second = graph->path_front_end(next_path);
                         // extend the previous interval right to cover both new_interval and the deleted next_interval
-                        thread_altpath_intervals[merged_interval_idx].second = deleted_interval_second;
+                        thread_augref_intervals[merged_interval_idx].second = deleted_interval_second;
                     } else {
                         // extend next_interval left
                         next_interval.first = new_interval.first;
@@ -715,8 +764,8 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
 
     // add the interval to the local (thread safe) structures
     if (!merged) {
-        merged_interval_idx = thread_altpath_intervals.size();
-        thread_altpath_intervals.push_back(new_interval);
+        merged_interval_idx = thread_augref_intervals.size();
+        thread_augref_intervals.push_back(new_interval);
     }
     for (step_handle_t step = new_interval.first; step != new_interval.second; step = graph->get_next_step(step)) {
         thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
@@ -731,26 +780,26 @@ bool AltPathsCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thr
     return !merged;
 }
 
-void AltPathsCover::defragment_intervals() {
+void AugRefCover::defragment_intervals() {
     vector<pair<step_handle_t, step_handle_t>> new_intervals;
     this->node_to_interval.clear();
-    for (int64_t i = 0; i < this->altpath_intervals.size(); ++i) {
-        const pair<step_handle_t, step_handle_t>& interval = this->altpath_intervals[i];
+    for (int64_t i = 0; i < this->augref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
         path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
         if (interval.first != graph->path_end(path_handle)) {
             new_intervals.push_back(interval);
         }
     }
-    this->altpath_intervals = std::move(new_intervals);
-    for (int64_t i = 0; i < this->altpath_intervals.size(); ++i) {
-        const pair<step_handle_t, step_handle_t>& interval = this->altpath_intervals[i];
+    this->augref_intervals = std::move(new_intervals);
+    for (int64_t i = 0; i < this->augref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
         for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
             this->node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = i;
         }
     }
 }
 
-int64_t AltPathsCover::get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval) {
+int64_t AugRefCover::get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval) {
     int64_t coverage = 0;
 
     for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
@@ -764,14 +813,14 @@ int64_t AltPathsCover::get_coverage(const vector<step_handle_t>& trav, const pai
     return coverage;
 }
 
-// Ensure all nodes in altpaths are in forward orientation
-void AltPathsCover::forwardize_altpaths(MutablePathMutableHandleGraph* mutable_graph) {
+// Ensure all nodes in augref paths are in forward orientation
+void AugRefCover::forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph) {
     assert(this->graph == static_cast<PathHandleGraph*>(mutable_graph));
 
     unordered_map<nid_t, nid_t> id_map;
     mutable_graph->for_each_path_handle([&](path_handle_t path_handle) {
         string path_name = mutable_graph->get_path_name(path_handle);
-        if (is_altpath_name(path_name)) {
+        if (is_augref_name(path_name)) {
             size_t fw_count = 0;
             size_t total_steps = 0;
             mutable_graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
@@ -811,7 +860,7 @@ void AltPathsCover::forwardize_altpaths(MutablePathMutableHandleGraph* mutable_g
                         mutable_graph->rewrite_segment(step, next_step, {new_handle});
                     }
                     if (ref_count > 1) {
-                        cerr << "[altpaths] error: Cycle detected in altpath " << path_name << " at node " << mutable_graph->get_id(handle) << endl;
+                        cerr << "[augref] error: Cycle detected in augref path " << path_name << " at node " << mutable_graph->get_id(handle) << endl;
                         exit(1);
                     }
                     ++fw_count;
@@ -831,11 +880,11 @@ void AltPathsCover::forwardize_altpaths(MutablePathMutableHandleGraph* mutable_g
     // do a check just to be sure
     mutable_graph->for_each_path_handle([&](path_handle_t path_handle) {
         string path_name = mutable_graph->get_path_name(path_handle);
-        if (is_altpath_name(path_name)) {
+        if (is_augref_name(path_name)) {
             mutable_graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                 handle_t handle = mutable_graph->get_handle_of_step(step_handle);
                 if (mutable_graph->get_is_reverse(handle)) {
-                    cerr << "[altpaths] error: Failed to fowardize node " << mutable_graph->get_id(handle) << " in path " << path_name << endl;
+                    cerr << "[augref] error: Failed to fowardize node " << mutable_graph->get_id(handle) << " in path " << path_name << endl;
                     exit(1);
                 }
             });
@@ -843,7 +892,7 @@ void AltPathsCover::forwardize_altpaths(MutablePathMutableHandleGraph* mutable_g
     });
 }
 
-vector<pair<int64_t, nid_t>> AltPathsCover::get_reference_nodes(nid_t node_id, bool first) const {
+vector<pair<int64_t, nid_t>> AugRefCover::get_reference_nodes(nid_t node_id, bool first) const {
 
     // search back to reference in order to find the rank.
     unordered_set<nid_t> visited;
@@ -867,7 +916,7 @@ vector<pair<int64_t, nid_t>> AltPathsCover::get_reference_nodes(nid_t node_id, b
             if (this->node_to_interval.count(current_id)) {
                 int64_t interval_idx = this->node_to_interval.at(current_id);
 
-                const pair<step_handle_t, step_handle_t>& altpath_interval = this->altpath_intervals.at(interval_idx);
+                const pair<step_handle_t, step_handle_t>& augref_interval = this->augref_intervals.at(interval_idx);
 
                 // we've hit the reference, fish out its step and stop searching.
                 if (interval_idx < this->num_ref_intervals) {
@@ -879,16 +928,16 @@ vector<pair<int64_t, nid_t>> AltPathsCover::get_reference_nodes(nid_t node_id, b
                 }
 
                 // search out of the snarl -- any parent traversals will overlap here
-                graph->follow_edges(graph->get_handle_of_step(altpath_interval.first), true, [&](handle_t prev) {
+                graph->follow_edges(graph->get_handle_of_step(augref_interval.first), true, [&](handle_t prev) {
                     queue.push(make_pair(distance + 1, graph->get_id(prev)));
                 });
                 // hack around gbwtgraph bug (feature?) that does not let you decrement path_end
-                path_handle_t path_handle = graph->get_path_handle_of_step(altpath_interval.first);
+                path_handle_t path_handle = graph->get_path_handle_of_step(augref_interval.first);
                 step_handle_t last_step;
-                if (altpath_interval.second == graph->path_end(path_handle)) {
+                if (augref_interval.second == graph->path_end(path_handle)) {
                     last_step = graph->path_back(path_handle);
                 } else {
-                    last_step = graph->get_previous_step(altpath_interval.second);
+                    last_step = graph->get_previous_step(augref_interval.second);
                 }
                 graph->follow_edges(graph->get_handle_of_step(last_step), false, [&](handle_t next) {
                     queue.push(make_pair(distance + 1, graph->get_id(next)));
@@ -912,8 +961,8 @@ vector<pair<int64_t, nid_t>> AltPathsCover::get_reference_nodes(nid_t node_id, b
     return output_reference_nodes;
 }
 
-void AltPathsCover::verify_cover() const {
-    // Check that every node in the graph is covered by the altpath cover
+void AugRefCover::verify_cover() const {
+    // Check that every node in the graph is covered by the augref cover
     int64_t total_nodes = 0;
     int64_t total_length = 0;
     int64_t ref_nodes = 0;
@@ -939,8 +988,8 @@ void AltPathsCover::verify_cover() const {
                 touching_paths.push_back(graph->get_path_name(path_handle));
                 return true;
             });
-            cerr << "[altpaths] error: Node " << node_id
-                 << " (length " << node_len << ") not covered by altpath cover. Paths touching node:";
+            cerr << "[augref] error: Node " << node_id
+                 << " (length " << node_len << ") not covered by augref cover. Paths touching node:";
             if (touching_paths.empty()) {
                 cerr << " <none>";
             } else {
@@ -961,26 +1010,85 @@ void AltPathsCover::verify_cover() const {
         }
     });
 
-    cerr << "[altpaths] verify_cover summary:" << endl
+    cerr << "[augref] verify_cover summary:" << endl
          << "  Total nodes: " << total_nodes << " (" << total_length << " bp)" << endl
          << "  Reference nodes: " << ref_nodes << " (" << ref_length << " bp)" << endl
          << "  Alt nodes: " << alt_nodes << " (" << alt_length << " bp)" << endl
          << "  Uncovered nodes: " << uncovered_nodes << " (" << uncovered_length << " bp)" << endl
-         << "  Intervals: " << num_ref_intervals << " ref + " << (altpath_intervals.size() - num_ref_intervals) << " alt" << endl;
+         << "  Intervals: " << num_ref_intervals << " ref + " << (augref_intervals.size() - num_ref_intervals) << " alt" << endl;
 }
 
-void AltPathsCover::print_stats(ostream& os) {
+void AugRefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
+                                              const unordered_set<path_handle_t>& reference_paths) {
+    ref_path_to_copy.clear();
+
+    if (augref_sample_name.empty()) {
+        return;
+    }
+
+    for (const path_handle_t& ref_path : reference_paths) {
+        string ref_name = mutable_graph->get_path_name(ref_path);
+
+        // Parse the path name to extract components
+        // rGFA format: SAMPLE#HAPLOTYPE#CONTIG or just CONTIG
+        PathSense sense;
+        string sample, locus;
+        size_t haplotype, phase_block;
+        subrange_t subrange;
+        PathMetadata::parse_path_name(ref_name, sense, sample, locus, haplotype, phase_block, subrange);
+
+        // Create new path name with augref sample
+        string new_name;
+        if (sample.empty()) {
+            // Simple path name (no sample info) - prepend augref sample
+            new_name = augref_sample_name + "#0#" + ref_name;
+        } else {
+            // Replace sample with augref sample
+            new_name = PathMetadata::create_path_name(sense, augref_sample_name, locus, haplotype, phase_block, subrange);
+        }
+
+        // Check if path already exists
+        if (mutable_graph->has_path(new_name)) {
+#ifdef debug
+            cerr << "[augref] copy_base_paths_to_sample: path " << new_name << " already exists, skipping" << endl;
+#endif
+            ref_path_to_copy[ref_path] = mutable_graph->get_path_handle(new_name);
+            continue;
+        }
+
+        // Create the new path with same sense as original
+        path_handle_t new_path = mutable_graph->create_path_handle(new_name, false);
+
+        // Copy all steps from original path to new path
+        mutable_graph->for_each_step_in_path(ref_path, [&](step_handle_t step) {
+            mutable_graph->append_step(new_path, mutable_graph->get_handle_of_step(step));
+            return true;
+        });
+
+        ref_path_to_copy[ref_path] = new_path;
+
+#ifdef debug
+        cerr << "[augref] copy_base_paths_to_sample: copied " << ref_name << " -> " << new_name << endl;
+#endif
+    }
+
+#ifdef debug
+    cerr << "[augref] copy_base_paths_to_sample: copied " << ref_path_to_copy.size() << " reference paths to sample " << augref_sample_name << endl;
+#endif
+}
+
+void AugRefCover::print_stats(ostream& os) {
     // the header
     os << "#BasePath" << "\t"
-       << "AltIndex" << "\t"
+       << "AugRefIndex" << "\t"
        << "Length" << "\t"
        << "NodeStart" << "\t"
        << "NodeEnd" << "\t"
        << "Rank" << "\t"
        << "AvgDepth" << endl;
 
-    for (int64_t i = this->num_ref_intervals; i < this->altpath_intervals.size(); ++i) {
-        const pair<step_handle_t, step_handle_t>& interval = this->altpath_intervals[i];
+    for (int64_t i = this->num_ref_intervals; i < this->augref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
         path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
         string path_name = graph->get_path_name(path_handle);
 
@@ -995,7 +1103,7 @@ void AltPathsCover::print_stats(ostream& os) {
         }
 
         string base_path = parse_base_path(path_name);
-        int64_t alt_index = parse_alt_index(path_name);
+        int64_t augref_index = parse_augref_index(path_name);
 
         nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
         vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
@@ -1011,7 +1119,7 @@ void AltPathsCover::print_stats(ostream& os) {
         handle_t last_handle = graph->get_handle_of_step(last_step);
 
         os << base_path << "\t"
-           << alt_index << "\t"
+           << augref_index << "\t"
            << path_length << "\t"
            << (graph->get_is_reverse(graph->get_handle_of_step(interval.first)) ? "<" : ">")
            << graph->get_id(graph->get_handle_of_step(interval.first)) << "\t"

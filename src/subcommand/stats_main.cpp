@@ -35,7 +35,7 @@
 #include "../gbzgraph.hpp"
 #include "../progressive.hpp"
 #include "../traversal_finder.hpp"
-#include "../altpaths.hpp"
+#include "../augref.hpp"
 
 using namespace std;
 using namespace vg;
@@ -1199,7 +1199,7 @@ int main_stats(int argc, char** argv) {
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
                     // Skip altpaths (they shouldn't influence snarl decomposition)
-                    if (AltPathsCover::is_altpath_name(path_name)) {
+                    if (AugRefCover::is_augref_name(path_name)) {
                         return;
                     }
                     ref_path_names.push_back(path_name);

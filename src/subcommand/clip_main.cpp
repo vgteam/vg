@@ -7,7 +7,7 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/alignment_emitter.hpp>
 #include "../clip.hpp"
-#include "../altpaths.hpp"
+#include "../augref.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
@@ -333,7 +333,7 @@ int main_clip(int argc, char** argv) {
             pp_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
                     // Skip altpaths (they match prefixes but shouldn't be used as references)
-                    if (AltPathsCover::is_altpath_name(path_name)) {
+                    if (AugRefCover::is_augref_name(path_name)) {
                         return;
                     }
                     subrange_t subrange;
@@ -364,7 +364,7 @@ int main_clip(int argc, char** argv) {
             constexpr size_t EXTRA_WEIGHT = 10000000000;
             for (const Region& region : bed_regions) {
                 // Skip altpaths (they shouldn't influence snarl decomposition)
-                if (AltPathsCover::is_altpath_name(region.seq)) {
+                if (AugRefCover::is_augref_name(region.seq)) {
                     continue;
                 }
                 path_handle_t path_handle = graph->get_path_handle(region.seq);
