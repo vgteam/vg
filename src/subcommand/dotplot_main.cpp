@@ -33,6 +33,7 @@ void help_dotplot(char** argv) {
 }
 
 int main_dotplot(int argc, char** argv) {
+    Logger logger("vg dotplot");
 
     if (argc == 2) {
         help_dotplot(argv);
@@ -63,7 +64,7 @@ int main_dotplot(int argc, char** argv) {
         {
 
         case 'x':
-            xg_file = optarg;
+            xg_file = require_exists(logger, optarg);
             break;
 
         case 'h':
@@ -78,8 +79,7 @@ int main_dotplot(int argc, char** argv) {
     }
 
     if (xg_file.empty()) {
-        cerr << "[vg dotplot] Error: an xg index is required" << endl;
-        exit(1);
+        logger.error() << "an XG index is required" << endl;
     } else {
         unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
         bdsg::PathPositionOverlayHelper overlay_helper;

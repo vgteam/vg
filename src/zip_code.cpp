@@ -5,8 +5,11 @@
 namespace vg{
 using namespace std;
 
-void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
+// Make sure that the default / empty payload exists as a value that can be pointed to.
+constexpr std::pair<gbwtgraph::KmerEncoding::code_type, gbwtgraph::KmerEncoding::code_type> MIPayload::NO_CODE;
 
+void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const pos_t& pos, 
+                                       bool fill_in_decoder, const handlegraph::HandleGraph* graph_ptr) {
     std::vector<net_handle_t> ancestors;
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
 
@@ -118,7 +121,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
                 }
                 return;
             }
-        } else if (distance_index.is_regular_snarl(current_ancestor)) {
+        } else if (distance_index.is_regular_snarl(current_ancestor, false, graph_ptr)) {
             snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
             zipcode.add_value(snarl_code.get_raw_code_type());
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
@@ -145,6 +148,29 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
     }
     if (fill_in_decoder) {
         fill_in_full_decoder();
+    }
+}
+
+void ZipCode::fill_in_zipcode(
+    const code_type* payload,
+    const ZipCodeCollection* oversized_zipcodes,
+    const SnarlDistanceIndex& distance_index, const vg::pos_t& pos
+) {
+    if (payload == nullptr || std::make_pair(payload[0], payload[1]) == MIPayload::NO_CODE) {
+        // No payload available.
+        this->fill_in_zipcode_from_pos(distance_index, pos);
+    } else if (payload[0] == 0) {
+        // This is an oversized zipcode.
+        if (oversized_zipcodes != nullptr && !oversized_zipcodes->empty()) {
+            // Take the value from the oversized zipcode collection.
+            *this = oversized_zipcodes->at(payload[1]);
+        } else {
+            // Fall back to position-based filling.
+            this->fill_in_zipcode_from_pos(distance_index, pos);
+        }
+    } else {
+        // Decode the provided payload.
+        this->fill_in_zipcode_from_payload(payload);
     }
 }
 
@@ -1919,7 +1945,7 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
     }
 }
 
-gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
+std::pair<ZipCode::code_type, ZipCode::code_type> ZipCode::get_payload_from_zip() const {
     varint_vector_t decoder_vector;
     //The zipcode decoder's is_chain will always alternate is_chain between levels, except for the very end,
     // which may have two is_chains in a row for a trivial chain. So we can store the whole series in two bits.
@@ -1990,25 +2016,25 @@ gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
         encoded_bytes++;
     }
     assert(encoded_bytes <= 16);
-    return {encoded1, encoded2};
+    return std::make_pair(encoded1, encoded2);
 
 }
 
-void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
-    assert(payload != MIPayload::NO_CODE);
+void ZipCode::fill_in_zipcode_from_payload(const code_type* payload) {
+    assert(std::make_pair(payload[0], payload[1]) != MIPayload::NO_CODE);
     zipcode.data.reserve(16);
 
     size_t decoded_bytes = 0;
 
     //get one byte at a time from the payload and add it to the zip code
     size_t bit_mask = (1 << 8) - 1;
-    size_t byte_count = payload.first & bit_mask;
+    size_t byte_count = payload[0] & bit_mask;
     decoded_bytes++;
     for (size_t i = 0 ; i < byte_count ; i++) {
         if (decoded_bytes < 8) {
-            zipcode.add_one_byte((payload.first >> (decoded_bytes*8)) & bit_mask);
+            zipcode.add_one_byte((payload[0] >> (decoded_bytes*8)) & bit_mask);
         } else {
-            zipcode.add_one_byte((payload.second >> ((decoded_bytes-8)*8)) & bit_mask);
+            zipcode.add_one_byte((payload[1] >> ((decoded_bytes-8)*8)) & bit_mask);
         }
         decoded_bytes++;
     }
@@ -2016,9 +2042,9 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     //Find the booleans specifying the is_chain values
     uint8_t is_chain_val = 0;
     if (decoded_bytes < 8) {
-        is_chain_val = (payload.first >> (decoded_bytes*8)) & bit_mask;
+        is_chain_val = (payload[0] >> (decoded_bytes*8)) & bit_mask;
     } else {
-        is_chain_val = (payload.second >> ((decoded_bytes-8)*8)) & bit_mask;
+        is_chain_val = (payload[1] >> ((decoded_bytes-8)*8)) & bit_mask;
     }
     decoded_bytes++;
     bool is_chain = is_chain_val & 1;
@@ -2030,9 +2056,9 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     for (size_t i = decoded_bytes ; i <16 ; i++) {
         uint8_t saved_byte;
         if (decoded_bytes < 8) {
-            saved_byte = (payload.first >> (decoded_bytes*8)) & bit_mask;
+            saved_byte = (payload[0] >> (decoded_bytes*8)) & bit_mask;
         } else {
-            saved_byte = (payload.second >> ((decoded_bytes-8)*8)) & bit_mask;
+            saved_byte = (payload[1] >> ((decoded_bytes-8)*8)) & bit_mask;
         }
         if (saved_byte != 0) {
             decoder_vector.add_one_byte(saved_byte);

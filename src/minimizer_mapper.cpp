@@ -7,11 +7,14 @@
 
 #include "crash.hpp"
 #include "annotation.hpp"
+#include "gbwtgraph_helper.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
+#include "utility.hpp"
+#include "interval_union.hpp"
 #include "algorithms/alignment_path_offsets.hpp"
 #include "algorithms/count_covered.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
@@ -51,43 +54,15 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const DefaultIndex& minimizer_index,
+    const MinimizerIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
     const ZipCodeCollection* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph),
-    minimizer_index_s(&minimizer_index),
-    minimizer_index_xl(nullptr),
-    index_kind(IndexKind::S),
-    distance_index(distance_index),  
-    zipcodes(zipcodes),
-    clusterer(distance_index, &graph),
-    gbwt_graph(graph),
-    extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
-    choose_band_padding(algorithms::pad_band_random_walk()),
-    fragment_length_distr(1000,1000,0.95)
-{   
-    crash_unless(graph.index != nullptr);
-    if ((index_kind == IndexKind::S  && minimizer_index_s  == nullptr) || (index_kind == IndexKind::XL && minimizer_index_xl == nullptr)) {
-        k = 0; w = 0; uses_syncmers = false;
-    } else {
-        with_index([&](const auto& idx){
-            k = (int32_t)idx.k();
-            w = (int32_t)idx.w();
-            uses_syncmers = idx.uses_syncmers();
-        });
-    }
-}
-
-MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const XLIndex& minimizer_index,
-    SnarlDistanceIndex* distance_index, 
-    const ZipCodeCollection* zipcodes, 
-    const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph),
-    minimizer_index_s(nullptr),
-    minimizer_index_xl(&minimizer_index),
-    index_kind(IndexKind::XL),
+    minimizer_index(minimizer_index),
+    k(minimizer_index.k()), w(minimizer_index.w()),
+    payload_with_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
+    uses_syncmers(minimizer_index.uses_syncmers()),
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
@@ -97,15 +72,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     fragment_length_distr(1000,1000,0.95)
 {
     crash_unless(graph.index != nullptr);
-    if ((index_kind == IndexKind::S  && minimizer_index_s  == nullptr) || (index_kind == IndexKind::XL && minimizer_index_xl == nullptr)) {
-        k = 0; w = 0; uses_syncmers = false;
-    } else {
-        with_index([&](const auto& idx){
-            k = (int32_t)idx.k();
-            w = (int32_t)idx.w();
-            uses_syncmers = idx.uses_syncmers();
-        });
-    }
 }
 
 void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
@@ -346,7 +312,7 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
                     return;
                 }
 
-                std::cerr << log_name() << "Minimizer " << index << ": " << m.forward_sequence() << "@" << m.forward_offset() << " with " << m.hits << " hits" << std::endl;
+                std::cerr << log_name() << "Minimizer " << index << ": " << m.forward_sequence() << "@" << m.forward_offset() << " with " << m.hits() << " hits" << std::endl;
             } else if (rank == MANY_LIMIT) {
                 if (region_start == 0 && length_limit == sequence.size()) {
                     // Report as if we have a count
@@ -423,7 +389,7 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
             }
             
             // Tag with metadata
-            cerr << " (#" << index << ", " << m.hits << " hits)" << endl;
+            cerr << " (#" << index << ", " << m.hits() << " hits)" << endl;
         }
     }
 }
@@ -576,7 +542,7 @@ void MinimizerMapper::dump_debug_seeds(const VectorView<Minimizer>& minimizers, 
             const Seed& seed = seeds[seed_index];
             const Minimizer& minimizer = minimizers[seed.source];
             cerr << log_name() << "Seed read:" << minimizer.value.offset << (minimizer.value.is_reverse ? '-' : '+') << " = " << seed.pos
-                << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
+                << " from minimizer " << seed.source << "(" << minimizer.hits() << "), #" << seed_index << endl;
         }
     } else {
         // Describe the seeds in aggregate
@@ -590,8 +556,8 @@ void MinimizerMapper::dump_debug_seeds(const VectorView<Minimizer>& minimizers, 
             const Minimizer& minimizer = minimizers[seed.source];
             min_read_pos = std::min(min_read_pos, (size_t)minimizer.value.offset);
             max_read_pos = std::max(max_read_pos, (size_t)minimizer.value.offset);
-            min_hits = std::min(min_hits, minimizer.hits);
-            max_hits = std::max(max_hits, minimizer.hits);
+            min_hits = std::min(min_hits, minimizer.hits());
+            max_hits = std::max(max_hits, minimizer.hits());
         }
         cerr << log_name() << selected_seeds.size() << " seeds in read:" << min_read_pos << "-" << max_read_pos << " with " << min_hits << "-" << max_hits << " hits" << endl;
     }
@@ -640,7 +606,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 }
 
 vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
-    
+
     if (show_work) {
         #pragma omp critical (cerr)
         dump_debug_query(aln);
@@ -738,13 +704,36 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     size_t kept_cluster_count = 0;
     
+    // For identifying supplementary alignments, keep track of which read intervals we have covered by clusters already
+    IntervalUnion current_read_coverage;
+
     //Process clusters sorted by both score and read coverage
-    process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
+    process_until_threshold_e<double>(clusters.size(), [&](size_t i) -> double {
             return clusters[i].coverage;
         }, [&](size_t a, size_t b) -> bool {
             return ((clusters[a].coverage > clusters[b].coverage) ||
                     (clusters[a].coverage == clusters[b].coverage && clusters[a].score > clusters[b].score));
-        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num, size_t item_count) -> bool {
+        }, [&](size_t cluster_num) -> bool {
+            if (!find_supplementaries) {
+                // If we aren't augmenting the primary with supplementary alignments, we don't need to worry
+                // about covering the whole read
+                return false;
+            }
+            const Cluster& cluster = clusters[cluster_num];
+            // TODO: Use sweep line for guaranteed O(n log n) to compute union
+            IntervalUnion cluster_intervals;
+            for (size_t seed_num : cluster.seeds) {
+                const Minimizer& minimizer = minimizers[seeds[seed_num].source];
+                cluster_intervals.add(minimizer.agglomeration_start, minimizer.agglomeration_start + minimizer.agglomeration_length); 
+            }
+            size_t total_overlap = 0;
+            for (const auto& interval : cluster_intervals.get_union()) {
+                total_overlap += current_read_coverage.overlap(interval);
+            }
+            // Could this cluster finish out a supplementary alignment?
+            return (total_overlap <= 2 * max_supplementary_separation && 
+                    max<int64_t>(cluster_intervals.total_size() - total_overlap, 0) >= min_supplementary_read_coverage);
+        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num, size_t item_count, bool escaped_threshold) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
             Cluster& cluster = clusters[cluster_num];
@@ -754,8 +743,8 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
             
             // First check against the additional score filter
-            if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff 
-                && kept_cluster_count >= min_extensions) {
+            if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff
+                && kept_cluster_count >= min_extensions && !escaped_threshold) {
                 //If the score isn't good enough and we already kept at least min_extensions clusters,
                 //ignore this cluster
                 if (track_provenance) {
@@ -783,6 +772,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
                     cerr << log_name() << "Cluster " << cluster_num << endl;
                     cerr << log_name() << "Covers " << cluster.coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
                     cerr << log_name() << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
+                    cerr << log_name() << (escaped_threshold ? "Escaped" : "Did not escape") << " score and coverage thresholds" << endl;
                 }
             }
             
@@ -798,6 +788,12 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
                 &funnel));
             
             kept_cluster_count ++;
+
+            if (find_supplementaries) {
+                for (const auto& extension : cluster_extensions.back()) {
+                    current_read_coverage.add(extension.read_interval);
+                }
+            }
             
             return true;
             
@@ -825,6 +821,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
                 funnel.fail("cluster-coverage", cluster_num, clusters[cluster_num].coverage);
             }
             if (show_work) {
+                
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "Cluster " << cluster_num << " fails cluster coverage cutoffs" <<  endl;
@@ -847,11 +844,6 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
     alignments.reserve(cluster_extensions.size());
-    // This maps from alignment index back to cluster extension index, for
-    // tracing back to minimizers for MAPQ. Can hold
-    // numeric_limits<size_t>::max() for an unaligned alignment.
-    vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(cluster_extensions.size());
 
     // Create a new alignment object to get rid of old annotations.
     aln.clear_refpos();
@@ -887,14 +879,37 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
         }
     };
+
+    // Reset the extension read coverage so we can use it to track alignment coverage.
+    current_read_coverage.clear();
     
     // Go through the gapless extension groups in score order.
-    process_until_threshold_b<int>(cluster_extension_scores,
-        extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t extension_num, size_t item_count) -> bool {
+    process_until_threshold_d<int>(cluster_extension_scores, [&](size_t extension_num) -> bool {
+            // TODO: repetitive with the escape function for seeds
+            if (!find_supplementaries) {
+                // No need to find alignments covering the entire read
+                return false;
+            }
+
+            const auto& extensions = cluster_extensions[extension_num];
+            // TODO: Use sweep line for guaranteed O(n log n) to compute union
+            IntervalUnion extension_intervals;
+            for (const auto& extension : extensions) {
+                extension_intervals.add(extension.read_interval); 
+            }
+            size_t total_overlap = 0;
+            for (const auto& interval : extension_intervals.get_union()) {
+                total_overlap += current_read_coverage.overlap(interval);
+            }
+            // Could this cluster finish out a supplementary alignment?
+            return (total_overlap <= 2 * max_supplementary_separation && 
+                    max<int64_t>(extension_intervals.total_size() - total_overlap, 0) >= min_supplementary_read_coverage);
+        },
+        extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t extension_num, size_t item_count, bool escaped_threshold) -> bool {
             // This extension set is good enough.
             // Called in descending score order.
             
-            if (cluster_extension_scores[extension_num] < extension_set_min_score) {
+            if (cluster_extension_scores[extension_num] < extension_set_min_score && !escaped_threshold) {
                 // Actually discard by score
                 discard_processed_cluster_by_score(extension_num);
                 return false;
@@ -903,7 +918,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "gapless extension group " << extension_num << " is good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                    cerr << log_name() << "gapless extension group " << extension_num << " is good enough (score=" << cluster_extension_scores[extension_num] << "), " << (escaped_threshold ? "passed" : "did not pass") << " by escaping threshold" << endl;
                     if (track_correctness && funnel.was_correct(extension_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                         dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
@@ -986,7 +1001,6 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             // Have a function to process the best alignments we obtained
             auto observe_alignment = [&](Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
-                alignments_to_source.push_back(extension_num);
 
                 if (track_provenance) {
     
@@ -1045,12 +1059,18 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
-        alignments_to_source.push_back(numeric_limits<size_t>::max());
         
         if (track_provenance) {
             // Say it came from nowhere
             funnel.introduce();
         }
+    }
+
+    vector<Alignment> supplementaries;
+    if (find_supplementaries && !alignments.empty()) {
+        // Check if any of the secondaries can be a supplementary of the primary before they
+        // would need to compete for MAPQ
+        supplementaries = std::move(identify_supplementary_alignments(alignments, funnel));
     }
     
     if (track_provenance) {
@@ -1161,6 +1181,21 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
    
+    if (!supplementaries.empty()) {
+        // Estimate a mapping quality for the supplementaries
+        // TODO: only count the score of the overlapping portion of other alignments
+        for (auto& supp : supplementaries) {
+            double score_diff = mappings.front().score() - supp.score();
+            scores[0] -= score_diff;
+            double supp_mapq = get_regular_aligner()->compute_first_mapping_quality(scores, false);
+            supp.set_mapping_quality(max(min<int>(supp_mapq, mappings.front().mapping_quality()), 0));
+            scores[0] += score_diff;
+        }
+        // Store them in an annotation on the primary
+        for (auto& supp : supplementaries) {
+            *mappings.front().add_supplementary() = std::move(supp);
+        }
+    }
     
     if (track_provenance) {
         funnel.substage_stop();
@@ -1358,7 +1393,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 // TODO: Make these local classes when C++ learns to let you use template members in local classes.
 
 /// Type to point to an alignment of a known read
-struct read_alignment_index_t {
+struct MinimizerMapper::read_alignment_index_t {
     size_t fragment;
     size_t alignment;
     
@@ -1377,19 +1412,20 @@ struct read_alignment_index_t {
     }
     
     // Allow comparison
-    inline bool operator==(const read_alignment_index_t& other) {
+    inline bool operator==(const read_alignment_index_t& other) const {
         return fragment == other.fragment && alignment == other.alignment;
     };
-    inline bool operator!=(const read_alignment_index_t& other) {
+    inline bool operator!=(const read_alignment_index_t& other) const {
         return !(*this == other);
     };
 };
+
 /// Represents an unset index
-const read_alignment_index_t NO_READ_INDEX = {std::numeric_limits<size_t>::infinity(), std::numeric_limits<size_t>::infinity()};
+const MinimizerMapper::read_alignment_index_t MinimizerMapper::NO_READ_INDEX = {std::numeric_limits<size_t>::infinity(), std::numeric_limits<size_t>::infinity()};
 
 /// Type to point to an alignment of either read
 /// <fragment index, alignment_index, read number (0 or 1)>
-struct alignment_index_t {
+struct MinimizerMapper::alignment_index_t {
     size_t fragment;
     size_t alignment;
     bool read;
@@ -1407,15 +1443,15 @@ struct alignment_index_t {
     }
     
     // Allow comparison
-    inline bool operator==(const alignment_index_t& other) {
+    inline bool operator==(const alignment_index_t& other) const {
         return fragment == other.fragment && alignment == other.alignment && read == other.read;
     };
-    inline bool operator!=(const alignment_index_t& other) {
+    inline bool operator!=(const alignment_index_t& other) const {
         return !(*this == other);
     };
 };
 /// Represents an unset index
-const alignment_index_t NO_INDEX {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<bool>::max()};
+const MinimizerMapper::alignment_index_t MinimizerMapper::NO_INDEX {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<bool>::max()};
 
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
     
@@ -2012,7 +2048,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     
     // Fill this in with the indexes of pairs of alignments we will output
     // each alignment is stored as <fragment index, alignment index> into alignments
-    // fragment_index should be the same for both ends, unless one was rescued
+    // fragment_index should be the same for both ends, unless one was rescued.
+    // Note that for a failed rescue, we still include the "pair" here that has one read unmapped.
     vector<std::array<read_alignment_index_t, 2>> paired_alignments;
     paired_alignments.reserve(alignments.size());
 
@@ -2025,13 +2062,15 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     vector<std::array<vector<vector<size_t>>, 2>> alignment_groups(alignments.size());
 
     // Grab all the scores in order for MAPQ computation.
+    // These correspond 1 to 1 with paired_alignments.
     vector<double> paired_scores;
     paired_scores.reserve(alignments.size());
+    // Record the fragment distances, which are 1 to 1 with paired_alignments
+    // and feed into MAPQ capping. 
     vector<int64_t> fragment_distances;
     fragment_distances.reserve(alignments.size());
 
     //for each alignment pair, what type of pair is it
-    enum PairType {paired, unpaired, rescued_from_first, rescued_from_second};
     vector<PairType> pair_types; 
     
     //For each pair of alignments in paired_alignments, how many equivalent or better fragment clusters
@@ -2167,7 +2206,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         unpaired_scores[r].reserve(unpaired_alignments.size());
     }
 
-
+    array<vector<read_alignment_index_t>, 2> supplementaries;
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
         if (!found_pair) {
@@ -2287,12 +2326,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
         }
 
+        // Keep track of which entries from unpaired_alignments were used for rescue
+        vector<bool> attempted_rescue_from(unpaired_alignments.size(), false);
+
         if (max_rescue_attempts != 0) {
             //Attempt rescue on unpaired alignments if either we didn't find any pairs or if the unpaired alignments are very good
 
             process_until_threshold_a(unpaired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_alignments.at(i).lookup_in(alignments).score();
             }, 0, 1, max_rescue_attempts, rng, [&](size_t i, size_t item_count) {
+                attempted_rescue_from[i] = true;
                 auto& index = unpaired_alignments.at(i);
                 size_t j = index.lookup_in(alignment_indices);
                 if (track_provenance) {
@@ -2313,14 +2356,15 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[1 - index.read], index.read == 0);
 
                 bool properly_paired = false;
+                int64_t fragment_dist;
                 double score;
 
                 if (rescued_aln.path().mapping_size() != 0) {
                     //If we actually found an alignment
                     
                     // Compute the distance
-                    int64_t fragment_dist = index.read == 0 ? distance_between(mapped_aln, rescued_aln) 
-                                                      : distance_between(rescued_aln, mapped_aln);
+                    fragment_dist = index.read == 0 ? distance_between(mapped_aln, rescued_aln) 
+                                                    : distance_between(rescued_aln, mapped_aln);
                     
                     // Use it to make a pair score
                     score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
@@ -2333,13 +2377,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     set_annotation(mapped_aln,  "fragment_length", distance_to_annotation(fragment_dist));
                     set_annotation(rescued_aln, "fragment_length", distance_to_annotation(fragment_dist));
                     
-                    // Track it for the distribution
-                    fragment_distances.emplace_back(fragment_dist);
                 } else {
                     // If there's no rescue result, the score of the pair is the score of the one actually-aligned read
                     score = mapped_aln.score();
+                    // And the fragment distance is unreachable. But don't add an annotation for it.
+                    fragment_dist = std::numeric_limits<int64_t>::max();
                 }
-                
+
                 // Add the annotations that don't always need a fragment distance.
                 set_annotation(mapped_aln, "rescuer", true);
                 set_annotation(rescued_aln, "rescued", true);
@@ -2367,7 +2411,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     paired_alignments.back().at(r).check_for_read_in(r, alignments);
                 }
 #endif
-                
+                fragment_distances.emplace_back(fragment_dist);
                 paired_scores.emplace_back(score);
                 pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
                 better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.fragment]);
@@ -2405,9 +2449,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 return;
             });
         }
-    }
 
-    
+        if (find_supplementaries) {
+            supplementaries = std::move(identify_supplementary_alignments(alignments, paired_alignments, paired_scores,
+                                                                          fragment_distances, pair_types, better_cluster_count_by_pairs,
+                                                                          unpaired_alignments, attempted_rescue_from, funnels));
+        }
+    }
     
     if (track_provenance) {
         // Now say we are finding the winner(s)
@@ -2415,6 +2463,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             funnels[r].stage("winner");
         }
     }
+    
+    // Make sure we haven't dropped any parts of our multi-vector per-pair
+    // alignment data records.
+    //
+    // TODO: Remove the possibility to get this wrong by making these all
+    // members of a struct.
+    crash_unless(paired_scores.size() == paired_alignments.size());
+    crash_unless(fragment_distances.size() == paired_alignments.size());
+    crash_unless(pair_types.size() == paired_alignments.size());
+    crash_unless(better_cluster_count_by_pairs.size() == paired_alignments.size());
 
     // Fill this in with the alignments we will output.
     std::array<vector<Alignment>, 2> mappings;
@@ -2708,6 +2766,33 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         << ", score group cap " << (mapq_score_groups[r] / 2.0)
                         << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)
                         << ", alignedness " << is_aligned << endl;
+                }
+            }
+        }
+
+        if (!supplementaries[0].empty() || !supplementaries[1].empty()) {
+            for (auto r : {0, 1}) {
+                if (supplementaries[r].empty()) {
+                    continue;
+                }
+                vector<Alignment> suppl_alignments;
+                suppl_alignments.reserve(supplementaries[r].size());
+                for (auto& index : supplementaries[r]) {
+                    suppl_alignments.emplace_back(index.lookup_for_read_in(r, alignments));
+                }
+
+                // Estimate a mapping quality for the supplementaries
+                // TODO: only count the score of the overlapping portion of other alignments
+                for (auto& supp : suppl_alignments) {
+                    double score_diff = mappings[r].front().score() - supp.score();
+                    scores[0] -= score_diff;
+                    double supp_mapq = get_regular_aligner()->compute_first_mapping_quality(scores, false, multiplicities);
+                    supp.set_mapping_quality(max(min<int>(supp_mapq, mappings[r].front().mapping_quality()), 0));
+                    scores[0] += score_diff;
+                }
+
+                for (auto& suppl_aln : suppl_alignments) {
+                    *mappings[r].front().add_supplementary() = std::move(suppl_aln);
                 }
             }
         }
@@ -3396,8 +3481,8 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const VectorVie
     std::sort(sorted_ids.begin(), sorted_ids.end());
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
-        const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
-        gbwtgraph::hits_in_subgraph<gbwtgraph::Payload>(minimizer.hits, occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
+        gbwtgraph::hits_in_subgraph(this->minimizer_index, minimizer.occs, sorted_ids, [&](MinimizerIndex::value_type hit) {
+            pos_t pos = hit.first.decode();
             if (minimizer.value.is_reverse) {
                 size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
                 pos = reverse_base_pos(pos, node_length);
@@ -3473,6 +3558,311 @@ void MinimizerMapper::fix_dozeu_end_deletions(Alignment& alignment) const {
     }
 }
 
+//-----------------------------------------------------------------------------
+
+
+array<vector<MinimizerMapper::read_alignment_index_t>, 2> 
+MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alignment>, 2>>& alignments,
+                                                   vector<std::array<read_alignment_index_t, 2>>& paired_alignments, 
+                                                   vector<double>& paired_scores,
+                                                   vector<int64_t>& fragment_distances,
+                                                   vector<MinimizerMapper::PairType>& pair_types,
+                                                   vector<size_t>& better_cluster_count_by_pairs,
+                                                   const vector<alignment_index_t>& unpaired_alignments,
+                                                   const vector<bool>& attempted_rescue_from,
+                                                   array<Funnel, 2>& funnels) const {
+
+    array<vector<read_alignment_index_t>, 2> supplementaries;
+
+    struct ReadAlnIdxHash {
+        size_t operator()(const read_alignment_index_t& val) const {
+            size_t h = 0x2B4D;
+            hash_combine(h, val.fragment);
+            hash_combine(h, val.alignment);
+            return h;
+        }
+    };
+    
+    // Check whether we can unambiguously identify the primary alignment
+    // before the next shuffled score-order iteration loop
+    size_t primary_idx = 0;
+    bool tied = false;
+    for (size_t i = 1; i < paired_scores.size(); ++i) {
+        if (paired_scores[i] > paired_scores[primary_idx]) {
+            tied = false;
+            primary_idx = i;
+        }
+        else if (paired_scores[i] == paired_scores[primary_idx]) {
+            tied = true;
+        }
+    }
+
+    if (!tied && primary_idx < paired_scores.size()) {
+
+        if (track_provenance) {
+            for (auto r : {0, 1}) {
+                funnels[r].stage("supplementary");
+            }
+        }
+
+        // The primary is unambiguous
+
+        // For each read, the source indexes into paired_alignments for prospective supplementary alignments
+        array<vector<size_t>, 2> paired_suppl_source;
+        // For each read, source indexes into unpaired_alignments for prospective supplementary alignments
+        array<vector<size_t>, 2> unpaired_suppl_source;
+        // For each read, the prospective supplementary alignments (and the primary)
+        array<IndirectVectorView<Alignment>, 2> candidates;
+
+        // Put the primary in the vector with the candidates
+        for (auto r : {0, 1}) {
+            candidates[r].push_back(paired_alignments[primary_idx][r].lookup_for_read_in(r, alignments));
+        }
+
+        for (size_t i = 0; i < paired_alignments.size(); ++i) {
+
+            // Does this pair contain a failed rescue?
+            int r = -1;
+            if (pair_types[i] == rescued_from_first) {
+                const auto& rescued = paired_alignments[i][1].lookup_for_read_in(1, alignments);
+                if (rescued.path().mapping_size() == 0) {
+                    r = 0;
+                }
+            }
+            else if (pair_types[i] == rescued_from_second) {
+                const auto& rescued = paired_alignments[i][0].lookup_for_read_in(0, alignments);
+                if (rescued.path().mapping_size() == 0) {
+                    r = 1;
+                }
+            }
+
+            if (r >= 0) {
+                // Rescue failed, the rescuer is still essentially unpaired and can be a candidate
+                paired_suppl_source[r].push_back(i);
+                candidates[r].push_back(paired_alignments[i][r].lookup_for_read_in(r, alignments));
+            }
+        }
+
+        for (size_t i = 0; i < unpaired_alignments.size(); ++i) {
+            if (!attempted_rescue_from[i]) {
+                // Rescue was not attempted, alignment is still uniquely represented in among the unpaired alignments
+                const auto& index = unpaired_alignments[i];
+                unpaired_suppl_source[index.read].push_back(i);
+                candidates[index.read].push_back(index.lookup_in(alignments));
+            }
+        }
+
+        // Look for supplementaries on each read
+        for (auto r : {0, 1}) {
+
+            auto& read_supplementaries = supplementaries[r];
+            auto& read_suppl_candidates = candidates[r];
+
+            auto supplementary_idxs = identify_supplementaries(read_suppl_candidates, min_supplementary_read_coverage, 
+                                                               max_supplementary_separation, min_supplementary_score_fraction, 
+                                                               min_supplementary_size, 0);
+            
+            if (!supplementary_idxs.empty()) {
+                // We found supplementaries
+
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Identified supplementary alignments for read " << r << " primary alignment " << log_alignment(read_suppl_candidates[0]) << endl;
+                        for (auto i : supplementary_idxs) {
+                            cerr << log_name() << log_alignment(read_suppl_candidates[i]) << endl;
+                        }
+                    }
+                }
+
+                // Translate back from vector indexes to alignment indexes
+                auto& read_supplementaries = supplementaries[r];
+                for (auto i : supplementary_idxs) {
+                    if (i <= paired_suppl_source.size()) {
+                        const auto& source = paired_alignments[paired_suppl_source[r][i - 1]][r];
+                        read_supplementaries.push_back({source.fragment, source.alignment});
+                    }
+                    else {
+                        const auto& source = unpaired_alignments[unpaired_suppl_source[r][i - paired_suppl_source.size() - 1]];
+                        read_supplementaries.push_back({source.fragment, source.alignment});
+                    }
+                }
+            }
+            else {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Did not identify any supplementary alignments for read " << r << endl;
+                }
+            }
+        }
+
+        if (!supplementaries[0].empty() || !supplementaries[1].empty()) {
+            // Which alignments were consumed as supplementaries
+            array<unordered_set<read_alignment_index_t, ReadAlnIdxHash>, 2> consumed;
+            for (auto r : {0, 1}) {
+                for (const auto& suppl : supplementaries[r]) {
+                    consumed[r].insert(suppl);
+                }
+            }
+
+            // Filter the input pairs
+            vector<size_t> merged;
+            size_t s = 0;
+            for (size_t i = 0; i < paired_alignments.size(); ++i) {
+                if (consumed[0].count(paired_alignments[i][0]) || consumed[1].count(paired_alignments[i][1])) {
+                    // At least one end of this alignment was taken as a supplementary
+                    ++s;
+                    merged.push_back(i);
+                }
+                else if (s != 0) {
+                    // Shift into the front of the vector
+                    paired_alignments[i - s] = paired_alignments[i];
+                    paired_scores[i - s] = paired_scores[i];
+                    fragment_distances[i - s] = fragment_distances[i];
+                    pair_types[i - s] = pair_types[i];
+                    better_cluster_count_by_pairs[i - s] = better_cluster_count_by_pairs[s];
+
+                }
+            }
+
+            if (track_provenance) {
+                // Record the supplementaries being merged into the primary
+                merged.push_back(primary_idx);
+                for (size_t i = 0, j = 0; i < paired_alignments.size(); ++i) {
+                    for (auto r : {0, 1}) {
+                        auto& funnel = funnels[r];
+                        if (i == primary_idx) {
+                            funnel.merge(merged.begin(), merged.end());
+                        }
+                        else if (i == merged[j]) {
+                            ++j;
+                        }
+                        else {
+                            funnel.project(i);
+                        }
+                    }
+                }
+            }
+
+            paired_alignments.resize(paired_alignments.size() - s);
+            paired_scores.resize(paired_alignments.size());
+            fragment_distances.resize(paired_alignments.size());
+            pair_types.resize(paired_alignments.size());
+            better_cluster_count_by_pairs.resize(paired_alignments.size());
+        }
+        else {
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Did not identify any supplementary alignments" << endl;
+                }
+            }
+
+            if (track_provenance) {
+                // All alignments are carried forward unchanged
+                for (size_t i = 0; i < paired_alignments.size(); ++i) {
+                    for (auto r : {0, 1}) {
+                        funnels[r].project(i);
+                    }
+                }
+            }
+        }
+    }
+
+    return std::move(supplementaries);
+}
+
+vector<Alignment> MinimizerMapper::identify_supplementary_alignments(vector<Alignment>& alignments, Funnel& funnel) const {
+
+
+    vector<Alignment> supplementaries;
+    
+    // Check whether we can unambiguously identify the primary alignment
+    // before the upcoming shuffled score-order iteration loop
+    size_t primary_idx = 0;
+    bool tied = false;
+    for (size_t i = 1; i < alignments.size(); ++i) {
+        if (alignments[i].score() > alignments[primary_idx].score()) {
+            tied = false;
+            primary_idx = i;
+        }
+        else if (alignments[i].score() == alignments[primary_idx].score()) {
+            tied = true;
+        }
+    }
+    
+    if (!tied && primary_idx < alignments.size()) {
+
+        // The primary is unambiguous
+
+        if (track_provenance) {
+            funnel.stage("supplementary");
+        }
+
+        auto supplementary_idxs = identify_supplementaries(alignments, min_supplementary_read_coverage, 
+                                                           max_supplementary_separation, min_supplementary_score_fraction, 
+                                                           min_supplementary_size, primary_idx);
+
+        if (!supplementary_idxs.empty()) {
+
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Identified supplementary alignments for primary alignment " << log_alignment(alignments[primary_idx]) << endl;
+                    for (auto i : supplementary_idxs) {
+                        cerr << log_name() << log_alignment(alignments[i]) << endl;
+                    }
+                }
+            }
+
+            supplementaries.reserve(supplementary_idxs.size());
+            for (size_t i = 0, s = 0; i < alignments.size(); ++i) {
+
+                if (i == supplementary_idxs[s]) {
+                    // Move this alignment to the supplementaries vector
+                    supplementaries.emplace_back(std::move(alignments[i]));
+                    ++s;
+                }
+                else {
+                    if (s != 0) {
+                        // Shift into the front of the vector
+                        alignments[i - s] = std::move(alignments[i]);
+                    }
+
+                    if (track_provenance) {
+                        if (i == primary_idx) {
+                            auto group = supplementary_idxs;
+                            group.push_back(primary_idx);
+                            funnel.merge(group.begin(), group.end());
+                        }
+                        else {
+                            funnel.project(i);
+                        }
+                    }
+                }
+            }
+
+            alignments.resize(alignments.size() - supplementary_idxs.size());
+
+        }
+        else {
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Did not identify any supplementary alignments" << endl;
+                }
+            }
+
+            if (this->track_provenance) {
+                for (size_t i = 0; i < alignments.size(); ++i) {
+                    funnel.project(i);
+                }
+            }
+        }
+    }
+
+    return supplementaries;
+}
 
 //-----------------------------------------------------------------------------
 
@@ -3526,19 +3916,11 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     double base_score = 1.0 + std::log(this->hard_hit_cap);
     // Get minimizers and their window agglomeration starts and lengths
     // Starts and lengths are all 0 if we are using syncmers.
-    using minimizer_t = gbwtgraph::DefaultMinimizerIndex::minimizer_type;
-    std::vector<std::tuple<minimizer_t, size_t, size_t>> minimizers =
-        with_index([&](const auto& idx)
-            -> std::vector<std::tuple<minimizer_t, size_t, size_t>> {
-                return idx.minimizer_regions(sequence);
-            });
+    std::vector<std::tuple<MinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
+        this->minimizer_index.minimizer_regions(sequence);
     for (auto& m : minimizers) {
         double score = 0.0;
-        auto hits = with_index([&](const auto& idx) {
-            auto h = idx.find(get<0>(m));
-            return std::pair<const void*, size_t>(
-                static_cast<const void*>(h.first), h.second);
-        });
+        MinimizerIndex::multi_value_type hits = this->minimizer_index.find(get<0>(m));
         if (hits.second > 0) {
             if (hits.second <= this->hard_hit_cap) {
                 score = base_score - std::log(hits.second);
@@ -3562,7 +3944,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
             agglomeration_length = match_length;
         }
         
-        result.push_back({ value, agglomeration_start, agglomeration_length, hits.second, hits.first,
+        result.push_back({ value, agglomeration_start, agglomeration_length, hits,
                             match_length, candidate_count, score });
     }
 
@@ -3612,14 +3994,14 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
     score_unique.emplace_back(std::log(0.95));
 
     for (const auto& minimizer : minimizers_in_read_order) {
-        if (minimizer.hits == 0) {
+        if (minimizer.hits() == 0) {
             continue;
         }
 
         //The score for emitting this minimizer from unique or repetitive states
         //If there is one hit, then this is a unique minimizer
-        double emit_unique_score = minimizer.hits == 1 ? emit_same_score : emit_diff_score;
-        double emit_repetitive_score = minimizer.hits == 1 ? emit_diff_score : emit_same_score;
+        double emit_unique_score = minimizer.hits() == 1 ? emit_same_score : emit_diff_score;
+        double emit_repetitive_score = minimizer.hits() == 1 ? emit_diff_score : emit_same_score;
 
         //The score for each state from each other state
         double score_from_repetitive_to_unique = score_repetitive.back() + switch_score + emit_unique_score;
@@ -3652,7 +4034,7 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
     int min_i = minimizers_in_read_order.size()-1;
     for (int score_i = prev_best_unique.size()-1 ; score_i >= 0 ; score_i --) {
         //Jump to the next minimizer with hits
-        while (min_i >= 0 && minimizers_in_read_order[min_i].hits == 0){
+        while (min_i >= 0 && minimizers_in_read_order[min_i].hits() == 0){
             min_i--;
         }
 
@@ -3752,8 +4134,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         size_t total_hits = 0;
         size_t with_hits = 0;
         for (auto& m : minimizers) {
-            total_hits += m.hits;
-            if (m.hits > 0) {
+            total_hits += m.hits();
+            if (m.hits() > 0) {
                 with_hits++;
             }
         }
@@ -3822,7 +4204,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     // The better minimizer is the one that does match the reference, or
                     // if both match the reference it is the one that has more score. Or if both have equal score it is the more minimal one.
                     // That happens to be how we defined the Minimizer operator<.
-                    return (min_a.hits > 0 && min_b.hits == 0) || (min_a.hits > 0 && min_b.hits > 0 && min_a < min_b);
+                    return (min_a.hits() > 0 && min_b.hits() == 0) || (min_a.hits() > 0 && min_b.hits() > 0 && min_a < min_b);
                 }, [&](size_t sampled) -> void {
                     // This minimizer is actually best in a window
                     downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
@@ -3842,8 +4224,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         size_t total_hits = 0;
         size_t with_hits = 0;
         for (const Minimizer* m : downsampled) {
-            total_hits += m->hits;
-            if (m->hits > 0) {
+            total_hits += m->hits();
+            if (m->hits() > 0) {
                 with_hits++;
             }
         }
@@ -3881,13 +4263,13 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     minimizer_filters.emplace_back(
         "window-downsampling", 
         [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
-        [&](const Minimizer& m) { return (double)m.hits; },
+        [&](const Minimizer& m) { return (double)m.hits(); },
         [](const Minimizer& m) {},
         [](const Minimizer& m) {}
     );
     minimizer_filters.emplace_back(
         "any-hits", 
-        [&](const Minimizer& m) { return m.hits > 0; },
+        [&](const Minimizer& m) { return m.hits() > 0; },
         [](const Minimizer& m) { return nan(""); },
         [](const Minimizer& m) {},
         [](const Minimizer& m) {}
@@ -3932,9 +4314,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                             read_coverage[i] = true;
                         }
                     }
-                    worst_kept_hits = std::max(m.hits, worst_kept_hits);
+                    worst_kept_hits = std::max(m.hits(), worst_kept_hits);
                     return true;
-                } else if (m.hits > worst_kept_hits) {
+                } else if (m.hits() > worst_kept_hits) {
                     return false;
                 } else {
                     //TODO: Fix funnel stuff 
@@ -3966,7 +4348,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         minimizer_filters.emplace_back(
             "hit-cap||score-fraction",
             [&](const Minimizer& m) {
-                return (m.hits <= this->hit_cap) || // We pass if we are under the soft hit cap
+                return (m.hits() <= this->hit_cap) || // We pass if we are under the soft hit cap
                 (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hit cap and we need the score
                 (taking_run); // Or we already took one duplicate and we want to finish out the run 
             },
@@ -4001,10 +4383,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         if (i >= limit) {
             // We are starting a new run
             start = i; limit = i + 1;
-            run_hits = minimizers[i].hits;
+            run_hits = minimizers[i].hits();
             for (size_t j = i + 1; j < minimizers.size() && minimizers[j].value.key == minimizers[i].value.key; j++) {
                 limit++;
-                run_hits += minimizers[j].hits;
+                run_hits += minimizers[j].hits();
             }
             // We haven't taken the first thing in the run yet.
             taking_run = false;
@@ -4062,65 +4444,31 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // minimizers which we also took.
 
             // Locate the hits.
-            // Lambda to process occurrences, regardless of payload type
-            auto process_occurrences = [&](const auto* occs, auto get_payload_fn) {
-                for (size_t j = 0; j < minimizer.hits; j++) {
-                    const auto& occ = occs[j];
+            for (size_t j = 0; j < minimizer.hits(); j++) {
+                MinimizerIndex::value_type occ = this->minimizer_index.get_value(minimizer.occs, j);
 
-                    pos_t hit = occ.position.decode();
-                    // Reverse the hits for a reverse minimizer
-                    if (minimizer.value.is_reverse) {
-                        size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
-                        hit = reverse_base_pos(hit, node_length);
-                    }
-
-                    // Extract component id and offset in the root chain, if we have them for this seed.
-                    seeds.emplace_back();
-                    seeds.back().pos = hit;
-                    seeds.back().source = i;
-                    
-                    // Get the payload using the provided function
-                    auto payload = get_payload_fn(occ);
-                    seeds.back().paths = gbwtgraph::get_paths_or_zero(payload);
-
-                    // Handle zipcode
-                    if (payload.first == 0 && payload.second == 0) {
-                        // No zipcode saved; compute it from position.
-                        seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-                        seeds.back().zipcode.fill_in_full_decoder();
-                    } else if (payload.first == 0) {
-                        // Payload stores an index into the oversized zipcodes list.
-                        if (!this->zipcodes->empty()) {
-                            seeds.back().zipcode = zipcodes->at(payload.second);
-                        } else {
-                            // Oversized payloads not available; compute from position.
-                            seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
-                            seeds.back().zipcode.fill_in_full_decoder();
-                        }
-                    } else {
-                        // Zipcode was saved directly in the payload.
-                        seeds.back().zipcode.fill_in_zipcode_from_payload(payload);
-                    }
+                pos_t hit = occ.first.decode();
+                // Reverse the hits for a reverse minimizer
+                if (minimizer.value.is_reverse) {
+                    size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
+                    hit = reverse_base_pos(hit, node_length);
                 }
-            };
 
-            if (index_kind == IndexKind::XL) {
-                // XL index: convert PayloadXL to standard Payload
-                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>*>(minimizer.occs);
-                process_occurrences(occs, [](const auto& occ) {
-                    return gbwtgraph::Payload{occ.payload.first, occ.payload.second};
-                });
-            } else {
-                // Classic index: use Payload directly
-                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
-                process_occurrences(occs, [](const auto& occ) {
-                    return occ.payload;
-                });
+                // Extract component id and offset in the root chain, if we have them for this seed.
+                seeds.emplace_back();
+                seeds.back().pos = hit;
+                seeds.back().source = i;
+
+                // Handle the payload.
+                seeds.back().zipcode.fill_in_zipcode(occ.second, this->zipcodes, *(this->distance_index), hit);
+                if (this->payload_with_paths) {
+                    seeds.back().paths = occ.second[MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE];
+                }
             }
 
             if (this->track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
-                funnel.expand(i, minimizer.hits);
+                funnel.expand(i, minimizer.hits());
             }
                 
         } else {

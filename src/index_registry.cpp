@@ -87,6 +87,9 @@ static string to_string(const vg::IndexGroup& name) {
 
 namespace vg {
 
+using namespace logging;
+
+const string context = "IndexRegistry";
 
 IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = PackedGraph;
 int IndexingParameters::max_node_size = 32;
@@ -124,16 +127,10 @@ double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
 
 void copy_file(const string& from_fp, const string& to_fp) {
+    require_exists(context, from_fp);
+    ensure_writable(context, to_fp);
     ifstream from_file(from_fp, std::ios::binary);
     ofstream to_file(to_fp, std::ios::binary);
-    if (!from_file) {
-        cerr << "error:[IndexRegistry] Couldn't open input file " << from_fp << endl;
-        exit(1);
-    }
-    if (!to_file) {
-        cerr << "error:[IndexRegistry] Couldn't open output file " << to_fp << endl;
-        exit(1);
-    }
     to_file << from_file.rdbuf();
 }
 
@@ -155,8 +152,7 @@ bool is_gzipped(const string& filename) {
 int64_t get_num_samples(const string& vcf_filename) {
     htsFile* vcf_file = hts_open(vcf_filename.c_str(),"rb");
     if (!vcf_file) {
-        cerr << "error:[IndexRegistry]: Failed to open VCF file: " << vcf_filename << endl;
-        exit(1);
+        error(context) << "Failed to open VCF file: " << vcf_filename << endl;
     }
     bcf_hdr_t* header = bcf_hdr_read(vcf_file);
     int64_t num_samples = bcf_hdr_nsamples(header);
@@ -195,8 +191,7 @@ double format_multiplier() {
         case IndexingParameters::VG:
             return 2.91;
         default:
-            cerr << "error:[IndexRegistry] unrecognized mutable graph implementation format" << endl;
-            exit(1);
+            error(context) << "unrecognized mutable graph implementation format" << endl;
             return 0.0;
     }
 }
@@ -319,7 +314,7 @@ vector<string> vcf_contigs(const string& filename) {
     
     htsFile* vcf = hts_open(filename.c_str(),"rb");
     if (vcf == nullptr) {
-        cerr << "error:[IndexRegistry] Could not open VCF" << filename << endl;
+        error(context) << "Could not open VCF: " << filename << endl;
     }
     
     bcf_hdr_t* header = bcf_hdr_read(vcf);
@@ -386,26 +381,19 @@ size_t xg_index_size(const xg::XG& index) {
 // would go away when the setup function returns.
 
 static void init_in(ifstream& in, const string& name) {
+    require_exists(context, name);
     in.open(name);
-    if (!in) {
-        cerr << "error:[IndexRegistry] could not open input file '" << name << "'" << endl;
-        exit(1);
-    }
 }
 
 static void init_out(ofstream& out, const string& name) {
+    ensure_writable(context, name);
     out.open(name);
-    if (!out) {
-        cerr << "error:[IndexRegistry] could not write output to '" << name << "'" << endl;
-        exit(1);
-    }
 }
 
 static void init_in_out(fstream& strm, const string& name) {
     strm.open(name);
     if (!strm) {
-        cerr << "error:[IndexRegistry] could not open '" << name << "'" << endl;
-        exit(1);
+        error(context) << "could not open '" << name << "'" << endl;
     }
 }
 
@@ -422,8 +410,8 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
             graph = make_unique<VG>();
             break;
         default:
-            cerr << "error:[IndexRegistry] unrecognized mutable graph implementation format" << endl;
-            exit(1);
+            error(context) << "unrecognized mutable graph "
+                           << "implementation format" << endl;
             break;
     }
     return graph;
@@ -456,8 +444,7 @@ int execute_in_fork(const function<void(void)>& exec) {
     pid_t pid = fork();
     
     if (pid == -1) {
-        cerr << "error:[IndexRegistry] failed to fork process" << endl;
-        exit(1);
+        error(context) << "failed to fork process" << endl;
     }
     else if (pid == 0) {
         // this is the child process that will actually make the indexes
@@ -472,7 +459,8 @@ int execute_in_fork(const function<void(void)>& exec) {
     } else {
         // This is the parent
         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-            cerr << "[IndexRegistry]: Forked into child process with PID " << pid << "." << endl;
+            info(context) << "Forked into child process with PID "
+                          << pid << "." << endl;
         }
     }
     
@@ -482,7 +470,8 @@ int execute_in_fork(const function<void(void)>& exec) {
     
     // pass through signal-based exits
     if (WIFSIGNALED(child_stat)) {
-        cerr << "error:[IndexRegistry] Child process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
+        cerr << "error" << context << ": Child process " << pid << " signaled with status " 
+             << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
         if (raise(WTERMSIG(child_stat)) == 0) {
             // TODO: on Mac, raise isn't guaranteed to not return before the handler if it succeeds.
             // Also the signal might not be one that necessarily kills us.
@@ -498,8 +487,9 @@ int execute_in_fork(const function<void(void)>& exec) {
     return WEXITSTATUS(child_stat);
 #else
     // We can't stop OpenMP, so we can't actually fork, so we can't actually do our smart retry.
-    cerr << "warning:[IndexRegistry] vg was built with an OpenMP which is too old to safely support forking."
-         << "We will not be able to automatically retry with a simpler graph if a resource limit is hit." << endl;
+    warn(context) << "vg was built with an OpenMP which is too old to safely support forking. "
+                  << "We will not be able to automatically retry "
+                  << "with a simpler graph if a resource limit is hit." << endl;
 
     // Just run the work in-process
     exec();
@@ -507,18 +497,19 @@ int execute_in_fork(const function<void(void)>& exec) {
 #endif
 }
 
-// Internal helper for constructing minimizer indexes with different payload types
-// PayloadType should be one of gbwtgraph::Payload, gbwtgraph::PayloadXL
-template<typename PayloadType>
-static std::vector<std::vector<std::string>>
-construct_minimizers_impl(const vector<const IndexFile*>& inputs,
-                              const IndexingPlan* plan,
-                              const IndexGroup& constructing,
-                              int minimizer_k, int minimizer_w, bool minimizer_W) {
-    
+// Actual implementation of minimizer index construction.
+std::vector<std::vector<std::string>>
+construct_minimizers_impl(
+    const vector<const IndexFile*>& inputs,
+    const IndexingPlan* plan,
+    const IndexGroup& constructing,
+    const MinimizerIndexParameters& params
+) {
     if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
-            cerr << "\tuse parameters -k " << minimizer_k << " -w " << minimizer_w << (minimizer_W ? " -W " : "") << "payload type " << (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value ? "XL" : "Standard") << endl;
+        info(context) << "Constructing minimizer index and associated zipcodes." << endl;
+        info(context) << "    using parameters -k " << params.k << " -w " << params.w_or_s 
+                      << (params.use_weighted_minimizers ? " -W " : "")
+                      << (params.paths_in_payload ? " with paths" : "") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -538,74 +529,17 @@ construct_minimizers_impl(const vector<const IndexFile*>& inputs,
 
     ifstream infile_gbz;
     init_in(infile_gbz, gbz_filename);
-    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
+    unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
 
     ifstream infile_dist;
     init_in(infile_dist, dist_filename);
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
 
-    using IndexType = gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::PositionPayload<PayloadType>>;
-    IndexType minimizers(minimizer_k,
-                         IndexingParameters::use_bounded_syncmers ? IndexingParameters::minimizer_s : minimizer_w,
-                         IndexingParameters::use_bounded_syncmers);
-
-    if (minimizer_W) {
-        auto frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, minimizer_k, IndexingParameters::minimizer_downweight_threshold,
-            IndexingParameters::space_efficient_counting
-        );
-    }
-
     ZipCodeCollection oversized_zipcodes;
-    hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
+    gbwtgraph::DefaultMinimizerIndex minimizers = build_minimizer_index(
+        *gbz, distance_index.get(), &oversized_zipcodes, params
+    );
 
-    std::function<PayloadType(const pos_t&)> payload_lambda =
-    [&](const pos_t& pos) -> PayloadType {
-        ZipCode zip;
-        zip.fill_in_zipcode(*distance_index, pos);
-        auto payload = zip.get_payload_from_zip();
-
-        if constexpr (std::is_same<PayloadType, gbwtgraph::Payload>::value) {
-            if (payload != MIPayload::NO_CODE) {
-                return payload; // small payload
-            } else {
-                zip.fill_in_full_decoder();
-                size_t zip_index;
-                #pragma omp critical
-                {
-                    if (node_id_to_zipcode_index.count(id(pos))) {
-                        zip_index = node_id_to_zipcode_index.at(id(pos));
-                    } else {
-                        oversized_zipcodes.emplace_back(zip);
-                        zip_index = oversized_zipcodes.size() - 1;
-                        node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                    }
-                }
-                return {0, zip_index}; // extended encoding
-            }
-        } else if constexpr (std::is_same<PayloadType, gbwtgraph::PayloadXL>::value) {
-            zip.fill_in_full_decoder();
-            size_t zip_index;
-            #pragma omp critical
-            {
-                if (node_id_to_zipcode_index.count(id(pos))) {
-                    zip_index = node_id_to_zipcode_index.at(id(pos));
-                } else {
-                    oversized_zipcodes.emplace_back(zip);
-                    zip_index = oversized_zipcodes.size() - 1;
-                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
-                }
-            }
-            return {0, zip_index, 0};
-        } else {
-            static_assert(
-                std::is_same<PayloadType, gbwtgraph::Payload>::value ||
-                std::is_same<PayloadType, gbwtgraph::PayloadXL>::value,
-                "PayloadType must be gbwtgraph::Payload or gbwtgraph::PayloadXL"
-            );
-        }
-    };
-    gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
     string output_name = plan->output_filepath(minimizer_output);
     save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
     output_name_minimizer.push_back(output_name);
@@ -762,7 +696,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             bool phased_vcf) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Chunking inputs for parallelism." << endl;
+            info(context) << "Chunking inputs for parallelism." << endl;
         }
                         
         // boilerplate
@@ -823,14 +757,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                     stat(vcf_filenames[i].c_str(), &stat_vcf);
                     if (stat_vcf.st_mtime > stat_tbi.st_mtime) {
-                        cerr << "warning:[IndexRegistry] Tabix index " + tabix_name + " is older than VCF " + vcf_filenames[i] + " and will not be used. Consider recreating this tabix index to speed up index creation.\n";
+                        warn(context) << "Tabix index " << tabix_name << " is older than VCF " << vcf_filenames[i] 
+                                      << " and will not be used. Consider recreating "
+                                      << "this tabix index to speed up index creation." << endl;
                         continue;
                     }
                     
                     tabix_index = tbx_index_load(tabix_name.c_str());
                     if (tabix_index == nullptr) {
-                        cerr << "error:[IndexRegistry] failed to load tabix index " << tabix_index << endl;
-                        exit(1);
+                        error(context) << "failed to load tabix index " << tabix_name << endl;
                     }
                 }
                 
@@ -852,8 +787,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     bcf_hdr_destroy(header);
                     int close_err_code = hts_close(vcf);
                     if (close_err_code != 0) {
-                        cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
-                        exit(1);
+                        error(context) << "encountered error closing VCF " << vcf_filenames[i] << endl;
                     }
                     continue;
                 }
@@ -871,8 +805,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             vcf_contigs_with_variants[i].push_back(chrom);
                         }
                         else if (curr_contig > chrom) {
-                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << curr_contig << "' in VCF file" << vcf_filenames[i] << "." << endl;
-                            exit(1);
+                            error(context) << "Contigs in VCF must be in ASCII-lexicographic order. "
+                                           << "Encountered contig '" << chrom << "' after contig '" << curr_contig
+                                           << "' in VCF file " << vcf_filenames[i] << "." << endl;
                         }
                     }
                     else {
@@ -883,8 +818,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     err_code = bcf_read(vcf, header, vcf_rec);
                 }
                 if (err_code != -1) {
-                    cerr << "error:[IndexRegistry] failed to read from VCF " << vcf_filenames[i] << endl;
-                    exit(1);
+                    error(context) << "error reading VCF file " << vcf_filenames[i] << endl;
                 }
                 // we'll be moving on to a different file, so we won't demand that these
                 // be in order anymore
@@ -892,8 +826,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 bcf_hdr_destroy(header);
                 err_code = hts_close(vcf);
                 if (err_code != 0) {
-                    cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
-                    exit(1);
+                    error(context) << "encountered error closing VCF " << vcf_filenames[i] << endl;
                 }
             }
         }
@@ -945,8 +878,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         for (auto it = sample_set_contigs.begin(); it != sample_set_contigs.end(); ++it) {
             for (const auto& contig : it->second) {
                 if (contig_to_group.count(contig)) {
-                    cerr << "error:[IndexRegistry] Contig " << contig << " is found in multiple VCFs with different samples" << endl;
-                    exit(1);
+                    error(context) << "Contig " << contig
+                                   << " is found in multiple VCFs with different samples." << endl;
                 }
                 contig_to_group[contig] = contig_groups.size();
             }
@@ -1129,7 +1062,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Chunking FASTA(s)." << endl;
+            info(context) << "Chunking FASTA(s)." << endl;
         }
         
         output_fasta_names.resize(buckets.size());
@@ -1175,7 +1108,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Chunking VCF(s)." << endl;
+            info(context) << "Chunking VCF(s)." << endl;
         }
         
         // open all of the input VCF files
@@ -1184,8 +1117,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
             htsFile* vcf = bcf_open(vcf_filenames[i].c_str(), "r");
             if (!vcf) {
-                cerr << "error:[IndexRegistry] failed to open VCF " << vcf_filenames[i] << endl;
-                exit(1);
+                error(context) << "failed to open VCF " << vcf_filenames[i] << endl;
             }
             bcf_hdr_t* header = bcf_hdr_read(vcf);
             bcf1_t* vcf_rec = bcf_init();
@@ -1195,8 +1127,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 input_checked_out_or_finished[i].store(true);
             }
             else if (err_code < 0) {
-                cerr << "error:[IndexRegistry] failed to read VCF " << vcf_filenames[i] << endl;
-                exit(1);
+                error(context) << "failed to read VCF " << vcf_filenames[i] << endl;
             }
             input_vcf_files[i] = make_tuple(vcf, header, vcf_rec);
         }
@@ -1267,20 +1198,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         if (phased_vcf) {
                             int sample_add_code = bcf_hdr_add_sample(header, "dummy");
                             if (sample_add_code != 0) {
-                                cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
-                                exit(1);
+                                error(context) << "error initializing VCF header" << endl;
                             }
                         }
                         int hdr_write_err_code = bcf_hdr_write(vcf, header);
                         if (hdr_write_err_code != 0) {
-                            cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
-                            exit(1);
+                            error(context) << "error writing VCF header to " << output_vcf_name << endl;
                         }
                         bcf_hdr_destroy(header);
                         int close_err_code = hts_close(vcf);
                         if (close_err_code != 0) {
-                            cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_name << endl;
-                            exit(1);
+                            error(context) << "encountered error closing VCF " << output_vcf_name << endl;
                         }
                         output_vcf_names[i] = output_vcf_name;
                     }
@@ -1349,8 +1277,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         bcf_hdr_t* header_in = get<1>(input_vcf_file);
                         header_out = bcf_hdr_merge(header_out, header_in);
                         if (header_out == nullptr) {
-                            cerr << "error:[IndexRegistry] error merging VCF header" << endl;
-                            exit(1);
+                            error(context) << "error merging VCF header" << endl;
                         }
                         
                         // add the samples from every header
@@ -1364,8 +1291,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
                                 // returns a -1 if the sample is already included, which we expect
                                 if (sample_err_code != 0) {
-                                    cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
-                                    exit(1);
+                                    error(context) << "error adding samples to VCF header" << endl;
                                 }
                             }
                         }
@@ -1374,35 +1300,33 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     // documentation in htslib/vcf.h says that this has to be called after adding samples
                     int sync_err_code = bcf_hdr_sync(header_out);
                     if (sync_err_code != 0) {
-                        cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
-                        exit(1);
+                        error(context) << "error syncing VCF header" << endl;
                     }
                     if (phased_vcf && bcf_hdr_nsamples(header_out) == 0) {
                         if (!vcf_indexes.empty()) {
-                            cerr << "warning:[IndexRegistry] VCF inputs from file(s)";
+                            auto warning_msg = warn(context);
+                            warning_msg << "VCF inputs from file(s)";
                             for (auto vcf_idx : vcf_indexes) {
-                                cerr << " " << vcf_filenames[vcf_idx];
+                                warning_msg << " " << vcf_filenames[vcf_idx];
                             }
-                            cerr << " have been identified as phased but contain no samples. Are these valid inputs?" << endl;
+                            warning_msg << " have been identified as phased but contain no samples. "
+                                        << "Are these valid inputs?" << endl;
                         }
                         
                         // let's add a dummy so that HaplotypeIndexer doesn't get mad later
                         int sample_add_code = bcf_hdr_add_sample(header_out, "dummy");
                         if (sample_add_code != 0) {
-                            cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
-                            exit(1);
+                            error(context) << "error initializing VCF header" << endl;
                         }
                         // and re-sync, not sure if necessary, but it will be cheap regardless
                         sync_err_code = bcf_hdr_sync(header_out);
                         if (sync_err_code != 0) {
-                            cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
-                            exit(1);
+                            error(context) << "error syncing VCF header" << endl;
                         }
                     }
                     int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
                     if (hdr_write_err_code != 0) {
-                        cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
-                        exit(1);
+                        error(context) << "error writing VCF header to " << output_vcf_name << endl;
                     }
                     
                     // remember these so that we can check them out later
@@ -1456,8 +1380,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 auto& input_vcf_file = input_vcf_files[contig_skip_idx];
                                 string skip_contig = bcf_hdr_id2name(get<1>(input_vcf_file),
                                                                      get<2>(input_vcf_file)->rid);
-                                cerr << "warning:[IndexRegistry] Skipping contig " + skip_contig + ", which is found in VCF(s) but not reference.\n";
-                                
+                                warn(context) << "Skipping contig " << skip_contig
+                                              << ", which is found in VCF(s) but not reference." << endl;
                                 
                                 // keep reading until end of file or a different contig
                                 int read_err_code = 0;
@@ -1503,7 +1427,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             
                             if (copy_from_idx >= 0) {
 #ifdef debug_index_registry_recipes
-                                cerr << "direct copying " + vcf_filenames[copy_from_idx] + " to " + output_vcf_names[copy_to_idx] + "\n";
+                                cerr << "direct copying " << vcf_filenames[copy_from_idx] << " to " << output_vcf_names[copy_to_idx] << "\n";
 #endif
                                 // we can copy an entire file on this iteration instead of parsing
                                 copy_file(vcf_filenames[copy_from_idx], output_vcf_names[copy_to_idx]);
@@ -1595,15 +1519,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     //                                // calculate it the way the spec says to
     //                                int64_t calc_end = get<2>(input_vcf_file)->pos + strlen(get<2>(input_vcf_file)->d.allele[0]) - 1;
     //                                if (end != calc_end) {
-    //                                    string msg = "warning:[IndexRegistry] fixing \"END\" of variant " + buckets[bucket_idx][ctg_idx].first + " " + to_string(get<2>(input_vcf_file)->pos) + " from " + to_string(end) + " to " + to_string(calc_end) + "\n";
-    //#pragma omp critical
-    //                                    cerr << msg;
+    //                                    #pragma omp critical
+    //                                    warn(context) << "fixing \"END\" of variant "
+    //                                                  << buckets[bucket_idx][ctg_idx].first << " " 
+    //                                                  << get<2>(input_vcf_file)->pos << " from " << end
+    //                                                  << " to " << to_string(calc_end) << endl;
     //
     //                                    int update_err_code = bcf_update_info_int32(get<1>(input_vcf_file), get<2>(input_vcf_file), "END",
     //                                                                                &calc_end, 1);
     //                                    if (update_err_code < 0) {
-    //                                        cerr << "error:[IndexRegistry] failed to update \"END\"" << endl;
-    //                                        exit(1);
+    //                                        error(context) << "failed to update \"END\"" << endl;
     //                                    }
     //                                }
     //                                free(end_dst);
@@ -1613,8 +1538,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 
                                 int write_err_code = bcf_write(vcf_out, header_out, get<2>(input_vcf_file));
                                 if (write_err_code != 0) {
-                                    cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_names[bucket_idx] << endl;
-                                    exit(1);
+                                    error(context) << "error writing VCF line to "
+                                                   << output_vcf_names[bucket_idx] << endl;
                                 }
                                 
                                 read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
@@ -1626,8 +1551,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             }
                             else if (read_err_code != -1) {
                                 // we encountered a real error
-                                cerr << "error:[IndexRegistry] error reading VCF file " << vcf_filenames[input_idx] << endl;
-                                exit(1);
+                                error(context) << "error reading VCF file " << vcf_filenames[input_idx] << endl;
                             }
                             
                             // we finished this contig
@@ -1654,8 +1578,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     bcf_hdr_destroy(get<1>(vcf_file));
                     int err_code = hts_close(get<0>(vcf_file));
                     if (err_code != 0) {
-                        cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
-                        exit(1);
+                        error(context) << "encountered error closing VCF " << vcf_filenames[i] << endl;
                     }
                 }
                 for (int64_t i = 0; i < bucket_vcfs.size(); ++i) {
@@ -1666,8 +1589,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     bcf_hdr_destroy(bucket_vcfs[i].second);
                     int close_err_code = hts_close(bucket_vcfs[i].first);
                     if (close_err_code != 0) {
-                        cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_names[i] << endl;
-                        exit(1);
+                        error(context) << "encountered error closing VCF " << output_vcf_names[i] << endl;
                     }
                 }
             }
@@ -1688,11 +1610,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 tbx_conf_t conf = tbx_conf_vcf;
                 int tabix_err_code = tbx_index_build(output_vcf_names[i].c_str(), min_shift, &conf);
                 if (tabix_err_code == -2) {
-                    cerr << "error:[IndexRegistry] output VCF is not bgzipped: " << output_vcf_names[i] << endl;
-                    exit(1);
+                    error(context) << "output VCF is not bgzipped: " << output_vcf_names[i] << endl;
                 }
                 else if (tabix_err_code != 0) {
-                    cerr << "warning:[IndexRegistry] could not tabix index VCF " + output_vcf_names[i] + "\n";
+                    warn(context) << "could not tabix index VCF " << output_vcf_names[i] << endl;
                 }
             }
         }
@@ -1700,7 +1621,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         if (has_gff) {
             
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                cerr << "[IndexRegistry]: Chunking GTF/GFF(s)." << endl;
+                info(context) << "Chunking GTF/GFF(s)." << endl;
             }
             
             auto& output_gff_names = all_outputs[0];
@@ -1753,8 +1674,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             
                             auto it = contig_to_idx.find(chrom);
                             if (it == contig_to_idx.end()) {
-                                cerr << "error:[IndexRegistry] contig " << chrom << " from GTF/GFF " << tx_filenames[idx] << " is not found in reference" << endl;
-                                exit(1);
+                                error(context) << "contig " << chrom << " from GTF/GFF "
+                                               << tx_filenames[idx] << " is not found in reference" << endl;
                             }
                             int64_t chunk_idx = it->second;
                             if (chunk_idx != prev_chunk_idx) {
@@ -1788,8 +1709,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                         // open for writing, starting from the end
                                         tx_chunk_out.open(output_gff_names[chunk_idx], ios_base::ate);
                                         if (!tx_chunk_out) {
-                                            cerr << "error:[IndexRegistry] could not open " << output_gff_names[chunk_idx] << " for appending" << endl;
-                                            exit(1);
+                                            error(context) << "could not open " << output_gff_names[chunk_idx]
+                                                                 << " for appending" << endl;
                                         }
                                     }
                                 }
@@ -1942,7 +1863,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Stripping allele paths from VG." << endl;
+            info(context) << "Stripping allele paths from VG." << endl;
         }
         
         return strip_variant_paths(inputs, plan, constructing);
@@ -1954,7 +1875,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                   const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
+            info(context) << "Constructing VG graph from GFA input." << endl;
         }
         
         assert(constructing.size() == 3);
@@ -1970,8 +1891,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         assert(constructing.count(output_index));
         auto input_filenames = inputs.at(0)->get_filenames();
         if (input_filenames.size() > 1) {
-            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
-            exit(1);
+            error(context) << "Graph construction does not support multiple GFAs at this time." << endl;
         }
         auto input_filename = input_filenames.front();
         
@@ -1992,9 +1912,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name, &ignore);
         }
         catch (algorithms::GFAFormatError& e) {
-            cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
-            cerr << e.what() << endl;
-            exit(1);
+            error(context) << "GFA file " << input_filename << " is not usable in VG.\n" << e.what() << endl;
         }
         
         
@@ -2002,8 +1920,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ofstream translation_outfile;
         translation_outfile.open(translation_name, std::ios_base::app);
         if (!translation_outfile) {
-            cerr << "error:[IndexRegistry] could not append output to " << translation_name << endl;
-            exit(1);
+            error(context) << "could not append output to " << translation_name << endl;
         }
         
         handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, size_t rev_offset, handle_t new_node) {
@@ -2040,15 +1957,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                          bool has_variants) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing";
+            auto log_msg = info(context);
+            log_msg << "Constructing";
             if (has_transcripts) {
-                cerr << " spliced";
+                log_msg << " spliced";
             }
-            cerr << " VG graph from FASTA";
+            log_msg << " VG graph from FASTA";
             if (has_variants) {
-                cerr << " and VCF";
+                log_msg << " and VCF";
             }
-            cerr << " input." << endl;
+            log_msg << " input." << endl;
         }
         
         assert(constructing.size() == 2);
@@ -2082,8 +2000,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if (has_ins_fasta) {
             if (insertions.size() > 1) {
-                cerr << "error:[IndexRegistry] can only provide one FASTA for insertion sequences" << endl;
-                exit(1);
+                error(context) << "can only provide one FASTA for insertion sequences" << endl;
             }
             
             // make sure this FASTA has an fai index before we get into all the parallel stuff
@@ -2093,18 +2010,24 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
         if (has_variants && ref_filenames.size() != 1 && vcf_filenames.size() != 1 &&
             ref_filenames.size() != vcf_filenames.size()) {
-            cerr << "[IndexRegistry]: When constructing graph from multiple FASTAs and multiple VCFs, the FASTAs and VCFs must be matched 1-to-1, but input contains " <<  ref_filenames.size() << " FASTA files and " << vcf_filenames.size() << " VCF files." << endl;
-            exit(1);
+            error(context) << "When constructing graph from multiple FASTAs and multiple VCFs, "
+                           << "the FASTAs and the VCFs must be matched 1-to-1, but input contains " 
+                           << ref_filenames.size() << " FASTA files and " 
+                           << vcf_filenames.size() << " VCF files." << endl;
         }
         if (has_transcripts && transcripts.size() != 1 && ref_filenames.size() != 1 &&
             transcripts.size() != ref_filenames.size()) {
-            cerr << "[IndexRegistry]: When constructing graph from multiple GTF/GFFs and multiple FASTAs, the GTF/GFFs and the FASTAs must be matched 1-to-1, but input contains " <<  transcripts.size() << " GTF/GFF files and " <<  ref_filenames.size() << " FASTA files." << endl;
-            exit(1);
+            error(context) << "When constructing graph from multiple GTF/GFFs and multiple FASTAs, "
+                           << "the GTF/GFFs and the FASTAs must be matched 1-to-1, but input contains " 
+                           << transcripts.size() << " GTF/GFF files and " 
+                           << ref_filenames.size() << " FASTA files." << endl;
         }
         if (has_transcripts && has_variants && transcripts.size() != 1 && vcf_filenames.size() != 1 &&
             transcripts.size() != vcf_filenames.size()) {
-            cerr << "[IndexRegistry]: When constructing graph from multiple GTF/GFFs and multiple VCFs, the GTF/GFFs and the VCFs must be matched 1-to-1, but input contains " <<  transcripts.size() << " GTF/GFF files and " <<  vcf_filenames.size() << " VCF files." << endl;
-            exit(1);
+            error(context) << "When constructing graph from multiple GTF/GFFs and multiple VCFs, "
+                           << "the GTF/GFFs and the VCFs must be matched 1-to-1, but input contains " 
+                           << transcripts.size() << " GTF/GFF files and "
+                           << vcf_filenames.size() << " VCF files." << endl;
         }
         
         // are we broadcasting the transcripts from one chunk to many?
@@ -2227,9 +2150,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                     && transcript_file_nonempty(transcripts[idx])) {
-                    cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcript_filename << " were found in graph chunk containing the following paths:" << endl;
+                    auto warning_msg = warn(context);
+                    warning_msg << "no matching paths from transcript file " << transcript_filename 
+                                << " were found in graph chunk containing the following paths:" << endl;
                     for (const string& path_name : path_names) {
-                        cerr << "\t" << path_name << endl;
+                        warning_msg << "\t" << path_name << endl;
                     }
                 }
                 
@@ -2372,7 +2297,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Stripping allele paths from spliced VG." << endl;
+            info(context) << "Stripping allele paths from spliced VG." << endl;
         }
         
         return strip_variant_paths(inputs, plan, constructing);
@@ -2444,15 +2369,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //                                AliasGraph& alias_graph,
 //                                const IndexGroup& constructing) {
 //        if (IndexingParameters::verbosity != IndexingParameters::None) {
-//            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
+//            info(context) << "Constructing XG graph from GFA input." << endl;
 //        }
 //        assert(constructing.size() == 1);
 //        vector<vector<string>> all_outputs(constructing.size());
 //        auto output_index = *constructing.begin();
 //        auto gfa_names = inputs.front()->get_filenames();
 //        if (gfa_names.size() > 1) {
-//            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
-//            exit(1);
+//            error(context) << "Graph construction does not support multiple GFAs at this time." << endl;
 //        }
 //
 //        string output_name = plan->output_filepath(output_index);
@@ -2528,7 +2452,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing XG graph from VG graph." << endl;
+            info(context) << "Constructing XG graph from VG graph." << endl;
         }
         return make_xg_from_graph(inputs, plan, constructing);
     });
@@ -2539,7 +2463,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing spliced XG graph from spliced VG graph." << endl;
+            info(context) << "Constructing spliced XG graph from spliced VG graph." << endl;
         }
         return make_xg_from_graph(inputs, plan, constructing);
     });
@@ -2562,7 +2486,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                            const IndexName& constructing_name) {
         if (gbwt_names.size() > 1) {
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                cerr << "[IndexRegistry]: Merging contig GBWTs." << endl;
+                info(context) << "Merging contig GBWTs." << endl;
             }
             // we also need to merge the GBWTs
             
@@ -2604,13 +2528,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if ((graph_filenames.size() != 1 && graph_filenames.size() != vcf_filenames.size()) ||
             (vcf_filenames.size() != 1 && graph_filenames.size() != vcf_filenames.size())) {
-            cerr << "[IndexRegistry]: When constructing GBWT from multiple graphs and multiple VCFs, the graphs and VCFs must be matched 1-to-1, but input contains " <<  graph_filenames.size() << " graphs and " << vcf_filenames.size() << " VCF files." << endl;
-            exit(1);
+            error(context) << "When constructing GBWT from multiple graphs and multiple VCFs, "
+                           << "the graphs and the VCFs must be matched 1-to-1, but input contains " 
+                           << graph_filenames.size() << " graphs and " 
+                           << vcf_filenames.size() << " VCF files." << endl;
         }
         if (vcf_filenames.size() == 1 && graph_filenames.size() != 1) {
             // FIXME: it should at least try to join the graph chunks together
-            cerr << "[IndexRegistry]: GBWT construction currently does not support broadcasting 1 VCF to multiple graph chunks." << endl;
-            exit(1);
+            error(context) << "GBWT construction currently does not support "
+                           << "broadcasting 1 VCF to multiple graph chunks" << endl;
         }
         
         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
@@ -2680,7 +2606,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // need a job to do them.
         unordered_set<path_handle_t> broadcast_graph_paths_to_do;
         if (include_named_paths && broadcast_graph) {
-            broadcast_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            broadcast_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
                 // Look at all the paths in advance
                 if (broadcast_graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle))) {
                     // Skip empty paths and alt allele paths
@@ -2801,7 +2727,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GBWT from VG graph and phased VCF input." << endl;
+            info(context) << "Constructing GBWT from VG graph and phased VCF input." << endl;
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
         }
         else {
@@ -2816,7 +2742,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GBWT from spliced VG graph and phased VCF input." << endl;
+            info(context) << "Constructing GBWT from spliced VG graph and phased VCF input." << endl;
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
         }
         else {
@@ -2837,7 +2763,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Downsampling full GBWT." << endl;
+            info(context) << "Downsampling full GBWT." << endl;
         }
         
         assert(inputs.size() == 2);
@@ -2893,7 +2819,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             );
             parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
             if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                std::cerr << "[IndexRegistry]: Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
+                info(context) << "Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
             }
             cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index, parameters, true, &path_filter));
             // Reference samples tag is not copied automatically.
@@ -2902,7 +2828,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             // Augment the GBWT with a path cover of components without haplotypes.
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                cerr << "[IndexRegistry]: Not too many haplotypes; augmenting the full GBWT instead." << endl;
+                info(context) << "Not too many haplotypes; augmenting the full GBWT instead." << endl;
             }
             
             gbwt::DynamicGBWT dynamic_index(*gbwt_index);
@@ -2932,7 +2858,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing a greedy path cover GBWT" << endl;
+            info(context) << "Constructing a greedy path cover GBWT" << endl;
         }
         
         assert(inputs.size() == 1);
@@ -2978,7 +2904,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         );
         parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-            std::cerr << "[IndexRegistry]: Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
+            info(context) << "Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
         }
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index, parameters, true, &path_filter);
         // Determine reference samples from reference paths.
@@ -3001,10 +2927,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             if (making_hsts) {
-                cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and finishing spliced VG." << endl;
+                info(context) << "Constructing haplotype-transcript GBWT and finishing spliced VG." << endl;
             }
             else {
-                cerr << "[IndexRegistry]: Finishing spliced VG." << endl;
+                info(context) << "Finishing spliced VG." << endl;
             }
             if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
                 gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
@@ -3114,9 +3040,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                 && transcript_file_nonempty(tx_filenames[j])) {
-                cerr << "warning:[IndexRegistry] no matching paths from transcript file " << tx_filenames[j] << " were found in graph chunk containing the following paths:" << endl;
+                auto warning_msg = warn(context);
+                warning_msg << "no matching paths from transcript file " << tx_filenames[j] 
+                            << " were found in graph chunk containing the following paths:" << endl;
                 for (const string& path_name : path_names) {
-                    cerr << "\t" << path_name << endl;
+                    warning_msg << "\t" << path_name << endl;
                 }
             }
             
@@ -3197,10 +3125,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         bool projecting_transcripts = (inputs.size() == 2);
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             if (making_hsts) {
-                cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and spliced graph from GBZ-format graph." << endl;
+                info(context) << "Constructing haplotype-transcript GBWT "
+                              << "and spliced graph from GBZ-format graph." << endl;
             }
             else {
-                cerr << "[IndexRegistry]: Adding splice junctions to GBZ-format graph." << endl;
+                info(context) << "Adding splice junctions to GBZ-format graph." << endl;
             }
             if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
                 gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
@@ -3443,7 +3372,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Joining transcript origin table." << endl;
+            info(context) << "Joining transcript origin table." << endl;
         }
         
         assert(constructing.size() == 1);
@@ -3655,7 +3584,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Pruning complex regions of VG to prepare for GCSA indexing." << endl;
+            info(context) << "Pruning complex regions of VG to prepare for GCSA indexing." << endl;
         }
         // call the meta-recipe
         return prune_graph(inputs, plan, constructing);
@@ -3667,7 +3596,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Pruning complex regions of VG to prepare for GCSA indexing with GBWT unfolding." << endl;
+            info(context) << "Pruning complex regions of VG to prepare for "
+                          << "GCSA indexing with GBWT unfolding." << endl;
         }
         // call the meta-recipe
         return prune_graph(inputs, plan, constructing);
@@ -3679,7 +3609,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Pruning complex regions of spliced VG to prepare for GCSA indexing." << endl;
+            info(context) << "Pruning complex regions of spliced VG to prepare for GCSA indexing." << endl;
         }
         // call the meta-recipe
         return prune_graph(inputs, plan, constructing);
@@ -3694,7 +3624,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Pruning complex regions of spliced VG to prepare for GCSA indexing with GBWT unfolding." << endl;
+            info(context) << "Pruning complex regions of spliced VG to prepare for "
+                          << "GCSA indexing with GBWT unfolding." << endl;
         }
         // call the meta-recipe
         return prune_graph(inputs, plan, constructing);
@@ -3714,7 +3645,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                              const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GCSA/LCP indexes." << endl;
+            info(context) << "Constructing GCSA/LCP indexes." << endl;
         }
         
         assert(inputs.size() == 1 || inputs.size() == 2);
@@ -3778,7 +3709,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // update pruning params
             IndexingParameters::pruning_walk_length *= IndexingParameters::pruning_walk_length_increase_factor;
             IndexingParameters::pruning_max_node_degree *= IndexingParameters::pruning_max_node_degree_decrease_factor;
-            string msg = "[IndexRegistry]: Exceeded disk use limit while generating k-mers. "
+            string msg = context + ": Exceeded disk use limit while generating k-mers. "
                          "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
             throw RewindPlanException(msg, pruned_graphs);
         }
@@ -3820,12 +3751,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // update pruning params
             IndexingParameters::pruning_walk_length *= IndexingParameters::pruning_walk_length_increase_factor;
             IndexingParameters::pruning_max_node_degree *= IndexingParameters::pruning_max_node_degree_decrease_factor;
-            string msg = "[IndexRegistry]: Exceeded disk or memory use limit while performing k-mer doubling steps. "
+            string msg = context + ": Exceeded disk or memory use limit while performing k-mer doubling steps. "
                          "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
             throw RewindPlanException(msg, pruned_graphs);
         }
         else if (code != 0) {
-            cerr << "[IndexRegistry]: Unrecoverable error in GCSA2 indexing." << endl;
+            info(context) << "Unrecoverable error in GCSA2 indexing." << endl;
             exit(code);
         }
         
@@ -3924,7 +3855,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //                                 AliasGraph& alias_graph,
 //                                 const IndexGroup& constructing) {
 //        if (IndexingParameters::verbosity != IndexingParameters::None) {
-//            cerr << "[IndexRegistry]: Finding snarls in graph." << endl;
+//            info(context) << "Finding snarls in graph." << endl;
 //        }
 //        return find_snarls(inputs, plan, constructing);
 //    });
@@ -3936,7 +3867,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Finding snarls in spliced graph." << endl;
+            info(context) << "Finding snarls in spliced graph." << endl;
         }
         
         assert(inputs.size() == 1);
@@ -3986,7 +3917,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing distance index for Giraffe." << endl;
+            info(context) << "Constructing distance index for Giraffe." << endl;
         }
         
         assert(inputs.size() == 1);
@@ -4007,7 +3938,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing distance index for a spliced graph." << endl;
+            info(context) << "Constructing distance index for a spliced graph." << endl;
         }
         
         assert(inputs.size() == 1);
@@ -4042,13 +3973,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing a GBZ from GFA input." << endl;
+            info(context) << "Constructing a GBZ from GFA input." << endl;
         }
         
         assert(inputs.size() == 1);
         if (inputs[0]->get_filenames().size() != 1) {
-            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
-            exit(1);
+            error(context) << "Graph construction does not support multiple GFAs at this time." << endl;
         }
         auto gfa_filename = inputs[0]->get_filenames().front();
         
@@ -4076,7 +4006,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         );
         params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-            std::cerr << "[IndexRegistry]: Running " << params.parallel_jobs << " jobs in parallel" << std::endl;
+            info(context) << "Running " << params.parallel_jobs << " jobs in parallel" << std::endl;
         }
 
         // jointly generate the GBWT and record sequences
@@ -4084,11 +4014,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         unique_ptr<gbwtgraph::SequenceSource> seq_source;
         tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
         
-        // convert sequences into gbwt graph
-        gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
-        
-        // save together as a GBZ
-        save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        // convert sequences into GBZ and save
+        gbwtgraph::GBZ gbz(gbwt_index, seq_source);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -4100,7 +4028,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
+            info(context) << "Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
         }
 
         assert(inputs.size() == 2);
@@ -4134,7 +4062,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GBZ using NamedNodeBackTranslation." << endl;
+            info(context) << "Constructing GBZ using NamedNodeBackTranslation." << endl;
         }
         
         assert(inputs.size() == 3);
@@ -4163,10 +4091,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // don't bother with the normal loader/saver system.
         FlatFileBackTranslation translation(infile_translation);
 
-        gbwtgraph::GBZ gbz;
-        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
-        // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
-        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, &translation);
+        gbwt::GBWT index;
+        load_gbwt(index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+        gbwtgraph::GBZ gbz(std::move(index), *xg_index, &translation);
+
+        // We need to compute pggname manually, because a generic HandleGraph
+        // does not contain the name of the parent graph. And we use nullptr,
+        // because we currently cannot determine the name from another souce.
+        gbz.compute_pggname(nullptr);
 
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
@@ -4181,7 +4113,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GBZ." << endl;
+            info(context) << "Constructing GBZ." << endl;
         }
         
         assert(inputs.size() == 2);
@@ -4201,10 +4133,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_in(infile_xg, xg_filename);
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
 
-        gbwtgraph::GBZ gbz;
-        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
-        // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
-        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, algorithms::find_translation(xg_index.get()));
+        gbwt::GBWT index;
+        load_gbwt(index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+        gbwtgraph::GBZ gbz(std::move(index), *xg_index, algorithms::find_translation(xg_index.get()));
+
+        // We need to compute pggname manually, because a generic HandleGraph
+        // does not contain the name of the parent graph. And we use nullptr,
+        // because we currently cannot determine the name from another souce.
+        gbz.compute_pggname(nullptr);
 
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
@@ -4217,52 +4153,46 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // Minimizers Recipes
     ////////////////////////////////////
 
-
-    // meta-recipe for Minimizer indexing
-    auto construct_minimizers = [&]<typename PayloadT>(const vector<const IndexFile*>& inputs,
-        const IndexingPlan* plan,
-        const IndexGroup& constructing,
-        int minimizer_k, int minimizer_w, bool minimizer_W, bool use_payload_xl) {
-        if (use_payload_xl) {
-            return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing,
-                                                    minimizer_k, minimizer_w, minimizer_W);
-        } else {
-            return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing,
-                                                minimizer_k, minimizer_w, minimizer_W);
-        }
-    };
-
-    
-    // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
+    // TODO: We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    registry.register_recipe({"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::PayloadXL>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k,
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
-    });
-    
-    registry.register_recipe({"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::short_read_minimizer_k, 
-                                    IndexingParameters::short_read_minimizer_w, IndexingParameters::short_read_minimizer_W);
+    registry.register_recipe(
+        {"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
+                .with_paths(true)
+                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
+        }
+    );
+
+    registry.register_recipe(
+        {"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.minimizers(IndexingParameters::short_read_minimizer_k, IndexingParameters::short_read_minimizer_w)
+                .with_paths(false)
+                .weighted(IndexingParameters::short_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
     });
 
-    registry.register_recipe({"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers_impl<gbwtgraph::Payload>(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
-    });
+    registry.register_recipe(
+        {"Long Read Minimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
+            MinimizerIndexParameters params;
+            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
+                .with_paths(false)
+                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
+                .kmer_counting(IndexingParameters::space_efficient_counting)
+                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+            return construct_minimizers_impl(inputs, plan, constructing, params);
+        }
+    );
 
-    
     return registry;
 }
 
@@ -4570,26 +4500,21 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
 void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {
     // Add this index to the registry
     if (identifier.empty()) {
-        cerr << "error:[IndexRegistry] indexes must have a non-empty identifier" << endl;
-        exit(1);
+        error(context) << "indexes must have a non-empty identifier" << endl;
     }
     if (suffix.empty()) {
-        cerr << "error:[IndexRegistry] indexes must have a non-empty suffix" << endl;
-        exit(1);
+        error(context) << "indexes must have a non-empty suffix" << endl;
     }
     if (isdigit(suffix.front())) {
         // this ensures that we can add numbers to the suffix to create a unique suffix
         // for chunked workflows
-        cerr << "error:[IndexRegistry] suffixes cannot start with a digit" << endl;
-        exit(1);
+        error(context) << "suffixes cannot start with a digit" << endl;
     }
     if (index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] index registry contains a duplicated identifier: " << identifier << endl;
-        exit(1);
+        error(context) << "index registry contains a duplicated identifier: " << identifier << endl;
     }
     if (registered_suffixes.count(suffix)) {
-        cerr << "error:[IndexRegistry] index registry contains a duplicated suffix: " << suffix << endl;
-        exit(1);
+        error(context) << "index registry contains a duplicated suffix: " << suffix << endl;
     }
     index_registry[identifier] = unique_ptr<IndexFile>(new IndexFile(identifier, suffix));
     registered_suffixes.insert(suffix);
@@ -4602,22 +4527,25 @@ void IndexRegistry::provide(const IndexName& identifier, const string& filename)
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-        cerr << "[IndexRegistry]: Provided: " << identifier << endl;
+        info(context) << "Provided: " << identifier << endl;
     }
     if (!index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
-        exit(1);
+        error(context) << "cannot provide unregistered index: " << identifier << endl;
+    }
+    if (this->check_files) {
+        for (const string& filename : filenames) {
+            require_exists(context, filename);
+        }
     }
     get_index(identifier)->provide(filenames);
 }
 
 void IndexRegistry::reset(const IndexName& identifier) {
     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-        cerr << "[IndexRegistry]: Reset provided: " << identifier << endl;
+        info(context) << "Reset provided: " << identifier << endl;
     }
     if (!index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] cannot reset unregistered index: " << identifier << endl;
-        exit(1);
+        error(context) << "cannot reset unregistered index: " << identifier << endl;
     }
     get_index(identifier)->reset();
 }
@@ -4638,8 +4566,7 @@ bool IndexRegistry::available(const IndexName& identifier) const {
 
 vector<string> IndexRegistry::get_possible_filenames(const IndexName& identifier) const {
     if (!index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;
-        exit(1);
+        error(context) << "cannot require unregistered index: " << identifier << endl;
     }
     const IndexFile* index = get_index(identifier);
     return {get_prefix() + "." + index->get_suffix()};
@@ -4647,13 +4574,11 @@ vector<string> IndexRegistry::get_possible_filenames(const IndexName& identifier
 
 vector<string> IndexRegistry::require(const IndexName& identifier) const {
     if (!index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;
-        exit(1);
+        error(context) << "cannot require unregistered index: " << identifier << endl;
     }
     const IndexFile* index = get_index(identifier);
     if (!index->is_finished()) {
-        cerr << "error:[IndexRegistry] do not have and did not make index: " << identifier << endl;
-        exit(1);
+        error(context) << "do not have and did not make index: " << identifier << endl;
     }
     return index->get_filenames();
 }
@@ -4689,8 +4614,7 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
     
     for (const IndexName& identifier : identifiers) {
         if (!index_registry.count(identifier)) {
-            cerr << "error:[IndexRegistry] cannot register recipe for unregistered index " << identifier << endl;
-            exit(1);
+            error(context) << "cannot register recipe for unregistered index: " << identifier << endl;
         }
     }
     
@@ -4704,26 +4628,22 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
     IndexGroup output_group(identifiers.begin(), identifiers.end());
     {
         if (input_group.size() != input_identifiers.size()) {
-            cerr << "error:[IndexRegistry] recipe has duplicate inputs" << endl;
-            exit(1);
+            error(context) << "recipe has duplicate inputs" << endl;
         }
         size_t i = 0;
         for (const auto& sorted_identifier : input_group) {
             if (sorted_identifier != input_identifiers[i]) {
-                cerr << "error:[IndexRegistry] recipe has inputs that are not provided in alphabetical order" << endl;
-                exit(1);
+                error(context) << "recipe has inputs that are not provided in alphabetical order" << endl;
             }
             ++i;
         }
         if (output_group.size() != identifiers.size()) {
-            cerr << "error:[IndexRegistry] recipe has duplicate outputs" << endl;
-            exit(1);
+            error(context) << "recipe has duplicate outputs" << endl;
         }
         i = 0;
         for (const auto& sorted_identifier : output_group) {
             if (sorted_identifier != identifiers[i]) {
-                cerr << "error:[IndexRegistry] recipe has outputs that are not provided in alphabetical order" << endl;
-                exit(1);
+                error(context) << "recipe has outputs that are not provided in alphabetical order" << endl;
             }
             ++i;
         }
@@ -4732,8 +4652,7 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
     vector<const IndexFile*> inputs;
     for (const auto& input_identifier : input_identifiers) {
         if (!index_registry.count(input_identifier)) {
-            cerr << "error:[IndexRegistry] cannot register recipe from unregistered index " << input_identifier << endl;
-            exit(1);
+            error(context) << "cannot register recipe from unregistered index: " << input_identifier << endl;
         }
         inputs.push_back(get_index(input_identifier));
     }
@@ -4773,16 +4692,16 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
 void IndexRegistry::register_generalization(const RecipeName& generalizer, const RecipeName& generalizee) {
     for (const auto& index_name : generalizee.first) {
         if (!generalizer.first.count(index_name)) {
-            cerr << "error:[IndexRegistry] registered a generalization that does not contain generalizee's output " << index_name << endl;
-            exit(1);
+            error(context) << "registered a generalization that does not contain generalizee's output "
+                           << index_name << endl;
         }
     }
     const auto& generalizer_recipe = recipe_registry.at(generalizer.first).at(generalizer.second);
     const auto& generalizee_recipe = recipe_registry.at(generalizee.first).at(generalizee.second);
     for (const auto& index_name : generalizee_recipe.input_group()) {
         if (!generalizer_recipe.input_group().count(index_name)) {
-            cerr << "error:[IndexRegistry] registered a generalization that does not contain generalizee's input " << index_name << endl;
-            exit(1);
+            error(context) << "registered a generalization that does not contain generalizee's input "
+                           << index_name << endl;
         }
     }
     
@@ -4833,14 +4752,13 @@ string IndexRegistry::get_work_dir() {
 bool IndexRegistry::vcf_is_phased(const string& filepath) {
     
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
+        info(context) << "Checking for phasing in VCF(s)." << endl;
     }
     
     
     htsFile* file = hts_open(filepath.c_str(), "rb");
     if (!file) {
-        cerr << "error:[IndexRegistry]: Failed to open VCF file: " << filepath << endl;
-        exit(1);
+        error(context) << "Failed to open VCF file " << filepath << endl;
     }
     bcf_hdr_t* hdr = bcf_hdr_read(file);
     int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
@@ -4928,12 +4846,11 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
 
 bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        cerr << "[IndexRegistry]: Checking for haplotype lines in GFA." << endl;
+        info(context) << "Checking for haplotype lines in GFA." << endl;
     }
     ifstream strm(filepath);
     if (!strm) {
-        cerr << "error:[IndexRegistry] Could not open GFA file " << filepath << endl;
-        exit(1);
+        error(context) << "Could not open GFA file " << filepath << endl;
     }
     
     unordered_set<string> ref_samples;
@@ -4954,7 +4871,7 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
             if (!found_match) {
                 // no ref sense tag
                 if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                    cerr << "[IndexRegistry]: GFA has no reference samples tag in the header" << endl;
+                    info(context) << "GFA has no reference samples tag in the header" << endl;
                 }
                 continue;
             }
@@ -4963,8 +4880,7 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
             found_match = regex_search(tag_value, val_sub, sample_regex);
             if (!found_match) {
                 // ref sense tag is malformed
-                cerr << tag_sub[0] << endl;
-                exit(1);
+                error(context) << "GFA reference samples tag is malformed: " << tag_value << endl;
             }
             
             // record the ref samples
@@ -4979,14 +4895,13 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
             }
 
             if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                cerr << "[IndexRegistry]: GFA has " << ref_samples.size() << " reference samples" << endl;
+                info(context) << "GFA has " << ref_samples.size() << " reference samples" << endl;
             }
         }
         else {
             if (line_type == 'P') {
                 if (strm.get() != '\t') {
-                    cerr << "error: P-line does not have tab following line type\n";
-                    exit(1);
+                    error(context) << "P-line does not have tab following line type" << endl;
                 }
                 
                 string path_name;
@@ -5003,20 +4918,22 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                     if (!ref_samples.count(sample)) {
                         // Anything with a non-reference sample is a haplotype
                          if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                            cerr << "[IndexRegistry]: GFA path " << path_name << " for non-reference sample " << sample << " is a haplotype." << endl;
+                            info(context) << "GFA path " << path_name << " for non-reference sample " 
+                                          << sample << " is a haplotype." << endl;
                         }
                         return true;
                     }
                 } else {
                     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                        cerr << "[IndexRegistry]: GFA path " << path_name << " has no sample and so cannot be a haplotype." << endl;
+                        info(context) << "GFA path " << path_name 
+                                      << " has no sample and so cannot be a haplotype." << endl;
                     }
                 }
             }
-            else if (line_type == 'W') {
+            else if (line_type == 'W' || line_type == 'Z') {
+                // Ordinary or grammar-compressed walk line.
                 if (strm.get() != '\t') {
-                    cerr << "error: W-line does not have tab following line type\n";
-                    exit(1);
+                    error(context) << "W-line does not have tab following line type" << endl;
                 }
                 
                 string sample;
@@ -5142,7 +5059,7 @@ vector<IndexGroup> IndexRegistry::dependency_order() const {
     }
     
     if (order.size() != dependency_graph.size()) {
-        cerr << "error:[IndexFile] index dependency graph is not a DAG" << endl;
+        error("IndexFile") << "index dependency graph is not a DAG" << endl;
         
 #ifdef debug_index_registry
         // do DFS to find the cycle
@@ -5425,7 +5342,8 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
                     size_t requester = *get<1>(plan_path.back()).rbegin();
                     
 #ifdef debug_index_registry
-                    cerr << "no remaining recipes for " << to_string(identifier_order[get<0>(plan_path.back())]) << ", pruning to earliest requester: " << to_string(identifier_order[requester]) << endl;
+                    cerr << "no remaining recipes for " << to_string(identifier_order[get<0>(plan_path.back())]) 
+                         << ", pruning to earliest requester: " << to_string(identifier_order[requester]) << endl;
 #endif
                     
                     requeue_back(); // nothing to unrequest from the first one, which is past its last recipe
@@ -5637,7 +5555,8 @@ string IndexRegistry::to_dot(const vector<IndexName>& targets) const {
         }
     }
     for (const auto& generalization_record : generalizations) {
-        strm << recipe_to_dot_id.at(generalization_record.first) << " -> " << recipe_to_dot_id.at(generalization_record.second) << " [style=dashed color=" << unselected_col << "];" << endl;
+        strm << recipe_to_dot_id.at(generalization_record.first) << " -> " << recipe_to_dot_id.at(generalization_record.second) 
+             << " [style=dashed color=" << unselected_col << "];" << endl;
     }
     strm << "}" << endl;
     return strm.str();

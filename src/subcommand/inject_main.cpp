@@ -38,6 +38,7 @@ void help_inject(char** argv) {
 }
 
 int main_inject(int argc, char** argv) {
+    Logger logger("vg inject");
 
     if (argc == 2) {
         help_inject(argv);
@@ -77,19 +78,16 @@ int main_inject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = optarg;
+            xg_name = require_exists(logger, optarg);
             break;
         
         case 'o':
-            {
-                output_format = optarg;
-                for (char& c : output_format) {
-                    c = std::toupper(c);
-                }
-                if (output_formats.find(output_format) == output_formats.end()) {
-                    std::cerr << "error: [vg inject] Invalid output format: " << optarg << std::endl;
-                    std::exit(1);
-                }
+            output_format = optarg;
+            for (char& c : output_format) {
+                c = std::toupper(c);
+            }
+            if (output_formats.find(output_format) == output_formats.end()) {
+                logger.error() << "Invalid output format: " << output_format << endl;
             }
             break;
 
@@ -102,32 +100,29 @@ int main_inject(int argc, char** argv) {
             break;
 
         case 't':
-          threads = parse<int>(optarg);
-          break;
+            threads = set_thread_count(logger, optarg);
+            break;
 
         case 'a':
-          allow_missing_contig = true;
-          break;
+            allow_missing_contig = true;
+            break;
 
         case 'h':
         case '?':
-          help_inject(argv);
-          exit(1);
-          break;
+            help_inject(argv);
+            exit(0);
+            break;
 
         default:
-          abort ();
+            abort ();
         }
     }
     
-    omp_set_num_threads(threads);
-
     string file_name = get_input_file_name(optind, argc, argv);
 
     // We require an XG index
     if (xg_name.empty()) {
-        cerr << "error[vg inject]: Graph (-x) is required" << endl;
-        exit(1);
+        logger.error() << "Graph (-x) is required" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;

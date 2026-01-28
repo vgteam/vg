@@ -53,7 +53,7 @@ void help_deconstruct(char** argv) {
          << "                           (by default only top-level snarls reported)." << endl
          << "  -c, --context-jaccard N  set context mapping size used to disambiguate alleles" << endl
          << "                           at sites with multiple reference traversals [10000]" << endl
-         << "  -u, --untangle-travs     use context mapping fpr reference-relative positions" << endl
+         << "  -u, --untangle-travs     use context mapping for reference-relative positions" << endl
          << "                           of each step in allele traversals (AP INFO field)." << endl
          << "  -K, --keep-conflicted    retain conflicted genotypes in output." << endl
          << "  -S, --strict-conflicts   drop genotypes when we have more than one haplotype" << endl
@@ -63,14 +63,16 @@ void help_deconstruct(char** argv) {
          << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
          << "                           is >= F together [1.0; experimental]" << endl
          << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
+         << "  -f, --nested-fasta F     Write off-reference FASTA to F (and some indexing" << endl
+         << "                           information to F.nesting.tsv) [experimental]" << endl
          << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
-         << "                           but do not cross the site. Only works with -n" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
          << "  -h, --help               print this help message to stderr and exit" << endl;
 }
 
-int main_deconstruct(int argc, char** argv){
+int main_deconstruct(int argc, char** argv) {
+    Logger logger("vg deconstruct");
     if (argc <= 2) {
         help_deconstruct(argv);
         return 1;
@@ -93,6 +95,7 @@ int main_deconstruct(int argc, char** argv){
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
     bool nested = false;
+    string nested_fasta_file_name;
     bool star_allele = false;
     
     int c;
@@ -118,6 +121,7 @@ int main_deconstruct(int argc, char** argv){
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
                 {"nested", no_argument, 0, 'n'},
+                {"nested-fasta", required_argument, 0, 'f'},                
                 {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
@@ -125,7 +129,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nf:Rt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -141,25 +145,25 @@ int main_deconstruct(int argc, char** argv){
             refpath_prefixes.push_back(optarg);
             break;
         case 'H':
-            cerr << "Warning [vg deconstruct]: -H is deprecated, and will be ignored" << endl;
+            logger.warn() << "-H is deprecated, and will be ignored" << endl;
             break;
         case 'r':
-            snarl_file_name = optarg;
+            snarl_file_name = require_exists(logger, optarg);
             break;
         case 'g':
-            gbwt_file_name = optarg;
+            gbwt_file_name = require_exists(logger, optarg);
             break;
         case 'T':
-            translation_file_name = optarg;
+            translation_file_name = require_exists(logger, optarg);
             break;
         case 'O':
             gbz_translation = true;
             break;                        
         case 'e':
-            cerr << "Warning [vg deconstruct]: -e is deprecated as it's now on default" << endl;
+            logger.warn() << "-e is deprecated as it's now on default" << endl;
             break;
         case 'd':
-            cerr << "Warning [vg deconstruct]: -d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
+            logger.warn() << "-d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
             break;
         case 'c':
             context_jaccard_window = parse<int>(optarg);
@@ -185,11 +189,14 @@ int main_deconstruct(int argc, char** argv){
         case 'n':
             nested = true;
             break;
+        case 'f':
+            nested_fasta_file_name = ensure_writable(logger, optarg);
+            break;
         case 'R':
             star_allele = true;
             break;
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            set_thread_count(logger, optarg);
             break;
         case 'v':
             show_progress = true;
@@ -206,12 +213,10 @@ int main_deconstruct(int argc, char** argv){
     }
 
     if (nested == true && contig_only_ref == true) {
-        cerr << "Error [vg deconstruct]: -C cannot be used with -n" << endl;
-        return 1;
+        logger.error() << "-C cannot be used with -n" << endl;
     }
     if (star_allele == true && nested == false) {
-        cerr << "Error [vg deconstruct]: -R can only be used with -n" << endl;
-        return 1;
+        logger.error() << "-R can only be used with -n" << endl;
     }
     
     // Read the graph
@@ -230,12 +235,11 @@ int main_deconstruct(int argc, char** argv){
         path_handle_graph_up = std::move(get<1>(input));
         path_handle_graph = path_handle_graph_up.get();
     } else {
-        cerr << "Error [vg deconstruct]: Input graph is not a GBZ or path handle graph" << endl;
-        return 1;
+        logger.error() << "Input graph is not a GBZ or path handle graph" << endl;
     }
 
     if (!gbz_graph && gbz_translation) {
-        cerr << "Error [vg deconstruct]: -O can only be used when input graph is in GBZ format" << endl;
+        logger.error() << "-O can only be used when input graph is in GBZ format" << endl;
     }
 
     if (!gbwt_file_name.empty() || gbz_graph) {
@@ -263,19 +267,20 @@ int main_deconstruct(int argc, char** argv){
     std::chrono::duration<double> overlay_seconds = overlay_stop_time - overlay_start_time;
     
     if (show_progress && graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
-        std::cerr << "Computed overlay in " << overlay_seconds.count() << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
+        logger.info() << "Computed overlay in " << overlay_seconds.count()
+                      << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
     }
 
     // Read the GBWT
     unique_ptr<gbwt::GBWT> gbwt_index_up;
     if (!gbwt_file_name.empty()) {
         if (gbwt_index) {
-            cerr << "Warning [vg deconstruct]: Using GBWT from -g overrides that in input GBZ (you probably don't want to use -g)" << endl;
+            logger.warn() << "Using GBWT from -g overrides that in input GBZ "
+                          << "(you probably don't want to use -g)" << endl;
         }
         gbwt_index_up = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
         if (!gbwt_index_up) {
-            cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
-            return 1;
+            logger.error() << "Unable to load GBWT index file: " << gbwt_file_name << endl;
         }
         gbwt_index = gbwt_index_up.get();
     }
@@ -284,28 +289,38 @@ int main_deconstruct(int argc, char** argv){
         // Check our paths
         for (const string& ref_path : refpaths) {
             if (!graph->has_path(ref_path)) {
-                cerr << "error [vg deconstruct]: Reference path \"" << ref_path << "\" not found in graph/gbwt" << endl;
-                return 1;
+                logger.error() << "Reference path \"" << ref_path
+                               << "\" not found in graph/GBWT" << endl;
             }
         }
     }
     
     if (refpaths.empty() && refpath_prefixes.empty()) {
-        bool found_hap;
-        // No paths specified: use them all
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        // We will set this if we found any haplotypes or alt paths to use as alternatives to the reference.
+        bool found_hap = false;
+
+        // No paths specified: use all reference and non-alt generic paths as reference to deconstruct against.
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
-            if (!Paths::is_alt(name) && graph->get_sense(path_handle) != PathSense::HAPLOTYPE) {
+            if (!Paths::is_alt(name)) {
                 refpaths.push_back(name);
             } else {
                 found_hap = true;
             }
         });
 
+        if (!found_hap) {
+            // See if we have any haplotypes.
+            graph->for_each_path_of_sense(PathSense::HAPLOTYPE, [&](path_handle_t path_handle) {
+                found_hap = true;
+                return false;
+            });
+        }
+
         if (!found_hap && gbwt_index == nullptr) {
-            cerr << "error [vg deconstruct]: All graph paths selected as references (leaving no alts). Please use -P/-p "
-                 << "to narrow down the reference to a subset of paths, or GBZ/GBWT input that contains haplotype paths" << endl;
-            return 1;
+            logger.error() << "All graph paths selected as references (leaving no alternative alleles). Please use -P/-p "
+                           << "to narrow down the reference to a subset of paths, "
+                           << "or GBZ/GBWT input that contains haplotype paths" << endl;
         }        
     }
 
@@ -322,54 +337,52 @@ int main_deconstruct(int argc, char** argv){
     }
     if (!translation_file_name.empty()) {
         if (!translation->empty()) {
-            cerr << "Warning [vg deconstruct]: Using translation from -T overrides that in input GBZ "
-                 << "(you probably don't want to use -T)" << endl;
+            logger.warn() << "Using translation from -T overrides that in input GBZ "
+                          << "(you probably don't want to use -T)" << endl;
         }
         ifstream translation_file(translation_file_name.c_str());
-        if (!translation_file) {
-            cerr << "Error [vg deconstruct]: Unable to load translation file: " << translation_file_name << endl;
-            return 1;
-        }
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(*graph, translation_file);
     }
-    
+
+    // process the prefixes to find ref paths
+    if (!refpath_prefixes.empty()) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            for (auto& prefix : refpath_prefixes) {                    
+                if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                    refpaths.push_back(path_name);
+                    break;
+                }
+            }
+        });
+    }
+
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_file_name.empty()) {
         ifstream snarl_file(snarl_file_name.c_str());
-        if (!snarl_file) {
-            cerr << "Error [vg deconstruct]: Unable to load snarls file: " << snarl_file_name << endl;
-            return 1;
-        }
         if (show_progress) {
-            cerr << "Loading snarls" << endl;
+            logger.info() << "Loading snarls" << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        IntegratedSnarlFinder finder(*graph);
+        std::unordered_map<nid_t, size_t> extra_node_weight;
+        constexpr size_t EXTRA_WEIGHT = 10000000000;
+        for (const string& refpath_name : refpaths) {
+            path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
+            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(refpath_handle)))] += EXTRA_WEIGHT;
+            extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
+        }
+        IntegratedSnarlFinder finder(*graph, extra_node_weight);
         if (show_progress) {
-            cerr << "Finding snarls" << endl;
+            logger.info() << "Finding snarls" << endl;
         }
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
-    // process the prefixes to find ref paths
-    if (!refpath_prefixes.empty()) {
-        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                string path_name = graph->get_path_name(path_handle);
-                for (auto& prefix : refpath_prefixes) {                    
-                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
-                        refpaths.push_back(path_name);
-                        break;
-                    }
-                }
-            });
-    }
-
     if (refpaths.empty()) {
-        cerr << "Error [vg deconstruct]: No specified reference path or prefix found in graph" << endl;
-        return 1;
+        logger.error() << "No specified reference path or prefix found in graph" << endl;
     }
 
 #ifdef USE_CALLGRIND
@@ -380,7 +393,7 @@ int main_deconstruct(int argc, char** argv){
     // Deconstruct
     Deconstructor dd;
     if (show_progress) {
-        cerr << "Deconstructing top-level snarls" << endl;
+        logger.info() << "Deconstructing top-level snarls" << endl;
     }
     dd.set_translation(translation.get());
     dd.set_nested(all_snarls || nested);
@@ -395,6 +408,10 @@ int main_deconstruct(int argc, char** argv){
                    gbwt_index,
                    nested,
                    star_allele);
+
+    if (!nested_fasta_file_name.empty()) {
+        dd.save_off_ref_sequences(nested_fasta_file_name);
+    }
     return 0;
 }
 

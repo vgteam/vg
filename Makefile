@@ -43,6 +43,7 @@ include $(wildcard $(IO_SHARED_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
+include $(wildcard test/*.d)
 
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
@@ -73,7 +74,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph -lcrypto
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -228,6 +229,8 @@ else
     $(info OS is Linux)
     $(info Compiler $(CXX) is assumed to be GCC)
 
+	# gbwtgraph uses inline variables and our oldest supported compiler has
+	# C++17, so we should use at least C++17.
     # C++20 for spaceship operator and ranges
     CXX_STANDARD?=20
 
@@ -327,8 +330,10 @@ SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
-# These support the tests. Some should go into the main vg binary but some should only go into test-suite binaries.
-UNITTEST_SUPPORT_OBJ = $(patsubst $(UNITTEST_SUPPORT_SRC_DIR)/%.cpp,$(UNITTEST_SUPPORT_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp))
+# These support the tests and go in the main vg binary and all the test binaries
+UNITTEST_SUPPORT_OBJ_COMMON = $(filter-out $(UNITTEST_SUPPORT_OBJ_DIR)/driver.o,$(patsubst $(UNITTEST_SUPPORT_SRC_DIR)/%.cpp,$(UNITTEST_SUPPORT_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp)))
+# These are the ones that go in all the test binaries (including the test driver with main())
+UNITTEST_SUPPORT_OBJ = $(UNITTEST_SUPPORT_OBJ_DIR)/driver.o $(UNITTEST_SUPPORT_OBJ_COMMON)
 
 # These are per-test-suite binaries we can build faster
 UNITTEST_EXE = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_BIN_DIR)/%,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
@@ -521,7 +526,7 @@ DEPS += $(INC_DIR)/atomic_queue.h
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 LIBVG_SHARED_DEPS = $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(DEPS)
-EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
+EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 
 # We have a target we can build to do everything but link the library and executable
 objs: $(LIBVG_DEPS) $(EXE_DEPS)
@@ -541,11 +546,11 @@ $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPO
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
-$(LIB_DIR)/vg_is_static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+$(LIB_DIR)/vg_is_static: $(LIB_DIR)/libvg.a $(EXE_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -581,7 +586,7 @@ test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf
 # Somebody has been polluting the test directory with temporary files that are not deleted after the tests.
 # To make git status more useful, we delete everything that looks like a temporary file.
 clean-tests:
-	cd test && rm -rf tmp && mkdir tmp && mv 2_2.mat build_graph.cpp default.mat tmp && rm -f *.* && mv tmp/* . && rmdir tmp
+	cd test && rm -rf tmp && mkdir tmp && mv 2_2.mat build_graph.cpp default.mat tmp && rm -f *.* zipcodes && mv tmp/* . && rmdir tmp
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	doxygen
@@ -607,8 +612,8 @@ else
 	ln -s `which shuf` $(BIN_DIR)/shuf
 endif
 
-test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
+test/build_graph: test/build_graph.o $(LIB_DIR)/libvg.a
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph $(PRE_LINK_DEPS) test/build_graph.o $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 
 $(LIB_DIR)/mimalloc.o: $(MIMALLOC_DIR)/src/*.c $(MIMALLOC_DIR)/src/*/*.c $(MIMALLOC_DIR)/src/*/*/*.c $(MIMALLOC_DIR)/include/*.h $(MIMALLOC_DIR)/include/*/*.h $(MIMALLOC_DIR)/CMakeLists.txt
 	+rm -f $(LIB_DIR)/mimalloc.o && rm -Rf $(INC_DIR)/mimalloc $(INC_DIR)/mimalloc*.h && cd $(MIMALLOC_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" ..  && $(MAKE) $(FILTER) &&  cp -r ../include/* $(CWD)/$(INC_DIR)/ && cp mimalloc.o $(CWD)/$(LIB_DIR)/
@@ -706,12 +711,19 @@ $(LIB_DIR)/cleaned_old_elfutils:
 	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a
 	+touch $(LIB_DIR)/cleaned_old_elfutils
 
+# We used to accidentally bring vcflib's intervaltree's copy of catch.hpp into the global include
+$(LIB_DIR)/cleaned_old_catch:
+	+rm -f $(INC_DIR)/catch.hpp
+	+touch $(LIB_DIR)/cleaned_old_catch
+
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
+	+export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib -DUSE_INSTALLED_LIBHANDLEGRAPH_ONLY=ON .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
+	+rm -f $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libhandlegraph.$(SHARED_SUFFIX)
+	+rm -Rf $(INC_DIR)/handlegraph $(LIB_DIR)/cmake/libhandlegraph
 	+cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. && $(MAKE) $(FILTER) && $(MAKE) install
 
 
@@ -767,13 +779,13 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # because there's no way to turn off vcflib's pybind11 build and pybind11 will
 # try and use the latest installed Python over the default one that probably
 # has headers.
-$(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
+$(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h $(LIB_DIR)/cleaned_old_catch
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
 	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib vcf2tsv wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
-	+cp $(VCFLIB_DIR)/contrib/intervaltree/*.h* $(INC_DIR)
+	+cp $(VCFLIB_DIR)/contrib/intervaltree/IntervalTree.h $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/multichoose/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/src/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/build/libvcflib.a $(LIB_DIR)
@@ -1002,6 +1014,9 @@ $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_
 $(UNITTEST_SUPPORT_OBJ): $(UNITTEST_SUPPORT_OBJ_DIR)/%.o : $(UNITTEST_SUPPORT_SRC_DIR)/%.cpp $(UNITTEST_SUPPORT_OBJ_DIR)/%.d $(DEPS)
 	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
+test/build_graph.o: test/%.o : test/%.cpp test/%.d $(DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
+	@touch $@
 	
 # Config objects get individual rules
 $(CONFIG_OBJ_DIR)/allocator_config_mimalloc.o: $(CONFIG_SRC_DIR)/allocator_config_mimalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_mimalloc.d $(DEPS) $(LIB_DIR)/mimalloc.o
@@ -1024,10 +1039,10 @@ $(CONFIG_OBJ_DIR)/%.d: ;
 $(IO_OBJ_DIR)/%.d: ;
 $(SUBCOMMAND_OBJ_DIR)/%.d: ;
 $(UNITTEST_OBJ_DIR)/%.d: ;
+test/%.d: ;
 
 # Don't delete them.
-.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(CONFIG_OBJ_DIR)/%.d $(IO_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
-
+.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(CONFIG_OBJ_DIR)/%.d $(IO_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d test/%.d
 # Use no implicit rules
 .SUFFIXES:
 

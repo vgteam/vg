@@ -45,6 +45,7 @@ void help_mcmc(char** argv) {
 }
 
 int main_mcmc(int argc, char** argv) {
+    Logger logger("vg mcmc");
 
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
@@ -113,7 +114,7 @@ int main_mcmc(int argc, char** argv) {
                 sample_name = optarg;
                 break;  
             case 'v':
-                vcf_out = optarg;
+                vcf_out = ensure_writable(logger, optarg);
                 break;
             case 'b':
                 burn_in = parse<int>(optarg);
@@ -161,9 +162,8 @@ int main_mcmc(int argc, char** argv) {
     //convert to VG graph if needed
     ensure_vg();
 
-    if(vg_graph == nullptr || vg_graph == 0){
-        cerr << "Graph is NULL" <<endl;
-        exit(1);
+    if(vg_graph == nullptr || vg_graph == 0) {
+        logger.error() << "Graph is NULL" << endl;
     }
     PathPositionHandleGraph* graph = nullptr;
     graph = overlay_helper.apply(vg_graph);
@@ -172,25 +172,22 @@ int main_mcmc(int argc, char** argv) {
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
-            cerr << "error [vg call]: Reference path \"" << ref_path << "\" not found in graph" << endl;
-            return 1;
+            logger.error() << "Reference path \"" << ref_path << "\" not found in graph" << endl;
         }
     }
     
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
-        return 1;
+        logger.error() << "when using -o, the same number paths must be given with -p" << endl;
     }
     // Check our ref lengths
     if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
-        return 1;
+        logger.error() << "when using -l, the same number paths must be given with -p" << endl;
     }
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(name)) {
                     ref_paths.push_back(name);
@@ -240,7 +237,7 @@ int main_mcmc(int argc, char** argv) {
     // Write header to ofstream  
     vcf_file_out << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths);
     
-    //current implimentation is writing vcf record after each variant processed
+    //current implimentation is writing VCF record after each variant processed
     mcmc_caller.call_top_level_snarls();
 
     // mcmc_caller.write_variants(cerr);

@@ -36,6 +36,8 @@ namespace vg {
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
  *
  * Versions:
+ * * Version 6: Tags for storing metadata, such as graph names. Compatible with
+ *   version 5.
  *
  * * Version 5: Every path in the graph is assigned to a construction job.
  *   This allows including reference paths that do not visit any snarls in the
@@ -74,7 +76,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 5;
+        constexpr static std::uint32_t VERSION = 6;
+        constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
@@ -142,7 +145,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<compact_sequence_type> sequences;
 
-        // TODO v6: Use an extra bit for each sequence to mark whether the presence for that sequence
+        // TODO v7: Use an extra bit for each sequence to mark whether the presence for that sequence
         // is stored explicitly or relative to the last explicit sequence.
         // We need to cluster the sequences by similarity and store the clusters consecutively.
         // And then use sd_vector for the sequences with relative presence.
@@ -232,6 +235,9 @@ public:
 
     Header header;
 
+    // Tags for storing metadata, such as graph names.
+    gbwt::Tags tags;
+
     // Job ids for each path in the GBWTGraph, or `jobs()` if the path is empty.
     std::vector<size_t> jobs_for_paths;
 
@@ -274,6 +280,16 @@ public:
      * the given construction job, or jobs() if the path is empty.
      */
     std::vector<size_t> assign_reference_paths(const gbwtgraph::GBZ& gbz, Verbosity verbosity) const;
+
+    /**
+     * Sets graph name (pggname) information based on the given GBZ graph.
+     */
+    void set_graph_name(const gbwtgraph::GBZ& gbz);
+
+    /**
+     * Returns the graph name (pggname) information stored in the tags.
+     */
+    gbwtgraph::GraphName graph_name() const { return gbwtgraph::GraphName(this->tags); }
 };
 
 //------------------------------------------------------------------------------
@@ -301,7 +317,7 @@ public:
     typedef Haplotypes::Subchain::kmer_type kmer_type;
 
     /// Minimizer index without payloads.
-    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::Position> minimizer_index_type;
+    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64> minimizer_index_type;
 
     /**
      * A subchain is a substring of a top-level chain defined by at most two
@@ -577,6 +593,9 @@ public:
 
         /// Include named and reference paths.
         bool include_reference = false;
+
+        /// Samples whose haplotypes shouldn't be used, even if they score well.
+        unordered_set<std::string> banned_samples;
 
         // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.

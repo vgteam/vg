@@ -14,6 +14,7 @@
 #include "subcommand.hpp"
 
 #include "../snarl_seed_clusterer.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include "../zip_code_tree.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
@@ -45,7 +46,7 @@ void help_cluster(char** argv) {
          << endl
          << "basic options:" << endl
          << "  -h, --help                    print this help message to stderr and exit" << endl
-         << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
+         << "  -x, --xg-name FILE            use this XG index or graph (required)" << endl
          << "  -f, --gbz-format              input graph is GBZ format (has graph & GBWT)" << endl
          << "  -g, --gcsa-name FILE          use FILE & FILE.lcp GCSA2/LCP index pair" << endl
          << "  -G, --gbwt-name FILE          use this GBWT" << endl
@@ -73,6 +74,7 @@ void help_cluster(char** argv) {
 }
 
 int main_cluster(int argc, char** argv) {
+    Logger logger("vg cluster");
 
     if (argc == 2) {
         help_cluster(argv);
@@ -144,16 +146,8 @@ int main_cluster(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide graph file with -x." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error:[vg cluster] Couldn't open graph file " << optarg << endl;
-                    exit(1);
-                }
-                //Remember the string for MEMs
-                graph_name = optarg;
+                // Remember the string for MEMs
+                graph_name = require_exists(logger, optarg);
                 break;
 
             case 'f':
@@ -161,39 +155,15 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 'g':
-                if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide GCSA file with -g." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error:[vg cluster] Couldn't open GCSA file " << optarg << endl;
-                    exit(1);
-                }
                 registry.provide("GCSA", optarg);
                 break;
             
             case 'G':
-                if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide GBWT file with -G." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error:[vg cluster] Couldn't open GBWT file " << optarg << endl;
-                    exit(1);
-                }
                 registry.provide("Giraffe GBWT", optarg);
                 break;
                 
 
             case 'B':
-                if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide GBWTGraph file with -B." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error:[vg cluster] Couldn't open GBWTGraph file " << optarg << endl;
-                    exit(1);
-                }
                 registry.provide("GBWTGraph", optarg);
                 
                 // But if we have a GBWTGraph we probably want to use *its* name as the base name.
@@ -204,15 +174,7 @@ int main_cluster(int argc, char** argv) {
 
             
             case 'm':
-                if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error:[vg cluster] Couldn't open minimizer file " << optarg << endl;
-                    exit(1);
-                }
-                minimizer_name = optarg;
+                minimizer_name = require_exists(logger, optarg);
                 break;
                 
             case 'l':
@@ -220,26 +182,13 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 'd':
-                distance_name = optarg;
-                if (distance_name.empty()) {
-                    cerr << "error:[vg cluster] Must provide distance index file with -d." << endl;
-                    exit(1);
-                }
-                if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide distance index file with -d." << endl;
-                    exit(1);
-                }
-                if (!std::ifstream(optarg).is_open()) {
-                    cerr << "error:[vg cluster] Couldn't open distance index file " << optarg << endl;
-                    exit(1);
-                }
+                distance_name = require_exists(logger, optarg);
                 registry.provide("Giraffe Distance Index", optarg);
                 break;
 
             case 'p':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg cluster] Must provide prefix with -p." << endl;
-                    exit(1);
+                    logger.error() << "Must provide prefix with -p." << endl;
                 }
                 registry.set_prefix(optarg);
                 break;
@@ -285,15 +234,7 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 't':
-            {
-                int num_threads = parse<int>(optarg);
-                if (num_threads <= 0) {
-                    cerr << "error:[vg cluster] Thread count (-t) set to " << num_threads 
-                         << ", must set to a positive integer." << endl;
-                    exit(1);
-                }
-                omp_set_num_threads(num_threads);
-            }
+                set_thread_count(logger, optarg);
                 break;
                 
             case 'h':
@@ -306,19 +247,17 @@ int main_cluster(int argc, char** argv) {
     }
     
     if (graph_name.empty()) {
-        cerr << "error:[vg cluster] Must provide a graph file with -x." << endl;
-        exit(1);
+        logger.error() << "Must provide a graph file with -x." << endl;
     }
 
     if (hits_above_threshold != std::numeric_limits<size_t>::max()) {
         if (hard_hit_cap < hits_above_threshold) {
-            cerr << "error:[vg cluster] Hard hit cap (-C) must be greater than or equal to hits-above threshold (-a)." << endl;
-            exit(1);
+            logger.error() << "Hard hit cap (-C) must be greater than or equal "
+                           << "to hits-above threshold (-a)." << endl;
         }
     } else {
         if (output_sequences_only) {
-            cerr << "error:[vg cluster] Cannot use -S (sequences only) without a hits-above threshold (-a)." << endl;
-            exit(1);
+            logger.error() << "Cannot use -S (sequences only) without a hits-above threshold (-a)." << endl;
         }
     }
 
@@ -391,7 +330,7 @@ int main_cluster(int argc, char** argv) {
                 // A file with the appropriate name exists and we can read it
                 registry.provide(index_and_extensions.first, inferred_filename);
                 // Report it because this may not be desired behavior
-                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                logger.info() << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
                 // Skip other extension options for the index
                 break;
             }
@@ -412,13 +351,17 @@ int main_cluster(int argc, char** argv) {
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
-        cerr << "error:[vg cluster] Input is not sufficient to create indexes" << endl;
-        cerr << ex.what();
-        return 1;
+        logger.error() << "Input is not sufficient to create indexes:\n" << ex.what() << endl;
     }
 
     //Get the minimizer index
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_index_type).at(0));
+    require_payload(*minimizer_index,
+        {
+            MinimizerIndexParameters::PAYLOAD_ZIPCODES,
+            MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS
+        }
+    );
 
     //Get the zipcodes
     ZipCodeCollection oversized_zipcodes;
@@ -431,6 +374,7 @@ int main_cluster(int argc, char** argv) {
 
     // Grab the GBZ
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
+    require_compatible_graphs(*gbz, "GBZ", *minimizer_index, "Minimizer Index");
 
     //Get the distance index
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
@@ -447,8 +391,7 @@ int main_cluster(int argc, char** argv) {
         // We will find MEMs using a Mapper
         mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
         if (output_sequences_only) {
-            cerr << "error:[vg cluster] Cannot output minimizers (-S) with a GCSA index (-g)." << endl;
-            exit(1);
+            logger.error() << "Cannot output minimizers (-S) with a GCSA index (-g)." << endl;
         }
     }
     // Otherwise we will find minimizers using the minimizer_index
@@ -528,7 +471,7 @@ int main_cluster(int argc, char** argv) {
                         cur_minimizer = m.value.key.decode(m.length);
                         if (minimizer_hit_counts.find(cur_minimizer) == minimizer_hit_counts.end()) {
                             // If we haven't seen this minimizer before, initialize its count
-                            minimizer_hit_counts[cur_minimizer] = make_pair(1, m.hits);
+                            minimizer_hit_counts[cur_minimizer] = make_pair(1, m.hits());
                         }
                         minimizer_hit_counts[cur_minimizer].first++;
                     }

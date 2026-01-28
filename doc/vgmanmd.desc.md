@@ -45,6 +45,7 @@ This is an incomplete list of vg subcommands. For a complete list, run `vg help`
     - [`vg mod`](#mod): filter, transform, and edit the graph.
     - [`vg prune`](#prune): prune the graph for GCSA2 indexing.
     - [`vg ids`](#ids): manipulate graph node ids.
+    - [`vg combine`](#combine): merge graphs into a combined graph. Useful for per-chromosome graphs.
     - [`vg paths`](#paths): manipulate paths in a graph.
     - [`vg gbwt`](#gbwt): manipulate GBWTs and associated indexes. [wiki page](https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand)
     - [`vg annotate`](#annotate): annotate a graph or alignments.

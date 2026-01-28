@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 56
+plan tests 64
 
 rm auto.*
 
@@ -119,6 +119,8 @@ rm auto.*
 vg autoindex -p auto -w giraffe -r tiny/tiny.fa -v tiny/tiny.vcf.gz 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with unchunked input"
 is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for vg giraffe"
+is "$(vg describe auto.giraffe.gbz | grep -c 'pggname =')" 1 "GBZ has a graph name"
+is "$(vg describe auto.shortread.withzip.min | grep 'pggname =')" "$(vg describe auto.giraffe.gbz | grep 'pggname =')" "graph name was copied to minimizer index"
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
 vg index -x t.xg t.vg
 vg sim -x t.xg -n 20 -a -l 10 | vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -z auto.shortread.zipcodes -d auto.dist -G - > /dev/null
@@ -152,12 +154,23 @@ rm t.*
 vg autoindex -p auto -w giraffe -g graphs/gfa_with_w_lines.gfa 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with GFA input with W-lines"
 is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for vg giraffe from GFA input"
+is "$(vg describe auto.giraffe.gbz | grep -c 'pggname =')" 1 "GBZ has a graph name"
+is "$(vg describe auto.shortread.withzip.min | grep 'pggname =')" "$(vg describe auto.giraffe.gbz | grep 'pggname =')" "graph name was copied to minimizer index"
 vg convert -g graphs/gfa_with_w_lines.gfa -x > g.xg
 vg sim -x g.xg -n 20 -a -l 4 | vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -z auto.shortread.zipcodes -d auto.dist -G - > /dev/null
 is $(echo $?) 0 "GFA autoindexing results can be used by vg giraffe"
 
 rm auto.*
 rm g.xg
+
+vg autoindex -p auto -w giraffe -g graphs/components_walks_compressed.gfa
+is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with grammar-compressed GFA input"
+vg gbwt -G graphs/components_walks_compressed.gfa -g expected.gbz
+cmp expected.gbz auto.giraffe.gbz
+is $(echo $?) 0 "vg autoindex handles grammar-compressed GFA input correctly"
+
+rm auto.*
+rm expected.gbz
 
 vg autoindex -p auto -w giraffe -g graphs/named_with_walk.gfa 
 is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and W-lines"
@@ -191,4 +204,12 @@ is "$(vg autoindex -p auto -w map -M 512M -g graphs/linked_cycles.gfa 2>&1 | gre
 is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
 
 rm auto.*
+
+# index a graph with oversized snarls
+vg index -j auto.dist --snarl-limit 5 graphs/chain-clip.gfa 2> log.txt
+is "$(grep 'oversized snarls' log.txt | wc -l)" 1 "graph has oversized snarls"
+vg autoindex -p auto -w lr-giraffe --gfa graphs/chain-clip.gfa
+is "$(echo $?)" 0 "autoindexing successfully completes indexing of graph with oversized snarls"
+
+rm auto.* log.txt
 rm read.fq read.gam

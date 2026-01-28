@@ -17,6 +17,7 @@ namespace vg {
 
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
+constexpr std::uint32_t Haplotypes::Header::VERSION_WITH_TAGS;
 constexpr std::uint32_t Haplotypes::Header::MIN_VERSION;
 constexpr std::uint64_t Haplotypes::Header::DEFAULT_K;
 
@@ -302,6 +303,7 @@ size_t Haplotypes::TopLevelChain::simple_sds_size() const {
 
 void Haplotypes::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<Header>(this->header, out);
+    this->tags.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->jobs_for_paths, out);
     for (auto& chain : this->chains) {
         chain.simple_sds_serialize(out);
@@ -327,6 +329,11 @@ void Haplotypes::simple_sds_load(std::istream& in) {
         std::string msg = "Haplotypes::simple_sds_load(): Expected version " + std::to_string(Header::MIN_VERSION)
             + " to " + std::to_string(Header::VERSION) + ", got version " + std::to_string(this->header.version);
         throw sdsl::simple_sds::InvalidData(msg);
+    }
+
+    // Tags are present from version 6 onwards.
+    if (this->header.version >= Header::VERSION_WITH_TAGS) {
+        this->tags.simple_sds_load(in);
     }
 
     this->jobs_for_paths = sdsl::simple_sds::load_vector<size_t>(in);
@@ -389,6 +396,11 @@ std::vector<size_t> Haplotypes::assign_reference_paths(const gbwtgraph::GBZ& gbz
     return result;
 }
 
+void Haplotypes::set_graph_name(const gbwtgraph::GBZ& gbz) {
+    gbwtgraph::GraphName name = gbz.graph_name();
+    name.set_tags(this->tags);
+}
+
 //------------------------------------------------------------------------------
 
 HaplotypePartitioner::HaplotypePartitioner(
@@ -433,8 +445,10 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         parameters.print(std::cerr);
     }
 
+    // TODO: Should this be a constructor?
     Haplotypes result;
     result.header.k = this->minimizer_index.k();
+    result.set_graph_name(this->gbz);
 
     // Determine GBWT construction jobs.
     double start = gbwt::readTimer();
@@ -450,7 +464,9 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     this->distance_index.for_each_child(this->distance_index.get_root(), [&](const handlegraph::net_handle_t& chain) {
         if (this->distance_index.is_looping_chain(chain)) {
             std::string msg = "HaplotypePartitioner::partition_haplotypes(): top-level chain " +
-                std::to_string(total_chains) + " is a loop; haplotype sampling cannot be used with this graph";
+                std::to_string(total_chains) + " is a loop; haplotype sampling cannot be used with this graph\n." +
+                "This can sometimes be resolved by using the vg index -P option to specify a reference backbone " +
+                "when computing the distance index.";
             throw std::runtime_error(msg);
         }
         total_chains++;
@@ -1630,8 +1646,6 @@ double get_or_estimate_coverage(
 
     // Use mode as the initial estimate for coverage.
     auto statistics = summary_statistics(count_to_frequency);
-    double coverage = statistics.mode;
-    bool reliable = true;
     if (verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Coverage: median " << statistics.median
             << ", mean " << statistics.mean
@@ -1639,9 +1653,14 @@ double get_or_estimate_coverage(
             << ", mode " << statistics.mode;
     }
 
-    // In the default (non-haploid) scoring model, if mode < median, we try
-    // to find a secondary peak at ~2x mode and use it if it is good enough.
-    if (statistics.mode < statistics.median && !parameters.haploid_scoring) {
+    // First attempt: The most common kmer count is the true coverage.
+    double coverage = statistics.mode;
+    bool reliable = (statistics.mode >= statistics.median);
+
+    // Second attempt: If we do diploid scoring, the most common count may
+    // be for heterozygous kmers. We therefore try to find a secondary peak
+    // at ~2x mode and use it if it is good enough and above the median.
+    if (!reliable && !parameters.haploid_scoring) {
         size_t low = 1.7 * statistics.mode, high = 2.3 * statistics.mode;
         size_t peak = count_to_frequency[coverage];
         size_t best = low, secondary = count_to_frequency[low];
@@ -1655,9 +1674,13 @@ double get_or_estimate_coverage(
         }
         if (best >= size_t(statistics.median) && secondary >= peak / 2) {
             coverage = best;
-        } else {
-            reliable = false;
+            reliable = true;
         }
+    }
+
+    // Third attempt: Use the median as an unreliable estimate.
+    if (!reliable) {
+        coverage = statistics.median;
     }
 
     if (verbosity >= Haplotypes::verbosity_detailed) {
@@ -1794,8 +1817,8 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     const Recombinator::Parameters& parameters
 ) {
     // TODO: What are the proper thresholds?
-    double absent_threshold = coverage * 0.1;
-    double heterozygous_threshold = coverage / std::log(4.0);
+    double absent_threshold = (parameters.haploid_scoring ? coverage * 0.2 : coverage * 0.1);
+    double heterozygous_threshold = (parameters.haploid_scoring ? 0.0 : coverage / std::log(4.0));
     double homozygous_threshold = coverage * 2.5;
 
     // Determine the type of each kmer in the sample and the score for the kmer.
@@ -1808,7 +1831,7 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
         if (count < absent_threshold) {
             kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
             selected_kmers++;
-        } else if (count < heterozygous_threshold && !parameters.haploid_scoring) {
+        } else if (count < heterozygous_threshold) {
             kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
             selected_kmers++;
         } else if (count < homozygous_threshold) {
@@ -1914,7 +1937,14 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     std::vector<std::pair<size_t, double>> selected_haplotypes;
     std::vector<std::pair<size_t, double>> remaining_haplotypes;
     for (size_t seq_offset = 0; seq_offset < subchain.sequences.size(); seq_offset++) {
-        remaining_haplotypes.push_back( { seq_offset, 0.0 });
+        // Metadata to make sure this haplotype isn't among the banned
+        gbwt::size_type sequence_id = subchain.sequences[seq_offset].first;
+        gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+        gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
+
+        if (parameters.banned_samples.find(path_name.sample_name) == parameters.banned_samples.end()) {
+            remaining_haplotypes.push_back( { seq_offset, 0.0 });
+        }
     }
     while (selected_haplotypes.size() < parameters.num_haplotypes && !remaining_haplotypes.empty()) {
         // Score the remaining haplotypes.

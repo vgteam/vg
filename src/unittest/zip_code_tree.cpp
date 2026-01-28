@@ -9,6 +9,7 @@
 #include "../integrated_snarl_finder.hpp"
 #include "random_graph.hpp"
 #include "../minimizer_mapper.hpp"
+#include "randomness.hpp"
 #include <random>
 #include <time.h>
 
@@ -22,7 +23,7 @@ namespace unittest {
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (const auto& pos : positions) {
             ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_zipcode_from_pos(distance_index, pos);
             zipcode.fill_in_full_decoder();
             seeds.push_back({pos, 0, zipcode});
         }
@@ -1137,13 +1138,13 @@ namespace unittest {
 
         SECTION("Traverse 3 backwards") {
             // [1+0 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf
-            //     2  inf  inf  8  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 0 5+0]
+            //     2  inf  inf  8  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 1 5+1]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(4, false, 0);
             positions.emplace_back(3, true, 0);
             positions.emplace_back(3, true, 1);
-            positions.emplace_back(5, false, 0);
+            positions.emplace_back(5, false, 1);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
@@ -1201,35 +1202,41 @@ namespace unittest {
                     REQUIRE(reverse_views[{1, true}][1].seed == 3);
                     REQUIRE(reverse_views[{1, true}][1].distance == 3);
                     REQUIRE(reverse_views[{1, true}][1].is_reversed == true);
-                    // Edge to 5+0rev (yes, rev - we're going L->R here)
+                    // Edge to 5+1rev (yes, rev - we're going L->R here)
                     REQUIRE(reverse_views[{1, true}][2].seed == 4);
-                    REQUIRE(reverse_views[{1, true}][2].distance == 8);
+                    REQUIRE(reverse_views[{1, true}][2].distance == 9);
                     REQUIRE(reverse_views[{1, true}][2].is_reversed == true);
 
-                    // 3-1 can see the rest of its chain
+                    // 3-1 can see the rest of its chain,
+                    // and should also exit the snarl to 1+0
                     // Not rev since we're going L->R
                     REQUIRE(reverse_views.count({3, false}));
-                    REQUIRE(reverse_views[{3, false}].size() == 1);
+                    REQUIRE(reverse_views[{3, false}].size() == 2);
                     // Edge to 3-0
                     REQUIRE(reverse_views[{3, false}][0].seed == 2);
                     REQUIRE(reverse_views[{3, false}][0].distance == 1);
                     REQUIRE(reverse_views[{3, false}][0].is_reversed == false);
-
-                    // 5+0 can see the seeds on 3 & 1
-                    REQUIRE(reverse_views.count({4, false}));
-                    REQUIRE(reverse_views[{4, false}].size() == 3);
-                    // Edge to 3-1 (not rev since going L->R)
-                    REQUIRE(reverse_views[{4, false}][0].seed == 3);
-                    REQUIRE(reverse_views[{4, false}][0].distance == 5);
-                    REQUIRE(reverse_views[{4, false}][0].is_reversed == false);
-                    // Edge to 3-0
-                    REQUIRE(reverse_views[{4, false}][1].seed == 2);
-                    REQUIRE(reverse_views[{4, false}][1].distance == 6);
-                    REQUIRE(reverse_views[{4, false}][1].is_reversed == false);
                     // Edge to 1+0
-                    REQUIRE(reverse_views[{4, false}][2].seed == 0);
-                    REQUIRE(reverse_views[{4, false}][2].distance == 11);
-                    REQUIRE(reverse_views[{4, false}][2].is_reversed == false);
+                    REQUIRE(reverse_views[{3, false}][1].seed == 0);
+                    REQUIRE(reverse_views[{3, false}][1].distance == 6);
+                    REQUIRE(reverse_views[{3, false}][1].is_reversed == false);
+
+                    // 3-1rev can see 5+1rev by exiting backwards
+                    REQUIRE(reverse_views.count({3, true}));
+                    REQUIRE(reverse_views[{3, true}].size() == 1);
+                    // Edge to 3-0
+                    REQUIRE(reverse_views[{3, true}][0].seed == 4);
+                    REQUIRE(reverse_views[{3, true}][0].distance == 6);
+                    REQUIRE(reverse_views[{3, true}][0].is_reversed == true);
+
+                    // 5+1 can see only see the seed on 1
+                    // (it skips over the cyclic snarl)
+                    REQUIRE(reverse_views.count({4, false}));
+                    REQUIRE(reverse_views[{4, false}].size() == 1);
+                    // Edge to 1+0
+                    REQUIRE(reverse_views[{4, false}][0].seed == 0);
+                    REQUIRE(reverse_views[{4, false}][0].distance == 12);
+                    REQUIRE(reverse_views[{4, false}][0].is_reversed == false);
                 } else {
                     cerr << "Not testing reverse views since I didn't bother writing it" << endl;
                 }
@@ -1820,6 +1827,25 @@ namespace unittest {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
+            }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                // All seven seeds go R->L,
+                // and the four in the cyclic snarl also go L->R
+                REQUIRE(reverse_views.size() == 11);
+                // 3+0 R->L can see 2+0 inside & 1+0 outside
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].size() == 2);
+                // Edge to 1+0
+                REQUIRE(reverse_views[{2, false}][0].seed == 0);
+                REQUIRE(reverse_views[{2, false}][0].distance == 6);
+                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+                // Edge to 2+0
+                REQUIRE(reverse_views[{2, false}][1].seed == 1);
+                REQUIRE(reverse_views[{2, false}][1].distance == 3);
+                REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
             }
         }
         SECTION("Reverse both inversions") {
@@ -3014,11 +3040,56 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
     }
+    TEST_CASE("Ziptree and zip codes disagree on child chain orientation", "[zip_tree]") {
+        // Load an example graph
+        VG graph;
+        io::json2graph(R"({"node":[{"id": "17", "sequence": "C"}, 
+                                   {"id": "11", "sequence": "GGCTA"}, 
+                                   {"id": "9", "sequence": "CGGCC"}, 
+                                   {"id": "14", "sequence": "C"}, 
+                                   {"id": "15", "sequence": "G"},
+                                   {"id": "13", "sequence": "C"}],
+                           "edge": [{"from": "9", "to": "17"},
+                                    {"from": "17", "to": "14"},
+                                    {"from": "14", "to": "15"},
+                                    {"from": "15", "to": "11"},
+                                    {"from": "15", "to": "17"},
+                                    {"from": "13", "to": "14"},
+                                    {"from": "13", "to": "15"},
+                                    {"from": "17", "to": "13"}]})", &graph);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed per node") {
+            // [9+0 5 {1  inf  0  inf  inf  1  inf  3  inf  1  inf 
+            //     [17+0 1 (2  0  0  1  1  1  1 [13+0][14+0]) 0 15+0]} 0 11+0]
+            vector<pos_t> positions;
+            positions.emplace_back(9, false, 0);
+            positions.emplace_back(11, false, 0);
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(14, false, 0);
+            positions.emplace_back(15, false, 0);
+            positions.emplace_back(17, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+        SECTION("Minimal failures case") {
+            // [{1  inf  1  inf  inf  2  inf  3  inf  1  inf 
+            //     [(2  0  0  1  1  1  1 [13+0][14+0])]}]
+            vector<pos_t> positions;
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(14, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
         for (int i = 0; i < 10; i++) {
             // For each random graph
     
-            default_random_engine generator(time(NULL));
+            default_random_engine generator(test_seed_source());
             uniform_int_distribution<int> variant_count(1, 10);
             uniform_int_distribution<int> chrom_len(10, 200);
             uniform_int_distribution<int> distance_limit(5, 100);

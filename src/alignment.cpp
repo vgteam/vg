@@ -771,7 +771,7 @@ vector<tuple<string, char, string>> parse_sam_tags(const string& tags) {
         if (tag.empty()) {
             continue;
         }
-        if (tag.size() < 6 || tag[2] != ':' || tag[4] != ':') {
+        if (tag.size() < 5 || tag[2] != ':' || tag[4] != ':') {
             std::cerr << ("error: failed to parse malformed SAM tag '" + tag + "'\n");
             exit(1);
         }
@@ -1033,18 +1033,12 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                 // we handle these tags separately
                 continue;
             }
-            
+
+            // This is already guaranteed to be exactly 2 characters by parse_sam_tags()
             const char* tag_id = get<0>(tag).c_str();
             char tag_type = get<1>(tag);
+            // The value may be empty (in cases like a string tag with an empty string value)
             const string& tag_val = get<2>(tag);
-            if (get<0>(tag).size() != 2) {
-                cerr << ("error: SAM tag label " + get<0>(tag) + " is not 2 characters long\n");
-                exit(1);
-            }
-            if (tag_val.empty()) {
-                cerr << ("error: SAM tag " + get<0>(tag) + " is missing a value\n");
-                exit(1);
-            }
             
             switch (tag_type) {
                 case 'A':
@@ -1106,6 +1100,10 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                 case 'B':
                 {
                     // the array of values has its own sub-type for entries
+                    if (tag_val.empty()) {
+                        std::cerr << "error: SAM array tag " << get<0>(tag) << " is missing an item type" << std::endl;
+                        exit(1);
+                    }
                     char subtype = tag_val.front();
                     switch (subtype) {
                         case 'c':
@@ -3531,7 +3529,10 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                         // check match/mismatch state between read and ref
                         if ((aln.sequence()[read_idx + k] == node_seq[node_idx + k]) != edit.sequence().empty()) {
                             std::stringstream ss;
-                            ss << "Edit erroneously claims " << (edit.sequence().empty() ? "match" : "mismatch") << " on node " << mapping.position().node_id() << " between node position " << (node_idx + k) << " and edit " << j << ", position " << k << " on " << (mapping.position().is_reverse() ? "reverse" : "forward") << " strand";
+                            ss << "Edit erroneously claims " << (edit.sequence().empty() ? "match" : "mismatch")
+                               << " on node " << mapping.position().node_id() << " between node position "
+                               << (node_idx + k) << " and edit " << j << ", position " << k << " on "
+                               << (mapping.position().is_reverse() ? "reverse" : "forward") << " strand";
                             return {
                                 AlignmentValidity::SEQ_DOES_NOT_MATCH,
                                 i,
@@ -3543,7 +3544,9 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                         if (!edit.sequence().empty() && edit.sequence()[k] != aln.sequence()[read_idx + k]) {
                             // compare mismatched sequence to the read
                             std::stringstream ss;
-                            ss << "Edit sequence (" << edit.sequence() << ") at position " << k << " does not match read sequence (" << aln.sequence() << ") at position " << (read_idx + k);
+                            ss << "Edit sequence (" << edit.sequence() << ") at position " << k
+                               << " does not match read sequence (" << aln.sequence() << ") at position "
+                               << (read_idx + k);
                             return {
                                 AlignmentValidity::SEQ_DOES_NOT_MATCH,
                                 i,
@@ -3572,7 +3575,9 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                     for (size_t k = 0; k < edit.to_length(); ++k) {
                         if (edit.sequence()[k] != aln.sequence()[read_idx + k]) {
                             std::stringstream ss;
-                            ss << "Read sequence (" << aln.sequence() << ") at position " << (read_idx + k) << " does not match insert sequence of edit (" << edit.sequence() << ") at position " << k;
+                            ss << "Read sequence (" << aln.sequence() << ") at position " << (read_idx + k)
+                               << " does not match insert sequence of edit (" << edit.sequence()
+                               << ") at position " << k;
                             return {
                                 AlignmentValidity::SEQ_DOES_NOT_MATCH,
                                 i,
@@ -3893,4 +3898,6 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     }
     return aln;
 }
+
+
 }

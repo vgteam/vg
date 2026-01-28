@@ -40,6 +40,12 @@ string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_
     return handle_to_string(start_handle) + handle_to_string(end_handle);
 }
 
+string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval) {
+    string s = graph->get_path_name(graph->get_path_handle_of_step(path_interval.first));
+    return s + ":" + graph_interval_to_string(graph, graph->get_handle_of_step(path_interval.first),
+                                              graph->get_handle_of_step(path_interval.second));   
+}
+
 PathBasedTraversalFinder::PathBasedTraversalFinder(const PathHandleGraph& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 
@@ -66,7 +72,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     regex alt_str ("(_alt_)");
     regex back ("(_[0-9]*)");
     set<string> gpath_names;
-    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+    graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
         gpath_names.insert(graph.get_path_name(path_handle));
     });
     

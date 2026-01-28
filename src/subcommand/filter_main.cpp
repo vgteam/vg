@@ -55,7 +55,7 @@ void help_filter(char** argv) {
          << "                               with an insert > N [99999]" << endl
          << "  -m, --min-end-matches N      drop reads without >=N matches on each end" << endl
          << "  -S, --drop-split             remove split reads taking nonexistent edges" << endl
-         << "  -x, --xg-name FILE           use this xg index/graph (required for -S and -D)" << endl
+         << "  -x, --xg-name FILE           use this XG index/graph (required for -S and -D)" << endl
          << "  -v, --verbose                print out statistics on numbers of reads dropped" << endl
          << "  -V, --no-output              print out -v statistics and do not write the GAM" << endl
          << "  -T, --tsv-out FIELD[;FIELD]  write TSV of given fields instead of filtered GAM" << endl
@@ -93,6 +93,7 @@ void help_filter(char** argv) {
 }
 
 int main_filter(int argc, char** argv) {
+    Logger logger("vg filter");
 
     if (argc <= 2) {
         help_filter(argv);
@@ -337,8 +338,7 @@ int main_filter(int argc, char** argv) {
                     auto point = opt_string.find('.');
                     
                     if (point == -1) {
-                        cerr << "error: no decimal point in seed/probability " << opt_string << endl;
-                        exit(1);
+                        logger.error() << "no decimal point in seed/probability " << opt_string << std::endl;
                     }
                     
                     // Everything including and after the decimal point is the probability
@@ -368,16 +368,10 @@ int main_filter(int argc, char** argv) {
         case 'b':
             {
                 set_min_base_quality = true;
-                vector<string> parts = split_delims(string(optarg), ":");
-                if (parts.size() != 2) {
-                    cerr << "[vg filter] Error: -b expects value in form of <INT>:<FLOAT>" << endl;
-                    return 1;
-                }
-                min_base_quality = parse<int>(parts[0]);
-                min_base_quality_fraction = parse<double>(parts[1]);
+                tie(min_base_quality, min_base_quality_fraction) = \
+                    parse_pair<int, double>(logger, optarg, ':', "--min-base-quality");
                 if (min_base_quality_fraction < 0 || min_base_quality_fraction > 1) {
-                    cerr << "[vg filter] Error: second part of -b input must be between 0 and 1" << endl;
-                    return 1;
+                    logger.error() << "second part of -b input must be between 0 and 1" << std::endl;
                 }
             }
             break;
@@ -397,7 +391,7 @@ int main_filter(int argc, char** argv) {
             batch_size = parse<size_t>(optarg);
             break;
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            set_thread_count(logger, optarg);
             break;
         case OPT_PROGRESS:
             show_progress = true;
@@ -421,36 +415,35 @@ int main_filter(int argc, char** argv) {
     }
 
     if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
-        std::cerr << "warning [vg filter]: max read count is not divisible by 2, but reads are paired." << std::endl;
+        logger.warn() << "max read count is not divisible by 2, but reads are paired." << std::endl;
     }
     if (first_alignment) {
-        std::cerr << "warning [vg filter]: setting --threads 1 because --first-alignment requires one thread." << std::endl;
+        logger.warn() << "setting --threads 1 because --first-alignment requires one thread." << std::endl;
         omp_set_num_threads(1);
     }
     if (!input_gam && overwrite_score) {
-        std::cerr << "error [vg filter]: -W/--overwrite-score cannot be used with multipath alignments "
-            << "(-M/--input-mp-aln), which do not directly store a score." << std::endl;
-        return 1;
+        logger.error() << "-W/--overwrite-score cannot be used with multipath alignments "
+                       << "(-M/--input-mp-aln), which do not directly store a score." << std::endl;
     }
     if (rescore && sub_score) {
-        std::cerr << "error [vg filter]: you asked to rescore reads (-O/--rescore), but also to use "
-            << "the substitution count as the score (-u/--substitutions). Pick one or the other." << std::endl;
-        return 1;
+        logger.error() << "you asked to rescore reads (-O/--rescore), but also to use "
+                       << "the substitution count as the score (-u/--substitutions). "
+                       << "Pick one or the other." << std::endl;
     }
     if ((!set_min_secondary && !set_min_primary && !overwrite_score) &&
         (rescore || sub_score || frac_score)) {
-        // Scores are not being used, but we were tols how to get them. Suspicious.
-        std::cerr << "error [vg filter]: you asked to ";
+        // Scores are not being used, but we were told how to get them. Suspicious.
+        auto err_msg = logger.error();
+        err_msg << "you asked to ";
         if (rescore) {
-            std::cerr << "rescore reads (-O/--rescore)";
+            err_msg << "rescore reads (-O/--rescore)";
         } else if (sub_score) {
-            std::cerr << "use the substitution count as the score (-u/--substitutions)";
+            err_msg << "use the substitution count as the score (-u/--substitutions)";
         } else if (frac_score) {
-            std::cerr << "normalize scores by read length (-f/--frac-score)";
+            err_msg << "normalize scores by read length (-f/--frac-score)";
         }
-        std::cerr << ", but did not say to do anything with the scores. Remove that option "
-            << "or add one of -s/--min-secondary, -r/--min-primary, or -W/--overwrite-score." << std::endl;
-        return 1;
+        err_msg << ", but did not say to do anything with the scores. Remove that option "
+                << "or add one of -s/--min-secondary, -r/--min-primary, or -W/--overwrite-score." << std::endl;
     }
     
 
@@ -465,7 +458,7 @@ int main_filter(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
-        // read the xg index
+        // read the XG index
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xindex = overlay_helper.apply(path_handle_graph.get());
     }
@@ -555,8 +548,15 @@ int main_filter(int argc, char** argv) {
         filter.graph = xindex;
     };
     
+    // Make sure that this is a GAM (or the parser gets confused)
+    std::string gam_file = get_input_file_name(optind, argc, argv);
+    if (gam_file != "-" && !ends_with(gam_file, ".gam")) {
+        logger.error() << "Input alignment file " << gam_file 
+                       << " does not appear to be a GAM" << std::endl;
+    }
+
     // Read in the alignments and filter them.
-    get_input_file(optind, argc, argv, [&](istream& in) {
+    get_input_file(gam_file, [&](istream& in) {
         // Open up the alignment stream
         
         // Read in the alignments and filter them.

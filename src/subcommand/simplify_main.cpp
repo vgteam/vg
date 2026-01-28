@@ -50,6 +50,7 @@ void help_simplify(char** argv) {
 }
 
 int main_simplify(int argc, char** argv) {
+    Logger logger("vg simplify");
 
     if (argc == 2) {
         help_simplify(argv);
@@ -120,15 +121,15 @@ int main_simplify(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            set_thread_count(logger, optarg);
             break;
             
         case 'b':
-            bed_in_filename = optarg;
+            bed_in_filename = require_exists(logger, optarg);
             break;
         
         case 'B':
-            bed_out_filename = optarg;
+            bed_out_filename = ensure_writable(logger, optarg);
             break;
 
         case 'm':
@@ -152,7 +153,7 @@ int main_simplify(int argc, char** argv) {
             break;
 
         case 'v':
-            vcf_filename = optarg;
+            vcf_filename = require_exists(logger, optarg);
             break;
 
         case 'f':
@@ -179,18 +180,27 @@ int main_simplify(int argc, char** argv) {
     // Do preliminary options checks
     if (!bed_out_filename.empty() && bed_in_filename.empty()) {
         // Don't allow writing out a BED without reading one
-        cerr << "error[vg simplify]: Cannot output a bed (-B) unless a BED is read in first (-b)" << endl;
-        exit(1);
+        logger.error() << "Cannot output a BED (-B) unless a BED is read in first (-b)" << endl;
     }
     
     if (algorithm != "small" && !ref_path_prefix.empty()) {
-        cerr << "error[vg simplify]: Path simplification (-P) can only be used with -a small" << endl;
-        return 1;
+        logger.error() << "Path simplification (-P) can only be used with -a small" << endl;
     }
 
-    if (algorithm == "small" && ref_path_prefix.empty()) {
-        cerr << "warning[vg simplify]: By not specifying a reference path (-P) you are using old logic which requires"
-             << " protobuf input, and scales very poorly" << endl;
+    if (algorithm == "small") {
+        if (ref_path_prefix.empty()) {
+        logger.warn() << "By not specifying a reference path (-P) you are using old logic which requires "
+                      << "protobuf input, and scales very poorly" << endl;
+        }
+        if (!vcf_filename.empty()) {
+            logger.error() << "A VCF file (-v) cannot be used with small snarl simplification" << endl;
+        }
+    }
+
+    if (algorithm == "rare") {
+        if (vcf_filename.empty()) {
+            logger.error() << "The \"rare\" simplification algorithm requires a VCF (-v)" << endl;
+        }
     }
     
     // Load the graph
@@ -202,15 +212,13 @@ int main_simplify(int argc, char** argv) {
             try {
                 graph = unique_ptr<MutablePathDeletableHandleGraph>(new VG(in, show_progress));
             } catch(...) {
-                cerr << "error[vg simplify]: Error loading input Protobuf graph.";
-                exit(1);
+                logger.error() << "Error loading input Protobuf graph." << endl;
             }
         }
     });
 
     if (graph == nullptr) {
-        cerr << "error[vg simplify]: Could not load graph." << endl;
-        exit(1);
+        logger.error() << "Could not load graph." << endl;
     }
 
     // This will hold BED features if we are tracking those
@@ -225,8 +233,7 @@ int main_simplify(int argc, char** argv) {
 
     if (!ref_path_prefix.empty()) {
         if (!vcf_filename.empty() || !bed_in_filename.empty() || !bed_out_filename.empty()) {
-            cerr << "error[vg simplify]: -v/-b/-B options cannot be used with path-based simplification (-P)" << endl;
-            exit(1);
+            logger.error()<< "-v/-b/-B options cannot be used with path-based simplification (-P)" << endl;
         }
 
         nid_t min_id = graph->min_node_id();
@@ -236,7 +243,7 @@ int main_simplify(int argc, char** argv) {
 
         if (!keep_nonref_paths) {
             vector<path_handle_t> to_destroy;
-            graph->for_each_path_handle([&](const path_handle_t path_handle) {
+            graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t path_handle) {
                 if (graph->get_path_name(path_handle).compare(0, ref_path_prefix.length(), ref_path_prefix) != 0) {
                     to_destroy.push_back(path_handle);
                 }
@@ -252,11 +259,6 @@ int main_simplify(int argc, char** argv) {
         }
         
     } else if (algorithm == "small") {
-        if (!vcf_filename.empty()) {
-            cerr << "error[vg simplify]: A VCF file (-v) cannot be used with small snarl simplification" << endl;
-            exit(1);
-        }
-
         // Make a SmallSnarlSimplifier for the graph and copy over settings.
         SmallSnarlSimplifier simplifier(*dynamic_cast<VG*>(graph.get()));
         simplifier.show_progress = show_progress;
@@ -268,18 +270,13 @@ int main_simplify(int argc, char** argv) {
         simplifier.simplify();
     } else if (algorithm == "rare") {
         // We are going to remove rare variants as noted in a VCF
-        if (vcf_filename.empty()) {
-            cerr << "error[vg simplify]: \"rare\" simplification algorithm requires a VCF (-v)" << endl;
-            exit(1);
-        }
 
         // Load the VCF
         vcflib::VariantCallFile variant_file;
         variant_file.parseSamples = false; // Major speedup if there are many samples.
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            cerr << "error:[vg simplify] could not open" << vcf_filename << endl;
-            exit(1);
+            logger.error() << "could not open " << vcf_filename << endl;
         }
 
         // Buffer it
@@ -295,8 +292,8 @@ int main_simplify(int argc, char** argv) {
         // Run it
         simplifier.simplify();
     } else {
-        cerr << "error[vg simplify]: Unknown algorithm \"" << algorithm << "\"; use \"small\" or \"rare\"." << endl;
-        exit(1);
+        logger.error() << "Unknown algorithm \"" 
+                       << algorithm << "\"; use \"small\" or \"rare\"." << endl;
     }
 
     // Serialize the graph

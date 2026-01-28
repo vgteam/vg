@@ -816,16 +816,9 @@ namespace vg {
         // Run the dynamic programming
         auto dp_result = run_multipath_dp(multipath_aln, subpath_global);
         
-        // C++17 finally gets http://en.cppreference.com/w/cpp/language/structured_binding
-        // Until then we have to unpack tuples like this.
-        
-        // Get the filled DP problem
-        MultipathProblem& problem = get<0>(dp_result);
-        // And the optimal final subpath
-        int64_t& opt_subpath = get<1>(dp_result);
-        // And the optimal score
-        int32_t& opt_score = get<2>(dp_result);
-        
+        // Get the filled DP problem, the optimal final subpath, and the optimal score
+        auto& [problem, opt_subpath, opt_score] = dp_result;
+
         // are we constructing the alignment, or just getting the score?
         if (aln_out && opt_subpath >= 0) {
             

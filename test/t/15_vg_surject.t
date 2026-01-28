@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 73
+plan tests 74
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -40,7 +40,7 @@ is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) 
 head -c -10 j.gam >j-truncated.gam
 vg surject -p x -x x.xg -t 1 j-truncated.gam >/dev/null 2>log.txt
 is "${?}" "1" "vg surject stops when the input read file is truncated"
-is "$(grep "truncate" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
+is "$(grep "truncated input" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
 rm -f j-truncated.gam log.txt
 
 is $(vg surject -x x.xg -t 1 -s x.gam | grep AS | wc -l) 100 "vg surject reports alignment scores"
@@ -255,3 +255,11 @@ is "$(samtools view -F 16 f.bam | wc -l)" "1" "One of inverted primary/supplemen
 is "$(samtools view -f 16 f.bam | wc -l)" "1" "One of inverted primary/supplementary pair is on reverse strand"
 
 rm d.xg d.gcsa d.gcsa.lcp d.fq d.gam d.gamp d.bam d2.bam e.fq e.gam e.gamp e.bam e2.bam f.xg f.gcsa f.gcsa.lcp f.gam f.bam
+
+vg gbwt -G graphs/haplotypes.gfa -g haplotypes.gbz --gbz-format
+vg view -JGa reads/haplotypes_read.json >read.gam
+vg surject -x haplotypes.gbz -p 'KOLF2.1J#1#chr1_1#0' --sam-output read.gam >surjected.sam
+
+is "$(cat surjected.sam | tail -n1 | cut -f3)" "KOLF2.1J#1#chr1_1#0" "surjecting explicitly to a haplotype in a GBZ puts a read on that haplotype"
+
+rm haplotypes.gbz read.gam surjected.sam

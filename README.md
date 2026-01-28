@@ -31,6 +31,7 @@ Please cite:
 
 * [The VG Paper](https://doi.org/10.1038/nbt.4227) when using `vg`
 * [The VG Giraffe Paper](https://doi.org/10.1126/science.abg8871) when using `vg giraffe`
+* [The Long Read Giraffe Paper](https://doi.org/10.1101/2025.09.29.678807) when using `vg giraffe`'s chaining modes (`hifi`, `r10`, `chaining-sr`)
 * [The VG Call Paper](https://doi.org/10.1186/s13059-020-1941-7) when SV genotyping with `vg call`
 * [The GBZ Paper](https://doi.org/10.1093/bioinformatics/btac656) when using GBZ
 * [The HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x) when using `vg deconstruct`
@@ -70,7 +71,7 @@ Then, install VG's dependencies. You'll need the Protobuf and Jansson developmen
 * `hexdump` and `column` from `bsdmainutils`
 * [`npm` for testing documentation examples](https://github.com/anko/txm).
 
-On Ubuntu, you should be able to do:
+On Ubuntu 22.04, you should be able to do:
 
     make get-deps
 
@@ -90,15 +91,13 @@ On other distros, or if you do not have root access, you will need to perform th
                          automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
                          npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
-                         libzstd-dev pybind11-dev python3-pybind11
+                         libzstd-dev pybind11-dev python3-pybind11 libssl-dev
                          
-Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
-
-At present, you will need GCC version 7 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.2.0 is supported.
+At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 20.04 should work.
+Note that a 64-bit OS is required.
 
 #### Linux: Build
 
@@ -148,7 +147,7 @@ VG depends on a number of packages being installed on the system where it is bei
 
 You can use MacPorts to install VG's dependencies:
 
-    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp boost zstd pybind11
+    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp boost zstd pybind11 openssl
     
 
 ##### Using Homebrew

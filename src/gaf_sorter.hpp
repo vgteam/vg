@@ -77,17 +77,10 @@ struct GAFSorterRecord {
     /// Missing key. Records without a key are sorted to the end.
     constexpr static std::uint64_t MISSING_KEY = std::numeric_limits<std::uint64_t>::max();
 
-    /// Node offset for the GBWT starting position of the forward orientation
-    /// may be stored in this tag.
-    const static std::string GBWT_OFFSET_TAG; // "GB:i:"
-
     /// Types of keys that can be derived from the value.
     enum key_type {
         /// (minimum node id, maximum node id) in the path.
         key_node_interval,
-        /// GBWT starting position for the forward orientation.
-        /// Derived from the path and tag "GB:i:".
-        key_gbwt_pos,
         /// Hash of the value for random shuffling.
         key_hash,
     };
@@ -160,6 +153,9 @@ struct alignas(128) GAFSorterFile {
     /// File name.
     std::string name;
 
+    /// Header lines that should be written to a raw GAF file.
+    std::unique_ptr<std::vector<std::string>> header_lines;
+
     /// File name for the GBWT index, if any.
     std::string gbwt_file;
 
@@ -187,11 +183,13 @@ struct alignas(128) GAFSorterFile {
     /// Default constructor that creates a compressed temporary file.
     GAFSorterFile();
 
-    /// Constructor that creates a raw GAF file with the given name.
-    explicit GAFSorterFile(const std::string& name);
-
-    /// Constructor that creates a raw GAF file with the given name and a GBWT index that may be bidirectional.
-    GAFSorterFile(const std::string& name, const std::string& gbwt_file, bool bidirectional_gbwt);
+    /// Constructor that creates a raw GAF file with the given name, header, and a GBWT index that may be bidirectional.
+    /// Takes ownership of the header lines.
+    GAFSorterFile(
+        const std::string& name,
+        std::unique_ptr<std::vector<std::string>> header_lines,
+        const std::string& gbwt_file, bool bidirectional_gbwt
+    );
 
     /// If the file is temporary, the destructor removes the file.
     ~GAFSorterFile();
@@ -204,6 +202,7 @@ struct alignas(128) GAFSorterFile {
     /// Returns an output stream to the file.
     /// The first return value is the actual stream.
     /// The second return value is a unique pointer which may contain a newly created stream.
+    /// If this is a raw GAF file, header lines are written to the output.
     /// Sets the success flag.
     std::pair<std::ostream*, std::unique_ptr<std::ostream>> open_output();
 

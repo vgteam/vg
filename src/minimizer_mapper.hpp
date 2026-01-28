@@ -33,28 +33,16 @@ using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
     public:
-    // Type aliases for the two supported index types
-    using DefaultIndex = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
-                        gbwtgraph::PositionPayload<gbwtgraph::Payload>>;
-    using XLIndex      = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
-                        gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>>;
+    // Definitions used with minimizer indexes.
+    using MinimizerIndex = gbwtgraph::DefaultMinimizerIndex;
+    using payload_type = ZipCode::payload_type;
 
-    using DefaultMinimizerIndex = DefaultIndex;
     /**
      * Construct a new MinimizerMapper using the given indexes.
      * The PathPositionHandleGraph can be nullptr, as we only use it for correctness tracking.
      */
-
-    // Existing ctor (Default / "S" payload)
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-                    const DefaultIndex& minimizer_index,
-                    SnarlDistanceIndex* distance_index,
-                    const ZipCodeCollection* zipcodes,
-                    const PathPositionHandleGraph* path_graph = nullptr);
-
-    // New ctor (XL payload)
-    MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-                    const XLIndex& minimizer_index,
+                    const MinimizerIndex& minimizer_index,
                     SnarlDistanceIndex* distance_index,
                     const ZipCodeCollection* zipcodes,
                     const PathPositionHandleGraph* path_graph = nullptr);
@@ -255,48 +243,11 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_zipcode_tree_coverage_threshold = 0.3;
     double zipcode_tree_coverage_threshold = default_zipcode_tree_coverage_threshold;
 
-    /// How many things should we produce fragments for, min?
-    static constexpr size_t default_min_to_fragment = 4;
-    size_t min_to_fragment = default_min_to_fragment;
-
-    /// How many things should we produce fragments for, max?
-    static constexpr size_t default_max_to_fragment = 10;
-    size_t max_to_fragment = default_max_to_fragment;
-    
-    /// Do gapless extension to the seeds in each tree before fragmenting the tree if the 
+    /// Do gapless extension to the seeds in each tree before chaining the tree if the
     /// read length is less than the limit.
     static constexpr size_t default_gapless_extension_limit = 0;
     size_t gapless_extension_limit = default_gapless_extension_limit;
     
-    /// How many bases should we look back in the graph when making fragments?
-    static constexpr size_t default_fragment_max_graph_lookback_bases = 300;
-    size_t fragment_max_graph_lookback_bases = default_fragment_max_graph_lookback_bases;
-    /// How many bases should we look back in the graph when making fragments, per base of read length?
-    static constexpr double default_fragment_max_graph_lookback_bases_per_base = 0.03;
-    double fragment_max_graph_lookback_bases_per_base = default_fragment_max_graph_lookback_bases_per_base;
-    /// How many bases should we look back in the read when making fragments?
-    static constexpr size_t default_fragment_max_read_lookback_bases = std::numeric_limits<size_t>::max();
-    size_t fragment_max_read_lookback_bases = default_fragment_max_read_lookback_bases;
-    /// How many bases should we look back in the read when making fragments, per base of read length?
-    static constexpr double default_fragment_max_read_lookback_bases_per_base = 1.0;
-    double fragment_max_read_lookback_bases_per_base = default_fragment_max_read_lookback_bases_per_base;
-    /// How many fragments should we try and make when fragmenting something?
-    static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
-    size_t max_fragments = default_max_fragments;
-    
-    /// How much of a multiple should we apply to each transition's gap penalty
-    /// at fragmenting?
-    static constexpr double default_fragment_gap_scale = 1.0;
-    double fragment_gap_scale = default_fragment_gap_scale;
-    // How many points should we treat a non-gap connection base as producing, at fragmenting?
-    static constexpr double default_fragment_points_per_possible_match = 0;
-    double fragment_points_per_possible_match = default_fragment_points_per_possible_match;
-    /// How many bases of indel should we allow in fragments?
-    static constexpr size_t default_fragment_max_indel_bases = 2000;
-    size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
-    /// How many bases of indel should we allow in fragments per base of read length?
-    static constexpr double default_fragment_max_indel_bases_per_base = 0.2;
-    double fragment_max_indel_bases_per_base = default_fragment_max_indel_bases_per_base;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will try to WFA align? Passing strings longer than ~100bp
@@ -308,39 +259,13 @@ class MinimizerMapper : public AlignerClient {
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
-    /// How good should a fragment be in order to keep it? Fragments with
-    /// scores less than this fraction of the best fragment's score
-    /// will not be used.
-    static constexpr double default_fragment_score_fraction = 0.1;
-    double fragment_score_fraction = default_fragment_score_fraction;
-    
-    /// How high should we get the score threshold based on the best fragment's score get?
-    static constexpr double default_fragment_max_min_score = std::numeric_limits<double>::max();
-    double fragment_max_min_score = default_fragment_max_min_score;
-
-    /// What minimum score in points should a fragment have in order to keep
-    /// it? Needs to be set to some kind of significance threshold.
-    static constexpr double default_fragment_min_score = 60;
-    double fragment_min_score = default_fragment_min_score;
-
-    /// If a fragment set's score is smaller than the best 
-    /// fragment set's score by more than this much, don't align it
-    static constexpr double default_fragment_set_score_threshold = 0;
-    double fragment_set_score_threshold = default_fragment_set_score_threshold;
-
-    /// Disregard the fragment set score thresholds when they would give us
-    /// fewer than this many chainign problems done.
+    /// Do at least this many chaining problems.
     static constexpr int default_min_chaining_problems = 1;
     int min_chaining_problems = default_min_chaining_problems;
     
     /// Do no more than this many chaining problems.
     static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
     int max_chaining_problems = default_max_chaining_problems;
-
-    /// Sometimes we don't do chaining but instead turn fragments directly into chains
-    /// If this is 0, then do chaining. Otherwise take up to this many fragments and turn them into chains
-    static constexpr size_t default_max_direct_to_chain = 0;
-    size_t max_direct_to_chain = default_max_direct_to_chain;
 
     /// How many bases should we look back in the graph when chaining?
     static constexpr size_t default_max_graph_lookback_bases = 3000;
@@ -355,22 +280,18 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_max_read_lookback_bases_per_base = 1.0;
     double max_read_lookback_bases_per_base = default_max_read_lookback_bases_per_base;
 
-    /// How much of a bonus should we give to each item in
-    /// fragmenting/chaining?
+    /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score
-    /// in fragmenting/chaining?
+    /// in chaining?
     static constexpr double default_item_scale = 1.0;
     double item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
-    /// Recombination penalty for fragmenting. This is added to the score of a transition if there are no shared hapotypes.
-    static constexpr int default_rec_penalty_fragment = 0;
-    int rec_penalty_fragment = default_rec_penalty_fragment;
-    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared hapotypes.
+    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared haplotypes.
     static constexpr int default_rec_penalty_chain = 0;
     int rec_penalty_chain = default_rec_penalty_chain;
     // How many points should we treat a non-gap connection base as producing, at chaining?
@@ -553,6 +474,27 @@ class MinimizerMapper : public AlignerClient {
     /// The algorithm used for rescue.
     RescueAlgorithm rescue_algorithm = rescue_dozeu;
     
+    /// Identify secondary alignments as supplementaries if they partition the read with the primary
+    static constexpr bool default_find_supplementaries = false;
+    bool find_supplementaries = default_find_supplementaries;
+
+    /// The minimum length of aligned sequence required in order to report a supplementary alignment
+    static constexpr size_t default_min_supplementary_size = 40;
+    size_t min_supplementary_size = default_min_supplementary_size;
+
+    /// The maximum amount of read separation or overlap between supplementary alignment(s) and the primary alignment
+    static constexpr size_t default_max_supplementary_separation = 10;
+    size_t max_supplementary_separation = default_max_supplementary_separation;
+
+    /// The minimum score of a supplementary as a fraction of the primary alignment score
+    static constexpr double default_min_supplementary_score_fraction = 0.4;
+    size_t min_supplementary_score_fraction = default_min_supplementary_score_fraction;
+
+    /// The minimum fraction of the read that the primary and the supplementaries must jointly align in order for
+    /// supplementary alignments to be reported from disjoint graph regions
+    static constexpr double default_min_supplementary_read_coverage = 0.9;
+    size_t min_supplementary_read_coverage = default_min_supplementary_read_coverage;
+
     /// Apply this sample name
     string sample_name;
     /// Apply this read group name
@@ -592,11 +534,10 @@ class MinimizerMapper : public AlignerClient {
      * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
      */
     struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        MinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
-        size_t hits; // How many hits does the minimizer have?
-        const void* occs = nullptr; // Pointer to the occurrences of the minimizer in the index, void in order to be agnostic to index type.
+        MinimizerIndex::multi_value_type occs; // (pointer to hits, number of hits)
 
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
@@ -643,17 +584,25 @@ class MinimizerMapper : public AlignerClient {
             string sequence = value.key.decode(length);
             return value.is_reverse ? reverse_complement(sequence) : sequence;
         }
+
+        /// Number of hits for this minimizer.
+        inline size_t hits() const {
+            return this->occs.second;
+        }
     };
     
 protected:
     
+    /// Types of paired alignments in paired-end mapping
+    enum PairType {paired, unpaired, rescued_from_first, rescued_from_second};
+
     /// Convert an integer distance, with limits standing for no distance, to a
     /// double annotation that can safely be parsed back from JSON into an
     /// integer if it is integral.
     double distance_to_annotation(int64_t distance) const;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static gbwtgraph::Payload no_chain_info() {
+    inline static payload_type no_chain_info() {
         return MIPayload::NO_CODE;  
     } 
     
@@ -684,31 +633,13 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness or position tracking.
-    
-    // Handle minimizers index standard and XL
-    enum class IndexKind { S, XL };
-    const DefaultIndex* minimizer_index_s = nullptr;
-    const XLIndex* minimizer_index_xl = nullptr;
-    IndexKind index_kind;
+    const MinimizerIndex& minimizer_index;
 
     // caching common information about the minimizer index
     int32_t k;
     int32_t w;
-    bool uses_syncmers;
-
-    // Dispatch the index to use based on the index kind.
-    template<typename Fn>
-    auto with_index(Fn&& fn) const
-        -> decltype(fn(*static_cast<const DefaultIndex*>(nullptr)))
-    {
-        if (index_kind == IndexKind::S) {
-            return fn(*minimizer_index_s);
-        } else if (index_kind == IndexKind::XL) {
-            return fn(*minimizer_index_xl);
-        } else {
-            throw std::runtime_error("MinimizerMapper::with_index: unknown index kind");
-        }
-    }
+    bool payload_with_paths; // Does the payload for minimizer hits include path information in addition to a zipcode?
+    bool uses_syncmers; // TODO: We could discard the syncmer support.
     
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
@@ -927,47 +858,32 @@ protected:
     };
 
     /**
-     * Given a collection of zipcode trees, score the trees and do fragmenting on the best trees.
-     * 
-     * This will fill in the given vectors of fragments, fragment scores, etc.
+     * Given a collection of zipcode trees, score the trees and do chaining on the best trees.
+     *
+     * This will fill in the given vectors of chains, chain scores, etc.
      *
      * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
      * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
-    void do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                  const vector<algorithms::Anchor>& seed_anchors,
-                                  std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
-                                  std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
-                                  std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
-                                  std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
-                                  LazyRNG& rng, Funnel& funnel) const;
-    
-    /**
-     * Given a collection of fragments, filter down to the good ones and do chaining on them
-     */
-    void do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers, 
-                                  const std::vector<std::vector<size_t>>& fragments, const std::vector<double>& fragment_scores, 
-                                  const std::vector<algorithms::Anchor>& fragment_anchors, const std::vector<size_t>& fragment_source_tree,
-                                  const std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, const std::vector<double>& multiplicity_by_fragment,
-                                  std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree, 
-                                  std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count, 
-                                  std::vector<double>& multiplicity_by_chain, vector<double>& multiplicity_by_tree,
-                                  std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
-                                  LazyRNG& rng, Funnel& funnel) const;
+    void do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                              const vector<algorithms::Anchor>& seed_anchors,
+                              std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
+                              std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                              std::vector<double>& multiplicity_by_chain,
+                              std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
+                              LazyRNG& rng, Funnel& funnel) const;
 
     /**
      * Collect stats about the best chains for annotating the final alignment
      */
-    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                               const std::vector<std::vector<size_t>>& fragments,
-                               const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
                                const std::vector<std::vector<size_t>>& chains,
                                const std::vector<size_t>& chain_source_tree,
                                const vector<algorithms::Anchor>& seed_anchors,
                                const std::vector<int>& chain_score_estimates,
-                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
-                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length, 
+                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
+                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
                                Funnel& funnel) const ;
 
     void do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
@@ -1050,6 +966,41 @@ protected:
      * removes those deletions
      */
     void fix_dozeu_end_deletions(Alignment& rescued_alignment) const;
+
+//-----------------------------------------------------------------------------
+
+    // Supplementary alignments
+
+    /**
+     * In a vector of single end alignments, identify alignments that should be considered supplementary 
+     * alignments to the primary, remove them from the multimapping vector, and return them in a separate
+     * vector
+     */
+    vector<Alignment> identify_supplementary_alignments(vector<Alignment>& alignments, Funnel& funnel) const;
+
+    struct read_alignment_index_t;
+    struct alignment_index_t;
+    static const read_alignment_index_t NO_READ_INDEX;
+    static const alignment_index_t NO_INDEX;
+
+    /**
+     * For a paired read, identify alignments for each read, identify other alignments that should be considered
+     * supplementary alignments to the corresponding alignment in the primary pair. Candidates are identified
+     * from unpaired alignments that failed rescue attempts or for which rescue was not attempted. Supplementary
+     * alignments that are identified are removed from the paired read data structures and returned as a pair
+     * of Alignment vectors
+     */
+    array<vector<read_alignment_index_t>, 2> identify_supplementary_alignments(vector<std::array<vector<Alignment>, 2>>& alignments,
+                                                                  vector<std::array<read_alignment_index_t, 2>>& paired_alignments, 
+                                                                  vector<double>& paired_scores,
+                                                                  vector<int64_t>& fragment_distances,
+                                                                  vector<PairType>& pair_types,
+                                                                  vector<size_t>& better_cluster_count_by_pairs,
+                                                                  const vector<alignment_index_t>& unpaired_alignments,
+                                                                  const vector<bool>& attempted_rescue_from,
+                                                                  array<Funnel, 2>& funnels) const;
+
+
 
 //-----------------------------------------------------------------------------
 
@@ -1198,7 +1149,7 @@ protected:
         const string& sequence, const string& quality_bytes);
     
     /**
-     * Compute a bound on the Phred score probability of a mapping beign wrong
+     * Compute a bound on the Phred score probability of a mapping being wrong
      * due to base errors and unlocated minimizer hits prevented us from
      * finding the true alignment.
      *  
@@ -1430,6 +1381,36 @@ protected:
         const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
+
+    /**
+     * Same as the process_until_threshold_b, except that items can escape the score
+     * threshold by a function-specified condition. The process_item function receives
+     * an additional bool indicating whether an item passed by threshold escape
+     */
+    template<typename Score = double>
+    void process_until_threshold_d(const vector<Score>& scores,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& get_seed,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const;
+
+    /**
+     * Same as the process_until_threshold_c, except that items can escape the score
+     * threshold by a function-specified condition. The process_item function receives
+     * an additional bool indicating whether an item passed by threshold escape
+     */
+    template<typename Score = double>
+    void process_until_threshold_e(size_t items, 
+        const function<Score(size_t)>& get_score,
+        const function<bool(size_t, size_t)>& comparator,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& get_seed,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const;
         
     // Internal debugging functions
     
@@ -1477,6 +1458,15 @@ protected:
     /// Displays one or more named collections of runs of seeds.
     static void dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph);
 
+    /// Dump all chains for a read to separate TSV files.
+    /// Each chain gets its own file. 
+    static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
+                                   const std::vector<Seed>& seeds,
+                                   const VectorView<Minimizer>& minimizers,
+                                   const std::vector<std::vector<size_t>>& chains,
+                                   const std::vector<size_t>& chain_source_tree,
+                                   const PathPositionHandleGraph* path_graph);
+
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);
     
@@ -1515,7 +1505,7 @@ void MinimizerMapper::process_until_threshold_b(const vector<Score>& scores,
         return scores[i];
     }, [&](size_t a, size_t b) -> bool {
         return (scores[a] > scores[b]);
-    },threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
+    }, threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Score>
@@ -1526,6 +1516,38 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
         const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const {
+
+    process_until_threshold_e(items, get_score, comparator, [](size_t){return false;}, threshold, min_count, 
+        max_count, rng, [&](size_t a, size_t b, bool e){return process_item(a, b);}, discard_item_by_count, discard_item_by_score);
+}
+
+template<typename Score>
+void MinimizerMapper::process_until_threshold_d(const vector<Score>& scores,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const {
+    
+    process_until_threshold_e(scores.size(), (function<Score(size_t)>)[&](size_t i) -> Score {
+        return scores[i];
+    }, [&](size_t a, size_t b) -> bool {
+        return (scores[a] > scores[b]);
+    }, threshold_escape, threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
+}
+
+
+template<typename Score>
+void MinimizerMapper::process_until_threshold_e(size_t items, const function<Score(size_t)>& get_score,
+        const function<bool(size_t, size_t)>& comparator,
+        const function<bool(size_t)>& threshold_escape,
+        double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
+        const function<bool(size_t, size_t, bool)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const {
+
 
     // Sort item indexes by item score
     vector<size_t> indexes_in_order;
@@ -1566,13 +1588,15 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
         if (threshold != 0 && get_score(item_num) <= cutoff) {
             // Item would fail the score threshold
             
-            if (unskipped < min_count) {
-                // But we need it to make up the minimum number.
+            bool escape = false;
+            if (unskipped < min_count || (escape = threshold_escape(item_num))) {
+                // But we need it to make up the minimum number, or the item escapes the
+                // score threshold.
                 
                 // Go do it.
                 // If it is not skipped by the user, add it to the total number
                 // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num, better_or_equal_count[i]);
+                unskipped += (size_t) process_item(item_num, better_or_equal_count[i], escape);
             } else {
                 // We will reject it for score
                 discard_item_by_score(item_num);
@@ -1586,7 +1610,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
                 // Go do it.
                 // If it is not skipped by the user, add it to the total number
                 // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num, better_or_equal_count[i]);
+                unskipped += (size_t) process_item(item_num, better_or_equal_count[i], false);
             } else {
                 // We are out of room! Reject for count.
                 discard_item_by_count(item_num);

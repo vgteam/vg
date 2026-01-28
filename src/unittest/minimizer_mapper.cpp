@@ -92,7 +92,7 @@ TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mappi
         gbwtgraph::GBWTGraph gbwt_graph;
         gbwt::GBWT gbwt;
         gbwt_graph.set_gbwt(gbwt);
-        gbwtgraph::DefaultMinimizerIndex minimizer_index;
+        gbwtgraph::DefaultMinimizerIndex minimizer_index(2);
         SnarlDistanceIndex distance_index;
         PathPositionHandleGraph* handle_graph;
         TestMinimizerMapper test_mapper (gbwt_graph, minimizer_index, &distance_index, handle_graph);
@@ -143,9 +143,9 @@ static void cover_in_minimizers(const std::string sequence, int core_width, int 
         m.value.is_reverse = false;
         m.length = core_width;
         
-        // We knowe the occurrences won't be used.
-        m.occs = nullptr;
-        m.hits = 1;
+        // We know the occurrences won't be used.
+        m.occs.first = nullptr;
+        m.occs.second = 1;
         m.score = 1;
     }
 
@@ -186,9 +186,9 @@ TEST_CASE("Mapping quality cap cannot be confused by fuzzing with high base qual
     TestMinimizerMapper::Minimizer minimizer_template;
     minimizer_template.value.is_reverse = false;
     
-    minimizer_template.hits = 229;
-    // We knowe the occurrences won't be used.
-    minimizer_template.occs = nullptr;
+    minimizer_template.occs.second = 229;
+    // We know the occurrences won't be used.
+    minimizer_template.occs.first = nullptr;
     minimizer_template.score = 1;
     
     for (size_t try_number = 0; try_number < 100000; try_number++) {
@@ -237,9 +237,9 @@ TEST_CASE("Mapping quality cap cannot be confused by fuzzing with high base qual
             m.value.is_reverse = false;
             m.length = core_width;
             
-            m.hits = 229;
-            // We knowe the occurrences won't be used.
-            m.occs = nullptr;
+            m.occs.second = 229;
+            // We know the occurrences won't be used.
+            m.occs.first = nullptr;
             m.score = 1;
         }
         
@@ -985,7 +985,7 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
 
                     // Make a zipcode for its graph position
                     ZipCode zipcode;
-                    zipcode.fill_in_zipcode(distance_index, graph_positions.at(i));
+                    zipcode.fill_in_zipcode_from_pos(distance_index, graph_positions.at(i));
 
                     // Make a seed attaching that graph position to its minimizer.
                     seeds.push_back({ graph_positions.at(i), i, zipcode});
@@ -1020,12 +1020,14 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 // Set up to get all the transitions between anchors in the zip code tree
                 auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
                 // And get them
-                transition_iterator(anchors, distance_index, graph, std::numeric_limits<size_t>::max(), [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+                transition_iterator(anchors, distance_index, graph, std::numeric_limits<size_t>::max(), [&](const vg::algorithms::transition_info& transition) {
                     // And for each of them, remember them
 #ifdef debug
-                    std::cerr << "From anchor " << from_anchor << " to anchor " << to_anchor << " we cross " << read_distance << " bp of read and " << graph_distance << " bp of graph" << std::endl;
+                    std::cerr << "From anchor " << transition.from_anchor << " to anchor " << transition.to_anchor
+                              << " we cross " << transition.read_distance << " bp of read and " << transition.graph_distance << " bp of graph" << std::endl;
 #endif
-                    all_transitions.emplace(std::make_pair(from_anchor, to_anchor), std::make_pair(read_distance, graph_distance));
+                    all_transitions.emplace(std::make_pair(transition.from_anchor, transition.to_anchor), 
+                                            std::make_pair(transition.read_distance, transition.graph_distance));
                 });
 
                 // Make sure we got the right transitions for these anchors
@@ -1066,7 +1068,7 @@ TEST_CASE("MinimizerMapper can fix up alignments with deletions on the ends", "[
     gbwtgraph::GBWTGraph gbwt_graph;
     gbwt::GBWT gbwt;
     gbwt_graph.set_gbwt(gbwt);
-    gbwtgraph::DefaultMinimizerIndex minimizer_index;
+    gbwtgraph::DefaultMinimizerIndex minimizer_index(2);
     SnarlDistanceIndex distance_index;
     PathPositionHandleGraph* handle_graph;
     TestMinimizerMapper test_mapper (gbwt_graph, minimizer_index, &distance_index, handle_graph);

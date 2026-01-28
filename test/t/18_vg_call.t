@@ -141,7 +141,7 @@ vg map -x c.xg -g c.gcsa -G m.sim >m.gam
 vg augment c.vg m.gam -A m.aug.gam >c.aug.vg
 vg index -x c.aug.xg c.aug.vg
 vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
-vg call c.aug.xg -k m.aug.pack >m.vcf
+vg call c.aug.xg -k m.aug.pack -p s1 >m.vcf
 is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
 rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 
@@ -149,8 +149,8 @@ rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg 
 vg autoindex -r small/x.fa -v small/x.vcf.gz -w giraffe -p x
 rm -f x.min x.dist
 mv x.giraffe.gbz x.gbz
-vg gbwt -Z x.gbz -o x.gbwt -g x.gg
-vg convert x.gg -b x.gbwt -p  > x.vg
+vg gbwt -o x.gbwt -Z x.gbz
+vg convert x.gbz -p > x.vg
 # simulate 500 reads from each thread path
 vg sim -x x.vg -P 1#0#x#0 -n 500 -a -s 23 > sim.gam
 vg sim -x x.vg -P 1#1#x#0 -n 500 -a -s 23 >> sim.gam
@@ -166,7 +166,7 @@ cat callz.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}'
 diff callg.6 callz.6
 is $? 0 "call produces same output with gbwt and gbz"
 
-rm -f x.vg x.gbwt x.gg x.gbz sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6
 
 
 # subpath test

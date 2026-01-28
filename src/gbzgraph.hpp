@@ -25,7 +25,12 @@ public:
     /// This is the GBZ object we own that actually holds the graph and GBWT
     /// data.
     gbwtgraph::GBZ gbz;
-    
+
+    /// Returns the graph name information possibly stored in GBZ tags.
+    gbwtgraph::GraphName graph_name() const {
+        return this->gbz.graph_name();
+    }
+
 protected:
     /**
      * Get the object that actually provides the graph methods.

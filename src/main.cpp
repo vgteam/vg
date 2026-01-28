@@ -44,6 +44,7 @@ void vg_help(char** argv) {
 
 /// Main entry point once we know we're on a supported CPU.
 int vg_main(int argc, char *argv[]) {
+    Logger logger("vg");
 
     // Make sure we configure the memory allocator appropriately for our environment
     AllocatorConfig::configure();
@@ -61,10 +62,8 @@ int vg_main(int argc, char *argv[]) {
     // Tell the IO library about libvg types.
     // TODO: Make a more generic libvg startup function?
     if (!vg::io::register_libvg_io()) {
-        cerr << "error[vg]: Could not register libvg types with libvgio" << endl;
-        return 1;
+        logger.error() << "Could not register libvg types with libvgio" << endl;
     }
-    
     if (argc == 1) {
         vg_help(argv);
         return 1;
@@ -74,14 +73,16 @@ int vg_main(int argc, char *argv[]) {
     if (subcommand != nullptr) {
         // We found a matching subcommand, so run it
         if (subcommand->get_category() == vg::subcommand::CommandCategory::DEPRECATED) {
-            cerr << endl << "WARNING:[vg] Subcommand '" << argv[1] << "' is deprecated and is no longer being actively maintained. Future releases may eliminate it entirely." << endl << endl;
+            cerr << endl;
+            logger.warn() << "Subcommand '" << argv[1] << "' is deprecated and is no longer "
+                          << "being actively maintained. Future releases may eliminate it entirely." 
+                          << endl << endl;
         }
         set_crash_context("Starting '" +  std::string(argv[1]) + "' subcommand");
         return (*subcommand)(argc, argv);
     } else {
         // No subcommand found
-        string command = argv[1];
-        cerr << "error:[vg] command " << command << " not found" << endl;
+        logger.error() << "command " << argv[1] << " not found" << endl;
         vg_help(argv);
         return 1;
     }

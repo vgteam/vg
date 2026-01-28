@@ -60,6 +60,7 @@ void help_depth(char** argv) {
 }
 
 int main_depth(int argc, char** argv) {
+    Logger logger("vg depth");
 
     if (argc == 2) {
         help_depth(argv);
@@ -115,7 +116,7 @@ int main_depth(int argc, char** argv) {
         switch (c)
         {
         case 'k':
-            pack_filename = optarg;
+            pack_filename = require_exists(logger, optarg);
             break;
         case 'p':
             ref_paths_input_set.insert(optarg);
@@ -130,10 +131,10 @@ int main_depth(int argc, char** argv) {
             count_dels = true;
             break;            
         case 'g':
-            gam_filename = optarg;
+            gam_filename = require_exists(logger, optarg);
             break;
         case 'a':
-            gaf_filename = optarg;
+            gaf_filename = require_exists(logger, optarg);
             break;
         case 'n':
             max_nodes = parse<size_t>(optarg);
@@ -151,15 +152,8 @@ int main_depth(int argc, char** argv) {
             count_cycles = true;
             break;
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg depth] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            set_thread_count(logger, optarg);
             break;
-        }
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -180,30 +174,26 @@ int main_depth(int argc, char** argv) {
     if (!pack_filename.empty()) ++input_count;
     if (!gam_filename.empty()) ++input_count;
     if (!gaf_filename.empty()) ++input_count;
-    if (input_count > 1) {                                          
-        cerr << "error:[vg depth] At most one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
-        exit(1);
+    if (input_count > 1) {
+        logger.error() << "At most one of a pack file (-k), a GAM file (-g), "
+                             << "or a GAF file (-a) must be given" << endl;   
     }
     if (pack_filename.empty() && count_dels) {
-        cerr << "error:[vg depth] --count-dels requires a pack file" << endl;
-        exit(1);
+        logger.error() << "--count-dels requires a pack file" << endl;
     }
     if (gam_filename.empty() && gaf_filename.empty()) {
         if (max_nodes != DEFAULT_MAX_NODES || random_seed != initial_random_seed
             || min_mapq != DEFAULT_MIN_MAPQ) {
-            cerr << "error:[vg depth] the --max-nodes, --random-seed, and --min-mapq options\n"
-                 << "require a GAM or GAF file" << endl;
-            exit(1);
+            logger.error() << "The --max-nodes, --random-seed, and --min-mapq options "
+                           << "require a GAM or GAF file" << endl;
         }
     } else {
         if (!ref_paths_input_set.empty() || !path_prefixes.empty() || bin_size != DEFAULT_BIN_SIZE) {
-            cerr << "error:[vg depth] Cannot specify paths (-p/-P) or --bin-size for a GAM or GAF" << endl;
-            exit(1);
+            logger.error() << "Cannot specify paths (-p/-P) or --bin-size for a GAM or GAF" << endl;
         }
     }
     if (count_cycles && input_count == 0) {
-        cerr << "error:[vg depth] --count-cycles is only supported for path coverage depth" << endl;
-        exit(1);
+        logger.error() << "--count-cycles is only supported for path coverage depth" << endl;
     }
 
     // Read the graph
@@ -232,7 +222,7 @@ int main_depth(int argc, char** argv) {
         map<pair<string, int64_t>, string> ref_paths;
         unordered_set<string> base_path_set;
         
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(path_name, &subrange);
@@ -260,7 +250,7 @@ int main_depth(int argc, char** argv) {
         
         for (const auto& ref_name : ref_paths_input_set) {
             if (!base_path_set.count(ref_name)) {
-                cerr << "error:[vg depth] Path \"" << ref_name << "\" not found in graph" << endl;
+                logger.error() << "Path \"" << ref_name << "\" not found in graph" << endl;
             }
         }
 
@@ -277,7 +267,7 @@ int main_depth(int argc, char** argv) {
                     binned_depth = algorithms::binned_path_depth(*graph, ref_path, bin_size, min_coverage, count_cycles);
                 }
                 for (auto& bin_cov : binned_depth) {
-                    // bins can ben nan if min_coverage filters everything out.  just skip
+                    // bins can be nan if min_coverage filters everything out.  just skip
                     if (!isnan(get<3>(bin_cov))) {
                         cout << base_path << "\t" << (get<0>(bin_cov) + 1 + subpath_offset)<< "\t" << (get<1>(bin_cov) + 1 + subpath_offset) << "\t" << get<2>(bin_cov)
                              << "\t" << sqrt(get<3>(bin_cov)) << endl;
@@ -293,7 +283,7 @@ int main_depth(int argc, char** argv) {
         }
     }
 
-    // Process the gam
+    // Process the GAM
     if (!gam_filename.empty() || !gaf_filename.empty()) {
         const string& mapping_filename = !gam_filename.empty() ? gam_filename : gaf_filename;
         pair<double, double> mapping_cov;

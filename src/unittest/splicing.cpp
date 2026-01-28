@@ -12,7 +12,7 @@
 #include "../build_index.hpp"
 #include "xg.hpp"
 #include "catch.hpp"
-#include "test_aligner.hpp"
+#include "support/test_aligner.hpp"
 
 #include <bdsg/hash_graph.hpp>
 
