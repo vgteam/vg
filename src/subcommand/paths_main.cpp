@@ -17,6 +17,8 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
+#include "../augref.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <vg/io/vpkg.hpp>
@@ -63,6 +65,11 @@ void help_paths(char** argv) {
          << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
+         << "augref computation:" << endl
+         << "      --compute-augref     compute augmented reference path cover (use -Q for reference)" << endl
+         << "      --min-augref-len N   minimum augref fragment length [10]" << endl
+         << "      --augref-sample STR  create augref paths under a new sample" << endl
+         << "                           (copies base paths to new sample, then adds augref paths)" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -133,6 +140,14 @@ int main_paths(int argc, char** argv) {
     const size_t coverage_bins = 10;
     bool normalize_paths = false;
     bool overlay = false;
+    bool compute_augref = false;
+    int64_t min_augref_length = 10;
+    string augref_sample;
+
+    // Constants for long-only options
+    constexpr int OPT_COMPUTE_AUGREF = 1001;
+    constexpr int OPT_MIN_AUGREF_LEN = 1002;
+    constexpr int OPT_AUGREF_SAMPLE = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -169,6 +184,11 @@ int main_paths(int argc, char** argv) {
             // Hidden options for backward compatibility.
             {"threads-old", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
+
+            // Augref options
+            {"compute-augref", no_argument, 0, OPT_COMPUTE_AUGREF},
+            {"min-augref-len", required_argument, 0, OPT_MIN_AUGREF_LEN},
+            {"augref-sample", required_argument, 0, OPT_AUGREF_SAMPLE},
 
             {0, 0, 0, 0}
         };
@@ -307,7 +327,20 @@ int main_paths(int argc, char** argv) {
         case 't':
             set_thread_count(logger, optarg);
             break;
-            
+
+        case OPT_COMPUTE_AUGREF:
+            compute_augref = true;
+            output_formats++;
+            break;
+
+        case OPT_MIN_AUGREF_LEN:
+            min_augref_length = parse<int64_t>(optarg);
+            break;
+
+        case OPT_AUGREF_SAMPLE:
+            augref_sample = optarg;
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -374,6 +407,12 @@ int main_paths(int argc, char** argv) {
     if (coverage && !gbwt_file.empty()) {
         logger.error() << "coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
     }
+    if (compute_augref && !gbwt_file.empty()) {
+        logger.error() << "augref computation only works on embedded graph paths, not GBWT threads" << std::endl;
+    }
+    if (compute_augref && path_prefix.empty()) {
+        logger.error() << "--compute-augref requires -Q to select reference path(s)" << std::endl;
+    }
     
     if (select_alt_paths) {
         // alt paths all have a specific prefix
@@ -416,6 +455,49 @@ int main_paths(int argc, char** argv) {
     
     
     
+    // Handle augref computation before other operations
+    if (compute_augref && graph) {
+        MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
+        if (!mutable_graph) {
+            logger.error() << "graph cannot be modified for augref computation" << std::endl;
+            return 1;
+        }
+
+        // Collect reference paths matching the prefix from -Q
+        unordered_set<path_handle_t> ref_paths;
+        graph->for_each_path_handle([&](path_handle_t ph) {
+            string path_name = graph->get_path_name(ph);
+            // Skip augref paths (they match prefixes but shouldn't be used as references)
+            if (AugRefCover::is_augref_name(path_name)) {
+                return;
+            }
+            if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
+                ref_paths.insert(ph);
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "no paths found matching prefix: " << path_prefix << std::endl;
+            return 1;
+        }
+
+        // Compute snarls
+        IntegratedSnarlFinder finder(*graph);
+        SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
+
+        // Compute and apply augref cover
+        AugRefCover cover;
+        if (!augref_sample.empty()) {
+            cover.set_augref_sample(augref_sample);
+        }
+        cover.clear(mutable_graph);
+        cover.compute(graph, &snarl_manager, ref_paths, min_augref_length);
+        cover.apply(mutable_graph);
+
+        // Output the modified graph
+        vg::io::save_handle_graph(mutable_graph, cout);
+        return 0;
+    }
+
     set<string> path_names;
     if (!path_file.empty()) {
         ifstream path_stream(path_file);
@@ -570,14 +652,14 @@ int main_paths(int argc, char** argv) {
                     if (!path_prefix.empty()) {
                         // Filter by name prefix
                         std::string path_name = graph->get_path_name(path_handle);
-                        
+
                         if (std::mismatch(path_name.begin(), path_name.end(),
                                           path_prefix.begin(), path_prefix.end()).second != path_prefix.end()) {
                             // The path does not match the prefix. Skip it.
                             return;
                         }
                     }
-                    
+
                     // It didn't fail a prefix check, so use it.
                     iteratee(path_handle);
                 });
