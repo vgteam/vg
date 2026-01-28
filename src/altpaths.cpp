@@ -379,7 +379,8 @@ void AltPathsCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 int64_t AltPathsCover::get_rank(nid_t node_id) const {
     // search back to reference in order to find the rank.
     vector<pair<int64_t, nid_t>> ref_steps = this->get_reference_nodes(node_id, true);
-    return ref_steps.at(0).first;
+    // Return -1 if node is in a disconnected component that can't reach reference
+    return ref_steps.empty() ? -1 : ref_steps.at(0).first;
 }
 
 step_handle_t AltPathsCover::get_step(nid_t node_id) const {
@@ -906,7 +907,8 @@ vector<pair<int64_t, nid_t>> AltPathsCover::get_reference_nodes(nid_t node_id, b
         }
     }
 
-    assert(output_reference_nodes.size() > 0 && (!first || (output_reference_nodes.size() == 1)));
+    // Note: output_reference_nodes may be empty if the node is in a disconnected
+    // component that cannot trace back to any reference interval (e.g., after clipping)
     return output_reference_nodes;
 }
 
@@ -997,7 +999,7 @@ void AltPathsCover::print_stats(ostream& os) {
 
         nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
         vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
-        int64_t rank = ref_nodes.at(0).first;
+        int64_t rank = ref_nodes.empty() ? -1 : ref_nodes.at(0).first;
 
         // interval is open ended, so we go back to last node
         step_handle_t last_step;
