@@ -7,7 +7,6 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/alignment_emitter.hpp>
 #include "../clip.hpp"
-#include "../augref.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
@@ -332,10 +331,6 @@ int main_clip(int argc, char** argv) {
             // load the BED regions from the reference path prefix
             pp_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
-                    // Skip altpaths (they match prefixes but shouldn't be used as references)
-                    if (AugRefCover::is_augref_name(path_name)) {
-                        return;
-                    }
                     subrange_t subrange;
                     path_name = Paths::strip_subrange(path_name, &subrange);
                     int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
@@ -363,10 +358,6 @@ int main_clip(int argc, char** argv) {
             std::unordered_map<nid_t, size_t> extra_node_weight;
             constexpr size_t EXTRA_WEIGHT = 10000000000;
             for (const Region& region : bed_regions) {
-                // Skip altpaths (they shouldn't influence snarl decomposition)
-                if (AugRefCover::is_augref_name(region.seq)) {
-                    continue;
-                }
                 path_handle_t path_handle = graph->get_path_handle(region.seq);
                 extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
                 extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;

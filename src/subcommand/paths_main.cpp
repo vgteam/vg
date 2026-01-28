@@ -70,7 +70,6 @@ void help_paths(char** argv) {
          << "      --min-augref-len N   minimum augref fragment length [10]" << endl
          << "      --augref-sample STR  create augref paths under a new sample" << endl
          << "                           (copies base paths to new sample, then adds augref paths)" << endl
-         << "      --include-augref     include augref paths in -Q prefix matching" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -143,14 +142,12 @@ int main_paths(int argc, char** argv) {
     bool overlay = false;
     bool compute_augref = false;
     int64_t min_augref_length = 10;
-    bool include_augref = false;
     string augref_sample;
 
     // Constants for long-only options
     constexpr int OPT_COMPUTE_AUGREF = 1001;
     constexpr int OPT_MIN_AUGREF_LEN = 1002;
-    constexpr int OPT_INCLUDE_AUGREF = 1003;
-    constexpr int OPT_AUGREF_SAMPLE = 1004;
+    constexpr int OPT_AUGREF_SAMPLE = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -191,7 +188,6 @@ int main_paths(int argc, char** argv) {
             // Augref options
             {"compute-augref", no_argument, 0, OPT_COMPUTE_AUGREF},
             {"min-augref-len", required_argument, 0, OPT_MIN_AUGREF_LEN},
-            {"include-augref", no_argument, 0, OPT_INCLUDE_AUGREF},
             {"augref-sample", required_argument, 0, OPT_AUGREF_SAMPLE},
 
             {0, 0, 0, 0}
@@ -339,10 +335,6 @@ int main_paths(int argc, char** argv) {
 
         case OPT_MIN_AUGREF_LEN:
             min_augref_length = parse<int64_t>(optarg);
-            break;
-
-        case OPT_INCLUDE_AUGREF:
-            include_augref = true;
             break;
 
         case OPT_AUGREF_SAMPLE:
@@ -547,10 +539,6 @@ int main_paths(int argc, char** argv) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
                 std::string name = gbwtgraph::compose_path_name(*gbwt_index, i, sense);
-                // Skip augref paths unless --include-augref is specified
-                if (!include_augref && AugRefCover::is_augref_name(name)) {
-                    continue;
-                }
                 if (name.length() >= path_prefix.length() && std::equal(path_prefix.begin(), path_prefix.end(), name.begin())) {
                     thread_ids.push_back(i);
                 }
@@ -664,11 +652,6 @@ int main_paths(int argc, char** argv) {
                     if (!path_prefix.empty()) {
                         // Filter by name prefix
                         std::string path_name = graph->get_path_name(path_handle);
-
-                        // Skip augref paths (they match prefixes but shouldn't be selected by default)
-                        if (!include_augref && AugRefCover::is_augref_name(path_name)) {
-                            return;
-                        }
 
                         if (std::mismatch(path_name.begin(), path_name.end(),
                                           path_prefix.begin(), path_prefix.end()).second != path_prefix.end()) {

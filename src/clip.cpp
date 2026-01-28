@@ -1,5 +1,4 @@
 #include "clip.hpp"
-#include "augref.hpp"
 #include "traversal_finder.hpp"
 #include <unordered_map>
 #include <IntervalTree.h>
@@ -440,10 +439,6 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
             if (graph->has_edge(deletion_edge)) {
                 graph->for_each_step_on_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()), [&](step_handle_t step_handle) {
                     string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
-                    // Skip altpaths
-                    if (AugRefCover::is_augref_name(path_name)) {
-                        return true;
-                    }
                     for (const string& ref_prefix : ref_prefixes) {
                         if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
                             step_handle_t next_step = graph->get_next_step(step_handle);
@@ -480,10 +475,6 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     if (!whitelist.count(node_id)) {
                         graph->for_each_step_on_handle(graph->get_handle(node_id), [&](step_handle_t step_handle) {
                             string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
-                            // Skip altpaths
-                            if (AugRefCover::is_augref_name(path_name)) {
-                                return true;
-                            }
                             for (const string& ref_prefix : ref_prefixes) {
                                 if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
                                     whitelist.insert(node_id);
@@ -574,10 +565,6 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
     unordered_map<string, size_t> clip_counts;
 
     function<bool(const string&)> check_prefixes = [&ref_prefixes] (const string& path_name) {
-        // Skip altpaths (they match prefixes but shouldn't be used as references)
-        if (AugRefCover::is_augref_name(path_name)) {
-            return false;
-        }
         for (const string& ref_prefix : ref_prefixes) {
             if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
                 return true;
@@ -1068,10 +1055,6 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
     unordered_set<path_handle_t> ref_paths;
     graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             string path_name = graph->get_path_name(path_handle);
-            // Skip altpaths (they match prefixes but shouldn't be used as references)
-            if (AugRefCover::is_augref_name(path_name)) {
-                return;
-            }
             for (const string& ref_prefix : ref_prefixes) {
                 if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
                     ref_paths.insert(path_handle);
@@ -1178,10 +1161,6 @@ void clip_stubs_generic(MutablePathMutableHandleGraph* graph,
 
     // test if a node is "reference" using a name check
     function<bool(const string&)> check_prefixes = [&ref_prefixes] (const string& path_name) {
-        // Skip altpaths (they match prefixes but shouldn't be used as references)
-        if (AugRefCover::is_augref_name(path_name)) {
-            return false;
-        }
         for (const string& ref_prefix : ref_prefixes) {
             if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
                 return true;
@@ -1335,10 +1314,6 @@ void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<strin
     int64_t stubbified_path_count = 0; // just for logging
     graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
-        // Skip altpaths (they match prefixes but shouldn't be used as references)
-        if (AugRefCover::is_augref_name(path_name)) {
-            return;
-        }
         for (const string& ref_prefix : ref_prefixes) {
             bool was_stubbified = false;
             if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {

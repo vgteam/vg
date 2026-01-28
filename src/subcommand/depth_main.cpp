@@ -19,7 +19,6 @@
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../utility.hpp"
 #include "../packer.hpp"
-#include "../augref.hpp"
 #include "algorithms/coverage_depth.hpp"
 
 using namespace std;
@@ -228,9 +227,8 @@ int main_depth(int argc, char** argv) {
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(path_name, &subrange);
                 base_path_set.insert(base_name);
-                // just take anything if no selection (excluding alt paths and altpaths)
+                // just take anything if no selection (excluding alt paths)
                 bool use_it = !Paths::is_alt(path_name) &&
-                              !AugRefCover::is_augref_name(path_name) &&
                               path_prefixes.empty() && ref_paths_input_set.empty();
 
                 // then look in the input paths -p
@@ -238,10 +236,9 @@ int main_depth(int argc, char** argv) {
                     use_it = true;
                 }
 
-                // then look in the prefixes (but skip altpaths)
+                // then look in the prefixes
                 for (size_t i = 0; i < path_prefixes.size() && !use_it; ++i) {
-                    if (path_name.substr(0, path_prefixes[i].length()) == path_prefixes[i] &&
-                        !AugRefCover::is_augref_name(path_name)) {
+                    if (path_name.substr(0, path_prefixes[i].length()) == path_prefixes[i]) {
                         use_it = true;
                     }
                 }

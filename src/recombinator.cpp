@@ -1,6 +1,5 @@
 #include "recombinator.hpp"
 
-#include "augref.hpp"
 #include "kff.hpp"
 #include "statistics.hpp"
 #include "algorithms/component.hpp"
@@ -1725,16 +1724,12 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
     }
 
     // Figure out GBWT path ids for reference paths in each job.
-    // Skip altpaths (paths ending in _altN) as they are not true reference paths.
     std::vector<std::vector<gbwt::size_type>> reference_paths(this->haplotypes.jobs());
     if (parameters.include_reference) {
         for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
             gbwt::size_type path_id = this->gbz.graph.named_paths[i].id;
             std::string path_name = gbwtgraph::compose_path_name(
                 this->gbz.index, path_id, this->gbz.graph.named_paths[i].sense);
-            if (AugRefCover::is_augref_name(path_name)) {
-                continue;
-            }
             size_t job_id = this->jobs_for_cached_paths[i];
             if (job_id < this->haplotypes.jobs()) {
                 reference_paths[job_id].push_back(path_id);
