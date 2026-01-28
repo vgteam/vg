@@ -2,6 +2,7 @@
 //#define debug_snarl_traversal
 //#define debug_distances
 //#define debug_subgraph
+//#define debug_hub_label_storage
 
 #include "snarl_distance_index.hpp"
 
@@ -1041,7 +1042,7 @@ void populate_snarl_index(
      */
 
 
-    //Add the start and end nodes to the list of children so that we include them in the traversal 
+    // Add the start and end nodes to the list of children so that we include them in the traversal.
     if (!temp_snarl_record.is_root_snarl) {
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id);
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.end_node_id);
@@ -1131,6 +1132,7 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
   vector<vector<HubRecord>> labels; labels.resize(num_vertices(ov));
   vector<vector<HubRecord>> labels_rev; labels_rev.resize(num_vertices(ov)); 
   create_labels(labels, labels_rev, ov);
+#ifdef debug_hub_label_storage
   std::cerr << "Hub labels unpacked:" << std::endl;
   for (const auto& node_list : {labels, labels_rev}) {
     std::cerr << "Labels for all nodes:" << std::endl;
@@ -1141,8 +1143,11 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
         }
     }
   }
+#endif
+  
   // Put labels in temp_snarl_record
   temp_snarl_record.hub_labels = pack_labels(labels, labels_rev);
+#ifdef debug_hub_label_storage
   std::cerr << "Hub labels as packed: ";
   for (size_t i = 0; i < temp_snarl_record.hub_labels.size(); i++) {
     if (i > 0) {
@@ -1151,6 +1156,7 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
     std::cerr << temp_snarl_record.hub_labels[i];
   }
   std::cerr << std::endl;
+#endif
 }
 
 void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances) {
