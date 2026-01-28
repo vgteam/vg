@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['testminimizermapper_14995',['TestMinimizerMapper',['../classvg_1_1MinimizerMapper.html#a8239430f869fd4cc597359f38a1ab29e',1,'vg::MinimizerMapper']]]
+  ['shuffledpairs_14996',['ShuffledPairs',['../classvg_1_1ShuffledPairs_1_1iterator.html#a716354d123e5197d160a8d6c4da7817d',1,'vg::ShuffledPairs::iterator']]]
 ];

@@ -68,8 +68,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#friends">Friends</a> &#124;
 <a href="classvg_1_1ZipCodeTree_1_1seed__iterator-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::ZipCodeTree::seed_iterator Class Reference</div>  </div>
@@ -109,14 +109,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a55df7ec18c8c789bd88d6af8ed686f0b"><td class="memItemLeft" align="right" valign="top">stack&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a55df7ec18c8c789bd88d6af8ed686f0b">get_chain_numbers</a> () const</td></tr>
 <tr class="separator:a55df7ec18c8c789bd88d6af8ed686f0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:a69ec5edaea158bad0a38b71e848dc0de"><td class="memItemLeft" align="right" valign="top">const vector&lt; <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html">tree_item_t</a> &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a69ec5edaea158bad0a38b71e848dc0de">zip_code_tree</a></td></tr>
-<tr class="memdesc:a69ec5edaea158bad0a38b71e848dc0de"><td class="mdescLeft">&#160;</td><td class="mdescRight">A reference to the ziptree vector.  <a href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a69ec5edaea158bad0a38b71e848dc0de">More...</a><br /></td></tr>
-<tr class="separator:a69ec5edaea158bad0a38b71e848dc0de"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
+<tr class="memitem:aa21d635f589c989547d7fda4b2fbcbec"><td class="memItemLeft" align="right" valign="top">const vector&lt; <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html">tree_item_t</a> &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#aa21d635f589c989547d7fda4b2fbcbec">zip_code_tree</a></td></tr>
+<tr class="separator:aa21d635f589c989547d7fda4b2fbcbec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a039c1a69c6096db319724b104958d5f6"><td class="memItemLeft" align="right" valign="top">stack&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a039c1a69c6096db319724b104958d5f6">chain_numbers</a></td></tr>
 <tr class="memdesc:a039c1a69c6096db319724b104958d5f6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Within each parent snarl, which chain are we in?  <a href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a039c1a69c6096db319724b104958d5f6">More...</a><br /></td></tr>
 <tr class="separator:a039c1a69c6096db319724b104958d5f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -131,6 +127,11 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a596b4194af4b41fde27b3f46770fcf97"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1ZipCodeTree_1_1oriented__seed__t.html">oriented_seed_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a596b4194af4b41fde27b3f46770fcf97">current_seeds</a></td></tr>
 <tr class="memdesc:a596b4194af4b41fde27b3f46770fcf97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Seeds at this position.  <a href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a596b4194af4b41fde27b3f46770fcf97">More...</a><br /></td></tr>
 <tr class="separator:a596b4194af4b41fde27b3f46770fcf97"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="friends"></a>
+Friends</h2></td></tr>
+<tr class="memitem:a82369941c52de80a7eeae140362821c5"><td class="memItemLeft" align="right" valign="top">class&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree_1_1seed__iterator.html#a82369941c52de80a7eeae140362821c5">distance_iterator</a></td></tr>
+<tr class="separator:a82369941c52de80a7eeae140362821c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Iterator that visits seeds left to right in the tree's in-order traversal</p>
@@ -485,6 +486,29 @@ How to use this iterator</h2>
 
 </div>
 </div>
+<h2 class="groupheader">Friends And Related Function Documentation</h2>
+<a id="a82369941c52de80a7eeae140362821c5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a82369941c52de80a7eeae140362821c5">&#9670;&nbsp;</a></span>distance_iterator</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">friend class <a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html">distance_iterator</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">friend</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="a039c1a69c6096db319724b104958d5f6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a039c1a69c6096db319724b104958d5f6">&#9670;&nbsp;</a></span>chain_numbers</h2>
@@ -605,19 +629,26 @@ How to use this iterator</h2>
 
 </div>
 </div>
-<a id="a69ec5edaea158bad0a38b71e848dc0de"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a69ec5edaea158bad0a38b71e848dc0de">&#9670;&nbsp;</a></span>zip_code_tree</h2>
+<a id="aa21d635f589c989547d7fda4b2fbcbec"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa21d635f589c989547d7fda4b2fbcbec">&#9670;&nbsp;</a></span>zip_code_tree</h2>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const vector&lt;<a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html">tree_item_t</a>&gt;&amp; vg::ZipCodeTree::seed_iterator::zip_code_tree</td>
+          <td class="memname">const vector&lt;<a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html">tree_item_t</a>&gt;* vg::ZipCodeTree::seed_iterator::zip_code_tree</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
-
-<p>A reference to the ziptree vector. </p>
+<p>A pointer to the ziptree vector to let us look up distance matrices. Needs to be a pointer so the iterator can be assignable. </p>
 
 </div>
 </div>
