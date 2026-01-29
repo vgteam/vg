@@ -1196,8 +1196,7 @@ int main_stats(int argc, char** argv) {
                 }
                 vector<string> ref_path_names;
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
-                    string path_name = graph->get_path_name(path_handle);
-                    ref_path_names.push_back(path_name);
+                    ref_path_names.push_back(graph->get_path_name(path_handle));
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
                 });

@@ -340,8 +340,6 @@ public:
         }
     };
 
-    class distance_iterator;
-
     /**
      * Iterator that visits seeds left to right in the tree's in-order traversal
      * 
@@ -384,13 +382,15 @@ public:
      */
     class seed_iterator {
     public:
+        // References from ZipCodeTree to let us look up distance matrices
+        /// A reference to the ziptree vector
+        const vector<tree_item_t>& zip_code_tree;
 
         /// Make an iterator starting from start_index
         /// until the end of the given ziptree
         seed_iterator(size_t start_index, const ZipCodeTree& ziptree);
         
-        // Iterators are copyable and movable.
-        // TODO: We contain a vector, so this might not be very efficient.
+        // Iterators are copyable and movable
         seed_iterator(const seed_iterator& other) = default;
         seed_iterator(seed_iterator&& other) = default;
         seed_iterator& operator=(const seed_iterator& other) = default;
@@ -408,7 +408,7 @@ public:
         inline bool operator!=(const seed_iterator& other) const { return !(*this == other); }
 
         /// What item does index point to?
-        inline tree_item_t current_item() const { return zip_code_tree->at(index); }
+        inline tree_item_t current_item() const { return zip_code_tree.at(index); }
         
         /// Get the index and orientation of the seed we are currently at.
         /// Also return all other seeds on the same position
@@ -421,10 +421,6 @@ public:
         inline stack<size_t> get_chain_numbers() const { return chain_numbers; }
 
     private:
-        /// A pointer to the ziptree vector to let us look up distance matrices.
-        /// Needs to be a pointer so the iterator can be assignable.
-        const vector<tree_item_t>* zip_code_tree;
-
         /// Within each parent snarl, which chain are we in?
         stack<size_t> chain_numbers;
         /// Where we are in the stored tree.
@@ -437,8 +433,6 @@ public:
         bool right_to_left;
         /// Seeds at this position
         vector<oriented_seed_t> current_seeds;
-
-        friend class distance_iterator;
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
@@ -491,13 +485,7 @@ public:
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
-        /// Make a reverse iterator from the given seed iterator
-        distance_iterator(const seed_iterator& from,
-                          size_t distance_limit = std::numeric_limits<size_t>::max());
-
-        // Iterators are copyable and movable.
-        // TODO: Now that iterators contain a lot of internal state, should we
-        // make them non-copyable? It's not very efficient.
+        // Iterators are copyable and movable
         distance_iterator(const distance_iterator& other) = default;
         distance_iterator(distance_iterator&& other) = default;
         distance_iterator& operator=(const distance_iterator& other) = default;
@@ -552,13 +540,13 @@ public:
         /// Where we have to stop
         size_t end_index;
         /// Where we started from
-        size_t original_index;
+        const size_t original_index;
         /// Distance limit we will go up to
         size_t distance_limit;
         /// Original direction
-        bool original_right_to_left;
+        const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
-        const vector<tree_item_t>* zip_code_tree;
+        const vector<tree_item_t>& zip_code_tree;
         /// Best distance for each snarl exit we've seen
         /// Stored as {snarl start index : (start dist, end dist)}
         std::unordered_map<size_t, std::pair<size_t, size_t>> best_cyclic_snarl_exits;
@@ -667,7 +655,7 @@ public:
         void unimplemented_error();
 
         /// What item does index point to?
-        inline tree_item_t current_item() const { return zip_code_tree->at(pos. index); }
+        inline tree_item_t current_item() const { return zip_code_tree.at(pos. index); }
 
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
