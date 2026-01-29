@@ -1114,7 +1114,8 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
               << " level=" << np.level
               << " arc_cover=" << np.arc_cover
               << " contracted=" << (np.contracted ? "true" : "false")
-              << " new_id=" << np.new_id << std::endl;
+              // Skip new_id since it is not initialized until make_contraction_hierarchy is run.
+              << std::endl;
   }
   std::cerr << "--- Edges ---" << std::endl;
   for (auto e : boost::make_iterator_range(edges(ov))) {
