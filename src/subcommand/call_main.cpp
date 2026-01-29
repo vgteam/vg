@@ -54,7 +54,7 @@ void help_call(char** argv) {
          << "  -a, --genotype-snarls     genotype every snarl, including reference calls" << endl
          << "                            (use to compare multiple samples)" << endl
          << "  -A, --all-snarls          genotype all snarls, including nested child snarls." << endl
-         << "                            Uses hierarchical top-down processing and writes LV/PS tags." << endl
+         << "                            Hierarchical top-down processing, writes LV/PS tags." << endl
          << "  -c, --min-length N        genotype only snarls with" << endl
          << "                            at least one traversal of length >= N" << endl
          << "  -C, --max-length N        genotype only snarls where" << endl 

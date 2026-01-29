@@ -66,10 +66,13 @@ void help_paths(char** argv) {
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
          << "augmented reference computation:" << endl
-         << "      --compute-augref     compute augmented reference path cover (use -Q for reference)" << endl
+         << "      --compute-augref     compute augmented reference path cover" << endl
+         << "                           (use -Q to select reference paths)" << endl
          << "      --min-augref-len N   minimum augref fragment length [10]" << endl
          << "      --augref-sample STR  create augref paths under a new sample" << endl
-         << "                           (copies base paths to new sample, then adds augref paths)" << endl
+         << "                           (copies base paths to new sample," << endl
+         << "                           then adds augref paths)." << endl
+         << "                           if unspecified, paths get added to target sample." << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
