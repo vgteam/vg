@@ -993,7 +993,9 @@ protected:
     array<vector<read_alignment_index_t>, 2> identify_supplementary_alignments(vector<std::array<vector<Alignment>, 2>>& alignments,
                                                                   vector<std::array<read_alignment_index_t, 2>>& paired_alignments, 
                                                                   vector<double>& paired_scores,
+                                                                  vector<int64_t>& fragment_distances,
                                                                   vector<PairType>& pair_types,
+                                                                  vector<size_t>& better_cluster_count_by_pairs,
                                                                   const vector<alignment_index_t>& unpaired_alignments,
                                                                   const vector<bool>& attempted_rescue_from,
                                                                   array<Funnel, 2>& funnels) const;
