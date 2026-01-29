@@ -381,6 +381,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //This is a trivial snarl
             temp_snarl_record.is_trivial = true;
 
+#ifdef debug_distance_indexing
+            cerr << "  Ending and forgetting trivial snarl " << temp_index.structure_start_end_as_string(snarl_index)
+                 << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_snarl_record.parent) << endl;
+#endif
+
             //Add the end node to the chain
 #ifdef debug_distance_indexing
             assert(stack.back().first == SnarlDistanceIndex::TEMP_CHAIN);
@@ -389,13 +394,20 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             auto& temp_chain = temp_index.get_chain(stack.back());
             temp_chain.children.emplace_back(SnarlDistanceIndex::TEMP_NODE, node_id);
 
-            //Remove the snarl record
+            //Remove the snarl record.
+            //This invalidates snarl_index!!!
 #ifdef debug_distance_indexing
             assert(temp_index.temp_snarl_records.size() == snarl_index.second+1);
 #endif
             temp_index.temp_snarl_records.pop_back();
         } else {
             //This is the child of a chain
+            
+#ifdef debug_distance_indexing
+            cerr << "  Ending new snarl " << temp_index.structure_start_end_as_string(snarl_index)
+                 << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_snarl_record.parent) << endl;
+#endif
+
 #ifdef debug_distance_indexing
             assert(stack.back().first == SnarlDistanceIndex::TEMP_CHAIN);
 #endif
@@ -405,15 +417,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             temp_chain.children.emplace_back(SnarlDistanceIndex::TEMP_NODE, node_id);
 
         }
-        //Record the snarl as a child of its chain
-        //if (stack.empty()) {
-        //    assert(false);
-        //    //TODO: The snarl should always be the child of a chain
-        //    //If this was the last thing on the stack, then this was a root
-        //    //TODO: I'm not sure if this would get put into a chain or not
-        //    temp_snarl_record.parent = make_pair(SnarlDistanceIndex::TEMP_ROOT, 0);
-        //    temp_index.components.emplace_back(snarl_index);
-        //} 
 
         //Record the node itself. This gets done for the start of the chain, and ends of snarls
         SnarlDistanceIndex::temp_record_ref_t node_index = make_pair(SnarlDistanceIndex::TEMP_NODE, node_id);
@@ -422,13 +425,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_node_record.node_length = graph->get_length(snarl_end_handle);
         temp_node_record.reversed_in_parent = graph->get_is_reverse(snarl_end_handle);
         temp_node_record.parent = stack.back();
-
-
-
-#ifdef debug_distance_indexing
-        cerr << "  Ending new snarl " << temp_index.structure_start_end_as_string(snarl_index)
-             << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_snarl_record.parent) << endl;
-#endif
     });
 
     /*
