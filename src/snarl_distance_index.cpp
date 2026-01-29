@@ -1,7 +1,7 @@
 #define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-//#define debug_subgraph
+#define debug_subgraph
 //#define debug_hub_label_storage
 
 #include "snarl_distance_index.hpp"
@@ -1650,6 +1650,7 @@ cerr << "Start positon: "<< start_pos << endl;
     while (!distance_index.is_root(parent)) {
 #ifdef debug_subgraph
         cerr << "At child " << distance_index.net_handle_as_string(current_net) << " with distances " << current_distance_left << " " << current_distance_right << endl;
+        cerr << "Parent is " << distance_index.net_handle_as_string(parent) << " at offset " << SnarlDistanceIndex::get_record_offset(parent) << endl;
 #endif
 
         size_t max_parent_length = distance_index.maximum_length(parent);
@@ -1677,7 +1678,7 @@ cerr << "Start positon: "<< start_pos << endl;
             if (distance_index.is_snarl(parent)) {
                 //If this is the child of a snarl, then just traverse from the end of the node
 #ifdef debug_subgraph
-cerr << "Start search in parent " << distance_index.net_handle_as_string(parent);
+                cerr << "Start search in parent " << distance_index.net_handle_as_string(parent);
 #endif
                 if (current_distance_left != std::numeric_limits<size_t>::max() ){
                     //If we can go left
@@ -1724,7 +1725,7 @@ cerr << "Start search in parent " << distance_index.net_handle_as_string(parent)
 #endif
             } else {
 #ifdef debug_subgraph
-cerr << "Start search along parent chain " << distance_index.net_handle_as_string(parent);
+                cerr << "Start search along parent chain " << distance_index.net_handle_as_string(parent);
 #endif
                 //If this is the child of a chain, then traverse along the chain
                 if (current_distance_left != std::numeric_limits<size_t>::max()) {
@@ -1739,6 +1740,9 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
             subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes, traversal_start); 
             return;
         } else if (distance_index.is_snarl(parent)){
+#ifdef debug_subgraph
+            cerr << "Parent is a snarl of handle type " << SnarlDistanceIndex::get_handle_type(parent) << " at offset " << SnarlDistanceIndex::get_record_offset(parent) << endl;
+#endif
             //TODO: This might be overkill. It prevents us from adding nodes that shouldn't be in the subgraph, but might be too slow
             //If we don't check the other direction, go through the loop and add everything whose distance is lower than the minimum
             //to seen_nodes
@@ -1769,6 +1773,9 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
                 });
             }
         } else if (distance_index.is_chain(parent)) {
+#ifdef debug_subgraph
+            cerr << "Parent is a chain of handle type " << SnarlDistanceIndex::get_handle_type(parent) << " at offset " << SnarlDistanceIndex::get_record_offset(parent) << endl;
+#endif
             //TODO: This is probably also overkill - walk a chain if there is a viable loop
             size_t distance_loop_right = distance_index.distance_in_parent(parent, current_net, current_net, super_graph, max_distance);
             size_t distance_loop_left =  distance_index.distance_in_parent(parent, distance_index.flip(current_net), distance_index.flip(current_net), super_graph, max_distance);
