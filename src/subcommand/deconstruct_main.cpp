@@ -52,6 +52,7 @@ void help_deconstruct(char** argv) {
          << "                           snarl names to snarl names and AT fields in output" << endl
          << "  -a, --all-snarls         process all snarls, including nested snarls" << endl
          << "                           (by default only top-level snarls reported)." << endl
+         << "                           Uses hierarchical processing and writes LV/PS tags." << endl
          << "  -c, --context-jaccard N  set context mapping size used to disambiguate alleles" << endl
          << "                           at sites with multiple reference traversals [10000]" << endl
          << "  -u, --untangle-travs     use context mapping for reference-relative positions" << endl
@@ -63,9 +64,8 @@ void help_deconstruct(char** argv) {
          << "                           for reference if possible (i.e. only one ref sample)" << endl
          << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
          << "                           is >= F together [1.0; experimental]" << endl
-         << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
          << "  -R, --star-allele        use *-alleles to represent haplotypes that span the" << endl
-         << "                           parent but don't traverse nested sites (requires -n)" << endl
+         << "                           parent but don't traverse nested sites (requires -a)" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
          << "  -h, --help               print this help message to stderr and exit" << endl;
@@ -94,7 +94,6 @@ int main_deconstruct(int argc, char** argv) {
     bool untangle_traversals = false;
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
-    bool nested = false;
     bool star_allele = false;
 
     int c;
@@ -119,7 +118,6 @@ int main_deconstruct(int argc, char** argv) {
                 {"strict-conflicts", no_argument, 0, 'S'},
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
-                {"nested", no_argument, 0, 'n'},
                 {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
@@ -127,7 +125,7 @@ int main_deconstruct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:Rt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -184,9 +182,6 @@ int main_deconstruct(int argc, char** argv) {
         case 'L':
             cluster_threshold = max(0.0, min(1.0, parse<double>(optarg)));
             break;
-        case 'n':
-            nested = true;
-            break;
         case 'R':
             star_allele = true;
             break;
@@ -207,11 +202,11 @@ int main_deconstruct(int argc, char** argv) {
 
     }
 
-    if (nested == true && contig_only_ref == true) {
-        logger.error() << "-C cannot be used with -n" << endl;
+    if (all_snarls == true && contig_only_ref == true) {
+        logger.error() << "-C cannot be used with -a" << endl;
     }
-    if (star_allele == true && nested == false) {
-        logger.error() << "-R can only be used with -n" << endl;
+    if (star_allele == true && all_snarls == false) {
+        logger.error() << "-R can only be used with -a" << endl;
     }
 
     // Read the graph
@@ -397,7 +392,7 @@ int main_deconstruct(int argc, char** argv) {
         logger.info() << "Deconstructing top-level snarls" << endl;
     }
     dd.set_translation(translation.get());
-    dd.set_nested(all_snarls || nested);
+    dd.set_nested(all_snarls);
     dd.deconstruct(refpaths, graph, snarl_manager.get(),
                    all_snarls,
                    context_jaccard_window,
@@ -407,7 +402,6 @@ int main_deconstruct(int argc, char** argv) {
                    !contig_only_ref,
                    cluster_threshold,
                    gbwt_index,
-                   nested,
                    star_allele);
 
     return 0;
