@@ -1752,9 +1752,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool nested,
                        double cluster_threshold,
                        bool cluster_post_genotype,
-                       bool star_allele,
-                       bool include_augref,
-                       AugRefCover* augref_cover) :
+                       bool star_allele) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
@@ -1768,9 +1766,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     nested(nested),
     cluster_threshold(cluster_threshold),
     cluster_post_genotype(cluster_post_genotype),
-    star_allele(star_allele),
-    include_augref(include_augref),
-    augref_cover(augref_cover)
+    star_allele(star_allele)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
