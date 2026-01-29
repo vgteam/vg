@@ -1097,8 +1097,10 @@ ZipCode::node_code_t ZipCode::get_node_code(const net_handle_t& node, const Snar
     node_code.set_length(distance_index.minimum_length(node));
 
     node_code.set_is_reversed(distance_index.is_reversed_in_parent(node));
-    node_code.set_has_forward_loop(distance_index.get_forward_loop_value(node) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
-    node_code.set_has_reverse_loop(distance_index.get_reverse_loop_value(node) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    size_t forward_loop = distance_index.get_forward_loop_value(node);
+    size_t reverse_loop = distance_index.get_reverse_loop_value(node);
+    node_code.set_has_forward_loop(forward_loop <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    node_code.set_has_reverse_loop(reverse_loop <= LOOP_DISTANCE_STORAGE_THRESHOLD);
     node_code.set_chain_component(distance_index.get_chain_component(node));
 
     return node_code;
@@ -1128,8 +1130,12 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
 
     //Tag to say that it's a regular snarl
     snarl_code.set_code_type(1);
-    //snarl_code.set_has_forward_loop(distance_index.get_forward_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
-    //snarl_code.set_has_reverse_loop(distance_index.get_reverse_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    net_handle_t snarl_end = distance_index.get_bound(snarl, true, false);
+    net_handle_t snarl_start = distance_index.get_bound(snarl, false, false);
+    size_t forward_loop = distance_index.get_forward_loop_value(snarl_end);
+    size_t reverse_loop = distance_index.get_reverse_loop_value(snarl_start);
+    snarl_code.set_has_forward_loop(forward_loop <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    snarl_code.set_has_reverse_loop(reverse_loop <= LOOP_DISTANCE_STORAGE_THRESHOLD);
 
     //The number of children
     size_t child_count = 0;
@@ -1138,10 +1144,12 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
     });
     snarl_code.set_child_count(child_count);
 
-    //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
-    net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
+    //Chain prefix sum value for the start of the snarl,
+    //which is the prefix sum of the start node + length of the start node
+    net_handle_t start_node = distance_index.get_node_from_sentinel(snarl_start);
 
-    snarl_code.set_prefix_sum_or_identifier(SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node)));
+    snarl_code.set_prefix_sum_or_identifier(SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), 
+                                                                    distance_index.minimum_length(start_node)));
 
     snarl_code.set_chain_component(distance_index.get_chain_component(start_node));
 
@@ -1152,9 +1160,11 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
 #ifdef DEBUG_ZIPCODE
     assert(distance_index.is_chain(snarl_child));
 #endif
-    snarl_code.set_is_reversed((distance_index.distance_in_parent(snarl, 
-                                                        distance_index.get_bound(snarl, false, true),
-                                                        distance_index.flip(distance_index.canonical(snarl_child))) != 0));
+    // Distance from snarl end to start of child
+    size_t child_to_end = distance_index.distance_in_parent(
+        snarl, snarl_end, distance_index.flip(distance_index.canonical(snarl_child)));
+    // If there is a path from chain start to snarl end, is reversed
+    snarl_code.set_is_reversed(child_to_end != 0);
 
     return snarl_code;
 
@@ -1165,8 +1175,12 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
 
     //Tag to say that it's an irregular snarl
     snarl_code.set_code_type(distance_index.is_dag(snarl) ? 0 : 2);
-    //snarl_code.set_has_forward_loop(distance_index.get_forward_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
-    //snarl_code.set_has_reverse_loop(distance_index.get_reverse_loop_value(snarl) <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    net_handle_t snarl_end = distance_index.get_bound(snarl, true, false);
+    net_handle_t snarl_start = distance_index.get_bound(snarl, false, false);
+    size_t forward_loop = distance_index.get_forward_loop_value(snarl_end);
+    size_t reverse_loop = distance_index.get_reverse_loop_value(snarl_start);
+    snarl_code.set_has_forward_loop(forward_loop <= LOOP_DISTANCE_STORAGE_THRESHOLD);
+    snarl_code.set_has_reverse_loop(reverse_loop <= LOOP_DISTANCE_STORAGE_THRESHOLD);
 
     //The number of children
     size_t child_count = 0;
@@ -1175,10 +1189,12 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
     });
     snarl_code.set_child_count(child_count);
 
-    //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
-    net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
+    //Chain prefix sum value for the start of the snarl, 
+    //which is the prefix sum of the start node + length of the start node
+    net_handle_t start_node = distance_index.get_node_from_sentinel(snarl_start);
 
-    snarl_code.set_prefix_sum_or_identifier(SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node)));
+    snarl_code.set_prefix_sum_or_identifier(SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), 
+                                                                    distance_index.minimum_length(start_node)));
 
 
     snarl_code.set_chain_component(distance_index.get_chain_component(start_node) );
@@ -1190,8 +1206,9 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
     //Record offset to look up distances in the index later
     snarl_code.set_record_offset(distance_index.get_record_offset(snarl));
 
-    snarl_code.set_distance_start_left(distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child)));
-    snarl_code.set_distance_end_left(distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child)));
+    net_handle_t left_end = distance_index.flip(snarl_child);
+    snarl_code.set_distance_start_left(distance_index.distance_to_parent_bound(snarl, true, left_end));
+    snarl_code.set_distance_end_left(distance_index.distance_to_parent_bound(snarl, false, left_end));
     snarl_code.set_distance_start_right(distance_index.distance_to_parent_bound(snarl, true, snarl_child));
     snarl_code.set_distance_end_right(distance_index.distance_to_parent_bound(snarl, false, snarl_child));
 
