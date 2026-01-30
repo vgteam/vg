@@ -1162,7 +1162,8 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
 #endif
     // Distance from snarl end to start of child
     size_t child_to_end = distance_index.distance_in_parent(
-        snarl, snarl_end, distance_index.flip(distance_index.canonical(snarl_child)));
+        snarl, distance_index.get_bound(snarl, false, true), 
+        distance_index.flip(distance_index.canonical(snarl_child)));
     // If there is a path from chain start to snarl end, is reversed
     snarl_code.set_is_reversed(child_to_end != 0);
 

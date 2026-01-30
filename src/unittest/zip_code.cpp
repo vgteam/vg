@@ -635,7 +635,7 @@ using namespace std;
             REQUIRE(zipcode.get_is_reversed_in_parent(1) == distance_index.is_reversed_in_parent(node1));
 
         }
-        SECTION ("zip code for node on in nested chain") {
+        SECTION ("zip code for node on nested chain") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n2->id(), 0, false));
             zipcode.fill_in_full_decoder();
