@@ -33,6 +33,16 @@ constexpr int STAR_ALLELE_MARKER = -2;
 /// mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy.
 constexpr int MISSING_ALLELE_MARKER = -1;
 
+/// A set of traversals through a child snarl that are consistent with
+/// a single parent allele. Multiple traversals can exist if the child
+/// has internal variation within a shared region.
+using TraversalSet = vector<SnarlTraversal>;
+
+/// One TraversalSet per parent allele (index matches parent genotype).
+/// For a diploid parent with genotype [0,1], element 0 contains traversals
+/// consistent with parent allele 0, element 1 with parent allele 1.
+using ChildTraversalSets = vector<TraversalSet>;
+
 /**
  * GraphCaller: Use the snarl decomposition to call snarls in a graph
  */
@@ -490,15 +500,26 @@ protected:
     /// When nested=true, this recursively calls children after processing the current snarl
     /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
     /// @param parent_ref_interval Reference interval from parent
-    /// @param parent_child_travs If non-null, these are traversals extracted from the parent's
-    ///                           genotype that span this child snarl. The child's genotype is
-    ///                           derived from these rather than computed from scratch.
+    /// @param parent_child_trav_sets If non-null, contains one TraversalSet per parent allele.
+    ///                               Each set contains all traversals through this child that are
+    ///                               consistent with that parent allele. The child genotypes by
+    ///                               picking the best pair (one from each set) based on read support.
     bool call_snarl_internal(const Snarl& snarl,
                              const string& parent_ref_path_name,
                              pair<size_t, size_t> parent_ref_interval,
-                             const vector<SnarlTraversal>* parent_child_travs = nullptr);
+                             const ChildTraversalSets* parent_child_trav_sets = nullptr);
 
-    /// Extract the portion of a parent traversal that spans a child snarl
+    /// Find all traversals through a child snarl that are consistent with a parent traversal.
+    /// "Consistent" means the child's entry/exit points match what's in the parent traversal.
+    /// Uses the traversal finder to enumerate all valid paths through the child.
+    /// @param parent_trav The parent traversal defining entry/exit constraints
+    /// @param child The child snarl to find traversals through
+    /// @return Set of traversals through child, empty if parent doesn't traverse child
+    TraversalSet find_child_traversal_set(const SnarlTraversal& parent_trav,
+                                          const Snarl& child) const;
+
+    /// Extract the portion of a parent traversal that spans a child snarl (single traversal).
+    /// This is a simpler version used when we only need one traversal from the parent.
     /// @param parent_trav The parent traversal to extract from
     /// @param child The child snarl to extract
     /// @param out_child_trav Output: the extracted traversal, oriented to match child snarl

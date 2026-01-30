@@ -356,7 +356,6 @@ void AugRefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         path_handle_t interval_path = graph->get_path_handle_of_step(augref_intervals[i].first);
         if (augref_intervals[i].first == graph->path_end(interval_path)) {
             skipped_intervals++;
-            cerr << "[augref] debug: skipping empty interval " << i << endl;
             continue;
         }
 

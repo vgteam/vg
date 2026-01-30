@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 63
+plan tests 67
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -489,10 +489,11 @@ is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting lev
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 83 > tn_11.gam
 vg pack -x tn_ap.gfa -g tn_11.gam -o tn_11.pack
 vg call tn_ap.gfa -k tn_11.pack -A -P x 2>/dev/null > tn_11.vcf
-# With augref paths: 2 variants emitted (top-level insertion + deepest SNP)
-# Intermediate snarls are 0/0 because y0 matches x_alt1 reference at those levels
+# With augref paths: 1 variant emitted (top-level insertion only)
+# All nested snarls are 0/0 because y0 matches x_1_alt reference at all levels
+# (y0 goes through 313, and x_1_alt also goes through 313)
 TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l)
-is "$TN_11_COUNT" "2" "triple_nested 1/1: homozygous ins produces top-level and deepest SNP variants"
+is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces only top-level variant"
 
 # Test 1/2: het between insertion alleles - reads from y0 and y1 (differ at deepest SNP)
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 84 > tn_12.gam
@@ -505,6 +506,32 @@ is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting lev
 
 rm -f tn_ap.gfa tn_00.gam tn_00.pack tn_00.vcf tn_01.gam tn_01.pack tn_01.vcf
 rm -f tn_11.gam tn_11.pack tn_11.vcf tn_12.gam tn_12.pack tn_12.vcf
+
+# =============================================================================
+# Multi-level SNP test (triple_nested_multisnp.gfa)
+# This graph has SNPs at multiple nesting levels:
+# - y0 matches x_1_alt at all levels (will be chosen as augref reference)
+# - y1 differs from x_1_alt at all nested levels
+# When simulating from y1, we should get variants at all 4 nesting levels
+# =============================================================================
+
+vg paths -x nesting/triple_nested_multisnp.gfa -Q x --compute-augref --min-augref-len 1 > tn_ms_ap.gfa
+vg sim -x tn_ms_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 100 > tn_ms.gam
+vg pack -x tn_ms_ap.gfa -g tn_ms.gam -o tn_ms.pack
+vg call tn_ms_ap.gfa -k tn_ms.pack -A -P x 2>/dev/null > tn_ms.vcf
+# Should get 4 variants: top-level + 3 nested SNPs (all at 1/1)
+TN_MS_COUNT=$(grep -v "^#" tn_ms.vcf | wc -l)
+is "$TN_MS_COUNT" "4" "triple_nested_multisnp 1/1: homozygous alt produces variants at all 4 nesting levels"
+# Verify all variants are 1/1 (homozygous alt)
+TN_MS_HOM=$(grep -v "^#" tn_ms.vcf | cut -f10 | cut -d: -f1 | grep -c "1/1")
+is "$TN_MS_HOM" "4" "triple_nested_multisnp 1/1: all 4 variants are homozygous alt"
+# Verify LV tags span levels 0-3
+TN_MS_LV0=$(grep -v "^#" tn_ms.vcf | grep -c "LV=0")
+TN_MS_LV123=$(grep -v "^#" tn_ms.vcf | grep -c "LV=[123]")
+is "$TN_MS_LV0" "1" "triple_nested_multisnp: one top-level variant (LV=0)"
+is "$TN_MS_LV123" "3" "triple_nested_multisnp: three nested variants (LV=1,2,3)"
+
+rm -f tn_ms_ap.gfa tn_ms.gam tn_ms.pack tn_ms.vcf
 
 # =============================================================================
 # Short reference bypass tests

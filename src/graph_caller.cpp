@@ -1,7 +1,6 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
-#include "traversal_clusters.hpp"
 #include "augref.hpp"
 
 //#define debug
@@ -1086,12 +1085,18 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
             // Since it is possible that the snarl is actually flipped in the vcf, check for the flipped version too
             string flipped_name = print_flipped_snarl(*snarl);
-            if (names_in_vcf.count(cur_name) || names_in_vcf.count(flipped_name)) {
+            if (names_in_vcf.count(cur_name)) {
                 // only count snarls that are in the vcf
                 ++ancestor_count;
                 if (parent_name.empty()) {
-                    // remembert the first parent
+                    // remember the first parent
                     parent_name = cur_name;
+                }
+            } else if (names_in_vcf.count(flipped_name)) {
+                // snarl is in vcf under flipped orientation
+                ++ancestor_count;
+                if (parent_name.empty()) {
+                    parent_name = flipped_name;
                 }
             }
         }
@@ -1869,10 +1874,43 @@ bool FlowCaller::extract_child_traversal(const SnarlTraversal& parent_trav,
     return true;
 }
 
+TraversalSet FlowCaller::find_child_traversal_set(const SnarlTraversal& parent_trav,
+                                                   const Snarl& child) const {
+    TraversalSet result;
+
+    // First, check if the parent traversal goes through this child snarl
+    // by finding the child's start and end nodes in the parent
+    nid_t child_start_id = child.start().node_id();
+    nid_t child_end_id = child.end().node_id();
+    bool found_start = false, found_end = false;
+
+    for (int i = 0; i < parent_trav.visit_size(); ++i) {
+        nid_t visit_id = parent_trav.visit(i).node_id();
+        if (visit_id == child_start_id) found_start = true;
+        if (visit_id == child_end_id) found_end = true;
+    }
+
+    // If parent doesn't traverse the child, return empty set (star allele case)
+    if (!found_start || !found_end) {
+        return result;
+    }
+
+    // Use the traversal finder to enumerate all traversals through the child
+    FlowTraversalFinder* flow_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
+    if (flow_finder != nullptr) {
+        auto weighted_travs = flow_finder->find_weighted_traversals(child, false);
+        result = std::move(weighted_travs.first);
+    } else {
+        result = traversal_finder.find_traversals(child);
+    }
+
+    return result;
+}
+
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                       const string& parent_ref_path_name,
                                       pair<size_t, size_t> parent_ref_interval,
-                                      const vector<SnarlTraversal>* parent_child_travs) {
+                                      const ChildTraversalSets* parent_child_trav_sets) {
 
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
@@ -1883,7 +1921,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
 #ifdef debug
     cerr << "call_snarl_internal on " << pb2json(snarl) << " with parent_ref_path=" << parent_ref_path_name
-         << " parent_child_travs=" << (parent_child_travs ? "provided" : "null") << endl;
+         << " parent_child_trav_sets=" << (parent_child_trav_sets ? "provided" : "null") << endl;
 #endif
 
     if (snarl.start().node_id() == snarl.end().node_id() ||
@@ -1947,7 +1985,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     if (common_names.empty()) {
         // No reference path through snarl
         // If we have parent context, we can still process using parent's ref path
-        if (parent_child_travs == nullptr || parent_ref_path_name.empty()) {
+        if (parent_child_trav_sets == nullptr || parent_ref_path_name.empty()) {
 #ifdef debug
             cerr << "  -> returning false: no common ref path and no parent context" << endl;
 #endif
@@ -1978,7 +2016,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
     bool use_parent_interval = false;
 
-    if (common_names.empty() && parent_child_travs != nullptr) {
+    if (common_names.empty() && parent_child_trav_sets != nullptr) {
         // No direct reference path - use parent's interval and traversals directly
         ref_interval = make_tuple(parent_ref_interval.first, parent_ref_interval.second, false, step_handle_t(), step_handle_t());
         use_parent_interval = true;
@@ -2073,18 +2111,22 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     int ref_trav_idx = -1;
 
     if (use_parent_interval) {
-        // No direct reference path - use first traversal or first parent traversal as pseudo-reference
-        // The first parent traversal is typically the "reference" from the parent's perspective
-        if (parent_child_travs != nullptr && !parent_child_travs->empty()) {
-            const SnarlTraversal& first_parent_trav = (*parent_child_travs)[0];
-            for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
-                if (travs[i] == first_parent_trav) {
-                    ref_trav_idx = i;
+        // No direct reference path - use first traversal from first non-empty set as pseudo-reference
+        if (parent_child_trav_sets != nullptr) {
+            for (const auto& tset : *parent_child_trav_sets) {
+                if (!tset.empty()) {
+                    const SnarlTraversal& first_trav = tset[0];
+                    for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
+                        if (travs[i] == first_trav) {
+                            ref_trav_idx = i;
+                        }
+                    }
+                    if (ref_trav_idx < 0 && first_trav.visit_size() > 0) {
+                        ref_trav_idx = travs.size();
+                        travs.push_back(first_trav);
+                    }
+                    break;
                 }
-            }
-            if (ref_trav_idx < 0 && first_parent_trav.visit_size() > 0) {
-                ref_trav_idx = travs.size();
-                travs.push_back(first_parent_trav);
             }
         }
         // If still -1, use first traversal from finder (or 0 if none)
@@ -2110,60 +2152,119 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
     int ploidy = ref_ploidies[ref_path_name];
 
+    // Constants for bounded traversal set handling
+    const int MAX_TRAVS_PER_SET = 10;
+
     if (traversals_only) {
         assert(gaf_output);
         pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
         emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
-    } else if (parent_child_travs != nullptr && !parent_child_travs->empty()) {
-        // Genotype is derived from parent - match parent traversals to our traversals
-        ploidy = parent_child_travs->size();
-        for (const SnarlTraversal& parent_trav : *parent_child_travs) {
-            // Empty traversal means parent allele doesn't traverse this child
-            // Use star allele (*) if enabled, otherwise missing allele (.)
-            if (parent_trav.visit_size() == 0) {
-                trav_genotype.push_back(star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER);
+    } else if (parent_child_trav_sets != nullptr && !parent_child_trav_sets->empty()) {
+        // Genotype using bounded search over traversal sets from parent
+        // Each set contains traversals consistent with one parent allele
+        ploidy = parent_child_trav_sets->size();
+
+        // Track which set each traversal index belongs to (for phase consistency)
+        // set_membership[i] = which parent allele set traversal i came from, or -1 if from finder
+        vector<int> set_membership(travs.size(), -1);
+
+        // Merge traversals from sets into travs, tracking membership
+        // Also rank by support and keep top MAX_TRAVS_PER_SET per set
+        vector<vector<int>> set_to_trav_indices(ploidy);  // indices into travs for each set
+
+        for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
+            const TraversalSet& tset = (*parent_child_trav_sets)[set_idx];
+
+            if (tset.empty()) {
+                // Empty set means parent allele doesn't traverse this child (star allele)
                 continue;
             }
-            // Find matching traversal in our list
-            int match_idx = -1;
-            for (int i = 0; i < travs.size() && match_idx < 0; ++i) {
-                if (travs[i] == parent_trav) {
-                    match_idx = i;
+
+            // Add traversals from this set to travs (avoiding duplicates)
+            // Keep track of indices for this set
+            vector<pair<double, int>> support_and_idx;  // (support, index in travs)
+
+            for (const SnarlTraversal& trav : tset) {
+                // Check if this traversal already exists in travs
+                int match_idx = -1;
+                for (int i = 0; i < travs.size() && match_idx < 0; ++i) {
+                    if (travs[i] == trav) {
+                        match_idx = i;
+                    }
                 }
+
+                if (match_idx < 0) {
+                    // New traversal - add it
+                    match_idx = travs.size();
+                    travs.push_back(trav);
+                    set_membership.push_back(set_idx);
+                } else if (set_membership[match_idx] < 0) {
+                    // Traversal was from finder, now claim it for this set
+                    set_membership[match_idx] = set_idx;
+                }
+                // Note: if already claimed by another set, that's fine (shared region)
+
+                // Get support for ranking
+                double support = TraversalSupportFinder::support_val(
+                    support_finder.get_traversal_support(trav));
+                support_and_idx.push_back({support, match_idx});
             }
-            if (match_idx < 0) {
-                // Parent traversal not found in our list - add it
-                match_idx = travs.size();
-                travs.push_back(parent_trav);
+
+            // Sort by support (descending) and keep top MAX_TRAVS_PER_SET
+            std::sort(support_and_idx.begin(), support_and_idx.end(),
+                      [](const auto& a, const auto& b) { return a.first > b.first; });
+
+            for (int i = 0; i < std::min((int)support_and_idx.size(), MAX_TRAVS_PER_SET); ++i) {
+                set_to_trav_indices[set_idx].push_back(support_and_idx[i].second);
             }
-            trav_genotype.push_back(match_idx);
         }
 
-        // Emit variant with derived genotype
-        bool added = true;
+        // Track which parent sets are empty (star/missing allele cases)
+        vector<bool> empty_sets(ploidy, false);
+        for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
+            if ((*parent_child_trav_sets)[set_idx].empty()) {
+                empty_sets[set_idx] = true;
+            }
+        }
+
+        // Check if ALL sets are empty (no traversals at all)
+        bool all_empty = true;
+        for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
+            if (!empty_sets[set_idx]) {
+                all_empty = false;
+                break;
+            }
+        }
+
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
 
-        // Compute quality metrics for derived genotype
-        PoissonSupportSnarlCaller* poisson_caller = dynamic_cast<PoissonSupportSnarlCaller*>(&snarl_caller);
-        if (poisson_caller != nullptr && !trav_genotype.empty()) {
-            // Filter out special markers (STAR_ALLELE_MARKER, MISSING_ALLELE_MARKER)
-            vector<int> valid_genotype;
-            for (int g : trav_genotype) {
-                if (g >= 0 && g < (int)travs.size()) {
-                    valid_genotype.push_back(g);
-                }
+        if (all_empty) {
+            // All parent alleles skip this child - genotype is all star/missing
+            for (int i = 0; i < ploidy; ++i) {
+                trav_genotype.push_back(star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER);
             }
-            if (!valid_genotype.empty()) {
-                trav_call_info = poisson_caller->compute_quality_for_genotype(
-                    snarl, travs, valid_genotype, ref_trav_idx,
-                    ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        } else {
+            // Use the existing genotyper to select best genotype from available traversals
+            // The genotyper uses proper genotype likelihoods that account for expected allele ratios
+            std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+                                                                            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+
+            // Post-process: replace genotyped alleles with star/missing for empty parent sets
+            // The genotyper returns one allele per ploidy position, and we need to check if
+            // the corresponding parent set was empty
+            for (int i = 0; i < ploidy && i < trav_genotype.size(); ++i) {
+                if (empty_sets[i]) {
+                    // This parent allele doesn't traverse the child - use star/missing
+                    trav_genotype[i] = star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER;
+                }
             }
         }
 
-        // Only emit VCF if snarl is on reference path (has ref_offsets entry)
-        // Nested snarls not on reference will still have genotype propagated to children
+        // Emit variant with selected genotype
+        bool added = true;
+
+        // Only emit VCF if snarl is on reference path
         if (use_parent_interval) {
-            // Snarl not on reference path - skip VCF output but continue processing
             added = true;
         } else if (!gaf_output) {
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
@@ -2172,6 +2273,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
         }
+
         ret_val = trav_genotype.size() == ploidy && added;
     } else {
         // Top-level snarl or no parent context - genotype from scratch using support
@@ -2201,24 +2303,22 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             const vector<const Snarl*>& children = snarl_manager.children_of(managed_ptr);
             for (const Snarl* child : children) {
                 if (child && !snarl_manager.is_trivial(child, graph)) {
-                    // Extract child-spanning portions from genotyped parent traversals
-                    vector<SnarlTraversal> child_travs_from_parent;
+                    // Build ChildTraversalSets: one set per parent allele
+                    // Each set contains all traversals through child consistent with that parent allele
+                    ChildTraversalSets child_trav_sets;
                     bool any_real_traversals = false;
 
                     for (int allele_idx : trav_genotype) {
                         if (allele_idx >= 0 && allele_idx < travs.size()) {
-                            SnarlTraversal child_portion;
-                            if (extract_child_traversal(travs[allele_idx], *child, child_portion)) {
-                                child_travs_from_parent.push_back(std::move(child_portion));
+                            // Find all traversals through child consistent with this parent traversal
+                            TraversalSet tset = find_child_traversal_set(travs[allele_idx], *child);
+                            if (!tset.empty()) {
                                 any_real_traversals = true;
-                            } else {
-                                // Parent allele doesn't traverse child - add empty traversal as marker
-                                // Child will use STAR_ALLELE_MARKER or MISSING_ALLELE_MARKER based on star_allele flag
-                                child_travs_from_parent.push_back(SnarlTraversal());
                             }
+                            child_trav_sets.push_back(std::move(tset));
                         } else {
-                            // Invalid allele index (shouldn't happen) - add empty marker
-                            child_travs_from_parent.push_back(SnarlTraversal());
+                            // Star/missing allele - pass empty set
+                            child_trav_sets.push_back(TraversalSet());
                         }
                     }
 
@@ -2227,10 +2327,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                         continue;
                     }
 
-                    // Recursively call child with extracted traversals as genotype
+                    // Recursively call child with traversal sets
                     call_snarl_internal(*child, ref_path_name,
                                         make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                        &child_travs_from_parent);
+                                        &child_trav_sets);
                 }
             }
         }
