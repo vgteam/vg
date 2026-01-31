@@ -1253,19 +1253,12 @@ using namespace std;
 
             //Distance from left side of child to snarl start
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            //REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 0 : 1));
-
-            //Distance from right side of child to snarl start
-            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            //REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 0 : 1));
-
             //Distance from left side of child to snarl end
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            //REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 1 : 0));
-
+            //Distance from right side of child to snarl start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             //Distance from right side of child to snarl end
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            //REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 1 : 0));
 
             //Node 3 as a chain
             REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
@@ -1316,6 +1309,84 @@ using namespace std;
             REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, true) ==  std::numeric_limits<size_t>::max());
             //Node 4 to right side of node 3
             REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, false) == 0);
+        }
+        SECTION ("zip code for node outside irregular snarl") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            REQUIRE(zipcode.decoder_length() == 2); 
+
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+
+            //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Node 1
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
+            //Offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
+
+            //Node length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 3+1);
+
+            //Fifth is if the node is reversed, and it should have a loop
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            if (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()))) {
+                // Node is reversed, so loop is reverse loop (1 + 4)
+                REQUIRE(value_and_index.first == 5);
+            } else {
+                // Node is forward, so loop is forward (0 + 2)
+                REQUIRE(value_and_index.first == 2);
+            }
+
+            //The component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+        }
+        SECTION ("decode zip code for node outside irregular snarl") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+            net_handle_t chain1 = distance_index.get_parent(node1);
+
+            REQUIRE(distance_index.canonical(zipcode.get_net_handle(0, &distance_index)) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN);
+
+            //node1 at depth 1
+            REQUIRE(zipcode.get_length(1) == 3);
+            REQUIRE(zipcode.get_offset_in_chain(1) == distance_index.get_prefix_sum_value(node1));
+            REQUIRE(zipcode.get_code_type(1) == ZipCode::NODE);
+            if (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()))) {
+                // Node is reversed, so loop is reverse loop
+                REQUIRE(!zipcode.get_has_forward_loop(1));
+                REQUIRE(zipcode.get_has_reverse_loop(1));
+            } else {
+                // Node is forward, so loop is forward
+                REQUIRE(zipcode.get_has_forward_loop(1));
+                REQUIRE(!zipcode.get_has_reverse_loop(1));
+            }
         }
         SECTION("Distances") {
             ZipCode zip1;
@@ -1461,6 +1532,637 @@ using namespace std;
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n7->id(), 0, false));
+            auto payload = zipcode.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                ZipCode decoded;
+                decoded.fill_in_zipcode_from_payload(payload);
+                REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
+            };
+        }
+    }
+
+    TEST_CASE("Neighboring inversions", "[zipcode]") {
+ 
+        VG graph;
+ 
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+ 
+        // Inversion 1-3 and 3-5
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n2, false, true);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n3, true, false);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n4, false, true);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n4, n5, true, false);
+
+ 
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        bool chain_is_reversed = distance_index.is_reversed_in_parent(
+                                                distance_index.get_node_net_handle(n1->id()));
+
+        SECTION ("zip code for node to left of both inversions") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            REQUIRE(zipcode.decoder_length() == 2); 
+
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+
+            //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Node 1
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
+            //Offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
+
+            //Node length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 3+1);
+
+            //Fifth is if the node is reversed, and it should have a loop
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            if (chain_is_reversed) {
+                // Node is reversed, so loop is reverse loop (1 + 4)
+                REQUIRE(value_and_index.first == 5);
+            } else {
+                // Node is forward, so loop is forward (0 + 2)
+                REQUIRE(value_and_index.first == 2);
+            }
+
+            //The component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+        }
+        SECTION ("decode zip code for node to left of both inversions") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+            net_handle_t chain1 = distance_index.get_parent(node1);
+
+            REQUIRE(distance_index.canonical(zipcode.get_net_handle(0, &distance_index)) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN);
+
+            //node1 at depth 1
+            REQUIRE(zipcode.get_length(1) == 3);
+            REQUIRE(zipcode.get_offset_in_chain(1) == distance_index.get_prefix_sum_value(node1));
+            REQUIRE(zipcode.get_code_type(1) == ZipCode::NODE);
+            if (chain_is_reversed) {
+                // Node is reversed, so loop is reverse loop
+                REQUIRE(!zipcode.get_has_forward_loop(1));
+                REQUIRE(zipcode.get_has_reverse_loop(1));
+            } else {
+                // Node is forward, so loop is forward
+                REQUIRE(zipcode.get_has_forward_loop(1));
+                REQUIRE(!zipcode.get_has_reverse_loop(1));
+            }
+        }
+        SECTION ("zip code for node in left inversion") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n2->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            REQUIRE(zipcode.decoder_length() == 3); 
+
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+
+            //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Irregular snarl code for snarl 1-3
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(false, value_and_index.second));
+            //tag for irregular snarl that has a loop
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Reverse loop if chain is reversed, otherwise forward loop
+            size_t loop_val = chain_is_reversed ? 8 : 4;
+            REQUIRE(value_and_index.first == 2 + loop_val);
+
+            net_handle_t irregular_snarl = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
+
+            //Snarl prefix sum
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(irregular_snarl, false, true));
+            REQUIRE(value_and_index.first == SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(bound),
+                                                                     distance_index.minimum_length(bound))+1);
+
+            //Snarl length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.minimum_length(irregular_snarl)+1);
+
+            size_t child_count = 0 ; 
+            distance_index.for_each_child(irregular_snarl, [&] (const net_handle_t& child) { child_count++; });
+            //Snarl child count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == child_count);
+
+            //component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(irregular_snarl, false, false))));
+
+            //Snarl record offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(irregular_snarl));
+
+            //Distance from left side of child to snarl start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Distance from left side of child to snarl end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Distance from right side of child to snarl start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Distance from right side of child to snarl end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+
+            //Node 2 as a chain
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
+            //Rank in snarl
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id()))));
+
+            //Length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 1+1);
+
+            //Component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+        }
+        SECTION ("decode zip code for node in left inversion") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n2->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+            net_handle_t snarl1 = distance_index.get_parent(chain2);
+            net_handle_t chain1 = distance_index.get_parent(snarl1);
+
+
+            REQUIRE(distance_index.canonical(zipcode.get_net_handle(0, &distance_index)) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN);
+
+            //Snarl1 at depth 1
+            REQUIRE(zipcode.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id())) ? 1 : 3));
+            REQUIRE(zipcode.get_code_type(1) == ZipCode::CYCLIC_SNARL);
+
+            //chain3 at depth 3
+            REQUIRE(zipcode.get_length(2) == 1);
+            REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain2));
+            REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
+            bool snarl_is_rev = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
+            //node1 to left side of node 2
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, !snarl_is_rev, true) == 0);
+            //node1 to right side of node 2
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, !snarl_is_rev, false) == 0);
+            //node3 to left side of node 2
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, true) == 0);
+            //node3 to right side of node 2
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, false) == 0);
+
+            if (chain_is_reversed) {
+                // Chain is reversed so loop is reverse loop
+                REQUIRE(!zipcode.get_has_forward_loop(2));
+                REQUIRE(zipcode.get_has_reverse_loop(2));
+            } else {
+                // Chain is forward so loop is forward loop
+                REQUIRE(zipcode.get_has_forward_loop(2));
+                REQUIRE(!zipcode.get_has_reverse_loop(2));
+            }
+        }
+        SECTION ("zip code for node between inversions") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n3->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            REQUIRE(zipcode.decoder_length() == 2); 
+
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+
+            //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Node 1
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
+            //Offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n3->id()))+1);
+
+            //Node length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 1+1);
+
+            //Fifth is if the node is reversed, and it should have both loops
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Both loops = 2 + 4, then +reversedness
+            REQUIRE(value_and_index.first == chain_is_reversed + 6);
+
+            //The component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+        }
+        SECTION ("decode zip code for node between inversions") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n3->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            net_handle_t node3 = distance_index.get_node_net_handle(n3->id());
+            net_handle_t chain3 = distance_index.get_parent(node3);
+
+            REQUIRE(distance_index.canonical(zipcode.get_net_handle(0, &distance_index)) == 
+                    distance_index.canonical(chain3));
+            REQUIRE(zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN);
+
+            //node3 at depth 1
+            REQUIRE(zipcode.get_length(1) == 1);
+            REQUIRE(zipcode.get_offset_in_chain(1) == distance_index.get_prefix_sum_value(node3));
+            REQUIRE(zipcode.get_code_type(1) == ZipCode::NODE);
+            REQUIRE(zipcode.get_has_forward_loop(1));
+            REQUIRE(zipcode.get_has_reverse_loop(1));
+        }
+        SECTION ("zip code for node in right inversion") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n4->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            REQUIRE(zipcode.decoder_length() == 3); 
+
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+
+            //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Irregular snarl code for snarl 3-5
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(false, value_and_index.second));
+            //tag for irregular snarl that has a loop
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Forwarad loop if chain is reversed, otherwise reverse loop
+            size_t loop_val = chain_is_reversed ? 4 : 8;
+            REQUIRE(value_and_index.first == 2 + loop_val);
+
+            net_handle_t irregular_snarl = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n4->id())));
+
+            //Snarl prefix sum
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(irregular_snarl, false, true));
+            REQUIRE(value_and_index.first == SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(bound),
+                                                                     distance_index.minimum_length(bound))+1);
+
+            //Snarl length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.minimum_length(irregular_snarl)+1);
+
+            size_t child_count = 0 ; 
+            distance_index.for_each_child(irregular_snarl, [&] (const net_handle_t& child) { child_count++; });
+            //Snarl child count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == child_count);
+
+            //component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(irregular_snarl, false, false))));
+
+            //Snarl record offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(irregular_snarl));
+
+            //Distance from left side of child to snarl start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Distance from left side of child to snarl end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Distance from right side of child to snarl start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            //Distance from right side of child to snarl end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+
+            //Node 2 as a chain
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
+            //Rank in snarl
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n4->id()))));
+
+            //Length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 4+1);
+
+            //Component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+        }
+        SECTION ("decode zip code for node in right inversion") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n4->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+            net_handle_t snarl1 = distance_index.get_parent(chain4);
+            net_handle_t chain1 = distance_index.get_parent(snarl1);
+
+
+            REQUIRE(distance_index.canonical(zipcode.get_net_handle(0, &distance_index)) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN);
+
+            //Snarl1 at depth 1
+            REQUIRE(zipcode.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n4->id())) ? 1 : 5));
+            REQUIRE(zipcode.get_code_type(1) == ZipCode::CYCLIC_SNARL);
+
+            //chain3 at depth 3
+            REQUIRE(zipcode.get_length(2) == 4);
+            REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain4));
+            REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
+            bool snarl_is_rev = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n5->id()));
+            //node3 to left side of node 4
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, !snarl_is_rev, true) == 0);
+            //node3 to right side of node 4
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, !snarl_is_rev, false) == 0);
+            //node5 to left side of node 4
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, true) == 0);
+            //node5 to right side of node 4
+            REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, false) == 0);
+
+            if (chain_is_reversed) {
+                // Chain is reversed so loop is forward loop
+                REQUIRE(zipcode.get_has_forward_loop(2));
+                REQUIRE(!zipcode.get_has_reverse_loop(2));
+            } else {
+                // Chain is forward so loop is reverse loop
+                REQUIRE(!zipcode.get_has_forward_loop(2));
+                REQUIRE(zipcode.get_has_reverse_loop(2));
+            }
+        }
+        SECTION ("zip code for node to right of both inversions") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n5->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            REQUIRE(zipcode.decoder_length() == 2); 
+
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+
+            //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Node 1
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
+            //Offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n5->id()))+1);
+
+            //Node length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 3+1);
+
+            //Fifth is if the node is reversed, and it should have a loop
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            if (chain_is_reversed) {
+                // Node is reversed, so loop is forward loop (1 + 2)
+                REQUIRE(value_and_index.first == 3);
+            } else {
+                // Node is forward, so loop is forward (0 + 4)
+                REQUIRE(value_and_index.first == 4);
+            }
+
+            //The component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+        }
+        SECTION ("decode zip code for node to right of both inversions") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n5->id(), 0, false));
+            zipcode.fill_in_full_decoder();
+
+            net_handle_t node5 = distance_index.get_node_net_handle(n5->id());
+            net_handle_t chain5 = distance_index.get_parent(node5);
+
+            REQUIRE(distance_index.canonical(zipcode.get_net_handle(0, &distance_index)) == 
+                    distance_index.canonical(chain5));
+            REQUIRE(zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN);
+
+            //node5 at depth 1
+            REQUIRE(zipcode.get_length(1) == 3);
+            REQUIRE(zipcode.get_offset_in_chain(1) == distance_index.get_prefix_sum_value(node5));
+            REQUIRE(zipcode.get_code_type(1) == ZipCode::NODE);
+            if (chain_is_reversed) {
+                // Node is reversed, so loop is forward loop
+                REQUIRE(zipcode.get_has_forward_loop(1));
+                REQUIRE(!zipcode.get_has_reverse_loop(1));
+            } else {
+                // Node is forward, so loop is reverse
+                REQUIRE(!zipcode.get_has_forward_loop(1));
+                REQUIRE(zipcode.get_has_reverse_loop(1));
+            }
+        }
+        SECTION("Distances") {
+            ZipCode zip1;
+            zip1.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
+            zip1.fill_in_full_decoder();
+            ZipCode zip2;
+            zip2.fill_in_zipcode_from_pos(distance_index, make_pos_t(n2->id(), 0, false));
+            zip2.fill_in_full_decoder();
+            ZipCode zip3;
+            zip3.fill_in_zipcode_from_pos(distance_index, make_pos_t(n3->id(), 0, false));
+            zip3.fill_in_full_decoder();
+            ZipCode zip4;
+            zip4.fill_in_zipcode_from_pos(distance_index, make_pos_t(n4->id(), 0, false));
+            zip4.fill_in_full_decoder();
+            ZipCode zip5;
+            zip5.fill_in_zipcode_from_pos(distance_index, make_pos_t(n5->id(), 0, false));
+            zip5.fill_in_full_decoder();
+
+            // Dinking around with inversions
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip3, make_pos_t(n3->id(), false, 0),
+                                                         distance_index)
+                    == 4);
+            // Doesn't take the inversion, I guess
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip1, make_pos_t(n1->id(), true, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == 5);
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
+                                                         zip1, make_pos_t(n1->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 2);
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == 1);
+            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            // Also doesn't take the self-loops
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip3, make_pos_t(n3->id(), true, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            // Also doesn't take the self-loops
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 1);
+            // Also doesn't take the self-loops
+            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 1),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+        }
+        SECTION("n1 as payload") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
+            auto payload = zipcode.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                ZipCode decoded;
+                decoded.fill_in_zipcode_from_payload(payload);
+                REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
+            };
+        }
+        SECTION("n2 as payload") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n2->id(), 0, false));
+            auto payload = zipcode.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                ZipCode decoded;
+                decoded.fill_in_zipcode_from_payload(payload);
+                REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
+            };
+        }
+        SECTION("n3 as payload") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n3->id(), 0, false));
+            auto payload = zipcode.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                ZipCode decoded;
+                decoded.fill_in_zipcode_from_payload(payload);
+                REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
+            };
+        }
+        SECTION("n4 as payload") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n4->id(), 0, false));
+            auto payload = zipcode.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                ZipCode decoded;
+                decoded.fill_in_zipcode_from_payload(payload);
+                REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
+            };
+        }
+        SECTION("n5 as payload") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n5->id(), 0, false));
             auto payload = zipcode.get_payload_from_zip();
             if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;

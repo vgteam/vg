@@ -123,8 +123,8 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
         } else if (distance_index.is_regular_snarl(current_ancestor, false, graph_ptr)) {
             snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
             zipcode.add_value(snarl_code.get_raw_code_type()
-                              + (snarl_code.get_raw_has_forward_loop() << 1)
-                              + (snarl_code.get_raw_has_reverse_loop() << 2));
+                              + (snarl_code.get_raw_has_forward_loop() << 2)
+                              + (snarl_code.get_raw_has_reverse_loop() << 3));
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
             zipcode.add_value(snarl_code.get_raw_length());
             zipcode.add_value(snarl_code.get_raw_child_count());
@@ -136,8 +136,8 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
 #endif
             snarl_code_t snarl_code = get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
             zipcode.add_value(snarl_code.get_raw_code_type()
-                              + (snarl_code.get_raw_has_forward_loop() << 1)
-                              + (snarl_code.get_raw_has_reverse_loop() << 2));
+                              + (snarl_code.get_raw_has_forward_loop() << 2)
+                              + (snarl_code.get_raw_has_reverse_loop() << 3));
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
             zipcode.add_value(snarl_code.get_raw_length());
             zipcode.add_value(snarl_code.get_raw_child_count());
