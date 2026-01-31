@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 45
+plan tests 46
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -255,3 +255,11 @@ vg paths --compute-augref --min-augref-len 0 -x cyclic_ref_nested.pg -Q x > cycl
 vg deconstruct cyclic_ref_nested.augref.pg -p x -a > cyclic_ref_nested.vcf
 is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
 rm -f cyclic_ref_nested.pg cyclic_ref_nested.augref.pg cyclic_ref_nested.vcf
+
+# Test 5: Cyclic reference outputs multiple variants (one per reference traversal)
+# Reference x visits the snarl twice (via node 2 then 3), alt a visits twice (via node 3 then 4)
+# With -c 0 to disable context-jaccard (which doesn't work well on tiny graphs), we should get 2 variants
+vg convert -g nesting/cyclic_ref_multiple_variants.gfa -p > cyclic_ref_multi.pg
+vg deconstruct cyclic_ref_multi.pg -p x -a -c 0 > cyclic_ref_multi.vcf
+is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
+rm -f cyclic_ref_multi.pg cyclic_ref_multi.vcf
