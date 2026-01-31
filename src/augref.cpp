@@ -70,6 +70,14 @@ const string& AugRefCover::get_augref_sample() const {
     return this->augref_sample_name;
 }
 
+void AugRefCover::set_verbose(bool verbose) {
+    this->verbose = verbose;
+}
+
+bool AugRefCover::get_verbose() const {
+    return this->verbose;
+}
+
 void AugRefCover::clear(MutablePathMutableHandleGraph* graph) {
     vector<path_handle_t> augref_paths_to_remove;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
@@ -961,6 +969,10 @@ vector<pair<int64_t, nid_t>> AugRefCover::get_reference_nodes(nid_t node_id, boo
 }
 
 void AugRefCover::verify_cover() const {
+    if (!verbose) {
+        return;
+    }
+
     // Check that every node in the graph is covered by the augref cover
     int64_t total_nodes = 0;
     int64_t total_length = 0;
@@ -978,25 +990,9 @@ void AugRefCover::verify_cover() const {
         total_length += node_len;
 
         if (!node_to_interval.count(node_id)) {
-            // Node is not covered - collect paths that touch it for debugging
+            // Node is not covered (expected when min-augref-len > 0)
             uncovered_nodes++;
             uncovered_length += node_len;
-            vector<string> touching_paths;
-            graph->for_each_step_on_handle(handle, [&](step_handle_t step) {
-                path_handle_t path_handle = graph->get_path_handle_of_step(step);
-                touching_paths.push_back(graph->get_path_name(path_handle));
-                return true;
-            });
-            cerr << "[augref] error: Node " << node_id
-                 << " (length " << node_len << ") not covered by augref cover. Paths touching node:";
-            if (touching_paths.empty()) {
-                cerr << " <none>";
-            } else {
-                for (const string& path_name : touching_paths) {
-                    cerr << " " << path_name;
-                }
-            }
-            cerr << endl;
         } else {
             int64_t interval_idx = node_to_interval.at(node_id);
             if (interval_idx < num_ref_intervals) {

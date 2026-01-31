@@ -81,6 +81,12 @@ public:
     // Get the current augref sample name (empty string if not set).
     const string& get_augref_sample() const;
 
+    // Enable verbose output (coverage summary, etc.)
+    void set_verbose(bool verbose);
+
+    // Check if verbose output is enabled.
+    bool get_verbose() const;
+
     // Get the rank (level) of a given node (0 if on a reference path).
     int64_t get_rank(nid_t node_id) const;
 
@@ -146,7 +152,7 @@ protected:
     vector<pair<int64_t, nid_t>> get_reference_nodes(nid_t node_id, bool first) const;
 
     // Debug function: verify that every node in the graph is covered by the augref cover.
-    // Raises an error for each uncovered node, showing the node id and any paths that touch it.
+    // Prints a summary of coverage statistics to stderr.
     void verify_cover() const;
 
 protected:
@@ -169,6 +175,9 @@ protected:
     // Optional sample name for augref paths. When set, base paths are copied to this
     // sample and augref paths are created under it.
     string augref_sample_name;
+
+    // Whether to print verbose output (coverage summary, etc.)
+    bool verbose = false;
 
     // Map from original reference path handles to their copies under augref_sample_name.
     // Only populated when augref_sample_name is set.

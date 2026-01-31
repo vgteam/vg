@@ -66,13 +66,14 @@ void help_paths(char** argv) {
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
          << "augmented reference computation:" << endl
-         << "      --compute-augref     compute augmented reference path cover" << endl
+         << "  -u, --compute-augref     compute augmented reference path cover" << endl
          << "                           (use -Q to select reference paths)" << endl
-         << "      --min-augref-len N   minimum augref fragment length [10]" << endl
-         << "      --augref-sample STR  create augref paths under a new sample" << endl
+         << "  -l, --min-augref-len N   minimum augref fragment length [10]" << endl
+         << "  -N, --augref-sample STR  create augref paths under a new sample" << endl
          << "                           (copies base paths to new sample," << endl
          << "                           then adds augref paths)." << endl
          << "                           if unspecified, paths get added to target sample." << endl
+         << "      --verbose            print augref progress and coverage summary" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -146,11 +147,9 @@ int main_paths(int argc, char** argv) {
     bool compute_augref = false;
     int64_t min_augref_length = 10;
     string augref_sample;
+    bool augref_verbose = false;
 
-    // Constants for long-only options
-    constexpr int OPT_COMPUTE_AUGREF = 1001;
-    constexpr int OPT_MIN_AUGREF_LEN = 1002;
-    constexpr int OPT_AUGREF_SAMPLE = 1003;
+    constexpr int OPT_VERBOSE = 1001;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -189,15 +188,16 @@ int main_paths(int argc, char** argv) {
             {"threads-by", required_argument, 0, 'q'},
 
             // Augref options
-            {"compute-augref", no_argument, 0, OPT_COMPUTE_AUGREF},
-            {"min-augref-len", required_argument, 0, OPT_MIN_AUGREF_LEN},
-            {"augref-sample", required_argument, 0, OPT_AUGREF_SAMPLE},
+            {"compute-augref", no_argument, 0, 'u'},
+            {"min-augref-len", required_argument, 0, 'l'},
+            {"augref-sample", required_argument, 0, 'N'},
+            {"verbose", no_argument, 0, OPT_VERBOSE},
 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:N:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -331,17 +331,21 @@ int main_paths(int argc, char** argv) {
             set_thread_count(logger, optarg);
             break;
 
-        case OPT_COMPUTE_AUGREF:
+        case 'u':
             compute_augref = true;
             output_formats++;
             break;
 
-        case OPT_MIN_AUGREF_LEN:
+        case 'l':
             min_augref_length = parse<int64_t>(optarg);
             break;
 
-        case OPT_AUGREF_SAMPLE:
+        case 'N':
             augref_sample = optarg;
+            break;
+
+        case OPT_VERBOSE:
+            augref_verbose = true;
             break;
 
         case 'h':
@@ -492,6 +496,7 @@ int main_paths(int argc, char** argv) {
         if (!augref_sample.empty()) {
             cover.set_augref_sample(augref_sample);
         }
+        cover.set_verbose(augref_verbose);
         cover.clear(mutable_graph);
         cover.compute(graph, &snarl_manager, ref_paths, min_augref_length);
         cover.apply(mutable_graph);
