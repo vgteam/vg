@@ -221,7 +221,24 @@ public:
                                                               int ploidy,
                                                               const string& ref_path_name,
                                                               pair<size_t, size_t> ref_range);
-    
+
+    /// Compute quality metrics for a given genotype without re-selecting
+    /// Used for nested calls where genotype is derived from parent traversals
+    /// @param snarl The snarl being called
+    /// @param traversals All traversals to consider
+    /// @param genotype The predetermined genotype (indices into traversals)
+    /// @param ref_trav_idx Index of reference traversal
+    /// @param ref_path_name Reference path name for depth lookup
+    /// @param ref_range Reference interval for depth lookup
+    /// @return CallInfo containing gq, posterior, expected_depth, etc.
+    unique_ptr<CallInfo> compute_quality_for_genotype(
+        const Snarl& snarl,
+        const vector<SnarlTraversal>& traversals,
+        const vector<int>& genotype,
+        int ref_trav_idx,
+        const string& ref_path_name,
+        pair<size_t, size_t> ref_range);
+
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
@@ -234,6 +251,35 @@ public:
     virtual void update_vcf_header(string& header) const;
 
 protected:
+
+    /// Calculate the size of the reference traversal (excluding boundary nodes)
+    int get_ref_trav_size(const vector<SnarlTraversal>& traversals, int ref_trav_idx) const;
+
+    /// Compute CallInfo (GQ, posterior, etc.) from a set of candidate genotypes
+    /// @param selected_genotype The genotype to compute quality for (best or given)
+    /// @param candidates All candidate genotypes to compare against
+    /// @param traversals The traversals
+    /// @param trav_subset Subset to consider (can be empty for all)
+    /// @param traversal_sizes Pre-computed traversal sizes
+    /// @param traversal_mapqs Pre-computed mapqs
+    /// @param ref_trav_idx Reference traversal index
+    /// @param exp_depth Expected depth
+    /// @param depth_err Depth error
+    /// @param max_trav_size Max traversal size
+    /// @param ref_trav_size Reference traversal size
+    /// @return Populated PoissonCallInfo
+    unique_ptr<PoissonCallInfo> compute_call_info(
+        const vector<int>& selected_genotype,
+        const set<vector<int>>& candidates,
+        const vector<SnarlTraversal>& traversals,
+        const set<int>& trav_subset,
+        const vector<int>& traversal_sizes,
+        const vector<double>& traversal_mapqs,
+        int ref_trav_idx,
+        double exp_depth,
+        double depth_err,
+        int max_trav_size,
+        int ref_trav_size);
 
     /// Compute likelihood of genotype as product of poisson probabilities
     /// P[allele1] * P[allle2] * P[uncalled alleles]
