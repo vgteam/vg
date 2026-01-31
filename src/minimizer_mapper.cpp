@@ -3818,7 +3818,7 @@ vector<Alignment> MinimizerMapper::identify_supplementary_alignments(vector<Alig
             supplementaries.reserve(supplementary_idxs.size());
             for (size_t i = 0, s = 0; i < alignments.size(); ++i) {
 
-                if (i == supplementary_idxs[s]) {
+                if (s < supplementary_idxs.size() && i == supplementary_idxs[s]) {
                     // Move this alignment to the supplementaries vector
                     supplementaries.emplace_back(std::move(alignments[i]));
                     ++s;
