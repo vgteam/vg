@@ -299,7 +299,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 #endif
                             root_snarl_component_uf.union_groups(other_i, temp_chain_record.root_snarl_index);
 #ifdef debug_distance_indexing
-                            cerr << "        Union this chain with " << temp_index.get_chain(node_record.parent).start_node_id << " " << temp_index.get_chain(node_record.parent).end_node_id << endl;
+                            if (node_record.parent.first == SnarlDistanceIndex::TEMP_CHAIN) {
+                                cerr << "        Union this chain with " << temp_index.get_chain(node_record.parent).start_node_id << " " << temp_index.get_chain(node_record.parent).end_node_id << endl;
+                            } else {
+                                cerr << "        Union this chain with root " << node_record.root_snarl_index << endl;
+                            }
 #endif
                         } else {
                             new_component = false;
