@@ -99,6 +99,8 @@ def parse_args(args):
         help="width of connecting line")
     parser.add_argument("--tsv", action="store_true",
         help="use only tabs as separators in input file")
+    parser.add_argument("--show_rec", action="store_true",
+        help="highlight points whose last TSV column is REC by overplotting them")
     parser.add_argument("--no_sort", dest="sort", action="store_false",
         help="do not sort categories from input file")
     parser.add_argument("--categories", nargs="+", default=None,
@@ -419,8 +421,9 @@ def main(args):
     # Make the figure with the appropriate size.
     figure = pyplot.figure(figsize=(options.width, options.height))
     
-    # This holds lists of x, y, weight lists for each data series.
-    series = collections.defaultdict(lambda: [list(), list(), list()])
+    # This holds lists of x, y, weight lists and rec flags for each data series.
+    # series[name] -> [x_list, y_list, weight_list, rec_flag_list]
+    series = collections.defaultdict(lambda: [list(), list(), list(), list()])
     
     # This holds the order in which series were first encountered
     initial_series_order = collections.OrderedDict()
@@ -434,10 +437,19 @@ def main(args):
     
     for line in options.data:
         # Unpack the line, splitting on tabs only if requested
-        parts = line.split("\t" if options.tsv else None)
+        parts = line.rstrip("\n").split("\t" if options.tsv else None)
+        # Strip whitespace from each field
+        parts = [p.strip() for p in parts]
         
         # We can weight samples
         weight = 1
+        rec_flag = False
+
+        # If the last column is the REC sentinel, mark and remove it so the
+        # remaining parsing can proceed normally.
+        if len(parts) >= 1 and parts[-1] == "REC":
+            rec_flag = True
+            parts = parts[:-1]
         
         if options.dotplot:
             # We parse a two-column name/sample format
@@ -464,6 +476,7 @@ def main(args):
                 if len(parts) >= 4:
                     # There's also a weight
                     weight = float(parts[3])
+                    # If there was a REC column originally, rec_flag already captured it
                     
         else:
             # Use the default series
@@ -477,6 +490,7 @@ def main(args):
         series[series_name][0].append(x_value)
         series[series_name][1].append(y_value)
         series[series_name][2].append(weight)
+        series[series_name][3].append(rec_flag)
         
         # Note this series in the ordering if we haven't already
         initial_series_order[series_name] = None
@@ -687,6 +701,18 @@ def main(args):
             plotted_items += plot_result
         else:
             plotted_items.append(plot_result)
+                  
+        # If requested, highlight points marked REC in the input's last column
+        if options.show_rec:
+            rec_flags = series[series_name][3]
+            if any(rec_flags):
+                rec_x = [series[series_name][0][i] for i, f in enumerate(rec_flags) if f]
+                rec_y = [series[series_name][1][i] for i, f in enumerate(rec_flags) if f]
+                # Choose a sensible marker size if none set
+                rec_ms = options.marker_size if options.marker_size is not None else 40
+                # Overplot REC points with red crosses
+                rec_plot = series_plot.scatter(rec_x, rec_y, marker='x', color='red', s=rec_ms, zorder=10)
+                plotted_items.append(rec_plot)
                   
         if options.fit:
             # We need to do a curve fit
