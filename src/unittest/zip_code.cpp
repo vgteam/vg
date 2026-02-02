@@ -1750,7 +1750,7 @@ using namespace std;
             REQUIRE(zipcode.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id())) ? 1 : 3));
             REQUIRE(zipcode.get_code_type(1) == ZipCode::CYCLIC_SNARL);
 
-            //chain3 at depth 3
+            //chain2 at depth 2
             REQUIRE(zipcode.get_length(2) == 1);
             REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain2));
             REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
@@ -1766,12 +1766,12 @@ using namespace std;
 
             if (chain_is_reversed) {
                 // Chain is reversed so loop is reverse loop
-                REQUIRE(!zipcode.get_has_forward_loop(2));
-                REQUIRE(zipcode.get_has_reverse_loop(2));
+                REQUIRE(!zipcode.get_has_forward_loop(1));
+                REQUIRE(zipcode.get_has_reverse_loop(1));
             } else {
                 // Chain is forward so loop is forward loop
-                REQUIRE(zipcode.get_has_forward_loop(2));
-                REQUIRE(!zipcode.get_has_reverse_loop(2));
+                REQUIRE(zipcode.get_has_forward_loop(1));
+                REQUIRE(!zipcode.get_has_reverse_loop(1));
             }
         }
         SECTION ("zip code for node between inversions") { 
@@ -1943,7 +1943,7 @@ using namespace std;
             REQUIRE(zipcode.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n4->id())) ? 1 : 5));
             REQUIRE(zipcode.get_code_type(1) == ZipCode::CYCLIC_SNARL);
 
-            //chain3 at depth 3
+            //chain4 at depth 2
             REQUIRE(zipcode.get_length(2) == 4);
             REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain4));
             REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
@@ -1959,12 +1959,12 @@ using namespace std;
 
             if (chain_is_reversed) {
                 // Chain is reversed so loop is forward loop
-                REQUIRE(zipcode.get_has_forward_loop(2));
-                REQUIRE(!zipcode.get_has_reverse_loop(2));
+                REQUIRE(zipcode.get_has_forward_loop(1));
+                REQUIRE(!zipcode.get_has_reverse_loop(1));
             } else {
                 // Chain is forward so loop is reverse loop
-                REQUIRE(!zipcode.get_has_forward_loop(2));
-                REQUIRE(zipcode.get_has_reverse_loop(2));
+                REQUIRE(!zipcode.get_has_forward_loop(1));
+                REQUIRE(zipcode.get_has_reverse_loop(1));
             }
         }
         SECTION ("zip code for node to right of both inversions") { 
