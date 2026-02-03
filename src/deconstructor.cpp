@@ -927,7 +927,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             // the current allele, and are treated as *'s in VCF.
             if (this->star_allele && in_context != nullptr && !in_context->empty()) {
                 sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
-                                                     in_context->sample_to_haplotypes);
+                                                     *in_context->sample_to_haplotypes);
             }
         }
 
@@ -953,11 +953,12 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // when include_nested is true (same as vg call)
 
         // Only populate child contexts when:
-        // 1. We have a place to put them (out_child_contexts != nullptr)
-        // 2. This is the first reference traversal (i == 0 to avoid duplicate work)
-        // 3. There's exactly one reference traversal (no cycles) - for cyclic references,
+        // 1. Star alleles are enabled (context only needed for star allele detection)
+        // 2. We have a place to put them (out_child_contexts != nullptr)
+        // 3. This is the first reference traversal (i == 0 to avoid duplicate work)
+        // 4. There's exactly one reference traversal (no cycles) - for cyclic references,
         //    we don't pass context to children and let them process independently
-        if (i == 0 && out_child_contexts != nullptr && ref_travs.size() == 1) {
+        if (this->star_allele && i == 0 && out_child_contexts != nullptr && ref_travs.size() == 1) {
             // Build sample_to_haps from ALL current traversals (for star alleles)
             // This includes ALL haplotypes at the parent level, which is needed for
             // add_star_traversals to detect missing haplotypes at nested sites
@@ -975,10 +976,13 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 }
             }
 
-            // Pass the same sample_to_haplotypes to ALL children
-            // (children will use this for star allele detection)
+            // Create a shared_ptr to the map so all children share the same data
+            // (avoids copying the map for each child, major memory optimization)
+            auto shared_haps = std::make_shared<const unordered_map<string, vector<int>>>(std::move(sample_to_haps));
+
+            // Pass the shared map to ALL children
             for (int64_t j = 0; j < out_child_contexts->size(); ++j) {
-                out_child_contexts->at(j).sample_to_haplotypes = sample_to_haps;
+                out_child_contexts->at(j).sample_to_haplotypes = shared_haps;
             }
         }
 

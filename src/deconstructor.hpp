@@ -6,6 +6,7 @@
 #include <sstream>
 #include <algorithm>
 #include <atomic>
+#include <memory>
 #include "genotypekit.hpp"
 #include "Variant.h"
 #include "handle.hpp"
@@ -66,15 +67,17 @@ private:
 
     // Context passed from parent to child site for nested deconstruction.
     // Used for star allele detection: samples in parent but not in child get * allele.
+    // Note: context is only populated when star_allele is enabled.
     // Note: context is NOT passed when parent has multiple reference traversals (cycles).
     struct ChildContext {
         // Map from sample name to vector of haplotype phases that traversed the parent snarl.
         // Child compares against its own traversals to detect star alleles.
         // Format matches what add_star_traversals() expects.
-        unordered_map<string, vector<int>> sample_to_haplotypes;
+        // Uses shared_ptr so all children of a snarl share the same map (memory optimization).
+        std::shared_ptr<const unordered_map<string, vector<int>>> sample_to_haplotypes;
 
         // Check if context is populated
-        bool empty() const { return sample_to_haplotypes.empty(); }
+        bool empty() const { return !sample_to_haplotypes || sample_to_haplotypes->empty(); }
     };
 
     // write a vcf record for the given site.  returns true if a record was written
