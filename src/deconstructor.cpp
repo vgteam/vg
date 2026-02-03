@@ -1201,6 +1201,37 @@ string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const 
     return patched_header.str();
 }
 
+void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
+    // Simple flat processing of all snarls without context passing.
+    // More memory-efficient than top-down approach when star alleles aren't needed.
+
+    vector<const Snarl*> snarls;
+    vector<const Snarl*> queue;
+
+    // Read all snarls into a list
+    snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
+        queue.push_back(snarl);
+    });
+    if (include_nested) {
+        while (!queue.empty()) {
+            const Snarl* snarl = queue.back();
+            queue.pop_back();
+            snarls.push_back(snarl);
+            const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
+            queue.insert(queue.end(), children.begin(), children.end());
+        }
+    } else {
+        swap(snarls, queue);
+    }
+
+    // Process all snarls in parallel (no context passing)
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < snarls.size(); i++) {
+        deconstruct_site(graph->get_handle(snarls[i]->start().node_id(), snarls[i]->start().backward()),
+                         graph->get_handle(snarls[i]->end().node_id(), snarls[i]->end().backward()));
+    }
+}
+
 void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
     // logic copied from vg call (graph_caller.cpp)
 
@@ -1298,7 +1329,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     string hstr = this->get_vcf_header();
     assert(output_vcf.openForOutput(hstr));
 
-    deconstruct_graph_top_down(snarl_manager);
+    // Use top-down processing only when star alleles are needed (requires context passing).
+    // Otherwise use simpler flat processing which is more memory-efficient.
+    if (star_allele) {
+        deconstruct_graph_top_down(snarl_manager);
+    } else {
+        deconstruct_graph(snarl_manager);
+    }
 
     string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
     cout << patched_header << endl;

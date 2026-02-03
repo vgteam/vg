@@ -60,9 +60,12 @@ private:
     // construction.  end result: this hacky function to patch them in before printing
     string add_contigs_to_vcf_header(const string& vcf_header) const;
     
-    // deconstruct all top-level snarls in parallel
-    // nested snarls are processed after their parents in the same thread
-    // (same logic as vg call)
+    // Simple flat processing: collect all snarls then process in parallel.
+    // More memory-efficient when star alleles aren't needed.
+    void deconstruct_graph(SnarlManager* snarl_manager);
+
+    // Top-down processing: process snarls level by level, passing context to children.
+    // Required for star allele detection (context tracks parent haplotypes).
     void deconstruct_graph_top_down(SnarlManager* snarl_manager);
 
     // Context passed from parent to child site for nested deconstruction.
