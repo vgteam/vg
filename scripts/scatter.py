@@ -15,6 +15,7 @@ Re-uses sample code and documentation from
 import argparse, sys, os, itertools, math, collections, random, re
 import matplotlib, matplotlib.ticker, matplotlib.cm, numpy
 import copy
+import traceback
 
 # Scipy allows curve fitting, but we might not have it
 try:
@@ -910,6 +911,10 @@ def main(args):
         print(alt_text)
     except ImportError:
         sys.stderr.write("Install the matplotalt package to generate figure alt text\n")
+        alt_text = None
+    except Exception as e:
+        print("Could not generate alt text due to internal error")
+        traceback.print_exc()
         alt_text = None
    
     if options.save is not None:
