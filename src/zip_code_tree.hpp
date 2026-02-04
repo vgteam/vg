@@ -143,7 +143,7 @@ class ZipCodeTree {
     public:
 
     /// The type of an item in the zip code tree
-    enum tree_item_type_t {SEED=0, CHAIN_START, CHAIN_END, EDGE, CHAIN_COUNT, SNARL_START, SNARL_END};
+    enum tree_item_type_t {SEED=0, CHAIN_START, CHAIN_END, EDGE, CHAIN_COUNT, SNARL_START, SNARL_END, LOOP};
 
     /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
@@ -153,7 +153,7 @@ class ZipCodeTree {
         tree_item_type_t type : 4;
 
         /// For a seed, the index into seeds
-        /// For an edge, the distance value
+        /// For an edge or loop, the distance value
         /// For a snarl or child chain bound, distance to the snarl start
         /// For example, (1 0 0 0 [seed]) would have 0 for the snarl start,
         /// 5 for the chain start, 7 for the chain end, and 8 for the snarl end
@@ -165,6 +165,8 @@ class ZipCodeTree {
 
         /// For a seed, if we're walking through the tree from right to left
         /// (the default), will we traverse this position backwards?
+        /// For a loop, if this is a forward loop (placed to right of item)
+        /// or a reversed loop (placed to left of item)
         /// Or, for a bound is the snarl or parent snarl cyclic?
         /// Ignored for EDGE/CHAIN_COUNT and should be set to false
         bool is_reversed_or_cyclic;

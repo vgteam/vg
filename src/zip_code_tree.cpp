@@ -51,6 +51,12 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
             cerr << " ";
         } else if (item.get_type() == CHAIN_COUNT) {
             cerr << item.get_value() << " ";
+        } else if (item.get_type() == LOOP) {
+            if (item.get_is_reversed()) {
+                cerr << item.get_value() << "< ";
+            } else {
+                cerr << " >" << item.get_value();
+            }
         } else {
             throw std::runtime_error("[zip tree]: Trying to print a zip tree item of unsupported type: " 
                                      + std::to_string(item.get_type()));
@@ -2819,6 +2825,8 @@ std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type) {
         return "EDGE";
     case vg::ZipCodeTree::CHAIN_COUNT:
         return "CHAIN_COUNT";
+    case vg::ZipCodeTree::LOOP:
+        return "LOOP";
     default:
         throw std::runtime_error("Unimplemented zip code tree item type");
     }
