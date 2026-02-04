@@ -89,7 +89,8 @@ void help_call(char** argv) {
          << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
          << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
          << "                            default is to cluster before genotyping" << endl
-         << "  -Y, --star-allele         use * alleles for spanning haplotypes (requires --top-down)" << endl
+         << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
+         << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
