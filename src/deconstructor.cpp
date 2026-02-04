@@ -897,7 +897,9 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // Track sample haplotypes for passing to children (used by star alleles)
         unordered_map<string, vector<int>> sample_to_haps;
 
-        if (this->include_nested) {
+        // Only run nested-specific logic when we have context from parent
+        // (i.e., when using top-down processing, not flat processing)
+        if (in_context != nullptr) {
             // if the reference traversal is also an alt traversal, we pop out an extra copy
             // todo: this is a hack add add off-reference support while keeping the current
             // logic where the reference traversal is always distinct from the alts. this step
@@ -1332,8 +1334,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     // Use top-down processing only when star alleles are needed (requires context passing).
     // Otherwise use simpler flat processing which is more memory-efficient.
     if (star_allele) {
+        cerr << "[vg deconstruct] Using top-down processing (star alleles enabled)" << endl;
         deconstruct_graph_top_down(snarl_manager);
     } else {
+        cerr << "[vg deconstruct] Using flat processing" << endl;
         deconstruct_graph(snarl_manager);
     }
 
