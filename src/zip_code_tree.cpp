@@ -2098,6 +2098,8 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                     skip_chain();
                 }
             }
+        } else if (current_item().get_type() == LOOP) {
+            // TODO: queue up another traversal ponging backwards
         } else {
             unimplemented_error(); 
         }
