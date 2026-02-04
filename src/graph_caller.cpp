@@ -234,6 +234,9 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (include_nested) {
         ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+        ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
+        ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
+        ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     return ss.str();
@@ -1072,9 +1075,49 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         }
     }
 
+    // pass 2) identify top-level snarls (those with no ancestors in VCF)
+    // and store reference info only for them
+    struct RefInfo {
+        string chrom;
+        size_t pos;
+        size_t ref_len;
+    };
+    unordered_map<string, RefInfo> top_level_ref_info;
+
+    // Helper to check if a snarl is top-level (no ancestors in VCF)
+    auto is_top_level = [&](const string& name) -> bool {
+        auto it = name_to_snarl.find(name);
+        if (it == name_to_snarl.end()) return true; // not found, treat as top-level
+        const Snarl* snarl = it->second;
+        while ((snarl = snarl_manager->parent_of(snarl))) {
+            string cur_name = print_snarl(*snarl);
+            string flipped_name = print_flipped_snarl(*snarl);
+            if (names_in_vcf.count(cur_name) || names_in_vcf.count(flipped_name)) {
+                return false; // has ancestor in VCF
+            }
+        }
+        return true; // no ancestors in VCF
+    };
+
+    // Second pass through variants to extract ref info only for top-level snarls
+    for (auto& thread_buf : output_variants) {
+        for (auto& output_variant_record : thread_buf) {
+            string output_variant_string;
+            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            assert(ret == 0);
+            vector<string> toks = split_delims(output_variant_string, "\t", 5);
+            const string& name = toks[2];
+            if (is_top_level(name)) {
+                top_level_ref_info[name] = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+            }
+        }
+    }
+
     // determine the tags from the index
-    function<pair<size_t, string>(const string&)> get_lv_ps_tags = [&](const string& name) {
+    // Returns: (lv, parent_name, top_level_name)
+    function<tuple<size_t, string, string>(const string&)> get_nesting_tags = [&](const string& name) {
         string parent_name;
+        string top_level_name = name;  // default to self (for LV=0 case)
         size_t ancestor_count = 0;
         const Snarl* snarl = name_to_snarl.at(name);
 
@@ -1092,18 +1135,21 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                     // remember the first parent
                     parent_name = cur_name;
                 }
+                // keep updating top_level to find the topmost ancestor in VCF
+                top_level_name = cur_name;
             } else if (names_in_vcf.count(flipped_name)) {
                 // snarl is in vcf under flipped orientation
                 ++ancestor_count;
                 if (parent_name.empty()) {
                     parent_name = flipped_name;
                 }
+                top_level_name = flipped_name;
             }
         }
-        return make_pair(ancestor_count, parent_name);
+        return make_tuple(ancestor_count, parent_name, top_level_name);
     };
 
-    // pass 2) add the LV and PS tags
+    // pass 3) add the LV, PS, RC, RS, RD tags
 #pragma omp parallel for
     for (uint64_t i = 0; i < output_variants.size(); ++i) {
         auto& thread_buf = output_variants[i];
@@ -1114,14 +1160,19 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             //string& output_variant_string = output_variant_record.second;
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
-            
 
-            pair<size_t, string> lv_ps = get_lv_ps_tags(name);
-            string nesting_tags = ";LV=" + std::to_string(lv_ps.first);
-            if (lv_ps.first != 0) {
-                assert(!lv_ps.second.empty());
-                nesting_tags += ";PS=" + lv_ps.second;
+            auto [lv, parent_name, top_level_name] = get_nesting_tags(name);
+            string nesting_tags = ";LV=" + std::to_string(lv);
+            if (lv != 0) {
+                assert(!parent_name.empty());
+                nesting_tags += ";PS=" + parent_name;
             }
+
+            // Add RC, RS, RD tags (reference info from top-level snarl)
+            const RefInfo& top_ref = top_level_ref_info.at(top_level_name);
+            nesting_tags += ";RC=" + top_ref.chrom;
+            nesting_tags += ";RS=" + std::to_string(top_ref.pos);
+            nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
 
             // rewrite the output string using the updated info toks
             output_variant_string.clear();

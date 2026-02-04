@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 78
+plan tests 86
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -719,4 +719,49 @@ AS_TRIPLE_NESTED_PS=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ &
 is "$AS_TRIPLE_NESTED_PS" "$AS_TRIPLE_NESTED" "-A flag: all nested variants (LV>0) have PS tags"
 
 rm -f as_triple.gfa as_triple.gam as_triple.pack as_triple.vcf
+
+# =============================================================================
+# RC, RS, RD tag tests (reference coordinate tags for nested snarls)
+# =============================================================================
+
+# Test: RC, RS, RD headers are present
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa > rc_test.gfa 2>/dev/null
+vg sim -x rc_test.gfa -P "a#1#y0#0" -n 100 -l 2 -a -s 400 > rc_test.gam 2>/dev/null
+vg sim -x rc_test.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 401 >> rc_test.gam 2>/dev/null
+vg pack -x rc_test.gfa -g rc_test.gam -o rc_test.pack 2>/dev/null
+vg call rc_test.gfa -k rc_test.pack --top-down -P x > rc_test.vcf 2>/dev/null
+
+# Check for RC, RS, RD headers
+RC_HEADER=$(grep -c "##INFO=<ID=RC" rc_test.vcf)
+is "$RC_HEADER" "1" "RC header is present in VCF"
+
+RS_HEADER=$(grep -c "##INFO=<ID=RS" rc_test.vcf)
+is "$RS_HEADER" "1" "RS header is present in VCF"
+
+RD_HEADER=$(grep -c "##INFO=<ID=RD" rc_test.vcf)
+is "$RD_HEADER" "1" "RD header is present in VCF"
+
+# Check that all variants have RC, RS, RD tags
+RC_COUNT=$(grep -v "^#" rc_test.vcf | wc -l)
+RC_TAG_COUNT=$(grep -v "^#" rc_test.vcf | grep -c "RC=")
+is "$RC_TAG_COUNT" "$RC_COUNT" "All variants have RC tag"
+
+RS_TAG_COUNT=$(grep -v "^#" rc_test.vcf | grep -c "RS=")
+is "$RS_TAG_COUNT" "$RC_COUNT" "All variants have RS tag"
+
+RD_TAG_COUNT=$(grep -v "^#" rc_test.vcf | grep -c "RD=")
+is "$RD_TAG_COUNT" "$RC_COUNT" "All variants have RD tag"
+
+# Check that top-level variant has RC pointing to its own contig
+TOP_RC=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/' | grep -o "RC=[^;]*" | cut -d= -f2)
+TOP_CHROM=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/ {print $1}')
+is "$TOP_RC" "$TOP_CHROM" "Top-level variant RC equals its own CHROM"
+
+# Check that nested variants point to top-level's coordinates
+# All nested variants should have RC=x (the top-level reference)
+NESTED_RC_X=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
+NESTED_COUNT=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+is "$NESTED_RC_X" "$NESTED_COUNT" "All nested variants have RC=x (top-level contig)"
+
+rm -f rc_test.gfa rc_test.gam rc_test.pack rc_test.vcf
 

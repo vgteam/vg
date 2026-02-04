@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 46
+plan tests 53
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -253,3 +253,34 @@ rm -f cyclic_ref_nested.augref.pg cyclic_ref_nested.vcf
 vg deconstruct nesting/cyclic_ref_multiple_variants.gfa -p x -a -c 0 > cyclic_ref_multi.vcf
 is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
 rm -f cyclic_ref_multi.vcf
+
+# =============================================================================
+# RC, RS, RD tag tests (reference coordinate tags for nested snarls)
+# =============================================================================
+
+# Test: RC, RS, RD headers and tags in deconstruct output
+vg paths --compute-augref --min-augref-len 0 -x nesting/triple_nested.gfa -Q x > rc_decon_test.augref.pg
+vg deconstruct rc_decon_test.augref.pg -P x -a > rc_decon_test.vcf
+
+# Check for RC, RS, RD headers
+is $(grep -c "##INFO=<ID=RC" rc_decon_test.vcf) 1 "deconstruct: RC header is present in VCF"
+is $(grep -c "##INFO=<ID=RS" rc_decon_test.vcf) 1 "deconstruct: RS header is present in VCF"
+is $(grep -c "##INFO=<ID=RD" rc_decon_test.vcf) 1 "deconstruct: RD header is present in VCF"
+
+# Check that all variants have RC, RS, RD tags
+RC_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | wc -l)
+RC_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RC=")
+is "$RC_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RC tag"
+
+RS_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RS=")
+is "$RS_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RS tag"
+
+RD_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RD=")
+is "$RD_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RD tag"
+
+# Check that nested variants point to top-level's contig
+NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
+NESTED_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=x (top-level contig)"
+
+rm -f rc_decon_test.augref.pg rc_decon_test.vcf
