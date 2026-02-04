@@ -68,7 +68,8 @@ class ZipCode {
     public:
 
         //Fill in an empty zipcode given a position
-        void fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder = true);
+        void fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, 
+                                      bool fill_in_decoder = true, const handlegraph::HandleGraph* graph_ptr = nullptr);
 
         using code_type = gbwtgraph::KmerEncoding::code_type;
         typedef std::pair<code_type, code_type> payload_type;

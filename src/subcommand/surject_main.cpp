@@ -33,7 +33,7 @@ using namespace vg;
 using namespace vg::subcommand; 
 
 void help_surject(char** argv) {
-    cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
+    cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.gam]" << endl
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
@@ -50,9 +50,9 @@ void help_surject(char** argv) {
          << "                            overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
          << "  -m, --gamp-input          input file is GAMP instead of GAM" << endl
-         << "  -c, --cram-output         write CRAM to stdout" << endl
-         << "  -b, --bam-output          write BAM to stdout" << endl
-         << "  -s, --sam-output          write SAM to stdout" << endl
+         << "  -c, --cram-output         write CRAM instead of GAM to stdout" << endl
+         << "  -b, --bam-output          write BAM instead of GAM to stdout" << endl
+         << "  -s, --sam-output          write SAM instead of GAM to stdout" << endl
          << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
          << "                            (rather than global) alignments" << endl
