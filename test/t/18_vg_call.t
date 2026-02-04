@@ -200,19 +200,19 @@ vg view -Fv small_cluster_call.gfa > small_cluster_call.vg
 vg sim -x small_cluster_call.vg -n 100 -l 20 -a -s 1 > small_cluster_call.gam
 vg pack -x small_cluster_call.vg -g small_cluster_call.gam -o small_cluster_call.pack
 # Call without clustering
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x -A > call_no_cluster.vcf 2>/dev/null
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down > call_no_cluster.vcf 2>/dev/null
 # Call with clustering
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x -A -L 0.3 > call_cluster.vcf 2>/dev/null
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.3 > call_cluster.vcf 2>/dev/null
 is $(grep -v "^#" call_no_cluster.vcf | wc -l) $(grep -v "^#" call_cluster.vcf | wc -l) "clustering does not change number of variant sites in vg call"
 
 rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_no_cluster.vcf call_cluster.vcf
 
-# Test: Nested calling with vg call -A (basic test)
+# Test: Nested calling with vg call --top-down (basic test)
 # Use a larger graph with clear variants
 vg construct -r small/x.fa -v small/x.vcf.gz -a > nested_call_test.vg
 vg sim -x nested_call_test.vg -n 500 -l 50 -a -s 42 > nested_call_test.gam
 vg pack -x nested_call_test.vg -g nested_call_test.gam -o nested_call_test.pack
-vg call nested_call_test.vg -k nested_call_test.pack -p x -A > nested_call_test.vcf 2>/dev/null
+vg call nested_call_test.vg -k nested_call_test.pack -p x --top-down > nested_call_test.vcf 2>/dev/null
 # Should produce at least one variant (the small/x graph has multiple variants)
 NESTED_VARIANT_COUNT=$(grep -v "^#" nested_call_test.vcf | wc -l)
 is $(if [ "$NESTED_VARIANT_COUNT" -ge 1 ]; then echo "1"; else echo "0"; fi) "1" "nested vg call produces at least one variant"
@@ -224,19 +224,19 @@ rm -f nested_call_test.vg nested_call_test.gam nested_call_test.pack nested_call
 vg view -Fv nesting/nested_snp_in_del.gfa > nested_snp.vg
 vg sim -x nested_snp.vg -n 100 -l 5 -a -s 42 > nested_snp.gam
 vg pack -x nested_snp.vg -g nested_snp.gam -o nested_snp.pack
-vg call nested_snp.vg -k nested_snp.pack -A -p x 2>/dev/null > nested_snp.vcf
+vg call nested_snp.vg -k nested_snp.pack --top-down -p x 2>/dev/null > nested_snp.vcf
 # Should have exactly 2 variant lines: one for top-level snarl (1->6) and one for nested snarl (2->5)
 NESTED_LINE_COUNT=$(grep -v "^#" nested_snp.vcf | wc -l)
 is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl variants"
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
 
-# Test: Star allele option validation (-Y requires -A)
+# Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
 vg sim -x star_test.vg -n 100 -l 20 -a -s 1 > star_test.gam
 vg pack -x star_test.vg -g star_test.gam -o star_test.pack
-vg call star_test.vg -k star_test.pack -Y 2>&1 | grep -q "requires -A"
-is "$?" 0 "star allele option requires all-snarls mode"
+vg call star_test.vg -k star_test.pack -Y 2>&1 | grep -q "requires --top-down"
+is "$?" 0 "star allele option requires top-down mode"
 
 rm -f star_test.vg star_test.gam star_test.pack
 
@@ -261,7 +261,7 @@ rm -f cluster_post_test.vg cluster_post_test.gam cluster_post_test.pack
 # Test 0/0: homozygous reference - reads only from x path
 vg sim -x nesting/nested_snp_in_del.gfa -P x -n 100 -l 2 -a -s 1 > nd_00.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_00.gam -o nd_00.pack
-vg call nesting/nested_snp_in_del.gfa -k nd_00.pack -A -p x 2>/dev/null > nd_00.vcf
+vg call nesting/nested_snp_in_del.gfa -k nd_00.pack --top-down -p x 2>/dev/null > nd_00.vcf
 # 0/0 should produce no non-ref variants
 ND_00_NONREF=$(grep -v "^#" nd_00.vcf | grep -v "0/0" | wc -l)
 is "$ND_00_NONREF" "0" "nested_snp_in_del 0/0: homozygous ref produces no non-ref variants"
@@ -270,7 +270,7 @@ is "$ND_00_NONREF" "0" "nested_snp_in_del 0/0: homozygous ref produces no non-re
 vg sim -x nesting/nested_snp_in_del.gfa -P x -n 50 -l 2 -a -s 10 > nd_01.gam
 vg sim -x nesting/nested_snp_in_del.gfa -m a -n 50 -l 2 -a -s 11 >> nd_01.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_01.gam -o nd_01.pack
-vg call nesting/nested_snp_in_del.gfa -k nd_01.pack -A -p x 2>/dev/null > nd_01.vcf
+vg call nesting/nested_snp_in_del.gfa -k nd_01.pack --top-down -p x 2>/dev/null > nd_01.vcf
 # Should have 2 variants (top-level and nested), both het
 ND_01_COUNT=$(grep -v "^#" nd_01.vcf | wc -l)
 is "$ND_01_COUNT" "2" "nested_snp_in_del 0/1: produces both top-level and nested variants"
@@ -280,7 +280,7 @@ is "$ND_01_COUNT" "2" "nested_snp_in_del 0/1: produces both top-level and nested
 # Since -m a gives both haplotypes, we use -A and rely on the path structure
 vg sim -x nesting/nested_snp_in_del.gfa -A -n 100 -l 2 -a -s 20 > nd_11.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_11.gam -o nd_11.pack
-vg call nesting/nested_snp_in_del.gfa -k nd_11.pack -A -p x 2>/dev/null > nd_11.vcf
+vg call nesting/nested_snp_in_del.gfa -k nd_11.pack --top-down -p x 2>/dev/null > nd_11.vcf
 # Should produce variants (exact genotype depends on path coverage)
 ND_11_EXIT=$?
 is "$ND_11_EXIT" "0" "nested_snp_in_del 1/1: vg call completes without error"
@@ -288,7 +288,7 @@ is "$ND_11_EXIT" "0" "nested_snp_in_del 1/1: vg call completes without error"
 # Test 1/2: het SNP/deletion - reads from y0 and y1 (sample a has both)
 vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 30 > nd_12.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_12.gam -o nd_12.pack
-vg call nesting/nested_snp_in_del.gfa -k nd_12.pack -A -p x 2>/dev/null > nd_12.vcf
+vg call nesting/nested_snp_in_del.gfa -k nd_12.pack --top-down -p x 2>/dev/null > nd_12.vcf
 # Should have 2 variants, nested one should have missing allele
 ND_12_COUNT=$(grep -v "^#" nd_12.vcf | wc -l)
 is "$ND_12_COUNT" "2" "nested_snp_in_del 1/2: het SNP/del produces both variants"
@@ -307,7 +307,7 @@ rm -f nd_11.gam nd_11.pack nd_11.vcf nd_12.gam nd_12.pack nd_12.vcf
 # Test star allele output with -Y flag
 vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 40 > star.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g star.gam -o star.pack
-vg call nesting/nested_snp_in_del.gfa -k star.pack -A -Y -p x 2>/dev/null > star.vcf
+vg call nesting/nested_snp_in_del.gfa -k star.pack --top-down -Y -p x 2>/dev/null > star.vcf
 # With -Y, nested snarl should have * in ALT instead of . in GT
 # The genotype will use numeric index (e.g. 1/2) where one allele is *
 STAR_IN_ALT=$(grep ">2>5" star.vcf | cut -f5 | grep -c "\*")
@@ -327,7 +327,7 @@ rm -f star.gam star.pack star.vcf
 # Test: nested calls should have non-zero QUAL
 vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 50 > nq.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nq.gam -o nq.pack
-vg call nesting/nested_snp_in_del.gfa -k nq.pack -A -p x 2>/dev/null > nq.vcf
+vg call nesting/nested_snp_in_del.gfa -k nq.pack --top-down -p x 2>/dev/null > nq.vcf
 
 # Check that nested snarl (>2>5) has non-zero QUAL
 NQ_QUAL=$(grep ">2>5" nq.vcf | cut -f6)
@@ -351,7 +351,7 @@ vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa >
 vg sim -x tnq_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 51 > tnq.gam
 vg sim -x tnq_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 52 >> tnq.gam
 vg pack -x tnq_ap.gfa -g tnq.gam -o tnq.pack
-vg call tnq_ap.gfa -k tnq.pack -A -P x 2>/dev/null > tnq.vcf
+vg call tnq_ap.gfa -k tnq.pack --top-down -P x 2>/dev/null > tnq.vcf
 
 # All variant lines should have non-zero QUAL
 TNQ_ZERO_QUAL=$(grep -v "^#" tnq.vcf | awk -F'\t' '$6 == "0" || $6 == "."' | wc -l)
@@ -420,7 +420,7 @@ vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/nested_snp_in_ins.g
 # Test 0/0: homozygous reference - reads only from x path (short ref)
 vg sim -x ni_ap.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
 vg pack -x ni_ap.gfa -g ni_00.gam -o ni_00.pack
-vg call ni_ap.gfa -k ni_00.pack -A -P x 2>/dev/null > ni_00.vcf
+vg call ni_ap.gfa -k ni_00.pack --top-down -P x 2>/dev/null > ni_00.vcf
 # 0/0 should produce no non-ref variants (or only ref calls)
 NI_00_NONREF=$(grep -v "^#" ni_00.vcf | grep -v "0/0" | wc -l)
 is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-ref variants"
@@ -430,7 +430,7 @@ is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-re
 vg sim -x ni_ap.gfa -P x -n 50 -l 2 -a -s 71 > ni_01.gam
 vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 72 >> ni_01.gam
 vg pack -x ni_ap.gfa -g ni_01.gam -o ni_01.pack
-vg call ni_ap.gfa -k ni_01.pack -A -P x 2>/dev/null > ni_01.vcf
+vg call ni_ap.gfa -k ni_01.pack --top-down -P x 2>/dev/null > ni_01.vcf
 # With augref paths: both top-level and nested variants emitted
 NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l)
 is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and nested variants with augref paths"
@@ -438,7 +438,7 @@ is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and
 # Test 1/1: homozygous insertion - reads only from y1 path
 vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 73 > ni_11.gam
 vg pack -x ni_ap.gfa -g ni_11.gam -o ni_11.pack
-vg call ni_ap.gfa -k ni_11.pack -A -P x 2>/dev/null > ni_11.vcf
+vg call ni_ap.gfa -k ni_11.pack --top-down -P x 2>/dev/null > ni_11.vcf
 # With augref paths: both top-level and nested variants emitted
 NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l)
 is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level and nested variants with augref paths"
@@ -446,7 +446,7 @@ is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level 
 # Test 1/2: het between two insertion alleles - reads from both y0 and y1
 vg sim -x ni_ap.gfa -m a -n 200 -l 2 -a -s 74 > ni_12.gam
 vg pack -x ni_ap.gfa -g ni_12.gam -o ni_12.pack
-vg call ni_ap.gfa -k ni_12.pack -A -P x 2>/dev/null > ni_12.vcf
+vg call ni_ap.gfa -k ni_12.pack --top-down -P x 2>/dev/null > ni_12.vcf
 # With augref paths: both top-level and nested variants emitted
 NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l)
 is "$NI_12_COUNT" "2" "nested_snp_in_ins 1/2: het ins/ins produces top-level and nested variants with augref paths"
@@ -471,7 +471,7 @@ vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa >
 # Test 0/0: homozygous reference - reads only from x path
 vg sim -x tn_ap.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
 vg pack -x tn_ap.gfa -g tn_00.gam -o tn_00.pack
-vg call tn_ap.gfa -k tn_00.pack -A -P x 2>/dev/null > tn_00.vcf
+vg call tn_ap.gfa -k tn_00.pack --top-down -P x 2>/dev/null > tn_00.vcf
 TN_00_NONREF=$(grep -v "^#" tn_00.vcf | grep -v "0/0" | wc -l)
 is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref variants"
 
@@ -480,7 +480,7 @@ is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref va
 vg sim -x tn_ap.gfa -P x -n 50 -l 2 -a -s 81 > tn_01.gam
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 82 >> tn_01.gam
 vg pack -x tn_ap.gfa -g tn_01.gam -o tn_01.pack
-vg call tn_ap.gfa -k tn_01.pack -A -P x 2>/dev/null > tn_01.vcf
+vg call tn_ap.gfa -k tn_01.pack --top-down -P x 2>/dev/null > tn_01.vcf
 # With augref paths: all 5 nesting levels can be emitted
 TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l)
 is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting level variants with augref paths"
@@ -488,7 +488,7 @@ is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting lev
 # Test 1/1: homozygous insertion - reads only from y0 path
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 83 > tn_11.gam
 vg pack -x tn_ap.gfa -g tn_11.gam -o tn_11.pack
-vg call tn_ap.gfa -k tn_11.pack -A -P x 2>/dev/null > tn_11.vcf
+vg call tn_ap.gfa -k tn_11.pack --top-down -P x 2>/dev/null > tn_11.vcf
 # With augref paths: 1 variant emitted (top-level insertion only)
 # All nested snarls are 0/0 because y0 matches x_1_alt reference at all levels
 # (y0 goes through 313, and x_1_alt also goes through 313)
@@ -499,7 +499,7 @@ is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces only top-level
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 84 > tn_12.gam
 vg sim -x tn_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 85 >> tn_12.gam
 vg pack -x tn_ap.gfa -g tn_12.gam -o tn_12.pack
-vg call tn_ap.gfa -k tn_12.pack -A -P x 2>/dev/null > tn_12.vcf
+vg call tn_ap.gfa -k tn_12.pack --top-down -P x 2>/dev/null > tn_12.vcf
 # With augref paths: all 5 nesting levels can be emitted
 TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l)
 is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting level variants with augref paths"
@@ -518,7 +518,7 @@ rm -f tn_11.gam tn_11.pack tn_11.vcf tn_12.gam tn_12.pack tn_12.vcf
 vg paths -x nesting/triple_nested_multisnp.gfa -Q x --compute-augref --min-augref-len 1 > tn_ms_ap.gfa
 vg sim -x tn_ms_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 100 > tn_ms.gam
 vg pack -x tn_ms_ap.gfa -g tn_ms.gam -o tn_ms.pack
-vg call tn_ms_ap.gfa -k tn_ms.pack -A -P x 2>/dev/null > tn_ms.vcf
+vg call tn_ms_ap.gfa -k tn_ms.pack --top-down -P x 2>/dev/null > tn_ms.vcf
 # Should get 4 variants: top-level + 3 nested SNPs (all at 1/1)
 TN_MS_COUNT=$(grep -v "^#" tn_ms.vcf | wc -l)
 is "$TN_MS_COUNT" "4" "triple_nested_multisnp 1/1: homozygous alt produces variants at all 4 nesting levels"
@@ -543,100 +543,100 @@ rm -f tn_ms_ap.gfa tn_ms.gam tn_ms.pack tn_ms.vcf
 vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/nested_snp_in_nested_ins.gfa > bypass_ap.gfa
 vg sim -x bypass_ap.gfa -m a -n 100 -l 2 -a -s 60 > bypass.gam
 vg pack -x bypass_ap.gfa -g bypass.gam -o bypass.pack
-vg call bypass_ap.gfa -k bypass.pack -A -P x 2>/dev/null > bypass.vcf
+vg call bypass_ap.gfa -k bypass.pack --top-down -P x 2>/dev/null > bypass.vcf
 BYPASS_EXIT=$?
 is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph with augref paths without crashing"
 
 rm -f bypass_ap.gfa bypass.gam bypass.pack bypass.vcf
 
 # =============================================================================
-# -A -a interaction tests
+# --top-down -a interaction tests
 # Verify nested calling with reference output (-a) works correctly
 # =============================================================================
 
-# Test 1: nested_snp_in_del 0/0 with -A -a
+# Test 1: nested_snp_in_del 0/0 with --top-down -a
 # When ref traverses nested snarl, both levels should get 0/0
 vg sim -x nesting/nested_snp_in_del.gfa -P x -n 100 -l 2 -a -s 200 > na_del.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g na_del.gam -o na_del.pack
-vg call nesting/nested_snp_in_del.gfa -k na_del.pack -A -a -p x 2>/dev/null > na_del.vcf
+vg call nesting/nested_snp_in_del.gfa -k na_del.pack --top-down -a -p x 2>/dev/null > na_del.vcf
 
 # Count variant lines (should be 2: top-level + nested)
 NA_DEL_COUNT=$(grep -v "^#" na_del.vcf | wc -l)
-is "$NA_DEL_COUNT" "2" "-A -a: nested_snp_in_del 0/0 emits both snarls"
+is "$NA_DEL_COUNT" "2" "--top-down -a: nested_snp_in_del 0/0 emits both snarls"
 
 # Verify top-level is 0/0 (use awk to match ID column exactly)
 NA_DEL_TOP_GT=$(awk -F'\t' '$3 == ">1>6" {print $10}' na_del.vcf | cut -d: -f1)
-is "$NA_DEL_TOP_GT" "0/0" "-A -a: nested_snp_in_del top-level is 0/0"
+is "$NA_DEL_TOP_GT" "0/0" "--top-down -a: nested_snp_in_del top-level is 0/0"
 
 # Verify nested is 0/0 (use awk to match ID column exactly)
 NA_DEL_NEST_GT=$(awk -F'\t' '$3 == ">2>5" {print $10}' na_del.vcf | cut -d: -f1)
-is "$NA_DEL_NEST_GT" "0/0" "-A -a: nested_snp_in_del nested is 0/0"
+is "$NA_DEL_NEST_GT" "0/0" "--top-down -a: nested_snp_in_del nested is 0/0"
 
 rm -f na_del.gam na_del.pack na_del.vcf
 
-# Test 2: nested_snp_in_ins 0/0 with -A -a (with augref paths)
+# Test 2: nested_snp_in_ins 0/0 with --top-down -a (with augref paths)
 # When ref bypasses nested snarl and both alleles are ref, nested NOT emitted
 vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/nested_snp_in_ins.gfa > na_ins_ap.gfa 2>/dev/null
 vg sim -x na_ins_ap.gfa -P x -n 100 -l 2 -a -s 200 > na_ins_00.gam
 vg pack -x na_ins_ap.gfa -g na_ins_00.gam -o na_ins_00.pack
-vg call na_ins_ap.gfa -k na_ins_00.pack -A -a -P x 2>/dev/null > na_ins_00.vcf
+vg call na_ins_ap.gfa -k na_ins_00.pack --top-down -a -P x 2>/dev/null > na_ins_00.vcf
 
 # Count variant lines (should be 1: only top-level, nested not emitted)
 NA_INS_00_COUNT=$(grep -v "^#" na_ins_00.vcf | wc -l)
-is "$NA_INS_00_COUNT" "1" "-A -a: nested_snp_in_ins 0/0 emits only top-level (ref spans nested)"
+is "$NA_INS_00_COUNT" "1" "--top-down -a: nested_snp_in_ins 0/0 emits only top-level (ref spans nested)"
 
 rm -f na_ins_00.gam na_ins_00.pack na_ins_00.vcf
 
-# Test 3: nested_snp_in_ins 0/1 with -A -a (with augref paths)
+# Test 3: nested_snp_in_ins 0/1 with --top-down -a (with augref paths)
 # When ref bypasses nested but alt traverses, nested should have ./X genotype
 vg sim -x na_ins_ap.gfa -P x -n 50 -l 2 -a -s 200 > na_ins_01.gam
 vg sim -x na_ins_ap.gfa -P "a#1#y0#0" -n 100 -l 2 -a -s 201 >> na_ins_01.gam
 vg pack -x na_ins_ap.gfa -g na_ins_01.gam -o na_ins_01.pack
-vg call na_ins_ap.gfa -k na_ins_01.pack -A -a -P x 2>/dev/null > na_ins_01.vcf
+vg call na_ins_ap.gfa -k na_ins_01.pack --top-down -a -P x 2>/dev/null > na_ins_01.vcf
 
 # Count variant lines (should be 2: top-level + nested)
 NA_INS_01_COUNT=$(grep -v "^#" na_ins_01.vcf | wc -l)
-is "$NA_INS_01_COUNT" "2" "-A -a: nested_snp_in_ins 0/1 emits both snarls"
+is "$NA_INS_01_COUNT" "2" "--top-down -a: nested_snp_in_ins 0/1 emits both snarls"
 
 # Verify nested has missing allele marker (.)
 NA_INS_01_NEST_GT=$(grep ">2>5" na_ins_01.vcf | cut -f10 | cut -d: -f1)
 NA_INS_01_HAS_MISSING=$(echo "$NA_INS_01_NEST_GT" | grep -c "\.")
-is "$NA_INS_01_HAS_MISSING" "1" "-A -a: nested_snp_in_ins 0/1 nested has missing allele (.)"
+is "$NA_INS_01_HAS_MISSING" "1" "--top-down -a: nested_snp_in_ins 0/1 nested has missing allele (.)"
 
 rm -f na_ins_ap.gfa na_ins_01.gam na_ins_01.pack na_ins_01.vcf
 
-# Test 4: triple_nested 0/0 with -A -a (with augref paths)
+# Test 4: triple_nested 0/0 with --top-down -a (with augref paths)
 # When ref bypasses all nested snarls and genotype is 0/0, only top-level emitted
 vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa > na_tn_ap.gfa 2>/dev/null
 vg sim -x na_tn_ap.gfa -P x -n 100 -l 2 -a -s 210 > na_tn_00.gam
 vg pack -x na_tn_ap.gfa -g na_tn_00.gam -o na_tn_00.pack
-vg call na_tn_ap.gfa -k na_tn_00.pack -A -a -P x 2>/dev/null > na_tn_00.vcf
+vg call na_tn_ap.gfa -k na_tn_00.pack --top-down -a -P x 2>/dev/null > na_tn_00.vcf
 
 # Count variant lines (should be 1: only top-level, nested not emitted since ref spans them)
 NA_TN_00_COUNT=$(grep -v "^#" na_tn_00.vcf | wc -l)
-is "$NA_TN_00_COUNT" "1" "-A -a: triple_nested 0/0 emits only top-level (ref spans all nested)"
+is "$NA_TN_00_COUNT" "1" "--top-down -a: triple_nested 0/0 emits only top-level (ref spans all nested)"
 
 # Verify top-level is 0/0
 NA_TN_00_GT=$(grep -v "^#" na_tn_00.vcf | cut -f10 | cut -d: -f1)
-is "$NA_TN_00_GT" "0/0" "-A -a: triple_nested 0/0 top-level is 0/0"
+is "$NA_TN_00_GT" "0/0" "--top-down -a: triple_nested 0/0 top-level is 0/0"
 
 rm -f na_tn_00.gam na_tn_00.pack na_tn_00.vcf
 
-# Test 5: triple_nested 0/1 with -A -a (with augref paths)
+# Test 5: triple_nested 0/1 with --top-down -a (with augref paths)
 # When ref bypasses nested but alt traverses, nested snarls should have ./X genotype
 vg sim -x na_tn_ap.gfa -P x -n 50 -l 2 -a -s 211 > na_tn_01.gam
 vg sim -x na_tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 212 >> na_tn_01.gam
 vg pack -x na_tn_ap.gfa -g na_tn_01.gam -o na_tn_01.pack
-vg call na_tn_ap.gfa -k na_tn_01.pack -A -a -P x 2>/dev/null > na_tn_01.vcf
+vg call na_tn_ap.gfa -k na_tn_01.pack --top-down -a -P x 2>/dev/null > na_tn_01.vcf
 
 # Count variant lines (should be 5: all nesting levels emitted with -a)
 NA_TN_01_COUNT=$(grep -v "^#" na_tn_01.vcf | wc -l)
-is "$NA_TN_01_COUNT" "5" "-A -a: triple_nested 0/1 emits all 5 nesting levels"
+is "$NA_TN_01_COUNT" "5" "--top-down -a: triple_nested 0/1 emits all 5 nesting levels"
 
 # Nested snarls (LV > 0) should have missing allele (.) for the spanning ref
 NA_TN_01_NESTED_MISSING=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ {print $10}' | cut -d: -f1 | grep -c "\.")
 NA_TN_01_NESTED_COUNT=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
-is "$NA_TN_01_NESTED_MISSING" "$NA_TN_01_NESTED_COUNT" "-A -a: triple_nested 0/1 all nested snarls have missing allele (.)"
+is "$NA_TN_01_NESTED_MISSING" "$NA_TN_01_NESTED_COUNT" "--top-down -a: triple_nested 0/1 all nested snarls have missing allele (.)"
 
 rm -f na_tn_ap.gfa na_tn_01.gam na_tn_01.pack na_tn_01.vcf
 

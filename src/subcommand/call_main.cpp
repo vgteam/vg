@@ -53,8 +53,7 @@ void help_call(char** argv) {
          << "                            to construct input graph with -a)" << endl
          << "  -a, --genotype-snarls     genotype every snarl, including reference calls" << endl
          << "                            (use to compare multiple samples)" << endl
-         << "  -A, --all-snarls          genotype all snarls, including nested child snarls." << endl
-         << "                            Hierarchical top-down processing, writes LV/PS tags." << endl
+         << "  -A, --all-snarls          call all snarls including nested (each independent)" << endl
          << "  -c, --min-length N        genotype only snarls with" << endl
          << "                            at least one traversal of length >= N" << endl
          << "  -C, --max-length N        genotype only snarls where" << endl 
@@ -83,13 +82,14 @@ void help_call(char** argv) {
          << "                            not visited by the selected samples, or to all" << endl
          << "                            contigs simulated from if no samples are used." << endl
          << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
-         << "      --bottom-up           activate nested calling mode with bottom-up" << endl
-         << "                            snarl merging (original nested algorithm)" << endl
+         << "      --top-down            top-down nested calling with genotype propagation" << endl
+         << "                            from parent to child snarls (writes LV/PS tags)" << endl
+         << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
          << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
          << "                            default is to cluster before genotyping" << endl
-         << "  -Y, --star-allele         use * alleles for spanning haplotypes (requires -A)" << endl
+         << "  -Y, --star-allele         use * alleles for spanning haplotypes (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -130,6 +130,7 @@ int main_call(int argc, char** argv) {
     bool gaf_output = false;
     size_t trav_padding = 0;
     bool genotype_snarls = false;
+    bool top_down = false;
     bool bottom_up = false;
     bool call_chains = false;
     bool all_snarls = false;
@@ -156,6 +157,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_CLUSTER_POST = 1002;
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
+    constexpr int OPT_TOP_DOWN = 1006;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -190,6 +192,7 @@ int main_call(int argc, char** argv) {
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, OPT_LEGACY},
+            {"top-down", no_argument, 0, OPT_TOP_DOWN},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
@@ -316,6 +319,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'L':
             cluster_threshold = parse<double>(optarg);
+            break;
+        case OPT_TOP_DOWN:
+            top_down = true;
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -524,9 +530,15 @@ int main_call(int argc, char** argv) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
     }
 
+    // Validation: -A, --top-down, and --bottom-up are mutually exclusive
+    int nested_mode_count = (all_snarls ? 1 : 0) + (top_down ? 1 : 0) + (bottom_up ? 1 : 0);
+    if (nested_mode_count > 1) {
+        logger.error() << "-A, --top-down, and --bottom-up are mutually exclusive" << endl;
+    }
+
     // Validation for nested calling options
-    if (star_allele && !all_snarls) {
-        logger.error() << "-Y/--star-allele requires -A/--all-snarls mode" << endl;
+    if (star_allele && !top_down) {
+        logger.error() << "-Y/--star-allele requires --top-down mode" << endl;
     }
     if (cluster_post_genotype && cluster_threshold >= 1.0) {
         logger.error() << "--cluster-post requires -L/--cluster with threshold < 1.0" << endl;
@@ -536,9 +548,6 @@ int main_call(int argc, char** argv) {
     }
 
     // Validation for bottom-up mode
-    if (bottom_up && all_snarls) {
-        logger.error() << "--bottom-up and -A/--all-snarls are mutually exclusive" << endl;
-    }
     if (bottom_up && star_allele) {
         logger.error() << "-Y/--star-allele cannot be used with --bottom-up mode" << endl;
     }
@@ -874,7 +883,7 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        if (all_snarls) {
+        if (top_down) {
             // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
@@ -923,8 +932,8 @@ int main_call(int argc, char** argv) {
         // Init The VCF       
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        // Make sure we get the LV/PS tags with -A
-        vcf_caller->set_nested(all_snarls);
+        // Make sure we get the LV/PS tags with --top-down or --bottom-up
+        vcf_caller->set_nested(top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
@@ -943,11 +952,18 @@ int main_call(int argc, char** argv) {
     graph_caller->set_show_progress(show_progress);
     
     // Call the graph
-    // When all_snarls is true, FlowCaller uses nested mode which handles recursion internally,
-    // so we use RecurseNever to avoid double-processing child snarls.
-    // When all_snarls is false, we use RecurseOnFail to recurse into children of failed snarls.
-    GraphCaller::RecurseType recurse_type = all_snarls ?
-        GraphCaller::RecurseNever : GraphCaller::RecurseOnFail;
+    // Determine recursion strategy based on mode:
+    // - top_down: FlowCaller handles recursion internally, so RecurseNever
+    // - all_snarls (-A): visit every snarl independently, so RecurseAlways
+    // - default: only recurse into children of failed snarls, so RecurseOnFail
+    GraphCaller::RecurseType recurse_type;
+    if (top_down) {
+        recurse_type = GraphCaller::RecurseNever;
+    } else if (all_snarls) {
+        recurse_type = GraphCaller::RecurseAlways;
+    } else {
+        recurse_type = GraphCaller::RecurseOnFail;
+    }
 
     if (!call_chains) {
         // Call each snarl
