@@ -932,8 +932,8 @@ int main_call(int argc, char** argv) {
         // Init The VCF       
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        // Make sure we get the LV/PS tags with --top-down or --bottom-up
-        vcf_caller->set_nested(top_down || bottom_up);
+        // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
+        vcf_caller->set_nested(all_snarls || top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)

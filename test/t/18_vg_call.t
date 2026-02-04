@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 67
+plan tests 78
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -640,4 +640,83 @@ is "$NA_TN_01_NESTED_MISSING" "$NA_TN_01_NESTED_COUNT" "--top-down -a: triple_ne
 
 rm -f na_tn_ap.gfa na_tn_01.gam na_tn_01.pack na_tn_01.vcf
 
+# =============================================================================
+# -A (all-snarls) flag tests
+# Verify that -A flag:
+# 1. Includes LV/PS header tags in VCF output
+# 2. Calls all snarls including nested ones (each independently)
+# 3. Produces consistent results
+# =============================================================================
+
+# Test: -A flag includes LV and PS header lines
+vg construct -r small/x.fa -v small/x.vcf.gz -a > all_snarls_test.vg
+vg sim -x all_snarls_test.vg -n 200 -l 30 -a -s 300 > all_snarls_test.gam
+vg pack -x all_snarls_test.vg -g all_snarls_test.gam -o all_snarls_test.pack
+vg call all_snarls_test.vg -k all_snarls_test.pack -A > all_snarls_test.vcf
+
+# Check for LV header
+AS_HAS_LV_HEADER=$(grep -c "##INFO=<ID=LV" all_snarls_test.vcf)
+is "$AS_HAS_LV_HEADER" "1" "-A flag: VCF includes LV header line"
+
+# Check for PS header
+AS_HAS_PS_HEADER=$(grep -c "##INFO=<ID=PS" all_snarls_test.vcf)
+is "$AS_HAS_PS_HEADER" "1" "-A flag: VCF includes PS header line"
+
+# Check that variants have LV tags
+AS_VARIANT_COUNT=$(grep -v "^#" all_snarls_test.vcf | wc -l)
+AS_LV_COUNT=$(grep -v "^#" all_snarls_test.vcf | grep -c "LV=")
+is "$AS_LV_COUNT" "$AS_VARIANT_COUNT" "-A flag: all variants have LV tag"
+
+rm -f all_snarls_test.vg all_snarls_test.gam all_snarls_test.pack all_snarls_test.vcf
+
+# Test: -A flag on nested graph produces variants at all nesting levels
+vg view -Fv nesting/nested_snp_in_del.gfa > as_nested.vg
+vg sim -x as_nested.vg -m a -n 100 -l 2 -a -s 301 > as_nested.gam
+vg pack -x as_nested.vg -g as_nested.gam -o as_nested.pack
+vg call as_nested.vg -k as_nested.pack -A -p x > as_nested.vcf 2>/dev/null
+
+# Should produce variants at both nesting levels
+AS_NESTED_COUNT=$(grep -v "^#" as_nested.vcf | wc -l)
+is "$AS_NESTED_COUNT" "2" "-A flag: nested graph produces both top-level and nested variants"
+
+# Verify LV tags present
+AS_NESTED_LV=$(grep -v "^#" as_nested.vcf | grep -c "LV=")
+is "$AS_NESTED_LV" "2" "-A flag: nested variants have LV tags"
+
+# Verify LV=0 exists (top-level)
+AS_NESTED_LV0=$(grep -v "^#" as_nested.vcf | grep -c "LV=0")
+is "$AS_NESTED_LV0" "1" "-A flag: has top-level variant (LV=0)"
+
+# Verify LV=1 exists (nested)
+AS_NESTED_LV1=$(grep -v "^#" as_nested.vcf | grep -c "LV=1")
+is "$AS_NESTED_LV1" "1" "-A flag: has nested variant (LV=1)"
+
+# Verify nested variant has PS tag pointing to parent
+AS_NESTED_PS=$(grep -v "^#" as_nested.vcf | awk -F'\t' '$8 ~ /LV=1/ && $8 ~ /PS=/' | wc -l)
+is "$AS_NESTED_PS" "1" "-A flag: nested variant has PS tag"
+
+rm -f as_nested.vg as_nested.gam as_nested.pack as_nested.vcf
+
+# Test: -A flag on triple nested graph with augref paths
+vg paths --compute-augref -Q x --min-augref-len 1 -x nesting/triple_nested.gfa > as_triple.gfa 2>/dev/null
+vg sim -x as_triple.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 302 > as_triple.gam
+vg sim -x as_triple.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 303 >> as_triple.gam
+vg pack -x as_triple.gfa -g as_triple.gam -o as_triple.pack
+vg call as_triple.gfa -k as_triple.pack -A -P x > as_triple.vcf 2>/dev/null
+
+# Should produce variants at multiple nesting levels
+AS_TRIPLE_COUNT=$(grep -v "^#" as_triple.vcf | wc -l)
+AS_TRIPLE_HAS_VARIANTS=$(if [ "$AS_TRIPLE_COUNT" -ge 3 ]; then echo "1"; else echo "0"; fi)
+is "$AS_TRIPLE_HAS_VARIANTS" "1" "-A flag: triple nested produces at least 3 variants"
+
+# Verify all variants have LV tags
+AS_TRIPLE_LV=$(grep -v "^#" as_triple.vcf | grep -c "LV=")
+is "$AS_TRIPLE_LV" "$AS_TRIPLE_COUNT" "-A flag: all triple nested variants have LV tags"
+
+# Verify PS tags on nested variants (LV > 0)
+AS_TRIPLE_NESTED=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+AS_TRIPLE_NESTED_PS=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 ~ /PS=/' | wc -l)
+is "$AS_TRIPLE_NESTED_PS" "$AS_TRIPLE_NESTED" "-A flag: all nested variants (LV>0) have PS tags"
+
+rm -f as_triple.gfa as_triple.gam as_triple.pack as_triple.vcf
 
