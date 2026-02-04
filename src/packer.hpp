@@ -174,7 +174,7 @@ private:
     size_t bin_size = 0;
     size_t edit_length = 0;
     size_t edit_count = 0;
-    dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
+    enc_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     vlc_vector<> edge_coverage_civ; // edge coverage (compacted edge_coverage_dynamic)
     vlc_vector<> node_quality_civ; // averge mapq for each node rank (compacted node_quality_dynamic)
     // edits
