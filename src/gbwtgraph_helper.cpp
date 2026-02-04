@@ -5,6 +5,8 @@
 #include <gbwtgraph/index.h>
 #include <vg/io/alignment_io.hpp>
 
+//#define COUNT_REVERSALS
+
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -442,11 +444,47 @@ void cache_payloads(
 
     const handlegraph::HandleGraph* graph_ptr = (const handlegraph::HandleGraph*) &gbz.graph;
 
+#ifdef COUNT_REVERSALS
+    size_t num_snarl_reversals = 0;
+    size_t num_snarl_non_reversals = 0;
+    size_t num_node_reversals = 0;
+    size_t num_node_non_reversals = 0;
+#endif
+
     gbz.graph.for_each_handle([&](const handle_t& handle) {
         nid_t node_id = gbz.graph.get_id(handle);
         ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
         zipcode.fill_in_zipcode_from_pos(distance_index, pos, true, graph_ptr);
+#ifdef COUNT_REVERSALS
+        for (size_t depth = 0; depth <= zipcode.max_depth(); depth++) {
+            if (zipcode.get_code_type(depth) == ZipCode::NODE) {
+                if (zipcode.get_has_forward_loop(depth)) {
+                    ++num_node_reversals;
+                } else {
+                    ++num_node_non_reversals;
+                }
+                if (zipcode.get_has_reverse_loop(depth)) {
+                    ++num_node_reversals;
+                } else {
+                    ++num_node_non_reversals;
+                }
+            } else if ((zipcode.get_code_type(depth) == ZipCode::REGULAR_SNARL)
+                       || (zipcode.get_code_type(depth) == ZipCode::IRREGULAR_SNARL)
+                       || (zipcode.get_code_type(depth) == ZipCode::CYCLIC_SNARL)) {
+                if (zipcode.get_has_forward_loop(depth)) {
+                    ++num_snarl_reversals;
+                } else {
+                    ++num_snarl_non_reversals;
+                }
+                if (zipcode.get_has_reverse_loop(depth)) {
+                    ++num_snarl_reversals;
+                } else {
+                    ++num_snarl_non_reversals;
+                }
+            }
+        }
+#endif
         payload_t payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.
@@ -458,7 +496,10 @@ void cache_payloads(
         }
         node_id_to_payload.emplace(node_id, payload);
     });
-
+#ifdef COUNT_REVERSALS
+    cerr << "Node reversals: " << num_node_reversals << " (" << num_node_non_reversals << " non reversals)" << endl;
+    cerr << "Snarl reversals: " << num_snarl_reversals << " (" << num_snarl_non_reversals << " non reversals)" << endl;
+#endif
     if (progress) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Cached payloads in " << seconds << " seconds" << std::endl;
