@@ -190,6 +190,7 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
 void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                          const std::vector<Seed>& seeds,
                                          const VectorView<Minimizer>& minimizers,
+                                         const vector<algorithms::Anchor>& seed_anchors,
                                          const std::vector<std::vector<size_t>>& chains,
                                          const std::vector<std::vector<bool>>& chain_rec_flags,
                                          const std::vector<size_t>& chain_source_tree,
@@ -236,6 +237,9 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
         // The read context should already be set by the caller
         TSVExplainer exp(true, chain_file_name);
 
+        // We make another TSV that's more parseable, with all the seeds.
+        TSVExplainer seedpos(true, "chain" + std::to_string(chain_num) + "-seeds");
+
         // Determine the positions of all the involved seeds.
         std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
         for (auto& kv : seed_sets) {
@@ -247,7 +251,21 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                     auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
                         // If we don't know the seed's positions yet, get them
-                        seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                        for (auto& handle_and_positions : found->second) {
+                            std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+                            for (auto& position : handle_and_positions.second) {
+                                // Dump all the seed positions so we can select seeds we want to know about
+                                seedpos.line();
+                                seedpos.field(seed_anchors.at(seed_num).read_start());
+                                seedpos.field(path_name);
+                                seedpos.field(position.first);
+                                seedpos.field(seed_num);
+                                std::stringstream ss;
+                                ss << seed_anchors.at(seed_num);
+                                seedpos.field(ss.str());
+                            }
+                        }
                     }
                 }
             }
@@ -761,7 +779,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
     if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, chains, chain_rec_flags, chain_source_tree, this->path_graph);
+        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_rec_flags, chain_source_tree, this->path_graph);
     }
 
     if (alignments.size() == 0) {
@@ -1504,7 +1522,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 this->gap_scale,
                 this->points_per_possible_match,
                 indel_limit,
-                false
+                show_work
             );
             if (show_work) {
                 #pragma omp critical (cerr)

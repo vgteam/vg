@@ -11,7 +11,7 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
+#define debug_chaining
 //#define debug_transition
 
 namespace vg {
@@ -535,20 +535,13 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            size_t max_indel_bases,
                            int recomb_penalty,
                            bool show_work) {
-    
-#ifdef debug_chaining
+
     DiagramExplainer diagram(show_work);
-#else
-    DiagramExplainer diagram(false);
-#endif
+    TSVExplainer dump(show_work, "chaindump");
     if (diagram) {
         diagram.add_globals({{"rankdir", "LR"}});
     }
    
-#ifdef debug_chaining
-    show_work = true;
-#endif
-
     if (show_work) {
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
@@ -685,6 +678,17 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                         {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
                     });
                 }
+            }
+            if (dump) {
+                // Dump a TSV of source anchor description, dest anchor description, and score achieved.
+                dump.line();
+                std::stringstream source_stream;
+                source_stream << source;
+                dump.field(source_stream.str());
+                std::stringstream here_stream;
+                here_stream << here;
+                dump.field(here_stream.str());
+                dump.field(from_source_score.score);
             }
         } else {
             if (show_work) {
