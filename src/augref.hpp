@@ -109,13 +109,23 @@ public:
     // Print out a table of statistics.
     void print_stats(ostream& os);
 
+    // Write a tab-separated table describing augref segments.
+    // Each line contains: source_path, source_start, source_end, augref_path_name,
+    //                     ref_path, ref_start, ref_end
+    // Must be called after compute() and knows what augref path names will be used.
+    // If augref_sample is set, uses that for the augref path names.
+    void write_augref_segments(ostream& os);
+
 protected:
 
     // Compute the cover for the given snarl, by greedily finding the covered paths through it.
     // The cover is added to the two "thread_" structures.
+    // top_snarl_start/end are the boundary node IDs of the top-level snarl containing this snarl.
     void compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
                        vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
-                       unordered_map<nid_t, int64_t>& thread_node_to_interval);
+                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
+                       nid_t top_snarl_start, nid_t top_snarl_end,
+                       vector<pair<nid_t, nid_t>>& thread_snarl_bounds);
 
     // Get intervals in traversal that are not covered according to this->node_to_interval or
     // the thread_node_to_interval parameter.
@@ -128,7 +138,9 @@ protected:
     bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
                       const pair<step_handle_t, step_handle_t>& new_interval,
-                      bool global = false);
+                      bool global = false,
+                      vector<pair<nid_t, nid_t>>* snarl_bounds_vec = nullptr,
+                      pair<nid_t, nid_t> snarl_bounds = {0, 0});
 
     // add_interval() can delete an existing interval. This requires a full update at the end.
     void defragment_intervals();
@@ -161,6 +173,10 @@ protected:
 
     // Intervals are end-exclusive (like BED).
     vector<pair<step_handle_t, step_handle_t>> augref_intervals;
+
+    // Top-level snarl boundary nodes for each interval, parallel to augref_intervals.
+    // (0, 0) sentinel for reference intervals and fill_uncovered_nodes intervals.
+    vector<pair<nid_t, nid_t>> interval_snarl_bounds;
 
     // augref_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
     int64_t num_ref_intervals = 0;

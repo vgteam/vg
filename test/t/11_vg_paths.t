@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 45
+plan tests 52
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -160,7 +160,28 @@ is $(vg paths -x dangling_augref.vg -L | grep "_alt$" | wc -l) 2 "augref second 
 # Note: use -E with grep instead of -Q since augref paths are filtered from prefix matching
 is $(vg paths -x dangling_augref.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum}') 12 "augref paths cover both snarl node and dangling node"
 
+# Test --augref-segments option for writing segment table
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-segments augref_test.segs > augref_segs_test.vg
+is $? 0 "augref-segments option produces no error"
+
+is $(wc -l < augref_test.segs) 2 "augref-segments produces correct number of lines"
+
+is $(cut -f4 augref_test.segs | grep -c "x_.*_alt") 2 "augref-segments contains augref path names"
+
+is $(cut -f1 augref_test.segs | grep -c "#") 2 "augref-segments contains source path names with metadata"
+
+is $(cut -f5 augref_test.segs | grep -c "^x$") 2 "augref-segments contains reference path name"
+
+# Test that augref-segments requires compute-augref
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --augref-segments augref_test.segs 2>&1 | grep -q "requires --compute-augref"
+is $? 0 "augref-segments requires compute-augref option"
+
+# Test augref-segments with augref-sample option
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-sample TESTSAMPLE --augref-segments augref_sample_test.segs > augref_sample_test.vg
+is $(cut -f4 augref_sample_test.segs | grep -c "TESTSAMPLE") 2 "augref-segments uses augref-sample for path names"
+
 rm -f augref_test.vg triple_augref.vg triple_augref_long.vg dangling_augref.vg x.pg x.gbwt x.gbz
+rm -f augref_test.segs augref_segs_test.vg augref_sample_test.segs augref_sample_test.vg
 
 
 

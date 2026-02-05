@@ -97,6 +97,7 @@ void AugRefCover::compute(const PathHandleGraph* graph,
 
     // start from scratch
     this->augref_intervals.clear();
+    this->interval_snarl_bounds.clear();
     this->node_to_interval.clear();
     this->graph = graph;
 
@@ -104,6 +105,7 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     for (const path_handle_t& ref_path_handle : reference_paths) {
         this->augref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                     graph->path_end(ref_path_handle)));
+        this->interval_snarl_bounds.push_back({0, 0});
         graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
             if (node_to_interval.count(node_id)) {
@@ -130,12 +132,18 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     size_t thread_count = get_thread_count();
     vector<vector<pair<step_handle_t, step_handle_t>>> augref_intervals_vector(thread_count);
     vector<unordered_map<nid_t, int64_t>> node_to_interval_vector(thread_count);
+    vector<vector<pair<nid_t, nid_t>>> snarl_bounds_vector(thread_count);
 
     // we process top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output
         vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals = augref_intervals_vector[omp_get_thread_num()];
         unordered_map<nid_t, int64_t>& thread_node_to_interval = node_to_interval_vector[omp_get_thread_num()];
+        vector<pair<nid_t, nid_t>>& thread_snarl_bounds = snarl_bounds_vector[omp_get_thread_num()];
+
+        // capture the top-level snarl boundary node IDs
+        nid_t top_snarl_start = snarl->start().node_id();
+        nid_t top_snarl_end = snarl->end().node_id();
 
         vector<const Snarl*> queue = {snarl};
 
@@ -146,7 +154,9 @@ void AugRefCover::compute(const PathHandleGraph* graph,
             // get the snarl cover
             compute_snarl(*cur_snarl, path_trav_finder, minimum_length,
                           thread_augref_intervals,
-                          thread_node_to_interval);
+                          thread_node_to_interval,
+                          top_snarl_start, top_snarl_end,
+                          thread_snarl_bounds);
 
             // recurse on the children
             const vector<const Snarl*>& children = snarl_manager->children_of(cur_snarl);
@@ -169,11 +179,13 @@ void AugRefCover::compute(const PathHandleGraph* graph,
             // in separate threads, snarls can overlap by a single node
             const pair<step_handle_t, step_handle_t>& interval = augref_intervals_vector[t][j];
             if (interval.first != graph->path_end(graph->get_path_handle_of_step(interval.first))) {
-                add_interval(this->augref_intervals, this->node_to_interval, augref_intervals_vector[t][j], true);
+                add_interval(this->augref_intervals, this->node_to_interval, augref_intervals_vector[t][j], true,
+                             &this->interval_snarl_bounds, snarl_bounds_vector[t][j]);
             }
         }
         augref_intervals_vector[t].clear();
         node_to_interval_vector[t].clear();
+        snarl_bounds_vector[t].clear();
     }
 
     // second pass: greedily cover any nodes not covered by snarl traversals
@@ -252,7 +264,8 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
                     if (interval_length >= minimum_length) {
                         // Add the interval and mark nodes as covered
                         add_interval(this->augref_intervals, this->node_to_interval,
-                                     make_pair(interval_start, interval_end), true);
+                                     make_pair(interval_start, interval_end), true,
+                                     &this->interval_snarl_bounds, {0, 0});
                         for (nid_t nid : interval_nodes) {
                             uncovered_nodes.erase(nid);
                         }
@@ -266,7 +279,8 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
         // Don't forget to close any interval at the end of the path
         if (in_interval && interval_length >= minimum_length) {
             add_interval(this->augref_intervals, this->node_to_interval,
-                         make_pair(interval_start, interval_end), true);
+                         make_pair(interval_start, interval_end), true,
+                         &this->interval_snarl_bounds, {0, 0});
             for (nid_t nid : interval_nodes) {
                 uncovered_nodes.erase(nid);
             }
@@ -283,6 +297,7 @@ void AugRefCover::load(const PathHandleGraph* graph,
                          const unordered_set<path_handle_t>& reference_paths) {
     // start from scratch
     this->augref_intervals.clear();
+    this->interval_snarl_bounds.clear();
     this->node_to_interval.clear();
     this->graph = graph;
 
@@ -304,6 +319,7 @@ void AugRefCover::load(const PathHandleGraph* graph,
         });
         this->augref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                     graph->path_end(ref_path_handle)));
+        this->interval_snarl_bounds.push_back({0, 0});
     }
     this->num_ref_intervals = this->augref_intervals.size();
 
@@ -316,6 +332,7 @@ void AugRefCover::load(const PathHandleGraph* graph,
             });
             this->augref_intervals.push_back(make_pair(graph->path_begin(path_handle),
                                                         graph->path_end(path_handle)));
+            this->interval_snarl_bounds.push_back({0, 0});
         }
     });
 }
@@ -493,7 +510,9 @@ int64_t AugRefCover::get_num_ref_intervals() const {
 
 void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
                                   vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
-                                  unordered_map<nid_t, int64_t>& thread_node_to_interval) {
+                                  unordered_map<nid_t, int64_t>& thread_node_to_interval,
+                                  nid_t top_snarl_start, nid_t top_snarl_end,
+                                  vector<pair<nid_t, nid_t>>& thread_snarl_bounds) {
 
     // start by finding the path traversals through the snarl
     vector<vector<step_handle_t>> travs;
@@ -640,7 +659,8 @@ void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_tr
 #pragma omp critical(cerr)
         cerr << "adding interval with length " << interval_length << endl;
 #endif
-        add_interval(thread_augref_intervals, thread_node_to_interval, new_interval);
+        add_interval(thread_augref_intervals, thread_node_to_interval, new_interval, false,
+                     &thread_snarl_bounds, {top_snarl_start, top_snarl_end});
     }
 }
 
@@ -676,7 +696,9 @@ vector<pair<int64_t, int64_t>> AugRefCover::get_uncovered_intervals(const vector
 bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                                  unordered_map<nid_t, int64_t>& thread_node_to_interval,
                                  const pair<step_handle_t, step_handle_t>& new_interval,
-                                 bool global) {
+                                 bool global,
+                                 vector<pair<nid_t, nid_t>>* snarl_bounds_vec,
+                                 pair<nid_t, nid_t> snarl_bounds) {
 
 #ifdef debug
 #pragma omp critical(cerr)
@@ -756,6 +778,9 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                         // decomission next_interval
                         next_interval.first = graph->path_end(next_path);
                         next_interval.second = graph->path_front_end(next_path);
+                        if (snarl_bounds_vec) {
+                            (*snarl_bounds_vec)[next_idx] = {0, 0};
+                        }
                         // extend the previous interval right to cover both new_interval and the deleted next_interval
                         thread_augref_intervals[merged_interval_idx].second = deleted_interval_second;
                     } else {
@@ -773,6 +798,9 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
     if (!merged) {
         merged_interval_idx = thread_augref_intervals.size();
         thread_augref_intervals.push_back(new_interval);
+        if (snarl_bounds_vec) {
+            snarl_bounds_vec->push_back(snarl_bounds);
+        }
     }
     for (step_handle_t step = new_interval.first; step != new_interval.second; step = graph->get_next_step(step)) {
         thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
@@ -789,15 +817,18 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
 
 void AugRefCover::defragment_intervals() {
     vector<pair<step_handle_t, step_handle_t>> new_intervals;
+    vector<pair<nid_t, nid_t>> new_snarl_bounds;
     this->node_to_interval.clear();
     for (int64_t i = 0; i < this->augref_intervals.size(); ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
         path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
         if (interval.first != graph->path_end(path_handle)) {
             new_intervals.push_back(interval);
+            new_snarl_bounds.push_back(this->interval_snarl_bounds[i]);
         }
     }
     this->augref_intervals = std::move(new_intervals);
+    this->interval_snarl_bounds = std::move(new_snarl_bounds);
     for (int64_t i = 0; i < this->augref_intervals.size(); ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
         for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
@@ -1070,6 +1101,157 @@ void AugRefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutab
 #ifdef debug
     cerr << "[augref] copy_base_paths_to_sample: copied " << ref_path_to_copy.size() << " reference paths to sample " << augref_sample_name << endl;
 #endif
+}
+
+void AugRefCover::write_augref_segments(ostream& os) {
+    // Track augref counters to predict path names (same logic as apply())
+    unordered_map<string, int64_t> local_augref_counter;
+
+    // First pass: find maximum existing augref index for each base path
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+        string path_name = graph->get_path_name(path_handle);
+        if (is_augref_name(path_name)) {
+            string base = parse_base_path(path_name);
+            int64_t idx = parse_augref_index(path_name);
+            if (local_augref_counter.count(base)) {
+                local_augref_counter[base] = max(local_augref_counter[base], idx);
+            } else {
+                local_augref_counter[base] = idx;
+            }
+        }
+    });
+
+    // Pre-compute reference node positions by walking all reference intervals once.
+    // Maps node ID -> (ref_path_handle, offset of node start on ref path)
+    unordered_map<nid_t, pair<path_handle_t, int64_t>> ref_node_positions;
+    for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
+        const pair<step_handle_t, step_handle_t>& ref_interval = this->augref_intervals[i];
+        path_handle_t ref_path_handle = graph->get_path_handle_of_step(ref_interval.first);
+        int64_t offset = 0;
+        for (step_handle_t step = ref_interval.first; step != ref_interval.second;
+             step = graph->get_next_step(step)) {
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+            ref_node_positions[node_id] = make_pair(ref_path_handle, offset);
+            offset += graph->get_length(graph->get_handle_of_step(step));
+        }
+    }
+
+    // Write each augref interval
+    for (int64_t i = this->num_ref_intervals; i < this->augref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
+        path_handle_t source_path_handle = graph->get_path_handle_of_step(interval.first);
+
+        // Skip empty intervals
+        if (interval.first == graph->path_end(source_path_handle)) {
+            continue;
+        }
+
+        // Source path name
+        string source_path_name = graph->get_path_name(source_path_handle);
+
+        // Compute source path offset (0-based, walk from path start)
+        int64_t source_start = 0;
+        for (step_handle_t step = graph->path_begin(source_path_handle);
+             step != interval.first;
+             step = graph->get_next_step(step)) {
+            source_start += graph->get_length(graph->get_handle_of_step(step));
+        }
+
+        // Compute source end offset
+        int64_t source_end = source_start;
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            source_end += graph->get_length(graph->get_handle_of_step(step));
+        }
+
+        // Find reference coordinates using snarl bounds or fallback to BFS
+        string base_path_name;
+        string ref_path_name = ".";
+        int64_t ref_start = 0;
+        int64_t ref_end = 0;
+
+        const pair<nid_t, nid_t>& snarl_bounds = this->interval_snarl_bounds[i];
+
+        if (snarl_bounds.first != 0 && snarl_bounds.second != 0 &&
+            ref_node_positions.count(snarl_bounds.first) && ref_node_positions.count(snarl_bounds.second)) {
+            // Use snarl boundary nodes for reference coordinates
+            auto& left_pos = ref_node_positions[snarl_bounds.first];
+            auto& right_pos = ref_node_positions[snarl_bounds.second];
+
+            // Both boundary nodes should be on the same reference path
+            path_handle_t ref_path_handle = left_pos.first;
+            ref_path_name = graph->get_path_name(ref_path_handle);
+
+            int64_t left_node_len = graph->get_length(graph->get_handle(snarl_bounds.first));
+            int64_t right_node_len = graph->get_length(graph->get_handle(snarl_bounds.second));
+
+            int64_t left_start = left_pos.second;
+            int64_t left_end = left_start + left_node_len;
+            int64_t right_start = right_pos.second;
+            int64_t right_end = right_start + right_node_len;
+
+            ref_start = min(left_start, right_start);
+            ref_end = max(left_end, right_end);
+
+            // Get base path name from the reference path
+            base_path_name = ref_path_name;
+            subrange_t subrange;
+            base_path_name = Paths::strip_subrange(base_path_name, &subrange);
+        } else {
+            // Fallback to BFS-based get_reference_nodes() for sentinel intervals
+            nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
+            vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
+
+            if (!ref_nodes.empty()) {
+                nid_t ref_node_id = ref_nodes.at(0).second;
+                int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
+                path_handle_t ref_path_handle = graph->get_path_handle_of_step(augref_intervals[ref_interval_idx].first);
+                base_path_name = graph->get_path_name(ref_path_handle);
+                subrange_t subrange;
+                base_path_name = Paths::strip_subrange(base_path_name, &subrange);
+
+                ref_path_name = graph->get_path_name(ref_path_handle);
+
+                // Find the offset of ref_node_id in the reference path
+                if (ref_node_positions.count(ref_node_id)) {
+                    ref_start = ref_node_positions[ref_node_id].second;
+                    ref_end = ref_start + graph->get_length(graph->get_handle(ref_node_id));
+                }
+            } else {
+                // Fallback to source path
+                subrange_t subrange;
+                base_path_name = Paths::strip_subrange(source_path_name, &subrange);
+            }
+        }
+
+        // If augref_sample_name is set, replace sample in base_path_name
+        if (!augref_sample_name.empty()) {
+            PathSense sense;
+            string sample, locus;
+            size_t haplotype, phase_block;
+            subrange_t subrange;
+            PathMetadata::parse_path_name(base_path_name, sense, sample, locus, haplotype, phase_block, subrange);
+
+            if (sample.empty()) {
+                base_path_name = augref_sample_name + "#0#" + base_path_name;
+            } else {
+                base_path_name = PathMetadata::create_path_name(sense, augref_sample_name, locus, haplotype, phase_block, subrange);
+            }
+        }
+
+        // Get next augref index for this base path
+        int64_t augref_index = ++local_augref_counter[base_path_name];
+        string augref_name = make_augref_name(base_path_name, augref_index);
+
+        // Output the BED line
+        os << source_path_name << "\t"
+           << source_start << "\t"
+           << source_end << "\t"
+           << augref_name << "\t"
+           << ref_path_name << "\t"
+           << ref_start << "\t"
+           << ref_end << "\n";
+    }
 }
 
 void AugRefCover::print_stats(ostream& os) {

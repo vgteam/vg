@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 
 #include "subcommand.hpp"
 
@@ -73,6 +74,7 @@ void help_paths(char** argv) {
          << "                           (copies base paths to new sample," << endl
          << "                           then adds augref paths)." << endl
          << "                           if unspecified, paths get added to target sample." << endl
+         << "      --augref-segments FILE  write augref segment table to FILE" << endl
          << "      --verbose            print augref progress and coverage summary" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
@@ -148,8 +150,10 @@ int main_paths(int argc, char** argv) {
     int64_t min_augref_length = 10;
     string augref_sample;
     bool augref_verbose = false;
+    string augref_segments_file;
 
     constexpr int OPT_VERBOSE = 1001;
+    constexpr int OPT_AUGREF_SEGMENTS = 1002;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -191,6 +195,7 @@ int main_paths(int argc, char** argv) {
             {"compute-augref", no_argument, 0, 'u'},
             {"min-augref-len", required_argument, 0, 'l'},
             {"augref-sample", required_argument, 0, 'N'},
+            {"augref-segments", required_argument, 0, OPT_AUGREF_SEGMENTS},
             {"verbose", no_argument, 0, OPT_VERBOSE},
 
             {0, 0, 0, 0}
@@ -348,6 +353,10 @@ int main_paths(int argc, char** argv) {
             augref_verbose = true;
             break;
 
+        case OPT_AUGREF_SEGMENTS:
+            augref_segments_file = optarg;
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -420,7 +429,10 @@ int main_paths(int argc, char** argv) {
     if (compute_augref && path_prefix.empty()) {
         logger.error() << "--compute-augref requires -Q to select reference path(s)" << std::endl;
     }
-    
+    if (!augref_segments_file.empty() && !compute_augref) {
+        logger.error() << "--augref-segments requires --compute-augref" << std::endl;
+    }
+
     if (select_alt_paths) {
         // alt paths all have a specific prefix
         path_prefix = "_alt_";
@@ -499,6 +511,17 @@ int main_paths(int argc, char** argv) {
         cover.set_verbose(augref_verbose);
         cover.clear(mutable_graph);
         cover.compute(graph, &snarl_manager, ref_paths, min_augref_length);
+
+        // Write augref segment table if requested
+        if (!augref_segments_file.empty()) {
+            ofstream segments_out(augref_segments_file);
+            if (!segments_out) {
+                logger.error() << "could not open augref-segments file: " << augref_segments_file << std::endl;
+                return 1;
+            }
+            cover.write_augref_segments(segments_out);
+        }
+
         cover.apply(mutable_graph);
 
         // Output the modified graph
