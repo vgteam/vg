@@ -10,6 +10,8 @@ import os
 import glob
 import json
 import struct
+import gzip
+import base64
 from collections import defaultdict
 
 
@@ -135,8 +137,12 @@ def generate_svg(seeds, transitions, output_path):
             'is_max': is_max
         })
 
-    seeds_json = json.dumps(seeds_data)
-    transitions_json = json.dumps(transitions_data)
+    # Compress JSON data using gzip and base64 encode for embedding
+    seeds_json_bytes = json.dumps(seeds_data).encode('utf-8')
+    transitions_json_bytes = json.dumps(transitions_data).encode('utf-8')
+
+    seeds_compressed = base64.b64encode(gzip.compress(seeds_json_bytes)).decode('ascii')
+    transitions_compressed = base64.b64encode(gzip.compress(transitions_json_bytes)).decode('ascii')
 
     svg_content = f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="800">
@@ -203,9 +209,29 @@ def generate_svg(seeds, transitions, output_path):
   <script xlink:href="https://d3js.org/d3.v7.js"></script>
   <script type="text/javascript">
     <![CDATA[
-    document.addEventListener('DOMContentLoaded', function() {{
-      const seeds = {seeds_json};
-      const transitions = {transitions_json};
+    // Compressed data (gzip + base64)
+    const SEEDS_COMPRESSED = "{seeds_compressed}";
+    const TRANSITIONS_COMPRESSED = "{transitions_compressed}";
+
+    // Decompress gzipped base64 data using Compression Streams API
+    async function decompressData(base64Data) {{
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {{
+        bytes[i] = binaryString.charCodeAt(i);
+      }}
+
+      const stream = new Blob([bytes]).stream();
+      const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+      const decompressedBlob = await new Response(decompressedStream).blob();
+      const text = await decompressedBlob.text();
+      return JSON.parse(text);
+    }}
+
+    document.addEventListener('DOMContentLoaded', async function() {{
+      // Decompress the data
+      const seeds = await decompressData(SEEDS_COMPRESSED);
+      const transitions = await decompressData(TRANSITIONS_COMPRESSED);
 
       const margin = {{top: 40, right: 40, bottom: 60, left: 80}};
       const svgWidth = 1200;
