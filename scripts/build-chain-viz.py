@@ -123,8 +123,10 @@ def generate_svg(seeds, transitions, output_path):
         fraction = t['score'] / max_score if max_score > 0 else 0
         is_max = (t['score'] == max_score)
         dest_index = seed_id_to_index.get(t['dest_id'], -1)
+        source_index = seed_id_to_index.get(t['source_id'], -1)
         transitions_data.append({
             'source_id': t['source_id'],
+            'source_index': source_index,
             'dest_id': t['dest_id'],
             'dest_index': dest_index,
             'score': t['score'],
@@ -151,6 +153,11 @@ def generate_svg(seeds, transitions, output_path):
       fill: orange;
       r: 8;
     }}
+    .seed.on-traceback {{
+      fill: #ff6666;
+      stroke: darkred;
+      stroke-width: 2px;
+    }}
     .transition {{
       stroke-width: 1.5px;
       fill: none;
@@ -163,6 +170,11 @@ def generate_svg(seeds, transitions, output_path):
     .transition.secondary {{
       stroke-width: 1px;
       opacity: 0.4;
+    }}
+    .transition.traceback {{
+      stroke: red;
+      stroke-width: 3px;
+      opacity: 1;
     }}
     .axis text {{
       font-family: sans-serif;
@@ -205,8 +217,13 @@ def generate_svg(seeds, transitions, output_path):
         transitionsByDestIndex.get(t.dest_index).push(t);
       }});
 
-      // Separate top transitions (shown by default) from others
-      const topTransitions = transitions.filter(t => t.is_max);
+      // Find best (max score) transition to each seed
+      const bestTransitionToSeed = new Map();
+      transitions.forEach(t => {{
+        if (t.is_max) {{
+          bestTransitionToSeed.set(t.dest_index, t);
+        }}
+      }});
 
       // Compute data extents (handle empty data)
       let xExtent = d3.extent(seeds, d => d.ref_pos);
@@ -305,9 +322,9 @@ def generate_svg(seeds, transitions, output_path):
 
       const zoomG = plotArea.append('g');
 
-      // Layer for transitions (below seeds)
-      const transitionLayer = zoomG.append('g').attr('class', 'transition-layer');
-      // Layer for dynamically added secondary transitions
+      // Layer for traceback transitions (red path)
+      const tracebackLayer = zoomG.append('g').attr('class', 'traceback-layer');
+      // Layer for dynamically added secondary transitions (on hover)
       const secondaryTransitionLayer = zoomG.append('g').attr('class', 'secondary-transition-layer');
       // Layer for seeds (on top)
       const seedLayer = zoomG.append('g').attr('class', 'seed-layer');
@@ -328,46 +345,83 @@ def generate_svg(seeds, transitions, output_path):
         }};
       }}
 
-      // Draw top transitions only (with SVG title tooltips)
-      const transitionLines = transitionLayer.selectAll('.transition')
-        .data(topTransitions)
-        .enter()
-        .append('line')
-        .attr('class', 'transition')
-        .each(function(d) {{
-          const coords = getLineCoords(d, xScale, yScale);
-          d3.select(this)
-            .attr('x1', coords.x1)
-            .attr('y1', coords.y1)
-            .attr('x2', coords.x2)
-            .attr('y2', coords.y2);
-        }})
-        .attr('stroke', d => d.is_max ? 'red' : colorScale(d.fraction))
-        .on('mouseover', function(event, d) {{
-          d3.select(this).classed('highlighted', true);
-        }})
-        .on('mouseout', function() {{
-          d3.select(this).classed('highlighted', false);
-        }});
-
-      // Add SVG title tooltips to transitions
-      transitionLines.append('title')
-        .text(d => `Score: ${{d.score}}\\nFraction of max: ${{(d.fraction * 100).toFixed(1)}}%`);
-
       // Track state
       let selectedSeed = null;
       let hoveredSeed = null;
+      let tracebackSeedIndices = new Set();
 
-      // Function to show all transitions to a seed (by index)
+      // Compute traceback path from a seed
+      function computeTraceback(seedIndex) {{
+        const path = [];
+        const visited = new Set();
+        let currentIndex = seedIndex;
+
+        while (currentIndex !== undefined && !visited.has(currentIndex)) {{
+          visited.add(currentIndex);
+          const bestTrans = bestTransitionToSeed.get(currentIndex);
+          if (bestTrans) {{
+            path.push(bestTrans);
+            currentIndex = bestTrans.source_index;
+          }} else {{
+            break;
+          }}
+        }}
+        return path;
+      }}
+
+      // Show traceback path for selected seed
+      function showTraceback(seedIndex) {{
+        const path = computeTraceback(seedIndex);
+        tracebackSeedIndices.clear();
+
+        // Collect all seed indices on the traceback
+        if (path.length > 0) {{
+          path.forEach(t => {{
+            tracebackSeedIndices.add(t.source_index);
+            tracebackSeedIndices.add(t.dest_index);
+          }});
+        }}
+
+        // Update seed styling for traceback
+        seedCircles.classed('on-traceback', d => tracebackSeedIndices.has(d.index) && d.index !== seedIndex);
+
+        // Draw traceback transitions
+        const lines = tracebackLayer.selectAll('.traceback')
+          .data(path, d => d.source_id + '->' + d.dest_id);
+
+        lines.enter()
+          .append('line')
+          .attr('class', 'transition traceback')
+          .each(function(d) {{
+            const coords = getLineCoords(d, currentXScale, currentYScale);
+            d3.select(this)
+              .attr('x1', coords.x1)
+              .attr('y1', coords.y1)
+              .attr('x2', coords.x2)
+              .attr('y2', coords.y2);
+          }})
+          .append('title')
+          .text(d => `Score: ${{d.score}}\\nFraction of max: ${{(d.fraction * 100).toFixed(1)}}%`);
+
+        lines.exit().remove();
+      }}
+
+      // Hide traceback path
+      function hideTraceback() {{
+        tracebackLayer.selectAll('.traceback').remove();
+        tracebackSeedIndices.clear();
+        seedCircles.classed('on-traceback', false);
+      }}
+
+      // Function to show all transitions to a seed (by index) on hover
       function showSecondaryTransitions(seedIndex) {{
         const allTrans = transitionsByDestIndex.get(seedIndex) || [];
-        const secondaryTrans = allTrans.filter(t => !t.is_max);
 
         // Use numeric index for reliable class selection
         const className = 'secondary-dest-' + seedIndex;
 
         const lines = secondaryTransitionLayer.selectAll('.' + className)
-          .data(secondaryTrans, d => d.source_id + '->' + d.dest_id);
+          .data(allTrans, d => d.source_id + '->' + d.dest_id);
 
         lines.enter()
           .append('line')
@@ -380,7 +434,7 @@ def generate_svg(seeds, transitions, output_path):
               .attr('x2', coords.x2)
               .attr('y2', coords.y2);
           }})
-          .attr('stroke', d => colorScale(d.fraction))
+          .attr('stroke', d => d.is_max ? 'red' : colorScale(d.fraction))
           .append('title')
           .text(d => `Score: ${{d.score}}\\nFraction of max: ${{(d.fraction * 100).toFixed(1)}}%`);
       }}
@@ -405,24 +459,15 @@ def generate_svg(seeds, transitions, output_path):
           if (selectedSeed !== d) {{
             d3.select(this).classed('hovered', true);
           }}
-          // Highlight incoming top transitions
-          transitionLines.filter(t => t.dest_index === d.index)
-            .classed('highlighted', true);
-          // Show all secondary transitions
+          // Show all transitions to this seed
           showSecondaryTransitions(d.index);
         }})
         .on('mouseout', function(event, d) {{
           hoveredSeed = null;
           if (selectedSeed !== d) {{
             d3.select(this).classed('hovered', false);
-            transitionLines.filter(t => t.dest_index === d.index)
-              .classed('highlighted', false);
             // Hide secondary transitions
             hideSecondaryTransitions(d.index);
-          }} else {{
-            // Seed is selected, keep transitions visible but unhighlight top ones
-            transitionLines.filter(t => t.dest_index === d.index)
-              .classed('highlighted', false);
           }}
         }})
         .on('click', function(event, d) {{
@@ -432,10 +477,9 @@ def generate_svg(seeds, transitions, output_path):
           if (selectedSeed === d) {{
             selectedSeed = null;
             d3.select(this).classed('selected', false);
+            hideTraceback();
             // If not still hovering, hide transitions
             if (hoveredSeed !== d) {{
-              transitionLines.filter(t => t.dest_index === d.index)
-                .classed('highlighted', false);
               hideSecondaryTransitions(d.index);
             }}
           }} else {{
@@ -446,8 +490,6 @@ def generate_svg(seeds, transitions, output_path):
                 .classed('hovered', false);
               // Hide previous seed's transitions if not hovering it
               if (hoveredSeed === null || hoveredSeed.index !== prevSelected.index) {{
-                transitionLines.filter(t => t.dest_index === prevSelected.index)
-                  .classed('highlighted', false);
                 hideSecondaryTransitions(prevSelected.index);
               }}
             }}
@@ -455,8 +497,7 @@ def generate_svg(seeds, transitions, output_path):
             // Select new seed
             selectedSeed = d;
             d3.select(this).classed('selected', true);
-            transitionLines.filter(t => t.dest_index === d.index)
-              .classed('highlighted', true);
+            showTraceback(d.index);
             showSecondaryTransitions(d.index);
           }}
         }});
@@ -467,7 +508,7 @@ def generate_svg(seeds, transitions, output_path):
 
       // Zoom behavior with 1:1 aspect ratio constraint
       const zoom = d3.zoom()
-        .scaleExtent([0.1, 1000])
+        .scaleExtent([0.1, 10000])
         .on('zoom', function(event) {{
           const transform = event.transform;
 
@@ -484,8 +525,8 @@ def generate_svg(seeds, transitions, output_path):
             .attr('cx', d => currentXScale(d.ref_pos))
             .attr('cy', d => currentYScale(d.read_pos));
 
-          // Update top transition lines
-          transitionLines.each(function(d) {{
+          // Update traceback transition lines
+          tracebackLayer.selectAll('.transition').each(function(d) {{
             const coords = getLineCoords(d, currentXScale, currentYScale);
             d3.select(this)
               .attr('x1', coords.x1)
@@ -506,6 +547,14 @@ def generate_svg(seeds, transitions, output_path):
         }});
 
       svg.call(zoom);
+
+      // Auto-select the seed with highest max_score
+      const bestSeed = seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), seeds[0]);
+      if (bestSeed && bestSeed.max_score > 0) {{
+        selectedSeed = bestSeed;
+        seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
+        showTraceback(bestSeed.index);
+      }}
     }});
     ]]>
   </script>
