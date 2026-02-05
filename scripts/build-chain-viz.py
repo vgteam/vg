@@ -92,16 +92,16 @@ def generate_svg(seeds, transitions, output_path):
     seed_id_to_index = {s['seed_id']: i for i, s in enumerate(seeds)}
 
     # Filter transitions to only include those where both endpoints are in our seeds
-    # and score is positive
+    # (keep negative scores for hovered-to-selected highlighting)
     relevant_transitions = []
     for t in transitions:
-        if t['source_id'] in seed_ids and t['dest_id'] in seed_ids and t['score'] > 0:
+        if t['source_id'] in seed_ids and t['dest_id'] in seed_ids:
             relevant_transitions.append(t)
 
-    # Compute max score per destination
+    # Compute max score per destination (only from positive scores)
     max_score_by_dest = defaultdict(lambda: float('-inf'))
     for t in relevant_transitions:
-        if t['score'] > max_score_by_dest[t['dest_id']]:
+        if t['score'] > 0 and t['score'] > max_score_by_dest[t['dest_id']]:
             max_score_by_dest[t['dest_id']] = t['score']
 
     # Add score info to seeds
@@ -352,6 +352,8 @@ def generate_svg(seeds, transitions, output_path):
       const tracebackLayer = zoomG.append('g').attr('class', 'traceback-layer');
       // Layer for dynamically added secondary transitions (on hover)
       const secondaryTransitionLayer = zoomG.append('g').attr('class', 'secondary-transition-layer');
+      // Layer for hovered-to-selected transition highlight
+      const hoveredToSelectedLayer = zoomG.append('g').attr('class', 'hovered-to-selected-layer');
       // Layer for seeds (on top)
       const seedLayer = zoomG.append('g').attr('class', 'seed-layer');
 
@@ -442,12 +444,14 @@ def generate_svg(seeds, transitions, output_path):
       // Function to show all transitions to a seed (by index) on hover
       function showSecondaryTransitions(seedIndex) {{
         const allTrans = transitionsByDestIndex.get(seedIndex) || [];
+        // Only show positive score transitions in the secondary display
+        const positiveTrans = allTrans.filter(t => t.score > 0);
 
         // Use numeric index for reliable class selection
         const className = 'secondary-dest-' + seedIndex;
 
         const lines = secondaryTransitionLayer.selectAll('.' + className)
-          .data(allTrans, d => d.source_id + '->' + d.dest_id);
+          .data(positiveTrans, d => d.source_id + '->' + d.dest_id);
 
         lines.enter()
           .append('line')
@@ -496,21 +500,33 @@ def generate_svg(seeds, transitions, output_path):
         circle.select('title').text(tooltipText);
       }}
 
-      // Function to highlight transition from hovered to selected
+      // Function to highlight transition from hovered to selected (draws the line directly)
       function highlightTransitionToSelected(hoveredIndex) {{
         if (!selectedSeed || hoveredIndex === selectedSeed.index) return;
-        // Find and bold the transition line from hovered to selected in secondary layer
-        secondaryTransitionLayer.selectAll('.secondary-dest-' + selectedSeed.index)
-          .filter(t => t.source_index === hoveredIndex)
-          .classed('to-selected', true);
+        // Find the transition from hovered to selected (including negative scores)
+        const trans = getTransitionFromTo(hoveredIndex, selectedSeed.index);
+        if (!trans) return;
+
+        // Draw the transition line in the hovered-to-selected layer
+        const line = hoveredToSelectedLayer.append('line')
+          .datum(trans)
+          .attr('class', 'transition to-selected')
+          .each(function(d) {{
+            const coords = getLineCoords(d, currentXScale, currentYScale);
+            d3.select(this)
+              .attr('x1', coords.x1)
+              .attr('y1', coords.y1)
+              .attr('x2', coords.x2)
+              .attr('y2', coords.y2);
+          }});
+        line.append('title')
+          .text(d => `Score: ${{d.score}}\\nFraction of max: ${{(d.fraction * 100).toFixed(1)}}%`);
       }}
 
       // Function to unhighlight transition from hovered to selected
       function unhighlightTransitionToSelected(hoveredIndex) {{
-        if (!selectedSeed) return;
-        secondaryTransitionLayer.selectAll('.secondary-dest-' + selectedSeed.index)
-          .filter(t => t.source_index === hoveredIndex)
-          .classed('to-selected', false);
+        // Simply remove all lines from the hovered-to-selected layer
+        hoveredToSelectedLayer.selectAll('*').remove();
       }}
 
       // Draw seeds with SVG title tooltips
@@ -611,6 +627,16 @@ def generate_svg(seeds, transitions, output_path):
 
           // Update secondary transition lines
           secondaryTransitionLayer.selectAll('.transition').each(function(d) {{
+            const coords = getLineCoords(d, currentXScale, currentYScale);
+            d3.select(this)
+              .attr('x1', coords.x1)
+              .attr('y1', coords.y1)
+              .attr('x2', coords.x2)
+              .attr('y2', coords.y2);
+          }});
+
+          // Update hovered-to-selected transition line
+          hoveredToSelectedLayer.selectAll('.transition').each(function(d) {{
             const coords = getLineCoords(d, currentXScale, currentYScale);
             d3.select(this)
               .attr('x1', coords.x1)
