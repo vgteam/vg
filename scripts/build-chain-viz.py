@@ -46,10 +46,6 @@ def parse_chaindump_file(filepath):
     """
     Parse a chaindump file.
     Returns list of dicts with keys: source_id, dest_id, score (signed)
-
-    Note: The file format has columns ordered as (from_id, to_id, score) but
-    the DP runs from high read position to low, so we swap them here so that
-    source has larger read coordinate than dest.
     """
     transitions = []
     with open(filepath, 'r') as f:
@@ -62,10 +58,9 @@ def parse_chaindump_file(filepath):
                 continue
             score_uint64 = int(parts[2])
             score_int64 = uint64_to_int64(score_uint64)
-            # Swap source and dest so source has larger read coordinate
             transitions.append({
-                'source_id': parts[1],  # was dest in file
-                'dest_id': parts[0],    # was source in file
+                'source_id': parts[0],
+                'dest_id': parts[1],
                 'score': score_int64
             })
     return transitions
@@ -472,7 +467,7 @@ def generate_svg(seeds, transitions, output_path):
 
       // Zoom behavior with 1:1 aspect ratio constraint
       const zoom = d3.zoom()
-        .scaleExtent([0.1, 50])
+        .scaleExtent([0.1, 1000])
         .on('zoom', function(event) {{
           const transform = event.transform;
 
