@@ -146,7 +146,12 @@ def generate_svg(seeds, transitions, output_path):
       stroke-width: 1px;
       cursor: pointer;
     }}
-    .seed:hover, .seed.hovered {{
+    .seed.on-best-chain {{
+      fill: #90EE90;
+      stroke: darkgreen;
+      stroke-width: 2px;
+    }}
+    .seed:hover, .seed.hovered, .seed.on-best-chain:hover, .seed.on-best-chain.hovered {{
       r: 8;
     }}
     .seed.selected {{
@@ -166,6 +171,11 @@ def generate_svg(seeds, transitions, output_path):
     .transition.highlighted {{
       stroke-width: 3px;
       opacity: 1;
+    }}
+    .transition.to-selected {{
+      stroke: black !important;
+      stroke-width: 4px !important;
+      opacity: 1 !important;
     }}
     .transition.secondary {{
       stroke-width: 1px;
@@ -217,6 +227,15 @@ def generate_svg(seeds, transitions, output_path):
         transitionsByDestIndex.get(t.dest_index).push(t);
       }});
 
+      // Group transitions by source index for efficient lookup
+      const transitionsBySourceIndex = new Map();
+      transitions.forEach(t => {{
+        if (!transitionsBySourceIndex.has(t.source_index)) {{
+          transitionsBySourceIndex.set(t.source_index, []);
+        }}
+        transitionsBySourceIndex.get(t.source_index).push(t);
+      }});
+
       // Find best (max score) transition to each seed
       const bestTransitionToSeed = new Map();
       transitions.forEach(t => {{
@@ -224,6 +243,12 @@ def generate_svg(seeds, transitions, output_path):
           bestTransitionToSeed.set(t.dest_index, t);
         }}
       }});
+
+      // Get transition from source to dest (if exists)
+      function getTransitionFromTo(sourceIndex, destIndex) {{
+        const fromSource = transitionsBySourceIndex.get(sourceIndex) || [];
+        return fromSource.find(t => t.dest_index === destIndex);
+      }}
 
       // Compute data extents (handle empty data)
       let xExtent = d3.extent(seeds, d => d.ref_pos);
@@ -445,6 +470,48 @@ def generate_svg(seeds, transitions, output_path):
         secondaryTransitionLayer.selectAll('.' + className).remove();
       }}
 
+      // Function to update seed tooltip based on current selection
+      function updateSeedTooltip(circle, d) {{
+        let tooltipText = `Seed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`;
+        if (selectedSeed && selectedSeed !== d) {{
+          const trans = getTransitionFromTo(d.index, selectedSeed.index);
+          if (trans) {{
+            tooltipText += `\\nScore to selected: ${{trans.score}}`;
+          }}
+          // Compute insertion/deletion offset
+          const refDiff = Math.abs(d.ref_pos - selectedSeed.ref_pos);
+          const readDiff = Math.abs(d.read_pos - selectedSeed.read_pos);
+          const offset = Math.abs(refDiff - readDiff);
+          let offsetStr;
+          if (readDiff > refDiff) {{
+            offsetStr = `${{offset}}bp INS`;
+          }} else if (refDiff > readDiff) {{
+            offsetStr = `${{offset}}bp DEL`;
+          }} else {{
+            offsetStr = `0bp`;
+          }}
+          tooltipText += `\\nOffset: ${{offsetStr}}`;
+        }}
+        circle.select('title').text(tooltipText);
+      }}
+
+      // Function to highlight transition from hovered to selected
+      function highlightTransitionToSelected(hoveredIndex) {{
+        if (!selectedSeed || hoveredIndex === selectedSeed.index) return;
+        // Find and bold the transition line from hovered to selected in secondary layer
+        secondaryTransitionLayer.selectAll('.secondary-dest-' + selectedSeed.index)
+          .filter(t => t.source_index === hoveredIndex)
+          .classed('to-selected', true);
+      }}
+
+      // Function to unhighlight transition from hovered to selected
+      function unhighlightTransitionToSelected(hoveredIndex) {{
+        if (!selectedSeed) return;
+        secondaryTransitionLayer.selectAll('.secondary-dest-' + selectedSeed.index)
+          .filter(t => t.source_index === hoveredIndex)
+          .classed('to-selected', false);
+      }}
+
       // Draw seeds with SVG title tooltips
       const seedCircles = seedLayer.selectAll('.seed')
         .data(seeds)
@@ -459,8 +526,12 @@ def generate_svg(seeds, transitions, output_path):
           if (selectedSeed !== d) {{
             d3.select(this).classed('hovered', true);
           }}
+          // Update tooltip to show transition score to selected if applicable
+          updateSeedTooltip(d3.select(this), d);
           // Show all transitions to this seed
           showSecondaryTransitions(d.index);
+          // Highlight transition from this seed to selected seed
+          highlightTransitionToSelected(d.index);
         }})
         .on('mouseout', function(event, d) {{
           hoveredSeed = null;
@@ -469,6 +540,8 @@ def generate_svg(seeds, transitions, output_path):
             // Hide secondary transitions
             hideSecondaryTransitions(d.index);
           }}
+          // Unhighlight transition to selected
+          unhighlightTransitionToSelected(d.index);
         }})
         .on('click', function(event, d) {{
           const prevSelected = selectedSeed;
@@ -502,7 +575,7 @@ def generate_svg(seeds, transitions, output_path):
           }}
         }});
 
-      // Add SVG title tooltips to seeds
+      // Add SVG title tooltips to seeds (initial)
       seedCircles.append('title')
         .text(d => `Seed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`);
 
@@ -548,12 +621,90 @@ def generate_svg(seeds, transitions, output_path):
 
       svg.call(zoom);
 
-      // Auto-select the seed with highest max_score
+      // Function to zoom to fit a set of seed indices
+      function zoomToFitSeeds(seedIndices) {{
+        if (seedIndices.size === 0) return;
+
+        const seedsToFit = seeds.filter(s => seedIndices.has(s.index));
+        if (seedsToFit.length === 0) return;
+
+        const xMin = d3.min(seedsToFit, s => s.ref_pos);
+        const xMax = d3.max(seedsToFit, s => s.ref_pos);
+        const yMin = d3.min(seedsToFit, s => s.read_pos);
+        const yMax = d3.max(seedsToFit, s => s.read_pos);
+
+        // Add padding (50% on each side for a more zoomed-out view)
+        const xPad = (xMax - xMin) * 0.5 || 100;
+        const yPad = (yMax - yMin) * 0.5 || 100;
+
+        const targetXMin = xMin - xPad;
+        const targetXMax = xMax + xPad;
+        const targetYMin = yMin - yPad;
+        const targetYMax = yMax + yPad;
+
+        const targetXRange = targetXMax - targetXMin;
+        const targetYRange = targetYMax - targetYMin;
+
+        // Compute scale to fit while maintaining 1:1 aspect ratio
+        const scaleX = width / targetXRange;
+        const scaleY = height / targetYRange;
+        const scale = Math.min(scaleX, scaleY);
+
+        // Compute the center of the target region
+        const targetXCenter = (targetXMin + targetXMax) / 2;
+        const targetYCenter = (targetYMin + targetYMax) / 2;
+
+        // Compute translation to center the target region
+        // The base scales map initialXDomain/initialYDomain to [0,width]/[height,0]
+        // We need to find the transform that maps our target to fill the view
+
+        // In the base scale, what pixel coords would the target center be at?
+        const baseCenterX = xScale(targetXCenter);
+        const baseCenterY = yScale(targetYCenter);
+
+        // We want the target center to be at the view center (width/2, height/2)
+        // After applying transform: newX = transform.k * baseX + transform.x
+        // We want: transform.k * baseCenterX + transform.x = width/2
+        // And: transform.k * baseCenterY + transform.y = height/2
+
+        // First compute the scale factor relative to base scale
+        const baseScaleXRange = initialXDomain[1] - initialXDomain[0];
+        const k = baseScaleXRange / targetXRange * (width / width);  // simplified: scale relative to base
+
+        // Actually, let's compute it more directly
+        // The base xScale maps initialXDomain to [0, width]
+        // We want to map targetX range to [0, width] with scale k
+        // k = (initialXDomain range) / (targetX range) when both map to same pixel range
+        const k2 = (initialXDomain[1] - initialXDomain[0]) / targetXRange;
+
+        // Translation: we want targetXCenter to map to width/2
+        // xScale(targetXCenter) gives us the pixel position in base coords
+        // After transform: k * xScale(targetXCenter) + tx = width/2
+        const tx = width / 2 - k2 * xScale(targetXCenter);
+        const ty = height / 2 - k2 * yScale(targetYCenter);
+
+        const transform = d3.zoomIdentity.translate(tx, ty).scale(k2);
+        svg.call(zoom.transform, transform);
+      }}
+
+      // Auto-select the seed with highest max_score and zoom to traceback
       const bestSeed = seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), seeds[0]);
+      const bestChainSeedIndices = new Set();
       if (bestSeed && bestSeed.max_score > 0) {{
         selectedSeed = bestSeed;
         seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
         showTraceback(bestSeed.index);
+
+        // Store the best chain seed indices permanently
+        tracebackSeedIndices.forEach(idx => bestChainSeedIndices.add(idx));
+
+        // Mark seeds on the best chain with persistent styling
+        seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
+
+        // Zoom to fit the traceback
+        if (tracebackSeedIndices.size > 0) {{
+          zoomToFitSeeds(tracebackSeedIndices);
+        }}
       }}
     }});
     ]]>
