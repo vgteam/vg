@@ -110,6 +110,7 @@ def generate_svg(seeds, transitions, output_path):
         max_score = max_score_by_dest.get(s['seed_id'], 0)
         seeds_data.append({
             'index': i,
+            'seed_num': s['seed_num'],
             'read_pos': s['read_pos'],
             'ref_pos': s['ref_pos'],
             'seed_id': s['seed_id'],
@@ -472,7 +473,7 @@ def generate_svg(seeds, transitions, output_path):
 
       // Function to update seed tooltip based on current selection
       function updateSeedTooltip(circle, d) {{
-        let tooltipText = `Seed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`;
+        let tooltipText = `Seed #${{d.seed_num}}\\nSeed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`;
         if (selectedSeed && selectedSeed !== d) {{
           const trans = getTransitionFromTo(d.index, selectedSeed.index);
           if (trans) {{
@@ -577,7 +578,7 @@ def generate_svg(seeds, transitions, output_path):
 
       // Add SVG title tooltips to seeds (initial)
       seedCircles.append('title')
-        .text(d => `Seed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`);
+        .text(d => `Seed #${{d.seed_num}}\\nSeed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`);
 
       // Zoom behavior with 1:1 aspect ratio constraint
       const zoom = d3.zoom()
