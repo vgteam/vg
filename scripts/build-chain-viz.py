@@ -668,7 +668,7 @@ def generate_svg(seeds, transitions, output_path):
         showTraceback(bestSeed.index);
         const bestChainSeedIndices = new Set(tracebackSeedIndices);
         seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
-        zoomToFit(seeds.filter(s => tracebackSeedIndices.has(s.index)), 0.5);
+        zoomToFit(seeds.filter(s => tracebackSeedIndices.has(s.index)), 0.05);
       } else {
         zoomToFit(seeds, 0.05);
       }
