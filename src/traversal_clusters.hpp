@@ -106,12 +106,31 @@ void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const u
 
 
 /// for every snarl, bottom up, compute all the traversals through it.  choose a reference traversal
-/// (using the prefix where possible), then if 
+/// (using the prefix where possible), then if
 void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const string& ref_path_prefix,
                                      int64_t min_snarl_length,
                                      double min_jaccard,
                                      int64_t max_iterations,
                                      int64_t min_fragment_length);
 
+/**
+ * Add star-allele traversals for haplotypes that appear in the parent snarl but are missing
+ * from the current snarl's traversals. This is used for nested calling to ensure that
+ * haplotypes spanning a parent site but not traversing a child site get a "*" allele.
+ *
+ * @param travs             Vector of traversals (modified in place to add star traversals)
+ * @param names             Vector of path names corresponding to traversals (modified in place)
+ * @param trav_clusters     Vector of cluster assignments (modified in place)
+ * @param trav_cluster_info Vector of cluster info (Jaccard, length delta) (modified in place)
+ * @param parent_haplotypes Map from sample name -> vector of haplotype phases in the parent
+ * @param sample_names      Set of sample names to consider (reference-only samples are skipped)
+ * @return                  Map from sample name -> vector of haplotype phases in all traversals
+ */
+unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,
+                                                       vector<string>& names,
+                                                       vector<vector<int>>& trav_clusters,
+                                                       vector<pair<double, int64_t>>& trav_cluster_info,
+                                                       const unordered_map<string, vector<int>>& parent_haplotypes,
+                                                       const set<string>& sample_names);
 
 }

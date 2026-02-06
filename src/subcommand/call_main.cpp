@@ -17,6 +17,8 @@
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
+#include "../augref.hpp"
+#include "../traversal_clusters.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -51,8 +53,7 @@ void help_call(char** argv) {
          << "                            to construct input graph with -a)" << endl
          << "  -a, --genotype-snarls     genotype every snarl, including reference calls" << endl
          << "                            (use to compare multiple samples)" << endl
-         << "  -A, --all-snarls          genotype all snarls, including nested child snarls" << endl
-         << "                            (like deconstruct -a)" << endl
+         << "  -A, --all-snarls          call all snarls including nested (each independent)" << endl
          << "  -c, --min-length N        genotype only snarls with" << endl
          << "                            at least one traversal of length >= N" << endl
          << "  -C, --max-length N        genotype only snarls where" << endl 
@@ -70,8 +71,9 @@ void help_call(char** argv) {
          << "  -O, --gbz-translation     use the ID translation from the input GBZ to" << endl
          << "                            apply snarl names to snarl names/AT fields in output" << endl
          << "  -p, --ref-path NAME       reference path to call on (may repeat; default all)" << endl
+         << "  -P, --path-prefix NAME    call on all paths with this prefix (may repeat)" << endl
          << "  -S, --ref-sample NAME     call on all paths with this sample" << endl
-         << "                            (cannot use with -p)" << endl
+         << "                            (cannot use with -p or -P)" << endl
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
@@ -80,8 +82,15 @@ void help_call(char** argv) {
          << "                            not visited by the selected samples, or to all" << endl
          << "                            contigs simulated from if no samples are used." << endl
          << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
-         << "  -n, --nested              activate nested calling mode (experimental)" << endl
+         << "      --top-down            top-down nested calling with genotype propagation" << endl
+         << "                            from parent to child snarls (writes LV/PS tags)" << endl
+         << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
+         << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
+         << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
+         << "                            default is to cluster before genotyping" << endl
+         << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
+         << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -101,6 +110,7 @@ int main_call(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
+    vector<string> ref_path_prefixes;
     string ref_sample;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
@@ -121,12 +131,18 @@ int main_call(int argc, char** argv) {
     bool gaf_output = false;
     size_t trav_padding = 0;
     bool genotype_snarls = false;
-    bool nested = false;
+    bool top_down = false;
+    bool bottom_up = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
     size_t max_allele_len = numeric_limits<size_t>::max();
     bool show_progress = false;
+
+    // Nested calling options (for use with -A)
+    double cluster_threshold = 1.0;
+    bool cluster_post_genotype = false;  // false = cluster before, true = cluster after
+    bool star_allele = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -139,6 +155,10 @@ int main_call(int argc, char** argv) {
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
     constexpr int OPT_PROGRESS = 1000;
+    constexpr int OPT_CLUSTER_POST = 1002;
+    constexpr int OPT_LEGACY = 1004;
+    constexpr int OPT_BOTTOM_UP = 1005;
+    constexpr int OPT_TOP_DOWN = 1006;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -163,6 +183,7 @@ int main_call(int argc, char** argv) {
             {"translation", required_argument, 0, 'N'},
             {"gbz-translation", no_argument, 0, 'O'},
             {"ref-path", required_argument, 0, 'p'},
+            {"path-prefix", required_argument, 0, 'P'},
             {"ref-sample", required_argument, 0, 'S'},            
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
@@ -171,9 +192,13 @@ int main_call(int argc, char** argv) {
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
-            {"legacy", no_argument, 0, 'L'},
-            {"nested", no_argument, 0, 'n'},
-            {"chains", no_argument, 0, 'I'},            
+            {"legacy", no_argument, 0, OPT_LEGACY},
+            {"top-down", no_argument, 0, OPT_TOP_DOWN},
+            {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+            {"chains", no_argument, 0, 'I'},
+            {"cluster", required_argument, 0, 'L'},
+            {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
+            {"star-allele", no_argument, 0, 'Y'},
             {"threads", required_argument, 0, 't'},
             {"progress", no_argument, 0, OPT_PROGRESS },
             {"help", no_argument, 0, 'h'},
@@ -182,7 +207,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nIt:h?",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -248,6 +273,9 @@ int main_call(int argc, char** argv) {
         case 'p':
             ref_paths.push_back(optarg);
             break;
+        case 'P':
+            ref_path_prefixes.push_back(optarg);
+            break;
         case 'S':
             ref_sample = optarg;
             break;            
@@ -291,13 +319,25 @@ int main_call(int argc, char** argv) {
             trav_padding = parse<size_t>(optarg);
             break;
         case 'L':
-            legacy = true;
+            cluster_threshold = parse<double>(optarg);
             break;
-        case 'n':
-            nested =true;
+        case OPT_TOP_DOWN:
+            top_down = true;
+            break;
+        case OPT_BOTTOM_UP:
+            bottom_up = true;
             break;
         case 'I':
-            call_chains =true;
+            call_chains = true;
+            break;
+        case OPT_CLUSTER_POST:
+            cluster_post_genotype = true;
+            break;
+        case 'Y':
+            star_allele = true;
+            break;
+        case OPT_LEGACY:
+            legacy = true;
             break;
         case OPT_PROGRESS:
             show_progress = true;
@@ -371,11 +411,17 @@ int main_call(int argc, char** argv) {
     }
 
     if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max())
-        && (legacy || !vcf_filename.empty() || nested)) {
-        logger.error() << "-c/-C no supported with -v, -l or -n" << endl;
+        && (legacy || !vcf_filename.empty() || bottom_up)) {
+        logger.error() << "-c/-C not supported with -v, -l, or --bottom-up" << endl;
     }
     if (!ref_paths.empty() && !ref_sample.empty()) {
         logger.error() << "-S cannot be used with -p" << endl;
+    }
+    if (!ref_path_prefixes.empty() && !ref_sample.empty()) {
+        logger.error() << "-S cannot be used with -P" << endl;
+    }
+    if (!ref_path_prefixes.empty() && !ref_paths.empty()) {
+        logger.error() << "-P cannot be used with -p" << endl;
     }
 
     // Read the graph
@@ -436,7 +482,7 @@ int main_call(int argc, char** argv) {
     bool need_path_positions = vcf_filename.empty();
     bool need_vectorizable = !pack_filename.empty();
     // When not using GBWT/GBZ, embedded HAPLOTYPE paths are the sample alleles
-    bool all_paths = gbwt_filename.empty() && !gbz_graph;
+    bool embedded_haplotype_paths = gbwt_filename.empty() && !gbz_graph;
     bdsg::ReferencePathOverlayHelper pp_overlay_helper;
     bdsg::ReferencePathVectorizableOverlayHelper ppv_overlay_helper;
     bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
@@ -444,9 +490,9 @@ int main_call(int argc, char** argv) {
         logger.info() << "Applying overlays if necessary (i.e. input not in XG format)" << endl;
     }
     if (need_path_positions && need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
+        graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph, embedded_haplotype_paths));
     } else if (need_path_positions && !need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(pp_overlay_helper.apply(graph, all_paths));
+        graph = dynamic_cast<PathHandleGraph*>(pp_overlay_helper.apply(graph, embedded_haplotype_paths));
     } else if (!need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(pv_overlay_helper.apply(graph));
     }
@@ -487,6 +533,31 @@ int main_call(int argc, char** argv) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
     }
 
+    // Validation: -A, --top-down, and --bottom-up are mutually exclusive
+    int nested_mode_count = (all_snarls ? 1 : 0) + (top_down ? 1 : 0) + (bottom_up ? 1 : 0);
+    if (nested_mode_count > 1) {
+        logger.error() << "-A, --top-down, and --bottom-up are mutually exclusive" << endl;
+    }
+
+    // Validation for nested calling options
+    if (star_allele && !top_down) {
+        logger.error() << "-Y/--star-allele requires --top-down mode" << endl;
+    }
+    if (cluster_post_genotype && cluster_threshold >= 1.0) {
+        logger.error() << "--cluster-post requires -L/--cluster with threshold < 1.0" << endl;
+    }
+    if (cluster_threshold < 0.0 || cluster_threshold > 1.0) {
+        logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
+    }
+
+    // Validation for bottom-up mode
+    if (bottom_up && star_allele) {
+        logger.error() << "-Y/--star-allele cannot be used with --bottom-up mode" << endl;
+    }
+    if (bottom_up && cluster_threshold < 1.0) {
+        logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
+    }
+
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
     // on VCF export.  the exception is writing the header where we need base paths. we keep
     // track of them the best we can here (just for writing the ##contigs)
@@ -505,7 +576,27 @@ int main_call(int argc, char** argv) {
             return len;
         }
     };
-    
+
+    // Process path prefixes to find ref paths
+    if (!ref_path_prefixes.empty()) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            // Never include alt paths in reference paths
+            if (Paths::is_alt(path_name)) {
+                return;
+            }
+            for (auto& prefix : ref_path_prefixes) {
+                if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                    ref_paths.push_back(path_name);
+                    break;
+                }
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "No paths found matching prefix(es)" << endl;
+        }
+    }
+
     // No paths specified: use them all
     if (ref_paths.empty()) {
         set<string> ref_sample_names;
@@ -628,6 +719,10 @@ int main_call(int argc, char** argv) {
         std::unordered_map<nid_t, size_t> extra_node_weight;
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : ref_paths) {
+            // Skip altpaths (they shouldn't influence snarl decomposition)
+            if (AugRefCover::is_augref_name(refpath_name)) {
+                continue;
+            }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(refpath_handle)))] += EXTRA_WEIGHT;
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
@@ -649,11 +744,11 @@ int main_call(int argc, char** argv) {
         if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
         packer->load_from_file(pack_filename);
         if (show_progress) logger.info() << "Loaded pack file" << endl;
-        if (nested) {
-            // Make a nested packed traversal support finder (using cached veresion important for poisson caller)
+        if (bottom_up) {
+            // Make a nested packed traversal support finder (required by NestedFlowCaller)
             support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
         } else {
-            // Make a packed traversal support finder (using cached veresion important for poisson caller)
+            // Make a packed traversal support finder (using cached version important for poisson caller)
             support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
         }
                 
@@ -791,7 +886,25 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        if (nested) {
+        if (top_down) {
+            // Use FlowCaller with nested mode enabled (top-down genotype propagation)
+            graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                              *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                              *snarl_manager,
+                                              sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                              ref_path_ploidies,
+                                              alignment_emitter.get(),
+                                              traversals_only,
+                                              gaf_output,
+                                              trav_padding,
+                                              genotype_snarls,
+                                              make_pair(min_allele_len, max_allele_len),
+                                              true,  // nested mode enabled
+                                              cluster_threshold,
+                                              cluster_post_genotype,
+                                              star_allele));
+        } else if (bottom_up) {
+            // Use NestedFlowCaller (bottom-up snarl merging, original nested algorithm)
             graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                     *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                     *snarl_manager,
@@ -822,8 +935,8 @@ int main_call(int argc, char** argv) {
         // Init The VCF       
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        // Make sure we get the LV/PS tags with -A
-        vcf_caller->set_nested(all_snarls);
+        // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
+        vcf_caller->set_nested(all_snarls || top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
@@ -842,18 +955,28 @@ int main_call(int argc, char** argv) {
     graph_caller->set_show_progress(show_progress);
     
     // Call the graph
-    if (!call_chains) {
+    // Determine recursion strategy based on mode:
+    // - top_down: FlowCaller handles recursion internally, so RecurseNever
+    // - all_snarls (-A): visit every snarl independently, so RecurseAlways
+    // - default: only recurse into children of failed snarls, so RecurseOnFail
+    GraphCaller::RecurseType recurse_type;
+    if (top_down) {
+        recurse_type = GraphCaller::RecurseNever;
+    } else if (all_snarls) {
+        recurse_type = GraphCaller::RecurseAlways;
+    } else {
+        recurse_type = GraphCaller::RecurseOnFail;
+    }
 
+    if (!call_chains) {
         // Call each snarl
-        // (todo: try chains in normal mode)
         if (show_progress) logger.info() << "Calling top-level snarls" << endl;
-        graph_caller->call_top_level_snarls(*graph, all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
+        graph_caller->call_top_level_snarls(*graph, recurse_type);
     } else {
         // Attempt to call chains instead of snarls so that the output traversals are longer
         // Todo: this could probably help in some cases when making VCFs too
         if (show_progress) logger.info() << "Calling top-level chains" << endl;
-        graph_caller->call_top_level_chains(*graph,  max_chain_edges,  max_chain_trivial_travs,
-                                            all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
+        graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
     }
     if (show_progress) logger.info() << "Calling complete" << endl;
 
