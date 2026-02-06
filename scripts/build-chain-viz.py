@@ -9,21 +9,15 @@ import sys
 import os
 import glob
 import json
-import struct
 import gzip
 import base64
 from collections import defaultdict
 
 
-def uint64_to_int64(val):
-    """Reinterpret a 64-bit unsigned integer as a signed integer."""
-    return struct.unpack('q', struct.pack('Q', val))[0]
-
-
 def parse_seeds_file(filepath):
     """
     Parse a chain seeds file.
-    Returns list of dicts with keys: read_pos, ref_name, ref_pos, seed_num, seed_id
+    Returns list of dicts with keys: read_pos, ref_name, ref_pos, strand, seed_num, seed_id
     """
     seeds = []
     with open(filepath, 'r') as f:
@@ -32,14 +26,15 @@ def parse_seeds_file(filepath):
             if not line:
                 continue
             parts = line.split('\t')
-            if len(parts) < 5:
+            if len(parts) < 6:
                 continue
             seeds.append({
                 'read_pos': int(parts[0]),
                 'ref_name': parts[1],
                 'ref_pos': int(parts[2]),
-                'seed_num': int(parts[3]),
-                'seed_id': parts[4]
+                'strand': parts[3],
+                'seed_num': int(parts[4]),
+                'seed_id': parts[5]
             })
     return seeds
 
@@ -58,12 +53,10 @@ def parse_chaindump_file(filepath):
             parts = line.split('\t')
             if len(parts) < 3:
                 continue
-            score_uint64 = int(parts[2])
-            score_int64 = uint64_to_int64(score_uint64)
             transitions.append({
                 'source_id': parts[0],
                 'dest_id': parts[1],
-                'score': score_int64
+                'score': int(parts[2])
             })
     return transitions
 
@@ -115,6 +108,7 @@ def generate_svg(seeds, transitions, output_path):
             'seed_num': s['seed_num'],
             'read_pos': s['read_pos'],
             'ref_pos': s['ref_pos'],
+            'strand': s['strand'],
             'seed_id': s['seed_id'],
             'max_score': max_score if max_score > float('-inf') else 0
         })
@@ -503,7 +497,7 @@ def generate_svg(seeds, transitions, output_path):
 
       // Function to update seed tooltip based on current selection
       function updateSeedTooltip(circle, d) {{
-        let tooltipText = `Seed #${{d.seed_num}}\\nSeed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`;
+        let tooltipText = `Seed #${{d.seed_num}} (${{d.strand}})\\nSeed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`;
         if (selectedSeed && selectedSeed !== d) {{
           const trans = getTransitionFromTo(d.index, selectedSeed.index);
           if (trans) {{
@@ -620,7 +614,7 @@ def generate_svg(seeds, transitions, output_path):
 
       // Add SVG title tooltips to seeds (initial)
       seedCircles.append('title')
-        .text(d => `Seed #${{d.seed_num}}\\nSeed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`);
+        .text(d => `Seed #${{d.seed_num}} (${{d.strand}})\\nSeed ID: ${{d.seed_id}}\\nRead: ${{d.read_pos}}\\nRef: ${{d.ref_pos}}\\nMax score: ${{d.max_score}}`);
 
       // Zoom behavior with 1:1 aspect ratio constraint
       const zoom = d3.zoom()
