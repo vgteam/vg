@@ -260,6 +260,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 seedpos.field(seed_anchors.at(seed_num).read_start());
                                 seedpos.field(path_name);
                                 seedpos.field(position.first);
+                                seedpos.field(position.second ? "-" : "+");
                                 seedpos.field(seed_num);
                                 std::stringstream ss;
                                 ss << seed_anchors.at(seed_num);
