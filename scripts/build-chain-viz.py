@@ -341,7 +341,7 @@ def generate_svg(seeds, transitions, output_path):
         /// secondary transition display and avoid redundant hide/show.
         this.hoveredSeed = null;
         /// Set of seed indices along the current traceback path. Used both
-        /// for styling and as the seed set for zoomToFit on startup.
+        /// for styling and as the seed set for #zoomToFit on startup.
         this.tracebackSeedIndices = new Set();
 
         this.#setupScales();
@@ -382,7 +382,7 @@ def generate_svg(seeds, transitions, output_path):
         const xMid = (xExtent[0] + xExtent[1]) / 2;
         const yMid = (yExtent[0] + yExtent[1]) / 2;
 
-        /// The domains of the base scales; needed by zoomToFit to compute
+        /// The domains of the base scales; needed by #zoomToFit to compute
         /// the zoom transform's scale factor from the ratio of domain widths.
         this.initialXDomain = [xMid - width * dataPerPixel / 2, xMid + width * dataPerPixel / 2];
         this.initialYDomain = [yMid - height * dataPerPixel / 2, yMid + height * dataPerPixel / 2];
@@ -393,7 +393,7 @@ def generate_svg(seeds, transitions, output_path):
         this.baseYScale = d3.scaleLinear().domain(this.initialYDomain).range([height, 0]);
 
         /// Zoom-adjusted scales; updated on every zoom event and read by
-        /// positionLines and seed repositioning.
+        /// #positionLines and seed repositioning.
         this.currentXScale = this.baseXScale;
         this.currentYScale = this.baseYScale;
 
@@ -495,26 +495,26 @@ def generate_svg(seeds, transitions, output_path):
             if (viz.selectedSeed !== d) {
               d3.select(this).classed('hovered', true);
             }
-            viz.updateSeedTooltip(d3.select(this), d);
-            viz.showSecondaryTransitions(d.index);
-            viz.highlightTransitionToSelected(d.index);
+            viz.#updateSeedTooltip(d3.select(this), d);
+            viz.#showSecondaryTransitions(d.index);
+            viz.#highlightTransitionToSelected(d.index);
           })
           .on('mouseout', function(event, d) {
             viz.hoveredSeed = null;
             if (viz.selectedSeed !== d) {
               d3.select(this).classed('hovered', false);
-              viz.hideSecondaryTransitions(d.index);
+              viz.#hideSecondaryTransitions(d.index);
             }
-            viz.unhighlightTransitionToSelected();
+            viz.#unhighlightTransitionToSelected();
           })
           .on('click', function(event, d) {
             const prevSelected = viz.selectedSeed;
             if (viz.selectedSeed === d) {
               viz.selectedSeed = null;
               d3.select(this).classed('selected', false);
-              viz.hideTraceback();
+              viz.#hideTraceback();
               if (viz.hoveredSeed !== d) {
-                viz.hideSecondaryTransitions(d.index);
+                viz.#hideSecondaryTransitions(d.index);
               }
             } else {
               if (prevSelected) {
@@ -522,17 +522,17 @@ def generate_svg(seeds, transitions, output_path):
                   .classed('selected', false)
                   .classed('hovered', false);
                 if (viz.hoveredSeed === null || viz.hoveredSeed.index !== prevSelected.index) {
-                  viz.hideSecondaryTransitions(prevSelected.index);
+                  viz.#hideSecondaryTransitions(prevSelected.index);
                 }
               }
               viz.selectedSeed = d;
               d3.select(this).classed('selected', true);
-              viz.showTraceback(d.index);
-              viz.showSecondaryTransitions(d.index);
+              viz.#showTraceback(d.index);
+              viz.#showSecondaryTransitions(d.index);
             }
           });
 
-        this.seedCircles.append('title').text(d => viz.seedTooltipText(d));
+        this.seedCircles.append('title').text(d => viz.#seedTooltipText(d));
       }
 
       /**
@@ -541,7 +541,7 @@ def generate_svg(seeds, transitions, output_path):
       #setupZoom() {
         const viz = this;
 
-        /// The D3 zoom behavior object; stored so zoomToFit can call
+        /// The D3 zoom behavior object; stored so #zoomToFit can call
         /// svg.call(zoom.transform, ...).
         this.zoom = d3.zoom()
           .scaleExtent([0.1, 10000])
@@ -553,7 +553,7 @@ def generate_svg(seeds, transitions, output_path):
             viz.seedCircles
               .attr('cx', d => viz.currentXScale(d.ref_pos))
               .attr('cy', d => viz.currentYScale(d.read_pos));
-            viz.zoomG.selectAll('.transition').call(viz.positionLinesFn());
+            viz.zoomG.selectAll('.transition').call(viz.#positionLinesFn());
           });
 
         this.svg.call(this.zoom);
@@ -568,12 +568,12 @@ def generate_svg(seeds, transitions, output_path):
         if (bestSeed && bestSeed.max_score > 0) {
           this.selectedSeed = bestSeed;
           this.seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
-          this.showTraceback(bestSeed.index);
+          this.#showTraceback(bestSeed.index);
           const bestChainSeedIndices = new Set(this.tracebackSeedIndices);
           this.seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
-          this.zoomToFit(seeds.filter(s => this.tracebackSeedIndices.has(s.index)), 0.05);
+          this.#zoomToFit(seeds.filter(s => this.tracebackSeedIndices.has(s.index)), 0.05);
         } else {
-          this.zoomToFit(seeds, 0.05);
+          this.#zoomToFit(seeds, 0.05);
         }
       }
 
@@ -584,14 +584,14 @@ def generate_svg(seeds, transitions, output_path):
       /**
        * Base tooltip text for a seed.
        */
-      seedTooltipText(d) {
+      #seedTooltipText(d) {
         return `Seed #${d.seed_num} (${d.strand})\\nSeed ID: ${d.seed_id}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
       }
 
       /**
        * Tooltip text for a transition line.
        */
-      transitionTooltipText(d) {
+      #transitionTooltipText(d) {
         return `Score: ${d.score}\\nFraction of max: ${(d.fraction * 100).toFixed(1)}%`;
       }
 
@@ -599,7 +599,7 @@ def generate_svg(seeds, transitions, output_path):
        * Set x1/y1/x2/y2 on a D3 selection of <line> elements using
        * current scales.
        */
-      positionLines(selection) {
+      #positionLines(selection) {
         const viz = this;
         selection.each(function(d) {
           const src = viz.data.seedById(d.source_id);
@@ -618,9 +618,9 @@ def generate_svg(seeds, transitions, output_path):
        * Return a closure suitable for D3 selection.call() that positions
        * <line> elements using the current zoom-adjusted scales.
        */
-      positionLinesFn() {
+      #positionLinesFn() {
         const viz = this;
-        return function(selection) { viz.positionLines(selection); };
+        return function(selection) { viz.#positionLines(selection); };
       }
 
       // -----------------------------------------------------------
@@ -630,7 +630,7 @@ def generate_svg(seeds, transitions, output_path):
       /**
        * Follow best-scoring transitions backward from seedIndex.
        */
-      computeTraceback(seedIndex) {
+      #computeTraceback(seedIndex) {
         const path = [];
         const visited = new Set();
         let currentIndex = seedIndex;
@@ -650,8 +650,8 @@ def generate_svg(seeds, transitions, output_path):
       /**
        * Display the traceback path from seedIndex as red lines.
        */
-      showTraceback(seedIndex) {
-        const path = this.computeTraceback(seedIndex);
+      #showTraceback(seedIndex) {
+        const path = this.#computeTraceback(seedIndex);
         this.tracebackSeedIndices.clear();
         path.forEach(t => {
           this.tracebackSeedIndices.add(t.source_index);
@@ -667,14 +667,14 @@ def generate_svg(seeds, transitions, output_path):
         lines.enter()
           .append('line')
           .attr('class', 'transition traceback')
-          .call(this.positionLinesFn())
+          .call(this.#positionLinesFn())
           .append('title')
-          .text(d => this.transitionTooltipText(d));
+          .text(d => this.#transitionTooltipText(d));
 
         lines.exit().remove();
       }
 
-      hideTraceback() {
+      #hideTraceback() {
         this.tracebackLayer.selectAll('.traceback').remove();
         this.tracebackSeedIndices.clear();
         this.seedCircles.classed('on-traceback', false);
@@ -683,7 +683,7 @@ def generate_svg(seeds, transitions, output_path):
       /**
        * Show positive-score transitions arriving at seedIndex as colored lines.
        */
-      showSecondaryTransitions(seedIndex) {
+      #showSecondaryTransitions(seedIndex) {
         const allTrans = this.data.transitionsTo(seedIndex);
         const positiveTrans = allTrans.filter(t => t.score > 0);
         const className = 'secondary-dest-' + seedIndex;
@@ -693,20 +693,20 @@ def generate_svg(seeds, transitions, output_path):
           .enter()
           .append('line')
           .attr('class', 'transition secondary ' + className)
-          .call(this.positionLinesFn())
+          .call(this.#positionLinesFn())
           .attr('stroke', d => d.is_max ? 'red' : this.colorScale(d.fraction))
           .append('title')
-          .text(d => this.transitionTooltipText(d));
+          .text(d => this.#transitionTooltipText(d));
       }
 
-      hideSecondaryTransitions(seedIndex) {
+      #hideSecondaryTransitions(seedIndex) {
         this.secondaryTransitionLayer.selectAll('.secondary-dest-' + seedIndex).remove();
       }
 
       /**
        * Draw a thick black line from hoveredIndex to the selected seed.
        */
-      highlightTransitionToSelected(hoveredIndex) {
+      #highlightTransitionToSelected(hoveredIndex) {
         if (!this.selectedSeed || hoveredIndex === this.selectedSeed.index) return;
         const trans = this.data.transitionFromTo(hoveredIndex, this.selectedSeed.index);
         if (!trans) return;
@@ -714,20 +714,20 @@ def generate_svg(seeds, transitions, output_path):
         this.hoveredToSelectedLayer.append('line')
           .datum(trans)
           .attr('class', 'transition to-selected')
-          .call(this.positionLinesFn())
+          .call(this.#positionLinesFn())
           .append('title')
-          .text(d => this.transitionTooltipText(d));
+          .text(d => this.#transitionTooltipText(d));
       }
 
-      unhighlightTransitionToSelected() {
+      #unhighlightTransitionToSelected() {
         this.hoveredToSelectedLayer.selectAll('*').remove();
       }
 
       /**
        * Rebuild a seed's tooltip, adding transition info when a seed is selected.
        */
-      updateSeedTooltip(circle, d) {
-        let text = this.seedTooltipText(d);
+      #updateSeedTooltip(circle, d) {
+        let text = this.#seedTooltipText(d);
         if (this.selectedSeed && this.selectedSeed !== d) {
           const trans = this.data.transitionFromTo(d.index, this.selectedSeed.index);
           if (trans) {
@@ -750,7 +750,7 @@ def generate_svg(seeds, transitions, output_path):
       /**
        * Zoom to fit the given seeds with padding as a fraction of data range.
        */
-      zoomToFit(seedsToFit, padding) {
+      #zoomToFit(seedsToFit, padding) {
         if (seedsToFit.length === 0) return;
         const [xMin, xMax] = d3.extent(seedsToFit, s => s.ref_pos);
         const [yMin, yMax] = d3.extent(seedsToFit, s => s.read_pos);
