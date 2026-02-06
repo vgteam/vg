@@ -2,7 +2,6 @@
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
 #include "traversal_clusters.hpp"
-#include "augref.hpp"
 
 //#define debug
 
@@ -667,22 +666,9 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             cerr << " trav=" << traversal_to_string(graph, travs[i], 100000) << endl;
         }
 #endif
-        // Check if this is a reference path (stripping subrange for augref path support)
-        string stripped_name = Paths::strip_subrange(path_trav_name);
-        bool ref_path_check = ref_paths.count(stripped_name) > 0;
-        if (ref_path_check) {
-            // Prefer base reference paths over derived altpaths
-            bool current_is_altpath = !ref_trav_name.empty() && AugRefCover::is_augref_name(ref_trav_name);
-            bool candidate_is_altpath = AugRefCover::is_augref_name(path_trav_name);
-
-            // Prefer non-altpath over altpath, then lexicographic within same category
-            bool should_replace = ref_trav_name.empty() ||
-                                  (current_is_altpath && !candidate_is_altpath) ||
-                                  (current_is_altpath == candidate_is_altpath && path_trav_name < ref_trav_name);
-
-            if (!should_replace) {
-                continue;
-            }
+        bool ref_path_check = ref_paths.count(path_trav_name);
+        if (ref_path_check &&
+            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
 #ifdef debug
 #pragma omp critical (cerr)
