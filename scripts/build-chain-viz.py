@@ -210,245 +210,433 @@ def generate_svg(seeds, transitions, output_path):
     js = '''  <script type="text/javascript">
     <![CDATA[
 
-    /** Decompress a gzip+base64-encoded JSON blob using the Compression Streams API. */
-    async function decompressData(base64Data) {
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+    /**
+     * Data model and query interface for the chaining problem.
+     *
+     * Holds the seed and transition arrays plus precomputed indexes for
+     * fast lookup. Seeds are points in (ref_pos, read_pos) space;
+     * transitions represent DP edges between them with cumulative scores.
+     * The `fraction` and `is_max` fields on transitions are relative to
+     * the best positive score arriving at each destination.
+     */
+    class ChainData {
+      /**
+       * Decode and gunzip a base64 blob via Compression Streams API.
+       */
+      static async decompress(base64Data) {
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const stream = new Blob([bytes]).stream();
+        const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+        const decompressedBlob = await new Response(decompressedStream).blob();
+        const text = await decompressedBlob.text();
+        return JSON.parse(text);
       }
-      const stream = new Blob([bytes]).stream();
-      const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
-      const decompressedBlob = await new Response(decompressedStream).blob();
-      const text = await decompressedBlob.text();
-      return JSON.parse(text);
-    }
-
-    document.addEventListener('DOMContentLoaded', async function() {
-
-      // ---------------------------------------------------------------
-      // Data Loading and Indexing
-      //
-      // Decompress embedded data and build maps for fast lookup of seeds
-      // by ID, transitions by endpoint index, and the best-scoring
-      // transition arriving at each seed.
-      // ---------------------------------------------------------------
-
-      const seeds = await decompressData(SEEDS_COMPRESSED);
-      const transitions = await decompressData(TRANSITIONS_COMPRESSED);
-
-      const seedById = new Map();
-      seeds.forEach(s => seedById.set(s.seed_id, s));
-
-      const transitionsByDestIndex = new Map();
-      const transitionsBySourceIndex = new Map();
-      transitions.forEach(t => {
-        if (!transitionsByDestIndex.has(t.dest_index))
-          transitionsByDestIndex.set(t.dest_index, []);
-        transitionsByDestIndex.get(t.dest_index).push(t);
-        if (!transitionsBySourceIndex.has(t.source_index))
-          transitionsBySourceIndex.set(t.source_index, []);
-        transitionsBySourceIndex.get(t.source_index).push(t);
-      });
-
-      const bestTransitionToSeed = new Map();
-      transitions.forEach(t => {
-        if (t.is_max) bestTransitionToSeed.set(t.dest_index, t);
-      });
 
       /**
-       * Look up a specific transition between two seeds. Used to find
-       * connections from a hovered seed to the selected seed, including
-       * negative-score transitions that aren't shown in secondary display.
+       * Async factory: decompresses both blobs, returns a new ChainData.
        */
-      function getTransitionFromTo(sourceIndex, destIndex) {
-        const fromSource = transitionsBySourceIndex.get(sourceIndex) || [];
+      static async fromCompressed(seedsB64, transitionsB64) {
+        const seeds = await ChainData.decompress(seedsB64);
+        const transitions = await ChainData.decompress(transitionsB64);
+        return new ChainData(seeds, transitions);
+      }
+
+      /**
+       * Stores arrays and builds four index Maps.
+       */
+      constructor(seeds, transitions) {
+        /// The raw seed array, for iteration and extent computation.
+        this.seeds = seeds;
+        /// The raw transition array, for iteration and extent computation.
+        this.transitions = transitions;
+
+        /// Map from seed_id to seed object.
+        this._seedById = new Map();
+        seeds.forEach(s => this._seedById.set(s.seed_id, s));
+
+        /// Map from dest_index to array of transitions arriving there.
+        this._transitionsByDestIndex = new Map();
+        /// Map from source_index to array of transitions departing there.
+        this._transitionsBySourceIndex = new Map();
+        transitions.forEach(t => {
+          if (!this._transitionsByDestIndex.has(t.dest_index))
+            this._transitionsByDestIndex.set(t.dest_index, []);
+          this._transitionsByDestIndex.get(t.dest_index).push(t);
+          if (!this._transitionsBySourceIndex.has(t.source_index))
+            this._transitionsBySourceIndex.set(t.source_index, []);
+          this._transitionsBySourceIndex.get(t.source_index).push(t);
+        });
+
+        /// Map from dest_index to the is_max transition arriving there.
+        this._bestTransitionToSeed = new Map();
+        transitions.forEach(t => {
+          if (t.is_max) this._bestTransitionToSeed.set(t.dest_index, t);
+        });
+      }
+
+      /**
+       * Look up a seed by its seed_id.
+       */
+      seedById(id) {
+        return this._seedById.get(id);
+      }
+
+      /**
+       * The is_max transition arriving at seedIndex, or undefined.
+       */
+      bestTransitionTo(seedIndex) {
+        return this._bestTransitionToSeed.get(seedIndex);
+      }
+
+      /**
+       * A specific transition from sourceIndex to destIndex, or undefined.
+       */
+      transitionFromTo(sourceIndex, destIndex) {
+        const fromSource = this._transitionsBySourceIndex.get(sourceIndex) || [];
         return fromSource.find(t => t.dest_index === destIndex);
       }
 
-      // ---------------------------------------------------------------
-      // Scales and SVG Layout
-      //
-      // Set up 1:1 aspect ratio coordinate scales, axes, labels, clip
-      // region, and the layered SVG structure. Layers are ordered
-      // bottom-to-top: traceback, secondary transitions, hovered-to-
-      // selected highlight, seeds.
-      // ---------------------------------------------------------------
-
-      const margin = {top: 40, right: 40, bottom: 60, left: 80};
-      const svgWidth = 1200;
-      const svgHeight = 800;
-      const width = svgWidth - margin.left - margin.right;
-      const height = svgHeight - margin.top - margin.bottom;
-      const svg = d3.select('svg');
-
-      let xExtent = d3.extent(seeds, d => d.ref_pos);
-      let yExtent = d3.extent(seeds, d => d.read_pos);
-      if (xExtent[0] === undefined) xExtent = [0, 1000];
-      if (yExtent[0] === undefined) yExtent = [0, 1000];
-
-      // Use the same data-per-pixel rate on both axes for 1:1 aspect ratio,
-      // chosen so the data fits in whichever dimension is tighter.
-      const xDataRange = xExtent[1] - xExtent[0] || 1000;
-      const yDataRange = yExtent[1] - yExtent[0] || 1000;
-      const dataPerPixel = Math.max(xDataRange / width, yDataRange / height);
-      const xMid = (xExtent[0] + xExtent[1]) / 2;
-      const yMid = (yExtent[0] + yExtent[1]) / 2;
-      const initialXDomain = [xMid - width * dataPerPixel / 2, xMid + width * dataPerPixel / 2];
-      const initialYDomain = [yMid - height * dataPerPixel / 2, yMid + height * dataPerPixel / 2];
-
-      const xScale = d3.scaleLinear().domain(initialXDomain).range([0, width]);
-      const yScale = d3.scaleLinear().domain(initialYDomain).range([height, 0]);
-      const colorScale = d3.scaleSequential(d3.interpolateViridis).domain([0, 1]);
-
-      svg.append('defs').append('clipPath')
-        .attr('id', 'plot-clip')
-        .append('rect')
-        .attr('width', width)
-        .attr('height', height);
-
-      const g = svg.append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-
-      const xAxis = d3.axisBottom(xScale).ticks(10);
-      const yAxis = d3.axisLeft(yScale).ticks(10);
-
-      const xAxisG = g.append('g')
-        .attr('class', 'axis x-axis')
-        .attr('transform', `translate(0,${height})`)
-        .call(xAxis);
-
-      const yAxisG = g.append('g')
-        .attr('class', 'axis y-axis')
-        .call(yAxis);
-
-      g.append('text')
-        .attr('class', 'axis-label')
-        .attr('x', width / 2)
-        .attr('y', height + 45)
-        .attr('text-anchor', 'middle')
-        .text('Reference Position');
-
-      g.append('text')
-        .attr('class', 'axis-label')
-        .attr('transform', 'rotate(-90)')
-        .attr('x', -height / 2)
-        .attr('y', -60)
-        .attr('text-anchor', 'middle')
-        .text('Read Position');
-
-      const plotArea = g.append('g')
-        .attr('clip-path', 'url(#plot-clip)');
-
-      plotArea.append('rect')
-        .attr('width', width)
-        .attr('height', height)
-        .attr('fill', 'white');
-
-      const zoomG = plotArea.append('g');
-      const tracebackLayer = zoomG.append('g');
-      const secondaryTransitionLayer = zoomG.append('g');
-      const hoveredToSelectedLayer = zoomG.append('g');
-      const seedLayer = zoomG.append('g');
-
-      // Current zoom-adjusted scales; start as the base scales and get
-      // replaced on each zoom event.
-      let currentXScale = xScale;
-      let currentYScale = yScale;
-
-      // ---------------------------------------------------------------
-      // Helpers
-      //
-      // Shared utilities for positioning transition lines, formatting
-      // tooltips, and computing zoom transforms.
-      // ---------------------------------------------------------------
+      /**
+       * All transitions arriving at seedIndex.
+       */
+      transitionsTo(seedIndex) {
+        return this._transitionsByDestIndex.get(seedIndex) || [];
+      }
 
       /**
-       * Set x1/y1/x2/y2 on a D3 selection of <line> elements whose data
-       * objects have source_id and dest_id fields. Uses the current zoom-
-       * adjusted scales, so call this both when creating lines and when
-       * the zoom changes. Use as: selection.call(positionLines).
+       * All transitions departing sourceIndex.
        */
-      function positionLines(selection) {
+      transitionsFrom(sourceIndex) {
+        return this._transitionsBySourceIndex.get(sourceIndex) || [];
+      }
+    }
+
+    /**
+     * Renders the chaining problem as an interactive SVG scatterplot.
+     *
+     * Seeds are circles; transitions are lines drawn in four z-ordered
+     * layers (traceback, secondary, hovered-to-selected, seeds).
+     *
+     * Interaction model: hover a seed to see its incoming positive-score
+     * transitions as thin colored lines; click to select and show the DP
+     * traceback in red; hover another seed while one is selected to see
+     * the direct connection (including negative scores) as a thick black
+     * line. Secondary transitions are given a CSS class
+     * `secondary-dest-{index}` so they can be efficiently removed when
+     * the hover ends. Zoom maintains 1:1 aspect ratio via a single D3
+     * zoom transform.
+     */
+    class ChainViz {
+      constructor(data) {
+        /// The ChainData instance providing seed/transition queries.
+        this.data = data;
+        /// The currently click-selected seed object, or null. Selecting a
+        /// seed shows its traceback and enables hovered-to-selected highlighting.
+        this.selectedSeed = null;
+        /// The seed currently under the mouse, or null. Used to manage
+        /// secondary transition display and avoid redundant hide/show.
+        this.hoveredSeed = null;
+        /// Set of seed indices along the current traceback path. Used both
+        /// for styling and as the seed set for zoomToFit on startup.
+        this.tracebackSeedIndices = new Set();
+
+        this.#setupScales();
+        this.#setupSVG();
+        this.#setupSeeds();
+        this.#setupZoom();
+        this.#initialize();
+      }
+
+      // -----------------------------------------------------------
+      // Private setup methods
+      // -----------------------------------------------------------
+
+      /**
+       * Compute 1:1 aspect ratio domains, create xScale/yScale/colorScale.
+       */
+      #setupScales() {
+        const seeds = this.data.seeds;
+        const margin = {top: 40, right: 40, bottom: 60, left: 80};
+        const svgWidth = 1200;
+        const svgHeight = 800;
+        this._margin = margin;
+        this._width = svgWidth - margin.left - margin.right;
+        this._height = svgHeight - margin.top - margin.bottom;
+        const width = this._width;
+        const height = this._height;
+
+        let xExtent = d3.extent(seeds, d => d.ref_pos);
+        let yExtent = d3.extent(seeds, d => d.read_pos);
+        if (xExtent[0] === undefined) xExtent = [0, 1000];
+        if (yExtent[0] === undefined) yExtent = [0, 1000];
+
+        // Use the same data-per-pixel rate on both axes for 1:1 aspect ratio,
+        // chosen so the data fits in whichever dimension is tighter.
+        const xDataRange = xExtent[1] - xExtent[0] || 1000;
+        const yDataRange = yExtent[1] - yExtent[0] || 1000;
+        const dataPerPixel = Math.max(xDataRange / width, yDataRange / height);
+        const xMid = (xExtent[0] + xExtent[1]) / 2;
+        const yMid = (yExtent[0] + yExtent[1]) / 2;
+
+        /// The domains of the base scales; needed by zoomToFit to compute
+        /// the zoom transform's scale factor from the ratio of domain widths.
+        this.initialXDomain = [xMid - width * dataPerPixel / 2, xMid + width * dataPerPixel / 2];
+        this.initialYDomain = [yMid - height * dataPerPixel / 2, yMid + height * dataPerPixel / 2];
+
+        /// The unzoomed 1:1 aspect ratio scales; the D3 zoom transform is
+        /// computed relative to these, so they must not be mutated.
+        this.baseXScale = d3.scaleLinear().domain(this.initialXDomain).range([0, width]);
+        this.baseYScale = d3.scaleLinear().domain(this.initialYDomain).range([height, 0]);
+
+        /// Zoom-adjusted scales; updated on every zoom event and read by
+        /// positionLines and seed repositioning.
+        this.currentXScale = this.baseXScale;
+        this.currentYScale = this.baseYScale;
+
+        /// Viridis color scale mapping transition fraction [0,1] to color.
+        this.colorScale = d3.scaleSequential(d3.interpolateViridis).domain([0, 1]);
+      }
+
+      /**
+       * Create clip path, axes, labels, layers.
+       */
+      #setupSVG() {
+        const margin = this._margin;
+        const width = this._width;
+        const height = this._height;
+
+        /// D3 selection of the root <svg> element; needed to attach and
+        /// programmatically trigger the zoom behavior.
+        this.svg = d3.select('svg');
+
+        this.svg.append('defs').append('clipPath')
+          .attr('id', 'plot-clip')
+          .append('rect')
+          .attr('width', width)
+          .attr('height', height);
+
+        const g = this.svg.append('g')
+          .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        /// D3 axis generators; passed to xAxisG/yAxisG.call() with the
+        /// current scale on zoom.
+        this.xAxis = d3.axisBottom(this.baseXScale).ticks(10);
+        this.yAxis = d3.axisLeft(this.baseYScale).ticks(10);
+
+        /// D3 selections of the axis <g> elements; updated on zoom to
+        /// redraw tick marks.
+        this.xAxisG = g.append('g')
+          .attr('class', 'axis x-axis')
+          .attr('transform', `translate(0,${height})`)
+          .call(this.xAxis);
+
+        this.yAxisG = g.append('g')
+          .attr('class', 'axis y-axis')
+          .call(this.yAxis);
+
+        g.append('text')
+          .attr('class', 'axis-label')
+          .attr('x', width / 2)
+          .attr('y', height + 45)
+          .attr('text-anchor', 'middle')
+          .text('Reference Position');
+
+        g.append('text')
+          .attr('class', 'axis-label')
+          .attr('transform', 'rotate(-90)')
+          .attr('x', -height / 2)
+          .attr('y', -60)
+          .attr('text-anchor', 'middle')
+          .text('Read Position');
+
+        const plotArea = g.append('g')
+          .attr('clip-path', 'url(#plot-clip)');
+
+        plotArea.append('rect')
+          .attr('width', width)
+          .attr('height', height)
+          .attr('fill', 'white');
+
+        /// The <g> inside the clip region that contains all layers; used
+        /// in the zoom handler to reposition all transition lines at once.
+        this.zoomG = plotArea.append('g');
+
+        /// D3 selections of the <g> layers for each transition type.
+        this.tracebackLayer = this.zoomG.append('g');
+        this.secondaryTransitionLayer = this.zoomG.append('g');
+        this.hoveredToSelectedLayer = this.zoomG.append('g');
+        this._seedLayer = this.zoomG.append('g');
+      }
+
+      /**
+       * Create seed circles, attach event handlers, set initial tooltips.
+       */
+      #setupSeeds() {
+        const viz = this;
+        const seeds = this.data.seeds;
+
+        /// D3 selection of all seed <circle> elements; stored so interaction
+        /// methods can restyle seeds (e.g. classed 'on-traceback') without
+        /// re-selecting.
+        this.seedCircles = this._seedLayer.selectAll('.seed')
+          .data(seeds)
+          .enter()
+          .append('circle')
+          .attr('class', 'seed')
+          .attr('cx', d => viz.baseXScale(d.ref_pos))
+          .attr('cy', d => viz.baseYScale(d.read_pos))
+          .attr('r', 5)
+          .on('mouseover', function(event, d) {
+            viz.hoveredSeed = d;
+            if (viz.selectedSeed !== d) {
+              d3.select(this).classed('hovered', true);
+            }
+            viz.updateSeedTooltip(d3.select(this), d);
+            viz.showSecondaryTransitions(d.index);
+            viz.highlightTransitionToSelected(d.index);
+          })
+          .on('mouseout', function(event, d) {
+            viz.hoveredSeed = null;
+            if (viz.selectedSeed !== d) {
+              d3.select(this).classed('hovered', false);
+              viz.hideSecondaryTransitions(d.index);
+            }
+            viz.unhighlightTransitionToSelected();
+          })
+          .on('click', function(event, d) {
+            const prevSelected = viz.selectedSeed;
+            if (viz.selectedSeed === d) {
+              viz.selectedSeed = null;
+              d3.select(this).classed('selected', false);
+              viz.hideTraceback();
+              if (viz.hoveredSeed !== d) {
+                viz.hideSecondaryTransitions(d.index);
+              }
+            } else {
+              if (prevSelected) {
+                viz.seedCircles.filter(s => s.index === prevSelected.index)
+                  .classed('selected', false)
+                  .classed('hovered', false);
+                if (viz.hoveredSeed === null || viz.hoveredSeed.index !== prevSelected.index) {
+                  viz.hideSecondaryTransitions(prevSelected.index);
+                }
+              }
+              viz.selectedSeed = d;
+              d3.select(this).classed('selected', true);
+              viz.showTraceback(d.index);
+              viz.showSecondaryTransitions(d.index);
+            }
+          });
+
+        this.seedCircles.append('title').text(d => viz.seedTooltipText(d));
+      }
+
+      /**
+       * Create zoom behavior, attach to svg.
+       */
+      #setupZoom() {
+        const viz = this;
+
+        /// The D3 zoom behavior object; stored so zoomToFit can call
+        /// svg.call(zoom.transform, ...).
+        this.zoom = d3.zoom()
+          .scaleExtent([0.1, 10000])
+          .on('zoom', function(event) {
+            viz.currentXScale = event.transform.rescaleX(viz.baseXScale);
+            viz.currentYScale = event.transform.rescaleY(viz.baseYScale);
+            viz.xAxisG.call(viz.xAxis.scale(viz.currentXScale));
+            viz.yAxisG.call(viz.yAxis.scale(viz.currentYScale));
+            viz.seedCircles
+              .attr('cx', d => viz.currentXScale(d.ref_pos))
+              .attr('cy', d => viz.currentYScale(d.read_pos));
+            viz.zoomG.selectAll('.transition').call(viz.positionLinesFn());
+          });
+
+        this.svg.call(this.zoom);
+      }
+
+      /**
+       * Find best seed, select it, show traceback, mark best chain, zoom to fit.
+       */
+      #initialize() {
+        const seeds = this.data.seeds;
+        const bestSeed = seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), seeds[0]);
+        if (bestSeed && bestSeed.max_score > 0) {
+          this.selectedSeed = bestSeed;
+          this.seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
+          this.showTraceback(bestSeed.index);
+          const bestChainSeedIndices = new Set(this.tracebackSeedIndices);
+          this.seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
+          this.zoomToFit(seeds.filter(s => this.tracebackSeedIndices.has(s.index)), 0.05);
+        } else {
+          this.zoomToFit(seeds, 0.05);
+        }
+      }
+
+      // -----------------------------------------------------------
+      // Formatting methods
+      // -----------------------------------------------------------
+
+      /**
+       * Base tooltip text for a seed.
+       */
+      seedTooltipText(d) {
+        return `Seed #${d.seed_num} (${d.strand})\\nSeed ID: ${d.seed_id}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
+      }
+
+      /**
+       * Tooltip text for a transition line.
+       */
+      transitionTooltipText(d) {
+        return `Score: ${d.score}\\nFraction of max: ${(d.fraction * 100).toFixed(1)}%`;
+      }
+
+      /**
+       * Set x1/y1/x2/y2 on a D3 selection of <line> elements using
+       * current scales.
+       */
+      positionLines(selection) {
+        const viz = this;
         selection.each(function(d) {
-          const src = seedById.get(d.source_id);
-          const dst = seedById.get(d.dest_id);
+          const src = viz.data.seedById(d.source_id);
+          const dst = viz.data.seedById(d.dest_id);
           if (src && dst) {
             d3.select(this)
-              .attr('x1', currentXScale(src.ref_pos))
-              .attr('y1', currentYScale(src.read_pos))
-              .attr('x2', currentXScale(dst.ref_pos))
-              .attr('y2', currentYScale(dst.read_pos));
+              .attr('x1', viz.currentXScale(src.ref_pos))
+              .attr('y1', viz.currentYScale(src.read_pos))
+              .attr('x2', viz.currentXScale(dst.ref_pos))
+              .attr('y2', viz.currentYScale(dst.read_pos));
           }
         });
       }
 
       /**
-       * Base tooltip text for a seed point, showing its number, strand,
-       * ID, positions, and best achievable score. Extended by
-       * updateSeedTooltip() when there is an active selection.
+       * Return a closure suitable for D3 selection.call() that positions
+       * <line> elements using the current zoom-adjusted scales.
        */
-      function seedTooltipText(d) {
-        return `Seed #${d.seed_num} (${d.strand})\\nSeed ID: ${d.seed_id}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
+      positionLinesFn() {
+        const viz = this;
+        return function(selection) { viz.positionLines(selection); };
       }
 
-      /**
-       * Tooltip text for a transition line, showing its DP score and what
-       * fraction of the best score to this destination it represents.
-       */
-      function transitionTooltipText(d) {
-        return `Score: ${d.score}\\nFraction of max: ${(d.fraction * 100).toFixed(1)}%`;
-      }
+      // -----------------------------------------------------------
+      // Interaction methods
+      // -----------------------------------------------------------
 
       /**
-       * Apply a D3 zoom transform that centers and scales the viewport
-       * to show seedsToFit, with padding as a fraction of the data range
-       * added on each side (e.g. 0.5 adds 50% of the range as margin).
-       * Picks whichever axis is tighter to determine the zoom level, so
-       * all seeds are visible regardless of aspect ratio.
+       * Follow best-scoring transitions backward from seedIndex.
        */
-      function zoomToFit(seedsToFit, padding) {
-        if (seedsToFit.length === 0) return;
-        const [xMin, xMax] = d3.extent(seedsToFit, s => s.ref_pos);
-        const [yMin, yMax] = d3.extent(seedsToFit, s => s.read_pos);
-        const xPad = (xMax - xMin) * padding || 100;
-        const yPad = (yMax - yMin) * padding || 100;
-        const targetXRange = (xMax - xMin) + 2 * xPad;
-        const targetYRange = (yMax - yMin) + 2 * yPad;
-        const kx = (initialXDomain[1] - initialXDomain[0]) / targetXRange;
-        const ky = (initialYDomain[1] - initialYDomain[0]) / targetYRange;
-        const k = Math.min(kx, ky);
-        const cx = (xMin + xMax) / 2;
-        const cy = (yMin + yMax) / 2;
-        const tx = width / 2 - k * xScale(cx);
-        const ty = height / 2 - k * yScale(cy);
-        svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
-      }
-
-      // ---------------------------------------------------------------
-      // Interaction
-      //
-      // State tracking and functions for the DP traceback path, secondary
-      // transition display on hover, hovered-to-selected highlighting,
-      // and dynamic seed tooltips.
-      // ---------------------------------------------------------------
-
-      let selectedSeed = null;
-      let hoveredSeed = null;
-      let tracebackSeedIndices = new Set();
-
-      /**
-       * Follow the chain of best-scoring transitions backward from
-       * seedIndex. Returns the DP traceback path as an array of
-       * transition objects from the destination back to the chain origin.
-       */
-      function computeTraceback(seedIndex) {
+      computeTraceback(seedIndex) {
         const path = [];
         const visited = new Set();
         let currentIndex = seedIndex;
         while (currentIndex !== undefined && !visited.has(currentIndex)) {
           visited.add(currentIndex);
-          const bestTrans = bestTransitionToSeed.get(currentIndex);
+          const bestTrans = this.data.bestTransitionTo(currentIndex);
           if (bestTrans) {
             path.push(bestTrans);
             currentIndex = bestTrans.source_index;
@@ -460,104 +648,93 @@ def generate_svg(seeds, transitions, output_path):
       }
 
       /**
-       * Display the optimal traceback path from seedIndex as red lines,
-       * and mark the intermediate seeds with on-traceback styling. Also
-       * populates tracebackSeedIndices for use by other code (e.g. to
-       * identify the best chain for persistent highlighting).
+       * Display the traceback path from seedIndex as red lines.
        */
-      function showTraceback(seedIndex) {
-        const path = computeTraceback(seedIndex);
-        tracebackSeedIndices.clear();
+      showTraceback(seedIndex) {
+        const path = this.computeTraceback(seedIndex);
+        this.tracebackSeedIndices.clear();
         path.forEach(t => {
-          tracebackSeedIndices.add(t.source_index);
-          tracebackSeedIndices.add(t.dest_index);
+          this.tracebackSeedIndices.add(t.source_index);
+          this.tracebackSeedIndices.add(t.dest_index);
         });
 
-        seedCircles.classed('on-traceback', d => tracebackSeedIndices.has(d.index) && d.index !== seedIndex);
+        const tracebackSet = this.tracebackSeedIndices;
+        this.seedCircles.classed('on-traceback', d => tracebackSet.has(d.index) && d.index !== seedIndex);
 
-        const lines = tracebackLayer.selectAll('.traceback')
+        const lines = this.tracebackLayer.selectAll('.traceback')
           .data(path, d => d.source_id + '->' + d.dest_id);
 
         lines.enter()
           .append('line')
           .attr('class', 'transition traceback')
-          .call(positionLines)
+          .call(this.positionLinesFn())
           .append('title')
-          .text(transitionTooltipText);
+          .text(d => this.transitionTooltipText(d));
 
         lines.exit().remove();
       }
 
-      function hideTraceback() {
-        tracebackLayer.selectAll('.traceback').remove();
-        tracebackSeedIndices.clear();
-        seedCircles.classed('on-traceback', false);
+      hideTraceback() {
+        this.tracebackLayer.selectAll('.traceback').remove();
+        this.tracebackSeedIndices.clear();
+        this.seedCircles.classed('on-traceback', false);
       }
 
       /**
-       * Show all positive-score transitions arriving at seedIndex as thin
-       * lines colored by their fraction of the best score (viridis scale,
-       * red for the best). Negative-score transitions are excluded here
-       * but can still appear via highlightTransitionToSelected.
+       * Show positive-score transitions arriving at seedIndex as colored lines.
        */
-      function showSecondaryTransitions(seedIndex) {
-        const allTrans = transitionsByDestIndex.get(seedIndex) || [];
+      showSecondaryTransitions(seedIndex) {
+        const allTrans = this.data.transitionsTo(seedIndex);
         const positiveTrans = allTrans.filter(t => t.score > 0);
         const className = 'secondary-dest-' + seedIndex;
 
-        secondaryTransitionLayer.selectAll('.' + className)
+        this.secondaryTransitionLayer.selectAll('.' + className)
           .data(positiveTrans, d => d.source_id + '->' + d.dest_id)
           .enter()
           .append('line')
           .attr('class', 'transition secondary ' + className)
-          .call(positionLines)
-          .attr('stroke', d => d.is_max ? 'red' : colorScale(d.fraction))
+          .call(this.positionLinesFn())
+          .attr('stroke', d => d.is_max ? 'red' : this.colorScale(d.fraction))
           .append('title')
-          .text(transitionTooltipText);
+          .text(d => this.transitionTooltipText(d));
       }
 
-      function hideSecondaryTransitions(seedIndex) {
-        secondaryTransitionLayer.selectAll('.secondary-dest-' + seedIndex).remove();
+      hideSecondaryTransitions(seedIndex) {
+        this.secondaryTransitionLayer.selectAll('.secondary-dest-' + seedIndex).remove();
       }
 
       /**
-       * If a transition exists from hoveredIndex to the currently selected
-       * seed, draw it as a thick black line. This includes negative-score
-       * transitions that don't appear in the secondary display, so the
-       * user can discover connections the DP considered unfavorable.
+       * Draw a thick black line from hoveredIndex to the selected seed.
        */
-      function highlightTransitionToSelected(hoveredIndex) {
-        if (!selectedSeed || hoveredIndex === selectedSeed.index) return;
-        const trans = getTransitionFromTo(hoveredIndex, selectedSeed.index);
+      highlightTransitionToSelected(hoveredIndex) {
+        if (!this.selectedSeed || hoveredIndex === this.selectedSeed.index) return;
+        const trans = this.data.transitionFromTo(hoveredIndex, this.selectedSeed.index);
         if (!trans) return;
 
-        hoveredToSelectedLayer.append('line')
+        this.hoveredToSelectedLayer.append('line')
           .datum(trans)
           .attr('class', 'transition to-selected')
-          .call(positionLines)
+          .call(this.positionLinesFn())
           .append('title')
-          .text(transitionTooltipText);
+          .text(d => this.transitionTooltipText(d));
       }
 
-      function unhighlightTransitionToSelected() {
-        hoveredToSelectedLayer.selectAll('*').remove();
+      unhighlightTransitionToSelected() {
+        this.hoveredToSelectedLayer.selectAll('*').remove();
       }
 
       /**
-       * Rebuild a seed's SVG <title> tooltip. When another seed is
-       * selected, appends the transition score from this seed to the
-       * selected seed (if one exists) and the insertion/deletion offset
-       * between them, so the user can evaluate potential connections.
+       * Rebuild a seed's tooltip, adding transition info when a seed is selected.
        */
-      function updateSeedTooltip(circle, d) {
-        let text = seedTooltipText(d);
-        if (selectedSeed && selectedSeed !== d) {
-          const trans = getTransitionFromTo(d.index, selectedSeed.index);
+      updateSeedTooltip(circle, d) {
+        let text = this.seedTooltipText(d);
+        if (this.selectedSeed && this.selectedSeed !== d) {
+          const trans = this.data.transitionFromTo(d.index, this.selectedSeed.index);
           if (trans) {
             text += `\\nScore to selected: ${trans.score}`;
           }
-          const refDiff = Math.abs(d.ref_pos - selectedSeed.ref_pos);
-          const readDiff = Math.abs(d.read_pos - selectedSeed.read_pos);
+          const refDiff = Math.abs(d.ref_pos - this.selectedSeed.ref_pos);
+          const readDiff = Math.abs(d.read_pos - this.selectedSeed.read_pos);
           const offset = Math.abs(refDiff - readDiff);
           if (readDiff > refDiff) {
             text += `\\nOffset: ${offset}bp INS`;
@@ -570,108 +747,31 @@ def generate_svg(seeds, transitions, output_path):
         circle.select('title').text(text);
       }
 
-      // ---------------------------------------------------------------
-      // Seeds
-      //
-      // Create seed circles and attach mouse/click event handlers.
-      // Hover shows secondary transitions and highlights connection to
-      // selected seed. Click selects/deselects and shows traceback.
-      // ---------------------------------------------------------------
-
-      const seedCircles = seedLayer.selectAll('.seed')
-        .data(seeds)
-        .enter()
-        .append('circle')
-        .attr('class', 'seed')
-        .attr('cx', d => xScale(d.ref_pos))
-        .attr('cy', d => yScale(d.read_pos))
-        .attr('r', 5)
-        .on('mouseover', function(event, d) {
-          hoveredSeed = d;
-          if (selectedSeed !== d) {
-            d3.select(this).classed('hovered', true);
-          }
-          updateSeedTooltip(d3.select(this), d);
-          showSecondaryTransitions(d.index);
-          highlightTransitionToSelected(d.index);
-        })
-        .on('mouseout', function(event, d) {
-          hoveredSeed = null;
-          if (selectedSeed !== d) {
-            d3.select(this).classed('hovered', false);
-            hideSecondaryTransitions(d.index);
-          }
-          unhighlightTransitionToSelected();
-        })
-        .on('click', function(event, d) {
-          const prevSelected = selectedSeed;
-          if (selectedSeed === d) {
-            selectedSeed = null;
-            d3.select(this).classed('selected', false);
-            hideTraceback();
-            if (hoveredSeed !== d) {
-              hideSecondaryTransitions(d.index);
-            }
-          } else {
-            if (prevSelected) {
-              seedCircles.filter(s => s.index === prevSelected.index)
-                .classed('selected', false)
-                .classed('hovered', false);
-              if (hoveredSeed === null || hoveredSeed.index !== prevSelected.index) {
-                hideSecondaryTransitions(prevSelected.index);
-              }
-            }
-            selectedSeed = d;
-            d3.select(this).classed('selected', true);
-            showTraceback(d.index);
-            showSecondaryTransitions(d.index);
-          }
-        });
-
-      seedCircles.append('title').text(seedTooltipText);
-
-      // ---------------------------------------------------------------
-      // Zoom
-      //
-      // Pan/zoom with a single scale factor for both axes, maintaining
-      // 1:1 aspect ratio. On each zoom event, update the scales, reposition
-      // axes, seeds, and all transition lines.
-      // ---------------------------------------------------------------
-
-      const zoom = d3.zoom()
-        .scaleExtent([0.1, 10000])
-        .on('zoom', function(event) {
-          currentXScale = event.transform.rescaleX(xScale);
-          currentYScale = event.transform.rescaleY(yScale);
-          xAxisG.call(xAxis.scale(currentXScale));
-          yAxisG.call(yAxis.scale(currentYScale));
-          seedCircles
-            .attr('cx', d => currentXScale(d.ref_pos))
-            .attr('cy', d => currentYScale(d.read_pos));
-          zoomG.selectAll('.transition').call(positionLines);
-        });
-
-      svg.call(zoom);
-
-      // ---------------------------------------------------------------
-      // Initialization
-      //
-      // Auto-select the highest-scoring seed, show its traceback, mark
-      // the optimal chain with persistent green styling, and zoom to fit.
-      // If no seed has a positive score, just zoom to show all seeds.
-      // ---------------------------------------------------------------
-
-      const bestSeed = seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), seeds[0]);
-      if (bestSeed && bestSeed.max_score > 0) {
-        selectedSeed = bestSeed;
-        seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
-        showTraceback(bestSeed.index);
-        const bestChainSeedIndices = new Set(tracebackSeedIndices);
-        seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
-        zoomToFit(seeds.filter(s => tracebackSeedIndices.has(s.index)), 0.05);
-      } else {
-        zoomToFit(seeds, 0.05);
+      /**
+       * Zoom to fit the given seeds with padding as a fraction of data range.
+       */
+      zoomToFit(seedsToFit, padding) {
+        if (seedsToFit.length === 0) return;
+        const [xMin, xMax] = d3.extent(seedsToFit, s => s.ref_pos);
+        const [yMin, yMax] = d3.extent(seedsToFit, s => s.read_pos);
+        const xPad = (xMax - xMin) * padding || 100;
+        const yPad = (yMax - yMin) * padding || 100;
+        const targetXRange = (xMax - xMin) + 2 * xPad;
+        const targetYRange = (yMax - yMin) + 2 * yPad;
+        const kx = (this.initialXDomain[1] - this.initialXDomain[0]) / targetXRange;
+        const ky = (this.initialYDomain[1] - this.initialYDomain[0]) / targetYRange;
+        const k = Math.min(kx, ky);
+        const cx = (xMin + xMax) / 2;
+        const cy = (yMin + yMax) / 2;
+        const tx = this._width / 2 - k * this.baseXScale(cx);
+        const ty = this._height / 2 - k * this.baseYScale(cy);
+        this.svg.call(this.zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
       }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      const data = await ChainData.fromCompressed(SEEDS_COMPRESSED, TRANSITIONS_COMPRESSED);
+      new ChainViz(data);
     });
     ]]>
   </script>'''
