@@ -436,7 +436,7 @@ int main_call(int argc, char** argv) {
     bool need_path_positions = vcf_filename.empty();
     bool need_vectorizable = !pack_filename.empty();
     // When not using GBWT/GBZ, embedded HAPLOTYPE paths are the sample alleles
-    bool all_paths = gbwt_filename.empty() && !gbz_graph;
+    bool embedded_haplotype_paths = gbwt_filename.empty() && !gbz_graph;
     bdsg::ReferencePathOverlayHelper pp_overlay_helper;
     bdsg::ReferencePathVectorizableOverlayHelper ppv_overlay_helper;
     bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
@@ -444,9 +444,9 @@ int main_call(int argc, char** argv) {
         logger.info() << "Applying overlays if necessary (i.e. input not in XG format)" << endl;
     }
     if (need_path_positions && need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
+        graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph, embedded_haplotype_paths));
     } else if (need_path_positions && !need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(pp_overlay_helper.apply(graph, all_paths));
+        graph = dynamic_cast<PathHandleGraph*>(pp_overlay_helper.apply(graph, embedded_haplotype_paths));
     } else if (!need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(pv_overlay_helper.apply(graph));
     }

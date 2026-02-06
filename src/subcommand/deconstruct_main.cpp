@@ -259,8 +259,8 @@ int main_deconstruct(int argc, char** argv) {
     
     // Make the overlay
     // When not using GBWT/GBZ, embedded HAPLOTYPE paths are the sample alleles
-    bool all_paths = gbwt_file_name.empty() && !gbz_graph;
-    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph, all_paths);
+    bool embedded_haplotype_paths = gbwt_file_name.empty() && !gbz_graph;
+    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph, embedded_haplotype_paths);
     
     // See how long that took
     clock_t overlay_stop_clock = clock();
