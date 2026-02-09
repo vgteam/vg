@@ -76,7 +76,7 @@ $(function() {
 Public Types</h2></td></tr>
 <tr class="memitem:a745df84ccf4f5a446e8f4b7c2aa1ea50"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50">graph_type</a> { <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50abbfbe5112e8f9046f822fc511ab21631">graph_none</a>
 , <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50af316f5a8669d38d1c1801caf9d5671d7">graph_path</a>
-, <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea">graph_source</a>
+, <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a76f07690b50468090d8146c4396b8fb5">graph_naive</a>
 , <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a759ff53fb7d1c506e3be18f608607ac5">graph_gbz</a>
  }</td></tr>
 <tr class="separator:a745df84ccf4f5a446e8f4b7c2aa1ea50"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -87,8 +87,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a7155dd41d244081487e79759707f29af"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0c19a482787b623d946746f33b2fb80"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#ab0c19a482787b623d946746f33b2fb80">get_graph</a> (const <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:ab0c19a482787b623d946746f33b2fb80"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4ccfddaf318c987155ab13de16dcfc2c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a4ccfddaf318c987155ab13de16dcfc2c">use</a> (std::unique_ptr&lt; gbwtgraph::SequenceSource &gt; &amp;source)</td></tr>
-<tr class="separator:a4ccfddaf318c987155ab13de16dcfc2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f5d4765a865f2bcbfa297f72b80c8fb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a1f5d4765a865f2bcbfa297f72b80c8fb">use</a> (std::unique_ptr&lt; gbwtgraph::NaiveGraph &gt; &amp;source)</td></tr>
+<tr class="separator:a1f5d4765a865f2bcbfa297f72b80c8fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74c5a92b327a6cfef23afac62eb413a5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a74c5a92b327a6cfef23afac62eb413a5">load_gbz</a> (<a class="el" href="structvg_1_1GBWTHandler.html">GBWTHandler</a> &amp;gbwts, <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:a74c5a92b327a6cfef23afac62eb413a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aafe821b2ce9cab8ae340e685154bff87"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#aafe821b2ce9cab8ae340e685154bff87">clear</a> ()</td></tr>
@@ -100,8 +100,8 @@ Public Member Functions</h2></td></tr>
 Public Attributes</h2></td></tr>
 <tr class="memitem:aeb4deb32f56c35702b331c0f506d3844"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#aeb4deb32f56c35702b331c0f506d3844">path_graph</a> = nullptr</td></tr>
 <tr class="separator:aeb4deb32f56c35702b331c0f506d3844"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1583ae5e2c88d3099b62255a28978316"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwtgraph::SequenceSource &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a1583ae5e2c88d3099b62255a28978316">sequence_source</a> = nullptr</td></tr>
-<tr class="separator:a1583ae5e2c88d3099b62255a28978316"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a36f56b1e0f149b41f9b8422eabfe4153"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwtgraph::NaiveGraph &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a36f56b1e0f149b41f9b8422eabfe4153">naive_graph</a> = nullptr</td></tr>
+<tr class="separator:a36f56b1e0f149b41f9b8422eabfe4153"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af157db60196072669180c6bcb73ec0d8"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwtgraph::GBZ &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#af157db60196072669180c6bcb73ec0d8">gbz_graph</a> = nullptr</td></tr>
 <tr class="separator:af157db60196072669180c6bcb73ec0d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44741d974047430e73a3589c74659939"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50">graph_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGraphHandler.html#a44741d974047430e73a3589c74659939">in_use</a> = <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50abbfbe5112e8f9046f822fc511ab21631">graph_none</a></td></tr>
@@ -122,7 +122,7 @@ Public Attributes</h2></td></tr>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a745df84ccf4f5a446e8f4b7c2aa1ea50abbfbe5112e8f9046f822fc511ab21631"></a>graph_none&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a745df84ccf4f5a446e8f4b7c2aa1ea50af316f5a8669d38d1c1801caf9d5671d7"></a>graph_path&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea"></a>graph_source&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a745df84ccf4f5a446e8f4b7c2aa1ea50a76f07690b50468090d8146c4396b8fb5"></a>graph_naive&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a745df84ccf4f5a446e8f4b7c2aa1ea50a759ff53fb7d1c506e3be18f608607ac5"></a>graph_gbz&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
@@ -228,8 +228,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a4ccfddaf318c987155ab13de16dcfc2c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4ccfddaf318c987155ab13de16dcfc2c">&#9670;&nbsp;</a></span>use()</h2>
+<a id="a1f5d4765a865f2bcbfa297f72b80c8fb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f5d4765a865f2bcbfa297f72b80c8fb">&#9670;&nbsp;</a></span>use()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -237,7 +237,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void GraphHandler::use </td>
           <td>(</td>
-          <td class="paramtype">std::unique_ptr&lt; gbwtgraph::SequenceSource &gt; &amp;&#160;</td>
+          <td class="paramtype">std::unique_ptr&lt; gbwtgraph::NaiveGraph &gt; &amp;&#160;</td>
           <td class="paramname"><em>source</em></td><td>)</td>
           <td></td>
         </tr>
@@ -275,6 +275,20 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a36f56b1e0f149b41f9b8422eabfe4153"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a36f56b1e0f149b41f9b8422eabfe4153">&#9670;&nbsp;</a></span>naive_graph</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unique_ptr&lt;gbwtgraph::NaiveGraph&gt; GraphHandler::naive_graph = nullptr</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aeb4deb32f56c35702b331c0f506d3844"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aeb4deb32f56c35702b331c0f506d3844">&#9670;&nbsp;</a></span>path_graph</h2>
 
@@ -283,20 +297,6 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">std::unique_ptr&lt;<a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a>&gt; GraphHandler::path_graph = nullptr</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a1583ae5e2c88d3099b62255a28978316"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1583ae5e2c88d3099b62255a28978316">&#9670;&nbsp;</a></span>sequence_source</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::unique_ptr&lt;gbwtgraph::SequenceSource&gt; GraphHandler::sequence_source = nullptr</td>
         </tr>
       </table>
 </div><div class="memdoc">

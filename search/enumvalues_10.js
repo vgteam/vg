@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['random_14927',['RANDOM',['../classvg_1_1StreamSorter.html#a1a4cb8aac1bb3f9bd9c01456b8cc046ba170e02e86972c2be8559884cc3c12254',1,'vg::StreamSorter']]],
-  ['random_14928',['random',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a7fbab14a93d170a9ab8395e8bad9b15d',1,'vg::Counts']]],
+  ['random_14927',['random',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a7fbab14a93d170a9ab8395e8bad9b15d',1,'vg::Counts']]],
+  ['random_14928',['RANDOM',['../classvg_1_1StreamSorter.html#a1a4cb8aac1bb3f9bd9c01456b8cc046ba170e02e86972c2be8559884cc3c12254',1,'vg::StreamSorter']]],
   ['read_14929',['read',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9afdd907960f4e4f4792f9986a37c69b3c',1,'vg::Counts']]],
   ['read_5ftoo_5fshort_14930',['READ_TOO_SHORT',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9a997b7fe4b82277b56702572e730d3eb7',1,'vg::AlignmentValidity']]],
   ['reads_14931',['Reads',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4a9989ae14c6b6c27998126ab745488926',1,'vg::Genotyper']]],

@@ -1399,12 +1399,12 @@ Functions</h2></td></tr>
 <tr class="separator:a62239efefb85e451fcec6519644186d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3b05a1318d7be5ecf3547a3eca837618"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3b05a1318d7be5ecf3547a3eca837618">set_score</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extension, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *aligner)</td></tr>
 <tr class="separator:a3b05a1318d7be5ecf3547a3eca837618"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4b1defb1ef0b163389ff84745294d1d0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b1defb1ef0b163389ff84745294d1d0">match_initial</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;match, const std::string &amp;seq, gbwtgraph::view_type target)</td></tr>
-<tr class="separator:a4b1defb1ef0b163389ff84745294d1d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abcb300141666ec86856482f6a59cec4c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abcb300141666ec86856482f6a59cec4c">match_forward</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;match, const std::string &amp;seq, gbwtgraph::view_type target, uint32_t mismatch_limit)</td></tr>
-<tr class="separator:abcb300141666ec86856482f6a59cec4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3495eb8e73ceeece9957079280edc921"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3495eb8e73ceeece9957079280edc921">match_backward</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;match, const std::string &amp;seq, gbwtgraph::view_type target, uint32_t mismatch_limit)</td></tr>
-<tr class="separator:a3495eb8e73ceeece9957079280edc921"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac258674f41038be6ba603b1d6185fee3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac258674f41038be6ba603b1d6185fee3">match_initial</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;match, const std::string &amp;seq, std::string_view target)</td></tr>
+<tr class="separator:ac258674f41038be6ba603b1d6185fee3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace0852f3ef57cd6da778f529c6b08a35"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ace0852f3ef57cd6da778f529c6b08a35">match_forward</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;match, const std::string &amp;seq, std::string_view target, uint32_t mismatch_limit)</td></tr>
+<tr class="separator:ace0852f3ef57cd6da778f529c6b08a35"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a32ae7e6a329f896943c2e2ad0b29eb59"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a32ae7e6a329f896943c2e2ad0b29eb59">match_backward</a> (<a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;match, const std::string &amp;seq, std::string_view target, uint32_t mismatch_limit)</td></tr>
+<tr class="separator:a32ae7e6a329f896943c2e2ad0b29eb59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a536dfd4326c17ad4d072d2c9021e4b7c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a536dfd4326c17ad4d072d2c9021e4b7c">handle_full_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;result, double overlap_threshold)</td></tr>
 <tr class="separator:a536dfd4326c17ad4d072d2c9021e4b7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d00fa3c72ac473353496aab96965e60"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5d00fa3c72ac473353496aab96965e60">remove_duplicates</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;result)</td></tr>
@@ -17372,8 +17372,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a id="a3495eb8e73ceeece9957079280edc921"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3495eb8e73ceeece9957079280edc921">&#9670;&nbsp;</a></span>match_backward()</h2>
+<a id="a32ae7e6a329f896943c2e2ad0b29eb59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a32ae7e6a329f896943c2e2ad0b29eb59">&#9670;&nbsp;</a></span>match_backward()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17393,7 +17393,7 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">gbwtgraph::view_type&#160;</td>
+          <td class="paramtype">std::string_view&#160;</td>
           <td class="paramname"><em>target</em>, </td>
         </tr>
         <tr>
@@ -17412,8 +17412,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a id="abcb300141666ec86856482f6a59cec4c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abcb300141666ec86856482f6a59cec4c">&#9670;&nbsp;</a></span>match_forward()</h2>
+<a id="ace0852f3ef57cd6da778f529c6b08a35"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace0852f3ef57cd6da778f529c6b08a35">&#9670;&nbsp;</a></span>match_forward()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17433,7 +17433,7 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">gbwtgraph::view_type&#160;</td>
+          <td class="paramtype">std::string_view&#160;</td>
           <td class="paramname"><em>target</em>, </td>
         </tr>
         <tr>
@@ -17452,8 +17452,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a id="a4b1defb1ef0b163389ff84745294d1d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4b1defb1ef0b163389ff84745294d1d0">&#9670;&nbsp;</a></span>match_initial()</h2>
+<a id="ac258674f41038be6ba603b1d6185fee3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac258674f41038be6ba603b1d6185fee3">&#9670;&nbsp;</a></span>match_initial()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17473,7 +17473,7 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">gbwtgraph::view_type&#160;</td>
+          <td class="paramtype">std::string_view&#160;</td>
           <td class="paramname"><em>target</em>&#160;</td>
         </tr>
         <tr>
