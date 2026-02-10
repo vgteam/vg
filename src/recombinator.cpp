@@ -921,10 +921,10 @@ std::vector<std::string> generate_haplotype(
     if (curr == end) {
         return haplotype;
     }
-    gbwtgraph::view_type view = partitioner.gbz.graph.get_sequence_view(curr);
-    size_t offset = (view.second > start_max ? view.second - start_max : 0);
+    std::string_view view = partitioner.gbz.graph.get_sequence_view(curr);
+    size_t offset = (view.size() > start_max ? view.size() - start_max : 0);
     haplotype.emplace_back();
-    haplotype.back().append(view.first + offset, view.second - offset);
+    haplotype.back().append(view.data() + offset, view.size() - offset);
 
     while (true) {
         pos = partitioner.gbz.index.LF(pos);
@@ -948,10 +948,10 @@ std::vector<std::string> generate_haplotype(
         curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
         view = partitioner.gbz.graph.get_sequence_view(curr);
         if (curr == end) {
-            haplotype.back().append(view.first, std::min(view.second, end_max));
+            haplotype.back().append(view.data(), std::min(view.size(), end_max));
             break;
         } else {
-            haplotype.back().append(view.first, view.second);
+            haplotype.back().append(view.data(), view.size());
         }
     }
 
