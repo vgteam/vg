@@ -7656,6 +7656,64 @@ namespace vg {
         //                return true;
         //            });
         //}
+        
+        TEST_CASE( "Distance index can query a troublesome oversized snarl",
+                  "[snarl_distance]" ) {
+
+            std::string graph_json = R"({
+                "node": [
+                    {"id": "19","sequence": "A"},
+                    {"id": "20","sequence": "A"},
+                    {"id": "21","sequence": "A"},
+                    {"id": "22","sequence": "A"},
+                    {"id": "23","sequence": "A"} 
+                ], "edge": [
+                    {"from": "19","to": "20"},
+                    {"from": "19","to": "22"},
+                    {"from": "20","to": "21"},
+                    {"from": "20","to": "23"},
+                    {"from": "21","to": "22"}, 
+                    {"from": "22","to": "23"}
+                ]
+            })";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+
+            id_t node_id1 = 19; bool rev1 = false ; size_t offset1 = 0;
+            id_t node_id2 = 23; bool rev2 = false ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t dijkstra_distance = std::numeric_limits<size_t>::max();
+            if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
+                dijkstra_distance = offset2 - offset1;
+                REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
+            } else if (node_id1 == node_id2) {
+                //TODO: The way the dijkstra algorithm is set up, it won't return to the start node
+            } else {
+                handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                    if (reached == handle2) {
+                        dijkstra_distance = distance;
+                        dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                        dijkstra_distance += offset2;
+                        return false;
+                    }
+                    return true;
+                }
+                , false);
+
+                REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
+            }
+        }
+
+        
+
         TEST_CASE( "random minimum distance paths",
                   "[snarl_distance_random_paths]" ) {
         
