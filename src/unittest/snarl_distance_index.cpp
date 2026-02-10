@@ -22,7 +22,7 @@
 #include <vg/io/vpkg.hpp>
 #include "xg.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
     namespace unittest {
@@ -7260,6 +7260,9 @@ namespace vg {
         }
 
 
+        // TODO: This test case doesn't do anything (runs 0 iterations).
+        // When I tell it to actually run iterations, it fails.
+        // Has it ever worked?
         TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
 
             int64_t min = 20; int64_t max = 50;
@@ -7459,11 +7462,11 @@ namespace vg {
                 uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
                 size_t variant_count = variant_count_dist(generator);
 
-                uniform_int_distribution<size_t> snarl_size_limit_dist(500, 1000);
+                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
-                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with size limit " << size_limit << endl;
 #endif
             
                 VG graph;
@@ -7697,7 +7700,7 @@ namespace vg {
                 size_t size_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
-                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with size limit " << size_limit << endl;
 #endif
             
                 VG graph;
