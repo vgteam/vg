@@ -11,7 +11,6 @@
 #include "../snarl_distance_index.hpp"
 #include "catch.hpp"
 #include "support/test_aligner.hpp"
-#include "support/json.hpp"
 
 
 
@@ -48,8 +47,12 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     })";
     
     // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
     // Make it into a VG
-    auto vg = json_to_graph(graph_json);
+    VG vg;
+    vg.extend(proto_graph);
     
     // Make snarls on it
     CactusSnarlFinder bubble_finder(vg);

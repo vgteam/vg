@@ -10,7 +10,6 @@
 #include "../traversal_finder.hpp"
 #include "xg.hpp"
 #include "../haplotype_extracter.hpp"
-#include "support/json.hpp"
 
 namespace Catch {
 
@@ -106,9 +105,11 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
     )";
     
   // Make an actual graph
-  auto graph_ptr = json_to_graph(graph_json);
-  VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+  VG graph;
+  Graph chunk;
+  json2pb(chunk, graph_json.c_str(), graph_json.size());
+  graph.merge(chunk);
+    
   // Make a CactusSnarlFinder
   unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
@@ -238,30 +239,32 @@ TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integ
     )";
     
   // Make an actual graph
-  auto graph_ptr = json_to_graph(graph_json);
-  VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+  VG graph;
+  Graph chunk;
+  json2pb(chunk, graph_json.c_str(), graph_json.size());
+  graph.merge(chunk);
+    
   // Make an IntegratedSnarlFinder
   unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
-
+    
   SECTION("IntegratedSnarlFinder should find two top-level sites") {
-
+        
     SnarlManager manager = finder->find_snarls();
-
+        
     auto sites = manager.top_level_snarls();
-
+        
     REQUIRE(sites.size() == 2);
-
+        
     // Order them
     const Snarl* site_1 = sites[0]->start().node_id() > sites[1]->start().node_id() ? sites[1] : sites[0];
     const Snarl* site_2 = sites[0]->start().node_id() > sites[1]->start().node_id() ? sites[0] : sites[1];
-
+        
     SECTION("the first site should be 1 fwd to 6 fwd") {
       REQUIRE(site_1->start().node_id() == 1);
       REQUIRE(site_1->start().backward() == false);
       REQUIRE(site_1->end().node_id() == 6);
       REQUIRE(site_1->end().backward() == false);
-
+            
       SECTION("and should contain exactly nodes 1 through 6") {
         auto nodes = manager.deep_contents(site_1, graph, true).first;
         set<Node*> correct{graph.get_node(1), graph.get_node(2),
@@ -589,9 +592,11 @@ TEST_CASE("CactusSnarlFinder safely handles a single node graph", "[genotype][ca
     )";
     
   // Make an actual graph
-  auto graph_ptr = json_to_graph(graph_json);
-  VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+  VG graph;
+  Graph chunk;
+  json2pb(chunk, graph_json.c_str(), graph_json.size());
+  graph.merge(chunk);
+    
   // Make a CactusSnarlFinder
   unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
@@ -1114,9 +1119,11 @@ TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph 
     )";
     
   // Make an actual graph
-  auto graph_ptr = json_to_graph(graph_json);
-  VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+  VG graph;
+  Graph chunk;
+  json2pb(chunk, graph_json.c_str(), graph_json.size());
+  graph.merge(chunk);
+    
   // Make a CactusSnarlFinder
   unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
@@ -1216,9 +1223,11 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
     )";
     
   // Make an actual graph
-  auto graph_ptr = json_to_graph(graph_json);
-  auto& graph = *graph_ptr;
-
+  VG graph;
+  Graph chunk;
+  json2pb(chunk, graph_json.c_str(), graph_json.size());
+  graph.merge(chunk);
+    
   // Make a site
   Snarl site;
   site.mutable_start()->set_node_id(2);
@@ -1226,7 +1235,7 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
   site.set_type(ULTRABUBBLE);
   site.set_start_end_reachable(true);
   site.set_directed_acyclic_net_graph(true);
-
+    
   // Make the TraversalFinder
   TraversalFinder* finder = new TrivialTraversalFinder(graph);
     

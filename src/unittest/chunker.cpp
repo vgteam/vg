@@ -7,7 +7,6 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "path.hpp"
-#include "support/json.hpp"
 
 namespace vg {
 namespace unittest {
@@ -84,9 +83,13 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     
     )";
     
-    // Load it and pass it over to XG
+    // Load it into Protobuf
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    
+    // Pass it over to XG
     xg::XG index;
-    index.from_path_handle_graph(*json_to_graph(graph_json));
+    index.from_path_handle_graph(VG(chunk));
 
     PathChunker chunker(&index);
 

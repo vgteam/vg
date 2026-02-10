@@ -8,7 +8,6 @@
 #include "vg/io/json2pb.h"
 #include "../utility.hpp"
 #include "../vg.hpp"
-#include "support/json.hpp"
 
 #include <bdsg/hash_graph.hpp>
 
@@ -91,8 +90,9 @@ gbwt::GBWT build_gbwt_index() {
 
 // Build a GBWTGraph using the provided GBWT index.
 gbwtgraph::GBWTGraph build_gbwt_graph(const gbwt::GBWT& gbwt_index) {
-    auto vg_graph_ptr = json_to_graph(gapless_extender_graph);
-    auto& vg_graph = *vg_graph_ptr;
+    Graph graph;
+    json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
+    VG vg_graph(graph);
     return gbwtgraph::GBWTGraph(gbwt_index, vg_graph, nullptr);
 }
 

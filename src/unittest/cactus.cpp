@@ -8,13 +8,14 @@
 #include "vg/io/json2pb.h"
 #include "../cactus.hpp"
 #include "catch.hpp"
-#include "support/json.hpp"
 
 namespace vg {
 namespace unittest {
 using namespace std;
 
 TEST_CASE("We can convert a two-tailed graph to Cactus", "[cactus]") {
+    
+    VG graph;
     
     string graph_json = R"(
     {"node":[{"sequence":"GT","id":7575},
@@ -25,15 +26,19 @@ TEST_CASE("We can convert a two-tailed graph to Cactus", "[cactus]") {
     {"from":7575,"to":7576}]}
     )";
     
-    auto graph = json_to_graph(graph_json);
+    Graph g;
+    json2pb(g, graph_json.c_str(), graph_json.size());
+    graph.extend(g);
 
-    // Make sure we can make a Cactus graph and get something out.
-    auto cactusified = cactusify(*graph);
+    // Make sure we can make a Cactus graph and get something out.    
+    auto cactusified = cactusify(graph);
     REQUIRE(cactusified.is_valid());
     
 }
 
 TEST_CASE("We can convert a hairpin graph to Cactus", "[cactus]") {
+    VG graph;
+    
     // Here's a graph where only the left side of node 2 is dangling, and the right side of node 1 has a self loop.
     string graph_json = R"(
     {"node": [{"sequence": "A", "id": 1},
@@ -42,10 +47,12 @@ TEST_CASE("We can convert a hairpin graph to Cactus", "[cactus]") {
     {"from": 1, "to": 1, "to_end": true}]}
     )";
     
-    auto graph = json_to_graph(graph_json);
+    Graph g;
+    json2pb(g, graph_json.c_str(), graph_json.size());
+    graph.extend(g);
 
-    // Make sure we can make a Cactus graph and get something out.
-    auto cactusified = cactusify(*graph);
+    // Make sure we can make a Cactus graph and get something out.    
+    auto cactusified = cactusify(graph);
     REQUIRE(cactusified.is_valid());
 }
 

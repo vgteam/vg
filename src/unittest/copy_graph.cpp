@@ -2,7 +2,6 @@
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "xg.hpp"
-#include "support/json.hpp"
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
@@ -54,13 +53,14 @@ namespace vg {
                          ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             handlealgs::copy_handle_graph(&xg, &vg);
-
+            
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(vg.get_node_count() == 1);
         }
@@ -72,13 +72,14 @@ namespace vg {
                          ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             handlealgs::copy_handle_graph(&xg, &pg);
-
+            
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(pg.get_node_count() == 1);
         }
@@ -90,10 +91,11 @@ namespace vg {
                          ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             handlealgs::copy_handle_graph(&xg, &hg);
             
@@ -118,10 +120,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             handlealgs::copy_handle_graph(&xg, &vg);
             
@@ -148,10 +151,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             handlealgs::copy_handle_graph(&xg, &pg);
             
@@ -190,10 +194,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             handlealgs::copy_handle_graph(&xg, &hg);
             
@@ -234,10 +239,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             handlealgs::copy_handle_graph(&xg, &vg);
             
@@ -268,10 +274,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             handlealgs::copy_handle_graph(&xg, &pg);
             
@@ -314,10 +321,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             handlealgs::copy_handle_graph(&xg, &hg);
             
@@ -374,10 +382,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             handlealgs::copy_path_handle_graph(&xg, &vg);
 
@@ -435,10 +444,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             handlealgs::copy_path_handle_graph(&xg, &pg);
             
@@ -511,10 +521,11 @@ namespace vg {
                         ]
             }
             )";
-            auto graph_ptr = json_to_graph(graph_json);
-
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
             xg::XG xg;
-            xg.from_path_handle_graph(*graph_ptr);
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             handlealgs::copy_path_handle_graph(&xg, &hg);
             

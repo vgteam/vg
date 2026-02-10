@@ -9,7 +9,6 @@
 #include "../algorithms/normalize.hpp"
 #include "../algorithms/disjoint_components.hpp"
 #include "handle.hpp"
-#include "support/json.hpp"
 
 namespace vg {
 namespace unittest {
@@ -18,8 +17,10 @@ using namespace std;
 
 // Turn a JSON string into a VG graph
 VG string_to_graph(const string& json) {
-    auto graph_ptr = json_to_graph(json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, json.c_str(), json.size());
+    graph.merge(chunk);
     
     return graph;
 }

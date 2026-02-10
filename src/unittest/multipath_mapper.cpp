@@ -10,7 +10,6 @@
 #include "xg.hpp"
 #include "vg.hpp"
 #include "catch.hpp"
-#include "support/json.hpp"
 
 namespace vg {
 namespace unittest {
@@ -123,8 +122,12 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     })";
     
     // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
     // Make it into a VG
-    auto graph = json_to_graph(graph_json);
+    VG graph;
+    graph.extend(proto_graph);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -272,8 +275,12 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     })";
     
     // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
     // Make it into a VG
-    auto graph = json_to_graph(graph_json);
+    VG graph;
+    graph.extend(proto_graph);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -283,11 +290,11 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    build_gcsa_lcp(*graph, gcsaidx, lcpidx, 16, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(*graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -419,8 +426,12 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     string graph_json = R"({"node":[{"sequence":"CTTCTCATCCCTCCTCAAGGGCCTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATG","id":12},{"sequence":"A","id":2},{"sequence":"CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTT","id":3},{"sequence":"TTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTT","id":4},{"sequence":"CAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTA","id":5},{"sequence":"CTGACAGCAGAGGTTTGCTGTGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT","id":6},{"sequence":"ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCTTCTGGCTTTTCATTGTCAAC","id":7},{"sequence":"ACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCTCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTA","id":8},{"sequence":"AGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTGTATACGATGTAACTCTGTTCGGGCACTGGTGAAAGATAA","id":9},{"sequence":"CAGAGGAAATGCCTGGCTTTTTATCAGAACATGTTTCCAAGCTTATCCCTTTTCCCAGCTCTCCTTGTCCCTCCCAAGATCTCTTCACTGGCCTCTTATC","id":10},{"sequence":"TTTACTGTTACCAAATCTTTCCAGAAGCTGCTCTTTCCCTCAATTGTTCATTTGTCTTCTTGTCCAGGAATGAACCACTGCTCTCTTCTTGTCAGATCAG","id":11}],"path":[{"name":"x","mapping":[{"position":{"node_id":3},"edit":[{"from_length":100,"to_length":100}],"rank":1},{"position":{"node_id":4},"edit":[{"from_length":100,"to_length":100}],"rank":2},{"position":{"node_id":5},"edit":[{"from_length":100,"to_length":100}],"rank":3},{"position":{"node_id":6},"edit":[{"from_length":100,"to_length":100}],"rank":4},{"position":{"node_id":7},"edit":[{"from_length":100,"to_length":100}],"rank":5},{"position":{"node_id":8},"edit":[{"from_length":100,"to_length":100}],"rank":6},{"position":{"node_id":9},"edit":[{"from_length":100,"to_length":100}],"rank":7},{"position":{"node_id":10},"edit":[{"from_length":100,"to_length":100}],"rank":8},{"position":{"node_id":11},"edit":[{"from_length":100,"to_length":100}],"rank":9},{"position":{"node_id":12},"edit":[{"from_length":100,"to_length":100}],"rank":10},{"position":{"node_id":2},"edit":[{"from_length":1,"to_length":1}],"rank":11}]}],"edge":[{"from":12,"to":2},{"from":3,"to":4},{"from":4,"to":5},{"from":5,"to":6},{"from":6,"to":7},{"from":7,"to":8},{"from":8,"to":9},{"from":9,"to":10},{"from":10,"to":11},{"from":11,"to":12}]})";
     
     // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
     // Make it into a VG
-    auto graph = json_to_graph(graph_json);
+    VG graph;
+    graph.extend(proto_graph);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -430,7 +441,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    build_gcsa_lcp(*graph, gcsaidx, lcpidx, 16, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index;

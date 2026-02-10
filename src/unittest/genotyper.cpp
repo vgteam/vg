@@ -7,7 +7,6 @@
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../traversal_finder.hpp"
-#include "support/json.hpp"
 
 namespace vg {
 namespace unittest {
@@ -57,9 +56,11 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
     )";
     
     // Make an actual graph
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+    
     // Find the snarls
     SnarlManager manager = CactusSnarlFinder(graph).find_snarls();
     

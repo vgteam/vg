@@ -10,7 +10,6 @@
 #include "../utility.hpp"
 #include "../path.hpp"
 #include "vg/io/json2pb.h"
-#include "support/json.hpp"
 
 #include <vector>
 #include <sstream>
@@ -53,11 +52,15 @@ ref	5	rs1337	A	G	29	PASS	.	GT
         ]
     })";
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     // Fail to add the variants to the graph
@@ -96,10 +99,14 @@ ref	5	rs1337	A	G	29	PASS	.	GT	0/1
         ]
     })";
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     // Add the variants to the graph
@@ -146,10 +153,14 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
         ]
     })";
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     // Add the variants to the graph
@@ -203,12 +214,16 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
         ]
     })";
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     SECTION ("should work when the graph is as given") {
-
+    
         // Make a VariantAdder
         VariantAdder adder(graph);
         // Add the variants to the graph
@@ -279,10 +294,14 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	29
         ]
     })";
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     adder.skip_structural_duplications = true;
@@ -305,10 +324,14 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
         "node": [{"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC"}]
     })";
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
@@ -381,10 +404,14 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
     }
     graph_json = regex_replace(graph_json, std::regex("<10kAs>"), a_stream.str());
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
@@ -465,10 +492,14 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
     }
     graph_json = regex_replace(graph_json, std::regex("<10kAs>"), a_stream.str());
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
     vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
@@ -541,13 +572,17 @@ TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[
     }
     graph_json = regex_replace(graph_json, std::regex("<100As>"), a_stream.str());
     
-    // Load the JSON and make it into a VG
-    auto graph_ptr = json_to_graph(graph_json);
-    VG& graph = *dynamic_cast<VG*>(graph_ptr.get());
-
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
     // Make a VariantAdder
     VariantAdder adder(graph);
-
+    
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
