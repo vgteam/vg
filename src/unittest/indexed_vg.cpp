@@ -10,6 +10,7 @@
 #include "../utility.hpp"
 #include "../algorithms/id_sort.hpp"
 #include "support/random_graph.hpp"
+#include "support/json.hpp"
 #include "catch.hpp"
 
 namespace vg {

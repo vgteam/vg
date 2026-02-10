@@ -13,6 +13,7 @@
 #include "catch.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
+#include "support/json.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
@@ -1701,9 +1702,7 @@ namespace vg {
                 VG graph;
                 
                 // Load up the graph
-                Graph g;
-                json2pb(g, graph_json.c_str(), graph_json.size());
-                graph.extend(g);
+                auto g_ptr = json_to_graph(graph_json);
                 
                 // Define the one snarl
                 Snarl snarl1;
@@ -1834,9 +1833,7 @@ namespace vg {
                 VG graph;
                 
                 // Load up the graph
-                Graph g;
-                json2pb(g, graph_json.c_str(), graph_json.size());
-                graph.extend(g);
+                auto g_ptr = json_to_graph(graph_json);
                 
                 // Load the snarls
                 Snarl snarl1, snarl2, snarl3;
@@ -1920,9 +1917,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
@@ -2045,9 +2040,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
 
@@ -2132,9 +2125,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
@@ -2251,9 +2242,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
@@ -2362,9 +2351,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
@@ -2420,9 +2407,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
@@ -2498,9 +2483,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
@@ -2560,9 +2543,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
@@ -2772,9 +2753,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
 #ifdef debug
@@ -3924,9 +3903,7 @@ namespace vg {
                 
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             assert(graph.is_valid());
             
             SECTION( "PathTraversalFinder can find simple forward traversals") {

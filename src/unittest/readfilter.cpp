@@ -5,6 +5,7 @@
 #include "catch.hpp"
 #include "readfilter.hpp"
 #include "xg.hpp"
+#include "support/json.hpp"
 
 namespace vg {
 namespace unittest {
@@ -45,12 +46,9 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
     )";
     
     // Load it into Protobuf
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    
     // Pass it over to XG
     xg::XG index;
-    index.from_path_handle_graph(VG(chunk));
+    index.from_path_handle_graph(*json_to_graph(graph_json));
     
     // Make a ReadFilter;
     ReadFilter<Alignment> filter;

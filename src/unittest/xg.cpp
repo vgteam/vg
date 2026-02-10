@@ -9,6 +9,7 @@
 #include "xg.hpp"
 #include "graph.hpp"
 #include "algorithms/subgraph.hpp"
+#include "support/json.hpp"
 #include <stdio.h>
 
 namespace vg {
@@ -23,13 +24,9 @@ TEST_CASE("We can build an xg index on a nice graph", "[xg]") {
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
+    // Load the JSON and build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(*json_to_graph(graph_json));
 
     VG vg_graph;
     algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
@@ -50,13 +47,9 @@ TEST_CASE("We can build an xg index on a nasty graph", "[xg]") {
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
+    // Load the JSON and build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(*json_to_graph(graph_json));
 
     VG vg_graph;
     algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
@@ -169,7 +162,7 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(VG(proto_graph)); // TODO: replace with json_to_graph() once proto_graph usage is refactored
 
     SECTION("Context extraction gets something") {
         VG graph;
@@ -306,7 +299,7 @@ TEST_CASE("We can build the xg index on a small graph with discontinuous node id
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(VG(proto_graph)); // TODO: replace with json_to_graph() once proto_graph usage is refactored
 
     VG vg_graph;
     algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(10), 0, 100);
@@ -327,13 +320,9 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
+    // Load the JSON and build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(*json_to_graph(graph_json));
 
     size_t count = 0;
 

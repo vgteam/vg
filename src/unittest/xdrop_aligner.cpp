@@ -11,6 +11,7 @@
 #include <vg/vg.pb.h>
 #include "test_aligner.hpp"
 #include "catch.hpp"
+#include "support/json.hpp"
 #include "bdsg/hash_graph.hpp"
 
 namespace vg {
@@ -765,11 +766,7 @@ TEST_CASE("XdropAligner doesn't crash on a case where it is hard to find a seed"
     
     string graph_json = R"({"edge": [{"from": "92345167", "to": "92345168"}, {"from": "92345182", "to": "92345183"}, {"from": "92345165", "to": "92345166"}, {"from": "92345177", "to": "92345178"}, {"from": "92345171", "to": "92345172"}, {"from": "92345161", "to": "92345162"}, {"from": "92345183", "to": "92345184"}, {"from": "92345181", "to": "92345182"}, {"from": "92345178", "to": "92345179"}, {"from": "92345166", "to": "92345167"}, {"from": "92345179", "to": "92345180"}, {"from": "92345173", "to": "92345174"}, {"from": "92345184", "to": "92345185"}, {"from": "92345169", "to": "92345170"}, {"from": "92345185", "to": "92345186"}, {"from": "92345160", "to": "92345161"}, {"from": "92345174", "to": "92345175"}, {"from": "92345162", "to": "92345163"}, {"from": "92345175", "to": "92345176"}, {"from": "92345168", "to": "92345169"}, {"from": "92345163", "to": "92345164"}, {"from": "92345172", "to": "92345173"}, {"from": "92345180", "to": "92345181"}, {"from": "92345176", "to": "92345177"}, {"from": "92345170", "to": "92345171"}, {"from": "92345164", "to": "92345165"}], "node": [{"id": "92345167", "sequence": "TTTATATATATATATTTATATATATATATTTA"}, {"id": "92345182", "sequence": "TATATATATTTATATATATATTTATATATATA"}, {"id": "92345165", "sequence": "ATATATATATATTTATATATATTTATATATTA"}, {"id": "92345177", "sequence": "TTTATATATATATTTATATATATATATTATAT"}, {"id": "92345171", "sequence": "TTATATATATATTTATATATATATTTATATAT"}, {"id": "92345161", "sequence": "ATATATTTATATATTTTTATATATTATATATT"}, {"id": "92345183", "sequence": "TTTATATATATTTATATATATATTTATATATA"}, {"id": "92345181", "sequence": "ATATATTATATATATATTTATATATATATTTA"}, {"id": "92345178", "sequence": "ATATATTTATATATATATTTATATATATATTT"}, {"id": "92345166", "sequence": "TTTATATATATTTATATATATATTTATATATA"}, {"id": "92345179", "sequence": "ATATATATATTTATATATATATTTATATATAT"}, {"id": "92345173", "sequence": "ATATTTATATATATATATTTATATATATATTT"}, {"id": "92345184", "sequence": "TATTTATATATATATTTATATATATTTATATA"}, {"id": "92345169", "sequence": "TTTATATATATATTTATATATATATTTATATA"}, {"id": "92345185", "sequence": "TATATTTATATATATATATATATATTTATATA"}, {"id": "92345160", "sequence": "ATTTATATATATATTTATATATATATTTATAT"}, {"id": "92345174", "sequence": "ATATATATATTTATATATATATTATTTATATA"}, {"id": "92345162", "sequence": "TATATATATATTTATATATTATATATATATTT"}, {"id": "92345175", "sequence": "TATATTTATATATATATTATATATATATTTAT"}, {"id": "92345168", "sequence": "TATATATATTTATATATATATTTATATATATA"}, {"id": "92345163", "sequence": "ATATATTTATATATATATTTATATATATTTAT"}, {"id": "92345172", "sequence": "ATATATATATATTTATATATATATTTATATAT"}, {"id": "92345180", "sequence": "ATTTATATATATATTTATATATATATTTATAT"}, {"id": "92345176", "sequence": "ATATATATATTATATATATATTTATATATATA"}, {"id": "92345170", "sequence": "TATATTTATATATATATATTATATATATATAT"}, {"id": "92345164", "sequence": "ATATATATTTATATATATTTATATATATATTT"}, {"id": "92345186", "sequence": "TATATTTATATATATTTATATATATATTTATA"}]})";
     
-    Graph source;
-    json2pb(source, graph_json.c_str(), graph_json.size());
-    
-    VG graph;
-    graph.extend(source);
+    auto graph = json_to_graph(graph_json);
     
     Alignment aln;
     aln.set_sequence("CAGCACTTTGGGAGGCCAAGGTGGGTGGATCATCTGAGGTCAGGAGTTTGAGACCAGCCTGACCAACATGGTGAAATCCTGTCTCTACTGAAAATACTAAAATTAGCCAGGCGTGGCGGCCAGTGCCTGTAATCCCGGCTACTGGGGAGG");

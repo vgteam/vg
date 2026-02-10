@@ -10,6 +10,7 @@
 #include "xg.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
+#include "support/json.hpp"
 #include "../algorithms/alignment_path_offsets.hpp"
 
 namespace vg {
@@ -26,13 +27,8 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
         ]
     })";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
+    // Load the JSON and make it into a VG
+    auto graph = json_to_graph(graph_json);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -246,13 +242,8 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     {"position":{"node_id":1445},"rank":1060}]}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
+    // Load the JSON and make it into a VG
+    auto graph = json_to_graph(graph_json);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -312,13 +303,8 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     ]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
+    // Load the JSON and make it into a VG
+    auto graph = json_to_graph(graph_json);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -328,11 +314,11 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
+    build_gcsa_lcp(*graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(graph);
+    xg_index.from_path_handle_graph(*graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);

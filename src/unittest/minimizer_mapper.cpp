@@ -7,6 +7,7 @@
 #include "../io/json2graph.hpp"
 #include <vg/vg.pb.h>
 #include "../minimizer_mapper.hpp"
+#include "support/json.hpp"
 #include "../build_index.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwt_extender.hpp"
@@ -452,9 +453,7 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
         })";
         
         // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
+        auto graph = json_to_graph(graph_json);
         
         Alignment aln;
         aln.set_sequence("");
@@ -462,7 +461,7 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
         pos_t left_anchor {55511921, false, 5}; // This is on the final base of the node
         pos_t right_anchor {55511925, false, 6};
         
-        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, graph.get(), &aligner, aln);
         
         // Make sure we get the right alignment. We should see the last base of '21 and go '21 to '24 to '25 and delete everything
         REQUIRE(aln.path().mapping_size() == 3);
@@ -494,9 +493,7 @@ TEST_CASE("MinimizerMapper can map with an initial deletion", "[giraffe][mapping
         })";
         
         // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
+        auto graph = json_to_graph(graph_json);
         
         Alignment aln;
         aln.set_sequence("CATTAG");
@@ -541,9 +538,7 @@ TEST_CASE("MinimizerMapper can map with an initial deletion on a multi-base node
         })";
         
         // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
+        auto graph = json_to_graph(graph_json);
         
         Alignment aln;
         aln.set_sequence("CATTAG");
@@ -588,9 +583,7 @@ TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][
         })";
         
         // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
+        auto graph = json_to_graph(graph_json);
         
         Alignment aln;
         aln.set_sequence("CATTAG");
@@ -641,9 +634,7 @@ TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting so
         })";
         
         // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
+        auto graph = json_to_graph(graph_json);
         
         Alignment aln;
         aln.set_sequence("TTGAAAACCTGATATGTCTTATTTTTCTAACTATGGAATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGAGACGGAGTCTCGCTCTGTCGCCCAGGCTGGAGTGCAGTGGCGCGATCTCGGCTCACTGCAAGCTCCGCCTCCCGGGTTCACGCCATTCTCCTGCCTCAGCCTCCCGAGTAGCTGGGACTACAGGCGCCCGCTACCACGCCCGGCTAATTTTTTGTATTTTTTTT");

@@ -9,6 +9,7 @@
 #include "xg.hpp"
 #include "vg.hpp"
 #include "vg/io/json2pb.h"
+#include "support/json.hpp"
 #include <vg/vg.pb.h>
 
 namespace vg {
@@ -18,13 +19,9 @@ namespace unittest {
         
         string graph_json = R"({"node": [{"sequence": "AAACCC", "id": 1}, {"sequence": "CACACA", "id": 2}, {"sequence": "CACACA", "id": 3}, {"sequence": "TTTTGG", "id": 4}, {"sequence": "ACGTAC", "id": 5}], "path": [{"name": "one", "mapping": [{"position": {"node_id": 1}, "rank": 1}, {"position": {"node_id": 2}, "rank": 2}]}, {"name": "three", "mapping": [{"position": {"node_id": 2}, "rank": 1}, {"position": {"node_id": 3}, "rank": 2}]}, {"name": "two", "mapping": [{"position": {"node_id": 4}, "rank": 1}, {"position": {"node_id": 5}, "rank": 2}]}], "edge": [{"from": 1, "to": 2}, {"from": 2, "to": 3}, {"from": 4, "to": 5}]})";
         
-        // Load the JSON
-        Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        
-        // Build the xg index
+        // Load the JSON and build the xg index
         xg::XG xg_index;
-        xg_index.from_path_handle_graph(VG(proto_graph));
+        xg_index.from_path_handle_graph(*json_to_graph(graph_json));
         
         
         unordered_set<path_handle_t> comp_1;

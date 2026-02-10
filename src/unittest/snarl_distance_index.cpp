@@ -14,6 +14,7 @@
 #include "catch.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
+#include "support/json.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
@@ -3754,9 +3755,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
@@ -4014,9 +4013,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4127,9 +4124,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4276,9 +4271,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
          
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4405,9 +4398,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4514,9 +4505,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4618,9 +4607,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4788,9 +4775,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4911,9 +4896,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            auto chunk_ptr = json_to_graph(graph_json);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;

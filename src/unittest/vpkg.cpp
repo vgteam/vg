@@ -14,6 +14,7 @@
 #include "../vg.hpp"
 #include "../snarl_seed_clusterer.hpp"
 #include "vg/io/json2pb.h"
+#include "support/json.hpp"
 #include <gcsa/gcsa.h>
 #include <sstream>
 #include <tuple>
@@ -49,13 +50,9 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
+    // Load the JSON and build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(*json_to_graph(graph_json));
 
     stringstream ss;
     
@@ -149,12 +146,8 @@ TEST_CASE("We can read VG from a VPKG-wrapped stream as a VG", "[vpkg][handlegra
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+    // Load the JSON and build the VG
+    auto vg_graph = json_to_graph(graph_json);
     
     // Save it
     stringstream ss;
@@ -180,12 +173,8 @@ TEST_CASE("We can read VG from a VPKG-wrapped stream as a HandleGraph which is a
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+    // Load the JSON and build the VG
+    auto vg_graph = json_to_graph(graph_json);
     
     // Save it
     stringstream ss;
@@ -211,12 +200,8 @@ TEST_CASE("We can read VG from a VPKG-wrapped stream as a HandleGraph which is a
 TEST_CASE("We can read an empty VG as a HandleGraph", "[vpkg][handlegraph][vg][empty]") {
     string graph_json = "{}";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+    // Load the JSON and build the VG
+    auto vg_graph = json_to_graph(graph_json);
     
     // Save it
     stringstream ss;
@@ -241,12 +226,8 @@ TEST_CASE("We prefer to read a graph as the first provided type that matches", "
     "edge":[{"to":2,"from":1}]}
     )";
     
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+    // Load the JSON and build the VG
+    auto vg_graph = json_to_graph(graph_json);
     
     // Save it
     stringstream ss;
