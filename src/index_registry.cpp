@@ -4011,7 +4011,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         // jointly generate the GBWT and record sequences
         unique_ptr<gbwt::GBWT> gbwt_index;
-        unique_ptr<gbwtgraph::SequenceSource> seq_source;
+        unique_ptr<gbwtgraph::NaiveGraph> seq_source;
         tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
         
         // convert sequences into GBZ and save

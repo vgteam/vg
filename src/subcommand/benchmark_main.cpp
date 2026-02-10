@@ -109,8 +109,8 @@ int main_benchmark(int argc, char** argv) {
         gbwt::GBWT index = get_gbwt(paths);
         
         // Turn it into a GBWTGraph.
-        // Make a SequenceSource we will consult later for getting sequence.
-        gbwtgraph::SequenceSource source;
+        // Make a NaiveGraph we will consult later for getting sequence.
+        gbwtgraph::NaiveGraph source;
         uint32_t bits = 0xcafebebe;
         auto step_rng = [&bits]() {
             // Try out <https://stackoverflow.com/a/69142783>
@@ -123,20 +123,22 @@ int main_benchmark(int argc, char** argv) {
                 ss << "ACGT"[bits & 0x3];
                 step_rng();
             }
-            source.add_node(i + 1, ss.str());
+            source.create_node(i + 1, ss.str());
         }
         // And then make the graph
         gbwtgraph::GBWTGraph graph(index, source);
         
         // Decide what we are going to align
         pos_t from_pos = make_pos_t(1, false, 3);
+        handle_t from_handle = graph.get_handle(get_id(from_pos), get_is_rev(from_pos));
         pos_t to_pos = make_pos_t(node_count, false, 11);
+        handle_t to_handle = graph.get_handle(get_id(to_pos), get_is_rev(to_pos));
         
         // Synthesize a sequence
         std::stringstream seq_stream;
-        seq_stream << source.get_sequence(get_id(from_pos)).substr(get_offset(from_pos) + 1);
+        seq_stream << source.get_sequence(from_handle).substr(get_offset(from_pos) + 1);
         for (nid_t i = get_id(from_pos) + 1; i < get_id(to_pos); i++) {
-            std::string seq = source.get_sequence(i);
+            std::string seq = source.get_sequence(graph.get_handle(i, false));
             // Add some errors
             if (bits & 0x1) {
                 int offset = bits % seq.size();
@@ -158,7 +160,7 @@ int main_benchmark(int argc, char** argv) {
             // And keep the sequence
             seq_stream << seq;
         }
-        seq_stream << source.get_sequence(get_id(to_pos)).substr(0, get_offset(to_pos)); 
+        seq_stream << source.get_sequence(to_handle).substr(0, get_offset(to_pos)); 
         
         std::string to_connect = seq_stream.str();
         
