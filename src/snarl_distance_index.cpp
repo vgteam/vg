@@ -1,7 +1,8 @@
-#define debug_distance_indexing
+//#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-#define debug_subgraph
+//#define debug_subgraph
+//#define debug_hub_label_build
 //#define debug_hub_label_storage
 
 #include "snarl_distance_index.hpp"
@@ -299,7 +300,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 #endif
                             root_snarl_component_uf.union_groups(other_i, temp_chain_record.root_snarl_index);
 #ifdef debug_distance_indexing
-                            cerr << "        Union this chain with " << temp_index.get_chain(node_record.parent).start_node_id << " " << temp_index.get_chain(node_record.parent).end_node_id << endl;
+                            if (node_record.parent.first == SnarlDistanceIndex::TEMP_CHAIN) {
+                                cerr << "        Union this chain with " << temp_index.get_chain(node_record.parent).start_node_id << " " << temp_index.get_chain(node_record.parent).end_node_id << endl;
+                            } else {
+                                cerr << "        Union this chain with root " << node_record.root_snarl_index << endl;
+                            }
 #endif
                         } else {
                             new_component = false;
@@ -1098,6 +1103,7 @@ void populate_snarl_index(
 void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph) {
   CHOverlay ov = make_boost_graph(temp_index, snarl_index, temp_snarl_record, all_children, graph);
 
+#ifdef debug_hub_label_build
   // Dump CHOverlay graph to stderr for debugging
   std::cerr << "=== CHOverlay Graph Dump ===" << std::endl;
   std::cerr << "Vertices: " << num_vertices(ov) << ", Edges: " << num_edges(ov) << std::endl;
@@ -1123,6 +1129,7 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
               << " ori=" << (ep.ori ? "true" : "false") << std::endl;
   }
   std::cerr << "=== End CHOverlay Dump ===" << std::endl;
+#endif
 
   make_contraction_hierarchy(ov);
 
