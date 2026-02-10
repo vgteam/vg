@@ -7691,25 +7691,18 @@ namespace vg {
 
             //Find actual distance
             size_t dijkstra_distance = std::numeric_limits<size_t>::max();
-            if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
-                dijkstra_distance = offset2 - offset1;
-                REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
-            } else if (node_id1 == node_id2) {
-                //TODO: The way the dijkstra algorithm is set up, it won't return to the start node
-            } else {
-                handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
-                    if (reached == handle2) {
-                        dijkstra_distance = distance;
-                        dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
-                        dijkstra_distance += offset2;
-                        return false;
-                    }
-                    return true;
+            handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                if (reached == handle2) {
+                    dijkstra_distance = distance;
+                    dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                    dijkstra_distance += offset2;
+                    return false;
                 }
-                , false);
-
-                REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
+                return true;
             }
+            , false);
+
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
         }
 
         
