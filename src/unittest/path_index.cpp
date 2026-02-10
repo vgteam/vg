@@ -5,9 +5,9 @@
 
 #include <iostream>
 #include <string>
-#include "vg/io/json2pb.h"
-#include <vg/vg.pb.h>
+#include "../io/json2graph.hpp"
 #include "../path_index.hpp"
+#include <bdsg/hash_graph.hpp>
 #include "catch.hpp"
 
 namespace vg {
@@ -58,15 +58,11 @@ const string path_index_graph_1 = R"(
 
 
 TEST_CASE("PathIndex can be created", "[pathindex]") {
-    
+
     // Load the graph
-    Graph graph;
-    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
-    
-    // Make it into a VG
-    VG to_index;
-    to_index.extend(graph);
-    
+    bdsg::HashGraph to_index;
+    vg::io::json2graph(path_index_graph_1, &to_index);
+
     // Make a PathIndex
     PathIndex index(to_index, "cool", true);
     
@@ -78,13 +74,9 @@ TEST_CASE("PathIndex can be created", "[pathindex]") {
 TEST_CASE("PathIndex translation can change a node ID", "[pathindex]") {
 
     // Load the graph
-    Graph graph;
-    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
-    
-    // Make it into a VG
-    VG to_index;
-    to_index.extend(graph);
-    
+    bdsg::HashGraph to_index;
+    vg::io::json2graph(path_index_graph_1, &to_index);
+
     // Make a PathIndex
     PathIndex index(to_index, "cool", true);
     
@@ -115,15 +107,11 @@ TEST_CASE("PathIndex translation can change a node ID", "[pathindex]") {
 }
 
 TEST_CASE("PathIndex translation can divide a node", "[pathindex]") {
-    
+
     // Load the graph
-    Graph graph;
-    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
-    
-    // Make it into a VG
-    VG to_index;
-    to_index.extend(graph);
-    
+    bdsg::HashGraph to_index;
+    vg::io::json2graph(path_index_graph_1, &to_index);
+
     // Make a PathIndex
     PathIndex index(to_index, "cool", true);
     
@@ -174,15 +162,11 @@ TEST_CASE("PathIndex translation can divide a node", "[pathindex]") {
 }
 
 TEST_CASE("PathIndex translation can create reverse strand mappings", "[pathindex]") {
-    
+
     // Load the graph
-    Graph graph;
-    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
-    
-    // Make it into a VG
-    VG to_index;
-    to_index.extend(graph);
-    
+    bdsg::HashGraph to_index;
+    vg::io::json2graph(path_index_graph_1, &to_index);
+
     // Make a PathIndex
     PathIndex index(to_index, "cool", true);
     
@@ -235,15 +219,11 @@ TEST_CASE("PathIndex translation can create reverse strand mappings", "[pathinde
 }
 
 TEST_CASE("PathIndex translation can handle translations articulated for the reverse strand", "[pathindex]") {
-    
+
     // Load the graph
-    Graph graph;
-    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
-    
-    // Make it into a VG
-    VG to_index;
-    to_index.extend(graph);
-    
+    bdsg::HashGraph to_index;
+    vg::io::json2graph(path_index_graph_1, &to_index);
+
     // Make a PathIndex
     PathIndex index(to_index, "cool", true);
     
@@ -300,15 +280,11 @@ TEST_CASE("PathIndex translation can handle translations articulated for the rev
 }
 
 TEST_CASE("PathIndex translation can divide the last node", "[pathindex]") {
-    
+
     // Load the graph
-    Graph graph;
-    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
-    
-    // Make it into a VG
-    VG to_index;
-    to_index.extend(graph);
-    
+    bdsg::HashGraph to_index;
+    vg::io::json2graph(path_index_graph_1, &to_index);
+
     // Make a PathIndex
     PathIndex index(to_index, "cool", true);
     

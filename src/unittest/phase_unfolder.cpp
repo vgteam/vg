@@ -12,7 +12,8 @@
 #include <gbwt/dynamic_gbwt.h>
 
 #include "../phase_unfolder.hpp"
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include "xg.hpp"
 
 #include "catch.hpp"
@@ -210,10 +211,10 @@ const std::string unfolder_graph_path = R"(
 TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
 
     // Build an XG index with a path.
-    Graph graph_with_path;
-    json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
+    bdsg::HashGraph graph_with_path;
+    vg::io::json2graph(unfolder_graph_path, &graph_with_path);
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(graph_with_path));
+    xg_index.from_path_handle_graph(graph_with_path);
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -224,9 +225,7 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
 
     // Build a VG graph.
     VG vg_graph;
-    Graph temp_graph;
-    json2pb(temp_graph, unfolder_graph.c_str(), unfolder_graph.size());
-    vg_graph.merge(temp_graph);
+    vg::io::json2graph(unfolder_graph, &vg_graph);
 
     // Remove branching regions from the VG graph, including the last node,
     // but keep the edge (1, 6) in the graph.
@@ -255,10 +254,10 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
 TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
 
     // Build an XG index with a path.
-    Graph graph_with_path;
-    json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
+    bdsg::HashGraph graph_with_path;
+    vg::io::json2graph(unfolder_graph_path, &graph_with_path);
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(graph_with_path));
+    xg_index.from_path_handle_graph(graph_with_path);
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -269,9 +268,7 @@ TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
 
     // Build a VG graph.
     VG vg_graph;
-    Graph temp_graph;
-    json2pb(temp_graph, unfolder_graph.c_str(), unfolder_graph.size());
-    vg_graph.merge(temp_graph);
+    vg::io::json2graph(unfolder_graph, &vg_graph);
 
     // Remove branching regions from the VG graph, including the last node,
     // but keep the edge (1, 6) in the graph.
@@ -299,10 +296,10 @@ TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
 TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") {
 
     // Build an XG index without a path.
-    Graph graph_without_path;
-    json2pb(graph_without_path, unfolder_graph.c_str(), unfolder_graph.size());
+    bdsg::HashGraph graph_without_path;
+    vg::io::json2graph(unfolder_graph, &graph_without_path);
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(graph_without_path));
+    xg_index.from_path_handle_graph(graph_without_path);
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -335,9 +332,7 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
 
     // Build a VG graph.
     VG vg_graph;
-    Graph temp_graph;
-    json2pb(temp_graph, unfolder_graph.c_str(), unfolder_graph.size());
-    vg_graph.merge(temp_graph);
+    vg::io::json2graph(unfolder_graph, &vg_graph);
 
     // Remove branching regions from the VG graph, including the last node,
     // but keep the edge (1, 6) in the graph.
@@ -366,10 +361,10 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
 TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfolder][indexing]") {
 
     // Build an XG index with a path.
-    Graph graph_with_path;
-    json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
+    bdsg::HashGraph graph_with_path;
+    vg::io::json2graph(unfolder_graph_path, &graph_with_path);
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(graph_with_path));
+    xg_index.from_path_handle_graph(graph_with_path);
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -402,9 +397,7 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
 
     // Build a VG graph.
     VG vg_graph;
-    Graph temp_graph;
-    json2pb(temp_graph, unfolder_graph.c_str(), unfolder_graph.size());
-    vg_graph.merge(temp_graph);
+    vg::io::json2graph(unfolder_graph, &vg_graph);
 
     // Remove branching regions from the VG graph, including the last node,
     // but keep the edge (1, 6) in the graph.
@@ -501,10 +494,10 @@ const std::string unfolder_graph_simple_path = R"(
 TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolder][indexing]") {
 
     // Build an XG index.
-    Graph simple_graph;
-    json2pb(simple_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
+    bdsg::HashGraph simple_graph;
+    vg::io::json2graph(unfolder_graph_simple, &simple_graph);
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(simple_graph));
+    xg_index.from_path_handle_graph(simple_graph);
 
     // Build a GBWT with both possible threads.
     gbwt::vector_type upper_path {
@@ -536,9 +529,7 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
 
     // Build a VG graph.
     VG vg_graph;
-    Graph temp_graph;
-    json2pb(temp_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
-    vg_graph.merge(temp_graph);
+    vg::io::json2graph(unfolder_graph_simple, &vg_graph);
 
     // Remove the bubble, including its endpoints.
     std::set<vg::id_t> to_remove { 3, 4, 5, 6 };
@@ -566,10 +557,10 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
 TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]") {
 
     // Build an XG index.
-    Graph simple_graph_with_path;
-    json2pb(simple_graph_with_path, unfolder_graph_simple_path.c_str(), unfolder_graph_simple_path.size());
+    bdsg::HashGraph simple_graph_with_path;
+    vg::io::json2graph(unfolder_graph_simple_path, &simple_graph_with_path);
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(simple_graph_with_path));
+    xg_index.from_path_handle_graph(simple_graph_with_path);
 
     // Build a GBWT for the fragment that is different from the reference.
     gbwt::vector_type short_fragment {
@@ -586,9 +577,7 @@ TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]")
 
     // Build a VG graph.
     VG vg_graph;
-    Graph temp_graph;
-    json2pb(temp_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
-    vg_graph.merge(temp_graph);
+    vg::io::json2graph(unfolder_graph_simple, &vg_graph);
 
     // Remove the bubble, including its endpoints.
     std::set<vg::id_t> to_remove { 3, 4, 5, 6 };

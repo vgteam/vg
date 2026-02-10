@@ -13,7 +13,7 @@
 #include "xg.hpp"
 #include "../vg.hpp"
 #include "../snarl_seed_clusterer.hpp"
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 #include <gcsa/gcsa.h>
 #include <sstream>
 #include <tuple>
@@ -50,12 +50,12 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
     )";
     
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
+    bdsg::HashGraph hash_graph;
+    vg::io::json2graph(graph_json, &hash_graph);
+
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(hash_graph);
 
     stringstream ss;
     
@@ -148,13 +148,10 @@ TEST_CASE("We can read VG from a VPKG-wrapped stream as a VG", "[vpkg][handlegra
     {"id":2,"sequence":"ACA"}],
     "edge":[{"to":2,"from":1}]}
     )";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+
+    // Load the JSON directly into VG
+    vg::VG vg_graph;
+    vg::io::json2graph(graph_json, &vg_graph);
     
     // Save it
     stringstream ss;
@@ -179,13 +176,10 @@ TEST_CASE("We can read VG from a VPKG-wrapped stream as a HandleGraph which is a
     {"id":2,"sequence":"ACA"}],
     "edge":[{"to":2,"from":1}]}
     )";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+
+    // Load the JSON directly into VG
+    vg::VG vg_graph;
+    vg::io::json2graph(graph_json, &vg_graph);
     
     // Save it
     stringstream ss;
@@ -210,13 +204,10 @@ TEST_CASE("We can read VG from a VPKG-wrapped stream as a HandleGraph which is a
 
 TEST_CASE("We can read an empty VG as a HandleGraph", "[vpkg][handlegraph][vg][empty]") {
     string graph_json = "{}";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+
+    // Load the JSON directly into VG
+    vg::VG vg_graph;
+    vg::io::json2graph(graph_json, &vg_graph);
     
     // Save it
     stringstream ss;
@@ -240,13 +231,10 @@ TEST_CASE("We prefer to read a graph as the first provided type that matches", "
     {"id":2,"sequence":"ACA"}],
     "edge":[{"to":2,"from":1}]}
     )";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the VG
-    vg::VG vg_graph(proto_graph);
+
+    // Load the JSON directly into VG
+    vg::VG vg_graph;
+    vg::io::json2graph(graph_json, &vg_graph);
     
     // Save it
     stringstream ss;

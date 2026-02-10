@@ -9,8 +9,8 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include "vg/io/json2pb.h"
-#include <vg/vg.pb.h>
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include "catch.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
@@ -3446,12 +3446,9 @@ namespace vg {
             //    }
             //    )";
             //    
-            //    VG graph;
-            //    
             //    // Load up the graph
-            //    Graph g;
-            //    json2pb(g, graph_json.c_str(), graph_json.size());
-            //    graph.extend(g);
+            //    VG graph;
+            //    vg::io::json2graph(graph_json, &graph);
             //    
             //    // Define the one snarl
             //    Snarl snarl1;
@@ -3578,12 +3575,9 @@ namespace vg {
             //    string snarl2_json = R"({"type": 1, "end": {"node_id": 187209, "backward": true}, "start": {"node_id": 178895, "backward": true}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
             //    string snarl3_json = R"({"type": 1, "end": {"node_id": 178896}, "start": {"node_id": 178895}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
             //    
-            //    VG graph;
-            //    
             //    // Load up the graph
-            //    Graph g;
-            //    json2pb(g, graph_json.c_str(), graph_json.size());
-            //    graph.extend(g);
+            //    VG graph;
+            //    vg::io::json2graph(graph_json, &graph);
             //    
             //    // Load the snarls
             //    Snarl snarl1, snarl2, snarl3;
@@ -3754,9 +3748,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
@@ -4014,9 +4006,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4127,9 +4117,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4276,9 +4264,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
          
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4405,9 +4391,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4514,9 +4498,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4618,9 +4600,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4788,9 +4768,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4911,9 +4889,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;

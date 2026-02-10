@@ -6,11 +6,10 @@
 #include <unordered_set>
 #include <utility>
 
-#include "vg/io/json2pb.h"
-#include <vg/vg.pb.h>
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include "../sampler.hpp"
 #include "../xg.hpp"
-#include "../vg.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -28,13 +27,9 @@ TEST_CASE( "Sampler can sample from a 1-node graph", "[sampler]" ) {
     })";
     
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
-    
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
+
     // Build the xg index
     xg::XG xg_index;
     xg_index.from_path_handle_graph(graph);
@@ -118,13 +113,9 @@ TEST_CASE( "position_at works", "[sampler]" ) {
     })";
     
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
-    
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
+
     // Build the xg index
     xg::XG xg_index;
     xg_index.from_path_handle_graph(graph);
@@ -195,13 +186,9 @@ TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
     })";
     
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
-    
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
+
     // Build the xg index
     xg::XG xg_index;
     xg_index.from_path_handle_graph(graph);
@@ -259,13 +246,9 @@ TEST_CASE( "Sampler can across reversing edges", "[sampler]" ) {
     })";
     
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
-    
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
+
     // Build the xg index
     xg::XG xg_index;
     xg_index.from_path_handle_graph(graph);

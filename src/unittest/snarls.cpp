@@ -9,6 +9,8 @@
 #include <sstream>
 #include <set>
 #include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "support/random_graph.hpp"
@@ -1697,14 +1699,12 @@ namespace vg {
                              ]
                 }
                 )";
-                
+
                 VG graph;
-                
+
                 // Load up the graph
-                Graph g;
-                json2pb(g, graph_json.c_str(), graph_json.size());
-                graph.extend(g);
-                
+                vg::io::json2graph(graph_json, &graph);
+
                 // Define the one snarl
                 Snarl snarl1;
                 snarl1.mutable_start()->set_node_id(6462830);
@@ -1830,14 +1830,12 @@ namespace vg {
                 string snarl1_json = R"({"type": 1, "end": {"node_id": 187208}, "start": {"node_id": 178894}})";
                 string snarl2_json = R"({"type": 1, "end": {"node_id": 187209, "backward": true}, "start": {"node_id": 178895, "backward": true}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
                 string snarl3_json = R"({"type": 1, "end": {"node_id": 178896}, "start": {"node_id": 178895}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
-                
+
                 VG graph;
-                
+
                 // Load up the graph
-                Graph g;
-                json2pb(g, graph_json.c_str(), graph_json.size());
-                graph.extend(g);
-                
+                vg::io::json2graph(graph_json, &graph);
+
                 // Load the snarls
                 Snarl snarl1, snarl2, snarl3;
                 json2pb(snarl1, snarl1_json.c_str(), snarl1_json.size());
@@ -1917,13 +1915,11 @@ namespace vg {
             }
             
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
             
@@ -2045,10 +2041,8 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
 
 #ifdef debug
@@ -2061,7 +2055,7 @@ namespace vg {
                 cerr << endl;
             });
 #endif
-        
+
             SECTION("Root node has 1 child bubble") {
                 REQUIRE(snarl_manager.top_level_snarls().size() == 1);
                 
@@ -2127,15 +2121,13 @@ namespace vg {
                     ]}
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
 #ifdef debug
@@ -2246,15 +2238,13 @@ namespace vg {
                     ]}
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
 #ifdef debug
@@ -2354,18 +2344,16 @@ namespace vg {
                     {"from": 2, "to": 4},
                     {"from": 2, "to": 3},
                     {"from": 2, "to": 2},
-                    {"from": 3, "to": 3}            
+                    {"from": 3, "to": 3}
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
 #ifdef debug
@@ -2415,15 +2403,13 @@ namespace vg {
                     ]}
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
 #ifdef debug
@@ -2490,18 +2476,16 @@ namespace vg {
                 "edge": [
                     {"from": 1, "to": 2},
                     {"from": 2, "to": 1}
-                    
+
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
 #ifdef debug
@@ -2555,15 +2539,13 @@ namespace vg {
                     {"from": 3, "to": 6}
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
 #ifdef debug
@@ -2767,15 +2749,13 @@ namespace vg {
                     {"from": 9, "to": 10}
                 ]
             }
-            
+
             )";
-            
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
+            vg::io::json2graph(graph_json, &graph);
+
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -3919,14 +3899,12 @@ namespace vg {
                             {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
                         ]}
                     ]
-                }            
+                }
                 )";
-                
+
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             assert(graph.is_valid());
             
             SECTION( "PathTraversalFinder can find simple forward traversals") {

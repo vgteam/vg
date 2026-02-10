@@ -10,7 +10,7 @@
 #include "vg.hpp"
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "../algorithms/pad_band.hpp"
 
@@ -3515,10 +3515,9 @@ namespace vg {
             
             SECTION( "Banded global aligner does not produce empty edits when there is an insertion an empty node") {
                 string graph_json = R"({"edge": [{"to_end": true, "from_start": true, "to": 22, "from": 20}, {"to": 26, "from": 20}, {"to": 24, "from": 20}, {"to_end": true, "from_start": true, "to": 26, "from": 4}, {"to_end": true, "from_start": true, "to": 24, "from": 4}], "node": [{"sequence": "C", "id": 24}, {"sequence": "GAGA", "id": 20}, {"sequence": "T", "id": 26}, {"sequence": "GGAGTCT", "id": 4}, {"id": 22}]})";
-                
-                Graph graph;
-                json2pb(graph, graph_json.c_str(), graph_json.size());
-                VG vg_graph(graph);
+
+                bdsg::HashGraph vg_graph;
+                vg::io::json2graph(graph_json, &vg_graph);
                 
                 TestAligner aligner_source;
                 const Aligner& aligner = *aligner_source.get_regular_aligner();
