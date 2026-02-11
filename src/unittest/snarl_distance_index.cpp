@@ -7707,6 +7707,47 @@ namespace vg {
             REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
         }
 
+        TEST_CASE( "Distance index can query out of a SNP with a reversing allele as an oversided snarl",
+                  "[snarl_distance]" ) {
+            
+            // This is a snarl from 1 to 2, where 4 nand 5 are a SNP, and 3
+            // lets you double back to the start
+            std::string graph_json = R"({
+                "node": [
+                    {"id": "1","sequence": "AAAAA"},
+                    {"id": "2","sequence": "AAAAA"},
+                    {"id": "3","sequence": "A"},
+                    {"id": "4","sequence": "A"},
+                    {"id": "5","sequence": "A"} 
+                ], "edge": [
+                    {"from": "1","to": "3"},
+                    {"from": "1","to": "4"},
+                    {"from": "1","to": "5"},
+                    {"from": "3","to": "1", "to_end": true},
+                    {"from": "4","to": "2"}, 
+                    {"from": "5","to": "2"}
+                ]
+            })";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+            
+            // We want to be able to get out of the snarl from node 4, which we definitely can.
+            id_t node_id1 = 4; bool rev1 = false ; size_t offset1 = 1;
+            id_t node_id2 = 2; bool rev2 = false ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t true_distance = 0;
+
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+        }
+
 
         TEST_CASE( "Distance index can query all possible 3-node-with-legs snarls",
                  "[snarl_distance]" ) {
