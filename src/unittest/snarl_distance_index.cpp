@@ -7746,6 +7746,13 @@ namespace vg {
             size_t true_distance = 0;
 
             REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+
+            // And out of the snarl to the left from 3 reverse to 1 reverse should also be 0
+            node_id1 = 3; rev1 = true; offset1 = 1;
+            node_id2 = 1; rev2 = true; offset2 = 0;
+            true_distance = 0;
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+
         }
 
 
