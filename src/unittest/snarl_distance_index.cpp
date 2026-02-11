@@ -21,6 +21,8 @@
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 #include "xg.hpp"
+#include <handlegraph/algorithms/weakly_connected_components.hpp>
+#include <handlegraph/algorithms/find_shortest_paths.hpp>
 
 #define debug
 
@@ -7423,7 +7425,7 @@ namespace vg {
         */
         
         TEST_CASE( "Distance index can traverse all the snarls in random graphs",
-                  "[snarl_distance_random]" ) {
+                  "[snarl_distance][snarl_distance_random]" ) {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
@@ -7705,10 +7707,209 @@ namespace vg {
             REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
         }
 
+
+        TEST_CASE( "Distance index can query all possible 3-node-with-legs snarls",
+                 "[snarl_distance]" ) {
+
+            // We're going to generate all possible snarls you can get by
+            // starting with the boundary nodes, taking up to 3 nodes and
+            // connecting them, one nodeside at a time, onto the existing
+            // nodes.
+            //
+            // Combinatorics says this is a manageable number; each nodeside
+            // picks from one of the previous nodesides and attaches to it.
+            
+            /// Call the callback with each possible combination of choices of
+            /// previous items.
+            ///
+            /// start_size is the number of items present before we start
+            /// making choices; the first entry can choose from start_size
+            /// items.
+            /// 
+            /// end_size is the total number of items to think about, including
+            /// those in start_size.
+            /// 
+            /// Calls the callback with all possible vectors of length
+            /// (end_size - start_size) matching these constraints.
+            auto for_all_choice_combinations = [](size_t start_size, size_t end_size, const std::function<void(const std::vector<size_t>&)>& callback) { 
+
+                std::vector<size_t> choices(end_size - start_size, 0);
+                while (true) {
+                    std::cerr << "Consider combination:";
+                    for (auto& item : choices) {
+                        std::cerr << " " << item;
+                    }
+                    std::cerr << std::endl;
+                    callback(choices);
+                    choices.back()++;
+                    for (size_t i = end_size - 1; i >= start_size; i--) {
+                        if (choices.at(i - start_size) >= i) {
+                            // We've reached the point where we want to pick from a
+                            // choice not available at this point.
+                            // At i=2 we can choose between 0 and 1, so we carry at i.
+                            if (i == start_size) {
+                                // We've counted all possibilities
+                                return;
+                            } else {
+                                // Carry and reset to 0.
+                                choices.at(i - start_size - 1)++;
+                                choices.at(i - start_size) = 0;
+                            }
+                        } else {
+                            // No more carrying to do
+                            break;
+                        }
+                    }
+                }
+            };
+            
+            // How big should a snarl be allowed to be before being oversized?
+            size_t size_limit = 2;
+            // How many content nodes should be inside the snarl?
+            const size_t MAX_NODES = 3;
+            // How many node sides do we need to worry about, including the boundary sentinels?
+            size_t max_node_sides = MAX_NODES * 2 + 2;
+            for_all_choice_combinations(2, max_node_sides, [&](const std::vector<size_t>& choices) {
+                // Build the choices into a graph.
+
+                bdsg::HashGraph graph;
+                // Make the bounding nodes heavy so they are likely to root the snarl
+                handle_t start_node = graph.create_handle("AAAAA");
+                handle_t end_node = graph.create_handle("AAAAA");
+
+                std::vector<handle_t> connect_to;
+                connect_to.reserve(max_node_sides);
+                // Choice 0 is start node, arriving reading out
+                connect_to.push_back(graph.flip(start_node));
+                // Choice 1 is end node reading out
+                connect_to.push_back(end_node);
+
+                for (size_t i = 0; i < choices.size(); i += 2) {
+                    // Make a node
+                    handle_t new_node = graph.create_handle("A");
+                    // Make sure to remember it so it can choose itself
+                    connect_to.push_back(new_node);
+                    connect_to.push_back(graph.flip(new_node));
+                    // Connect its left and right to each pair of choices.
+                    graph.create_edge(graph.flip(new_node), connect_to.at(choices.at(i)));
+                    graph.create_edge(new_node, connect_to.at(choices.at(i + 1)));
+                }
+
+                // TODO: It might be more efficient to un-build the things that
+                // change between graphs instead of rebuilding from scratch for
+                // every case.
+                
+                // Skip graphs where the choices mean the graph isn't actually
+                // connected, because then it can't be recognized as a snarl
+                // probably.
+                std::vector<std::unordered_set<nid_t>> components = handlegraph::algorithms::weakly_connected_components(&graph);
+                if (components.size() > 1) {
+                    return;
+                }
+
+                // Now index the graph for query
+                IntegratedSnarlFinder finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
+
+                // Compute the truth all-to-all distances, between outgoing
+                // side of first handle and incoming side of second.
+                // Both handles are oriented along the connecting path.
+                // TODO: We compute/store both triangles of the matrix; can we avoid one somehow?
+                std::unordered_map<handle_t, std::unordered_map<handle_t, size_t>> dijkstra_distances;
+                graph.for_each_handle([&](const handle_t& base) {
+                    for (const handle_t& here : {base, graph.flip(base)}) {
+                        if (here == graph.flip(start_node) || here == end_node) {
+                            // Skip traversals looking out of the snarl
+                            return;
+                        }
+                        dijkstra_distances.emplace(here, handlegraph::algorithms::find_shortest_paths(&graph, here));
+                    }
+                });
+
+                // The Dijkstra traversal always sees a handle to itself at
+                // distance 0. We need to get the real back-to-self distance,
+                // if any, and fill that in.
+                graph.for_each_handle([&](const handle_t& base) {
+                    for (const handle_t& here : {base, graph.flip(base)}) {
+                        if (here == graph.flip(start_node) || here == end_node) {
+                            // Skip traversals looking out of the snarl
+                            return;
+                        }
+
+                        // The place we need to arrive at is ourselves, since
+                        // both start and end are oriented along the connecting
+                        // path here.
+                    
+                        size_t loop_distance = std::numeric_limits<size_t>::max();
+                        // See if we can get back here from any of the places we can get
+                        graph.follow_edges(here, false, [&](const handle_t next) {
+                            if (next == here) {
+                                // We found a real self loop
+                                loop_distance = 0;
+                                return false;
+                            }
+                            auto found_index = dijkstra_distances.find(next);
+                            if (found_index == dijkstra_distances.end()) {
+                                // This destination can't get anywhere.
+                                // This should be impossible since the Dijkstra always will point a node at itself.
+                                return true;
+                            }
+                            auto found_distance = found_index->second.find(here);
+                            if (found_distance == found_index->second.end()) {
+                                // This destination can't get back to us
+                                return true;
+                            }
+                            // If we find a way back, min in its distance.
+                            loop_distance = std::min(loop_distance, graph.get_length(next) + found_distance->second);
+                            return true;
+                        });
+
+                        std::cerr << "Real self loop distance for " << graph.get_id(here) << (graph.get_is_reverse(here) ? "rev" : "fd") << " -> " << graph.get_id(here) << (graph.get_is_reverse(here) ? "rev" : "fd") << " is " << loop_distance << std::endl;
+
+                        if (loop_distance == std::numeric_limits<size_t>::max()) {
+                            // There's really no way back from this node to itself in the same orientation. Delete the entry the Dijkstra search adds.
+                            dijkstra_distances.at(here).erase(here);
+                        } else {
+                            // There is a way back; store the value.
+                            dijkstra_distances.at(here)[here] = loop_distance;
+                        }
+                    };
+                });
+
+                for (auto& [start_handle, distances] : dijkstra_distances) {
+                    for (auto& [end_handle, dijkstra_distance] : distances) {
+                        cerr << "Dijkstra sees: " << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << " = " << dijkstra_distance << endl;
+                    }
+                }
+
+                // Now query all of the distances against the index
+                for (auto& [start_handle, distances] : dijkstra_distances) {
+                    for (auto& [end_handle, dijkstra_distance] : distances) {
+                        // Ask for distance between outgoing side of first handle and incoming side of second.
+                        
+                        cerr << "Measure: " << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << endl;
+
+                        size_t snarl_distance = distance_index.minimum_distance(graph.get_id(start_handle), graph.get_is_reverse(start_handle), graph.get_length(start_handle), graph.get_id(end_handle), graph.get_is_reverse(end_handle), 0, false, &graph);
+
+                        if (snarl_distance != dijkstra_distance) {
+                            cerr << "Failed exhaustive test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
+                            cerr << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << endl;
+                            cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
+                            cerr << "serializing graph to test_graph.vg" << endl;
+                            vg::io::VPKG::save(graph, "test_graph.vg");
+                        }
+                        REQUIRE(snarl_distance == dijkstra_distance);
+                    }
+                }
+            });
+            
+        }
         
 
         TEST_CASE( "random minimum distance paths",
-                  "[snarl_distance_random_paths]" ) {
+                  "[snarl_distance][snarl_distance_random_paths]" ) {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
