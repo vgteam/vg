@@ -520,13 +520,6 @@ protected:
 
     /// Extract the portion of a parent traversal that spans a child snarl (single traversal).
     /// This is a simpler version used when we only need one traversal from the parent.
-    /// @param parent_trav The parent traversal to extract from
-    /// @param child The child snarl to extract
-    /// @param out_child_trav Output: the extracted traversal, oriented to match child snarl
-    /// @return true if the parent traversal contains the child snarl
-    bool extract_child_traversal(const SnarlTraversal& parent_trav,
-                                 const Snarl& child,
-                                 SnarlTraversal& out_child_trav) const;
 };
 
 class SnarlGraph;

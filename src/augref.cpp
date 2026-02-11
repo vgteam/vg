@@ -455,43 +455,6 @@ int64_t AugRefCover::get_rank(nid_t node_id) const {
     return ref_steps.empty() ? -1 : ref_steps.at(0).first;
 }
 
-step_handle_t AugRefCover::get_step(nid_t node_id) const {
-    if (!node_to_interval.count(node_id)) {
-        return step_handle_t();
-    }
-    const pair<step_handle_t, step_handle_t>& interval = augref_intervals.at(node_to_interval.at(node_id));
-    for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
-        if (graph->get_id(graph->get_handle_of_step(step)) == node_id) {
-            return step;
-        }
-    }
-    return step_handle_t();
-}
-
-pair<const pair<step_handle_t, step_handle_t>*,
-     const pair<step_handle_t, step_handle_t>*>
-AugRefCover::get_parent_intervals(const pair<step_handle_t, step_handle_t>& interval) const {
-
-    pair<const pair<step_handle_t, step_handle_t>*,
-         const pair<step_handle_t, step_handle_t>*> parents = make_pair(nullptr, nullptr);
-
-    // since our decomposition is based on snarl traversals, we know that fragments must
-    // overlap their parents on snarl end points (at the very least)
-    // therefore we can find parents by scanning along the paths.
-    step_handle_t left_parent = graph->get_previous_step(interval.first);
-    if (left_parent != graph->path_front_end(graph->get_path_handle_of_step(interval.first))) {
-        int64_t interval_idx = this->node_to_interval.at(graph->get_id(graph->get_handle_of_step(left_parent)));
-        parents.first = &this->augref_intervals.at(interval_idx);
-    }
-
-    step_handle_t right_parent = graph->get_next_step(interval.second);
-    if (right_parent != graph->path_end(graph->get_path_handle_of_step(interval.second))) {
-        int64_t interval_idx = node_to_interval.at(graph->get_id(graph->get_handle_of_step(right_parent)));
-        parents.second = &this->augref_intervals.at(interval_idx);
-    }
-    return parents;
-}
-
 const vector<pair<step_handle_t, step_handle_t>>& AugRefCover::get_intervals() const {
     return this->augref_intervals;
 }
@@ -1045,8 +1008,6 @@ void AugRefCover::verify_cover() const {
 
 void AugRefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
                                               const unordered_set<path_handle_t>& reference_paths) {
-    ref_path_to_copy.clear();
-
     if (augref_sample_name.empty()) {
         return;
     }
@@ -1077,7 +1038,6 @@ void AugRefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutab
 #ifdef debug
             cerr << "[augref] copy_base_paths_to_sample: path " << new_name << " already exists, skipping" << endl;
 #endif
-            ref_path_to_copy[ref_path] = mutable_graph->get_path_handle(new_name);
             continue;
         }
 
@@ -1090,16 +1050,10 @@ void AugRefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutab
             return true;
         });
 
-        ref_path_to_copy[ref_path] = new_path;
-
 #ifdef debug
         cerr << "[augref] copy_base_paths_to_sample: copied " << ref_name << " -> " << new_name << endl;
 #endif
     }
-
-#ifdef debug
-    cerr << "[augref] copy_base_paths_to_sample: copied " << ref_path_to_copy.size() << " reference paths to sample " << augref_sample_name << endl;
-#endif
 }
 
 void AugRefCover::write_augref_segments(ostream& os) {
@@ -1296,59 +1250,6 @@ void AugRefCover::write_augref_segments(ostream& os) {
            << ref_path_name << "\t"
            << ref_start << "\t"
            << ref_end << "\n";
-    }
-}
-
-void AugRefCover::print_stats(ostream& os) {
-    // the header
-    os << "#BasePath" << "\t"
-       << "AugRefIndex" << "\t"
-       << "Length" << "\t"
-       << "NodeStart" << "\t"
-       << "NodeEnd" << "\t"
-       << "Rank" << "\t"
-       << "AvgDepth" << endl;
-
-    for (int64_t i = this->num_ref_intervals; i < this->augref_intervals.size(); ++i) {
-        const pair<step_handle_t, step_handle_t>& interval = this->augref_intervals[i];
-        path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
-        string path_name = graph->get_path_name(path_handle);
-
-        int64_t path_length = 0;
-        int64_t tot_depth = 0;
-        int64_t tot_steps = 0;
-        for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
-            path_length += graph->get_length(graph->get_handle_of_step(step));
-            vector<step_handle_t> steps = graph->steps_of_handle(graph->get_handle_of_step(step));
-            tot_depth += steps.size();
-            ++tot_steps;
-        }
-
-        string base_path = parse_base_path(path_name);
-        int64_t augref_index = parse_augref_index(path_name);
-
-        nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
-        vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
-        int64_t rank = ref_nodes.empty() ? -1 : ref_nodes.at(0).first;
-
-        // interval is open ended, so we go back to last node
-        step_handle_t last_step;
-        if (interval.second == graph->path_end(graph->get_path_handle_of_step(interval.first))) {
-            last_step = graph->path_back(graph->get_path_handle_of_step(interval.first));
-        } else {
-            last_step = graph->get_previous_step(interval.second);
-        }
-        handle_t last_handle = graph->get_handle_of_step(last_step);
-
-        os << base_path << "\t"
-           << augref_index << "\t"
-           << path_length << "\t"
-           << (graph->get_is_reverse(graph->get_handle_of_step(interval.first)) ? "<" : ">")
-           << graph->get_id(graph->get_handle_of_step(interval.first)) << "\t"
-           << (graph->get_is_reverse(last_handle) ? "<" : ">")
-           << graph->get_id(last_handle) << "\t"
-           << rank << "\t"
-           << std::fixed << std::setprecision(2) << ((double)tot_depth / tot_steps) << "\n";
     }
 }
 

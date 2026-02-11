@@ -90,13 +90,6 @@ public:
     // Get the rank (level) of a given node (0 if on a reference path).
     int64_t get_rank(nid_t node_id) const;
 
-    // Get the step of a given node in its covering interval.
-    step_handle_t get_step(nid_t node_id) const;
-
-    // Get the parent intervals (left and right) of a given interval.
-    pair<const pair<step_handle_t, step_handle_t>*,
-         const pair<step_handle_t, step_handle_t>*> get_parent_intervals(const pair<step_handle_t, step_handle_t>& interval) const;
-
     // Get all computed intervals.
     const vector<pair<step_handle_t, step_handle_t>>& get_intervals() const;
 
@@ -105,9 +98,6 @@ public:
 
     // Get the number of reference intervals (rank-0).
     int64_t get_num_ref_intervals() const;
-
-    // Print out a table of statistics.
-    void print_stats(ostream& os);
 
     // Write a tab-separated table describing augref segments.
     // Each line contains: source_path, source_start, source_end, augref_path_name,
@@ -167,8 +157,6 @@ protected:
     // Prints a summary of coverage statistics to stderr.
     void verify_cover() const;
 
-protected:
-
     const PathHandleGraph* graph = nullptr;
 
     // Intervals are end-exclusive (like BED).
@@ -195,13 +183,8 @@ protected:
     // Whether to print verbose output (coverage summary, etc.)
     bool verbose = false;
 
-    // Map from original reference path handles to their copies under augref_sample_name.
-    // Only populated when augref_sample_name is set.
-    unordered_map<path_handle_t, path_handle_t> ref_path_to_copy;
-
     // Copy base reference paths to the augref sample.
     // Creates new paths like "new_sample#0#chr1" from "CHM13#0#chr1".
-    // Returns a map from original path handles to new path handles.
     void copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
                                    const unordered_set<path_handle_t>& reference_paths);
 
