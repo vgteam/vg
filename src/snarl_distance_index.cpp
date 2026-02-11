@@ -788,26 +788,31 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
     return temp_index;
 }
 
+/**
+ * Populate a row of the distance matrix.
+ * Also responsible for filling in min_length, distance_start_start, and distance_start_end on the TemporarySnarlRecord when a distance matrix is used.
+ */
 static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const SnarlDistanceIndex::temp_record_ref_t& start_index, const HandleGraph* graph, size_t start_rank, bool is_internal_node, size_t size_limit); 
 
-/* 
-Fills in required distance matrix rows for each child
-- Normal snarl: all rows
-- Oversized snarl: boundaries and tips
-- size_limit == 0: no distances in index, so no rows
-- Top-level chain distances only: ??? 
-*/
+/** 
+ * Fills in required distance matrix rows for each child
+ * - Normal snarl: all rows
+ * - Oversized snarl: boundaries and tips
+ * - size_limit == 0: no distances in index, so no rows
+ * - Top-level chain distances only: ??? 
+ */
 static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
 
-/*
-Does three things:
-- Builds temp graph that hub labels will be built on
-- Builds the hub labels
-- Stores labels in temp_snarl_record
-*/
+/**
+ * Does three things:
+ * - Builds temp graph that hub labels will be built on
+ * - Builds the hub labels
+ * - Stores labels in temp_snarl_record
+ */
 static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph);
 
-/*Fill in the snarl index.
+/**
+ * Fill in the snarl index.
  * The index will already know its boundaries and everything knows their relationships in the
  * snarl tree. This needs to fill in the distances and the ranks of children in the snarl
  * The rank of a child is arbitrary, except that the start node will always be 0 and the end node
@@ -1058,11 +1063,25 @@ void populate_snarl_index(
       temp_index.use_oversized_snarls = true;
       temp_snarl_record.is_simple = false;
       populate_hub_labeling(temp_index, snarl_index, temp_snarl_record, all_children, graph);
+      
+      // We need to query the hub labeling to fill in min_length,
+      // distance_start_start, and distance_start_end with the connectivity
+      // distances through the snarl, not including boundary nodes.
+      //
+      // Luckily we know the start is always child rank 0 forward, and the end
+      // is always child rank 1 forward.
+      //
+      // To exclude the boundary lengths we go from source port to non-source
+      // port.
+      temp_snarl_record.min_length = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(0, false, true), bgid(1, false, false)));
+      temp_snarl_record.distance_start_start = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(0, false, true), bgid(0, true, false)));
+      temp_snarl_record.distance_end_end = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(1, true, true), bgid(1, false, false)));
+      // TODO: Should this be here or should it be part of populate_hub_labeling()? Or its own function?
     } else {
       if (size_limit == 0 || only_top_level_chain_distances) { 
         temp_snarl_record.include_distances = false;
       }
-      //also sets is_simple to false if snarl isn't simple
+      //Also fills in min_lenght, distance_start_start, and distance_start_end, and sets is_simple to false if snarl isn't simple
       populate_distance_matrix_if_needed(temp_index, snarl_index, temp_snarl_record, all_children, graph, size_limit, only_top_level_chain_distances);
     } 
 

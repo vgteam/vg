@@ -867,7 +867,7 @@ std::string pair_to_string(std::pair<T, T> value) {
 }
 
 void validate_error_chain(const Logger& logger, size_t chain_id, const std::string& message) {
-    logger.error() << "[chain " << chain_id + "] " << message << std::endl;
+    logger.error() << "[chain " << chain_id << "] " << message << std::endl;
 }
 
 void validate_error_subchain(const Logger& logger, size_t chain_id, size_t subchain_id, const std::string& message) {
