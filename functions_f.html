@@ -152,17 +152,14 @@ $(function() {
 , <a class="el" href="classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56">vg::VGset</a>
 , <a class="el" href="structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754">xg::temp_file::Handler</a>
 </li>
-<li>FILES_PER_MERGE
-: <a class="el" href="structvg_1_1GAFSorterParameters.html#a62e992227ab2baa52c687759e87ee15d">vg::GAFSorterParameters</a>
-</li>
 <li>files_per_merge
 : <a class="el" href="structvg_1_1GAFSorterParameters.html#af4885f4981fd975ca42402eebb5045d0">vg::GAFSorterParameters</a>
 </li>
+<li>FILES_PER_MERGE
+: <a class="el" href="structvg_1_1GAFSorterParameters.html#a62e992227ab2baa52c687759e87ee15d">vg::GAFSorterParameters</a>
+</li>
 <li>fill_buffer()
 : <a class="el" href="classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f">vg::VcfBuffer</a>
-</li>
-<li>fill_cover_second_pass()
-: <a class="el" href="classvg_1_1Deconstructor.html#a90b783151ea4fa7949104b37c0b38428">vg::Deconstructor</a>
 </li>
 <li>fill_in_forest()
 : <a class="el" href="classvg_1_1ZipCodeForest.html#a8e85202bb164a9c152fb8f6f43c050a2">vg::ZipCodeForest</a>
@@ -187,6 +184,9 @@ $(function() {
 </li>
 <li>fill_node_to_position()
 : <a class="el" href="classvg_1_1Filter.html#ac7216130c6fbd20580901090f8185048">vg::Filter</a>
+</li>
+<li>fill_uncovered_nodes()
+: <a class="el" href="classvg_1_1AugRefCover.html#a08f724686ee214efa9a225cbfcf985d3">vg::AugRefCover</a>
 </li>
 <li>fill_value()
 : <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd">vg::io::ProtobufIterator&lt; T &gt;</a>
@@ -246,7 +246,7 @@ $(function() {
 <li>find()
 : <a class="el" href="classvg_1_1IndexedVG.html#a7a77bdb39f0fd7e1ad73df9539ce1471">vg::IndexedVG</a>
 , <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#aa4010a6423dd9c113ad7949be709eefb">vg::IntegratedSnarlFinder::MergedAdjacencyGraph</a>
-, <a class="el" href="classvg_1_1StreamIndex.html#a62f171f0ffa154ab0fed67e277a6d73e">vg::StreamIndex&lt; Message &gt;</a>
+, <a class="el" href="classvg_1_1StreamIndex.html#afcbd0c740c5257066ac0cffa1215eafe">vg::StreamIndex&lt; Message &gt;</a>
 , <a class="el" href="classvg_1_1StreamIndexBase.html#a6448cab1126089223a17c2ed6d943a97">vg::StreamIndexBase</a>
 </li>
 <li>find_allele_traversals()
@@ -267,6 +267,9 @@ $(function() {
 </li>
 <li>find_chain_alignment()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a3b83e5072a6a0654ba90ed097e8e7a52">vg::MinimizerMapper</a>
+</li>
+<li>find_child_traversal_set()
+: <a class="el" href="classvg_1_1FlowCaller.html#a2ccab94054ca80afa99bbdb77e5b5867">vg::FlowCaller</a>
 </li>
 <li>find_constriction_bicliques()
 : <a class="el" href="classvg_1_1Surjector.html#a54b0b7fe9db83a6cfdbebf9dbeb81f04">vg::Surjector</a>
@@ -382,14 +385,14 @@ $(function() {
 <li>find_traversals()
 : <a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a47d24a43aef54ca51318b8ae89e51328">vg::ExhaustiveTraversalFinder</a>
 , <a class="el" href="classvg_1_1FlowTraversalFinder.html#a3bf6dff88b07d23e8877ed263d951d40">vg::FlowTraversalFinder</a>
-, <a class="el" href="classvg_1_1GBWTTraversalFinder.html#af15fc7ee19296e40cf7b101293a61b26">vg::GBWTTraversalFinder</a>
+, <a class="el" href="classvg_1_1GBWTTraversalFinder.html#a3f4f3f644df9755b387bab551451827d">vg::GBWTTraversalFinder</a>
 , <a class="el" href="classvg_1_1NestedTraversalFinder.html#a491e535921c67bb8891a99aa314b6e94">vg::NestedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathBasedTraversalFinder.html#af58be82fdbce530b2662a6329e08bd77">vg::PathBasedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html#a78b03570bd5d59d3c870bbd192eae685">vg::PathRestrictedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathTraversalFinder.html#a3da29145d1ed82d950bdeb895d3b3bf4">vg::PathTraversalFinder</a>
 , <a class="el" href="classvg_1_1ReadRestrictedTraversalFinder.html#ad97b9e1c48374c3212621422f0ce0d9c">vg::ReadRestrictedTraversalFinder</a>
 , <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html#ae2280a86a06849b3c4ae0dfef3fe85c0">vg::RepresentativeTraversalFinder</a>
-, <a class="el" href="classvg_1_1TraversalFinder.html#a41ed015cfd3f95104f530943e643e883">vg::TraversalFinder</a>
+, <a class="el" href="classvg_1_1TraversalFinder.html#a53611f0deaac0fcfb0a440f272c69637">vg::TraversalFinder</a>
 , <a class="el" href="classvg_1_1TrivialTraversalFinder.html#ae1b3ebce09b8641fe713cc9628909bfe">vg::TrivialTraversalFinder</a>
 , <a class="el" href="classvg_1_1VCFTraversalFinder.html#acd33847fcb02a4ea1eb6bd2768549daf">vg::VCFTraversalFinder</a>
 </li>
@@ -657,7 +660,7 @@ $(function() {
 : <a class="el" href="structvg_1_1DozeuInterface_1_1OrderedGraph.html#a1e63b71aba9a614f17b497908c638797">vg::DozeuInterface::OrderedGraph</a>
 </li>
 <li>for_each_node()
-: <a class="el" href="classvg_1_1VG.html#a23b34b164590c0537bf704dd1b816760">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#af585f2161de09403d197e05fbcfb9a07">vg::VG</a>
 </li>
 <li>for_each_node_parallel()
 : <a class="el" href="classvg_1_1VG.html#a39790d52fe4c09804086d58164258fcf">vg::VG</a>
@@ -715,7 +718,7 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a184353db571dd2086d79e4e31f2f97f1">handlegraph::PathHandleGraph</a>
 </li>
 <li>for_each_step_of_sense()
-: <a class="el" href="classhandlegraph_1_1PathMetadata.html#a85b539a3b2ee842030068d7556be10a1">handlegraph::PathMetadata</a>
+: <a class="el" href="classhandlegraph_1_1PathMetadata.html#a011146ef0f91c5d692fa20d145ca5d8b">handlegraph::PathMetadata</a>
 </li>
 <li>for_each_step_of_sense_impl()
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#a87e4c1bede87504ea011544c3e35651a">handlegraph::PathMetadata</a>
@@ -838,6 +841,9 @@ $(function() {
 <li>forward_sequence()
 : <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#ae02ecd440346f71b3d36ab8f291abb82">vg::MinimizerMapper::Minimizer</a>
 </li>
+<li>forwardize_augref_paths()
+: <a class="el" href="classvg_1_1AugRefCover.html#af0e84c41ae50607cd969308f2c573be3">vg::AugRefCover</a>
+</li>
 <li>frac_score
 : <a class="el" href="classvg_1_1ReadFilter.html#a28e3876fb7401ecf89e9cd75fee37d59">vg::ReadFilter&lt; Read &gt;</a>
 </li>
@@ -849,6 +855,7 @@ $(function() {
 </li>
 <li>fragment
 : <a class="el" href="structvg_1_1Alignment.html#a600fa84d6905316c0964dd035ac48687">vg::Alignment</a>
+, <a class="el" href="structvg_1_1AugRefCover_1_1RankedFragment.html#a6c82e7e58efa7e6b01023ebc3124d409">vg::AugRefCover::RankedFragment</a>
 , <a class="el" href="classvg_1_1MaximalExactMatch.html#aba77f1e25d2845c54f13e2ebc774b0b3">vg::MaximalExactMatch</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1alignment__index__t.html#ae0b44e677f0f1b05a6137df5a050ddac">vg::MinimizerMapper::alignment_index_t</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1read__alignment__index__t.html#ac8e4baa1fb14bfc30cab73a2e2940ec0">vg::MinimizerMapper::read_alignment_index_t</a>
@@ -951,7 +958,7 @@ $(function() {
 : <a class="el" href="structvg_1_1FragmentedHaplotypeVisit.html#a4ed1a2a742bf774b9cd3072d0d9f8069">vg::FragmentedHaplotypeVisit</a>
 </li>
 <li>FragmentLengthDistribution()
-: <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a8551fd1f0ad1270145483715f35c7b6b">vg::FragmentLengthDistribution</a>
+: <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a8788ddb09653e64eb868cbc942df95c6">vg::FragmentLengthDistribution</a>
 </li>
 <li>fragments
 : <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#a8d8a6052fd27254595e54301be1a6f32">vg::Recombinator::Statistics</a>

@@ -105,6 +105,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Annotation.html">Annotation</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html">AugRefCover</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html">BackTranslatingAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NoAlignmentInBandException.html">NoAlignmentInBandException</a></td></tr>
@@ -828,6 +830,10 @@ Typedefs</h2></td></tr>
 <tr class="separator:aa85b36d0e4c1df199061908f5796217f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a724c5d2a0f18eb0c88c59c8719e80323"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">payload_t</a> = <a class="el" href="classvg_1_1ZipCode.html#ad049069e521f953a5451988459ba162d">ZipCode::payload_type</a></td></tr>
 <tr class="separator:a724c5d2a0f18eb0c88c59c8719e80323"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca943ce2fa16c8a5b58fb4eba6cbd4e0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">TraversalSet</a> = vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;</td></tr>
+<tr class="separator:aca943ce2fa16c8a5b58fb4eba6cbd4e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a479028acde6fe8bdacc1bcfda9ee9b94"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a479028acde6fe8bdacc1bcfda9ee9b94">ChildTraversalSets</a> = vector&lt; <a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">TraversalSet</a> &gt;</td></tr>
+<tr class="separator:a479028acde6fe8bdacc1bcfda9ee9b94"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaed4a2b7bc668cf2e076733ee26e036a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a">handle_t</a> = <a class="el" href="structhandlegraph_1_1handle__t.html">handlegraph::handle_t</a></td></tr>
 <tr class="separator:aaed4a2b7bc668cf2e076733ee26e036a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a26f660292f00451f15d1c95d9b8c6ffb"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> = <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">handlegraph::nid_t</a></td></tr>
@@ -2648,6 +2654,8 @@ Functions</h2></td></tr>
 <tr class="separator:adcc7a98e5291c4354fc575289cc50fe1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a698043d83f7906c8e0d0306ce37237e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a698043d83f7906c8e0d0306ce37237e8">simplify_graph_using_traversals</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, const string &amp;ref_path_prefix, int64_t max_snarl_length, double min_jaccard, int64_t max_iterations, int64_t min_fragment_length)</td></tr>
 <tr class="separator:a698043d83f7906c8e0d0306ce37237e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a443c0a84685a625d2f89c7b013e6938c"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a443c0a84685a625d2f89c7b013e6938c">add_star_traversals</a> (vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;travs, vector&lt; string &gt; &amp;names, vector&lt; vector&lt; int &gt;&gt; &amp;trav_clusters, vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;trav_cluster_info, const unordered_map&lt; string, vector&lt; int &gt;&gt; &amp;parent_haplotypes, const set&lt; string &gt; &amp;sample_names)</td></tr>
+<tr class="separator:a443c0a84685a625d2f89c7b013e6938c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplParams" colspan="2">template&lt;typename T , typename U &gt; </td></tr>
 <tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff10785a6df2466c851785b406172e89">jaccard_coefficient</a> (const T &amp;target, const U &amp;query)</td></tr>
 <tr class="separator:aff10785a6df2466c851785b406172e89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2957,6 +2965,10 @@ Variables</h2></td></tr>
 <tr class="separator:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae77436235694e5e661c74799ab326d0b"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae77436235694e5e661c74799ab326d0b">ISSUE_URL</a> = &quot;https://github.com/vgteam/vg/issues/new/choose&quot;</td></tr>
 <tr class="separator:ae77436235694e5e661c74799ab326d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9782a963c939f361b5d333d1c384ff59"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9782a963c939f361b5d333d1c384ff59">STAR_ALLELE_MARKER</a> = -2</td></tr>
+<tr class="separator:a9782a963c939f361b5d333d1c384ff59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a79c052ca8e58a01a27433f8f3c10a3ca"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a79c052ca8e58a01a27433f8f3c10a3ca">MISSING_ALLELE_MARKER</a> = -1</td></tr>
+<tr class="separator:a79c052ca8e58a01a27433f8f3c10a3ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9c9573184fc9275ea2b23866e4275b5"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa9c9573184fc9275ea2b23866e4275b5">context</a> = &quot;IndexRegistry&quot;</td></tr>
 <tr class="separator:aa9c9573184fc9275ea2b23866e4275b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a466eef41b2208daa1c649e71022cdc44"><td class="memItemLeft" align="right" valign="top">const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a466eef41b2208daa1c649e71022cdc44">whitespace</a> = &quot; \t\n\v\f\r&quot;</td></tr>
@@ -2993,6 +3005,21 @@ Variables</h2></td></tr>
 <p>Snarls are defined at the Protobuf level, but here is how we define chains as real objects.</p>
 <p>A chain is a sequence of Snarls, in either normal (false) or reverse (true) orientation.</p>
 <p>The <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> is going to have one official copy of each chain stored, and it will give you a pointer to it on demand. </p>
+
+</div>
+</div>
+<a id="a479028acde6fe8bdacc1bcfda9ee9b94"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a479028acde6fe8bdacc1bcfda9ee9b94">&#9670;&nbsp;</a></span>ChildTraversalSets</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#a479028acde6fe8bdacc1bcfda9ee9b94">vg::ChildTraversalSets</a> = typedef vector&lt;<a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">TraversalSet</a>&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>One TraversalSet per parent allele (index matches parent genotype). For a diploid parent with genotype [0,1], element 0 contains traversals consistent with parent allele 0, element 1 with parent allele 1. </p>
 
 </div>
 </div>
@@ -3623,6 +3650,21 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a id="aca943ce2fa16c8a5b58fb4eba6cbd4e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca943ce2fa16c8a5b58fb4eba6cbd4e0">&#9670;&nbsp;</a></span>TraversalSet</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">vg::TraversalSet</a> = typedef vector&lt;<a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A set of traversals through a child snarl that are consistent with a single parent allele. Multiple traversals can exist if the child has internal variation within a shared region. </p>
+
+</div>
+</div>
 <a id="a449aa64ac606119e59f71cecb8a3b218"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a449aa64ac606119e59f71cecb8a3b218">&#9670;&nbsp;</a></span>VectorizableHandleGraph</h2>
 
@@ -4106,6 +4148,71 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Add a path to the graph. This is like <a class="el" href="classvg_1_1VG.html#a2519c3b939f48bca226e6fdea4c91f9d">VG::extend</a>, and expects a path with no edits, and for all the nodes and edges in the path to exist exactly in the graph </p>
+
+</div>
+</div>
+<a id="a443c0a84685a625d2f89c7b013e6938c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a443c0a84685a625d2f89c7b013e6938c">&#9670;&nbsp;</a></span>add_star_traversals()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; string, vector&lt; int &gt; &gt; vg::add_star_traversals </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>travs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>names</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; vector&lt; int &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>trav_clusters</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>trav_cluster_info</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; string, vector&lt; int &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>parent_haplotypes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>sample_names</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Add star-allele traversals for haplotypes that appear in the parent snarl but are missing from the current snarl's traversals. This is used for nested calling to ensure that haplotypes spanning a parent site but not traversing a child site get a "*" allele.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">travs</td><td>Vector of traversals (modified in place to add star traversals) </td></tr>
+    <tr><td class="paramname">names</td><td>Vector of path names corresponding to traversals (modified in place) </td></tr>
+    <tr><td class="paramname">trav_clusters</td><td>Vector of cluster assignments (modified in place) </td></tr>
+    <tr><td class="paramname">trav_cluster_info</td><td>Vector of cluster info (Jaccard, length delta) (modified in place) </td></tr>
+    <tr><td class="paramname">parent_haplotypes</td><td>Map from sample name -&gt; vector of haplotype phases in the parent </td></tr>
+    <tr><td class="paramname">sample_names</td><td>Set of sample names to consider (reference-only samples are skipped) </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>Map from sample name -&gt; vector of haplotype phases in all traversals </dd></dl>
 
 </div>
 </div>
@@ -25483,8 +25590,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>for every snarl, bottom up, compute all the traversals through it. choose a reference traversal (using the prefix where possible), then if <br  />
- </p>
+<p>for every snarl, bottom up, compute all the traversals through it. choose a reference traversal (using the prefix where possible), then if </p>
 
 </div>
 </div>
@@ -30487,6 +30593,52 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a79c052ca8e58a01a27433f8f3c10a3ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a79c052ca8e58a01a27433f8f3c10a3ca">&#9670;&nbsp;</a></span>MISSING_ALLELE_MARKER</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr int vg::MISSING_ALLELE_MARKER = -1</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Special marker value for missing alleles in genotype vectors. Used when a parent allele doesn't traverse a child snarl and star_allele mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy. </p>
+
+</div>
+</div>
+<a id="a9782a963c939f361b5d333d1c384ff59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9782a963c939f361b5d333d1c384ff59">&#9670;&nbsp;</a></span>STAR_ALLELE_MARKER</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr int vg::STAR_ALLELE_MARKER = -2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Special marker value for star alleles in genotype vectors. A star allele (*) represents a haplotype that spans a nested site in the parent but doesn't have a defined traversal at the child level. </p>
 
 </div>
 </div>

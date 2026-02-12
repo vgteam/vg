@@ -138,6 +138,9 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
+<tr class="memitem:a909bdcfde248c7c2312bf293b5eda9bb"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a909bdcfde248c7c2312bf293b5eda9bb">get_ref_trav_size</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx) const</td></tr>
+<tr class="memdesc:a909bdcfde248c7c2312bf293b5eda9bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculate the size of the reference traversal (excluding boundary nodes)  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a909bdcfde248c7c2312bf293b5eda9bb">More...</a><br /></td></tr>
+<tr class="separator:a909bdcfde248c7c2312bf293b5eda9bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a555a22f275a83ade8fcd35a1572908"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a4a555a22f275a83ade8fcd35a1572908">genotype_likelihood</a> (const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a>, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const set&lt; int &gt; &amp;trav_subset, const vector&lt; int &gt; &amp;traversal_sizes, const vector&lt; double &gt; &amp;traversal_mapqs, int ref_trav_idx, double exp_depth, double depth_err, int max_trav_size, int ref_trav_size)</td></tr>
 <tr class="separator:a4a555a22f275a83ade8fcd35a1572908"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a300ca3bbff527fb43fbc12e65177d053"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a300ca3bbff527fb43fbc12e65177d053">rank_by_support</a> (const vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;supports)</td></tr>
@@ -420,6 +423,44 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Compute likelihood of genotype as product of poisson probabilities P[allele1] * P[allle2] * P[uncalled alleles] Homozygous alleles are split into two, with half support each The (natural) logoarithm is returned If trav_subset is not empty, traversals outside that set (and genotype) will be ignored to save time </p>
+
+</div>
+</div>
+<a id="a909bdcfde248c7c2312bf293b5eda9bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a909bdcfde248c7c2312bf293b5eda9bb">&#9670;&nbsp;</a></span>get_ref_trav_size()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::PoissonSupportSnarlCaller::get_ref_trav_size </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>ref_trav_idx</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Calculate the size of the reference traversal (excluding boundary nodes) </p>
 
 </div>
 </div>

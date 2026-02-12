@@ -227,8 +227,7 @@ Protected Attributes</h2></td></tr>
 <tr class="memdesc:a021b1013fe64a99b598ffa291a423e5b"><td class="mdescLeft">&#160;</td><td class="mdescRight">keep traco of the ploidies (todo: just one map for all path stuff!!)  <a href="classvg_1_1NestedFlowCaller.html#a021b1013fe64a99b598ffa291a423e5b">More...</a><br /></td></tr>
 <tr class="separator:a021b1013fe64a99b598ffa291a423e5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab5e10be4ba6c1d33235e5844cfb8b8c0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NestedFlowCaller.html#ab5e10be4ba6c1d33235e5844cfb8b8c0">max_snarl_shallow_size</a> = 50000</td></tr>
-<tr class="memdesc:ab5e10be4ba6c1d33235e5844cfb8b8c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">until we support nested snarls, cap snarl size we attempt to process <br  />
-  <a href="classvg_1_1NestedFlowCaller.html#ab5e10be4ba6c1d33235e5844cfb8b8c0">More...</a><br /></td></tr>
+<tr class="memdesc:ab5e10be4ba6c1d33235e5844cfb8b8c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">until we support nested snarls, cap snarl size we attempt to process  <a href="classvg_1_1NestedFlowCaller.html#ab5e10be4ba6c1d33235e5844cfb8b8c0">More...</a><br /></td></tr>
 <tr class="separator:ab5e10be4ba6c1d33235e5844cfb8b8c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a79a11b3a8178ad9e8fa4124d13aa18cf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NestedFlowCaller.html#a79a11b3a8178ad9e8fa4124d13aa18cf">alignment_emitter</a></td></tr>
 <tr class="separator:a79a11b3a8178ad9e8fa4124d13aa18cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -294,10 +293,8 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:a549336b5a84bfdef74b8ae8116b1b151 inherit pro_static_attribs_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p><a class="el" href="classvg_1_1FlowCaller.html">FlowCaller</a> : Uses any traversals finder (ex, <a class="el" href="classvg_1_1FlowTraversalFinder.html">FlowTraversalFinder</a>) to find traversals, and calls those based on how much support they have. <br  />
- Should work on any graph but will not report cyclic traversals. <br  />
-</p>
-<p>todo: this is a generalization of <a class="el" href="classvg_1_1FlowCaller.html">FlowCaller</a> and should be able to replace it entirely after testing to get rid of duplicated code. </p>
+<div class="textblock"><p><a class="el" href="classvg_1_1NestedFlowCaller.html">NestedFlowCaller</a> : DEPRECATED - Use <a class="el" href="classvg_1_1FlowCaller.html">FlowCaller</a> with nested=true instead.</p>
+<p>Uses any traversals finder (ex, <a class="el" href="classvg_1_1FlowTraversalFinder.html">FlowTraversalFinder</a>) to find traversals, and calls those based on how much support they have. Should work on any graph but will not report cyclic traversals. This class is being replaced by <a class="el" href="classvg_1_1FlowCaller.html">FlowCaller</a>'s nested mode. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a91631dee2c59c209559b94ab7d1d171e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a91631dee2c59c209559b94ab7d1d171e">&#9670;&nbsp;</a></span>CallTable</h2>
@@ -817,8 +814,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>until we support nested snarls, cap snarl size we attempt to process <br  />
- </p>
+<p>until we support nested snarls, cap snarl size we attempt to process </p>
 
 </div>
 </div>
