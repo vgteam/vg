@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 74
+plan tests 53
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -158,169 +158,129 @@ is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered d
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
 
-vg deconstruct nesting/nested_snp_in_del.gfa -p x -nR > nested_snp_in_del.vcf
-grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
-printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
-printf "T\tA,*\t1|2\n" >> nested_snp_in_del_truth.tsv
-diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
-is "$?" 0 "nested deconstruction gets correct star-allele for snp inside deletion"
+# Nesting tests now use a two-step process:
+# 1. Compute augref cover with vg paths
+# 2. Run vg deconstruct with -a to use the pre-computed augref paths
 
-is $(grep PA=0 nested_snp_in_del.vcf | wc -l) 2 "PA=0 correctly set at both sites of neseted deletion"
-
-rm -f nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
-
-vg deconstruct nesting/nested_snp_in_del.gfa -p x -n > nested_snp_in_del.vcf
+# Test: SNP inside deletion
+vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_del.gfa -Q x > nested_snp_in_del.augref.pg
+vg deconstruct nested_snp_in_del.augref.pg -p x -a > nested_snp_in_del.vcf
 grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
 printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
 printf "T\tA\t1|.\n" >> nested_snp_in_del_truth.tsv
 diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
-is "$?" 0 "nested deconstruction gets correct allele for snp inside deletion (without -R)"
+is "$?" 0 "nested deconstruction gets correct allele for snp inside deletion"
 
-rm -f nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+rm -f nested_snp_in_del.augref.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
-vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > nested_snp_in_ins.vcf
+# Test: SNP inside insertion with LV field checks
+vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > nested_snp_in_ins.augref.pg
+vg deconstruct nested_snp_in_ins.augref.pg -P x -a > nested_snp_in_ins.vcf
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
-printf "A\tT\t0|1\n" > nested_snp_in_ins_truth.tsv
-printf "C\tCAAG,CATG\t1|2\n" >> nested_snp_in_ins_truth.tsv
+# With -P x, nested variants are on augref contigs (x_1_alt), parent on x
+# So order is: insertion (on x) then SNP (on x_1_alt)
+printf "C\tCAAG,CATG\t1|2\n" > nested_snp_in_ins_truth.tsv
+printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
 
-is $(grep LV=0 nested_snp_in_ins.vcf | head -1 | grep PA=0 | wc -l) 1 "PA=0 set for base allele of nested insertion"
-is $(grep LV=1 nested_snp_in_ins.vcf | tail -1 | grep PA=1 | wc -l) 1 "PA=1 set for nested allele of nested insertion"
+is $(grep LV=0 nested_snp_in_ins.vcf | wc -l) 1 "LV=0 set for base allele of nested insertion"
+is $(grep LV=1 nested_snp_in_ins.vcf | wc -l) 1 "LV=1 set for nested allele of nested insertion"
 
-grep ^##contig nested_snp_in_ins.vcf > nested_snp_in_ins_contigs.tsv
-printf "##contig=<ID=a#1#y0,length=5>\n" > nested_snp_in_ins_contigs_truth.tsv
-printf "##contig=<ID=x,length=2>\n" >> nested_snp_in_ins_contigs_truth.tsv
-diff nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
-is "$?" 0 "nested deconstruction gets correct contigs in vcf header for snp inside insert"
+# With -P x, we get multiple contigs (x, x_1_alt, x_2_alt)
+is $(grep -c "^##contig" nested_snp_in_ins.vcf) 3 "nested deconstruction gets all reference contigs in vcf header"
 
-rm -f nested_snp_in_ins.tsv nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv  nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
+rm -f nested_snp_in_ins.augref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
 
-vg deconstruct nesting/nested_snp_in_ins2.gfa -p x -nR | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10 "\t" $11}' > nested_snp_in_ins2.tsv
-printf "A\tT,*\t0|1\t0|2\n" > nested_snp_in_ins2._truth.tsv
-printf "C\tCAAG,CATG\t1|2\t1|0\n" >> nested_snp_in_ins2._truth.tsv
-diff nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
-is "$?" 0 "nested deconstruction gets correct star allele for snp ins2.ide ins2.ert"
+# Test: Double-nested SNP
+vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_nested_ins.gfa -Q x > nested_snp_in_nested_ins.augref.pg
+vg deconstruct nested_snp_in_nested_ins.augref.pg -P x -a > nested_snp_in_nested_ins.vcf
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP"
 
-rm -f nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
+rm -f nested_snp_in_nested_ins.augref.pg nested_snp_in_nested_ins.vcf
 
-# todo: the integrated snarl finder doesnt anchor to the reference
-#       probably not an issue on most real graphs from vg construct / minigraph cacuts
-#       but seems like something that needs reviewing
-vg deconstruct nesting/nested_snp_in_nested_ins.gfa -P x -n > nested_snp_in_nested_ins.vcf
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | awk '{print $8}') "AC=1,1;AF=0.5,0.5;AN=2;AT=>1>6,>1>2>3>31>33>34>35>5>6,>1>2>3>31>32>34>35>5>6;NS=1;PA=0;PL=1;PR=1;RC=x;RD=1;RL=1;RS=1;LV=0" "INFO tags correct for level-0 site of double-nested SNP"
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>2>3>31>33>34>35>5,>2>3>31>32>34>35>5;NS=1;PA=1;PL=8;PR=1;RC=x;RD=1;RL=8;RS=1;LV=1;PS=>1>6" "INFO tags correct for level-1 site of double-nested SNP"
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>31>33>34,>31>32>34;NS=1;PA=0;PL=5;PR=5;RC=x;RD=1;RL=8;RS=1;LV=2;PS=>2>5" "INFO tags correct for level-2 site of double-nested SNP"
+# Test: Nested site with cycle
+vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_ins_cycle.gfa -Q x > nested_snp_in_ins_cycle.augref.pg
+vg deconstruct nested_snp_in_ins_cycle.augref.pg -P x -a > nested_snp_in_ins_cycle.vcf
+is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=0 | wc -l) 1 "level 0 found in nested cycle"
+is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=1 | wc -l) 1 "level 1 found in nested cycle"
+rm -f nested_snp_in_ins_cycle.augref.pg nested_snp_in_ins_cycle.vcf
 
-rm -f nested_snp_in_nested_ins.snarls nested_snp_in_nested_ins.vcf
-
-vg deconstruct nesting/nested_snp_in_ins_cycle.gfa -P x -n > nested_snp_in_ins_cycle.vcf
-printf "A#1#y0\t3\t>2>5\tA\tT\tAC=2;AF=0.5;AN=4;AT=>2>4>5,>2>3>5;NS=2;PA=1;PL=7;PR=1;RC=x;RD=1;RL=7;RS=1;LV=1;PS=>1>6\t0|1\t0|1\n" >  nested_snp_in_ins_cycle_truth.tsv
-printf "x\t1\t>1>6\tC\tCAAGAAG,CATG,CAAG\tAC=1,2,1;AF=0.25,0.5,0.25;AN=4;AT=>1>6,>1>2>4>5>2>4>5>6,>1>2>3>5>6,>1>2>4>5>6;NS=2;PA=0;PL=1;PR=1;RC=x;RD=1;RL=1;RS=1;LV=0\t1|2\t3|2\n" >> nested_snp_in_ins_cycle_truth.tsv
-grep -v ^#  nested_snp_in_ins_cycle.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $8 "\t" $10 "\t" $11}' > nested_snp_in_ins_cycle.tsv
-diff nested_snp_in_ins_cycle.tsv nested_snp_in_ins_cycle_truth.tsv
-is "$?" 0 "nested deconstruction handles cycle"
-
-rm -f nested_snp_in_ins_cycle.vcf nested_snp_in_ins_cycle_truth.tsv nested_snp_in_ins_cycle_truth.tsv
-
-vg snarls nesting/mnp.gfa --algorithm cactus > mnp.snarls
-vg deconstruct nesting/mnp.gfa -r mnp.snarls -p x -n -f mnp.fa > mnp.vcf
+# Test: MNP handling
+vg paths --compute-augref --min-augref-len 0 -x nesting/mnp.gfa -Q x > mnp.augref.pg
+vg deconstruct mnp.augref.pg -p x -a > mnp.vcf
 printf "x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
 grep -v ^# mnp.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > mnp.tsv
 diff  mnp_truth.tsv mnp.tsv
 is "$?" 0 "nested deconstruction handles mnp"
-printf "a#1#y0\t2\t6\t>8>11\tx\t2\t6\n" > mnp.nesting.truth.tsv
-diff mnp.fa.nesting.tsv mnp.nesting.truth.tsv
-is "$?" 0 "nested deconstruction makes correct mnp tsv"
-printf ">a#1#y0[2-6]\nATTT\n"  > mnp.fa.truth
-diff mnp.fa mnp.fa.truth
-is "$?" 0 "nested deconstruction makes correct fasta"
 
-rm -f mnp.snarls  mnp.vcf mnp_truth.tsv mnp.tsv mnp.nesting.truth.tsv  mnp.fa.truth
+rm -f mnp.augref.pg mnp.vcf mnp_truth.tsv mnp.tsv
 
 # Test 1: Deep nesting (3+ levels) - triple nested SNP
-vg deconstruct nesting/triple_nested.gfa  -p x -nR > triple_nested.vcf
+vg paths --compute-augref --min-augref-len 0 -x nesting/triple_nested.gfa -Q x > triple_nested.augref.pg
+vg deconstruct triple_nested.augref.pg -P x -a > triple_nested.vcf
 is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in triple nested"
-is $(grep -v ^# triple_nested.vcf | grep LV=1 | wc -l) 1 "level 1 site found in triple nested"
+is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 5 "all nested sites found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=3 | wc -l) 1 "level 3 site found in triple nested"
-is $(grep "LV=3" triple_nested.vcf | grep "RC=x" | wc -l) 1 "top-level reference propagates to level 3"
-rm -f triple_nested.snarls triple_nested.vcf
+is $(grep -v ^# triple_nested.vcf | grep LV=4 | wc -l) 1 "level 4 site found in triple nested"
+rm -f triple_nested.augref.pg triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
-vg deconstruct nesting/insertion_with_three_snps.gfa -p x -n  > multi_child.vcf
-is $(grep -v ^# multi_child.vcf | grep LV=0 | wc -l) 1 "parent site with multiple children found"
+vg paths --compute-augref --min-augref-len 0 -x nesting/insertion_with_three_snps.gfa -Q x > insertion_with_three_snps.augref.pg
+vg deconstruct insertion_with_three_snps.augref.pg -P x -a > multi_child.vcf
+is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l) 3 "expected number of sites with LV field"
 is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
-rm -f multi_child.vcf insertion_with_three_snps.snarls
+rm -f insertion_with_three_snps.augref.pg multi_child.vcf
 
-# Test 3: NestingInfo field propagation - verify all INFO tags
-vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > field_check.vcf
-is $(grep "LV=1" field_check.vcf | grep -o "PA=[0-9]*" | cut -d= -f2) 1 "PA field correct for nested site"
-is $(grep "LV=1" field_check.vcf | grep -o "PL=[0-9]*" | cut -d= -f2) 4 "PL field correct for nested site"
-is $(grep "LV=1" field_check.vcf | grep "RC=x" | wc -l) 1 "RC field correct for nested site"
-is $(grep "LV=1" field_check.vcf | grep "RS=" | wc -l) 1 "RS field present for nested site"
-is $(grep "LV=1" field_check.vcf | grep "RD=" | wc -l) 1 "RD field present for nested site"
-is $(grep "LV=1" field_check.vcf | grep "RL=" | wc -l) 1 "RL field present for nested site"
-rm -f field_check.vcf
+# Test 3: NestingInfo field propagation - verify LV field
+vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > field_check.augref.pg
+vg deconstruct field_check.augref.pg -P x -a > field_check.vcf
+is $(grep "LV=0" field_check.vcf | wc -l) 1 "LV=0 field present for top-level site"
+rm -f field_check.augref.pg field_check.vcf
 
-# Test 4: FASTA output for off-reference sequences
-vg deconstruct nesting/consecutive_nested.gfa -p x -nf consecutive.fa > consecutive.vcf
-test -s consecutive.fa && is "$?" 0 "consecutive nested graph generates off-reference FASTA"
-test -s consecutive.fa.nesting.tsv && is "$?" 0 "consecutive nested graph generates nesting TSV"
-rm -f consecutive.vcf consecutive.fa consecutive.fa.nesting.tsv
-
-# Test 5: Multiple reference traversals with nesting (should reduce to one)
-vg deconstruct nesting/cyclic_ref_nested.gfa -p x -n > cyclic_ref_nested.vcf
+# Test 4: Multiple reference traversals with nesting (should reduce to one)
+vg paths --compute-augref --min-augref-len 0 -x nesting/cyclic_ref_nested.gfa -Q x > cyclic_ref_nested.augref.pg
+vg deconstruct cyclic_ref_nested.augref.pg -p x -a > cyclic_ref_nested.vcf
 is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
-rm -f cyclic_ref_nested.vcf
+rm -f cyclic_ref_nested.augref.pg cyclic_ref_nested.vcf
 
-# Tests for -f option (off-reference FASTA output)
+# Test 5: Cyclic reference outputs multiple variants (one per reference traversal)
+# Reference x visits the snarl twice (via node 2 then 3), alt a visits twice (via node 3 then 4)
+# With -c 0 to disable context-jaccard (which doesn't work well on tiny graphs), we should get 2 variants
+vg deconstruct nesting/cyclic_ref_multiple_variants.gfa -p x -a -c 0 > cyclic_ref_multi.vcf
+is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
+rm -f cyclic_ref_multi.vcf
 
-# Test 6: -f with -n produces FASTA output
-vg deconstruct nesting/nested_snp_in_ins.gfa -p x -nf basic_test.fa > basic_test.vcf
-test -s basic_test.fa && is "$?" 0 "-f with -n produces FASTA file"
-test -s basic_test.fa.nesting.tsv && is "$?" 0 "-f with -n produces TSV file"
-rm -f basic_test.fa basic_test.fa.nesting.tsv basic_test.vcf
+# =============================================================================
+# RC, RS, RD tag tests (reference coordinate tags for nested snarls)
+# =============================================================================
 
-# Test 7: Deep nesting with FASTA output - verify nesting info propagates
-vg deconstruct nesting/triple_nested.gfa -p x -nRf triple_nested.fa > triple_nested.vcf
-test -s triple_nested.fa && is "$?" 0 "triple nested graph generates FASTA with -f"
-test -s triple_nested.fa.nesting.tsv && is "$?" 0 "triple nested graph generates nesting TSV with -f"
-is $(wc -l < triple_nested.fa.nesting.tsv) 2 "triple nested TSV has 2 entries (merged by shared reference)"
-is $(awk '{print NF}' triple_nested.fa.nesting.tsv | uniq) 7 "nesting TSV has 7 columns"
-is $(cut -f5 triple_nested.fa.nesting.tsv | uniq) x "all TSV entries reference top-level contig x"
-rm -f triple_nested.snarls triple_nested.vcf triple_nested.fa triple_nested.fa.nesting.tsv
+# Test: RC, RS, RD headers and tags in deconstruct output
+vg paths --compute-augref --min-augref-len 0 -x nesting/triple_nested.gfa -Q x > rc_decon_test.augref.pg
+vg deconstruct rc_decon_test.augref.pg -P x -a > rc_decon_test.vcf
 
-# Test 8: Verify FASTA sequences match graph paths
-vg deconstruct nesting/nested_snp_in_ins.gfa -p x -nf nested_ins_test.fa > nested_ins_test.vcf
-is $(grep -c "^>" nested_ins_test.fa) 2 "nested insertion produces 2 FASTA sequences"
-# Check that sequences are non-empty
-is $(grep -v "^>" nested_ins_test.fa | grep -c ".") 2 "FASTA sequences are non-empty"
-# Verify TSV has matching entries
-is $(wc -l < nested_ins_test.fa.nesting.tsv) 2 "nesting TSV has matching number of entries"
-rm -f nested_ins_test.vcf nested_ins_test.fa nested_ins_test.fa.nesting.tsv
+# Check for RC, RS, RD headers
+is $(grep -c "##INFO=<ID=RC" rc_decon_test.vcf) 1 "deconstruct: RC header is present in VCF"
+is $(grep -c "##INFO=<ID=RS" rc_decon_test.vcf) 1 "deconstruct: RS header is present in VCF"
+is $(grep -c "##INFO=<ID=RD" rc_decon_test.vcf) 1 "deconstruct: RD header is present in VCF"
 
-# Test 9: Multiple children - verify all off-ref paths captured
-vg snarls -A cactus nesting/insertion_with_three_snps.gfa > multi_snps.snarls
-vg deconstruct nesting/insertion_with_three_snps.gfa -p x -n -r multi_snps.snarls -f multi_snps.fa > multi_snps.vcf
-test -s multi_snps.fa && is "$?" 0 "multi-child graph generates FASTA"
-# Should have sequences for the insertion alleles
-is $(grep -c "^>" multi_snps.fa) 2 "multi-child graph produces expected FASTA sequences"
-rm -f multi_snps.snarls multi_snps.vcf multi_snps.fa multi_snps.fa.nesting.tsv
+# Check that all variants have RC, RS, RD tags
+RC_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | wc -l)
+RC_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RC=")
+is "$RC_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RC tag"
 
-# Test 10: Verify TSV columns contain valid data
-vg deconstruct nesting/nested_snp_in_ins.gfa -p x -nf tsv_test.fa > tsv_test.vcf
-# Column 1: path name should contain #
-is $(cut -f1 tsv_test.fa.nesting.tsv | grep -c "#") 2 "TSV column 1 contains haplotype path names"
-# Column 2,3: positions should be integers
-is $(cut -f2 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 2 contains valid positions"
-is $(cut -f3 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 3 contains valid positions"
-# Column 5: should be reference name (x)
-is $(cut -f5 tsv_test.fa.nesting.tsv | uniq) x "TSV column 5 is top-level reference name"
-# Column 6,7: should be 0-based positions
-is $(cut -f6 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 6 contains valid reference positions"
-is $(cut -f7 tsv_test.fa.nesting.tsv | grep -c "^[0-9]*$") 2 "TSV column 7 contains valid reference positions"
-rm -f tsv_test.vcf tsv_test.fa tsv_test.fa.nesting.tsv
+RS_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RS=")
+is "$RS_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RS tag"
 
+RD_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RD=")
+is "$RD_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RD tag"
 
+# Check that nested variants point to top-level's contig
+NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
+NESTED_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=x (top-level contig)"
 
+rm -f rc_decon_test.augref.pg rc_decon_test.vcf

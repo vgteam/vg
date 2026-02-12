@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 
 #include "subcommand.hpp"
 
@@ -17,6 +18,8 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
+#include "../augref.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <vg/io/vpkg.hpp>
@@ -63,6 +66,16 @@ void help_paths(char** argv) {
          << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
+         << "augmented reference computation:" << endl
+         << "  -u, --compute-augref     compute augmented reference path cover" << endl
+         << "                           (use -Q to select reference paths)" << endl
+         << "  -l, --min-augref-len N   minimum augref fragment length [50]" << endl
+         << "  -N, --augref-sample STR  create augref paths under a new sample" << endl
+         << "                           (copies base paths to new sample," << endl
+         << "                           then adds augref paths)." << endl
+         << "                           if unspecified, paths get added to target sample." << endl
+         << "      --augref-segs FILE   write augref segment table to FILE" << endl
+         << "      --verbose            print augref progress and coverage summary" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -133,6 +146,14 @@ int main_paths(int argc, char** argv) {
     const size_t coverage_bins = 10;
     bool normalize_paths = false;
     bool overlay = false;
+    bool compute_augref = false;
+    int64_t min_augref_length = 50;
+    string augref_sample;
+    bool augref_verbose = false;
+    string augref_segments_file;
+
+    constexpr int OPT_VERBOSE = 1001;
+    constexpr int OPT_AUGREF_SEGMENTS = 1002;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -170,11 +191,18 @@ int main_paths(int argc, char** argv) {
             {"threads-old", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
 
+            // Augref options
+            {"compute-augref", no_argument, 0, 'u'},
+            {"min-augref-len", required_argument, 0, 'l'},
+            {"augref-sample", required_argument, 0, 'N'},
+            {"augref-segs", required_argument, 0, OPT_AUGREF_SEGMENTS},
+            {"verbose", no_argument, 0, OPT_VERBOSE},
+
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:N:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -307,7 +335,28 @@ int main_paths(int argc, char** argv) {
         case 't':
             set_thread_count(logger, optarg);
             break;
-            
+
+        case 'u':
+            compute_augref = true;
+            output_formats++;
+            break;
+
+        case 'l':
+            min_augref_length = parse<int64_t>(optarg);
+            break;
+
+        case 'N':
+            augref_sample = optarg;
+            break;
+
+        case OPT_VERBOSE:
+            augref_verbose = true;
+            break;
+
+        case OPT_AUGREF_SEGMENTS:
+            augref_segments_file = ensure_writable(logger, optarg);
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -374,7 +423,16 @@ int main_paths(int argc, char** argv) {
     if (coverage && !gbwt_file.empty()) {
         logger.error() << "coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
     }
-    
+    if (compute_augref && !gbwt_file.empty()) {
+        logger.error() << "augref computation only works on embedded graph paths, not GBWT threads" << std::endl;
+    }
+    if (compute_augref && path_prefix.empty()) {
+        logger.error() << "--compute-augref requires -Q to select reference path(s)" << std::endl;
+    }
+    if (!augref_segments_file.empty() && !compute_augref) {
+        logger.error() << "--augref-segs requires --compute-augref" << std::endl;
+    }
+
     if (select_alt_paths) {
         // alt paths all have a specific prefix
         path_prefix = "_alt_";
@@ -416,6 +474,61 @@ int main_paths(int argc, char** argv) {
     
     
     
+    // Handle augref computation before other operations
+    if (compute_augref && graph) {
+        MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
+        if (!mutable_graph) {
+            logger.error() << "graph cannot be modified for augref computation" << std::endl;
+            return 1;
+        }
+
+        // Collect reference paths matching the prefix from -Q
+        unordered_set<path_handle_t> ref_paths;
+        graph->for_each_path_handle([&](path_handle_t ph) {
+            string path_name = graph->get_path_name(ph);
+            // Skip augref paths (they match prefixes but shouldn't be used as references)
+            if (AugRefCover::is_augref_name(path_name)) {
+                return;
+            }
+            if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
+                ref_paths.insert(ph);
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "no paths found matching prefix: " << path_prefix << std::endl;
+            return 1;
+        }
+
+        // Compute snarls
+        IntegratedSnarlFinder finder(*graph);
+        SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
+
+        // Compute and apply augref cover
+        AugRefCover cover;
+        if (!augref_sample.empty()) {
+            cover.set_augref_sample(augref_sample);
+        }
+        cover.set_verbose(augref_verbose);
+        cover.clear(mutable_graph);
+        cover.compute(graph, &snarl_manager, ref_paths, min_augref_length);
+
+        // Write augref segment table if requested
+        if (!augref_segments_file.empty()) {
+            ofstream segments_out(augref_segments_file);
+            if (!segments_out) {
+                logger.error() << "could not open augref-segs file: " << augref_segments_file << std::endl;
+                return 1;
+            }
+            cover.write_augref_segments(segments_out);
+        }
+
+        cover.apply(mutable_graph);
+
+        // Output the modified graph
+        vg::io::save_handle_graph(mutable_graph, cout);
+        return 0;
+    }
+
     set<string> path_names;
     if (!path_file.empty()) {
         ifstream path_stream(path_file);
@@ -570,14 +683,14 @@ int main_paths(int argc, char** argv) {
                     if (!path_prefix.empty()) {
                         // Filter by name prefix
                         std::string path_name = graph->get_path_name(path_handle);
-                        
+
                         if (std::mismatch(path_name.begin(), path_name.end(),
                                           path_prefix.begin(), path_prefix.end()).second != path_prefix.end()) {
                             // The path does not match the prefix. Skip it.
                             return;
                         }
                     }
-                    
+
                     // It didn't fail a prefix check, so use it.
                     iteratee(path_handle);
                 });
