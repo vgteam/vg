@@ -19,12 +19,26 @@
 namespace vg {
 namespace unittest {
 
+/// Event types for snarl decomposition traversal.
+enum class DecompositionEventType {
+    BEGIN_CHAIN,
+    END_CHAIN,
+    BEGIN_SNARL,
+    END_SNARL
+};
+
+/// A single event in a snarl decomposition traversal.
+struct DecompositionEvent {
+    DecompositionEventType type;
+    handle_t handle;
+};
+
 /**
  * A HandleGraphSnarlFinder that wraps another HandleGraphSnarlFinder and
- * randomly flips chains in the snarl decomposition. Each chain in a snarl
- * has an independent probability p_flip of being emitted in the reverse
- * order and orientation. Flipping is applied recursively: nested chains
- * inside a flipped chain also have the same probability of being flipped.
+ * randomly flips chains in the snarl decomposition. Flipping a chain reverses
+ * the entire chain including all children; if a child chain is also selected
+ * for flipping, it gets flipped again (canceling the parent's flip for that
+ * child).
  *
  * For deterministic testing, chains_to_flip can be provided, which is a set
  * of (begin_handle, end_handle) pairs identifying chains to flip. When
@@ -35,7 +49,7 @@ public:
     /**
      * Construct a fuzzer wrapping the given finder, flipping chains with
      * probability p_flip using the given random generator.
-     * The graph pointer is needed to look up the graph for the base class.
+     * The graph pointer is needed to flip handles.
      */
     template<typename URNG>
     SnarlDecompositionFuzzer(const HandleGraph* graph,
@@ -79,19 +93,9 @@ private:
  */
 class ReplaySnarlFinder : public HandleGraphSnarlFinder {
 public:
-    /// Event types for the decomposition
-    enum class EventType {
-        BEGIN_CHAIN,
-        END_CHAIN,
-        BEGIN_SNARL,
-        END_SNARL
-    };
-
-    /// An event in the decomposition
-    struct Event {
-        EventType type;
-        handle_t handle;
-    };
+    /// Alias for shared event types
+    using EventType = DecompositionEventType;
+    using Event = DecompositionEvent;
 
     /**
      * Construct a replay finder that will emit the given events.
@@ -124,8 +128,6 @@ SnarlDecompositionFuzzer::SnarlDecompositionFuzzer(
     double p_flip, URNG& generator)
     : HandleGraphSnarlFinder(graph), wrapped(finder)
 {
-    // Capture generator state by making a copy of the engine
-    // We need a shared_ptr because the lambda must be copyable
     auto gen = std::make_shared<URNG>(generator);
     auto dist = std::make_shared<std::uniform_real_distribution<double>>(0.0, 1.0);
     should_flip = [gen, dist, p_flip](handle_t, handle_t) -> bool {
