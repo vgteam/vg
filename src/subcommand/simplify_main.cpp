@@ -243,7 +243,7 @@ int main_simplify(int argc, char** argv) {
 
         if (!keep_nonref_paths) {
             vector<path_handle_t> to_destroy;
-            graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t path_handle) {
+            graph->for_each_path_handle([&](const path_handle_t path_handle) {
                 if (graph->get_path_name(path_handle).compare(0, ref_path_prefix.length(), ref_path_prefix) != 0) {
                     to_destroy.push_back(path_handle);
                 }
