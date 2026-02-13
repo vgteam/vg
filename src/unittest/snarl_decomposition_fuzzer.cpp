@@ -145,22 +145,16 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
         auto captured = capture_events(fuzzer);
 
         // Expected after flipping the outer chain:
-        // begin_chain(22 rev)
-        //   begin_snarl(22 rev)      -- was end_snarl(22 fwd), flipped
-        //   end_snarl(20 rev)        -- was begin_snarl(20 fwd), flipped
-        //   begin_snarl(20 rev)      -- was end_snarl(20 fwd), flipped
-        //     begin_chain(12 rev)    -- NOT flipped (not in flip set)
-        //     end_chain(15 rev)
-        //   end_snarl(10 rev)        -- was begin_snarl(10 fwd), flipped
-        // end_chain(10 rev)
-
+        // Flipping a chain reverses everything inside it, including children.
+        // The nested chain 12rev->15rev gets reversed to 15fwd->12fwd as
+        // part of the parent flip.
         vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h22r},
               {ET::BEGIN_SNARL, h22r},
               {ET::END_SNARL, h20r},
               {ET::BEGIN_SNARL, h20r},
-                {ET::BEGIN_CHAIN, h12r},
-                {ET::END_CHAIN, h15r},
+                {ET::BEGIN_CHAIN, h15f},
+                {ET::END_CHAIN, h12f},
               {ET::END_SNARL, h10r},
             {ET::END_CHAIN, h10r},
         };
@@ -179,15 +173,16 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
 
         auto captured = capture_events(fuzzer);
 
-        // Expected: outer chain flipped, AND the nested chain is also flipped
-        // The nested chain 12rev->15rev becomes: begin_chain(15fwd), end_chain(12fwd)
+        // Expected: outer chain flipped (reversing everything, including
+        // the nested chain to 15fwd->12fwd), AND THEN the nested chain is
+        // flipped again back to its original orientation 12rev->15rev.
         vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h22r},
               {ET::BEGIN_SNARL, h22r},
               {ET::END_SNARL, h20r},
               {ET::BEGIN_SNARL, h20r},
-                {ET::BEGIN_CHAIN, h15f},
-                {ET::END_CHAIN, h12f},
+                {ET::BEGIN_CHAIN, h12r},
+                {ET::END_CHAIN, h15r},
               {ET::END_SNARL, h10r},
             {ET::END_CHAIN, h10r},
         };
@@ -391,18 +386,22 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
 
         auto captured = capture_events(fuzzer);
 
-        // Outer flipped: snarls reversed, but inner chains NOT flipped
+        // Outer flipped: snarls reversed, and inner chains also reversed
+        // as part of the parent flip.
+        // Chain 5f->5f reversed to 5r->5r.
+        // Chain 2f->3f (containing snarl 2f->3f) reversed to 3r->2r
+        // (containing snarl 3r->2r).
         vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h6r},
               {ET::BEGIN_SNARL, h6r},
-                {ET::BEGIN_CHAIN, h5f},
-                {ET::END_CHAIN, h5f},
+                {ET::BEGIN_CHAIN, h5r},
+                {ET::END_CHAIN, h5r},
               {ET::END_SNARL, h4r},
               {ET::BEGIN_SNARL, h4r},
-                {ET::BEGIN_CHAIN, h2f},
-                  {ET::BEGIN_SNARL, h2f},
-                  {ET::END_SNARL, h3f},
-                {ET::END_CHAIN, h3f},
+                {ET::BEGIN_CHAIN, h3r},
+                  {ET::BEGIN_SNARL, h3r},
+                  {ET::END_SNARL, h2r},
+                {ET::END_CHAIN, h2r},
               {ET::END_SNARL, h1r},
             {ET::END_CHAIN, h1r},
         };
@@ -420,18 +419,21 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
 
         auto captured = capture_events(fuzzer);
 
-        // Outer flipped, inner chain 2->3 also flipped
+        // Outer flipped (reversing everything, including chain 2f->3f to
+        // 3r->2r and chain 5f->5f to 5r->5r), AND THEN inner chain 2f->3f
+        // is flipped again back to its original orientation 2f->3f.
+        // Chain 5f->5f is NOT in flip set, so it stays reversed as 5r->5r.
         vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h6r},
               {ET::BEGIN_SNARL, h6r},
-                {ET::BEGIN_CHAIN, h5f},
-                {ET::END_CHAIN, h5f},
+                {ET::BEGIN_CHAIN, h5r},
+                {ET::END_CHAIN, h5r},
               {ET::END_SNARL, h4r},
               {ET::BEGIN_SNARL, h4r},
-                {ET::BEGIN_CHAIN, h3r},
-                  {ET::BEGIN_SNARL, h3r},
-                  {ET::END_SNARL, h2r},
-                {ET::END_CHAIN, h2r},
+                {ET::BEGIN_CHAIN, h2f},
+                  {ET::BEGIN_SNARL, h2f},
+                  {ET::END_SNARL, h3f},
+                {ET::END_CHAIN, h3f},
               {ET::END_SNARL, h1r},
             {ET::END_CHAIN, h1r},
         };

@@ -37,12 +37,17 @@ static size_t find_matching_end(const vector<CapturedEvent>& events, size_t star
     return events.size();
 }
 
-// Forward declaration
+// Forward declaration.
+// do_flip: whether this chain should be emitted reversed. A chain's effective
+// flip is the XOR of all flip decisions from itself and its ancestors:
+// flipping a parent flips all its descendants, and if a descendant is also
+// in the flip set it gets flipped again (canceling the parent's flip).
 static void process_chain(
     const vector<CapturedEvent>& events,
     size_t chain_start, size_t chain_end,
     const HandleGraph& graph,
     const function<bool(handle_t, handle_t)>& should_flip,
+    bool do_flip,
     const function<void(handle_t)>& begin_chain,
     const function<void(handle_t)>& end_chain,
     const function<void(handle_t)>& begin_snarl,
@@ -64,8 +69,11 @@ static void process_events(
     while (i < end) {
         if (events[i].type == CapturedEvent::BEGIN_CHAIN) {
             size_t chain_end_idx = find_matching_end(events, i);
+            handle_t orig_begin = events[i].handle;
+            handle_t orig_end = events[chain_end_idx].handle;
+            bool do_flip = should_flip(orig_begin, orig_end);
             process_chain(events, i, chain_end_idx, graph, should_flip,
-                         begin_chain, end_chain, begin_snarl, end_snarl);
+                         do_flip, begin_chain, end_chain, begin_snarl, end_snarl);
             i = chain_end_idx + 1;
         } else {
             switch (events[i].type) {
@@ -83,38 +91,45 @@ static void process_events(
     }
 }
 
-/// Process a snarl's interior (the events between BEGIN_SNARL and END_SNARL,
-/// exclusive of those boundary events), recursively processing child chains.
-static void process_snarl_interior(
+/// Collect the index spans of child chains within a snarl's interior
+/// (between interior_start and interior_end, exclusive of snarl boundaries).
+static vector<pair<size_t, size_t>> collect_child_chains(
     const vector<CapturedEvent>& events,
-    size_t interior_start, size_t interior_end,
-    const HandleGraph& graph,
-    const function<bool(handle_t, handle_t)>& should_flip,
-    const function<void(handle_t)>& begin_chain,
-    const function<void(handle_t)>& end_chain,
-    const function<void(handle_t)>& begin_snarl,
-    const function<void(handle_t)>& end_snarl)
+    size_t interior_start, size_t interior_end)
 {
+    vector<pair<size_t, size_t>> children;
     size_t i = interior_start;
     while (i < interior_end) {
         if (events[i].type == CapturedEvent::BEGIN_CHAIN) {
             size_t chain_end_idx = find_matching_end(events, i);
-            process_chain(events, i, chain_end_idx, graph, should_flip,
-                         begin_chain, end_chain, begin_snarl, end_snarl);
+            children.push_back({i, chain_end_idx});
             i = chain_end_idx + 1;
         } else {
             i++;
         }
     }
+    return children;
+}
+
+/// Compute the effective flip for a child chain: the XOR of the parent's
+/// effective flip and the child's own should_flip decision (always evaluated
+/// on the child's original handles from the event stream).
+static bool child_effective_flip(
+    bool parent_do_flip,
+    const function<bool(handle_t, handle_t)>& should_flip,
+    handle_t child_orig_begin, handle_t child_orig_end)
+{
+    return parent_do_flip != should_flip(child_orig_begin, child_orig_end);
 }
 
 /// Process a single chain (events[chain_start] to events[chain_end], inclusive).
-/// Decides whether to flip it, and recursively processes nested chains.
+/// do_flip indicates whether this chain should be emitted reversed.
 static void process_chain(
     const vector<CapturedEvent>& events,
     size_t chain_start, size_t chain_end,
     const HandleGraph& graph,
     const function<bool(handle_t, handle_t)>& should_flip,
+    bool do_flip,
     const function<void(handle_t)>& begin_chain,
     const function<void(handle_t)>& end_chain,
     const function<void(handle_t)>& begin_snarl,
@@ -123,12 +138,14 @@ static void process_chain(
     handle_t orig_begin = events[chain_start].handle;
     handle_t orig_end = events[chain_end].handle;
 
-    if (should_flip(orig_begin, orig_end)) {
-        // Flip this chain.
+    if (do_flip) {
+        // Flip this chain: reverse snarl order, flip all boundary handles,
+        // and recursively process children with their effective flip state.
+
         // Collect the snarls inside this chain.
         struct SnarlSpan {
-            size_t begin_idx; // index of BEGIN_SNARL
-            size_t end_idx;   // index of END_SNARL
+            size_t begin_idx;
+            size_t end_idx;
         };
         vector<SnarlSpan> snarls;
 
@@ -143,7 +160,6 @@ static void process_chain(
             }
         }
 
-        // Emit flipped chain: begin with flip(end), end with flip(begin)
         begin_chain(graph.flip(orig_end));
 
         // Emit snarls in reverse order with flipped boundaries
@@ -154,27 +170,15 @@ static void process_chain(
 
             begin_snarl(graph.flip(snarl_end_h));
 
-            // Collect child chains inside this snarl
-            struct ChainSpan {
-                size_t begin_idx;
-                size_t end_idx;
-            };
-            vector<ChainSpan> child_chains;
-            size_t j = snarl.begin_idx + 1;
-            while (j < snarl.end_idx) {
-                if (events[j].type == CapturedEvent::BEGIN_CHAIN) {
-                    size_t nested_end = find_matching_end(events, j);
-                    child_chains.push_back({j, nested_end});
-                    j = nested_end + 1;
-                } else {
-                    j++;
-                }
-            }
-
-            // Emit child chains in reverse order, recursively processing each
-            for (int c = (int)child_chains.size() - 1; c >= 0; c--) {
-                process_chain(events, child_chains[c].begin_idx, child_chains[c].end_idx,
-                             graph, should_flip, begin_chain, end_chain, begin_snarl, end_snarl);
+            // Collect and emit child chains in reverse order
+            auto children = collect_child_chains(events, snarl.begin_idx + 1, snarl.end_idx);
+            for (int c = (int)children.size() - 1; c >= 0; c--) {
+                handle_t child_begin = events[children[c].first].handle;
+                handle_t child_end = events[children[c].second].handle;
+                bool child_flip = child_effective_flip(do_flip, should_flip, child_begin, child_end);
+                process_chain(events, children[c].first, children[c].second,
+                             graph, should_flip, child_flip,
+                             begin_chain, end_chain, begin_snarl, end_snarl);
             }
 
             end_snarl(graph.flip(snarl_begin_h));
@@ -183,18 +187,24 @@ static void process_chain(
         end_chain(graph.flip(orig_begin));
     } else {
         // Don't flip this chain, but still recursively process nested chains
+        // which may have their own flip decisions.
         begin_chain(orig_begin);
 
-        // Walk through interior
         size_t i = chain_start + 1;
         while (i < chain_end) {
             if (events[i].type == CapturedEvent::BEGIN_SNARL) {
                 size_t snarl_end = find_matching_end(events, i);
                 begin_snarl(events[i].handle);
 
-                // Process snarl interior (child chains)
-                process_snarl_interior(events, i + 1, snarl_end, graph, should_flip,
-                                      begin_chain, end_chain, begin_snarl, end_snarl);
+                auto children = collect_child_chains(events, i + 1, snarl_end);
+                for (auto& child : children) {
+                    handle_t child_begin = events[child.first].handle;
+                    handle_t child_end = events[child.second].handle;
+                    bool child_flip = child_effective_flip(do_flip, should_flip, child_begin, child_end);
+                    process_chain(events, child.first, child.second,
+                                 graph, should_flip, child_flip,
+                                 begin_chain, end_chain, begin_snarl, end_snarl);
+                }
 
                 end_snarl(events[snarl_end].handle);
                 i = snarl_end + 1;
