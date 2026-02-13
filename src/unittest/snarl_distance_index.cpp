@@ -7755,6 +7755,64 @@ namespace vg {
 
         }
 
+        TEST_CASE( "Distance index can query within a fiddly snarl",
+                  "[snarl_distance]" ) {
+            
+            std::string graph_json = R"({"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "3", "to_end": true}, {"from": "1", "to": "4"}, {"from": "1", "to": "5"}, {"from": "4", "to": "5", "to_end": true}, {"from": "2", "from_start": true, "to": "4", "to_end": true}], "node": [{"id": "5", "sequence": "A"}, {"id": "1", "sequence": "AAAAA"}, {"id": "4", "sequence": "A"}, {"id": "2", "sequence": "AAAAA"}, {"id": "3", "sequence": "A"}]})";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+            
+            id_t node_id1 = 4; bool rev1 = false ; size_t offset1 = 1;
+            id_t node_id2 = 5; bool rev2 = true ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t true_distance = 0;
+
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+        }
+
+        TEST_CASE( "Distance index can query into a child snarl in reverse",
+                  "[snarl_distance]" ) {
+            
+            std::string graph_json = R"({"node":[{"id":"79","sequence":"A"},{"id":"16","sequence":"A"},{"id":"60","sequence":"A"},{"id":"37","sequence":"A"},{"id":"40","sequence":"A"},{"id":"53","sequence":"A"},{"id":"59","sequence":"A"},{"id":"63","sequence":"A"},{"id":"18","sequence":"A"},{"id":"38","sequence":"A"},{"id":"62","sequence":"A"}],"edge":[{"from":"16","to":"53"},{"from":"16","from_start":true,"to":"79","to_end":true},{"from":"60","to":"62"},{"from":"60","from_start":true,"to":"79","to_end":true},{"from":"37","from_start":true,"to":"63","to_end":true},{"from":"37","from_start":true,"to":"40"},{"from":"53","to":"60"},{"from":"59","to":"63"},{"from":"59","from_start":true,"to":"60","to_end":true},{"from":"18","to":"53"},{"from":"18","to":"38"},{"from":"18","from_start":true,"to":"79","to_end":true},{"from":"18","from_start":true,"to":"37","to_end":true},{"from":"38","to":"63","to_end":true},{"from":"38","to":"40"},{"from":"62","to":"63"}]})";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+            
+            id_t node_id1 = 16; bool rev1 = false ; size_t offset1 = 1;
+            id_t node_id2 = 62; bool rev2 = true ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t dijkstra_distance = std::numeric_limits<size_t>::max();
+            handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                if (reached == handle2) {
+                    dijkstra_distance = distance;
+                    dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                    dijkstra_distance += offset2;
+                    return false;
+                }
+                return true;
+            }
+            , false);
+
+            size_t index_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
+
+            REQUIRE(index_distance == dijkstra_distance);
+        }
+
 
         TEST_CASE( "Distance index can query all possible 3-node-with-legs snarls",
                  "[snarl_distance]" ) {
@@ -7783,11 +7841,13 @@ namespace vg {
 
                 std::vector<size_t> choices(end_size - start_size, 0);
                 while (true) {
+#ifdef debug
                     std::cerr << "Consider combination:";
                     for (auto& item : choices) {
                         std::cerr << " " << item;
                     }
                     std::cerr << std::endl;
+#endif
                     callback(choices);
                     choices.back()++;
                     for (size_t i = end_size - 1; i >= start_size; i--) {
@@ -7913,7 +7973,9 @@ namespace vg {
                             return true;
                         });
 
+#ifdef debug
                         std::cerr << "Real self loop distance for " << graph.get_id(here) << (graph.get_is_reverse(here) ? "rev" : "fd") << " -> " << graph.get_id(here) << (graph.get_is_reverse(here) ? "rev" : "fd") << " is " << loop_distance << std::endl;
+#endif
 
                         if (loop_distance == std::numeric_limits<size_t>::max()) {
                             // There's really no way back from this node to itself in the same orientation. Delete the entry the Dijkstra search adds.
@@ -7925,18 +7987,22 @@ namespace vg {
                     };
                 });
 
+#ifdef debug
                 for (auto& [start_handle, distances] : dijkstra_distances) {
                     for (auto& [end_handle, dijkstra_distance] : distances) {
                         cerr << "Dijkstra sees: " << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << " = " << dijkstra_distance << endl;
                     }
                 }
+#endif
 
                 // Now query all of the distances against the index
                 for (auto& [start_handle, distances] : dijkstra_distances) {
                     for (auto& [end_handle, dijkstra_distance] : distances) {
                         // Ask for distance between outgoing side of first handle and incoming side of second.
-                        
+                       
+#ifdef debug
                         cerr << "Measure: " << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << endl;
+#endif
 
                         size_t snarl_distance = distance_index.minimum_distance(graph.get_id(start_handle), graph.get_is_reverse(start_handle), graph.get_length(start_handle), graph.get_id(end_handle), graph.get_is_reverse(end_handle), 0, false, &graph);
 
