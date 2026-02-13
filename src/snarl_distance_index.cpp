@@ -833,7 +833,7 @@ void populate_snarl_index(
 
     // Identify tips
     for (const auto& child : all_children) {
-        //Check if this node is a tip
+        // Check if this node is a tip
         if (child.first != SnarlDistanceIndex::TEMP_NODE 
             || (child.second != temp_snarl_record.start_node_id 
                 && child.second != temp_snarl_record.end_node_id)) {
@@ -884,8 +884,8 @@ void populate_snarl_index(
      */
      if (!temp_snarl_record.is_root_snarl) {
         // Always start the topological sort at the start
-        handle_t topological_sort_start = graph->get_handle(temp_snarl_record.start_node_id,temp_snarl_record.start_node_rev);
-
+        handle_t topological_sort_start = graph->get_handle(temp_snarl_record.start_node_id,
+                                                            temp_snarl_record.start_node_rev);
 
         // New sort order. Each value is an index into all_children, which 
         // matches the ranks(-2) of the children 
@@ -902,7 +902,6 @@ void populate_snarl_index(
         // Add all sources. This will start out as the start node and any tips
         for (const auto& tip : temp_snarl_record.tippy_child_ranks) {
             source_nodes.emplace_back(tip.first, !tip.second);
-            pair<SnarlDistanceIndex::temp_record_t, size_t> current_index = all_children[tip.first];
         }
 
         // Start node dummy rank is max(). This is traversed first
@@ -915,10 +914,15 @@ void populate_snarl_index(
             source_nodes.pop_back();
 
             // Visit it
+            if (visited_ranks.count(current_child_index.first) != 0) {
+                // We tried to revisit a source node, so this must be a loop
+                // (we got turned around somewhere is the only way)
+                // Thus it is safe to abort and allow random ranks
+                break;
+            }
             if (current_child_index.first != std::numeric_limits<size_t>::max()) {
                 topological_sort_order.emplace_back(current_child_index.first);
             }
-            assert(visited_ranks.count(current_child_index.first) == 0);
             visited_ranks.emplace(current_child_index.first);
 
             // Get the graph handle for that child, pointing out from the end of the chain
