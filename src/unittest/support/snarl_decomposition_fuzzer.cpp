@@ -21,17 +21,13 @@ SnarlDecompositionFuzzer::SnarlDecompositionFuzzer(
     };
 }
 
-/// Emit an event, transforming it based on direction.
-/// Forward: emit as-is.
-/// Backward: swap begin/end types and flip handles.
-static void emit_event(
+void SnarlDecompositionFuzzer::emit_event(
     const DecompositionEvent& event,
     bool forward,
-    const HandleGraph& graph,
     const function<void(handle_t)>& begin_chain,
     const function<void(handle_t)>& end_chain,
     const function<void(handle_t)>& begin_snarl,
-    const function<void(handle_t)>& end_snarl)
+    const function<void(handle_t)>& end_snarl) const
 {
     if (forward) {
         switch (event.type) {
@@ -41,7 +37,7 @@ static void emit_event(
         case ET::END_SNARL:   end_snarl(event.handle); break;
         }
     } else {
-        handle_t flipped = graph.flip(event.handle);
+        handle_t flipped = graph->flip(event.handle);
         switch (event.type) {
         case ET::BEGIN_CHAIN: end_chain(flipped); break;
         case ET::END_CHAIN:   begin_chain(flipped); break;
@@ -116,7 +112,7 @@ void SnarlDecompositionFuzzer::traverse_decomposition(
 
         // Check if we've returned to the entry point of a flipped chain.
         if (!flip_stack.empty() && idx == flip_stack.top().entry_index) {
-            emit_event(events[idx], forward, *graph,
+            emit_event(events[idx], forward,
                        begin_chain, end_chain, begin_snarl, end_snarl);
             FlipEntry entry = flip_stack.top();
             flip_stack.pop();
@@ -143,7 +139,7 @@ void SnarlDecompositionFuzzer::traverse_decomposition(
                 flip_stack.push({idx, forward});
                 cursor = (int64_t)pair_of[idx];
                 forward = !forward;
-                emit_event(events[(size_t)cursor], forward, *graph,
+                emit_event(events[(size_t)cursor], forward,
                            begin_chain, end_chain, begin_snarl, end_snarl);
                 cursor += forward ? 1 : -1;
                 continue;
@@ -151,7 +147,7 @@ void SnarlDecompositionFuzzer::traverse_decomposition(
         }
 
         // Normal event: emit and advance.
-        emit_event(events[idx], forward, *graph,
+        emit_event(events[idx], forward,
                    begin_chain, end_chain, begin_snarl, end_snarl);
         cursor += forward ? 1 : -1;
     }

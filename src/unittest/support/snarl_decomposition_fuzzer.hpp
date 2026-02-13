@@ -84,6 +84,18 @@ private:
 
     /// Function that decides whether to flip a chain given its begin and end handles
     std::function<bool(handle_t, handle_t)> should_flip;
+
+    /// Emit an event, transforming it based on direction.
+    /// Forward: emit as-is.
+    /// Backward: swap begin/end types and flip handles.
+    void emit_event(
+        const DecompositionEvent& event,
+        bool forward,
+        const std::function<void(handle_t)>& begin_chain,
+        const std::function<void(handle_t)>& end_chain,
+        const std::function<void(handle_t)>& begin_snarl,
+        const std::function<void(handle_t)>& end_snarl
+    ) const;
 };
 
 /**
@@ -128,10 +140,8 @@ SnarlDecompositionFuzzer::SnarlDecompositionFuzzer(
     double p_flip, URNG& generator)
     : HandleGraphSnarlFinder(graph), wrapped(finder)
 {
-    auto gen = std::make_shared<URNG>(generator);
-    auto dist = std::make_shared<std::uniform_real_distribution<double>>(0.0, 1.0);
-    should_flip = [gen, dist, p_flip](handle_t, handle_t) -> bool {
-        return (*dist)(*gen) < p_flip;
+    should_flip = [&generator, p_flip](handle_t, handle_t) -> bool {
+        return std::uniform_real_distribution<double>(0.0, 1.0)(generator) < p_flip;
     };
 }
 
