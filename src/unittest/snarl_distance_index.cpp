@@ -24,7 +24,7 @@
 #include <handlegraph/algorithms/weakly_connected_components.hpp>
 #include <handlegraph/algorithms/find_shortest_paths.hpp>
 
-#define debug
+//#define debug
 
 namespace vg {
     namespace unittest {
