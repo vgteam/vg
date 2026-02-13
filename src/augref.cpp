@@ -239,13 +239,32 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
         step_handle_t interval_start;
         step_handle_t interval_end;
         int64_t interval_length = 0;
-        vector<nid_t> interval_nodes;  // track nodes in current interval
+        unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
+
+        // Helper to close the current interval and add it if long enough
+        auto close_interval = [&]() {
+            if (in_interval) {
+                if (interval_length >= minimum_length) {
+                    add_interval(this->augref_intervals, this->node_to_interval,
+                                 make_pair(interval_start, interval_end), true,
+                                 &this->interval_snarl_bounds, {0, 0});
+                    for (nid_t nid : interval_nodes) {
+                        uncovered_nodes.erase(nid);
+                    }
+                }
+                in_interval = false;
+            }
+        };
 
         graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
 
             if (uncovered_nodes.count(node_id)) {
-                // This node is uncovered
+                if (interval_nodes.count(node_id)) {
+                    // This node is already in the current interval — close to avoid cycle,
+                    // then start a new interval at this node (same logic as get_uncovered_intervals)
+                    close_interval();
+                }
                 if (!in_interval) {
                     // Start a new interval
                     in_interval = true;
@@ -255,35 +274,16 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
                 }
                 interval_end = graph->get_next_step(step);
                 interval_length += graph->get_length(graph->get_handle_of_step(step));
-                interval_nodes.push_back(node_id);
+                interval_nodes.insert(node_id);
             } else {
-                // This node is already covered
-                if (in_interval) {
-                    // Close the current interval
-                    if (interval_length >= minimum_length) {
-                        // Add the interval and mark nodes as covered
-                        add_interval(this->augref_intervals, this->node_to_interval,
-                                     make_pair(interval_start, interval_end), true,
-                                     &this->interval_snarl_bounds, {0, 0});
-                        for (nid_t nid : interval_nodes) {
-                            uncovered_nodes.erase(nid);
-                        }
-                    }
-                    in_interval = false;
-                }
+                // This node is already covered — close current interval
+                close_interval();
             }
             return true;
         });
 
         // Don't forget to close any interval at the end of the path
-        if (in_interval && interval_length >= minimum_length) {
-            add_interval(this->augref_intervals, this->node_to_interval,
-                         make_pair(interval_start, interval_end), true,
-                         &this->interval_snarl_bounds, {0, 0});
-            for (nid_t nid : interval_nodes) {
-                uncovered_nodes.erase(nid);
-            }
-        }
+        close_interval();
     }
 
 #ifdef debug
