@@ -39,6 +39,7 @@ void SnarlDecompositionFuzzer::traverse_decomposition(
             emit_event(flip(event, graph), false);
         } else {
             // Call the right handler on the event's handle.
+            // TODO: Is this really better than a nice clear switch???
             (*handlers.at((int)event.type))(event.handle);
         }
     };

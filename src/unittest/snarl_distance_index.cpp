@@ -14,10 +14,13 @@
 #include "catch.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
+#include "support/randomly_flipped_nodes.hpp"
+#include "support/snarl_decomposition_fuzzer.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "../traversal_finder.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 #include "xg.hpp"
@@ -232,7 +235,7 @@ namespace vg {
             Edge* e17 = graph.create_edge(n11, n12);
             Edge* e18 = graph.create_edge(n12, n13);
             
-            graph.serialize_to_file("test_graph.vg");
+            vg::io::save_handle_graph(&graph, "test_graph.vg");
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SECTION("Traversal of chain") {
@@ -7349,7 +7352,7 @@ namespace vg {
                                      << distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0)
                                      << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                      << " is in the subgraph but shouldn't be " << endl;
-                                graph.serialize_to_file("test_graph.vg");
+                                vg::io::save_handle_graph(&graph, "test_graph.vg");
                             }
                             REQUIRE((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
                         } else {
@@ -7360,7 +7363,7 @@ namespace vg {
                                      << distance_index.minimum_distance(nodeID1, false, 0,node_id, true, 0)
                                      << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                      << " is not in the subgraph but should be " << endl;
-                                graph.serialize_to_file("test_graph.vg");
+                                vg::io::save_handle_graph(&graph, "test_graph.vg");
                                 REQUIRE(!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
                             }
                         }
@@ -7429,27 +7432,45 @@ namespace vg {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
-            default_random_engine generator(test_seed_source());
+            std::default_random_engine generator(test_seed_source());
             
             for (size_t repeat = 0; repeat < 1000; repeat++) {
             
-                uniform_int_distribution<size_t> bases_dist(100, 1000);
+                std::uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
-                uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
+                std::uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
                 size_t variant_bases = variant_bases_dist(generator);
-                uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
+                std::uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
                 size_t variant_count = variant_count_dist(generator);
+                
+                std::uniform_real_distribution<double> flip_dist(0.0, 1.0);
+                double node_flip_fraction = flip_dist(generator);
+                double chain_flip_fraction = flip_dist(generator);
 
-                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
+                std::uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
-                        
+
 #ifdef debug
-                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with size limit " << size_limit << endl;
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with " << node_flip_fraction << " nodes flipped and " << chain_flip_fraction << " of chains flipped, with size limit " << size_limit << endl;
 #endif
-            
-                VG graph;
-                random_graph(bases, variant_bases, variant_count, &graph);
-                IntegratedSnarlFinder finder(graph); 
+               
+                // Generate a base graph
+                VG base_graph;
+                random_graph(bases, variant_bases, variant_count, &base_graph);
+                
+                // Flip some fraction of the nodes to their local reverse orientation
+                bdsg::HashGraph graph = randomly_flipped_nodes(base_graph, node_flip_fraction, generator);
+
+                // Find snarls
+                IntegratedSnarlFinder base_finder(graph);
+
+                // Flip some fraction of the chains to their opposite orientation.
+                // Note that we can't flip the snarls because the snarl decomposition
+                // requires snarls to be articulated as forward along their
+                // chains.
+                SnarlDecompositionFuzzer finder(&graph, &base_finder, chain_flip_fraction, generator);
+                
+                // Build the index
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
@@ -7509,7 +7530,7 @@ namespace vg {
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            graph.serialize_to_file("test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                             REQUIRE(false);
                         }
                         if (max_distance < snarl_distance){
@@ -7517,11 +7538,10 @@ namespace vg {
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "minimum: " << snarl_distance << " maximum: " << max_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            graph.serialize_to_file("test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                             REQUIRE(false);
                         }
                         REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
-                            graph.serialize_to_file("test_graph.vg");
                         if (!traceback.first.empty() && ! traceback.second.empty()) {
                             size_t traceback_distance = 0;
                             for (auto x : traceback.first){
@@ -7568,7 +7588,7 @@ namespace vg {
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            graph.serialize_to_file("test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                             REQUIRE(false);
                         }
                         REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
@@ -8012,7 +8032,7 @@ namespace vg {
                             cerr << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            vg::io::VPKG::save(graph, "test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                         }
                         REQUIRE(snarl_distance == dijkstra_distance);
                     }
@@ -8051,7 +8071,7 @@ namespace vg {
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
-                graph.serialize_to_file("test_graph.vg");
+                vg::io::save_handle_graph(&graph, "test_graph.vg");
                 for (size_t repeat_positions = 0 ; repeat_positions < 500 ; repeat_positions++) {
                     //Pick random pairs of positions and find the distance between them
                     id_t node_id1 = 0;
