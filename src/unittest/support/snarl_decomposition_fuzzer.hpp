@@ -21,17 +21,28 @@ namespace unittest {
 
 /// Event types for snarl decomposition traversal.
 enum class DecompositionEventType {
-    BEGIN_CHAIN,
+    BEGIN_CHAIN = 0,
     END_CHAIN,
     BEGIN_SNARL,
     END_SNARL
 };
+
+/// Flip the polatiry of an event type (start vs. end)
+inline DecompositionEventType flip(const DecompositionEventType& t) {
+    // We can flip by toggling the low bit.
+    return (DecompositionEventType)((int) t ^ 1);
+}
 
 /// A single event in a snarl decomposition traversal.
 struct DecompositionEvent {
     DecompositionEventType type;
     handle_t handle;
 };
+
+/// Flip the polarity of a whole event (event type between begin and end, and handle orientation)
+inline DecompositionEvent flip(const DecompositionEvent& e, const HandleGraph* g) {
+    return {flip(e.type), g->flip(e.handle)};
+}
 
 /**
  * A HandleGraphSnarlFinder that wraps another HandleGraphSnarlFinder and
@@ -57,14 +68,20 @@ public:
                              double p_flip, URNG& generator);
 
     /**
-     * Construct a fuzzer wrapping the given finder, flipping exactly the
-     * chains identified by the given set of (begin_handle, end_handle) pairs.
-     * The handles should be the inward-facing begin and outward-facing end
-     * handles as originally emitted by the wrapped finder.
+     * Construct a fuzzer wrapping the given finder, flipping the chains
+     * bounded by the given node IDs.
+     *
+     * You should provide both bounding IDs for each chain, but only the one
+     * that the chain is actually arrived at through during the traversal will
+     * really get used.
+     *
+     * Note that a node can bound at most one chain.
+     *
+     * This is mostly for testing the fuzzer itself.
      */
     SnarlDecompositionFuzzer(const HandleGraph* graph,
                              const HandleGraphSnarlFinder* finder,
-                             const std::set<std::pair<handle_t, handle_t>>& chains_to_flip);
+                             const std::unordered_set<nid_t>& chains_to_flip);
 
     virtual ~SnarlDecompositionFuzzer() = default;
 
@@ -82,20 +99,9 @@ private:
     /// The wrapped snarl finder
     const HandleGraphSnarlFinder* wrapped;
 
-    /// Function that decides whether to flip a chain given its begin and end handles
-    std::function<bool(handle_t, handle_t)> should_flip;
-
-    /// Emit an event, transforming it based on direction.
-    /// Forward: emit as-is.
-    /// Backward: swap begin/end types and flip handles.
-    void emit_event(
-        const DecompositionEvent& event,
-        bool forward,
-        const std::function<void(handle_t)>& begin_chain,
-        const std::function<void(handle_t)>& end_chain,
-        const std::function<void(handle_t)>& begin_snarl,
-        const std::function<void(handle_t)>& end_snarl
-    ) const;
+    /// Function that decides whether to flip a chain, given either of its
+    /// bounding node IDs. May be nondeterministic.
+    std::function<bool(nid_t)> should_flip;
 };
 
 /**
@@ -140,7 +146,7 @@ SnarlDecompositionFuzzer::SnarlDecompositionFuzzer(
     double p_flip, URNG& generator)
     : HandleGraphSnarlFinder(graph), wrapped(finder)
 {
-    should_flip = [&generator, p_flip](handle_t, handle_t) -> bool {
+    should_flip = [&generator, p_flip](nid_t ignored) -> bool {
         return std::uniform_real_distribution<double>(0.0, 1.0)(generator) < p_flip;
     };
 }

@@ -5,18 +5,17 @@
 #include "support/snarl_decomposition_fuzzer.hpp"
 
 #include <vector>
-#include <set>
+#include <unordered_set>
 
 namespace vg {
 namespace unittest {
 
-using namespace std;
 using ET = ReplaySnarlFinder::EventType;
 using Event = ReplaySnarlFinder::Event;
 
 /// Capture all events emitted by a traverse_decomposition call into a vector.
-static vector<pair<ET, handle_t>> capture_events(const HandleGraphSnarlFinder& finder) {
-    vector<pair<ET, handle_t>> result;
+static std::vector<std::pair<ET, handle_t>> capture_events(const HandleGraphSnarlFinder& finder) {
+    std::vector<std::pair<ET, handle_t>> result;
     finder.traverse_decomposition(
         [&](handle_t h) { result.push_back({ET::BEGIN_CHAIN, h}); },
         [&](handle_t h) { result.push_back({ET::END_CHAIN, h}); },
@@ -41,7 +40,7 @@ TEST_CASE("ReplaySnarlFinder replays events faithfully", "[snarl_decomposition_f
     handle_t h20f = graph.get_handle(20, false);
     handle_t h22f = graph.get_handle(22, false);
 
-    vector<Event> events = {
+    std::vector<Event> events = {
         {ET::BEGIN_CHAIN, h10f},
         {ET::BEGIN_SNARL, h10f},
         {ET::BEGIN_CHAIN, h12r},
@@ -76,7 +75,7 @@ TEST_CASE("SnarlDecompositionFuzzer passes through when nothing is flipped", "[s
     handle_t h20f = graph.get_handle(20, false);
     handle_t h22f = graph.get_handle(22, false);
 
-    vector<Event> events = {
+    std::vector<Event> events = {
         {ET::BEGIN_CHAIN, h10f},
         {ET::BEGIN_SNARL, h10f},
         {ET::BEGIN_CHAIN, h12r},
@@ -90,8 +89,7 @@ TEST_CASE("SnarlDecompositionFuzzer passes through when nothing is flipped", "[s
     ReplaySnarlFinder replay(events);
 
     // No chains to flip
-    set<pair<handle_t, handle_t>> no_flips;
-    SnarlDecompositionFuzzer fuzzer(&graph, &replay, no_flips);
+    SnarlDecompositionFuzzer fuzzer(&graph, &replay, {});
 
     auto captured = capture_events(fuzzer);
 
@@ -124,7 +122,7 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
     handle_t h22f = graph.get_handle(22, false);
     handle_t h22r = graph.get_handle(22, true);
 
-    vector<Event> events = {
+    std::vector<Event> events = {
         {ET::BEGIN_CHAIN, h10f},
           {ET::BEGIN_SNARL, h10f},
             {ET::BEGIN_CHAIN, h12r},
@@ -139,7 +137,7 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
 
     SECTION("flip outer chain only") {
         // Flip the outer chain (10fwd -> 22fwd)
-        set<pair<handle_t, handle_t>> flips = {{h10f, h22f}};
+        std::unordered_set<nid_t> flips {10, 22};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
@@ -148,7 +146,7 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
         // Flipping a chain reverses everything inside it, including children.
         // The nested chain 12rev->15rev gets reversed to 15fwd->12fwd as
         // part of the parent flip.
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h22r},
               {ET::BEGIN_SNARL, h22r},
               {ET::END_SNARL, h20r},
@@ -168,7 +166,7 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
 
     SECTION("flip outer and nested chain") {
         // Flip outer chain (10fwd->22fwd) AND nested chain (12rev->15rev)
-        set<pair<handle_t, handle_t>> flips = {{h10f, h22f}, {h12r, h15r}};
+        std::unordered_set<nid_t> flips {10, 22, 12, 15};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
@@ -176,7 +174,7 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
         // Expected: outer chain flipped (reversing everything, including
         // the nested chain to 15fwd->12fwd), AND THEN the nested chain is
         // flipped again back to its original orientation 12rev->15rev.
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h22r},
               {ET::BEGIN_SNARL, h22r},
               {ET::END_SNARL, h20r},
@@ -196,13 +194,13 @@ TEST_CASE("SnarlDecompositionFuzzer flips an outer chain", "[snarl_decomposition
 
     SECTION("flip nested chain only") {
         // Flip only the nested chain (12rev->15rev), outer stays
-        set<pair<handle_t, handle_t>> flips = {{h12r, h15r}};
+        std::unordered_set<nid_t> flips {12, 15};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
 
         // Outer chain not flipped, nested chain flipped
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h10f},
               {ET::BEGIN_SNARL, h10f},
                 {ET::BEGIN_CHAIN, h15f},
@@ -229,7 +227,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles empty chain (no snarls)", "[snarl_de
     handle_t h5r = graph.get_handle(5, true);
 
     // An empty chain: begin and end with same handle, no snarls inside
-    vector<Event> events = {
+    std::vector<Event> events = {
         {ET::BEGIN_CHAIN, h5f},
         {ET::END_CHAIN, h5f},
     };
@@ -237,14 +235,14 @@ TEST_CASE("SnarlDecompositionFuzzer handles empty chain (no snarls)", "[snarl_de
     ReplaySnarlFinder replay(events);
 
     SECTION("flipping an empty chain") {
-        set<pair<handle_t, handle_t>> flips = {{h5f, h5f}};
+        std::unordered_set<nid_t> flips {5};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
 
         // Flipped: begin_chain(flip(5fwd)) = begin_chain(5rev)
         //          end_chain(flip(5fwd)) = end_chain(5rev)
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<std::pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h5r},
             {ET::END_CHAIN, h5r},
         };
@@ -274,7 +272,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles multiple top-level chains", "[snarl_
     handle_t h4r = graph.get_handle(4, true);
 
     // Two top-level chains in the root snarl
-    vector<Event> events = {
+    std::vector<Event> events = {
         // Chain 1: 1fwd -> snarl -> 2fwd
         {ET::BEGIN_CHAIN, h1f},
           {ET::BEGIN_SNARL, h1f},
@@ -290,12 +288,12 @@ TEST_CASE("SnarlDecompositionFuzzer handles multiple top-level chains", "[snarl_
     ReplaySnarlFinder replay(events);
 
     SECTION("flip only first chain") {
-        set<pair<handle_t, handle_t>> flips = {{h1f, h2f}};
+        std::unordered_set<nid_t> flips {1, 2};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
 
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h2r},
               {ET::BEGIN_SNARL, h2r},
               {ET::END_SNARL, h1r},
@@ -314,12 +312,12 @@ TEST_CASE("SnarlDecompositionFuzzer handles multiple top-level chains", "[snarl_
     }
 
     SECTION("flip both chains") {
-        set<pair<handle_t, handle_t>> flips = {{h1f, h2f}, {h3f, h4f}};
+        std::unordered_set<nid_t> flips {1, 2, 3, 4};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
 
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h2r},
               {ET::BEGIN_SNARL, h2r},
               {ET::END_SNARL, h1r},
@@ -363,7 +361,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
     //       Snarl(2,3) [leaf snarl, no children]
     //   Snarl(4,6)
     //     Inner chain: 5->5 [empty/trivial]
-    vector<Event> events = {
+    std::vector<Event> events = {
         {ET::BEGIN_CHAIN, h1f},
           {ET::BEGIN_SNARL, h1f},
             {ET::BEGIN_CHAIN, h2f},
@@ -381,7 +379,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
     ReplaySnarlFinder replay(events);
 
     SECTION("flip outer chain only") {
-        set<pair<handle_t, handle_t>> flips = {{h1f, h6f}};
+        std::unordered_set<nid_t> flips {1, 6};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
@@ -391,7 +389,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
         // Chain 5f->5f reversed to 5r->5r.
         // Chain 2f->3f (containing snarl 2f->3f) reversed to 3r->2r
         // (containing snarl 3r->2r).
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<std::pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h6r},
               {ET::BEGIN_SNARL, h6r},
                 {ET::BEGIN_CHAIN, h5r},
@@ -414,7 +412,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
     }
 
     SECTION("flip outer and inner chain 2->3") {
-        set<pair<handle_t, handle_t>> flips = {{h1f, h6f}, {h2f, h3f}};
+        std::unordered_set<nid_t> flips {1, 6, 2, 3};
         SnarlDecompositionFuzzer fuzzer(&graph, &replay, flips);
 
         auto captured = capture_events(fuzzer);
@@ -423,7 +421,7 @@ TEST_CASE("SnarlDecompositionFuzzer handles deeply nested chains", "[snarl_decom
         // 3r->2r and chain 5f->5f to 5r->5r), AND THEN inner chain 2f->3f
         // is flipped again back to its original orientation 2f->3f.
         // Chain 5f->5f is NOT in flip set, so it stays reversed as 5r->5r.
-        vector<pair<ET, handle_t>> expected = {
+        std::vector<std::pair<ET, handle_t>> expected = {
             {ET::BEGIN_CHAIN, h6r},
               {ET::BEGIN_SNARL, h6r},
                 {ET::BEGIN_CHAIN, h5r},

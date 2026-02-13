@@ -13,8 +13,6 @@
 namespace vg {
 namespace unittest {
 
-using namespace std;
-
 /// Get the canonicalized set of edge sequence pairs from a graph.
 /// Each edge is represented as a pair of sequences (left_seq, right_seq) read
 /// in the orientation of the edge. To canonicalize, we compare each pair
