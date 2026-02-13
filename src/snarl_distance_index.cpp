@@ -960,7 +960,10 @@ void populate_snarl_index(
                 size_t next_rank = next_is_node
                             ? temp_index.temp_node_records.at(next_index.second - temp_index.min_node_id).rank_in_parent  
                             : temp_index.temp_chain_records[next_index.second].rank_in_parent;
-                assert(all_children[next_rank-2] == next_index);
+                // Subtract 2 to get the index from the rank
+                assert(next_rank >= 2);
+                next_rank -= 2;
+                assert(all_children[next_rank] == next_index);
                 bool next_rev = (next_is_node || temp_index.temp_chain_records[next_index.second].is_trivial)
                             ? graph->get_is_reverse(next_handle) 
                             : graph->get_id(next_handle) == temp_index.temp_chain_records[next_index.second].end_node_id;
@@ -1013,11 +1016,6 @@ void populate_snarl_index(
                     return true;
                 });
                 if (is_source) {
-                    //If this is a new source node, then add it as a source node
-
-                    //subtract 2 to get the index from the rank
-                    assert(next_rank >= 2);
-                    next_rank-=2;
                     source_nodes.emplace_back(next_rank, next_rev);
                 }
                 return true;
