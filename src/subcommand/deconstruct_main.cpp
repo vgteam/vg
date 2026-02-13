@@ -339,7 +339,6 @@ int main_deconstruct(int argc, char** argv) {
     }
 
     // process the prefixes to find ref paths
-    // Altpaths are included (priority given to non-altpaths in deconstructor.cpp)
     if (!refpath_prefixes.empty()) {
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
