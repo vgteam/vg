@@ -1956,6 +1956,137 @@ namespace vg {
             }
                    
         } 
+        TEST_CASE( "Ranks are given correctly for DAG with a tip",
+                  "[snarl_distance]" ) {
+            SECTION( "node tip oriented forward" ) {
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("C");
+                Node* n5 = graph.create_node("CTGA");
+                
+                Edge* e1 = graph.create_edge(n1, n3);
+                Edge* e2 = graph.create_edge(n3, n5);
+                Edge* e3 = graph.create_edge(n4, n3);
+                Edge* e4 = graph.create_edge(n4, n5);
+                Edge* e5 = graph.create_edge(n3, n2);
+                Edge* e6 = graph.create_edge(n2, n5);
+                
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+                net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+                net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                net_handle_t snarl_start = distance_index.get_node_from_sentinel(
+                    distance_index.get_bound(distance_index.get_parent(chain2), false, true));
+                if (distance_index.node_id(snarl_start) == 1) {
+                    // Node 2 is strictly after node 3
+                    REQUIRE(distance_index.get_rank_in_parent(chain2) > distance_index.get_rank_in_parent(chain3));
+                } else {
+                    cerr << "Snarl is reversed so this test is no longer valid" << endl;
+                }
+            }
+            SECTION( "node tip oriented backward" ) {
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("C");
+                Node* n5 = graph.create_node("CTGA");
+                
+                Edge* e1 = graph.create_edge(n1, n3);
+                Edge* e2 = graph.create_edge(n3, n5);
+                Edge* e3 = graph.create_edge(n4, n3, true, false);
+                Edge* e4 = graph.create_edge(n4, n5, true, false);
+                Edge* e5 = graph.create_edge(n3, n2);
+                Edge* e6 = graph.create_edge(n2, n5);
+                
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+                net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+                net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                net_handle_t snarl_start = distance_index.get_node_from_sentinel(
+                    distance_index.get_bound(distance_index.get_parent(chain2), false, true));
+                if (distance_index.node_id(snarl_start) == 1) {
+                    // Node 2 is strictly after node 3
+                    REQUIRE(distance_index.get_rank_in_parent(chain2) > distance_index.get_rank_in_parent(chain3));
+                } else {
+                    cerr << "Snarl is reversed so this test is no longer valid" << endl;
+                }
+            }
+            SECTION( "chain tip oriented forward" ) {
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("C");
+                Node* n5 = graph.create_node("CTGA");
+                Node* n6 = graph.create_node("A");
+                
+                Edge* e1 = graph.create_edge(n1, n3);
+                Edge* e2 = graph.create_edge(n3, n5);
+                Edge* e3 = graph.create_edge(n4, n3);
+                Edge* e4 = graph.create_edge(n4, n5);
+                Edge* e5 = graph.create_edge(n3, n2);
+                Edge* e6 = graph.create_edge(n2, n5);
+                Edge* e7 = graph.create_edge(n6, n4);
+                
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+                net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+                net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                net_handle_t snarl_start = distance_index.get_node_from_sentinel(
+                    distance_index.get_bound(distance_index.get_parent(chain2), false, true));
+                if (distance_index.node_id(snarl_start) == 1) {
+                    // Node 2 is strictly after node 3
+                    REQUIRE(distance_index.get_rank_in_parent(chain2) > distance_index.get_rank_in_parent(chain3));
+                } else {
+                    cerr << "Snarl is reversed so this test is no longer valid" << endl;
+                }
+            }
+            SECTION( "chain tip oriented backward" ) {
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("C");
+                Node* n5 = graph.create_node("CTGA");
+                Node* n6 = graph.create_node("A");
+                
+                Edge* e1 = graph.create_edge(n1, n3);
+                Edge* e2 = graph.create_edge(n3, n5);
+                Edge* e3 = graph.create_edge(n4, n3, true, false);
+                Edge* e4 = graph.create_edge(n4, n5, true, false);
+                Edge* e5 = graph.create_edge(n3, n2);
+                Edge* e6 = graph.create_edge(n2, n5);
+                Edge* e7 = graph.create_edge(n6, n4, false, true);
+                
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+                net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+                net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                net_handle_t snarl_start = distance_index.get_node_from_sentinel(
+                    distance_index.get_bound(distance_index.get_parent(chain2), false, true));
+                if (distance_index.node_id(snarl_start) == 1) {
+                    // Node 2 is strictly after node 3
+                    REQUIRE(distance_index.get_rank_in_parent(chain2) > distance_index.get_rank_in_parent(chain3));
+                } else {
+                    cerr << "Snarl is reversed so this test is no longer valid" << endl;
+                }
+            }
+        } 
         TEST_CASE( "Snarl decomposition can handle chains with nodes in different directions",
                   "[snarl_distance]" ) {
         
