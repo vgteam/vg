@@ -15,12 +15,33 @@
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
+#include "augref.hpp"
 
 namespace vg {
 
 using namespace std;
 
 using vg::io::AlignmentEmitter;
+
+/// Special marker value for star alleles in genotype vectors.
+/// A star allele (*) represents a haplotype that spans a nested site in the
+/// parent but doesn't have a defined traversal at the child level.
+constexpr int STAR_ALLELE_MARKER = -2;
+
+/// Special marker value for missing alleles in genotype vectors.
+/// Used when a parent allele doesn't traverse a child snarl and star_allele
+/// mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy.
+constexpr int MISSING_ALLELE_MARKER = -1;
+
+/// A set of traversals through a child snarl that are consistent with
+/// a single parent allele. Multiple traversals can exist if the child
+/// has internal variation within a shared region.
+using TraversalSet = vector<SnarlTraversal>;
+
+/// One TraversalSet per parent allele (index matches parent genotype).
+/// For a diploid parent with genotype [0,1], element 0 contains traversals
+/// consistent with parent allele 0, element 1 with parent allele 1.
+using ChildTraversalSets = vector<TraversalSet>;
 
 /**
  * GraphCaller: Use the snarl decomposition to call snarls in a graph
@@ -365,18 +386,18 @@ protected:
 
 };
 
-
 /**
- * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find 
- * traversals, and calls those based on how much support they have.  
+ * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find
+ * traversals, and calls those based on how much support they have.
  * Should work on any graph but will not
- * report cyclic traversals.  Does not (yet, anyway) support nested
- * calling, so the entire site is processes in one shot. 
+ * report cyclic traversals.  Supports nested calling when enabled with the
+ * nested flag, recursively processing child snarls.
  * Designed to replace LegacyCaller, as it should miss fewer obviously
- * good traversals, and is not dependent on old protobuf-based structures. 
+ * good traversals, and is not dependent on old protobuf-based structures.
  */
 class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
+    /// Original constructor for non-nested mode
     FlowCaller(const PathPositionHandleGraph& graph,
                SupportBasedSnarlCaller& snarl_caller,
                SnarlManager& snarl_manager,
@@ -391,7 +412,27 @@ public:
                size_t trav_padding,
                bool genotype_snarls,
                const pair<size_t, size_t>& allele_length_range);
-   
+
+    /// Extended constructor for nested mode with clustering and star alleles
+    FlowCaller(const PathPositionHandleGraph& graph,
+               SupportBasedSnarlCaller& snarl_caller,
+               SnarlManager& snarl_manager,
+               const string& sample_name,
+               TraversalFinder& traversal_finder,
+               const vector<string>& ref_paths,
+               const vector<size_t>& ref_path_offsets,
+               const vector<int>& ref_path_ploidies,
+               AlignmentEmitter* aln_emitter,
+               bool traversals_only,
+               bool gaf_output,
+               size_t trav_padding,
+               bool genotype_snarls,
+               const pair<size_t, size_t>& allele_length_range,
+               bool nested,
+               double cluster_threshold,
+               bool cluster_post_genotype,
+               bool star_allele);
+
     virtual ~FlowCaller();
 
     virtual bool call_snarl(const Snarl& snarl);
@@ -440,18 +481,56 @@ protected:
     /// 1) its largest allele is >= allele_length_range.first and
     /// 2) all alleles are < allele_length_range.second
     pair<size_t, size_t> allele_length_range;
+
+    /// --- Nested mode members ---
+
+    /// enable recursive calling of child snarls
+    bool nested = false;
+
+    /// cluster traversals with Jaccard similarity >= this threshold
+    double cluster_threshold = 1.0;
+
+    /// if true, cluster after genotyping (for output grouping); if false, cluster before genotyping
+    bool cluster_post_genotype = false;
+
+    /// use * alleles for spanning haplotypes that don't traverse nested sites
+    bool star_allele = false;
+
+    /// Internal implementation of call_snarl that accepts parent context for nested mode
+    /// When nested=true, this recursively calls children after processing the current snarl
+    /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
+    /// @param parent_ref_interval Reference interval from parent
+    /// @param parent_child_trav_sets If non-null, contains one TraversalSet per parent allele.
+    ///                               Each set contains all traversals through this child that are
+    ///                               consistent with that parent allele. The child genotypes by
+    ///                               picking the best pair (one from each set) based on read support.
+    bool call_snarl_internal(const Snarl& snarl,
+                             const string& parent_ref_path_name,
+                             pair<size_t, size_t> parent_ref_interval,
+                             const ChildTraversalSets* parent_child_trav_sets = nullptr);
+
+    /// Find all traversals through a child snarl that are consistent with a parent traversal.
+    /// "Consistent" means the child's entry/exit points match what's in the parent traversal.
+    /// Uses the traversal finder to enumerate all valid paths through the child.
+    /// @param parent_trav The parent traversal defining entry/exit constraints
+    /// @param child The child snarl to find traversals through
+    /// @return Set of traversals through child, empty if parent doesn't traverse child
+    TraversalSet find_child_traversal_set(const SnarlTraversal& parent_trav,
+                                          const Snarl& child) const;
+
+    /// Extract the portion of a parent traversal that spans a child snarl (single traversal).
+    /// This is a simpler version used when we only need one traversal from the parent.
 };
 
 class SnarlGraph;
 
 /**
- * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find 
- * traversals, and calls those based on how much support they have.  
- * Should work on any graph but will not
- * report cyclic traversals.  
+ * NestedFlowCaller : DEPRECATED - Use FlowCaller with nested=true instead.
  *
- * todo: this is a generalization of FlowCaller and should be able to replace it entirely after testing
- *       to get rid of duplicated code. 
+ * Uses any traversals finder (ex, FlowTraversalFinder) to find
+ * traversals, and calls those based on how much support they have.
+ * Should work on any graph but will not report cyclic traversals.
+ * This class is being replaced by FlowCaller's nested mode.
  */
 class NestedFlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
@@ -468,7 +547,7 @@ public:
                      bool gaf_output,
                      size_t trav_padding,
                      bool genotype_snarls);
-   
+
     virtual ~NestedFlowCaller();
 
     virtual bool call_snarl(const Snarl& snarl);
@@ -487,7 +566,7 @@ protected:
         int ref_trav_idx; // index of ref paths in CallRecord::travs
     };
     typedef map<Snarl, CallRecord, NestedCachedPackedTraversalSupportFinder::snarl_less> CallTable;
-   
+
     /// update the table of calls for each child snarl (and the input snarl)
     bool call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
                               const string& parent_ref_path_name, pair<size_t, size_t> parent_ref_path_interval,
@@ -502,7 +581,7 @@ protected:
     /// a proper string by recursively resolving the nested snarls into alleles
     string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;
     string flatten_alt_allele(const string& nested_allele, int allele, int ploidy, const CallTable& call_table) const;
-       
+
     /// the graph
     const PathPositionHandleGraph& graph;
 
@@ -515,11 +594,11 @@ protected:
 
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
-    
+
     /// keep traco of the ploidies (todo: just one map for all path stuff!!)
     map<string, int> ref_ploidies;
 
-    /// until we support nested snarls, cap snarl size we attempt to process    
+    /// until we support nested snarls, cap snarl size we attempt to process
     size_t max_snarl_shallow_size = 50000;
 
     /// alignment emitter. if not null, traversals will be output here and

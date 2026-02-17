@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
+#include "../augref.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gbwt_helper.hpp"
@@ -51,6 +52,7 @@ void help_deconstruct(char** argv) {
          << "                           snarl names to snarl names and AT fields in output" << endl
          << "  -a, --all-snarls         process all snarls, including nested snarls" << endl
          << "                           (by default only top-level snarls reported)." << endl
+         << "                           Uses hierarchical processing and writes LV/PS tags." << endl
          << "  -c, --context-jaccard N  set context mapping size used to disambiguate alleles" << endl
          << "                           at sites with multiple reference traversals [10000]" << endl
          << "  -u, --untangle-travs     use context mapping for reference-relative positions" << endl
@@ -62,10 +64,8 @@ void help_deconstruct(char** argv) {
          << "                           for reference if possible (i.e. only one ref sample)" << endl
          << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
          << "                           is >= F together [1.0; experimental]" << endl
-         << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
-         << "  -f, --nested-fasta F     Write off-reference FASTA to F (and some indexing" << endl
-         << "                           information to F.nesting.tsv) [experimental]" << endl
-         << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
+         << "  -R, --star-allele        use *-alleles to represent haplotypes that span the" << endl
+         << "                           parent but don't traverse nested sites (requires -a)" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
          << "  -h, --help               print this help message to stderr and exit" << endl;
@@ -94,10 +94,8 @@ int main_deconstruct(int argc, char** argv) {
     bool untangle_traversals = false;
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
-    bool nested = false;
-    string nested_fasta_file_name;
     bool star_allele = false;
-    
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -120,8 +118,6 @@ int main_deconstruct(int argc, char** argv) {
                 {"strict-conflicts", no_argument, 0, 'S'},
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
-                {"nested", no_argument, 0, 'n'},
-                {"nested-fasta", required_argument, 0, 'f'},                
                 {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
@@ -129,7 +125,7 @@ int main_deconstruct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nf:Rt:v",
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:Rt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -186,12 +182,6 @@ int main_deconstruct(int argc, char** argv) {
         case 'L':
             cluster_threshold = max(0.0, min(1.0, parse<double>(optarg)));
             break;
-        case 'n':
-            nested = true;
-            break;
-        case 'f':
-            nested_fasta_file_name = ensure_writable(logger, optarg);
-            break;
         case 'R':
             star_allele = true;
             break;
@@ -212,13 +202,13 @@ int main_deconstruct(int argc, char** argv) {
 
     }
 
-    if (nested == true && contig_only_ref == true) {
-        logger.error() << "-C cannot be used with -n" << endl;
+    if (all_snarls == true && contig_only_ref == true) {
+        logger.error() << "-C cannot be used with -a" << endl;
     }
-    if (star_allele == true && nested == false) {
-        logger.error() << "-R can only be used with -n" << endl;
+    if (star_allele == true && all_snarls == false) {
+        logger.error() << "-R can only be used with -a" << endl;
     }
-    
+
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph_up;
     unique_ptr<GBZGraph> gbz_graph;
@@ -259,8 +249,8 @@ int main_deconstruct(int argc, char** argv) {
     
     // Make the overlay
     // When not using GBWT/GBZ, embedded HAPLOTYPE paths are the sample alleles
-    bool all_paths = gbwt_file_name.empty() && !gbz_graph;
-    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph, all_paths);
+    bool embedded_haplotype_paths = gbwt_file_name.empty() && !gbz_graph;
+    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph, embedded_haplotype_paths);
     
     // See how long that took
     clock_t overlay_stop_clock = clock();
@@ -302,6 +292,7 @@ int main_deconstruct(int argc, char** argv) {
         bool found_hap = false;
 
         // No paths specified: use all reference and non-alt generic paths as reference to deconstruct against.
+        // Altpaths are included as reference paths (priority given to non-altpaths in deconstructor.cpp)
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
@@ -351,7 +342,7 @@ int main_deconstruct(int argc, char** argv) {
     if (!refpath_prefixes.empty()) {
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
-            for (auto& prefix : refpath_prefixes) {                    
+            for (auto& prefix : refpath_prefixes) {
                 if (path_name.compare(0, prefix.size(), prefix) == 0) {
                     refpaths.push_back(path_name);
                     break;
@@ -372,6 +363,10 @@ int main_deconstruct(int argc, char** argv) {
         std::unordered_map<nid_t, size_t> extra_node_weight;
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : refpaths) {
+            // Skip altpaths (they shouldn't influence snarl decomposition)
+            if (AugRefCover::is_augref_name(refpath_name)) {
+                continue;
+            }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(refpath_handle)))] += EXTRA_WEIGHT;
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
@@ -398,7 +393,7 @@ int main_deconstruct(int argc, char** argv) {
         logger.info() << "Deconstructing top-level snarls" << endl;
     }
     dd.set_translation(translation.get());
-    dd.set_nested(all_snarls || nested);
+    dd.set_nested(all_snarls);
     dd.deconstruct(refpaths, graph, snarl_manager.get(),
                    all_snarls,
                    context_jaccard_window,
@@ -408,12 +403,8 @@ int main_deconstruct(int argc, char** argv) {
                    !contig_only_ref,
                    cluster_threshold,
                    gbwt_index,
-                   nested,
                    star_allele);
 
-    if (!nested_fasta_file_name.empty()) {
-        dd.save_off_ref_sequences(nested_fasta_file_name);
-    }
     return 0;
 }
 
