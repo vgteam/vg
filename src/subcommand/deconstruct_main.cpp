@@ -258,7 +258,9 @@ int main_deconstruct(int argc, char** argv) {
     std::chrono::time_point<std::chrono::system_clock> overlay_start_time = std::chrono::system_clock::now(); 
     
     // Make the overlay
-    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph);
+    // When not using GBWT/GBZ, embedded HAPLOTYPE paths are the sample alleles
+    bool all_paths = gbwt_file_name.empty() && !gbz_graph;
+    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph, all_paths);
     
     // See how long that took
     clock_t overlay_stop_clock = clock();
