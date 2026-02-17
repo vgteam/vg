@@ -120,10 +120,10 @@ struct GBWTConfig {
 };
 
 struct GraphHandler {
-    enum graph_type { graph_none, graph_path, graph_source, graph_gbz };
+    enum graph_type { graph_none, graph_path, graph_naive, graph_gbz };
 
     std::unique_ptr<PathHandleGraph> path_graph = nullptr;
-    std::unique_ptr<gbwtgraph::SequenceSource> sequence_source = nullptr;
+    std::unique_ptr<gbwtgraph::NaiveGraph> naive_graph = nullptr;
     std::unique_ptr<gbwtgraph::GBZ> gbz_graph = nullptr;
     graph_type in_use = graph_none;
 
@@ -135,9 +135,9 @@ struct GraphHandler {
     // No effect if the handler already contains a `PathHandleGraph`.
     void get_graph(const GBWTConfig& config);
 
-    // Take the ownership of the provided `SequenceSource` and store it in the handler.
+    // Take the ownership of the provided `NaiveGraph` and store it in the handler.
     // Releases other graphs.
-    void use(std::unique_ptr<gbwtgraph::SequenceSource>& source);
+    void use(std::unique_ptr<gbwtgraph::NaiveGraph>& source);
 
     // Load the GBZ specified in the config, store it in the handler, and tell
     // the GBWTHandler to use the stored GBWT as an external GBWT.
@@ -146,7 +146,7 @@ struct GraphHandler {
 
     void clear();
 
-    // If the handler contains a `SequenceSource`, serialize it according to the config.
+    // If the handler contains a `NaiveGraph`, serialize it according to the config.
     void serialize_segment_translation(const GBWTConfig& config) const;
 };
 
@@ -952,7 +952,7 @@ void validate_gbwt_config(GBWTConfig& config) {
     // We have one input GBWT after steps 1-4.
     bool one_input_gbwt = config.input_filenames.size() == 1 || config.produces_one_gbwt;
 
-    // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ or GG/GBWT.
+    // We can load a PathHandleGraph from a file, get a NaiveGraph from parsing GFA, or get a GBWTGraph from GBZ or GG/GBWT.
     bool has_graph_input = (!config.graph_name.empty() || config.build == GBWTConfig::build_gfa 
                           || config.build == GBWTConfig::build_gbz);
 
@@ -1588,12 +1588,12 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     }
 
     gbwts.use_compressed();
-    if (graphs.in_use == GraphHandler::graph_source) {
+    if (graphs.in_use == GraphHandler::graph_naive) {
         // We avoid creating a duplicate GBWT by moving it into a std::unique_ptr.
-        // Both the GBWT and the SequenceSource get reset during construction.
+        // Both the GBWT and the NaiveGraph get reset during construction.
         std::unique_ptr<gbwt::GBWT> gbwt_ptr = std::make_unique<gbwt::GBWT>(std::move(*gbwts.get_compressed()));
-        gbwtgraph::GBZ gbz(gbwt_ptr, graphs.sequence_source);
-        graphs.clear(); // We no longer need the SequenceSource.
+        gbwtgraph::GBZ gbz(gbwt_ptr, graphs.naive_graph);
+        graphs.clear(); // We no longer need the NaiveGraph.
         save_gbz(gbz, config.graph_output, config.show_progress);
         gbwts.use(gbz.index); // We may need the GBWT later.
     } else if (graphs.in_use == GraphHandler::graph_gbz) {
@@ -1787,10 +1787,10 @@ void GraphHandler::get_graph(const GBWTConfig& config) {
     }
 }
 
-void GraphHandler::use(std::unique_ptr<gbwtgraph::SequenceSource>& source) {
+void GraphHandler::use(std::unique_ptr<gbwtgraph::NaiveGraph>& source) {
     this->clear();
-    this->sequence_source = std::move(source);
-    this->in_use = graph_source;
+    this->naive_graph = std::move(source);
+    this->in_use = graph_naive;
 }
 
 void GraphHandler::load_gbz(GBWTHandler& gbwts, GBWTConfig& config) {
@@ -1807,7 +1807,7 @@ void GraphHandler::load_gbz(GBWTHandler& gbwts, GBWTConfig& config) {
 
 void GraphHandler::clear() {
     this->path_graph.reset();
-    this->sequence_source.reset();
+    this->naive_graph.reset();
     this->gbz_graph.reset();
     this->in_use = graph_none;
 }
@@ -1820,10 +1820,9 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
     }
     std::ofstream out(config.segment_translation, std::ios_base::binary);
 
-    if (this->in_use == graph_source) {
-        if (this->sequence_source->uses_translation()) {
-            auto& translation = this->sequence_source->segment_translation;
-            for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
+    if (this->in_use == graph_naive) {
+        if (this->naive_graph->uses_translation()) {
+            for (auto iter = this->naive_graph->translation_begin(); iter != this->naive_graph->translation_end(); ++iter) {
                 out << "T\t" << iter->first << "\t" << iter->second.first;
                 for (nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
                     out << "," << i;

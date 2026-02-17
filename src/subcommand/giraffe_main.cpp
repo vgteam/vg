@@ -688,7 +688,10 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "                                in the GR tag as a cs-style difference string" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
-             << "                                for each setting combination" << endl
+             << "                                for each setting combination. Setting values for" << endl
+             << "                                many other options can be provided as ranges" << endl
+             << "                                in the format start[:end[:step]], with end"
+             << "                                being inclusive." << endl
              << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
              << "                                about mapping locations (use one read at a time)" << endl;
@@ -1642,12 +1645,12 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the distance index
     if (show_progress) {
-        logger.info() << "Loading Distance Index v3" << endl;
+        logger.info() << "Loading Distance Index" << endl;
     }
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     if (show_progress) {
-        logger.info() << "Paging in Distance Index v3" << endl;
+        logger.info() << "Paging in Distance Index" << endl;
     }
     std::chrono::time_point<std::chrono::system_clock> preload_start = std::chrono::system_clock::now();
     // Make sure the distance index is paged in from disk.
@@ -1715,7 +1718,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         logger.info() << "Loading and initialization: "
                       << init_seconds.count() << " seconds" << endl;
-        logger.info() << "Of which Distance Index v3 paging: "
+        logger.info() << "Of which Distance Index paging: "
                       << di2_preload_seconds.count() << " seconds" << endl;
     }
     

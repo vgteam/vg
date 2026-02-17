@@ -93,7 +93,7 @@ gbwtgraph::GBWTGraph build_gbwt_graph(const gbwt::GBWT& gbwt_index) {
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
     VG vg_graph(graph);
-    return gbwtgraph::GBWTGraph(gbwt_index, vg_graph);
+    return gbwtgraph::GBWTGraph(gbwt_index, vg_graph, nullptr);
 }
 
 void same_position(const Position& pos, const Position& correct) {
@@ -1131,7 +1131,7 @@ TEST_CASE("Non-ACGT characters do not match", "[gapless_extender]") {
         { static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)) }
     };
     gbwt::GBWT gbwt_index = get_gbwt(paths);
-    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, graph);
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, graph, nullptr);
 
 
     // Wrap it in a GaplessExtender with an Aligner.
@@ -1241,11 +1241,11 @@ gbwt::GBWT wfa_linear_gbwt() {
 }
 
 gbwtgraph::GBWTGraph wfa_linear_graph(const gbwt::GBWT& index) {
-    gbwtgraph::SequenceSource source;
-    source.add_node(1, "CGC");
-    source.add_node(2, "GATTACA");
-    source.add_node(3, "GATTA");
-    source.add_node(4, "TAT");
+    gbwtgraph::NaiveGraph source;
+    source.create_node(1, "CGC");
+    source.create_node(2, "GATTACA");
+    source.create_node(3, "GATTA");
+    source.create_node(4, "TAT");
     return gbwtgraph::GBWTGraph(index, source);
 }
 
@@ -1278,32 +1278,32 @@ gbwt::GBWT wfa_general_gbwt() {
 }
 
 gbwtgraph::GBWTGraph wfa_general_graph(const gbwt::GBWT& index) {
-    gbwtgraph::SequenceSource source;
+    gbwtgraph::NaiveGraph source;
 
     // Start.
-    source.add_node(1, "CGC");
-    source.add_node(2, "GATTACA");
+    source.create_node(1, "CGC");
+    source.create_node(2, "GATTACA");
 
     // Simple bubble.
-    source.add_node(3, "G");
-    source.add_node(4, "C");
+    source.create_node(3, "G");
+    source.create_node(4, "C");
 
     // Middle.
-    source.add_node(5, "ATTA");
+    source.create_node(5, "ATTA");
 
     // Nondeterministic bubble.
-    source.add_node(6, "TG");
-    source.add_node(7, "TC");
+    source.create_node(6, "TG");
+    source.create_node(7, "TC");
 
     // Middle.
-    source.add_node(8, "GAA");
+    source.create_node(8, "GAA");
 
     // Bubble that depends on the nondeterministic choice.
-    source.add_node(9, "CAT");
-    source.add_node(10, "GTA");
+    source.create_node(9, "CAT");
+    source.create_node(10, "GTA");
 
     // End.
-    source.add_node(11, "TAT");
+    source.create_node(11, "TAT");
 
     return gbwtgraph::GBWTGraph(index, source);
 }
@@ -1335,10 +1335,10 @@ gbwt::GBWT wfa_cycle_gbwt() {
 }
 
 gbwtgraph::GBWTGraph wfa_cycle_graph(const gbwt::GBWT& index) {
-    gbwtgraph::SequenceSource source;
-    source.add_node(1, "CGC");
-    source.add_node(2, "GA");
-    source.add_node(3, "TAT");
+    gbwtgraph::NaiveGraph source;
+    source.create_node(1, "CGC");
+    source.create_node(2, "GA");
+    source.create_node(3, "TAT");
     return gbwtgraph::GBWTGraph(index, source);
 }
 
@@ -1379,12 +1379,12 @@ gbwt::GBWT wfa_non_diverging_multi_node_cycle_gbwt() {
 }
 
 gbwtgraph::GBWTGraph wfa_non_diverging_multi_node_cycle_graph(const gbwt::GBWT& index) {
-    gbwtgraph::SequenceSource source;
-    source.add_node(1, "CATTAG");
-    source.add_node(2, "GA");
-    source.add_node(3, "TTA");
-    source.add_node(4, "CA");
-    source.add_node(5, "TATAGAGA");
+    gbwtgraph::NaiveGraph source;
+    source.create_node(1, "CATTAG");
+    source.create_node(2, "GA");
+    source.create_node(3, "TTA");
+    source.create_node(4, "CA");
+    source.create_node(5, "TATAGAGA");
     return gbwtgraph::GBWTGraph(index, source);
 }
 

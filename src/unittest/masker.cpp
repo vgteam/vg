@@ -212,7 +212,7 @@ TEST_CASE( "Masker produces expected results on simple paths", "[masker]" ) {
         gbwt_builder.finish();
         gbwt::GBWT gbwt_index(gbwt_builder.index);
         
-        gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, graph);
+        gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, graph, nullptr);
         
         Masker masker(gbwt_graph);
         

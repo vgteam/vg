@@ -61,6 +61,7 @@ jobs:
           brew update && \
           brew install protobuf && \
           brew install libomp && \
+          brew install bwa graphviz && \
           npm install -g txm@7.4.5 && \
           brew config && \
           (brew doctor || echo "brew doctor is unhappy")
