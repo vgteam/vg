@@ -201,7 +201,7 @@ protected:
     bool verbose = false;
 
     // When true, rank traversal fragments by name only (ignore coverage).
-    // For testing whether consistent path selection reduces fragmentation.
+    // This ensures deterministic output regardless of thread count.
     bool rank_by_name = false;
 
     // Copy base reference paths to the augref sample.

@@ -99,7 +99,14 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     this->interval_snarl_bounds.clear();
     this->node_to_interval.clear();
     this->graph = graph;
-    this->rank_by_name = true;  // TODO: testing — rank traversals by name only
+    // Rank traversal fragments by path name only, ignoring coverage. This ensures
+    // deterministic output: the same lowest-name path wins in every snarl, so adjacent
+    // snarl intervals land on the same path and only same-path merging is needed,
+    // eliminating dependence on OpenMP thread scheduling during the global fold.
+    // TODO: to re-enable coverage-based ranking, the global fold must be made
+    // deterministic (e.g. by sorting intervals before folding rather than relying
+    // on per-thread vector order).
+    this->rank_by_name = true;
 
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
