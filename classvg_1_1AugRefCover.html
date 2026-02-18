@@ -141,6 +141,12 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:aa22bf5fd49cf2806c100d10ed9e3d002"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a276cf7393ac2b6150b9a7bd0e468ac4e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a276cf7393ac2b6150b9a7bd0e468ac4e">defragment_intervals</a> ()</td></tr>
 <tr class="separator:a276cf7393ac2b6150b9a7bd0e468ac4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c7aa29c5e1e932f2f624d711f83910c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a9c7aa29c5e1e932f2f624d711f83910c">filter_short_intervals</a> (int64_t minimum_length)</td></tr>
+<tr class="separator:a9c7aa29c5e1e932f2f624d711f83910c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a207306f88d136a51ed3afb0a91a2ed89"><td class="memItemLeft" align="right" valign="top">optional&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a207306f88d136a51ed3afb0a91a2ed89">try_extend_forward</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;other_interval)</td></tr>
+<tr class="separator:a207306f88d136a51ed3afb0a91a2ed89"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a593ba1ed50ca87f311635a7691e39164"><td class="memItemLeft" align="right" valign="top">optional&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a593ba1ed50ca87f311635a7691e39164">try_extend_backward</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;other_interval)</td></tr>
+<tr class="separator:a593ba1ed50ca87f311635a7691e39164"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae69ff569f12371c34897cdcc14c06511"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#ae69ff569f12371c34897cdcc14c06511">get_coverage</a> (const vector&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;trav, const pair&lt; int64_t, int64_t &gt; &amp;uncovered_interval)</td></tr>
 <tr class="separator:ae69ff569f12371c34897cdcc14c06511"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0e84c41ae50607cd969308f2c573be3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#af0e84c41ae50607cd969308f2c573be3">forwardize_augref_paths</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *mutable_graph)</td></tr>
@@ -172,6 +178,8 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a1dc939a47fa86feafc101a94f75fb3fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f9e4bba0e4499d8ae6a57230ef7335a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a5f9e4bba0e4499d8ae6a57230ef7335a">verbose</a> = false</td></tr>
 <tr class="separator:a5f9e4bba0e4499d8ae6a57230ef7335a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50d06704034225700e796b4d78dd21c4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a50d06704034225700e796b4d78dd21c4">rank_by_name</a> = false</td></tr>
+<tr class="separator:a50d06704034225700e796b4d78dd21c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Function Documentation</h2>
 <a id="aa22bf5fd49cf2806c100d10ed9e3d002"></a>
@@ -454,6 +462,32 @@ Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">void vg::AugRefCover::fill_uncovered_nodes </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>minimum_length</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9c7aa29c5e1e932f2f624d711f83910c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c7aa29c5e1e932f2f624d711f83910c">&#9670;&nbsp;</a></span>filter_short_intervals()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::AugRefCover::filter_short_intervals </td>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>minimum_length</em></td><td>)</td>
@@ -885,6 +919,90 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a593ba1ed50ca87f311635a7691e39164"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a593ba1ed50ca87f311635a7691e39164">&#9670;&nbsp;</a></span>try_extend_backward()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">optional&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; vg::AugRefCover::try_extend_backward </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>start_step</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>other_interval</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a207306f88d136a51ed3afb0a91a2ed89"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a207306f88d136a51ed3afb0a91a2ed89">&#9670;&nbsp;</a></span>try_extend_forward()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">optional&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; vg::AugRefCover::try_extend_forward </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>start_step</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>other_interval</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a310ea8c492fb4d72914dd48023961f05"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a310ea8c492fb4d72914dd48023961f05">&#9670;&nbsp;</a></span>verify_cover()</h2>
 
@@ -1094,6 +1212,28 @@ Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">int64_t vg::AugRefCover::num_ref_intervals = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a50d06704034225700e796b4d78dd21c4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a50d06704034225700e796b4d78dd21c4">&#9670;&nbsp;</a></span>rank_by_name</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::AugRefCover::rank_by_name = false</td>
         </tr>
       </table>
   </td>
