@@ -21,6 +21,8 @@
  * cover can be created and loaded, but they are not used beyond that.
  */
 
+#include <optional>
+
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
@@ -135,6 +137,21 @@ protected:
     // add_interval() can delete an existing interval. This requires a full update at the end.
     void defragment_intervals();
 
+    // Remove non-reference intervals shorter than minimum_length, then defragment.
+    // Called after all merging is complete so short intervals have had a chance to merge.
+    void filter_short_intervals(int64_t minimum_length);
+
+    // Walk forward from start_step on path, comparing each node ID + orientation
+    // against other_interval's steps. Returns the new end step if all match, nullopt otherwise.
+    optional<step_handle_t> try_extend_forward(step_handle_t start_step, path_handle_t path,
+                                                const pair<step_handle_t, step_handle_t>& other_interval);
+
+    // Collect other_interval's node IDs + orientations into a vector (forward walk).
+    // Then walk backward from start_step on path, comparing in reverse.
+    // Returns the first matching step if all match, nullopt otherwise.
+    optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
+                                                 const pair<step_handle_t, step_handle_t>& other_interval);
+
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 
@@ -182,6 +199,10 @@ protected:
 
     // Whether to print verbose output (coverage summary, etc.)
     bool verbose = false;
+
+    // When true, rank traversal fragments by name only (ignore coverage).
+    // For testing whether consistent path selection reduces fragmentation.
+    bool rank_by_name = false;
 
     // Copy base reference paths to the augref sample.
     // Creates new paths like "new_sample#0#chr1" from "CHM13#0#chr1".
