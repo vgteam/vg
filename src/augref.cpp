@@ -195,16 +195,21 @@ void AugRefCover::compute(const PathHandleGraph* graph,
         snarl_bounds_vector[t].clear();
     }
 
+    // remove any intervals that were made redundant by add_interval
+    defragment_intervals();
+
+    // first length filter: remove tiny snarl intervals so their nodes become
+    // uncovered and fill_uncovered_nodes can pick them up as part of longer stretches
+    filter_short_intervals(minimum_length);
+
     // second pass: greedily cover any nodes not covered by snarl traversals
+    // (including nodes freed by the length filter above)
     fill_uncovered_nodes(1 /*defer length filter to post-merge*/);
 
     // debug: verify all nodes are covered
     verify_cover();
 
-    // remove any intervals that were made redundant by add_interval
-    defragment_intervals();
-
-    // apply length filter after all merging is complete
+    // second length filter: remove any tiny intervals from fill_uncovered_nodes
     filter_short_intervals(minimum_length);
 
     if (verbose) {
@@ -818,7 +823,11 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
 
     // check the end step. if it's in an interval then it must be immediately
     // following we merge the new interval to the front of the found interval
-    if (!left_cross_path_merged &&
+    // Skip right merge only after left cross-path try 1 (merged=true), where the
+    // merged interval lives on a different path and right-checking effective_interval
+    // would mix paths. After try 2 (merged=false), effective_interval is on the
+    // original path and right merge is valid.
+    if (!(left_cross_path_merged && merged) &&
         effective_interval.second != graph->path_end(graph->get_path_handle_of_step(effective_interval.second))) {
         nid_t next_node_id = graph->get_id(graph->get_handle_of_step(effective_interval.second));
         if (thread_node_to_interval.count(next_node_id)) {
