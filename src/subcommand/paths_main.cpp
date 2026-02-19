@@ -66,6 +66,7 @@ void help_paths(char** argv) {
          << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
          << "  -R, --reference-paths    select reference paths" << endl
          << "  -H, --haplotype-paths    select haplotype paths" << endl
+         << "      --exclude-sample STR  exclude paths belonging to this sample" << endl
          << "augmented reference computation:" << endl
          << "  -u, --compute-augref     compute augmented reference path cover" << endl
          << "                           (use -Q to select reference paths)" << endl
@@ -151,9 +152,11 @@ int main_paths(int argc, char** argv) {
     string augref_sample;
     bool augref_verbose = false;
     string augref_segments_file;
+    string exclude_sample;
 
     constexpr int OPT_VERBOSE = 1001;
     constexpr int OPT_AUGREF_SEGMENTS = 1002;
+    constexpr int OPT_EXCLUDE_SAMPLE = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -197,6 +200,7 @@ int main_paths(int argc, char** argv) {
             {"augref-sample", required_argument, 0, 'N'},
             {"augref-segs", required_argument, 0, OPT_AUGREF_SEGMENTS},
             {"verbose", no_argument, 0, OPT_VERBOSE},
+            {"exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE},
 
             {0, 0, 0, 0}
         };
@@ -357,6 +361,10 @@ int main_paths(int argc, char** argv) {
             augref_segments_file = ensure_writable(logger, optarg);
             break;
 
+        case OPT_EXCLUDE_SAMPLE:
+            exclude_sample = optarg;
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -432,6 +440,9 @@ int main_paths(int argc, char** argv) {
     if (!augref_segments_file.empty() && !compute_augref) {
         logger.error() << "--augref-segs requires --compute-augref" << std::endl;
     }
+    if (!exclude_sample.empty() && !sample_name.empty() && exclude_sample == sample_name) {
+        logger.error() << "--exclude-sample and --sample cannot specify the same sample" << std::endl;
+    }
 
     if (select_alt_paths) {
         // alt paths all have a specific prefix
@@ -491,6 +502,10 @@ int main_paths(int argc, char** argv) {
                 return;
             }
             if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
+                if (!exclude_sample.empty() &&
+                    graph->get_sample_name(ph) == exclude_sample) {
+                    return;
+                }
                 ref_paths.insert(ph);
             }
         });
@@ -594,11 +609,24 @@ int main_paths(int argc, char** argv) {
             }
         }
 
+        if (!exclude_sample.empty()) {
+            std::vector<gbwt::size_type> filtered_ids;
+            filtered_ids.reserve(thread_ids.size());
+            for (gbwt::size_type id : thread_ids) {
+                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, id, gbwt_reference_samples);
+                std::string sample = gbwtgraph::get_path_sample_name(*gbwt_index, id, sense);
+                if (sample != exclude_sample) {
+                    filtered_ids.push_back(id);
+                }
+            }
+            thread_ids = std::move(filtered_ids);
+        }
+
         if (thread_ids.empty()) {
             logger.warn() << "no matching paths found in GBWT index" << std::endl;
             return 0;
         }
-        
+
         // Process the threads.
         for (gbwt::size_type id : thread_ids) {
             PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, id, gbwt_reference_samples);
@@ -656,6 +684,10 @@ int main_paths(int argc, char** argv) {
                     if (graph->has_path(name)) {
                         auto path_handle = graph->get_path_handle(name);
                         if (path_senses.count(graph->get_sense(path_handle))) {
+                            if (!exclude_sample.empty() &&
+                                graph->get_sample_name(path_handle) == exclude_sample) {
+                                continue;
+                            }
                             // But only take those with senses we want.
                             iteratee(path_handle);
                         }
@@ -678,7 +710,13 @@ int main_paths(int argc, char** argv) {
                 
                 graph->for_each_path_matching(&path_senses, sample_name_filter, locus_name_filter,
                     [&](const path_handle_t& path_handle) {
-                
+
+                    // Filter out excluded sample
+                    if (!exclude_sample.empty() &&
+                        graph->get_sample_name(path_handle) == exclude_sample) {
+                        return;
+                    }
+
                     // We got a path of appropriate sense, locus, and sample.
                     if (!path_prefix.empty()) {
                         // Filter by name prefix
