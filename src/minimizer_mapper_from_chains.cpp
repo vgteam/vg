@@ -255,7 +255,8 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                         for (auto& handle_and_positions : found->second) {
                             std::string path_name = path_graph->get_path_name(handle_and_positions.first);
                             for (auto& position : handle_and_positions.second) {
-                                // Dump all the seed positions so we can select seeds we want to know about
+                                // Dump all the seed positions so we can select seeds we want to know about.
+                                // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
                                 seedpos.line();
                                 seedpos.field(seed_anchors.at(seed_num).read_start());
                                 seedpos.field(path_name);

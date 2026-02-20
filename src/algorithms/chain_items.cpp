@@ -794,10 +794,14 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
         // Track the penalty we are off optimal for this traceback
         int penalty = best_past_ending_score_ever - chain_scores[trace_from];
         size_t here = trace_from;
-        //std::cerr << "[REC INFO] Starting traceback at item #" << here << " with recs: " << chain_scores[here].rec_num << " score: " << chain_scores[here].score << std::endl;
+#ifdef debug_chaining
+        std::cerr << "[REC INFO] Starting traceback at item #" << here << " with recs: " << chain_scores[here].rec_num << " score: " << chain_scores[here].score << std::endl;
+#endif
         while (here != TracedScore::nowhere()) {
-            //std::cerr << "\trecs: " << chain_scores[here].rec_num << " paths:\t" << std::bitset<64>(chain_scores[here].paths) << std::endl;
-            //std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
+#ifdef debug_chaining
+            std::cerr << "\trecs: " << chain_scores[here].rec_num << " paths:\t" << std::bitset<64>(chain_scores[here].paths) << std::endl;
+            std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
+#endif
             // Mark here as used. Happens once per item, and so limits runtime.
             item_is_used[here] = true;
             size_t next = chain_scores[here].source;
@@ -881,7 +885,9 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                              max_indel_bases,
                                                              recomb_penalty,
                                                              show_work);
-    //std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
+#ifdef debug_chaining
+    std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
+#endif
     // Then do the tracebacks
     vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(
         chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
@@ -961,24 +967,22 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           double points_per_possible_match,
                                           size_t max_indel_bases) {
                                                                  
-    {
-        ChainsResult cr = find_best_chains(
-            to_chain,
-            distance_index,
-            graph,
-            gap_open,
-            gap_extension,
-            recomb_penalty,
-            1,
-            for_each_transition,
-            item_bonus,
-            item_scale,
-            gap_scale,
-            points_per_possible_match,
-            max_indel_bases
-        );
-        return cr.chains.front().scored_chain;
-    }
+    ChainsResult cr = find_best_chains(
+        to_chain,
+        distance_index,
+        graph,
+        gap_open,
+        gap_extension,
+        recomb_penalty,
+        1,
+        for_each_transition,
+        item_bonus,
+        item_scale,
+        gap_scale,
+        points_per_possible_match,
+        max_indel_bases
+    );
+    return cr.chains.front().scored_chain;
 }
 
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, 

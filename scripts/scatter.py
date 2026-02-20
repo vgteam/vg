@@ -913,7 +913,7 @@ def main(args):
         sys.stderr.write("Install the matplotalt package to generate figure alt text\n")
         alt_text = None
     except Exception as e:
-        print("Could not generate alt text due to internal error")
+        sys.stderr.write("Could not generate alt text due to internal error\n")
         traceback.print_exc()
         alt_text = None
    
