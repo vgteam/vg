@@ -17,7 +17,7 @@ from collections import defaultdict, Counter
 def parse_seeds_file(filepath):
     """
     Parse a chain seeds file.
-    Returns list of dicts with keys: read_pos, ref_name, ref_pos, strand, seed_num, seed_id
+    Returns list of dicts with keys: read_pos, ref_name, ref_pos, strand, seed_num, seed_name
     """
     seeds = []
     with open(filepath, 'r') as f:
@@ -34,7 +34,7 @@ def parse_seeds_file(filepath):
                 'ref_pos': int(parts[2]),
                 'strand': parts[3],
                 'seed_num': int(parts[4]),
-                'seed_id': parts[5]
+                'seed_name': parts[5]
             })
     return seeds
 
@@ -42,7 +42,7 @@ def parse_seeds_file(filepath):
 def parse_chaindump_file(filepath):
     """
     Parse a chaindump file.
-    Returns list of dicts with keys: source_id, dest_id, score (signed)
+    Returns list of dicts with keys: source_name, dest_name, score (signed)
     """
     transitions = []
     with open(filepath, 'r') as f:
@@ -54,8 +54,8 @@ def parse_chaindump_file(filepath):
             if len(parts) < 3:
                 continue
             transitions.append({
-                'source_id': parts[0],
-                'dest_id': parts[1],
+                'source_name': parts[0],
+                'dest_name': parts[1],
                 'score': int(parts[2])
             })
     return transitions
@@ -85,60 +85,66 @@ def generate_svg(seeds, transitions, output_path):
         best_ref_name = ref_name_counts.most_common(1)[0][0]
         seeds = [s for s in seeds if s['ref_name'] == best_ref_name]
 
-    # Build seed lookup by ID
-    seed_by_id = {s['seed_id']: s for s in seeds}
-    seed_ids = set(seed_by_id.keys())
+    # Index seeds by name.
+    # We use the index in seeds as our main identifier for the seeds in the
+    # visualization, though we still track the "seed number" and human-readable
+    # name to display.
+    seed_index = {s['seed_name']: i for i, s in enumerate(seeds)}
+    
+    # Filter transitions and translate them to be in terms of seed index.
+    translated_transitions = []
+    for t in transitions:
+        source_index = seed_index.get(t['source_name'])
+        dest_index = seed_index.get(t['dest_name'])
+        if source_index is not None and dest_index is not None:
+            translated_transitions.append({
+                'source_index': source_index,
+                'dest_index': dest_index,
+                'score': t['score']
+            })
+    transitions.clear()
 
-    # Index seeds by ID
-    seed_id_to_index = {s['seed_id']: i for i, s in enumerate(seeds)}
-
-    # Filter transitions to those where both endpoints are in our seeds
-    relevant_transitions = [t for t in transitions
-                            if t['source_id'] in seed_ids and t['dest_id'] in seed_ids]
-
-    # Compute max positive score per destination
-    max_score_by_dest = defaultdict(lambda: float('-inf'))
-    for t in relevant_transitions:
-        if t['score'] > 0 and t['score'] > max_score_by_dest[t['dest_id']]:
-            max_score_by_dest[t['dest_id']] = t['score']
+    # Compute max positive score per destination index
+    max_score_by_dest = [float('-inf')] * len(seeds)
+    for t in translated_transitions:
+        if t['score'] > 0 and t['score'] > max_score_by_dest[t['dest_index']]:
+            max_score_by_dest[t['dest_index']] = t['score']
 
     # Build seeds data with score info
     seeds_data = []
     for i, s in enumerate(seeds):
-        max_score = max_score_by_dest.get(s['seed_id'], 0)
-        seeds_data.append({
-            'index': i,
-            'seed_num': s['seed_num'],
-            'read_pos': s['read_pos'],
-            'ref_pos': s['ref_pos'],
-            'strand': s['strand'],
-            'seed_id': s['seed_id'],
-            'max_score': max_score if max_score > float('-inf') else 0
-        })
+        max_score = max_score_by_dest[i]
+        seed_data = dict(
+            s,
+            index=i,
+            max_score=max_score if max_score > float('-inf') else 0
+        )
+        del seed_data['ref_name']
+        seeds_data.append(seed_data)
+    seeds.clear()
 
     # Build transitions data with fraction of max
     transitions_data = []
-    for t in relevant_transitions:
-        max_score = max_score_by_dest[t['dest_id']]
+    for t in translated_transitions:
+        max_score = max_score_by_dest[t['dest_index']]
         fraction = max(0, t['score'] / max_score) if max_score > 0 else 0
-        transitions_data.append({
-            'source_id': t['source_id'],
-            'source_index': seed_id_to_index.get(t['source_id'], -1),
-            'dest_id': t['dest_id'],
-            'dest_index': seed_id_to_index.get(t['dest_id'], -1),
-            'score': t['score'],
-            'fraction': fraction,
-            'is_max': (t['score'] == max_score)
-        })
+        transition_data = dict(
+            t,
+            fraction=fraction,
+            # Mark all the maximal-score transitions
+            is_max=(t['score'] == max_score)
+        )
+        transitions_data.append(transition_data)
+    translated_transitions.clear()
 
     # Compress JSON data
     seeds_compressed = base64.b64encode(gzip.compress(
         json.dumps(seeds_data).encode('utf-8'))).decode('ascii')
+    seeds_data.clear()
     transitions_compressed = base64.b64encode(gzip.compress(
         json.dumps(transitions_data).encode('utf-8'))).decode('ascii')
+    transitions_data.clear()
 
-    # CSS and JS are plain strings (no f-string brace escaping needed).
-    # Only the data script uses f-string interpolation.
     css = '''  <style>
     .seed {
       fill: steelblue;
@@ -206,7 +212,8 @@ def generate_svg(seeds, transitions, output_path):
         f'    var TRANSITIONS_COMPRESSED = "{transitions_compressed}";\n'
         '  </script>'
     )
-
+    
+    # This script needs CDATA escaping because it might contain < and &
     js = '''  <script type="text/javascript">
     <![CDATA[
 
@@ -249,14 +256,9 @@ def generate_svg(seeds, transitions, output_path):
        * Stores arrays and builds four index Maps.
        */
       constructor(seeds, transitions) {
-        /// The raw seed array, for iteration and extent computation.
+        /// The raw seed array, for looking seeds up by index, and extent
+        /// computation.
         this.seeds = seeds;
-        /// The raw transition array, for iteration and extent computation.
-        this.transitions = transitions;
-
-        /// Map from seed_id to seed object.
-        this._seedById = new Map();
-        seeds.forEach(s => this._seedById.set(s.seed_id, s));
 
         /// Map from dest_index to array of transitions arriving there.
         this._transitionsByDestIndex = new Map();
@@ -271,7 +273,7 @@ def generate_svg(seeds, transitions, output_path):
           this._transitionsBySourceIndex.get(t.source_index).push(t);
         });
 
-        /// Map from dest_index to the is_max transition arriving there.
+        /// Map from dest_index to an is_max transition arriving there, if any.
         this._bestTransitionToSeed = new Map();
         transitions.forEach(t => {
           if (t.is_max) this._bestTransitionToSeed.set(t.dest_index, t);
@@ -279,14 +281,7 @@ def generate_svg(seeds, transitions, output_path):
       }
 
       /**
-       * Look up a seed by its seed_id.
-       */
-      seedById(id) {
-        return this._seedById.get(id);
-      }
-
-      /**
-       * The is_max transition arriving at seedIndex, or undefined.
+       * An is_max transition arriving at seedIndex, or undefined.
        */
       bestTransitionTo(seedIndex) {
         return this._bestTransitionToSeed.get(seedIndex);
@@ -296,7 +291,7 @@ def generate_svg(seeds, transitions, output_path):
        * A specific transition from sourceIndex to destIndex, or undefined.
        */
       transitionFromTo(sourceIndex, destIndex) {
-        const fromSource = this._transitionsBySourceIndex.get(sourceIndex) || [];
+        const fromSource = this.transitionsFrom(sourceIndex);
         return fromSource.find(t => t.dest_index === destIndex);
       }
 
@@ -585,7 +580,7 @@ def generate_svg(seeds, transitions, output_path):
        * Base tooltip text for a seed.
        */
       #seedTooltipText(d) {
-        return `Seed #${d.seed_num} (${d.strand})\\nSeed ID: ${d.seed_id}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
+        return `Seed #${d.seed_num} (${d.strand})\\nName: ${d.seed_name}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
       }
 
       /**
@@ -602,8 +597,8 @@ def generate_svg(seeds, transitions, output_path):
       #positionLines(selection) {
         const viz = this;
         selection.each(function(d) {
-          const src = viz.data.seedById(d.source_id);
-          const dst = viz.data.seedById(d.dest_id);
+          const src = viz.data.seeds[d.source_index];
+          const dst = viz.data.seeds[d.dest_index];
           if (src && dst) {
             d3.select(this)
               .attr('x1', viz.currentXScale(src.ref_pos))
@@ -662,7 +657,7 @@ def generate_svg(seeds, transitions, output_path):
         this.seedCircles.classed('on-traceback', d => tracebackSet.has(d.index) && d.index !== seedIndex);
 
         const lines = this.tracebackLayer.selectAll('.traceback')
-          .data(path, d => d.source_id + '->' + d.dest_id);
+          .data(path, d => d.source_name + '->' + d.dest_name);
 
         lines.enter()
           .append('line')
@@ -689,7 +684,7 @@ def generate_svg(seeds, transitions, output_path):
         const className = 'secondary-dest-' + seedIndex;
 
         this.secondaryTransitionLayer.selectAll('.' + className)
-          .data(positiveTrans, d => d.source_id + '->' + d.dest_id)
+          .data(positiveTrans, d => d.source_name + '->' + d.dest_name)
           .enter()
           .append('line')
           .attr('class', 'transition secondary ' + className)
@@ -704,11 +699,12 @@ def generate_svg(seeds, transitions, output_path):
       }
 
       /**
-       * Draw a thick black line from hoveredIndex to the selected seed.
+       * Use a thick black line to highlight the transition from the seed at
+       the given index to the selected seed.
        */
-      #highlightTransitionToSelected(hoveredIndex) {
-        if (!this.selectedSeed || hoveredIndex === this.selectedSeed.index) return;
-        const trans = this.data.transitionFromTo(hoveredIndex, this.selectedSeed.index);
+      #highlightTransitionToSelected(fromIndex) {
+        if (!this.selectedSeed || fromIndex === this.selectedSeed.index) return;
+        const trans = this.data.transitionFromTo(fromIndex, this.selectedSeed.index);
         if (!trans) return;
 
         this.hoveredToSelectedLayer.append('line')
