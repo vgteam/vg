@@ -81,13 +81,12 @@ $(function() {
 <code>#include &lt;limits&gt;</code><br />
 <code>#include &lt;memory&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
+<code>#include &lt;string_view&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;gbwt/utils.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1str__view.html">vg::str_view</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html">vg::GAFSorterRecord</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html">vg::GAFSorterFile</a></td></tr>
@@ -111,7 +110,8 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Tools for sorting GAF records.</p>
-<p>TODO: This could be an independent utility. TODO: Asynchronous I/O. TODO: Option for automatic detection of merge width to guarantee &lt;= 2 rounds. TODO: Option for giving approximate batch size in bytes. TODO: Switch to std::string_view when we can. TODO: Remove sorting by GBWT position as obsolete. </p>
+<p>NOTE: There is an equivalent standalone tool included with GBZ-base.</p>
+<p>TODO: Asynchronous I/O. TODO: Option for automatic detection of merge width to guarantee &lt;= 2 rounds. TODO: Option for giving approximate batch size in bytes. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

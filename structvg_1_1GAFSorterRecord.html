@@ -115,11 +115,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a12be04dc643a05775ac81ad8283d5b65"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a12be04dc643a05775ac81ad8283d5b65">read_line</a> (std::istream &amp;in, <a class="el" href="structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfb">key_type</a> type)</td></tr>
 <tr class="memdesc:a12be04dc643a05775ac81ad8283d5b65"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads a GAF line from a stream and sets the key. Returns true on success.  <a href="structvg_1_1GAFSorterRecord.html#a12be04dc643a05775ac81ad8283d5b65">More...</a><br /></td></tr>
 <tr class="separator:a12be04dc643a05775ac81ad8283d5b65"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aba524b5b1526c8081249b50b0bdae504"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1str__view.html">str_view</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#aba524b5b1526c8081249b50b0bdae504">get_field</a> (size_t field) const</td></tr>
-<tr class="memdesc:aba524b5b1526c8081249b50b0bdae504"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a view of the given 0-based field, or an empty string if the field is missing.  <a href="structvg_1_1GAFSorterRecord.html#aba524b5b1526c8081249b50b0bdae504">More...</a><br /></td></tr>
-<tr class="separator:aba524b5b1526c8081249b50b0bdae504"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac527343d93b0fa067800ffaea84993d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#ac527343d93b0fa067800ffaea84993d7">for_each_field</a> (const std::function&lt; bool(size_t, <a class="el" href="structvg_1_1str__view.html">str_view</a>)&gt; &amp;lambda) const</td></tr>
-<tr class="separator:ac527343d93b0fa067800ffaea84993d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f65b7c9edcd6da648dd02ef52626edc"><td class="memItemLeft" align="right" valign="top">std::string_view&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a4f65b7c9edcd6da648dd02ef52626edc">get_field</a> (size_t field) const</td></tr>
+<tr class="memdesc:a4f65b7c9edcd6da648dd02ef52626edc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a view of the given 0-based field, or an empty string if the field is missing.  <a href="structvg_1_1GAFSorterRecord.html#a4f65b7c9edcd6da648dd02ef52626edc">More...</a><br /></td></tr>
+<tr class="separator:a4f65b7c9edcd6da648dd02ef52626edc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7713f0f7e75a512564c53646590c0f1a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a7713f0f7e75a512564c53646590c0f1a">for_each_field</a> (const std::function&lt; bool(size_t, std::string_view)&gt; &amp;lambda) const</td></tr>
+<tr class="separator:a7713f0f7e75a512564c53646590c0f1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50fcbc6ccca3da5fb04fb27f2f63a1c0"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a50fcbc6ccca3da5fb04fb27f2f63a1c0">as_gbwt_path</a> (bool *ok=nullptr) const</td></tr>
 <tr class="separator:a50fcbc6ccca3da5fb04fb27f2f63a1c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -307,8 +307,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ac527343d93b0fa067800ffaea84993d7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac527343d93b0fa067800ffaea84993d7">&#9670;&nbsp;</a></span>for_each_field()</h2>
+<a id="a7713f0f7e75a512564c53646590c0f1a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7713f0f7e75a512564c53646590c0f1a">&#9670;&nbsp;</a></span>for_each_field()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -316,7 +316,7 @@ Static Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::GAFSorterRecord::for_each_field </td>
           <td>(</td>
-          <td class="paramtype">const std::function&lt; bool(size_t, <a class="el" href="structvg_1_1str__view.html">str_view</a>)&gt; &amp;&#160;</td>
+          <td class="paramtype">const std::function&lt; bool(size_t, std::string_view)&gt; &amp;&#160;</td>
           <td class="paramname"><em>lambda</em></td><td>)</td>
           <td> const</td>
         </tr>
@@ -326,14 +326,14 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aba524b5b1526c8081249b50b0bdae504"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aba524b5b1526c8081249b50b0bdae504">&#9670;&nbsp;</a></span>get_field()</h2>
+<a id="a4f65b7c9edcd6da648dd02ef52626edc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f65b7c9edcd6da648dd02ef52626edc">&#9670;&nbsp;</a></span>get_field()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1str__view.html">str_view</a> vg::GAFSorterRecord::get_field </td>
+          <td class="memname">std::string_view vg::GAFSorterRecord::get_field </td>
           <td>(</td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>field</em></td><td>)</td>
