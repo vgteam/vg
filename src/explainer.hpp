@@ -109,11 +109,9 @@ public:
     /// Start a new line. Must call this before field().
     void line();
 
-    /// Add a field with a string value
-    void field(const std::string& value);
-
-    /// Add a field with an integral value
-    void field(size_t value);
+    /// Add a field with any value that can be <<'d into a stream.
+    template<typename T>
+    void field(const T& value);
 
 protected:
     /// Stream being written to
@@ -123,6 +121,19 @@ protected:
     /// Whether we need a newline before the next line
     bool need_line = false;
 };
+
+template<typename T>
+void TSVExplainer::field(const T& value) {
+    if (!explaining()) {
+        return;
+    }
+    if (need_tab) {
+        out << "\t";
+    }
+    out << value;
+    // Next value on the line needs a leading tab
+    need_tab = true;
+}
 
 /**
  * Widget to serialize somewhat structured logs.

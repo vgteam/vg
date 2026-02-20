@@ -126,7 +126,7 @@ rm -f read.fq read.gam
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr > /dev/null 2>&1
 # Check that at least some TSV files and directories were created 
-is "$(find explanation_read1 -name '*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
+is "$(find explanation_read1 -name 'chain*-dotplot*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
 is "$(ls -d explanation_* 2>/dev/null | wc -l | tr -d ' ')" "3" "Explanation directories are created per read"
 
 rm -rf explanation_*
