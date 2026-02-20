@@ -636,14 +636,17 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     std::priority_queue<std::pair<GAFSorterRecord, size_t>> queue;
     for (size_t i = 0; i < records.size(); i++) {
         if (!records[i].empty()) {
-            queue.emplace(std::move(records[i].front()), i);
+            // We already flipped the key for the max heap in `read_buffer()`.
+            // We also need to flip the source index to get a stable order.
+            size_t source_index = records.size() - 1 - i;
+            queue.emplace(std::move(records[i].front()), source_index);
             records[i].pop_front();
         }
     }
     while (!queue.empty()) {
         GAFSorterRecord record = std::move(queue.top().first);
         record.flip_key(); // Restore the original key.
-        size_t source = queue.top().second;
+        size_t source = records.size() - 1 - queue.top().second; // Flip the source index back.
         queue.pop();
         buffer.push_back(std::move(record));
         if (buffer.size() >= buffer_size) {
@@ -661,7 +664,9 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
             }
         }
         if (!records[source].empty()) {
-            queue.emplace(std::move(records[source].front()), source);
+            // Max heap; we use flipped keys and source indexes.
+            size_t source_index = records.size() - 1 - source;
+            queue.emplace(std::move(records[source].front()), source_index);
             records[source].pop_front();
         }
     }
