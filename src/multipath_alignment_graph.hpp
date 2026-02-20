@@ -21,6 +21,10 @@ namespace vg {
     
     
     // TODO: put in MultipathAlignmentGraph namespace
+    
+    /// Represents a single component alignment between part of a string and a
+    /// path through the target graph, withing a MultipathAlignmentGraph. Also
+    /// holds edge data for which other PathNodes can succeed it.
     class PathNode {
     public:
         string::const_iterator begin;
@@ -40,19 +44,19 @@ namespace vg {
         /// is needed to construct the MultipathAlignmentGraph, and to perform
         /// some other operations on it, but is big enough that it is worth not
         /// making it a member.
-        static unordered_multimap<id_t, pair<id_t, bool>> create_injection_trans(const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+        static unordered_multimap<nid_t, pair<nid_t, bool>> create_injection_trans(const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans);
         
         /// Create the constant injection translation data from a function instead
         /// of a map
-        static unordered_multimap<id_t, pair<id_t, bool>> create_injection_trans(const HandleGraph& graph,
-                                                                                 const function<pair<id_t, bool>(id_t)>& project);
+        static unordered_multimap<nid_t, pair<nid_t, bool>> create_injection_trans(const HandleGraph& graph,
+                                                                                   const function<pair<nid_t, bool>(nid_t)>& project);
         
         /// Create an identity projection translation from a DAG that did not
         /// need to be modified during dagification.
-        static unordered_map<id_t, pair<id_t, bool>> create_identity_projection_trans(const HandleGraph& graph);
+        static unordered_map<nid_t, pair<nid_t, bool>> create_identity_projection_trans(const HandleGraph& graph);
         
         /// Create a lambda function that projects using a map that projects
-        static function<pair<id_t, bool>(id_t)> create_projector(const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+        static function<pair<nid_t, bool>(nid_t)> create_projector(const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans);
         
         /// Construct a graph of the reachability between MEMs in a DAG-ified
         /// graph. If a GCSA is specified, use it to collapse MEMs whose
@@ -62,15 +66,15 @@ namespace vg {
         /// read interval.
         /// If a hit fails to be walked ouut in the graph, it is removed from hits.
         MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                const function<pair<id_t, bool>(id_t)>& project,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                const function<pair<nid_t, bool>(nid_t)>& project,
+                                const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                 vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
                                 
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily.
         MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans,
                                 vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
@@ -78,7 +82,7 @@ namespace vg {
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// using a lambda for a projector
         MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                const function<pair<id_t, bool>(id_t)>& project,
+                                const function<pair<nid_t, bool>(nid_t)>& project,
                                 vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
@@ -86,38 +90,38 @@ namespace vg {
         /// Construct a graph of the reachability between aligned chunks in a linearized
         /// path graph. Produces a graph with reachability edges.
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns = true,
+                                const Alignment& alignment, const function<pair<nid_t, bool>(nid_t)>& project,
+                                const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans, bool realign_Ns = true,
                                 bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns = true,
+                                const Alignment& alignment, const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans, bool realign_Ns = true,
                                 bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// and using a lambda for a projector
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns = true,
+                                const Alignment& alignment, const function<pair<nid_t, bool>(nid_t)>& project, bool realign_Ns = true,
                                 bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
         
         /// Make a multipath alignment graph using the path of a single-path alignment. Only
         /// one of snarl_manager and dist_index need be supplied.
         MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
                                 SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
-                                const function<pair<id_t, bool>(id_t)>& project,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                const function<pair<nid_t, bool>(nid_t)>& project,
+                                const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
                                 SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+                                const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// using a function instead of a map
         MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
                                 SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
-                                const function<pair<id_t, bool>(id_t)>& project);
+                                const function<pair<nid_t, bool>(nid_t)>& project);
         
         ~MultipathAlignmentGraph();
         
@@ -145,13 +149,6 @@ namespace vg {
                                          double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
                                          vector<size_t>& path_node_provenance);
         
-        /// Clear reachability edges, so that add_reachability_edges can be run
-        /// (possibly after modifying the graph).
-        void clear_reachability_edges();
-        
-        /// Get the number of reachability edges in the graph.
-        size_t count_reachability_edges() const;
-        
         /// Remove the ends of paths, up to a maximum length, if they cause the path
         /// to extend past a branch point in the graph.
         void trim_to_branch_points(const HandleGraph* graph, size_t max_trim_length = 1);
@@ -161,7 +158,7 @@ namespace vg {
         /// cut size. Snarls can be stored either in a SnarlManager or a
         /// SnarlDistanceIndex (only one need be supplied).
         void resect_snarls_from_paths(SnarlManager* cutting_snarls, SnarlDistanceIndex* dist_index,
-                                      const function<pair<id_t, bool>(id_t)>& project, int64_t max_snarl_cut_size = 5);
+                                      const function<pair<nid_t, bool>(nid_t)>& project, int64_t max_snarl_cut_size = 5);
         
         /// Do some exploratory alignments of the tails of the graph, outside
         /// the outermost existing anchors, and define new anchoring paths from
@@ -177,12 +174,32 @@ namespace vg {
                                      size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                      double pessimistic_tail_gap_multiplier);
         
-        /// Add edges between reachable nodes and split nodes at overlaps
+        /// Add edges between reachable nodes and split nodes at overlaps.
+        ///
+        /// On completion, all overlap-colinear MEMs have been broken up into
+        /// colinear MEMs, and all colinear MEMs have been connected with
+        /// edges.
+        ///
+        /// MEMs are "colinear" if the first comes before the second in both
+        /// the read and the graph, and there is no intervening MEM such that
+        /// the first and intervening MEM, and the intervening and second MEM,
+        /// are colinear.
+        ///
+        /// MEMs are "overlap-colinear" if a suffix of the first MEM's
+        /// alignment is a prefix of the second MEM's alignment. TODO: Is that
+        /// true or does it also cover containment?  
         void add_reachability_edges(const HandleGraph& vg,
-                                    const function<pair<id_t, bool>(id_t)>& project,
-                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                    const function<pair<nid_t, bool>(nid_t)>& project,
+                                    const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                     vector<size_t>* path_node_provenance = nullptr);
-                                    
+
+        /// Clear reachability edges, so that add_reachability_edges can be run
+        /// (possibly after modifying the graph).
+        void clear_reachability_edges();
+        
+        /// Get the number of reachability edges in the graph.
+        size_t count_reachability_edges() const;
+
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a multipath_alignment_t. Reachability edges must
         /// be in the graph. The Alignment passed *must* be the same Alignment
@@ -201,7 +218,7 @@ namespace vg {
                    bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                    size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, size_t band_padding,
                    multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
-                   SnarlDistanceIndex* dist_index = nullptr, const function<pair<id_t, bool>(id_t)>* project = nullptr,
+                   SnarlDistanceIndex* dist_index = nullptr, const function<pair<nid_t, bool>(nid_t)>* project = nullptr,
                    bool allow_negative_scores = false, bool align_in_reverse = false,
                    uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
@@ -226,7 +243,7 @@ namespace vg {
                    size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
                    const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                    multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
-                   SnarlDistanceIndex* dist_index = nullptr, const function<pair<id_t, bool>(id_t)>* project = nullptr,
+                   SnarlDistanceIndex* dist_index = nullptr, const function<pair<nid_t, bool>(nid_t)>* project = nullptr,
                    bool allow_negative_scores = false, bool align_in_reverse = false,
                    uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
@@ -235,7 +252,7 @@ namespace vg {
         void to_dot(ostream& out, const Alignment* alignment = nullptr) const;
         
         /// Get lists of the vg node IDs that participate in each connected component in the MultipathAlignmentGraph
-        vector<vector<id_t>> get_connected_components() const;
+        vector<vector<nid_t>> get_connected_components() const;
         
         /// Does the multipath alignment graph have any nodes?
         bool empty() const;
@@ -247,8 +264,12 @@ namespace vg {
         size_t max_shift() const;
         
         void prune_high_shift_edges(size_t prune_diff, bool prohibit_new_sources, bool prohibit_new_sinks);
-        
+
     protected:
+
+        /// Default constructor for unit testing.
+        /// After using it, you need to create_match_nodes() and add_reachability_edges() yourself.
+        MultipathAlignmentGraph() = default;
         
         /// Nodes representing walked MEMs in the graph
         vector<PathNode> path_nodes;
@@ -260,6 +281,9 @@ namespace vg {
         /// If this is set and you want it unset, use clear_reachability_edges().
         /// If this is unset and you want it set, use add_reachability_edges().
         bool has_reachability_edges = false;
+
+        /// Field for tracking amount of work done during construction, for testability.
+        size_t build_queue_count = 0;
         
         /// Trim down the given PathNode of everything except softclips.
         /// Return true if it all gets trimmed away and should be removed.
@@ -274,14 +298,14 @@ namespace vg {
         
         /// Add the path chunks as nodes to the connectivity graph
         void create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                     const Alignment& alignment, const function<pair<nid_t, bool>(nid_t)>& project,
+                                     const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                      vector<size_t>* path_node_provenance = nullptr);
         
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
         void create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                const function<pair<id_t, bool>(id_t)>& project,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                const function<pair<nid_t, bool>(nid_t)>& project,
+                                const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                 vector<size_t>& path_node_provenance,
                                 int64_t max_branch_trim_length,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks);
@@ -289,6 +313,56 @@ namespace vg {
         /// If path nodes partially overlap, merge the sections that overlap into a single path node
         void merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
                                                    vector<size_t>& path_node_provenance);
+
+        
+        /// Add reachability edges and split and connect overlap-colinear MEMs
+        /// in the case where the underlying target graph is a stick.
+        ///
+        /// Use a stick-specific algorithm to detect colinear and
+        /// overlap-colinear MEMs.
+        ///
+        /// Note that this may produce some transitive edges, which may be
+        /// different than the ones the general algorithm produces.
+        ///
+        /// topological_order gives a topological order of the target graph
+        void add_reachability_edges_easy(const HandleGraph& vg,
+                                         const function<pair<nid_t, bool>(nid_t)>& project,
+                                         const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
+                                         const vector<handle_t>& topological_order,
+                                         vector<size_t>* path_node_provenance = nullptr);
+
+        /// Add reachability edges and split and connect overlap-cominear MEMs
+        /// in the general case.
+        ///
+        /// Note that this may produce some transitive edges.
+        ///
+        /// topological_order gives a topological order of the target graph
+        void add_reachability_edges_general(const HandleGraph& vg,
+                                            const function<pair<nid_t, bool>(nid_t)>& project,
+                                            const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
+                                            const vector<handle_t>& topological_order,
+                                            vector<size_t>* path_node_provenance = nullptr);
+
+        /// Split path_nodes nodes at overlaps.
+        ///
+        /// confirmed_overlaps is a map from index_from to maps of index_onto
+        /// to (overlap to length, overlap from length, dist). This means that
+        /// it is keyed by source path_nodes index for the earlier MEM, and
+        /// then destination path_nodes index for the later MEM. The values are
+        /// the amount of overlaps between the alignment fragments in the read,
+        /// then in the graph, and then the path length for the overlap edge.
+        /// 
+        /// TODO: what is that really?
+        ///
+        /// The path length for the overlap edge is 0 when the MEMs are
+        /// "overlap colinear", where a suffix of the first is a prefix of the
+        /// second.
+        ///
+        /// If path_node_provenance is set, it will be updated as path_nodes is
+        /// modified, to maintain provenance information about which value in
+        /// path_nodes came from what.
+        void split_at_overlap_edges(const unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>>& confirmed_overlaps,
+                                    vector<size_t>* path_node_provenance = nullptr);
         
         void jitter_homopolymer_ends(const HandleGraph& graph,
                                      vector<size_t>& path_node_provenance,
@@ -310,12 +384,12 @@ namespace vg {
         int64_t pessimistic_tail_gap(int64_t tail_length, double multiplier);
         
         /// Returns true if we're pointing into a snarl that we want to cut out of paths
-        bool into_cutting_snarl(id_t node_id, bool is_rev,
+        bool into_cutting_snarl(nid_t node_id, bool is_rev,
                                 SnarlManager* snarl_manager, SnarlDistanceIndex* dist_index) const;
         
         /// Returns the intervals of the path that lie inside of snarls
         vector<pair<size_t, size_t>> get_cut_segments(path_t& path, SnarlManager* cutting_snarls, SnarlDistanceIndex* dist_index,
-                                                      const function<pair<id_t, bool>(id_t)>& project, int64_t max_snarl_cut_size) const;
+                                                      const function<pair<nid_t, bool>(nid_t)>& project, int64_t max_snarl_cut_size) const;
         
         /// Generate alignments of the tails of the query sequence, beyond the
         /// sources and sinks. The Alignment passed *must* be the one that owns
@@ -378,7 +452,7 @@ namespace vg {
                                             const GSSWAligner* aligner,
                                             SnarlManager* cutting_snarls = nullptr,
                                             SnarlDistanceIndex* dist_index = nullptr,
-                                            const function<pair<id_t, bool>(id_t)>* project = nullptr);
+                                            const function<pair<nid_t, bool>(nid_t)>* project = nullptr);
         
         /// Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_tail_gap_memo;

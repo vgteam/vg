@@ -22,10 +22,10 @@
 using namespace std;
 namespace vg {
     
-    unordered_multimap<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_injection_trans(const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
+    unordered_multimap<nid_t, pair<nid_t, bool>> MultipathAlignmentGraph::create_injection_trans(const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans) {
         // create the injection translator, which maps a node in the original graph to every one of its occurrences
         // in the dagified graphfs
-        unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
+        unordered_multimap<nid_t, pair<nid_t, bool> > injection_trans;
         for (const auto& trans_record : projection_trans) {
 #ifdef debug_multipath_alignment
             cerr << trans_record.second.first << " -> " << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
@@ -36,23 +36,23 @@ namespace vg {
         return injection_trans;
     }
 
-    function<pair<id_t, bool>(id_t)> MultipathAlignmentGraph::create_projector(const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
-        return [&](id_t node_id) { return projection_trans.at(node_id); };
+    function<pair<nid_t, bool>(nid_t)> MultipathAlignmentGraph::create_projector(const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans) {
+        return [&](nid_t node_id) { return projection_trans.at(node_id); };
     }
 
-    unordered_multimap<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_injection_trans(const HandleGraph& graph,
-                                                                                               const function<pair<id_t, bool>(id_t)>& project) {
-        unordered_multimap<id_t, pair<id_t, bool>> injection_trans;
+    unordered_multimap<nid_t, pair<nid_t, bool>> MultipathAlignmentGraph::create_injection_trans(const HandleGraph& graph,
+                                                                                               const function<pair<nid_t, bool>(nid_t)>& project) {
+        unordered_multimap<nid_t, pair<nid_t, bool>> injection_trans;
         graph.for_each_handle([&](const handle_t& handle) {
-            id_t node_id = graph.get_id(handle);
+            nid_t node_id = graph.get_id(handle);
             auto proj = project(node_id);
             injection_trans.emplace(proj.first, make_pair(node_id, proj.second));
         });
         return injection_trans;
     }
     
-    unordered_map<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_identity_projection_trans(const HandleGraph& graph) {
-        unordered_map<id_t, pair<id_t, bool>> to_return;
+    unordered_map<nid_t, pair<nid_t, bool>> MultipathAlignmentGraph::create_identity_projection_trans(const HandleGraph& graph) {
+        unordered_map<nid_t, pair<nid_t, bool>> to_return;
         
         graph.for_each_handle([&](const handle_t& handle) {
             // Each node just projects from itself forward.
@@ -64,8 +64,8 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns,
+                                                     const Alignment& alignment, const function<pair<nid_t, bool>(nid_t)>& project,
+                                                     const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans, bool realign_Ns,
                                                      bool preserve_tail_anchors, vector<size_t>* path_node_provenance) {
         
         // Set up the initial multipath graph from the given path chunks.
@@ -81,7 +81,7 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns,
+                                                     const Alignment& alignment, const function<pair<nid_t, bool>(nid_t)>& project, bool realign_Ns,
                                                      bool preserve_tail_anchors, vector<size_t>* path_node_provenance) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, project,
                                                                              create_injection_trans(graph, project), realign_Ns, preserve_tail_anchors,
@@ -92,7 +92,7 @@ namespace vg {
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns,
+                                                     const Alignment& alignment, const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans, bool realign_Ns,
                                                      bool preserve_tail_anchors, vector<size_t>* path_node_provenance) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans), realign_Ns, preserve_tail_anchors,
@@ -102,8 +102,8 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                                     const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     const function<pair<nid_t, bool>(nid_t)>& project,
+                                                     const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                                      vector<size_t>& path_node_provenance,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
@@ -140,7 +140,7 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                                     const function<pair<id_t, bool>(id_t)>& project,
+                                                     const function<pair<nid_t, bool>(nid_t)>& project,
                                                      vector<size_t>& path_node_provenance,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) :
@@ -153,7 +153,7 @@ namespace vg {
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans,
                                                      vector<size_t>& path_node_provenance,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) :
@@ -167,8 +167,8 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
                                                      SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
-                                                     const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+                                                     const function<pair<nid_t, bool>(nid_t)>& project,
+                                                     const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans) {
         
         // this can only be done on aligned sequences
         if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
@@ -196,7 +196,7 @@ namespace vg {
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
                                                      SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
+                                                     const unordered_map<nid_t, pair<nid_t, bool>>& projection_trans) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans)) {
@@ -205,15 +205,15 @@ namespace vg {
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
                                                      SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
-                                                     const function<pair<id_t, bool>(id_t)>& project) :
+                                                     const function<pair<nid_t, bool>(nid_t)>& project) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              project, create_injection_trans(graph, project)) {
         // Nothing to do
     }
     
     void MultipathAlignmentGraph::create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
-                                                          const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                                          const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                          const Alignment& alignment, const function<pair<nid_t, bool>(nid_t)>& project,
+                                                          const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                                           vector<size_t>* path_node_provenance) {
         
         for (const auto& path_chunk : path_chunks) {
@@ -227,7 +227,7 @@ namespace vg {
             auto range = injection_trans.equal_range(path.mapping(0).position().node_id());
             for (auto iter = range.first; iter != range.second; iter++) {
                 
-                id_t injected_id = iter->second.first;
+                nid_t injected_id = iter->second.first;
                 
                 if (iter->second.second != path.mapping(0).position().is_reverse()) {
                     continue;
@@ -252,7 +252,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
                     cerr << "checking node " << graph.get_id(trav) << endl;
 #endif
-                    pair<id_t, bool> projected_trav = project(graph.get_id(trav));
+                    pair<nid_t, bool> projected_trav = project(graph.get_id(trav));
                     
                     const auto& pos = path.mapping(stack.size() - 1).position();
                     if (projected_trav.first == pos.node_id() &&
@@ -635,8 +635,8 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
-                                                     const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     const function<pair<nid_t, bool>(nid_t)>& project,
+                                                     const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                                      vector<size_t>& path_node_provenance,
                                                      int64_t max_branch_trim_length,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
@@ -661,7 +661,7 @@ namespace vg {
         
         // performs a check to see if a hit is a redundant sub-MEM
         auto is_redundant = [&](string::const_iterator begin, string::const_iterator end,
-                                const pos_t& hit_pos, id_t injected_id) {
+                                const pos_t& hit_pos, nid_t injected_id) {
             
             // check all MEMs that traversed this node to see if this is a redundant sub-MEM
             if (node_matches.count(injected_id)) {
@@ -717,7 +717,7 @@ namespace vg {
                         if (prefix_through_length > relative_offset) {
                             // we cross the relative offset on this node, so check if the path is in the predicted
                             // position for a redundant sub-MEM
-                            id_t node_id_here = mapping.position().node_id();
+                            nid_t node_id_here = mapping.position().node_id();
                             
 #ifdef debug_multipath_alignment
                             cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (project(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
@@ -798,7 +798,7 @@ namespace vg {
                 }
                 
                 // an id that corresponds to the original node
-                id_t injected_id = iter->second.first;
+                nid_t injected_id = iter->second.first;
                 
 #ifdef debug_multipath_alignment
                 cerr << "hit node exists in graph as " << injected_id << endl;
@@ -2033,7 +2033,7 @@ namespace vg {
     vector<pair<size_t, size_t>> MultipathAlignmentGraph::get_cut_segments(path_t& path,
                                                                            SnarlManager* cutting_snarls,
                                                                            SnarlDistanceIndex* dist_index,
-                                                                           const function<pair<id_t, bool>(id_t)>& project,
+                                                                           const function<pair<nid_t, bool>(nid_t)>& project,
                                                                            int64_t max_snarl_cut_size) const {
         
         // this list holds the beginning of the current segment at each depth in the snarl hierarchy
@@ -2049,7 +2049,7 @@ namespace vg {
         for (size_t j = 0, last = path.mapping_size() - 1; j <= last; j++) {
             const position_t& position = path.mapping(j).position();
             auto projection = project(position.node_id());
-            id_t projected_id = projection.first;
+            nid_t projected_id = projection.first;
             bool projected_rev = (projection.second != position.is_reverse());
             
             if (j > 0) {
@@ -2115,7 +2115,7 @@ namespace vg {
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
                                                            SnarlDistanceIndex* dist_index,
-                                                           const function<pair<id_t, bool>(id_t)>& project,
+                                                           const function<pair<nid_t, bool>(nid_t)>& project,
                                                            int64_t max_snarl_cut_size) {
 #ifdef debug_multipath_alignment
         cerr << "cutting with snarls" << endl;
@@ -2479,9 +2479,354 @@ namespace vg {
     }
 
     void MultipathAlignmentGraph::add_reachability_edges(const HandleGraph& graph,
-                                                         const function<pair<id_t, bool>(id_t)>& project,
-                                                         const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                         const function<pair<nid_t, bool>(nid_t)>& project,
+                                                         const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
                                                          vector<size_t>* path_node_provenance) {
+    
+        // Don't let people do this twice.
+        assert(!has_reachability_edges);
+
+        // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
+        // so we can skip traversing over the entire graph
+        if (path_nodes.size() <= 1) {
+#ifdef debug_multipath_alignment
+            cerr << "skipping reachability computation because there are " << path_nodes.size() << " path nodes" << endl;
+#endif
+            has_reachability_edges = true;
+            return;
+        }
+
+#ifdef debug_multipath_alignment
+        cerr << "computing reachability" << endl;
+#endif
+        
+#ifdef debug_multipath_alignment
+        SubgraphExplainer graph_dump(true);
+        graph_dump.subgraph(graph);
+#endif
+
+        // get a topological order over the nodes in the graph to iterate over
+        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
+
+        // Check if the graph (which is known to be a DAG) is a stick. A stick
+        // will be connected straight through in topological order.
+        bool is_stick = true;
+        for (size_t i = 0; is_stick && i + 1 < topological_order.size(); i++) {
+            // To be a stick, the connecting edge must exist.
+            bool saw_edge = false;
+            graph.follow_edges(topological_order[i], false, [&](const handle_t next_handle) {
+                if (next_handle != topological_order[i + 1]) {
+                    // If we're connected to anything other than the next
+                    // handle in the order, we're not a stick.
+                    is_stick = false;
+                    return false;
+                }
+                saw_edge = true;
+                return true;
+            });
+            if (!saw_edge) {
+                is_stick = false;
+            }
+        }
+        // We don't need to worry about the left-side edges, or edges on the
+        // final node in the topological order,b ecause the graph is known to
+        // be a DAG.
+        
+        if (is_stick) {
+            // We can use the easy implementation
+            this->add_reachability_edges_easy(graph, project, injection_trans, topological_order, path_node_provenance);
+        } else {
+            // We need to use the full-power, slower implementation
+            this->add_reachability_edges_general(graph, project, injection_trans, topological_order, path_node_provenance);
+        }
+
+#ifdef debug_multipath_alignment
+        cerr << "final graph after adding reachability edges:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            PathNode& path_node = path_nodes.at(i);
+            cerr << i;
+            if (path_node_provenance) {
+                cerr << " (hit " << path_node_provenance->at(i) << ")";
+            }
+            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
+            cerr << "\t";
+            for (auto edge : path_node.edges) {
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
+            }
+            cerr << endl;
+        }
+#endif
+
+
+    }
+
+    void MultipathAlignmentGraph::add_reachability_edges_easy(const HandleGraph& graph,
+                                                                 const function<pair<nid_t, bool>(nid_t)>& project,
+                                                                 const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
+                                                                 const vector<handle_t>& topological_order,
+                                                                 vector<size_t>* path_node_provenance) {
+
+        // MEMs are colinear if they are colinear in the read and colinear in
+        // the graph.
+        //
+        // MEMs are overlap-colinear if they overlap in the read and the
+        // corresponding parts of their paths also coincide.
+
+        // First, we need to treat the graph as a linear space. So, we walk the
+        // topological order's path through the graph, and make a map from
+        // graph node ID to offset in the linear graph walk.
+
+        // Build a map from node ID to offset in the linear graph walk
+        unordered_map<nid_t, size_t> node_to_offset;
+        size_t linear_offset = 0;
+        for (const handle_t& handle : topological_order) {
+            node_to_offset[graph.get_id(handle)] = linear_offset;
+            linear_offset += graph.get_length(handle);
+        }
+
+        // Helper functions to get MEM positions in read and graph space
+        auto start_offset_read = [&](size_t idx) -> size_t {
+            return path_nodes[idx].begin - path_nodes[0].begin;
+        };
+
+        auto end_offset_read = [&](size_t idx) -> size_t {
+            return path_nodes[idx].end - path_nodes[0].begin;
+        };
+
+        auto start_offset_graph = [&](size_t idx) -> size_t {
+            const path_t& path = path_nodes[idx].path;
+            nid_t start_node_id = path.mapping(0).position().node_id();
+            return node_to_offset[start_node_id] + path.mapping(0).position().offset();
+        };
+
+        auto end_offset_graph = [&](size_t idx) -> size_t {
+            const path_t& path = path_nodes[idx].path;
+            const path_mapping_t& last_mapping = path.mapping(path.mapping_size() - 1);
+            nid_t end_node_id = last_mapping.position().node_id();
+            return node_to_offset[end_node_id] + last_mapping.position().offset() + mapping_from_length(last_mapping);
+        };
+
+        // Then we sort everything along the read, first by start, then by end,
+        // and get a vector of indexes of MEMs, ordered in that sort order.
+        vector<size_t> read_order = sort_permutation(path_nodes.begin(), path_nodes.end(), [&](const PathNode& a, const PathNode& b) {
+            if (a.begin != b.begin) {
+                return a.begin < b.begin;
+            }
+            return a.end < b.end;
+        });
+
+        // Then we do the same thing for the graph.
+        // TODO: is this better than using the accessors?
+        vector<size_t> graph_order = sort_permutation(path_nodes.begin(), path_nodes.end(), [&](const PathNode& a, const PathNode& b) {
+            auto& a_path = a.path;
+            auto& b_path = b.path;
+
+            auto& a_start_pos = a_path.mapping(0).position();
+            auto& b_start_pos = b_path.mapping(0).position();
+            if (a_start_pos.node_id() != b_start_pos.node_id()) {
+                return node_to_offset[a_start_pos.node_id()] < node_to_offset[b_start_pos.node_id()];
+            }
+            if (a_start_pos.offset() != b_start_pos.offset()) {
+                return a_start_pos.offset() < b_start_pos.offset();
+            }
+            
+            auto& a_end = a_path.mapping(a_path.mapping_size() - 1);
+            auto& b_end = b_path.mapping(b_path.mapping_size() - 1);
+            auto a_end_pos = a_end.position();
+            auto b_end_pos = b_end.position();
+            if (a_end_pos.node_id() != b_end_pos.node_id()) {
+                return node_to_offset[a_end_pos.node_id()] < node_to_offset[b_end_pos.node_id()];
+            }
+            // Adjust the offsets to account for the bases used on the node.
+            // TODO: Are we really allowed to jump to the middle of a node in a mapping here?
+            a_end_pos.set_offset(a_end_pos.offset() + mapping_from_length(a_end));
+            b_end_pos.set_offset(b_end_pos.offset() + mapping_from_length(b_end));
+            return a_end_pos.offset() < b_end_pos.offset();
+        });
+
+#ifdef debug_multipath_alignment
+        for (size_t i = 0; i + 1 < graph_order.size(); i++) {
+            crash_unless(start_offset_graph(graph_order[i]) <= start_offset_graph(graph_order[i+1]));
+            std::cerr << "Graph order " << i << ": MEM " << graph_order[i] << " at graph offset " << start_offset_graph(graph_order[i]) << " is at or before MEM " << graph_order[i+1] << " at graph offset " << start_offset_graph(graph_order[i+1]) << std::endl;
+        }
+#endif
+
+        // Now we make a lookup table to find each MEM's position in the graph order
+        std::vector<size_t> graph_index_of(graph_order.size());
+        for (size_t i = 0; i < graph_order.size(); i++) {
+            graph_index_of[graph_order[i]] = i;
+        }
+
+        // Map from index_onto to maps of index_from to (read_overlap, graph_overlap, dist)
+        // TODO: dist is always 0 for overlap-colinear MEMs
+        unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
+
+        for (size_t read_index = 0; read_index < read_order.size(); read_index++) {
+            // Then we walk through all the MEMs in the read.
+            size_t predecessor = read_order[read_index];
+
+#ifdef debug_multipath_alignment
+            std::cerr << "Look for transitions from " << predecessor << std::endl;
+#endif
+            
+            // Record a search start
+            build_queue_count++;
+
+            // For each, we find its position in the graph.
+            size_t graph_index = graph_index_of[predecessor];
+            crash_unless(graph_order[graph_index] == predecessor);
+
+            // We put an entry in here if we see a potential successor at all,
+            // and a true if that successor was acceptable. When we again see a
+            // successor that was acceptable, we can stop.
+            std::unordered_map<size_t, bool> acceptable_successors;
+            
+            for (size_t i = 2; read_index + (i / 2) < read_order.size() && graph_index + (i / 2) < graph_order.size(); i++) {
+                // Then we loop over successive offsets until we find an
+                // acceptable successor on both the read and graph sides, or
+                // one runs out. (We only need to wait for one to run out,
+                // because if it wasn't in the smaller set of candidates it
+                // can't be in the intersection.) We use a hacky loop that
+                // visits a successor in the read, then a successor in the
+                // graph, etc. so that we can break out of it with one break
+                // when we find something.
+
+                // For each potential successor in the graph or the read
+                size_t successor = (i % 2 == 0) ? read_order.at(read_index + (i/2)) : graph_order.at(graph_index + (i/2));
+
+#ifdef debug_multipath_alignment
+                std::cerr << "\tFound successor " << successor << " at order offset " << (i / 2) << " in " << ((i % 2 == 0) ? "read" : "graph") << std::endl;
+#endif
+
+                // We should never see something as a successor of itself.
+                crash_unless(successor != predecessor);
+
+                auto found = acceptable_successors.find(successor);
+                if (found != acceptable_successors.end()) {
+#ifdef debug_multipath_alignment
+                    std::cerr << "\t\tHas been seen before" << std::endl;
+#endif
+                    // When we find a successor we've seen before, we don't have to process it.
+                    if (found->second) {
+                        // But if it was an acceptable successor the first time
+                        // we saw it, we now have an acceptable successor in
+                        // both the graph and the read and we've handled
+                        // everything before it in both the graph and the read,
+                        // so it blocks further edges and we can stop.
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\t\tWas acceptable. Stop." << std::endl;
+#endif
+                        break;
+                    }
+                } else {
+                    // We found a novel successor
+#ifdef debug_multipath_alignment
+                    std::cerr << "\t\tIs novel" << std::endl;
+#endif
+
+                    // Remember we found it. Assume it's not acceptable for now.
+                    auto acceptable_entry = acceptable_successors.emplace_hint(found, successor, false);
+                    
+                    size_t read_from = end_offset_read(predecessor);
+                    size_t read_to = start_offset_read(successor);
+                    size_t graph_from = end_offset_graph(predecessor);
+                    size_t graph_to = start_offset_graph(successor);
+                    if (read_from <= read_to && graph_from <= graph_to) {
+                        // The predecessor ends before the successor starts on
+                        // both sides, so it is colinear.
+
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\tPredecessor ends in time in both read (" << read_from << "<=" << read_to << ") and graph (" << graph_from << "<=" << graph_to << "): colinear" << std::endl;
+#endif
+
+                        path_nodes[predecessor].edges.emplace_back(successor, graph_to - graph_from);
+
+                        // Record as an acceptable successor
+                        acceptable_entry->second = true;
+                    } else if (read_from > read_to && 
+                        graph_from > graph_to &&
+                        start_offset_read(predecessor) <= start_offset_read(successor) &&
+                        start_offset_graph(predecessor) <= start_offset_graph(successor)
+                    ) {
+                        // The predecessor overlaps the successor in the read
+                        // and the graph, and starts at or before it in both.
+                        // They might be overlap-colinear.
+                        
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\tMay be overlap-colinear" << std::endl;
+#endif
+
+                        // TODO: We assume there aren't any duplicate,
+                        // coinciding paths.
+
+                        // Figure out how much path needs to match
+                        size_t read_overlap = read_from - read_to;
+                        size_t predecessor_read_length = path_nodes[predecessor].end - path_nodes[predecessor].begin;
+                        size_t predecessor_read_overlap_start = predecessor_read_length - read_overlap;
+
+                        // Get and compare the partial paths
+                        path_t predecessor_overlap = extract_subpath(
+                            path_nodes[predecessor].path,
+                            predecessor_read_overlap_start,
+                            predecessor_read_length
+                        );
+                        path_t successor_overlap = extract_subpath(
+                            path_nodes[successor].path,
+                            0,
+                            read_overlap
+                        );
+
+                        if (predecessor_overlap == successor_overlap) {
+                            // The overlapping part in the read is the same
+                            // path in the graph. These are overlap-colinear.
+                            
+#ifdef debug_multipath_alignment
+                            std::cerr << "\t\t\tSame path in overlapping read region: overlap-colinear" << std::endl;
+#endif
+
+                            // The distance is 0 for overlap-colinear MEMs.
+                            confirmed_overlaps[predecessor][successor] = make_tuple(read_overlap, path_from_length(predecessor_overlap), 0);
+                            
+                            // Record that we found an acceptable successor.
+                            acceptable_entry->second = true;
+                        } else {
+#ifdef debug_multipath_alignment
+                            std::cerr << "\t\t\tDifferent paths in overlapping read region: no relationship" << std::endl;
+#endif
+                        }
+                    } else {
+#ifdef debug_multipath_alignment
+                        std::cerr << "\t\tNo sensible overlap in read (" << read_from << " vs. " << read_to << ") or graph (" << graph_from << " vs. " << graph_to << "): no relationship" << std::endl;
+#endif
+                    }
+                    // If neither, it's not an acceptable successor. Don't mark
+                    // it and keep going.
+                }
+            }
+        }
+
+#ifdef debug_multipath_alignment
+        std::cerr << "Found " << confirmed_overlaps.size() << " prececessors with overlap-colinear successors" << std::endl;
+#endif
+
+        // When we get here, we've found all the successor relationships that
+        // are in both the read order and the graph order (either the direct
+        // edge ones or the overlap-colinear ones).
+
+        // Make the call to split up the overlap-colinear MEMs and add the
+        // reachability edges between them.
+
+        this->split_at_overlap_edges(confirmed_overlaps, path_node_provenance);
+
+        // Mark that reachability edges have been added
+        has_reachability_edges = true;
+    }
+
+    void MultipathAlignmentGraph::add_reachability_edges_general(const HandleGraph& graph,
+                                                                 const function<pair<nid_t, bool>(nid_t)>& project,
+                                                                 const unordered_multimap<nid_t, pair<nid_t, bool>>& injection_trans,
+                                                                 const vector<handle_t>& topological_order,
+                                                                 vector<size_t>* path_node_provenance) {
                                                          
         
         // We're going to make "reachability" edges, which connect MEMs (which
@@ -2504,23 +2849,6 @@ namespace vg {
         // Our MEMs all live in path_nodes, and are identified by their indexes
         // there.
         
-        
-#ifdef debug_multipath_alignment
-        cerr << "computing reachability" << endl;
-#endif
-        
-        // Don't let people do this twice.
-        assert(!has_reachability_edges);
-        
-        // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
-        // so we can skip traversing over the entire graph
-        if (path_nodes.size() <= 1) {
-#ifdef debug_multipath_alignment
-            cerr << "skipping reachability computation because there are " << path_nodes.size() << " path nodes" << endl;
-#endif
-            has_reachability_edges = true;
-            return;
-        }
         
         // now we calculate reachability between the walked paths so we know which ones
         // to connect with intervening alignments
@@ -2573,17 +2901,35 @@ namespace vg {
             return false;
         };
         
+        
+        
         // record the start and end node ids of every path
         // Maps from node ID to the list of MEM numbers that start on that node.
-        unordered_map<id_t, vector<size_t>> path_starts;
+        unordered_map<nid_t, vector<size_t>> path_starts;
         // Maps from node ID to the list of MEM numbers that end on that node.
-        unordered_map<id_t, vector<size_t>> path_ends;
+        unordered_map<nid_t, vector<size_t>> path_ends;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             path_t& path = path_nodes[i].path;
             path_starts[path.mapping(0).position().node_id()].push_back(i);
             path_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
-        
+
+        // Sort the MEMs starting and ending on each node in node sequence order.
+        // MEMs that start/end earlier will appear earlier in the vector for the node they start/end on.
+        // We don't need to worry about strand because the graph is a DAG.
+        for (pair<const nid_t, vector<size_t>>& node_starts : path_starts) {
+            std::sort(node_starts.second.begin(), node_starts.second.end(),
+                      [&](const size_t idx_1, const size_t idx_2) {
+                return start_offset(idx_1) < start_offset(idx_2);
+            });
+        }
+        for (pair<const nid_t, vector<size_t>>& node_ends : path_ends) {
+            std::sort(node_ends.second.begin(), node_ends.second.end(),
+                      [&](const size_t idx_1, const size_t idx_2) {
+                return end_offset(idx_1) < end_offset(idx_2);
+            });
+        }
+
 #ifdef debug_multipath_alignment
         cerr << "recorded starts: " << endl;
         for (const auto& rec : path_starts) {
@@ -2602,24 +2948,8 @@ namespace vg {
             }
             cerr << endl;
         }
-#endif
-        
-        
-        // Sort the MEMs starting and ending on each node in node sequence order.
-        // MEMs that start/end earlier will appear earlier in the vector for the node they start/end on.
-        for (pair<const id_t, vector<size_t>>& node_starts : path_starts) {
-            std::sort(node_starts.second.begin(), node_starts.second.end(),
-                      [&](const size_t idx_1, const size_t idx_2) {
-                return start_offset(idx_1) < start_offset(idx_2);
-            });
-        }
-        for (pair<const id_t, vector<size_t>>& node_ends : path_ends) {
-            std::sort(node_ends.second.begin(), node_ends.second.end(),
-                      [&](const size_t idx_1, const size_t idx_2) {
-                return end_offset(idx_1) < end_offset(idx_2);
-            });
-        }
-        
+#endif 
+
         // The "ranges" that are used below (range_start, range_end, etc.)
         // refer to intervals in these sorted per-node lists in path_starts and
         // path_ends corresponding to sets of MEMs that all start or end at the
@@ -2635,8 +2965,8 @@ namespace vg {
         // for each node, the starts and ends of MEMs that can reach this node
         // without passing any other MEM starts or ends. TODO: What do the
         // unordered_maps map from/to?
-        unordered_map<id_t, unordered_map<size_t, size_t>> reachable_ends;
-        unordered_map<id_t, unordered_map<size_t, size_t>> reachable_starts;
+        unordered_map<nid_t, unordered_map<size_t, size_t>> reachable_ends;
+        unordered_map<nid_t, unordered_map<size_t, size_t>> reachable_starts;
         
         // for the start of each MEM, the starts and ends of other MEMs that can reach it without passing any
         // other start or end
@@ -2654,10 +2984,9 @@ namespace vg {
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_ends_from_end;
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
-        // get a topological order over the nodes in the graph to iterate over
-        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
+        
         for (int64_t i = 0; i < topological_order.size(); i++) {
-            id_t node_id = graph.get_id(topological_order[i]);
+            nid_t node_id = graph.get_id(topological_order[i]);
             
 #ifdef debug_multipath_alignment
             cerr << "DP step for graph node " << node_id << endl;
@@ -2717,7 +3046,7 @@ namespace vg {
                 
                 bool at_end = (curr_end_offset <= curr_start_offset);
                 // TODO: What exactly do these variables hold?
-                unordered_map<id_t, unordered_map<size_t, size_t>>* reachable_endpoints;
+                unordered_map<nid_t, unordered_map<size_t, size_t>>* reachable_endpoints;
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_ends_from_endpoint;
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_starts_from_endpoint;
                 vector<size_t>* endpoints;
@@ -2973,7 +3302,7 @@ namespace vg {
                 // this nodes contains at least one start or end, but either all starts or all ends
                 // record the incoming starts/ends for the starts/ends on this node
                 
-                unordered_map<id_t, unordered_map<size_t, size_t>>* reachable_endpoints;
+                unordered_map<nid_t, unordered_map<size_t, size_t>>* reachable_endpoints;
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_ends_from_endpoint;
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_starts_from_endpoint;
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_endpoints_from_endpoint;
@@ -3164,15 +3493,16 @@ namespace vg {
         // will use this to navigate between the MEMs in a way that respects graph reachability so that this
         // phase of the algorithm only needs to pay attention to read colinearity and transitive reducibility
         
+        // TODO: What exactly is a noncolinear shell???
         vector<unordered_map<size_t, size_t>> noncolinear_shells(path_nodes.size());
         
         // map from index_from to maps of index_onto to (overlap to length, overlap from length, dist)
         unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
         // map from path index to set of indexes whose start occurs on the path
         unordered_map<size_t, set<size_t>> path_starts_on_path;
-        
+
         for (size_t i = 0; i < topological_order.size(); i++) {
-            id_t node_id = graph.get_id(topological_order[i]);
+            nid_t node_id = graph.get_id(topological_order[i]);
             
 #ifdef debug_multipath_alignment
             cerr << "looking for edges for starts on node " << node_id << endl;
@@ -3236,6 +3566,7 @@ namespace vg {
                             
                             pair<size_t, size_t> start_here = start_queue.top();
                             start_queue.pop();
+                            build_queue_count++;
                             
                             // don't keep looking backward earlier than the start of the current path
                             if (start_here.first == end) {
@@ -3258,11 +3589,15 @@ namespace vg {
                             
                             pair<size_t, size_t> end_here = end_queue.top();
                             end_queue.pop();
+                            build_queue_count++;
                             
                             PathNode& next_end_node = path_nodes[end_here.first];
                             
                             // these are non-colinear, so add it to the non-colinear shell
                             if (next_end_node.begin >= end_node.begin || next_end_node.end >= end_node.end) {
+#ifdef debug_multipath_alignment
+                                std::cerr << "Definitely noncolinear from an end: make sure " << end_here.first << " is in noncolinear shell for " << end << std::endl;
+#endif
                                 if (noncolinear_shell.count(end_here.first)) {
                                     noncolinear_shell[end_here.first] = std::min(end_here.second, noncolinear_shell[end_here.first]);
                                 }
@@ -3275,6 +3610,8 @@ namespace vg {
                             // if we get this far, the two paths are colinear or overlap-colinear, so we won't add it to the
                             // non-colinear shell. now we need to decide whether to keep searching backward. we'll check a
                             // few conditions that will guarantee that the rest of the search is redundant
+
+                            // TODO: we actually still might add it to the non-colinear shell. Is that correct?
 
                             // TODO: this actually isn't a full set of criteria, we don't just want to know if there is an
                             // edge, we want to know if it is reachable along any series of edges...
@@ -3308,6 +3645,9 @@ namespace vg {
                             
                             // we can't easily guarantee that this is non-colinear or colinear, so we're just going to treat it
                             // as non-colinear and accept some risk of this creating redundant edges to later nodes
+#ifdef debug_multipath_alignment
+                            std::cerr << "Ambiguous colinearity from an end: make sure " << end_here.first << " is in noncolinear shell for " << end << std::endl;
+#endif
                             if (noncolinear_shell.count(end_here.first)) {
                                 noncolinear_shell[end_here.first] = std::min(end_here.second, noncolinear_shell[end_here.first]);
                             }
@@ -3345,6 +3685,7 @@ namespace vg {
                             
                             pair<size_t, size_t> start_here = start_queue.top();
                             start_queue.pop();
+                            build_queue_count++;
                             
 #ifdef debug_multipath_alignment
                             cerr << "traversing start " << start_here.first << " at distance " << start_here.second << endl;
@@ -3371,6 +3712,7 @@ namespace vg {
                             size_t candidate_end, candidate_dist;
                             tie(candidate_end, candidate_dist) = end_queue.top();
                             end_queue.pop();
+                            build_queue_count++;
                             
 #ifdef debug_multipath_alignment
                             cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
@@ -3451,6 +3793,10 @@ namespace vg {
                                 if (start_node_from_length == 0) {
                                     start_node_from_length = path_from_length(start_node.path);
                                 }
+
+#ifdef debug_multipath_alignment
+                                std::cerr << "Noncolinear from a start: make sure " << candidate_end << " is in noncolinear shell for " << start << std::endl;
+#endif
                                 if (noncolinear_shell.count(candidate_end)) {
                                     noncolinear_shell[candidate_end] = std::min(candidate_dist + start_node_from_length,
                                                                                 noncolinear_shell[candidate_end]);
@@ -3539,7 +3885,7 @@ namespace vg {
                         size_t traversed_length = mapping_from_length(path.mapping(0));
                         
                         for (size_t j = 1; j + 1 < path.mapping_size(); j++) {
-                            id_t path_node_id = path.mapping(j).position().node_id();
+                            nid_t path_node_id = path.mapping(j).position().node_id();
                             // record which starts are on the path on this node
                             for (size_t path_start : path_starts[path_node_id]) {
                                 path_starts_on_path[start].insert(path_start);
@@ -3552,7 +3898,7 @@ namespace vg {
                             traversed_length += mapping_from_length(path.mapping(j));
                         }
                         
-                        id_t final_node_id = path.mapping(path.mapping_size() - 1).position().node_id();
+                        nid_t final_node_id = path.mapping(path.mapping_size() - 1).position().node_id();
                         vector<size_t>& final_starts = path_starts[final_node_id];
                         vector<size_t>& final_ends = path_ends[final_node_id];
                         
@@ -3641,6 +3987,41 @@ namespace vg {
             }
         }
         
+        this->split_at_overlap_edges(confirmed_overlaps, path_node_provenance);
+        
+        // Go to the state where we know the reachability edges exist.
+        has_reachability_edges = true;
+    }
+
+    void MultipathAlignmentGraph::clear_reachability_edges() {
+        // Don't let people clear the edges if they are clear already.
+        // That suggests that someone has gotten confused over whether they should exist or not.
+        assert(has_reachability_edges);
+    
+        for (auto& node : path_nodes) {
+            // Just clear all the edges from each node.
+            // add_reachability_edges can rebuild them all.
+            node.edges.clear();
+        }
+        
+        // Go to the state where reachability edges don't exist
+        has_reachability_edges = false;
+        
+    }
+    
+    size_t MultipathAlignmentGraph::count_reachability_edges() const {
+        if (!has_reachability_edges) {
+            return 0;
+        }
+        size_t count = 0;
+        for (auto& node : path_nodes) {
+            count += node.edges.size();
+        }
+        return count;
+    }
+
+    void MultipathAlignmentGraph::split_at_overlap_edges(const unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>>& confirmed_overlaps,
+                                                         vector<size_t>* path_node_provenance) {
 #ifdef debug_multipath_alignment
         cerr << "breaking nodes at overlap edges" << endl;
 #endif
@@ -3884,54 +4265,6 @@ namespace vg {
                 }
             }
         }
-        
-        // Go to the state where we know the reachability edges exist.
-        has_reachability_edges = true;
-        
-#ifdef debug_multipath_alignment
-        cerr << "final graph after adding reachability edges:" << endl;
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& path_node = path_nodes.at(i);
-            cerr << i;
-            if (path_node_provenance) {
-                cerr << " (hit " << path_node_provenance->at(i) << ")";
-            }
-            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
-            cerr << "\t";
-            for (auto edge : path_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
-        
-    }
-    
-    void MultipathAlignmentGraph::clear_reachability_edges() {
-        // Don't let people clear the edges if they are clear already.
-        // That suggests that someone has gotten confused over whether they should exist or not.
-        assert(has_reachability_edges);
-    
-        for (auto& node : path_nodes) {
-            // Just clear all the edges from each node.
-            // add_reachability_edges can rebuild them all.
-            node.edges.clear();
-        }
-        
-        // Go to the state where reachability edges don't exist
-        has_reachability_edges = false;
-        
-    }
-    
-    size_t MultipathAlignmentGraph::count_reachability_edges() const {
-        if (!has_reachability_edges) {
-            return 0;
-        }
-        size_t count = 0;
-        for (auto& node : path_nodes) {
-            count += node.edges.size();
-        }
-        return count;
     }
     
     // Kahn's algorithm
@@ -4233,7 +4566,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                                     size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, size_t band_padding,
                                     multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
-                                    SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+                                    SnarlDistanceIndex* dist_index, const function<pair<nid_t, bool>(nid_t)>* project,
                                     bool allow_negative_scores, bool align_in_reverse, uint64_t max_band_cells) {
         
         align(alignment,
@@ -5188,7 +5521,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                         size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
                                         const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
-                                        SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+                                        SnarlDistanceIndex* dist_index, const function<pair<nid_t, bool>(nid_t)>* project,
                                         bool allow_negative_scores, bool align_in_reverse, uint64_t max_band_cells) {
         
         // TODO: magic number
@@ -5668,7 +6001,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                                                  size_t attachment_idx, bool to_left, size_t unmergeable_len,
                                                                  const GSSWAligner* aligner,
                                                                  SnarlManager* cutting_snarls, SnarlDistanceIndex* dist_index,
-                                                                 const function<pair<id_t, bool>(id_t)>* project) {
+                                                                 const function<pair<nid_t, bool>(nid_t)>* project) {
         
         // TODO: i wonder if it would be cleaner/more general to use branches rather than snarls
         // as the condition here...
@@ -6048,7 +6381,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         }
         return gap_length;
     }
-    
+   
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner,
                                          const GSSWAligner* dp_aligner, size_t max_alt_alns, bool dynamic_alt_alns,
@@ -6056,8 +6389,14 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                          unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
-        cerr << "doing tail alignments to:" << endl;
-        to_dot(cerr);
+        cerr << "doing tail alignments to " << path_nodes.size() << " path nodes" << endl;
+        size_t tail_count = 0;
+        for (auto& path_node : path_nodes) {
+            if (path_node.edges.empty() && path_node.end != alignment.sequence().end()) {
+                tail_count++;
+            }
+        }
+        std::cerr << "\tof which " << tail_count << " will be tails" << std::endl;
 #endif
         
         // TODO: magic number
@@ -6088,7 +6427,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         vector<bool> is_source_node(path_nodes.size(), true);
         for (size_t j = 0; j < path_nodes.size(); j++) {
             PathNode& path_node = path_nodes.at(j);
-#ifdef debug_multipath_alignment
+#ifdef debug_trace_tail_alignment
             cerr << "Visit PathNode " << j << " with " << path_node.edges.size() << " outbound edges" << endl;
 #endif
             if (!path_node.edges.empty()) {
@@ -6096,7 +6435,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 for (const pair<size_t, size_t>& edge : path_node.edges) {
                     // Make everywhere we go as not a source
                     is_source_node[edge.first] = false;
-#ifdef debug_multipath_alignment
+#ifdef debug_trace_tail_alignment
                     cerr << "Edge " << j << " -> " << edge.first << " makes " << edge.first << " not a source" << endl;
 #endif
                 }
@@ -6104,7 +6443,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             else if (path_node.end != alignment.sequence().end()) {
 
 #ifdef debug_multipath_alignment
-                cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
+                cerr << "doing right end alignment from sink node " << j << endl;
+#endif
+#ifdef debug_trace_tail_alignment
+                cerr << "\twith path " << debug_string(path_node.path) << " and sequence ";
                 for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                     cerr << *iter;
                 }
@@ -6129,13 +6471,19 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 pos_t end_pos = final_position(path_node.path);
                 
                 bdsg::HashGraph tail_graph;
-                unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
+                unordered_map<nid_t, nid_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                            &tail_graph,
                                                                                            target_length,
                                                                                            end_pos,
                                                                                            false,         // search forward
                                                                                            false);        // no need to preserve cycles (in a DAG)
                 
+#ifdef debug_multipath_alignment
+                std::cerr << "Going to align " << aligning_tail_length << "/" << tail_length
+                        << " bp of tail against " << tail_graph.get_total_length()
+                        << " bp of graph extracted for target length " << target_length << std::endl;
+#endif
+
                 size_t num_alt_alns;
                 if (dynamic_alt_alns) {
                     size_t num_paths = handlealgs::count_walks(&tail_graph);
@@ -6168,6 +6516,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 
 #ifdef debug_multipath_alignment
                 cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph extracted from " << end_pos << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                 tail_graph.for_each_handle([&](const handle_t& handle) {
                     cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                     tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
@@ -6247,6 +6597,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
 #ifdef debug_multipath_alignment
                 cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                 for (size_t i = 0; i < alt_alignments.size(); ++i) {
                     cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
                 }
@@ -6322,7 +6674,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     bdsg::HashGraph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
+                    unordered_map<nid_t, nid_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                &tail_graph,
                                                                                                target_length,
                                                                                                begin_pos,
@@ -6361,6 +6713,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         
 #ifdef debug_multipath_alignment
                     cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph extracted from " << begin_pos << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                     tail_graph.for_each_handle([&](const handle_t& handle) {
                         cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                         tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
@@ -6428,6 +6782,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     }
 #ifdef debug_multipath_alignment
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+#endif
+#ifdef debug_trace_tail_alignment
                     for (size_t i = 0; i < alt_alignments.size(); ++i) {
                         cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
                     }
@@ -6480,17 +6836,16 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                  }
              }
          }
-        
 #ifdef debug_multipath_alignment
         cerr << "made alignments for " << to_return[false].size() << " source PathNodes and " << to_return[true].size() << " sink PathNodes" << endl;
         if (sources != nullptr) {
             cerr << "Identified " << sources->size() << " source PathNodes" << endl;
         }
 #endif 
-        
         // Return all the alignments, organized by tail and subpath
         return to_return;
     }
+
     
     bool MultipathAlignmentGraph::empty() const {
         return path_nodes.empty();
@@ -6600,11 +6955,11 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
         }
     }
-    
+
     void MultipathAlignmentGraph::to_dot(ostream& out, const Alignment* alignment) const {
         // We track the VG graph nodes we talked about already.
-        set<id_t> mentioned_nodes;
-        set<pair<id_t, id_t>> mentioned_edges;
+        set<nid_t> mentioned_nodes;
+        set<pair<nid_t, nid_t>> mentioned_edges;
     
         out << "digraph graphname {" << endl;
         out << "rankdir=\"LR\";" << endl;
@@ -6639,7 +6994,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 if (j != 0) {
                     // We have a previous node in this segment of path. What is it?
                     auto prev_id = path.mapping(j-1).position().node_id();
-                    pair<id_t, id_t> edge_pair{prev_id, node_id};
+                    pair<nid_t, nid_t> edge_pair{prev_id, node_id};
                     
                     if (!mentioned_edges.count(edge_pair)) {
                         // This graph edge needs to be made
@@ -6653,7 +7008,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         out << "}" << endl;
     }
 
-    bool MultipathAlignmentGraph::into_cutting_snarl(id_t node_id, bool is_rev,
+    bool MultipathAlignmentGraph::into_cutting_snarl(nid_t node_id, bool is_rev,
                                                      SnarlManager* snarl_manager, SnarlDistanceIndex* dist_index) const {
         
         if (dist_index) {
@@ -6671,7 +7026,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         }
     }
     
-    vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {
+    vector<vector<nid_t>> MultipathAlignmentGraph::get_connected_components() const {
         // Brea all the path_nodes into components using this union-find
         structures::UnionFind unionfind(path_nodes.size());
         
@@ -6686,13 +7041,13 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         }
         
         // Assemble the vectors of ids
-        vector<vector<id_t>> to_return;
+        vector<vector<nid_t>> to_return;
         
         for (auto& component : unionfind.all_groups()) {
             // For each connected component
             
             // Make a set of vg graph IDs in it
-            set<id_t> vg_ids;
+            set<nid_t> vg_ids;
             
             for (auto& path_node : component) {
                 // For each path in the vg graph used by the component

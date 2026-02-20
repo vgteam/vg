@@ -19,7 +19,13 @@ namespace unittest {
 
 class TestMultipathAlignmentGraph : public MultipathAlignmentGraph {
 public:
+    using MultipathAlignmentGraph::MultipathAlignmentGraph;
     using MultipathAlignmentGraph::decompose_alignments;
+    using MultipathAlignmentGraph::build_queue_count;
+    using MultipathAlignmentGraph::add_reachability_edges_easy;
+    using MultipathAlignmentGraph::add_reachability_edges_general;
+    using MultipathAlignmentGraph::create_match_nodes;
+    using MultipathAlignmentGraph::path_nodes;
 };
 
 TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
@@ -761,6 +767,214 @@ TEST_CASE("Tail alignments can be decomposed", "[multipathalignmentgraph]") {
     REQUIRE(shared[2].first.mapping_size() == 0);
     
     // TODO: should check the unshared blocks, but i'm too lazy
+}
+
+TEST_CASE( "MultipathAlignmentGraph construction doesn't have exploding noncolinear shells", "[multipath][mapping][multipathalignmentgraph]" ) {
+
+    size_t scale = 50;
+
+    // Generate a stick graph
+    HashGraph graph;
+    handle_t prev;
+    for (size_t i = 0; i < scale; i++) {
+        handle_t h = graph.create_handle("A");
+        if (i > 0) {
+            graph.create_edge(prev, h);
+        }
+        prev = h;
+    }
+
+    // Make snarls on it
+    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    SnarlDistanceIndex dist_index;
+    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+    
+    // We need a fake read
+    string read(scale, 'A');
+    
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
+    Alignment query;
+    query.set_sequence(read);
+    
+    // Make an Aligner to use for the actual aligning and the scores
+    Aligner aligner;
+        
+    // Make an identity projection translation
+    auto identity = MultipathAlignmentGraph::create_identity_projection_trans(graph);
+    
+    // Make up a fake MEM
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs (so they don't move)
+    std::list<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    // Note that this is also a memcluster_t
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    mem_hits.second = 1.0;
+    
+    for (size_t i = 0; i < scale; i += 5) {
+        auto query_start = query.sequence().begin() + (i % (scale));
+        auto query_end = query_start + 1;
+        // Make a MEM in the read of 1 bp, all across the length
+        mems.emplace_back(query_start, query_end, make_pair(1, 1), 1);
+        // Put it on a node's forward strand, doubled up over the first half as if the read loops
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(1 + (i % (scale / 4)), false, 0));
+    }
+
+    // Make the MultipathAlignmentGraph to test
+    vector<size_t> provenance;
+    TestMultipathAlignmentGraph mpg(graph, mem_hits, identity, provenance);
+
+    // Make sure we didn't do huge amounts of work
+    REQUIRE(mpg.build_queue_count < (scale / 5 * 2));
+
+}
+
+TEST_CASE( "MultipathAlignmentGraph easy and general reachability edge construction produce the same non-transitive edges", "[multipath][mapping][multipathalignmentgraph]" ) {
+
+    size_t scale = 250;
+
+    // Generate a stick graph
+    HashGraph graph;
+    handle_t prev;
+    for (size_t i = 0; i < scale; i++) {
+        handle_t h = graph.create_handle("A");
+        if (i > 0) {
+            graph.create_edge(prev, h);
+        }
+        prev = h;
+    }
+
+    // Make snarls on it
+    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    SnarlDistanceIndex dist_index;
+    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+    
+    // We need a fake read
+    string read(scale, 'A');
+    
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
+    Alignment query;
+    query.set_sequence(read);
+    
+    // Make an Aligner to use for the actual aligning and the scores
+    Aligner aligner;
+        
+    // Make an identity projection translation
+    auto identity_trans = MultipathAlignmentGraph::create_identity_projection_trans(graph);
+    auto identity = MultipathAlignmentGraph::create_projector(identity_trans);
+    
+    // Make up a fake MEM
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs (so they don't move)
+    std::list<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    // Note that this is also a memcluster_t
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    mem_hits.second = 1.0;
+    
+    for (size_t i = 0; i < scale; i += 5) {
+        auto query_start = query.sequence().begin() + (i % (scale));
+        auto query_end = query_start + 1;
+        // Make a MEM in the read of 1 bp, all across the length
+        mems.emplace_back(query_start, query_end, make_pair(1, 1), 1);
+        // Put it on a node's forward strand, doubled up over the first half as if the read loops
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(1 + (i % (scale / 4)), false, 0));
+    } 
+
+    auto injection_trans = TestMultipathAlignmentGraph::create_injection_trans(identity_trans);
+
+    vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
+
+    // Create two identical MultipathAlignmentGraphs
+    TestMultipathAlignmentGraph mpg_easy;
+    TestMultipathAlignmentGraph mpg_general;
+    
+    vector<size_t> provenance_easy;
+    mpg_easy.create_match_nodes(graph, mem_hits, identity, injection_trans, provenance_easy, 0, nullptr);
+
+    vector<size_t> provenance_general;
+    mpg_general.create_match_nodes(graph, mem_hits, identity, injection_trans, provenance_easy, 0, nullptr);
+    
+#ifdef debug
+    std::cerr << "Computing easy result" << std::endl;
+#endif
+
+    // Add reachability edges using the easy method
+    mpg_easy.add_reachability_edges_easy(graph, identity, injection_trans, topological_order, &provenance_easy);
+
+#ifdef debug
+    std::cerr << "Computing general result" << std::endl;
+#endif
+
+    // Add reachability edges using the general method
+    mpg_general.add_reachability_edges_general(graph, identity, injection_trans, topological_order, &provenance_general);
+
+    // Neityher method guarantees not to produce transitive edges, and they
+    // might produce different transitive edges. So make sure to remove
+    // transitive edges. This needs a topological order of MEMs.
+    std::vector<size_t> mem_order_general;
+    mpg_general.topological_sort(mem_order_general);
+    mpg_general.remove_transitive_edges(mem_order_general);
+
+    std::vector<size_t> mem_order_easy;
+    mpg_easy.topological_sort(mem_order_easy);
+    mpg_easy.remove_transitive_edges(mem_order_easy);
+
+#ifdef debug
+    std::cerr << "Easy Result" << std::endl;
+    mpg_easy.to_dot(std::cerr, &query);
+
+    std::cerr << "General Result" << std::endl;
+    mpg_general.to_dot(std::cerr, &query);
+#endif
+
+    // Compare the number of path nodes (in case splitting happened differently)
+    REQUIRE(mpg_easy.path_nodes.size() == mpg_general.path_nodes.size());
+
+    // Compare the number of edges
+    size_t easy_edge_count = mpg_easy.count_reachability_edges();
+    size_t general_edge_count = mpg_general.count_reachability_edges();
+
+    REQUIRE(easy_edge_count == general_edge_count);
+
+    // Compare the edges for each path node
+    for (size_t i = 0; i < mpg_easy.path_nodes.size(); i++) {
+        auto& easy_node = mpg_easy.path_nodes[i];
+        auto& general_node = mpg_general.path_nodes[i];
+
+        // Same number of edges
+        REQUIRE(easy_node.edges.size() == general_node.edges.size());
+
+        // Sort edges for comparison, to allow different orders
+        auto easy_edges = easy_node.edges;
+        auto general_edges = general_node.edges;
+
+        sort(easy_edges.begin(), easy_edges.end());
+        sort(general_edges.begin(), general_edges.end());
+
+        // Compare each edge
+        for (size_t j = 0; j < easy_edges.size(); j++) {
+            REQUIRE(easy_edges[j].first == general_edges[j].first);  // target node
+            REQUIRE(easy_edges[j].second == general_edges[j].second); // distance
+        }
+
+        // Compare read intervals
+        REQUIRE(easy_node.begin == general_node.begin);
+        REQUIRE(easy_node.end == general_node.end);
+
+        // Compare paths
+        REQUIRE(easy_node.path == general_node.path);
+    }
 }
 
 }
