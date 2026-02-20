@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 56
+plan tests 60
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -27,6 +27,12 @@ is $(vg paths --list -S 1 -g x.gbwt | wc -l) 2 "thread selection by sample name 
 vg paths --list -S 2 -g x.gbwt > out.txt 2> err.txt
 is $(cat out.txt | wc -l) 0 "no threads are reported for invalid samples"
 is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 threads are matched"
+
+# Exclude sample from selection
+is $(vg paths --list -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "excluding sample removes all matching threads from GBWT listing"
+is $(vg paths --list -g x.gbwt --exclude-sample nonexistent | wc -l) 2 "excluding nonexistent sample has no effect on GBWT listing"
+is $(vg paths --list -Q "1#0#x#" -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "exclude-sample combined with -Q prefix selection works"
+is $(vg paths --list -x x.xg --exclude-sample nonexistent | wc -l) 1 "excluding nonexistent sample has no effect on graph path listing"
 
 # Extract threads as alignments
 is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
