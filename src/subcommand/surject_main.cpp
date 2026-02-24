@@ -383,9 +383,7 @@ int main_surject(int argc, char** argv) {
 
     // normalize and apply read length preset
     read_length = to_lower(std::move(read_length));
-    // We accept the documented long and short presets, plus the very-short
-    // preset which mpmap has and which we treat as the same as short.
-    std::unordered_set<std::string> read_lengths{"long", "short", "very-short"};
+    std::unordered_set<std::string> read_lengths{"long", "short"};
     if (!read_length.empty() && !read_lengths.count(read_length)) {
         logger.error() << "Unrecognized read length preset (--read-length/-D): " << read_length << endl;
     }
