@@ -10,7 +10,7 @@
  *
  * Set up each option in the group with add_option(), add_range() (for an
  * option that can be cycled through a range of values for a grid search), or
- * add_flag(). Every option always has a logn option name; short option
+ * add_flag(). Every option always has a long option name; short option
  * character is optional and comes after it. Options take a pointer-to-member
  * into the group's type (where the value will be ultimately written) and a
  * default value, a help stiring, and an optional "validator function" which

@@ -45,6 +45,12 @@ int get_thread_count(void);
 void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
+/// Return a copy of the given string with all characters lowercased,
+/// using the C locale for the conversion.
+string to_lower(string s);
+/// Return a copy of the given string with all characters uppercased,
+/// using the C locale for the conversion.
+string to_upper(string s);
 
 // all whitespace characters
 const std::string whitespace = " \t\n\v\f\r";

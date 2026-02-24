@@ -10,6 +10,7 @@
 #include <cstring>
 #include <ctime>
 #include <map>
+#include <optional>
 #include <vector>
 #include <unordered_set>
 #include <chrono>
@@ -684,6 +685,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     if (full_help) {
         cerr << "  -P, --prune-low-cplx          prune short and low complexity anchors" << endl
              << "                                during linear format realignment" << endl
+             << "                                (default on for hifi and r10 presets)" << endl
+             << "      --no-prune-low-cplx       disable --prune-low-cplx even with long-read presets" << endl
              << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
@@ -750,6 +753,7 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
     constexpr int OPT_COMMENTS_AS_TAGS = 1013;
+    constexpr int OPT_NO_PRUNE_LOW_CPLX = 1014;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
@@ -835,7 +839,7 @@ int main_giraffe(int argc, char** argv) {
     // What assemblies shoudl we use when autodetecting reference paths?
     std::unordered_set<std::string> reference_assembly_names;
     // And should we drop low complexity anchors when surjectng?
-    bool prune_anchors = false;
+    std::optional<bool> prune_anchors;
     
     // When surjecting, should we annotate the reads with the graph alignment?
     bool add_graph_alignment = false;
@@ -1079,6 +1083,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"prune-low-cplx", no_argument, 0, 'P'},
+        {"no-prune-low-cplx", no_argument, 0, OPT_NO_PRUNE_LOW_CPLX},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
@@ -1242,7 +1247,11 @@ int main_giraffe(int argc, char** argv) {
             case 'P':
                 prune_anchors = true;
                 break;
-                
+
+            case OPT_NO_PRUNE_LOW_CPLX:
+                prune_anchors = false;
+                break;
+
             case OPT_NAMED_COORDINATES:
                 named_coordinates = true;
                 break;
@@ -1399,6 +1408,11 @@ int main_giraffe(int argc, char** argv) {
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
+    // Apply preset defaults for options not part of the parser system
+    if (!prune_anchors.has_value()) {
+        prune_anchors = map_long_reads;
+    }
+
     // Now all the arguments are parsed, so see if they make sense
 
     for (const auto& filename : provided_indexes) {
@@ -1798,7 +1812,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         report_flag("interleaved", interleaved);
-        report_flag("prune-low-cplx", prune_anchors);
+        report_flag("prune-low-cplx", *prune_anchors);
         report_flag("add-graph-aln", add_graph_alignment);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
@@ -1915,7 +1929,7 @@ int main_giraffe(int argc, char** argv) {
                 // We actually want to emit alignments.
                 // Encode flags describing what we want to happen.
                 int flags = ALIGNMENT_EMITTER_FLAG_NONE;
-                if (prune_anchors) {
+                if (*prune_anchors) {
                     // When surjecting, do anchor pruning.
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS;
                 }

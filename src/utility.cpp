@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <cctype>
+#include <locale>
 // We don't define _GNU_SOURCE to get the cpuset functions since we will
 // already have it for libstdc++ on the platforms where we need them
 #include <sched.h>
@@ -273,6 +274,22 @@ bool is_number(const std::string& s) {
     return !s.empty()
         && std::find_if(s.begin(), s.end(),
                         [](char c) { return !std::isdigit(c); }) == s.end();
+}
+
+string to_lower(string s) {
+    const locale c_locale("C");
+    for (auto& c : s) {
+        c = tolower(c, c_locale);
+    }
+    return s;
+}
+
+string to_upper(string s) {
+    const locale c_locale("C");
+    for (auto& c : s) {
+        c = toupper(c, c_locale);
+    }
+    return s;
 }
 
 bool isATGC(const char& b) {
