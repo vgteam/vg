@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
+#include <unordered_set>
 
 // Turn on debugging prints
 //#define debug
@@ -189,7 +190,9 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
 void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                          const std::vector<Seed>& seeds,
                                          const VectorView<Minimizer>& minimizers,
+                                         const vector<algorithms::Anchor>& seed_anchors,
                                          const std::vector<std::vector<size_t>>& chains,
+                                         const std::vector<std::vector<bool>>& chain_rec_flags,
                                          const std::vector<size_t>& chain_source_tree,
                                          const PathPositionHandleGraph* path_graph) {
     if (!path_graph) {
@@ -234,6 +237,9 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
         // The read context should already be set by the caller
         TSVExplainer exp(true, chain_file_name);
 
+        // We make another TSV that's more parseable, with all the seeds.
+        TSVExplainer seedpos(true, "chain" + std::to_string(chain_num) + "-seeds");
+
         // Determine the positions of all the involved seeds.
         std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
         for (auto& kv : seed_sets) {
@@ -245,7 +251,23 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                     auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
                         // If we don't know the seed's positions yet, get them
-                        seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                        for (auto& handle_and_positions : found->second) {
+                            std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+                            for (auto& position : handle_and_positions.second) {
+                                // Dump all the seed positions so we can select seeds we want to know about.
+                                // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
+                                seedpos.line();
+                                seedpos.field(seed_anchors.at(seed_num).read_start());
+                                seedpos.field(path_name);
+                                seedpos.field(position.first);
+                                seedpos.field(position.second ? "-" : "+");
+                                seedpos.field(seed_num);
+                                std::stringstream ss;
+                                ss << seed_anchors.at(seed_num);
+                                seedpos.field(ss.str());
+                            }
+                        }
                     }
                 }
             }
@@ -257,9 +279,18 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
             for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
                 // For each run of seeds in it
                 const std::vector<size_t>& included_seeds = kv.second[run_number];
-                for (auto& seed_num : included_seeds) {
-                    // For each seed in the run
+                for (size_t idx = 0; idx < included_seeds.size(); ++idx) {
+                    // For each seed in the run (index-based so we can consult chain flags)
+                    size_t seed_num = included_seeds[idx];
                     auto& seed = seeds.at(seed_num);
+
+                    // Determine whether this seed (in chain mode) is from an anchor that is recombinant
+                    bool is_recomb = false;
+                    if (!marker.empty() && marker == "chain") {
+                        if (chain_num < chain_rec_flags.size() && idx < chain_rec_flags[chain_num].size()) {
+                            is_recomb = chain_rec_flags[chain_num][idx];
+                        }
+                    }
 
                     // Get its effective path positions
                     auto& offsets = seed_positions.at(seed_num);
@@ -280,6 +311,16 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                             exp.field(position.first);
                             // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                             exp.field(minimizers[seed.source].pin_offset());
+                            // Recombination flag column (only meaningful for chain rows)
+                            if (!marker.empty()) {
+                                if (marker == "chain") {
+                                    exp.field(is_recomb ? "REC" : "");
+                                } else {
+                                    exp.field("");
+                                }
+                            } else {
+                                exp.field("");
+                            }
                         }
                     }
                     if (offsets.empty()) {
@@ -296,6 +337,12 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                         exp.field(0);
                         // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                         exp.field(minimizers[seed.source].pin_offset());
+                        // Recombination flag column
+                        if (marker == "chain") {
+                            exp.field(is_recomb ? "REC" : "");
+                        } else {
+                            exp.field("");
+                        }
                     }
                 }
 
@@ -707,6 +754,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // For each chain, we need:
     // The chain itself, pointing into seeds
     std::vector<std::vector<size_t>> chains;
+    // For each chain, mark per-seed whether it came from a recombinant anchor
+    std::vector<std::vector<bool>> chain_rec_flags;
     // The zip code tree it came from
     std::vector<size_t> chain_source_tree;
     // An estimated alignment score
@@ -717,7 +766,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> multiplicity_by_chain;
 
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                         chains, chain_source_tree, chain_score_estimates,
+                         chains, chain_rec_flags, chain_source_tree, chain_score_estimates,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
@@ -732,7 +781,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
     if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, chains, chain_source_tree, this->path_graph);
+        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_rec_flags, chain_source_tree, this->path_graph);
     }
 
     if (alignments.size() == 0) {
@@ -1027,13 +1076,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 }
 
 void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest,
-        const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
-        const vector<algorithms::Anchor>& seed_anchors,
-        std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
-        std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-        std::vector<double>& multiplicity_by_chain,
-        std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
-        LazyRNG& rng, Funnel& funnel) const {
+    const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+    const vector<algorithms::Anchor>& seed_anchors,
+    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags, std::vector<size_t>& chain_source_tree,
+    std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+    std::vector<double>& multiplicity_by_chain,
+    std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
+    LazyRNG& rng, Funnel& funnel) const {
 
     // Keep track of which chain each alignment comes from for the funnel
     std::vector<size_t> alignment_source_chain;
@@ -1433,7 +1482,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
             VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
 
             // This will hold our chaining results
-            std::vector<std::pair<int, std::vector<size_t>>> results;
+            algorithms::ChainsResult chain_results;
 
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1461,7 +1510,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 graph_lookback_limit,
                 read_lookback_limit
             );
-            results = algorithms::find_best_chains(
+            chain_results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1475,21 +1524,23 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 this->gap_scale,
                 this->points_per_possible_match,
                 indel_limit,
-                false
+                show_work
             );
             if (show_work) {
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << results.size() << " chains in zip code tree " << item_num
+                cerr << log_name() << "Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
 
-            for (size_t result = 0; result < results.size(); result++) {
+            for (size_t result = 0; result < chain_results.chains.size(); result++) {
                 // For each result
-                auto& scored_chain = results[result];
-                if (show_work) {
+                auto& entry = chain_results.chains[result];
+                auto& scored_chain = entry.scored_chain;
+                auto& chain_rec_positions = entry.rec_positions;
+                if (true) {
 #ifdef debug
-                    if(true)
+                    if(show_work)
 #else
                     if (result < MANY_LIMIT)
 #endif
@@ -1498,9 +1549,19 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                             #pragma omp critical (cerr)
                             {
                                 cerr << log_name() << "\tChain with score " << scored_chain.first
-                                    << " and length " << scored_chain.second.size()
+                                    << " (rec num =" << chain_rec_positions.size() << ") and length " << scored_chain.second.size()
                                     << " running " << anchor_view[scored_chain.second.front()]
                                     << " to " << anchor_view[scored_chain.second.back()] << std::endl;
+                                if (!chain_rec_positions.empty()) {
+                                    {
+                                        cerr << log_name() << "\t\tRecombination introduced at anchors: ";
+                                        for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
+                                            if (pi) cerr << ", ";
+                                            cerr << chain_rec_positions[pi];
+                                        }
+                                        cerr << std::endl;
+                                    }
+                                }
 #ifdef debug
 
                                 for (auto& anchor_number : scored_chain.second) {
@@ -1512,7 +1573,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                         }
                     } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t<" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
                     }
                 }
 
@@ -1521,13 +1582,24 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
 
                 // Translate chains into seed numbers and not local anchor numbers.
                 chains.emplace_back();
+                // Also make a parallel vector that marks whether each seed in the chain
+                // comes from an anchor that introduced recombination.
+                chain_rec_flags.emplace_back();
                 chains.back().reserve(scored_chain.second.size() * 2);
+                chain_rec_flags.back().reserve(scored_chain.second.size() * 2);
+
+                // Build a set of the anchor indices inside scored_chain that are recombinant
+                std::unordered_set<size_t> rec_anchor_set(chain_rec_positions.begin(), chain_rec_positions.end());
+
                 for (auto& selected_number : scored_chain.second) {
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
+                    bool anchor_is_recomb = rec_anchor_set.count(selected_number) > 0;
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the chain.
                         chains.back().push_back(seed_number);
+                        // Mark whether this seed came from a recombinant anchor
+                        chain_rec_flags.back().push_back(anchor_is_recomb);
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.

@@ -867,7 +867,7 @@ protected:
      */
     void do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
+                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags, std::vector<size_t>& chain_source_tree,
                               std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
                               std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
@@ -1463,7 +1463,9 @@ protected:
     static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
+                                   const vector<algorithms::Anchor>& seed_anchors,
                                    const std::vector<std::vector<size_t>>& chains,
+                                   const std::vector<std::vector<bool>>& chain_rec_flags,
                                    const std::vector<size_t>& chain_source_tree,
                                    const PathPositionHandleGraph* path_graph);
 
