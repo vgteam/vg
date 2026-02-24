@@ -84,6 +84,10 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1ChainWithRec.html">ChainWithRec</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1ChainsResult.html">ChainsResult</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html">GFAParser</a></td></tr>
@@ -172,8 +176,8 @@ Functions</h2></td></tr>
 <tr class="separator:a4779d42f26b957b1f8d6c454137994a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a9239fd23ed6838263f4dd05828d18c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; size_t &gt;, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a7a9239fd23ed6838263f4dd05828d18c">chain_items_traceback</a> (const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;chain_scores, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;best_past_ending_score_ever, int item_bonus, double item_scale, size_t max_tracebacks)</td></tr>
 <tr class="separator:a7a9239fd23ed6838263f4dd05828d18c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a60b14289dabee973c7de3e4e8681025d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, vector&lt; size_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a60b14289dabee973c7de3e4e8681025d">find_best_chains</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, int recomb_penalty, size_t max_chains, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases, bool show_work)</td></tr>
-<tr class="separator:a60b14289dabee973c7de3e4e8681025d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a86f568dddca7f0c3927e1fb7f2967e7a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1algorithms_1_1ChainsResult.html">ChainsResult</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a86f568dddca7f0c3927e1fb7f2967e7a">find_best_chains</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, int recomb_penalty, size_t max_chains, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases, bool show_work)</td></tr>
+<tr class="separator:a86f568dddca7f0c3927e1fb7f2967e7a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac2567456f1cd3fd13cfc917e34459de9"><td class="memItemLeft" align="right" valign="top">pair&lt; int, vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac2567456f1cd3fd13cfc917e34459de9">find_best_chain</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, int recomb_penalty, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases)</td></tr>
 <tr class="separator:ac2567456f1cd3fd13cfc917e34459de9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad91b7ceb67d3923a4c5cace56a5c4f6e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad91b7ceb67d3923a4c5cace56a5c4f6e">score_best_chain</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension)</td></tr>
@@ -2830,14 +2834,14 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a60b14289dabee973c7de3e4e8681025d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a60b14289dabee973c7de3e4e8681025d">&#9670;&nbsp;</a></span>find_best_chains()</h2>
+<a id="a86f568dddca7f0c3927e1fb7f2967e7a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a86f568dddca7f0c3927e1fb7f2967e7a">&#9670;&nbsp;</a></span>find_best_chains()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; pair&lt; int, vector&lt; size_t &gt; &gt; &gt; vg::algorithms::find_best_chains </td>
+          <td class="memname"><a class="el" href="structvg_1_1algorithms_1_1ChainsResult.html">ChainsResult</a> vg::algorithms::find_best_chains </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>to_chain</em>, </td>

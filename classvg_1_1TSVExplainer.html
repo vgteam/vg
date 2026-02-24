@@ -94,14 +94,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:ac7c5964711efd7f58c22d6aa9f07884c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Close out the file being explained to.  <a href="classvg_1_1TSVExplainer.html#ac7c5964711efd7f58c22d6aa9f07884c">More...</a><br /></td></tr>
 <tr class="separator:ac7c5964711efd7f58c22d6aa9f07884c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4d5e63408088dcb1185b613fb57bab04"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVExplainer.html#a4d5e63408088dcb1185b613fb57bab04">line</a> ()</td></tr>
-<tr class="memdesc:a4d5e63408088dcb1185b613fb57bab04"><td class="mdescLeft">&#160;</td><td class="mdescRight">Start a new line. Must call this before <a class="el" href="classvg_1_1TSVExplainer.html#a855b258874af7d9be7db4ffb3ecebcc1" title="Add a field with a string value.">field()</a>.  <a href="classvg_1_1TSVExplainer.html#a4d5e63408088dcb1185b613fb57bab04">More...</a><br /></td></tr>
+<tr class="memdesc:a4d5e63408088dcb1185b613fb57bab04"><td class="mdescLeft">&#160;</td><td class="mdescRight">Start a new line. Must call this before <a class="el" href="classvg_1_1TSVExplainer.html#a9ac105686cf7f8422e0513247cb39810" title="Add a field with any value that can be &lt;&lt;&#39;d into a stream.">field()</a>.  <a href="classvg_1_1TSVExplainer.html#a4d5e63408088dcb1185b613fb57bab04">More...</a><br /></td></tr>
 <tr class="separator:a4d5e63408088dcb1185b613fb57bab04"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a855b258874af7d9be7db4ffb3ecebcc1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVExplainer.html#a855b258874af7d9be7db4ffb3ecebcc1">field</a> (const std::string &amp;value)</td></tr>
-<tr class="memdesc:a855b258874af7d9be7db4ffb3ecebcc1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a field with a string value.  <a href="classvg_1_1TSVExplainer.html#a855b258874af7d9be7db4ffb3ecebcc1">More...</a><br /></td></tr>
-<tr class="separator:a855b258874af7d9be7db4ffb3ecebcc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ff0223ddab66b4a904c291e208eb5f5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVExplainer.html#a0ff0223ddab66b4a904c291e208eb5f5">field</a> (size_t value)</td></tr>
-<tr class="memdesc:a0ff0223ddab66b4a904c291e208eb5f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a field with an integral value.  <a href="classvg_1_1TSVExplainer.html#a0ff0223ddab66b4a904c291e208eb5f5">More...</a><br /></td></tr>
-<tr class="separator:a0ff0223ddab66b4a904c291e208eb5f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9ac105686cf7f8422e0513247cb39810"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a9ac105686cf7f8422e0513247cb39810"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVExplainer.html#a9ac105686cf7f8422e0513247cb39810">field</a> (const T &amp;value)</td></tr>
+<tr class="memdesc:a9ac105686cf7f8422e0513247cb39810"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a field with any value that can be &lt;&lt;'d into a stream.  <a href="classvg_1_1TSVExplainer.html#a9ac105686cf7f8422e0513247cb39810">More...</a><br /></td></tr>
+<tr class="separator:a9ac105686cf7f8422e0513247cb39810"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1Explainer"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1Explainer')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1Explainer.html">vg::Explainer</a></td></tr>
 <tr class="memitem:a6731729e992afae0857c09c646df3418 inherit pub_methods_classvg_1_1Explainer"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#a6731729e992afae0857c09c646df3418">Explainer</a> (bool <a class="el" href="classvg_1_1Explainer.html#aab4405f76ac87a52ec7acd6e833a11c7">enabled</a>)</td></tr>
 <tr class="memdesc:a6731729e992afae0857c09c646df3418 inherit pub_methods_classvg_1_1Explainer"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct an <a class="el" href="classvg_1_1Explainer.html">Explainer</a> that will save to one or more files.  <a href="classvg_1_1Explainer.html#a6731729e992afae0857c09c646df3418">More...</a><br /></td></tr>
@@ -213,43 +211,25 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a855b258874af7d9be7db4ffb3ecebcc1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a855b258874af7d9be7db4ffb3ecebcc1">&#9670;&nbsp;</a></span>field() <span class="overload">[1/2]</span></h2>
+<a id="a9ac105686cf7f8422e0513247cb39810"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9ac105686cf7f8422e0513247cb39810">&#9670;&nbsp;</a></span>field()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">void vg::TSVExplainer::field </td>
           <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramtype">const T &amp;&#160;</td>
           <td class="paramname"><em>value</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Add a field with a string value. </p>
-
-</div>
-</div>
-<a id="a0ff0223ddab66b4a904c291e208eb5f5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0ff0223ddab66b4a904c291e208eb5f5">&#9670;&nbsp;</a></span>field() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::TSVExplainer::field </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>value</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Add a field with an integral value. </p>
+<p>Add a field with any value that can be &lt;&lt;'d into a stream. </p>
 
 </div>
 </div>
@@ -268,7 +248,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Start a new line. Must call this before <a class="el" href="classvg_1_1TSVExplainer.html#a855b258874af7d9be7db4ffb3ecebcc1" title="Add a field with a string value.">field()</a>. </p>
+<p>Start a new line. Must call this before <a class="el" href="classvg_1_1TSVExplainer.html#a9ac105686cf7f8422e0513247cb39810" title="Add a field with any value that can be &lt;&lt;&#39;d into a stream.">field()</a>. </p>
 
 </div>
 </div>
