@@ -686,7 +686,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         cerr << "  -P, --prune-low-cplx          prune short and low complexity anchors" << endl
              << "                                during linear format realignment" << endl
              << "                                (default on for hifi and r10 presets)" << endl
-             << "      --no-prune-low-cplx       disable --prune-low-cplx even with long-read presets" << endl
+             << "      --no-prune-low-cplx       disable low complexity anchor pruning" << endl
              << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
@@ -838,7 +838,10 @@ int main_giraffe(int argc, char** argv) {
     std::string ref_paths_name;
     // What assemblies shoudl we use when autodetecting reference paths?
     std::unordered_set<std::string> reference_assembly_names;
-    // And should we drop low complexity anchors when surjectng?
+    // And should we drop low complexity anchors when surjecting?
+    // TODO: Change add_flag() to auto generate normal and --no- versions of
+    // options, and make this a flag the preset system can set directly, inside
+    // GiraffeMainOptions.
     std::optional<bool> prune_anchors;
     
     // When surjecting, should we annotate the reads with the graph alignment?
