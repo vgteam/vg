@@ -697,7 +697,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination. Setting values for" << endl
              << "                                many other options can be provided as ranges" << endl
-             << "                                in the format start[:end[:step]], with end"
+             << "                                in the format start[:end[:step]], with end" << endl
              << "                                being inclusive." << endl
              << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
