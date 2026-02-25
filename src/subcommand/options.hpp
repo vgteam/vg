@@ -812,9 +812,7 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
 /**
  * Definition structure for the negation counterpart of a flag (e.g. --no-XXX
  * for --XXX, or --XXX for --no-XXX). Has its own option name, ID, and help
- * text, but pokes at the primary FlagArgSpec's storage when parsed. Does not
- * tick, apply, or participate in presets (use the primary option name for
- * those).
+ * text, but uses the primary FlagArgSpec's storage when parsed.
  */
 template<typename Receiver>
 struct NegationFlagArgSpec : public BaseArgSpec<Receiver> {
@@ -970,33 +968,42 @@ struct OptionGroup : public BaseOptionGroup {
         return false;
     }
 
-    /// Add a new option that goes to the given field, with the given default.
-    template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
-        args.emplace_back(new Spec(name, short_option, dest, default_value, help, validator));
+    /// Take ownership of the given allocated BaseArgSpec, and attach it as part of the group.
+    /// TODO: Should this be private?
+    void attach_option(BaseArgSpec<Receiver>* spec) {
+        // Args will own this
+        args.emplace_back(spec);
         if (args.size() == 1) {
             // Chain us to first arg
-            TickChainLink::chain(*args.front());
+            TickChainLink::chain(*spec);
         } else {
             // Chain onto previous option
-            args[args.size() - 2]->chain(*args[args.size() - 1]);
+            args[args.size() - 2]->chain(*spec);
         }
         // Index it by option ID
-        id_to_index.emplace(args[args.size() - 1]->option_id, args.size() - 1);
+        id_to_index.emplace(spec->option_id, args.size() - 1);
         // And option name
-        option_to_index.emplace(args[args.size() - 1]->option, args.size() - 1);
+        option_to_index.emplace(spec->option, args.size() - 1);
+    }
+
+    /// Add a new option that goes to the given field, with the given default.
+    template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
+    Spec* add_option(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        Spec* spec = new Spec(name, short_option, dest, default_value, help, validator);
+        attach_option(spec);
+        return spec; 
     }
     
     /// Add a new option that goes to the given field, with the given default.
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
-        add_option<T, Spec>(name, '\0', dest, default_value, help, validator);
+    Spec* add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        return add_option<T, Spec>(name, '\0', dest, default_value, help, validator);
     }
     
     /// Add a new option that handles range values
     template<typename T>
-    void add_range(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
-        add_option<T, RangeArgSpec<T, Receiver>>(name, short_option, dest, default_value, help, validator);
+    RangeArgSpec<T, Receiver>* add_range(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        return add_option<T, RangeArgSpec<T, Receiver>>(name, short_option, dest, default_value, help, validator);
     }
     /// Add a new option that handles range values
     template<typename T>
@@ -1006,11 +1013,11 @@ struct OptionGroup : public BaseOptionGroup {
     
     /// Add a new option that is a boolean flag, and auto-generate a negation
     /// counterpart (--no-XXX for --XXX, or --XXX for --no-XXX).
-    void add_flag(const std::string& name, char short_option, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
-        add_option<bool, FlagArgSpec<Receiver>>(name, short_option, dest, default_value, help, validator);
+    std::pair<FlagArgSpec<Receiver>*, NegationFlagArgSpec<Receiver>*> add_flag(const std::string& name, char short_option, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
+        
+        auto primary = add_option<bool, FlagArgSpec<Receiver>>(name, short_option, dest, default_value, help, validator);
 
         // Auto-generate negation counterpart
-        auto* primary = static_cast<FlagArgSpec<Receiver>*>(args.back().get());
         std::string neg_name;
         if (name.size() > 3 && name.substr(0, 3) == "no-") {
             neg_name = name.substr(3);
@@ -1018,14 +1025,16 @@ struct OptionGroup : public BaseOptionGroup {
             neg_name = "no-" + name;
         }
         std::string neg_help = "opposite of --" + name;
-        args.emplace_back(new NegationFlagArgSpec<Receiver>(neg_name, neg_help, primary));
-        args[args.size() - 2]->chain(*args[args.size() - 1]);
-        id_to_index.emplace(args.back()->option_id, args.size() - 1);
-        // Don't add to option_to_index — presets use the primary option name
+        auto negation = new NegationFlagArgSpec<Receiver>(neg_name, neg_help, primary);
+        attach_option(negation);
+
+        return {primary, negation};
     }
-    /// Add a new option that is a boolean flag
-    void add_flag(const std::string& name, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
-        add_flag(name, '\0', dest, default_value, help, validator);
+
+    /// Add a new option that is a boolean flag, and auto-generate a negation
+    /// counterpart (--no-XXX for --XXX, or --XXX for --no-XXX).
+    std::pair<FlagArgSpec<Receiver>*, NegationFlagArgSpec<Receiver>*> add_flag(const std::string& name, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
+        return add_flag(name, '\0', dest, default_value, help, validator);
     }
     
     /// Parse the given option ID, with the given value if needed.
