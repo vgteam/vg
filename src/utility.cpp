@@ -278,18 +278,22 @@ bool is_number(const std::string& s) {
 
 std::string to_lower(const std::string& s) {
     const std::locale c_locale("C");
+    std::string result;
+    result.reserve(s.size());
     for (auto& c : s) {
-        c = std::tolower(c, c_locale);
+        result.push_back(std::tolower(c, c_locale));
     }
-    return s;
+    return result;
 }
 
 std::string to_upper(const std::string& s) {
     const std::locale c_locale("C");
+    std::string result;
+    result.reserve(s.size());
     for (auto& c : s) {
-        c = std::toupper(c, c_locale);
+        result.push_back(std::toupper(c, c_locale));
     }
-    return s;
+    return result;
 }
 
 bool isATGC(char b) {
