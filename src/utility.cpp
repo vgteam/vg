@@ -276,23 +276,23 @@ bool is_number(const std::string& s) {
                         [](char c) { return !std::isdigit(c); }) == s.end();
 }
 
-string to_lower(string s) {
-    const locale c_locale("C");
+std::string to_lower(const std::string& s) {
+    const std::locale c_locale("C");
     for (auto& c : s) {
-        c = tolower(c, c_locale);
+        c = std::tolower(c, c_locale);
     }
     return s;
 }
 
-string to_upper(string s) {
-    const locale c_locale("C");
+std::string to_upper(const std::string& s) {
+    const std::locale c_locale("C");
     for (auto& c : s) {
-        c = toupper(c, c_locale);
+        c = std::toupper(c, c_locale);
     }
     return s;
 }
 
-bool isATGC(const char& b) {
+bool isATGC(char b) {
     return (b == 'A' || b == 'T' || b == 'G' || b == 'C');
 }
 

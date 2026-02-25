@@ -382,7 +382,7 @@ int main_surject(int argc, char** argv) {
     }
 
     // normalize and apply read length preset
-    read_length = to_lower(std::move(read_length));
+    read_length = to_lower(read_length);
     std::unordered_set<std::string> read_lengths{"long", "short"};
     if (!read_length.empty() && !read_lengths.count(read_length)) {
         logger.error() << "Unrecognized read length preset (--read-length/-D): " << read_length << endl;

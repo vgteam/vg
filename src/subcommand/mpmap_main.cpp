@@ -949,10 +949,10 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // normalize capitalization on preset options
-    read_length = to_lower(std::move(read_length));
-    nt_type = to_lower(std::move(nt_type));
-    error_rate = to_lower(std::move(error_rate));
-    out_format = to_upper(std::move(out_format));
+    read_length = to_lower(read_length);
+    nt_type = to_lower(nt_type);
+    error_rate = to_lower(error_rate);
+    out_format = to_upper(out_format);
     
     bool hts_output = (out_format == "SAM" || out_format == "BAM" || out_format == "CRAM");
     bool transcriptomic = (nt_type == "rna");
