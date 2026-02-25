@@ -810,6 +810,63 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
 };
 
 /**
+ * Definition structure for the negation counterpart of a flag (e.g. --no-XXX
+ * for --XXX, or --XXX for --no-XXX). Has its own option name, ID, and help
+ * text, but pokes at the primary FlagArgSpec's storage when parsed. Does not
+ * tick, apply, or participate in presets (use the primary option name for
+ * those).
+ */
+template<typename Receiver>
+struct NegationFlagArgSpec : public BaseArgSpec<Receiver> {
+    /// The primary flag whose storage we manipulate.
+    FlagArgSpec<Receiver>* primary;
+
+    NegationFlagArgSpec(const std::string& option, const std::string& help,
+                        FlagArgSpec<Receiver>* primary)
+        : BaseArgSpec<Receiver>(option, help), primary(primary) {}
+    virtual ~NegationFlagArgSpec() = default;
+
+    virtual void parse(const char* optarg) {
+        // Set the primary flag back to its default value.
+        primary->set_value(primary->default_value);
+    }
+
+    // Negation is not preset/set/query-able — use the primary option name.
+    virtual void preset(const BaseValuation& entry) {}
+    virtual void set(const BaseValuation& entry) {}
+    virtual void query(BaseValuation& entry) const {}
+
+    // Primary handles apply.
+    virtual void apply(Receiver& receiver) const {}
+
+    virtual bool print_value(ostream& out, const char* sep = "") const { return false; }
+    virtual void print_metavar(ostream& out, const char* sep = "") const {}
+    virtual void print_default(ostream& out) const {}
+
+    /// Print when the negation is in effect (value was explicitly set back to
+    /// default by the user).
+    virtual bool print(ostream& out, const char* before = "",
+                       OptionFormat format = OptionFormat::CLI) const {
+        if (primary->get_value() == primary->default_value && primary->was_set()) {
+            // The negation is in effect — print it
+            if (format == OptionFormat::JSON) {
+                out << before << "\"" << this->option << "\":true";
+            } else if (format == OptionFormat::SLUG) {
+                out << before << "--" << this->option;
+            } else {
+                out << before << "--" << this->option << endl;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    virtual struct option get_option_struct() const {
+        return {this->option.c_str(), no_argument, 0, this->option_id};
+    }
+};
+
+/**
  * Represents a set of command-line options.
  */
 struct BaseOptionGroup : public TickChainLink {
@@ -947,9 +1004,24 @@ struct OptionGroup : public BaseOptionGroup {
         add_range<T>(name, '\0', dest, default_value, help, validator);
     }
     
-    /// Add a new option that is a boolean flag
+    /// Add a new option that is a boolean flag, and auto-generate a negation
+    /// counterpart (--no-XXX for --XXX, or --XXX for --no-XXX).
     void add_flag(const std::string& name, char short_option, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
         add_option<bool, FlagArgSpec<Receiver>>(name, short_option, dest, default_value, help, validator);
+
+        // Auto-generate negation counterpart
+        auto* primary = static_cast<FlagArgSpec<Receiver>*>(args.back().get());
+        std::string neg_name;
+        if (name.size() > 3 && name.substr(0, 3) == "no-") {
+            neg_name = name.substr(3);
+        } else {
+            neg_name = "no-" + name;
+        }
+        std::string neg_help = "opposite of --" + name;
+        args.emplace_back(new NegationFlagArgSpec<Receiver>(neg_name, neg_help, primary));
+        args[args.size() - 2]->chain(*args[args.size() - 1]);
+        id_to_index.emplace(args.back()->option_id, args.size() - 1);
+        // Don't add to option_to_index — presets use the primary option name
     }
     /// Add a new option that is a boolean flag
     void add_flag(const std::string& name, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
