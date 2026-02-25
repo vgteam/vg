@@ -115,7 +115,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "prune-low-cplx", 'P',
         &GiraffeMainOptions::prune_low_cplx,
         GiraffeMainOptions::default_prune_low_cplx,
-        "prune short and low complexity anchors during linear format realignment"
+        "prune short and low complexity anchors during linear format realignment (on by default for long reads)"
     );
 
     // Configure scoring
@@ -887,7 +887,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<bool>("explored-cap", true);
     
     presets["hifi"]
-        .add_entry<bool>("prune-low-cplx", true)
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
@@ -934,12 +933,12 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-distance", 240)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 15);
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<bool>("prune-low-cplx", true);
 
     Preset r10_base;
 
     r10_base
-        .add_entry<bool>("prune-low-cplx", true)
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
@@ -989,7 +988,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-distance", 240)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 15);
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<bool>("prune-low-cplx", true);
 
     presets.emplace("r10", r10_base);
 

@@ -34,7 +34,7 @@ using namespace vg;
 using namespace vg::subcommand; 
 
 void help_surject(char** argv) {
-    cerr << "usage: " << argv[0] << " surject -x graph.gbz --read-length [short|long] [options] <aln.gam> >out.bam" << endl
+    cerr << "usage: " << argv[0] << " surject -x graph.gbz --read-length [short|long] [options] <aln.gam> >out.gam" << endl
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
