@@ -210,20 +210,20 @@ void set_score(GaplessExtension& extension, const Aligner* aligner) {
 
 // Match the initial node, assuming that read_offset or node_offset is 0.
 // Updates internal_score and old_score; use set_score() to compute score.
-void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::view_type target) {
+void match_initial(GaplessExtension& match, const std::string& seq, std::string_view target) {
     size_t node_offset = match.offset;
-    size_t left = std::min(seq.length() - match.read_interval.second, target.second - node_offset);
+    size_t left = std::min(seq.length() - match.read_interval.second, target.size() - node_offset);
     while (left > 0) {
         size_t len = std::min(left, sizeof(std::uint64_t));
         std::uint64_t a = 0, b = 0;
         std::memcpy(&a, seq.data() + match.read_interval.second, len);
-        std::memcpy(&b, target.first + node_offset, len);
+        std::memcpy(&b, target.data() + node_offset, len);
         if (a == b) {
             match.read_interval.second += len;
             node_offset += len;
         } else {
             for (size_t i = 0; i < len; i++) {
-                if (seq[match.read_interval.second] != target.first[node_offset]) {
+                if (seq[match.read_interval.second] != target[node_offset]) {
                     match.internal_score++;
                 }
                 match.read_interval.second++;
@@ -238,20 +238,20 @@ void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::v
 // Match forward but stop before the mismatch count reaches the limit.
 // Updates internal_score; use set_score() to recompute score.
 // Returns the tail offset (the number of characters matched).
-size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph::view_type target, uint32_t mismatch_limit) {
+size_t match_forward(GaplessExtension& match, const std::string& seq, std::string_view target, uint32_t mismatch_limit) {
     size_t node_offset = 0;
-    size_t left = std::min(seq.length() - match.read_interval.second, target.second - node_offset);
+    size_t left = std::min(seq.length() - match.read_interval.second, target.size() - node_offset);
     while (left > 0) {
         size_t len = std::min(left, sizeof(std::uint64_t));
         std::uint64_t a = 0, b = 0;
         std::memcpy(&a, seq.data() + match.read_interval.second, len);
-        std::memcpy(&b, target.first + node_offset, len);
+        std::memcpy(&b, target.data() + node_offset, len);
         if (a == b) {
             match.read_interval.second += len;
             node_offset += len;
         } else {
             for (size_t i = 0; i < len; i++) {
-                if (seq[match.read_interval.second] != target.first[node_offset]) {
+                if (seq[match.read_interval.second] != target[node_offset]) {
                     if (match.internal_score + 1 >= mismatch_limit) {
                         return node_offset;
                     }
@@ -269,19 +269,19 @@ size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph:
 // Match forward but stop before the mismatch count reaches the limit.
 // Starts from the offset in the match and updates it.
 // Updates internal_score; use set_score() to recompute score.
-void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::view_type target, uint32_t mismatch_limit) {
+void match_backward(GaplessExtension& match, const std::string& seq, std::string_view target, uint32_t mismatch_limit) {
     size_t left = std::min(match.read_interval.first, match.offset);
     while (left > 0) {
         size_t len = std::min(left, sizeof(std::uint64_t));
         std::uint64_t a = 0, b = 0;
         std::memcpy(&a, seq.data() + match.read_interval.first - len, len);
-        std::memcpy(&b, target.first + match.offset - len, len);
+        std::memcpy(&b, target.data() + match.offset - len, len);
         if (a == b) {
             match.read_interval.first -= len;
             match.offset -= len;
         } else {
             for (size_t i = 0; i < len; i++) {
-                if (seq[match.read_interval.first - 1] != target.first[match.offset - 1]) {
+                if (seq[match.read_interval.first - 1] != target[match.offset - 1]) {
                     if (match.internal_score + 1 >= mismatch_limit) {
                         return;
                     }
@@ -373,9 +373,9 @@ void find_mismatches(const std::string& seq, const gbwtgraph::CachedGBWTGraph& g
         extension.mismatch_positions.reserve(extension.internal_score);
         size_t node_offset = extension.offset, read_offset = extension.read_interval.first;
         for (const handle_t& handle : extension.path) {
-            gbwtgraph::view_type target = graph.get_sequence_view(handle);
-            while (node_offset < target.second && read_offset < extension.read_interval.second) {
-                if (target.first[node_offset] != seq[read_offset]) {
+            std::string_view target = graph.get_sequence_view(handle);
+            while (node_offset < target.size() && read_offset < extension.read_interval.second) {
+                if (target[node_offset] != seq[read_offset]) {
                     extension.mismatch_positions.push_back(read_offset);
                 }
                 node_offset++;
@@ -1546,10 +1546,10 @@ private:
     bool append_node(const gbwtgraph::CachedGBWTGraph& graph, gbwt::SearchState next, pos_t target) {
         this->state = next;
         this->path.push_back(this->state.node);
-        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(this->state.node));
-        this->node_sequence.append(view.first, view.second);
+        std::string_view view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(this->state.node));
+        this->node_sequence.append(view.data(), view.size());
         if (gbwt::Node::encode(id(target), is_rev(target)) == this->state.node) {
-            this->target_offset = this->node_sequence.length() - (view.second - offset(target));
+            this->target_offset = this->node_sequence.length() - (view.size() - offset(target));
             return true;
         }
         return false;

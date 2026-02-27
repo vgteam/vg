@@ -242,9 +242,9 @@ static string get_haplotype_sequence(gbwt::size_type sequence_visit_offset, hand
     if (curr == end_handle) {
         return haplotype;
     }
-    gbwtgraph::view_type view = gbwt_graph.get_sequence_view(curr);
-    size_t offset = (view.second > start_max ? view.second - start_max : 0);
-    haplotype.append(view.first + offset, view.second - offset);
+    std::string_view view = gbwt_graph.get_sequence_view(curr);
+    size_t offset = (view.size() > start_max ? view.size() - start_max : 0);
+    haplotype.append(view.data() + offset, view.size() - offset);
 
     while (true) {
         pos = gbwt_graph.index->LF(pos);
@@ -254,10 +254,10 @@ static string get_haplotype_sequence(gbwt::size_type sequence_visit_offset, hand
         curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
         view = gbwt_graph.get_sequence_view(curr);
         if (curr == end_handle) {
-            haplotype.append(view.first, std::min(view.second, end_max));
+            haplotype.append(view.data(), std::min(view.size(), end_max));
             break;
         } else {
-            haplotype.append(view.first, view.second);
+            haplotype.append(view.data(), view.size());
         }
     }
     return haplotype;

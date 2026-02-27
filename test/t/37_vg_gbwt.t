@@ -229,7 +229,7 @@ rm -f x.extract
 # Build and serialize GBZ from an existing GBWT
 vg gbwt -x x.vg -g x.gbz x.gbwt
 is $? 0 "GBZ construction from GBWT"
-is $(md5sum x.gbz | cut -f 1 -d\ ) c25b16aa5315e98be8f6cead13bc567c "GBZ was serialized correctly"
+is $(md5sum x.gbz | cut -f 1 -d\ ) 15bdc4856e19145832885e32e8413321 "GBZ was serialized correctly"
 is "$(vg describe x.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
 
 # Try unsetting and setting the name
@@ -259,7 +259,7 @@ rm -f extracted.gbwt
 # Build GBZ from a 16-path cover
 vg gbwt -P -n 16 -x xy.xg -g xy.cover.gbz
 is $? 0 "Path cover GBZ construction"
-is $(md5sum xy.cover.gbz | cut -f 1 -d\ ) ffd93d2a6e603817bcba701db43a5ee1 "GBZ was serialized correctly"
+is $(md5sum xy.cover.gbz | cut -f 1 -d\ ) 9a22d6eb0e6dbdc308279aeb10f655e0 "GBZ was serialized correctly"
 is $(vg gbwt -c -Z xy.cover.gbz) 32 "path cover: 32 paths"
 is $(vg gbwt -C -Z xy.cover.gbz) 2 "path cover: 2 contigs"
 is $(vg gbwt -H -Z xy.cover.gbz) 16 "path cover: 16 haplotypes"
@@ -271,7 +271,7 @@ rm -f xy.cover.gbz
 # Build GBZ from a 16-path cover, passing through named paths
 vg gbwt -P -n 16 -x xy.xg -g xy.cover.gbz --pass-paths
 is $? 0 "Path cover GBZ construction"
-is $(md5sum xy.cover.gbz | cut -f 1 -d\ ) f6e725bacf2fde5e8a69ae9c1384874c "GBZ was serialized correctly"
+is $(md5sum xy.cover.gbz | cut -f 1 -d\ ) e14c5b97d84ab28c2005b8ac9c9a0fad "GBZ was serialized correctly"
 is $(vg gbwt -c -Z xy.cover.gbz) 34 "path cover w/ reference paths: 34 paths"
 is $(vg gbwt -C -Z xy.cover.gbz) 2 "path cover w/ reference paths: 2 contigs"
 is $(vg gbwt -H -Z xy.cover.gbz) 17 "path cover w/ reference paths: 17 haplotypes"
@@ -282,7 +282,7 @@ rm -f xy.cover.gbz
 # Build GBZ from 16 paths of local haplotypes with a single job
 vg gbwt -x xy-alt.xg -g xy.local.gbz -l -n 16 --num-jobs 1 -v small/xy2.vcf.gz
 is $? 0 "Local haplotypes GBZ construction"
-is $(md5sum xy.local.gbz | cut -f 1 -d\ ) e0b32538b533a69d26afb266e227da52 "GBZ was serialized correctly"
+is $(md5sum xy.local.gbz | cut -f 1 -d\ ) b8f55c89391700c27be055cbd5fe96f5 "GBZ was serialized correctly"
 is $(vg gbwt -c -Z xy.local.gbz) 32 "local haplotypes: 32 paths"
 is $(vg gbwt -C -Z xy.local.gbz) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H -Z xy.local.gbz) 16 "local haplotypes: 16 haplotypes"
@@ -293,14 +293,14 @@ rm -f xy.local.gbz
 # As above, but with two parallel jobs
 vg gbwt -x xy-alt.xg -g xy.local.gbz -l -n 16 --num-jobs 2 -v small/xy2.vcf.gz
 is $? 0 "Local haplotypes GBZ construction (two jobs)"
-is $(md5sum xy.local.gbz | cut -f 1 -d\ ) e0b32538b533a69d26afb266e227da52 "GBZ was serialized correctly"
+is $(md5sum xy.local.gbz | cut -f 1 -d\ ) b8f55c89391700c27be055cbd5fe96f5 "GBZ was serialized correctly"
 
 rm -f xy.local.gbz
 
 # Build GBZ from 16 paths of local haplotypes, passing through named paths
 vg gbwt -x xy-alt.xg -g xy.local.gbz -l -n 16 -v small/xy2.vcf.gz --pass-paths
 is $? 0 "Local haplotypes GBZ construction"
-is $(md5sum xy.local.gbz | cut -f 1 -d\ ) a98013fb492ee0a8422a73a15f7e65c3 "GBZ was serialized correctly"
+is $(md5sum xy.local.gbz | cut -f 1 -d\ ) cfe5a617ce959b97f7b52b4f5fe9dadc "GBZ was serialized correctly"
 is $(vg gbwt -c -Z xy.local.gbz) 34 "local haplotypes w/ reference paths: 34 paths"
 is $(vg gbwt -C -Z xy.local.gbz) 2 "local haplotypes w/ reference paths: 2 contigs"
 is $(vg gbwt -H -Z xy.local.gbz) 17 "local haplotypes w/ reference paths: 17 haplotypes"
@@ -334,7 +334,7 @@ rm -f large.gbz large.local.gbwt large.local.GCRh38.gbwt
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg gbwt -a -n 16 -x xy.xg -g augmented.gbz x.gbwt
 is $? 0 "Augmented GBZ construction"
-is $(md5sum augmented.gbz | cut -f 1 -d\ ) 6333d0929717a14bf49941b3ec7ab87e "GBZ was serialized correctly"
+is $(md5sum augmented.gbz | cut -f 1 -d\ ) bcfb39767a4605320d6878d2551c1895 "GBZ was serialized correctly"
 is $(vg gbwt -c -Z augmented.gbz) 18 "augmented: 18 paths"
 is $(vg gbwt -C -Z augmented.gbz) 2 "augmented: 2 contigs"
 is $(vg gbwt -H -Z augmented.gbz) 18 "augmented: 18 haplotypes"
@@ -359,7 +359,7 @@ is $(vg gbwt -S gfa.gbwt) 1 "gfa: 1 sample"
 # Build GBZ from GFA
 vg gbwt -g gfa2.gbz -G graphs/components_walks.gfa
 is $? 0 "GBZ construction from GFA"
-is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 125428508faa78b96c4e752374a534b1 "GBZ was serialized correctly"
+is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 74d119e982352d10a3bd29f23db0ccc3 "GBZ was serialized correctly"
 vg gbwt -Z gfa2.gbz -o /dev/null --translation gfa2.trans
 is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
 is "$(vg describe gfa2.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"

@@ -767,9 +767,9 @@ TEST_CASE("MinimizerMapper can produce connecting alignments that are consistent
     gbwt::GBWT index = get_gbwt(paths);
 
     // And the GBWTGraph
-    gbwtgraph::SequenceSource source;
+    gbwtgraph::NaiveGraph source;
     graph.for_each_handle([&](const handle_t& h) {
-        source.add_node(graph.get_id(h), graph.get_sequence(h));    
+        source.create_node(graph.get_id(h), graph.get_sequence(h));    
     });
     gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(index, source);
 

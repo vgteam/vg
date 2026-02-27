@@ -350,6 +350,7 @@ public:
     size_t source;
     /// Supported paths
     path_flags_t paths;
+    size_t rec_num=0;
 };
 
 }
@@ -394,6 +395,23 @@ struct transition_info {
     // Constructor; read_distance defaults to max if not given
     inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
         : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
+};
+
+/// A single chain result: scored chain plus the recombination count observed
+/// on its endpoint.
+struct ChainWithRec {
+    std::pair<int, std::vector<size_t>> scored_chain;
+    // Positions (anchor indices) in the chain that introduce a recombination
+    // event between anchors. These correspond to anchors where we had to
+    // reset supported paths because the previous path set did not overlap
+    // with the next anchor's start paths.
+    std::vector<size_t> rec_positions;
+};
+
+/// Result of finding best chains: a list of chains each paired with the
+/// recombination count observed at that chain's endpoint.
+struct ChainsResult {
+    std::vector<ChainWithRec> chains;
 };
 
 /**
@@ -538,7 +556,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
  * Returns the scores and the list of indexes of items visited to achieve
  * that score, in order, with multiple tracebacks in descending score order.
  */
-vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_chain,
+ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                    const SnarlDistanceIndex& distance_index,
                                                    const HandleGraph& graph,
                                                    int gap_open,

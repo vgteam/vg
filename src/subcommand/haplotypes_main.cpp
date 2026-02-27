@@ -945,15 +945,15 @@ std::vector<std::string> get_haplotype(
     // Initial node with three cases (from start, suffix of a long `from`, short `from`).
     if (from == gbwt::ENDMARKER) {
         pos = graph.index->start(sequence.first);
-        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
-        haplotype.back().append(view.first, view.second);
+        std::string_view view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
+        haplotype.back().append(view.data(), view.size());
     } else {
         pos = gbwt::edge_type(from, sequence.second);
-        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
-        if (view.second >= k) {
-            haplotype.back().append(view.first + view.second - (k - 1), k - 1);
+        std::string_view view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
+        if (view.size() >= k) {
+            haplotype.back().append(view.data() + view.size() - (k - 1), k - 1);
         } else {
-            haplotype.back().append(view.first, view.second);
+            haplotype.back().append(view.data(), view.size());
         }
     }
 
@@ -973,12 +973,12 @@ std::vector<std::string> get_haplotype(
             while (pos.first == gbwt::ENDMARKER);
             haplotype.emplace_back();
         }
-        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
+        std::string_view view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
         if (pos.first == to) {
-            haplotype.back().append(view.first, std::min(view.second, k - 1));
+            haplotype.back().append(view.data(), std::min(view.size(), k - 1));
             break;
         } else {
-            haplotype.back().append(view.first, view.second);
+            haplotype.back().append(view.data(), view.size());
         }
     }
 

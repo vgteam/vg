@@ -221,7 +221,7 @@ public:
                                                               int ploidy,
                                                               const string& ref_path_name,
                                                               pair<size_t, size_t> ref_range);
-    
+
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
@@ -234,6 +234,9 @@ public:
     virtual void update_vcf_header(string& header) const;
 
 protected:
+
+    /// Calculate the size of the reference traversal (excluding boundary nodes)
+    int get_ref_trav_size(const vector<SnarlTraversal>& traversals, int ref_trav_idx) const;
 
     /// Compute likelihood of genotype as product of poisson probabilities
     /// P[allele1] * P[allle2] * P[uncalled alleles]

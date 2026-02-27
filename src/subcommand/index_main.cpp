@@ -73,8 +73,8 @@ void help_index(char** argv) {
          << "      --no-nested-distance  only store distances along the top-level chain" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
          << "                            of a top-level chain (may repeat)" << endl
-         << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient"
-         << "                            snarl tree. often necessary when running vg"
+         << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient" << endl
+         << "                            snarl tree. often necessary when running vg" << endl
          << "                            haplotypes downstream" << endl;
 }
 

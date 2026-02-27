@@ -1,0 +1,14 @@
+H	VN:Z:1.0
+S	1	AAAA
+S	2	TTTT
+S	3	CCCC
+S	4	GGGG
+S	5	AAAAAAAA
+L	1	+	2	+	0M
+L	2	+	3	+	0M
+L	1	+	4	+	0M
+L	4	+	3	+	0M
+L	3	+	5	+	0M
+P	x	1+,2+,3+	*
+P	hap1	1+,4+,3+	*
+P	hap2	1+,4+,3+,5+	*
