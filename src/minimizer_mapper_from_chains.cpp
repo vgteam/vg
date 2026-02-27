@@ -1538,9 +1538,9 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 auto& entry = chain_results.chains[result];
                 auto& scored_chain = entry.scored_chain;
                 auto& chain_rec_positions = entry.rec_positions;
-                if (true) {
+                if (show_work) {
 #ifdef debug
-                    if(show_work)
+                    if(true)
 #else
                     if (result < MANY_LIMIT)
 #endif
