@@ -1664,19 +1664,27 @@ void ZipCodeTree::distance_iterator::stack_snarl_distances(size_t snarl_start_i,
         // c1_L is on top, and c1_R is on bottom, directly above the snarl bound
         // Anything that we've already visited, we use artificial inf distances
         for (size_t i = 1; i <= chain_num - 1; i++) {
-            // Right sides that we're skipping
+            // Right sides that we're skipping (c1 to one before cur chain)
             stack_below_top(std::numeric_limits<size_t>::max());
         }
         for (size_t i = chain_num; i <= num_chains; i++) {
-            // Right sides from c1 to cN
+            // Right sides from cur chain to cN
             stack_matrix_value(dist_matrix_start, true, cur_row, i * 2);
         }
-        for (size_t i = num_chains; i >= chain_num; i--) {
-            // Left sides from cN to c1
+        for (size_t i = num_chains; i >= chain_num + 1; i--) {
+            // Left sides from cN to one before cur chain
             stack_matrix_value(dist_matrix_start, true, cur_row, i * 2 - 1);
         }
+        if (right_side) {
+            // Skip the left side of cur chain when traversing from the right
+            // since when we traversed from the left we would handle the loop
+            stack_below_top(std::numeric_limits<size_t>::max());
+        } else {
+            // Self reversal loop for left side to left side of cur chain
+            stack_matrix_value(dist_matrix_start, true, cur_row, chain_num * 2 - 1);
+        }
         for (size_t i = chain_num - 1; i >= 1; i--) {
-            // Left sides that we're skipping
+            // Left sides that we're skipping (one before cur chain to c1)
             stack_below_top(std::numeric_limits<size_t>::max());
         }
     } else {
