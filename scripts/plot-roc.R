@@ -13,12 +13,34 @@
 # As such we do not ever achieve 100% sensitivity, as we have effectively scaled the y axis (TPR) by the total
 # sensitivity of each mapper.
 
-list.of.packages <- c("tidyverse", "ggrepel", "svglite")
+filename <- commandArgs(TRUE)[2]
+
+# Install required packages
+list.of.packages <- c("tidyverse")
+if (endsWith(tolower(filename), ".svg")) {
+    list.of.packages <- append(list.of.packages, "svglite")
+}
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
-require("ggrepel")
-require("scales") # For squish
+
+# ggrepel is optional
+if ("ggrepel" %in% installed.packages()[,"Package"]) {
+    require("ggrepel")
+    have.repel <- TRUE
+} else {
+    have.repel <- FALSE
+    print("Install ggrepel for floating labels!")
+}
+
+# ggrepel is optional
+if ("scales" %in% installed.packages()[,"Package"]) {
+    require("scales")
+    have.scales <- TRUE
+} else {
+    have.scales <- FALSE
+    print("Install scales for OOB squishing!")
+}
 
 # Read in the combined toil-vg stats.tsv, listing:
 # correct, mapq, aligner (really graph name), read name, count, eligible
@@ -126,11 +148,12 @@ range.log10 <- min.log10 : max.log10
 range.unlogged = 10^range.log10
 
 dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
-    geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+    geom_line() +
+    if (have.repel) geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) else 0 +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
-    scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
+    scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=if(have.scales) squish else censor) +
     geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
     theme_bw() + 
     ggtitle(title)
@@ -140,5 +163,4 @@ if (title != '') {
     dat.plot + ggtitle(title)
 }
     
-filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)

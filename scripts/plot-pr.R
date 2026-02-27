@@ -2,12 +2,25 @@
 
 # plot-pr.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 
+filename <- commandArgs(TRUE)[2]
+
 # Install required packages
-list.of.packages <- c("tidyverse", "ggrepel", "svglite")
+list.of.packages <- c("tidyverse")
+if (endsWith(tolower(filename), ".svg")) {
+    list.of.packages <- append(list.of.packages, "svglite")
+}
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
-require("ggrepel")
+
+# ggrepel is optional
+if ("ggrepel" %in% installed.packages()[,"Package"]) {
+    require("ggrepel")
+    have.repel <- TRUE
+} else {
+    have.repel <- FALSE
+    print("Install ggrepel for floating labels!")
+}
 
 # Read in the combined toil-vg stats.tsv, listing:
 # correct, mapq, aligner (really graph name), read name, count, eligible
@@ -146,8 +159,8 @@ dat.plot <- dat.roc %>%
     ggplot(aes(x = -log10(1 - Recall), y = -log10(1 - Precision), color = aligner, label=mq)) + 
         # We will use a line plot
         geom_line() + 
-        # There will be cool floating labels
-        geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+        # There will be cool floating labels if possible
+        if (have.repel) geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) else 0 +
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
@@ -171,5 +184,4 @@ if (title != '') {
 }
 
 # Now save to the second command line argument
-filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)
