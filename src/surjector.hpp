@@ -177,6 +177,8 @@ using namespace std;
         
         bool annotate_with_all_path_scores = false;
         bool annotate_with_graph_alignment = false;
+        /// Score bonus to apply to alignments on reference paths during path selection
+        int32_t reference_bonus = 0;
         
     protected:
 
@@ -580,11 +582,16 @@ using namespace std;
             // TODO: it would be possible to make this exact
             total_score -= total_overlap(strand_surjections.second) * get_aligner()->match;
             
-            if (total_score >= score) {
+            int32_t adjusted_score = total_score;
+            if (reference_bonus && graph->get_sense(strand_surjections.first.first) == PathSense::REFERENCE) {
+                adjusted_score += reference_bonus;
+            }
+            
+            if (adjusted_score >= score) {
 #ifdef debug_anchored_surject
-                cerr << "surjection against path " << graph->get_path_name(surjections.first.first) << " strand " << surjections.first.second << " achieves highest score (so far) of " << total_score << endl;
+                cerr << "surjection against path " << graph->get_path_name(strand_surjections.first.first) << " strand " << strand_surjections.first.second << " achieves highest score (so far) of " << adjusted_score << endl;
 #endif
-                score = total_score;
+                score = adjusted_score;
                 best_path_strand = strand_surjections.first;
             }
         }
