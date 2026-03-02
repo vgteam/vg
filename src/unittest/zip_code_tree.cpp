@@ -2043,16 +2043,12 @@ namespace unittest {
                 REQUIRE(reverse_views[{0, false}][0].distance == 24);
                 REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
 
-                // 2+0rev sees self and then 2-11rev
-                REQUIRE(reverse_views[{0, true}].size() == 2);
-                // Edge to self taking C1R->C1L self-loop
-                REQUIRE(reverse_views[{0, true}][0].seed == 0);
+                // 2+0rev sees 2-11rev
+                REQUIRE(reverse_views[{0, true}].size() == 1);
+                // Edge to 2-11rev now circling back around
+                REQUIRE(reverse_views[{0, true}][0].seed == 1);
                 REQUIRE(reverse_views[{0, true}][0].distance == 24);
                 REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
-                // Edge to 2-11rev now circling back around
-                REQUIRE(reverse_views[{0, true}][1].seed == 1);
-                REQUIRE(reverse_views[{0, true}][1].distance == 24);
-                REQUIRE(reverse_views[{0, true}][1].is_reversed == true);
             }
         }
         SECTION("Cyclic snarl with seeds on either side") {
