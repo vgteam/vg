@@ -1045,6 +1045,13 @@ class ZipCodeForest {
         /// The second item is the distance to the rightmost seed in the chain
         std::pair<std::unordered_map<size_t, size_t>, size_t> distances;
 
+        // For children of snarls, track the last loop of each type
+        // so that loops can be merged when possible
+        size_t last_forward_loop_index;
+        size_t dist_since_forward_loop;
+        size_t last_reverse_loop_index;
+        size_t dist_since_reverse_loop;
+
         /// If the item is a child of a chain, its chain component
         size_t chain_component : 26; 
 
@@ -1057,7 +1064,25 @@ class ZipCodeForest {
         bool is_reversed = false;
 
         /// Constructor for type/value leaving all other fields as defaults
-        child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) : type(type), value(value) {}
+        child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) : type(type), value(value) {
+            reset_loop_storage();
+        }
+
+        /// Set all loop storage to none/max
+        inline void reset_loop_storage() {
+            last_forward_loop_index = std::numeric_limits<size_t>::max();
+            dist_since_forward_loop = std::numeric_limits<size_t>::max();
+            last_reverse_loop_index = std::numeric_limits<size_t>::max();
+            dist_since_reverse_loop = std::numeric_limits<size_t>::max();
+        }
+
+        /// Check if a loop exists in storage
+        inline bool has_forward_loop() const {
+            return last_forward_loop_index != std::numeric_limits<size_t>::max();
+        }
+        inline bool has_reverse_loop() const {
+            return last_reverse_loop_index != std::numeric_limits<size_t>::max();
+        }
     };
 
     /// Used for sorting. Represents one interval along zipcode_sort_order,
