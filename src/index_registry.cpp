@@ -130,6 +130,8 @@ double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
 std::unordered_set<std::string> IndexingParameters::haplotype_reference_samples = {};
+int IndexingParameters::haplotype_minimizer_k = 29;
+int IndexingParameters::haplotype_minimizer_w = 11;
 
 void copy_file(const string& from_fp, const string& to_fp) {
     require_exists(context, from_fp);
@@ -4191,8 +4193,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         // Build minimizer index without payload, using short-read parameters.
         MinimizerIndexParameters minimizer_params;
-        minimizer_params.minimizers(IndexingParameters::short_read_minimizer_k,
-                                    IndexingParameters::short_read_minimizer_w)
+        minimizer_params.minimizers(IndexingParameters::haplotype_minimizer_k,
+                                    IndexingParameters::haplotype_minimizer_w)
                         .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
         HaplotypePartitioner::minimizer_index_type minimizer_index =
             build_minimizer_index(gbz, nullptr, nullptr, minimizer_params);
@@ -4257,9 +4259,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         string kmc_tmp_dir = tmp_dir + "/kmc_tmp";
         mkdir(kmc_tmp_dir.c_str(), 0700);
 
-        // Run kmc: count 29-mers in KFF format with canonical k-mers.
+        // Run kmc: count k-mers in KFF format with canonical k-mers.
         // Use fork()+execvp() instead of system() to avoid shell quoting issues.
         string reads_arg = "@" + list_file;
+        string kmc_k_arg = "-k" + to_string(IndexingParameters::haplotype_minimizer_k);
         {
             // Flush all stdio streams before forking so the child doesn't
             // inherit buffered data that would be flushed twice.
@@ -4282,7 +4285,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 char* kmc_argv[] = {
                     const_cast<char*>("kmc"),
-                    const_cast<char*>("-k29"),
+                    const_cast<char*>(kmc_k_arg.c_str()),
                     const_cast<char*>("-m128"),
                     const_cast<char*>("-okff"),
                     const_cast<char*>("-hp"),

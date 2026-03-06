@@ -130,6 +130,10 @@ struct IndexingParameters {
     static Verbosity verbosity;
     // reference samples to override in GBZ during haplotype sampling [{}]
     static std::unordered_set<std::string> haplotype_reference_samples;
+    // length of k-mer used in haplotype index and kmer counting [29]
+    static int haplotype_minimizer_k;
+    // length of window used in haplotype index [11]
+    static int haplotype_minimizer_w;
 };
 
 /**
