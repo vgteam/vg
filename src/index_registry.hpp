@@ -130,10 +130,6 @@ struct IndexingParameters {
     static Verbosity verbosity;
     // reference samples to override in GBZ during haplotype sampling [{}]
     static std::unordered_set<std::string> haplotype_reference_samples;
-    // first FASTQ file to use for k-mer counting in haplotype sampling [""]
-    static std::string haplotype_fastq_1;
-    // second FASTQ file to use for k-mer counting in haplotype sampling [""]
-    static std::string haplotype_fastq_2;
 };
 
 /**

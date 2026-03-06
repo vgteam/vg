@@ -5,6 +5,7 @@
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <fstream>
 #include <iostream>
 #include <cassert>
 #include <cstring>
@@ -1503,15 +1504,18 @@ int main_giraffe(int argc, char** argv) {
 
         // Pass parameters to the recipes through IndexingParameters.
         IndexingParameters::haplotype_reference_samples = reference_samples;
-        IndexingParameters::haplotype_fastq_1 = fastq_filename_1;
-        IndexingParameters::haplotype_fastq_2 = fastq_filename_2;
 
         // Provide inputs to the registry.  The full-pangenome GBZ is typed
         // as "Unsampled Giraffe GBZ" so the sampling recipe can distinguish
         // it from the personalized "Giraffe GBZ" it will produce.
+        // Likewise, a provided "Giraffe Distance Index" is re-typed as
+        // "Unsampled Giraffe GBZ Distance Index" since it belongs to the
+        // unsampled graph.
         for (auto& index : provided_indexes) {
             if (index.first == "Giraffe GBZ") {
                 registry.provide("Unsampled Giraffe GBZ", index.second);
+            } else if (index.first == "Giraffe Distance Index") {
+                registry.provide("Unsampled Giraffe GBZ Distance Index", index.second);
             } else {
                 registry.provide(index.first, index.second);
             }
@@ -1523,6 +1527,25 @@ int main_giraffe(int argc, char** argv) {
         }
         if (!kff_name.empty()) {
             registry.provide("KFF Kmer Counts", kff_name);
+        }
+
+        // Provide FASTQs as a registry node so the KFF kmer counting recipe
+        // can discover them without going through IndexingParameters.
+        if (!fastq_filename_1.empty()) {
+            vector<string> fastqs = {fastq_filename_1};
+            if (!fastq_filename_2.empty()) {
+                fastqs.push_back(fastq_filename_2);
+            }
+            registry.provide("Haplotype FASTQs", fastqs);
+        }
+
+        // Auto-provide the unsampled distance index from the original GBZ
+        // basename if a .dist file exists there and we don't already have one.
+        if (!registry.available("Unsampled Giraffe GBZ Distance Index")) {
+            string dist_candidate = original_basename + ".dist";
+            if (ifstream(dist_candidate).good()) {
+                registry.provide("Unsampled Giraffe GBZ Distance Index", dist_candidate);
+            }
         }
 
     } else {
