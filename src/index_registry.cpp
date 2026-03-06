@@ -4251,9 +4251,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
 
         // kmc produces output_prefix.kff; strip the ".kff" extension to get the prefix.
-        string kmc_prefix = output_name;
-        if (kmc_prefix.size() >= 4 && kmc_prefix.substr(kmc_prefix.size() - 4) == ".kff") {
-            kmc_prefix = kmc_prefix.substr(0, kmc_prefix.size() - 4);
+        string kmc_prefix;
+        if (output_name.size() >= 4 && output_name.substr(output_name.size() - 4) == ".kff") {
+            kmc_prefix = output_name.substr(0, output_name.size() - 4);
+        } else {
+            error(context) << "KFF file has wrong extension: " << output_name << endl;
         }
 
         string kmc_tmp_dir = tmp_dir + "/kmc_tmp";
@@ -4263,49 +4265,41 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Use fork()+execvp() instead of system() to avoid shell quoting issues.
         string reads_arg = "@" + list_file;
         string kmc_k_arg = "-k" + to_string(IndexingParameters::haplotype_minimizer_k);
-        {
-            // Flush all stdio streams before forking so the child doesn't
-            // inherit buffered data that would be flushed twice.
-            fflush(nullptr);
-            cout.flush();
-            cerr.flush();
+        const char* kmc_argv[] = {"kmc", kmc_k_arg.c_str(), "-m128", "-okff", "-hp",
+            reads_arg.c_str(), kmc_prefix.c_str(), kmc_tmp_dir.c_str(), nullptr};
 
-            pid_t pid = fork();
-            if (pid == -1) {
-                error(context) << "fork() failed for kmc: " << strerror(errno) << endl;
-            } else if (pid == 0) {
-                // Child: redirect stdout/stderr to /dev/null when not verbose.
-                if (IndexingParameters::verbosity == IndexingParameters::None) {
-                    int devnull = open("/dev/null", O_WRONLY);
-                    if (devnull != -1) {
-                        dup2(devnull, STDOUT_FILENO);
-                        dup2(devnull, STDERR_FILENO);
-                        close(devnull);
-                    }
+        // Flush shared output streams before forking
+        cout.flush();
+        cerr.flush();
+        fflush(nullptr);
+
+        pid_t pid = fork();
+        if (pid == -1) {
+            error(context) << "fork() failed for kmc: " << strerror(errno) << endl;
+        } else if (pid == 0) {
+            // Child: redirect stdout/stderr to /dev/null when not verbose.
+            if (IndexingParameters::verbosity == IndexingParameters::None) {
+                int devnull = open("/dev/null", O_WRONLY);
+                if (devnull != -1) {
+                    dup2(devnull, STDOUT_FILENO);
+                    dup2(devnull, STDERR_FILENO);
+                    close(devnull);
                 }
-                char* kmc_argv[] = {
-                    const_cast<char*>("kmc"),
-                    const_cast<char*>(kmc_k_arg.c_str()),
-                    const_cast<char*>("-m128"),
-                    const_cast<char*>("-okff"),
-                    const_cast<char*>("-hp"),
-                    const_cast<char*>(reads_arg.c_str()),
-                    const_cast<char*>(kmc_prefix.c_str()),
-                    const_cast<char*>(kmc_tmp_dir.c_str()),
-                    nullptr
-                };
-                execvp("kmc", kmc_argv);
-                // execvp only returns on failure.
-                _exit(127);
-            } else {
-                int child_stat;
-                waitpid(pid, &child_stat, 0);
-                int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
-                if (ret == 127) {
-                    error(context) << "kmc could not be executed. Make sure kmc is installed and in your PATH." << endl;
-                } else if (ret != 0) {
-                    error(context) << "kmc failed with exit code " << ret << "." << endl;
-                }
+            }
+            // execvp promises never to modify its arguments but casn't say
+            // that in the C++ type system because it causes problems in the C
+            // type system. See https://stackoverflow.com/a/19505361
+            execvp("kmc", (char**)kmc_argv);
+            // execvp only returns on failure.
+            _exit(127);
+        } else {
+            int child_stat;
+            waitpid(pid, &child_stat, 0);
+            int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
+            if (ret == 127) {
+                error(context) << "kmc could not be executed. Make sure kmc is installed and in your PATH." << endl;
+            } else if (ret != 0) {
+                error(context) << "kmc failed with exit code " << ret << "." << endl;
             }
         }
 
