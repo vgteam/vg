@@ -86,6 +86,7 @@ $(function() {
 <code>#include &lt;fstream&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;cctype&gt;</code><br />
+<code>#include &lt;locale&gt;</code><br />
 <code>#include &lt;sched.h&gt;</code><br />
 <code>#include &lt;<a class="el" href="blocked__gzip__input__stream_8hpp.html">vg/io/blocked_gzip_input_stream.hpp</a>&gt;</code><br />
 <code>#include &lt;gcsa/utils.h&gt;</code><br />
@@ -138,9 +139,13 @@ Functions</h2></td></tr>
 <tr class="separator:a57f111dda471f40192704110bae04a0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af051490e6e94b4c476695610472cdf5b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af051490e6e94b4c476695610472cdf5b">vg::is_number</a> (const std::string &amp;s)</td></tr>
 <tr class="separator:af051490e6e94b4c476695610472cdf5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a92c923774a6526b7bfc7f06ae4ae7a18">vg::isATGC</a> (const char &amp;b)</td></tr>
-<tr class="memdesc:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if a character is an uppercase A, C, G, or T, and false otherwise.  <a href="namespacevg.html#a92c923774a6526b7bfc7f06ae4ae7a18">More...</a><br /></td></tr>
-<tr class="separator:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9b2f0081290b0d0be55c46ef7430a2c4"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9b2f0081290b0d0be55c46ef7430a2c4">vg::to_lower</a> (const std::string &amp;s)</td></tr>
+<tr class="separator:a9b2f0081290b0d0be55c46ef7430a2c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f83536639dc969368f339988efc7bc8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2f83536639dc969368f339988efc7bc8">vg::to_upper</a> (const std::string &amp;s)</td></tr>
+<tr class="separator:a2f83536639dc969368f339988efc7bc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff7d338729bf476a144b55a4112f6427"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff7d338729bf476a144b55a4112f6427">vg::isATGC</a> (char b)</td></tr>
+<tr class="memdesc:aff7d338729bf476a144b55a4112f6427"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if a character is an uppercase A, C, G, or T, and false otherwise.  <a href="namespacevg.html#aff7d338729bf476a144b55a4112f6427">More...</a><br /></td></tr>
+<tr class="separator:aff7d338729bf476a144b55a4112f6427"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a1786f1e7e453c4b76b319ba101782d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7a1786f1e7e453c4b76b319ba101782d">vg::allATGC</a> (const string &amp;s)</td></tr>
 <tr class="separator:a7a1786f1e7e453c4b76b319ba101782d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae24bea33b666a03a0065a10a60d64e9d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae24bea33b666a03a0065a10a60d64e9d">vg::allATGCN</a> (const string &amp;s)</td></tr>

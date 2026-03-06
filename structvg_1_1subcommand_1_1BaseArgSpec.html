@@ -82,8 +82,9 @@ Inheritance diagram for vg::subcommand::BaseArgSpec&lt; Receiver &gt;:</div>
  <div class="center">
   <img src="structvg_1_1subcommand_1_1BaseArgSpec.png" usemap="#vg::subcommand::BaseArgSpec_3C_20Receiver_20_3E_map" alt=""/>
   <map id="vg::subcommand::BaseArgSpec_3C_20Receiver_20_3E_map" name="vg::subcommand::BaseArgSpec_3C_20Receiver_20_3E_map">
-<area href="structvg_1_1subcommand_1_1TickChainLink.html" alt="vg::subcommand::TickChainLink" shape="rect" coords="371,0,732,24"/>
+<area href="structvg_1_1subcommand_1_1TickChainLink.html" alt="vg::subcommand::TickChainLink" shape="rect" coords="556,0,917,24"/>
 <area href="structvg_1_1subcommand_1_1ArgSpec.html" alt="vg::subcommand::ArgSpec&lt; T, Receiver &gt;" shape="rect" coords="371,112,732,136"/>
+<area href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html" alt="vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;" shape="rect" coords="742,112,1103,136"/>
 <area href="structvg_1_1subcommand_1_1ValueArgSpec.html" alt="vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;" shape="rect" coords="0,168,361,192"/>
 <area href="structvg_1_1subcommand_1_1ValueArgSpec.html" alt="vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;" shape="rect" coords="371,168,732,192"/>
 <area href="structvg_1_1subcommand_1_1ValueArgSpec.html" alt="vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;" shape="rect" coords="742,168,1103,192"/>
@@ -330,7 +331,7 @@ template&lt;typename Receiver &gt; </div>
 
 <p>Apply the value to the right field of the given object. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#ac03349ad6512375cc1de928c49b50f51">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#ac03349ad6512375cc1de928c49b50f51">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#ac03349ad6512375cc1de928c49b50f51">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a1f1c8764ee084f17a0a4d72209e3af79">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#ac03349ad6512375cc1de928c49b50f51">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#ac03349ad6512375cc1de928c49b50f51">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#ac03349ad6512375cc1de928c49b50f51">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
 
 </div>
 </div>
@@ -361,7 +362,7 @@ template&lt;typename Receiver &gt; </div>
 
 <p>Get the getopt structure for this option. <a class="el" href="classvg_1_1Option.html">Option</a> must outlive it and not move. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a4287432c965cf788c3619aa13634c613">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#aeeb773f962b7de9459a67f2b74cce151">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#aeeb773f962b7de9459a67f2b74cce151">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#aeeb773f962b7de9459a67f2b74cce151">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#afb11b5d30258bf5ef3ea4f1e4450e2cc">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a4287432c965cf788c3619aa13634c613">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#aeeb773f962b7de9459a67f2b74cce151">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#aeeb773f962b7de9459a67f2b74cce151">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#aeeb773f962b7de9459a67f2b74cce151">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
 
 </div>
 </div>
@@ -392,7 +393,7 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 <p>Parse the argument's value from the command line. Throws std::domain_error if validation fails. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a96a1df206d4ef889c7f3f6cf08dc1426">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a8ddbad123ba28ff099c263d24b751889">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a8ddbad123ba28ff099c263d24b751889">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a8ddbad123ba28ff099c263d24b751889">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a0101a9c1592c6b6711b1e58df13826a9">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a96a1df206d4ef889c7f3f6cf08dc1426">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a8ddbad123ba28ff099c263d24b751889">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a8ddbad123ba28ff099c263d24b751889">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a8ddbad123ba28ff099c263d24b751889">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
 
 </div>
 </div>
@@ -423,7 +424,7 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 <p>Apply a preset item, or fail if it doesn't match. The preset value will sit under any parsed value but above the default. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#a9e5bd3a2b4884185bc07417893cf476c">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a1d54e0d24ab55ab5f6ef43ad7ef69c3a">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#a9e5bd3a2b4884185bc07417893cf476c">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>.</p>
 
 </div>
 </div>
@@ -470,7 +471,7 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 <p>Print option and value to the given stream, without newlines, using the given prefix and format. If slug is set, only print if variable, use short option if available and don't include spaces. Returns true if any output was produced. </p>
 
-<p>Reimplemented in <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#ab94d929b1aeb3ea2c58b014b278b572a">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>.</p>
+<p>Reimplemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a0b79688f7364270aa3732184349ce839">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#ab94d929b1aeb3ea2c58b014b278b572a">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>.</p>
 
 </div>
 </div>
@@ -502,7 +503,7 @@ template&lt;typename Receiver &gt; </div>
 
 <p>Print default value to the given stream, if appropriate. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a85b5c5993e124831c65dd9e31b74aec7">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a06e81f25a63218e0cba32ecd6320f9b2">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a06e81f25a63218e0cba32ecd6320f9b2">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a06e81f25a63218e0cba32ecd6320f9b2">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a53b9d55cef4134472be8d0f4d66a102a">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a85b5c5993e124831c65dd9e31b74aec7">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a06e81f25a63218e0cba32ecd6320f9b2">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a06e81f25a63218e0cba32ecd6320f9b2">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a06e81f25a63218e0cba32ecd6320f9b2">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
 
 </div>
 </div>
@@ -544,7 +545,7 @@ template&lt;typename Receiver &gt; </div>
 
 <p>Print value metavar placeholder to the given stream after the given separator. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a9fcf875d6e0a843cb90af9cfe7e9e3a3">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a4bf9aeb97acee678dfbd3d5c997e28c3">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a4bf9aeb97acee678dfbd3d5c997e28c3">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a4bf9aeb97acee678dfbd3d5c997e28c3">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a7760ecf986e3e4d05d18d812aceb602a">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a9fcf875d6e0a843cb90af9cfe7e9e3a3">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a4bf9aeb97acee678dfbd3d5c997e28c3">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a4bf9aeb97acee678dfbd3d5c997e28c3">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a4bf9aeb97acee678dfbd3d5c997e28c3">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
 
 </div>
 </div>
@@ -585,7 +586,7 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 <p>Print value to the given stream after the given separator. Returns true if any output was produced. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a82e3c0bd57439fcd93310e2f2f4448c0">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a0a85cf204adb8e9ec0c139c63cc43323">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a0a85cf204adb8e9ec0c139c63cc43323">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a0a85cf204adb8e9ec0c139c63cc43323">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#ab7db1ff587a4c94f25c33aef1253ab75">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html#a82e3c0bd57439fcd93310e2f2f4448c0">vg::subcommand::FlagArgSpec&lt; Receiver &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a0a85cf204adb8e9ec0c139c63cc43323">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>, <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a0a85cf204adb8e9ec0c139c63cc43323">vg::subcommand::ValueArgSpec&lt; bool, Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#a0a85cf204adb8e9ec0c139c63cc43323">vg::subcommand::ValueArgSpec&lt; T, Receiver, Range&lt; T &gt; &gt;</a>.</p>
 
 </div>
 </div>
@@ -616,7 +617,7 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 <p>Put our current effective value into the given <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a>, which must be for the right option and have the right type. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#aa3a10b563ddbdd0f555f2ef46d8e9b97">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a5fcc6f44048368ae1f20be9ebca208a3">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#aa3a10b563ddbdd0f555f2ef46d8e9b97">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>.</p>
 
 </div>
 </div>
@@ -647,7 +648,7 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 <p>Apply a valuation, or fail if it doesn't match. The value will replace any parsed value! Validation will not be run! </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#afd6266196b810cf1b11c88e5ad3fd2a2">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html#a5dd84b5520e68afd6ef5f99f6afd8d75">vg::subcommand::NegationFlagArgSpec&lt; Receiver &gt;</a>, and <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#afd6266196b810cf1b11c88e5ad3fd2a2">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>.</p>
 
 </div>
 </div>

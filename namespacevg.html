@@ -2734,9 +2734,13 @@ Functions</h2></td></tr>
 <tr class="separator:a57f111dda471f40192704110bae04a0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af051490e6e94b4c476695610472cdf5b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af051490e6e94b4c476695610472cdf5b">is_number</a> (const std::string &amp;s)</td></tr>
 <tr class="separator:af051490e6e94b4c476695610472cdf5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a92c923774a6526b7bfc7f06ae4ae7a18">isATGC</a> (const char &amp;b)</td></tr>
-<tr class="memdesc:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if a character is an uppercase A, C, G, or T, and false otherwise.  <a href="namespacevg.html#a92c923774a6526b7bfc7f06ae4ae7a18">More...</a><br /></td></tr>
-<tr class="separator:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9b2f0081290b0d0be55c46ef7430a2c4"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9b2f0081290b0d0be55c46ef7430a2c4">to_lower</a> (const std::string &amp;s)</td></tr>
+<tr class="separator:a9b2f0081290b0d0be55c46ef7430a2c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f83536639dc969368f339988efc7bc8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2f83536639dc969368f339988efc7bc8">to_upper</a> (const std::string &amp;s)</td></tr>
+<tr class="separator:a2f83536639dc969368f339988efc7bc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff7d338729bf476a144b55a4112f6427"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff7d338729bf476a144b55a4112f6427">isATGC</a> (char b)</td></tr>
+<tr class="memdesc:aff7d338729bf476a144b55a4112f6427"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if a character is an uppercase A, C, G, or T, and false otherwise.  <a href="namespacevg.html#aff7d338729bf476a144b55a4112f6427">More...</a><br /></td></tr>
+<tr class="separator:aff7d338729bf476a144b55a4112f6427"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a1786f1e7e453c4b76b319ba101782d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7a1786f1e7e453c4b76b319ba101782d">allATGC</a> (const string &amp;s)</td></tr>
 <tr class="separator:a7a1786f1e7e453c4b76b319ba101782d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae24bea33b666a03a0065a10a60d64e9d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae24bea33b666a03a0065a10a60d64e9d">allATGCN</a> (const string &amp;s)</td></tr>
@@ -14900,8 +14904,8 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a id="a92c923774a6526b7bfc7f06ae4ae7a18"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a92c923774a6526b7bfc7f06ae4ae7a18">&#9670;&nbsp;</a></span>isATGC()</h2>
+<a id="aff7d338729bf476a144b55a4112f6427"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff7d338729bf476a144b55a4112f6427">&#9670;&nbsp;</a></span>isATGC()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -14909,7 +14913,7 @@ template&lt;class Element &gt; </div>
         <tr>
           <td class="memname">bool vg::isATGC </td>
           <td>(</td>
-          <td class="paramtype">const char &amp;&#160;</td>
+          <td class="paramtype">char&#160;</td>
           <td class="paramname"><em>b</em></td><td>)</td>
           <td></td>
         </tr>
@@ -27400,6 +27404,25 @@ template&lt;typename Number &gt; </div>
 
 </div>
 </div>
+<a id="a9b2f0081290b0d0be55c46ef7430a2c4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b2f0081290b0d0be55c46ef7430a2c4">&#9670;&nbsp;</a></span>to_lower()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::to_lower </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>s</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return a copy of the given string with all characters lowercased, using the C locale for the conversion. </p>
+
+</div>
+</div>
 <a id="a128ffce6142542678bbbdc6e2e0b40cd"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a128ffce6142542678bbbdc6e2e0b40cd">&#9670;&nbsp;</a></span>to_mapping() <span class="overload">[1/2]</span></h2>
 
@@ -27947,6 +27970,25 @@ template&lt;typename Number &gt; </div>
 </div><div class="memdoc">
 
 <p>Returns a string representation of a GBWTGraph handle. </p>
+
+</div>
+</div>
+<a id="a2f83536639dc969368f339988efc7bc8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2f83536639dc969368f339988efc7bc8">&#9670;&nbsp;</a></span>to_upper()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::to_upper </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>s</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return a copy of the given string with all characters uppercased, using the C locale for the conversion. </p>
 
 </div>
 </div>

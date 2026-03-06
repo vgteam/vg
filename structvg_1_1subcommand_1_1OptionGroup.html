@@ -102,28 +102,28 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a05855ac56b836299fc0fc12292555b37"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee28025b35a1a448183eb4957d697e62"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#aee28025b35a1a448183eb4957d697e62">tick_chain</a> ()</td></tr>
 <tr class="separator:aee28025b35a1a448183eb4957d697e62"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab69a1dd33d9978f2841d0f0802cdc14b"><td class="memTemplParams" colspan="2">template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </td></tr>
-<tr class="memitem:ab69a1dd33d9978f2841d0f0802cdc14b"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#ab69a1dd33d9978f2841d0f0802cdc14b">add_option</a> (const std::string &amp;name, char short_option, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
-<tr class="memdesc:ab69a1dd33d9978f2841d0f0802cdc14b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that goes to the given field, with the given default.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#ab69a1dd33d9978f2841d0f0802cdc14b">More...</a><br /></td></tr>
-<tr class="separator:ab69a1dd33d9978f2841d0f0802cdc14b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2386bec17e12ec532c34fd64c0868d39"><td class="memTemplParams" colspan="2">template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </td></tr>
-<tr class="memitem:a2386bec17e12ec532c34fd64c0868d39"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a2386bec17e12ec532c34fd64c0868d39">add_option</a> (const std::string &amp;name, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
-<tr class="memdesc:a2386bec17e12ec532c34fd64c0868d39"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that goes to the given field, with the given default.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#a2386bec17e12ec532c34fd64c0868d39">More...</a><br /></td></tr>
-<tr class="separator:a2386bec17e12ec532c34fd64c0868d39"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae886ff78367d017bff0325bade1e584b"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:ae886ff78367d017bff0325bade1e584b"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#ae886ff78367d017bff0325bade1e584b">add_range</a> (const std::string &amp;name, char short_option, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
-<tr class="memdesc:ae886ff78367d017bff0325bade1e584b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that handles range values.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#ae886ff78367d017bff0325bade1e584b">More...</a><br /></td></tr>
-<tr class="separator:ae886ff78367d017bff0325bade1e584b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a197eb6fb7d1ef2ccfdb2d3d17b0dff36"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a197eb6fb7d1ef2ccfdb2d3d17b0dff36">attach_option</a> (<a class="el" href="structvg_1_1subcommand_1_1BaseArgSpec.html">BaseArgSpec</a>&lt; Receiver &gt; *spec)</td></tr>
+<tr class="separator:a197eb6fb7d1ef2ccfdb2d3d17b0dff36"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a64bffd66265718add64a796de268aed2"><td class="memTemplParams" colspan="2">template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </td></tr>
+<tr class="memitem:a64bffd66265718add64a796de268aed2"><td class="memTemplItemLeft" align="right" valign="top">Spec *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a64bffd66265718add64a796de268aed2">add_option</a> (const std::string &amp;name, char short_option, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
+<tr class="memdesc:a64bffd66265718add64a796de268aed2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that goes to the given field, with the given default.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#a64bffd66265718add64a796de268aed2">More...</a><br /></td></tr>
+<tr class="separator:a64bffd66265718add64a796de268aed2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a02989f5ffa1a2dd7bc97474b778b3ed5"><td class="memTemplParams" colspan="2">template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </td></tr>
+<tr class="memitem:a02989f5ffa1a2dd7bc97474b778b3ed5"><td class="memTemplItemLeft" align="right" valign="top">Spec *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a02989f5ffa1a2dd7bc97474b778b3ed5">add_option</a> (const std::string &amp;name, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
+<tr class="memdesc:a02989f5ffa1a2dd7bc97474b778b3ed5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that goes to the given field, with the given default.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#a02989f5ffa1a2dd7bc97474b778b3ed5">More...</a><br /></td></tr>
+<tr class="separator:a02989f5ffa1a2dd7bc97474b778b3ed5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3c186b02ca9139ee143df5d25fb045d"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:ab3c186b02ca9139ee143df5d25fb045d"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1subcommand_1_1RangeArgSpec.html">RangeArgSpec</a>&lt; T, Receiver &gt; *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#ab3c186b02ca9139ee143df5d25fb045d">add_range</a> (const std::string &amp;name, char short_option, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
+<tr class="memdesc:ab3c186b02ca9139ee143df5d25fb045d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that handles range values.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#ab3c186b02ca9139ee143df5d25fb045d">More...</a><br /></td></tr>
+<tr class="separator:ab3c186b02ca9139ee143df5d25fb045d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0b79a42c43d7298df155e03227b46265"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a0b79a42c43d7298df155e03227b46265"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a0b79a42c43d7298df155e03227b46265">add_range</a> (const std::string &amp;name, T Receiver::*dest, const T &amp;default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; T &gt; &amp;validator=[](const T &amp;ignored) {})</td></tr>
 <tr class="memdesc:a0b79a42c43d7298df155e03227b46265"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that handles range values.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#a0b79a42c43d7298df155e03227b46265">More...</a><br /></td></tr>
 <tr class="separator:a0b79a42c43d7298df155e03227b46265"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a09b380a1b6511d2e22477694af202ffe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a09b380a1b6511d2e22477694af202ffe">add_flag</a> (const std::string &amp;name, char short_option, bool Receiver::*dest, bool default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; bool &gt; &amp;validator=[](const bool &amp;ignored) {})</td></tr>
-<tr class="memdesc:a09b380a1b6511d2e22477694af202ffe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that is a boolean flag.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#a09b380a1b6511d2e22477694af202ffe">More...</a><br /></td></tr>
-<tr class="separator:a09b380a1b6511d2e22477694af202ffe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abed7849b9115a028191beaa1d96050be"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#abed7849b9115a028191beaa1d96050be">add_flag</a> (const std::string &amp;name, bool Receiver::*dest, bool default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; bool &gt; &amp;validator=[](const bool &amp;ignored) {})</td></tr>
-<tr class="memdesc:abed7849b9115a028191beaa1d96050be"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a new option that is a boolean flag.  <a href="structvg_1_1subcommand_1_1OptionGroup.html#abed7849b9115a028191beaa1d96050be">More...</a><br /></td></tr>
-<tr class="separator:abed7849b9115a028191beaa1d96050be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ebe2ec7ea9ace231976a5daa534cfe8"><td class="memItemLeft" align="right" valign="top">std::pair&lt; <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html">FlagArgSpec</a>&lt; Receiver &gt; *, <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html">NegationFlagArgSpec</a>&lt; Receiver &gt; * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a0ebe2ec7ea9ace231976a5daa534cfe8">add_flag</a> (const std::string &amp;name, char short_option, bool Receiver::*dest, bool default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; bool &gt; &amp;validator=[](const bool &amp;ignored) {})</td></tr>
+<tr class="separator:a0ebe2ec7ea9ace231976a5daa534cfe8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada9b175f0b3f83904f0a75eefb7ada91"><td class="memItemLeft" align="right" valign="top">std::pair&lt; <a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html">FlagArgSpec</a>&lt; Receiver &gt; *, <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html">NegationFlagArgSpec</a>&lt; Receiver &gt; * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#ada9b175f0b3f83904f0a75eefb7ada91">add_flag</a> (const std::string &amp;name, bool Receiver::*dest, bool default_value, const std::string &amp;help, const <a class="el" href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">ValidatorFunction</a>&lt; bool &gt; &amp;validator=[](const bool &amp;ignored) {})</td></tr>
+<tr class="separator:ada9b175f0b3f83904f0a75eefb7ada91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa4b885a991453bbc8cde726e35dd115f"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#aa4b885a991453bbc8cde726e35dd115f">parse</a> (int option_id, const char *optarg)</td></tr>
 <tr class="separator:aa4b885a991453bbc8cde726e35dd115f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a421492b900071c23ae1250b4882ffe52"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a421492b900071c23ae1250b4882ffe52">preset</a> (const <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;entry)</td></tr>
@@ -268,8 +268,8 @@ template&lt;typename Receiver &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="abed7849b9115a028191beaa1d96050be"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abed7849b9115a028191beaa1d96050be">&#9670;&nbsp;</a></span>add_flag() <span class="overload">[1/2]</span></h2>
+<a id="ada9b175f0b3f83904f0a75eefb7ada91"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ada9b175f0b3f83904f0a75eefb7ada91">&#9670;&nbsp;</a></span>add_flag() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -280,7 +280,7 @@ template&lt;typename Receiver &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_flag </td>
+          <td class="memname">std::pair&lt;<a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html">FlagArgSpec</a>&lt;Receiver&gt;*, <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html">NegationFlagArgSpec</a>&lt;Receiver&gt;*&gt; <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_flag </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>name</em>, </td>
@@ -321,13 +321,12 @@ template&lt;typename Receiver &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Add a new option that is a boolean flag. </p>
+<p>Add a new option that is a boolean flag, and auto-generate a negation counterpart (&ndash;no-XXX for &ndash;XXX, or &ndash;XXX for &ndash;no-XXX). </p>
 
 </div>
 </div>
-<a id="a09b380a1b6511d2e22477694af202ffe"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a09b380a1b6511d2e22477694af202ffe">&#9670;&nbsp;</a></span>add_flag() <span class="overload">[2/2]</span></h2>
+<a id="a0ebe2ec7ea9ace231976a5daa534cfe8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ebe2ec7ea9ace231976a5daa534cfe8">&#9670;&nbsp;</a></span>add_flag() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -338,7 +337,7 @@ template&lt;typename Receiver &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_flag </td>
+          <td class="memname">std::pair&lt;<a class="el" href="structvg_1_1subcommand_1_1FlagArgSpec.html">FlagArgSpec</a>&lt;Receiver&gt;*, <a class="el" href="structvg_1_1subcommand_1_1NegationFlagArgSpec.html">NegationFlagArgSpec</a>&lt;Receiver&gt;*&gt; <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_flag </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>name</em>, </td>
@@ -385,13 +384,12 @@ template&lt;typename Receiver &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Add a new option that is a boolean flag. </p>
+<p>Add a new option that is a boolean flag, and auto-generate a negation counterpart (&ndash;no-XXX for &ndash;XXX, or &ndash;XXX for &ndash;no-XXX). </p>
 
 </div>
 </div>
-<a id="ab69a1dd33d9978f2841d0f0802cdc14b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab69a1dd33d9978f2841d0f0802cdc14b">&#9670;&nbsp;</a></span>add_option() <span class="overload">[1/2]</span></h2>
+<a id="a64bffd66265718add64a796de268aed2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a64bffd66265718add64a796de268aed2">&#9670;&nbsp;</a></span>add_option() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -404,7 +402,7 @@ template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_option </td>
+          <td class="memname">Spec* <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_option </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>name</em>, </td>
@@ -456,8 +454,8 @@ template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </
 
 </div>
 </div>
-<a id="a2386bec17e12ec532c34fd64c0868d39"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2386bec17e12ec532c34fd64c0868d39">&#9670;&nbsp;</a></span>add_option() <span class="overload">[2/2]</span></h2>
+<a id="a02989f5ffa1a2dd7bc97474b778b3ed5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a02989f5ffa1a2dd7bc97474b778b3ed5">&#9670;&nbsp;</a></span>add_option() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -470,7 +468,7 @@ template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_option </td>
+          <td class="memname">Spec* <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_option </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>name</em>, </td>
@@ -516,8 +514,8 @@ template&lt;typename T , typename Spec  = ValueArgSpec&lt;T, Receiver&gt;&gt; </
 
 </div>
 </div>
-<a id="ae886ff78367d017bff0325bade1e584b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae886ff78367d017bff0325bade1e584b">&#9670;&nbsp;</a></span>add_range() <span class="overload">[1/2]</span></h2>
+<a id="ab3c186b02ca9139ee143df5d25fb045d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3c186b02ca9139ee143df5d25fb045d">&#9670;&nbsp;</a></span>add_range() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -530,7 +528,7 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_range </td>
+          <td class="memname"><a class="el" href="structvg_1_1subcommand_1_1RangeArgSpec.html">RangeArgSpec</a>&lt;T, Receiver&gt;* <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::add_range </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>name</em>, </td>
@@ -669,6 +667,35 @@ template&lt;typename Receiver &gt; </div>
 </div><div class="memdoc">
 
 <p>Apply all flags to the receiver. </p>
+
+</div>
+</div>
+<a id="a197eb6fb7d1ef2ccfdb2d3d17b0dff36"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a197eb6fb7d1ef2ccfdb2d3d17b0dff36">&#9670;&nbsp;</a></span>attach_option()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Receiver &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html">vg::subcommand::OptionGroup</a>&lt; Receiver &gt;::attach_option </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1subcommand_1_1BaseArgSpec.html">BaseArgSpec</a>&lt; Receiver &gt; *&#160;</td>
+          <td class="paramname"><em>spec</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Take ownership of the given allocated <a class="el" href="structvg_1_1subcommand_1_1BaseArgSpec.html">BaseArgSpec</a>, and attach it as part of the group. TODO: Should this be private? </p>
 
 </div>
 </div>

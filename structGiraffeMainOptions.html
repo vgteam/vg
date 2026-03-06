@@ -82,6 +82,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a2b54df0c377a105e57c67c93b1b98ce9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad3fd6a5c42e1889a384cf319294d0d80"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#ad3fd6a5c42e1889a384cf319294d0d80">batch_size</a> = <a class="el" href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">default_batch_size</a></td></tr>
 <tr class="separator:ad3fd6a5c42e1889a384cf319294d0d80"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aab90c58fe676da8c79311f18a1eb156f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#aab90c58fe676da8c79311f18a1eb156f">prune_low_cplx</a> = <a class="el" href="structGiraffeMainOptions.html#a0cfb2d3e765cefdd8b616cbd1fb4c0c9">default_prune_low_cplx</a></td></tr>
+<tr class="separator:aab90c58fe676da8c79311f18a1eb156f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -94,6 +96,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:abf990cc986a8d914022dff4bba5ae632"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">default_batch_size</a> = <a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">vg::io::DEFAULT_PARALLEL_BATCHSIZE</a></td></tr>
 <tr class="memdesc:abf990cc986a8d914022dff4bba5ae632"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many reads to send to a thread at a time.  <a href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">More...</a><br /></td></tr>
 <tr class="separator:abf990cc986a8d914022dff4bba5ae632"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0cfb2d3e765cefdd8b616cbd1fb4c0c9"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#a0cfb2d3e765cefdd8b616cbd1fb4c0c9">default_prune_low_cplx</a> = false</td></tr>
+<tr class="memdesc:a0cfb2d3e765cefdd8b616cbd1fb4c0c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should we prune low-complexity anchors when surjecting?  <a href="structGiraffeMainOptions.html#a0cfb2d3e765cefdd8b616cbd1fb4c0c9">More...</a><br /></td></tr>
+<tr class="separator:a0cfb2d3e765cefdd8b616cbd1fb4c0c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Options struct for options for the Giraffe driver (i.e. this file) </p>
@@ -160,6 +165,30 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a0cfb2d3e765cefdd8b616cbd1fb4c0c9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0cfb2d3e765cefdd8b616cbd1fb4c0c9">&#9670;&nbsp;</a></span>default_prune_low_cplx</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr bool GiraffeMainOptions::default_prune_low_cplx = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Should we prune low-complexity anchors when surjecting? </p>
+
+</div>
+</div>
 <a id="a8e3b0f47ff4f761544f077f2d591096e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8e3b0f47ff4f761544f077f2d591096e">&#9670;&nbsp;</a></span>default_watchdog_timeout</h2>
 
@@ -192,6 +221,20 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool GiraffeMainOptions::log_reads = <a class="el" href="structGiraffeMainOptions.html#aa6a8ecfcb8fc48b9378c1c8608901f20">default_log_reads</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aab90c58fe676da8c79311f18a1eb156f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aab90c58fe676da8c79311f18a1eb156f">&#9670;&nbsp;</a></span>prune_low_cplx</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool GiraffeMainOptions::prune_low_cplx = <a class="el" href="structGiraffeMainOptions.html#a0cfb2d3e765cefdd8b616cbd1fb4c0c9">default_prune_low_cplx</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
