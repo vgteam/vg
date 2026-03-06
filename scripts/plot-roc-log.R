@@ -13,11 +13,25 @@
 # As such we do not ever achieve 100% sensitivity, as we have effectively scaled the y axis (TPR) by the total
 # sensitivity of each mapper.
 
-list.of.packages <- c("tidyverse", "ggrepel", "svglite")
+filename <- commandArgs(TRUE)[2]
+
+# Install required packages
+list.of.packages <- c("tidyverse")
+if (endsWith(tolower(filename), ".svg")) {
+    list.of.packages <- append(list.of.packages, "svglite")
+}
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
-require("ggrepel")
+
+# ggrepel is optional
+if ("ggrepel" %in% installed.packages()[,"Package"]) {
+    require("ggrepel")
+    have.repel <- TRUE
+} else {
+    have.repel <- FALSE
+    print("Install ggrepel for floating labels!")
+}
 
 # Read in the combined toil-vg stats.tsv, listing:
 # correct, mapq, aligner (really graph name), read name, count, eligible
@@ -116,7 +130,8 @@ dat.roc <- dat %>%
     mutate(TPR = cumsum(Positive) / sum(Positive+Negative), FPR = cumsum(Negative) / sum(Positive+Negative))
 
 dat.plot <- dat.roc %>% ggplot(aes( x= log10(FPR), y = log10(1-TPR), color = aligner, label=mq)) +
-    geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+    geom_line() + 
+    if (have.repel) geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) else 0 +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
@@ -127,5 +142,4 @@ if (title != '') {
     dat.plot + ggtitle(title)
 }
 
-filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)
