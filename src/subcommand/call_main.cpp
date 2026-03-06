@@ -944,7 +944,10 @@ int main_call(int argc, char** argv) {
         vector<size_t> header_ref_lengths;
         bool need_overrides = dynamic_cast<VCFGenotyper*>(graph_caller.get()) == nullptr;
         for (const auto& path_len : basepath_length_map) {
-            header_ref_paths.push_back(path_len.first);
+            // Use the locus name (eg "chrI") to match what emit_variant()
+            // writes to the CHROM column in data lines
+            string contig_name = PathMetadata::parse_locus_name(path_len.first);
+            header_ref_paths.push_back(contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : path_len.first);
             if (need_overrides) {
                 header_ref_lengths.push_back(path_len.second);
             }
