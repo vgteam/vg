@@ -9,7 +9,7 @@
 #include <cmath>
 #include <map>
 
-//#define PRINT_SELECTED_HAPLOTYPES
+//#define debug_selected_haplotypes
 
 namespace vg {
 
@@ -2058,7 +2058,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
             );
-#ifdef PRINT_SELECTED_HAPLOTYPES
+#ifdef debug_selected_haplotypes
             for (size_t i = 0; i < selected_haplotypes.size(); i++) {
                 gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
                 gbwt::size_type path_id = gbwt::Path::id(sequence_id);
