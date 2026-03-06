@@ -45,6 +45,12 @@ int get_thread_count(void);
 void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
+/// Return a copy of the given string with all characters lowercased,
+/// using the C locale for the conversion.
+std::string to_lower(const std::string& s);
+/// Return a copy of the given string with all characters uppercased,
+/// using the C locale for the conversion.
+std::string to_upper(const std::string& s);
 
 // all whitespace characters
 const std::string whitespace = " \t\n\v\f\r";
@@ -64,7 +70,7 @@ const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
 /// Return true if a character is an uppercase A, C, G, or T, and false otherwise.
-bool isATGC(const char& b);
+bool isATGC(char b);
 bool allATGC(const string& s);
 bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);

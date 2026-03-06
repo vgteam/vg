@@ -74,6 +74,9 @@ struct GiraffeMainOptions {
     /// How many reads to send to a thread at a time
     static constexpr size_t default_batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
     size_t batch_size = default_batch_size;
+    /// Should we prune low-complexity anchors when surjecting?
+    static constexpr bool default_prune_low_cplx = false;
+    bool prune_low_cplx = default_prune_low_cplx;
 };
 
 /// Options struct for scoring-related parameters. Defaults are in aligner.hpp.
@@ -103,12 +106,18 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "log each read being mapped"
     );
     main_opts.add_range(
-        "batch-size", 'B', 
+        "batch-size", 'B',
         &GiraffeMainOptions::batch_size,
         GiraffeMainOptions::default_batch_size,
         "complain after INT seconds working on a read or read pair"
     );
-    
+    main_opts.add_flag(
+        "prune-low-cplx", 'P',
+        &GiraffeMainOptions::prune_low_cplx,
+        GiraffeMainOptions::default_prune_low_cplx,
+        "prune short and low complexity anchors during linear format realignment (on by default for long reads)"
+    );
+
     // Configure scoring
     auto& scoring_opts = parser->add_group<ScoringOptions>("scoring options");
     scoring_opts.add_range(
@@ -682,15 +691,13 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "      --ref-name NAME           name of reference in the graph for HTSlib output" << endl
          << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl;
     if (full_help) {
-        cerr << "  -P, --prune-low-cplx          prune short and low complexity anchors" << endl
-             << "                                during linear format realignment" << endl
-             << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
+        cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination. Setting values for" << endl
              << "                                many other options can be provided as ranges" << endl
-             << "                                in the format start[:end[:step]], with end"
+             << "                                in the format start[:end[:step]], with end" << endl
              << "                                being inclusive." << endl
              << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
@@ -834,9 +841,6 @@ int main_giraffe(int argc, char** argv) {
     std::string ref_paths_name;
     // What assemblies shoudl we use when autodetecting reference paths?
     std::unordered_set<std::string> reference_assembly_names;
-    // And should we drop low complexity anchors when surjectng?
-    bool prune_anchors = false;
-    
     // When surjecting, should we annotate the reads with the graph alignment?
     bool add_graph_alignment = false;
     
@@ -929,7 +933,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-distance", 240)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 15);
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<bool>("prune-low-cplx", true);
 
     Preset r10_base;
 
@@ -983,7 +988,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-distance", 240)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 15);
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<bool>("prune-low-cplx", true);
 
     presets.emplace("r10", r10_base);
 
@@ -1078,7 +1084,6 @@ int main_giraffe(int argc, char** argv) {
         {"output-format", required_argument, 0, 'o'},
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"ref-name", required_argument, 0, OPT_REF_NAME},
-        {"prune-low-cplx", no_argument, 0, 'P'},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
@@ -1099,7 +1104,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:Pnb:t:A:E";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:nb:t:A:E";
     parser->make_short_options(short_options);
 
     if (argc == 2) {
@@ -1238,11 +1243,7 @@ int main_giraffe(int argc, char** argv) {
             case OPT_REF_NAME:
                 reference_assembly_names.insert(optarg);
                 break;
-                
-            case 'P':
-                prune_anchors = true;
-                break;
-                
+
             case OPT_NAMED_COORDINATES:
                 named_coordinates = true;
                 break;
@@ -1798,7 +1799,6 @@ int main_giraffe(int argc, char** argv) {
         };
 
         report_flag("interleaved", interleaved);
-        report_flag("prune-low-cplx", prune_anchors);
         report_flag("add-graph-aln", add_graph_alignment);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
@@ -1915,7 +1915,7 @@ int main_giraffe(int argc, char** argv) {
                 // We actually want to emit alignments.
                 // Encode flags describing what we want to happen.
                 int flags = ALIGNMENT_EMITTER_FLAG_NONE;
-                if (prune_anchors) {
+                if (main_options.prune_low_cplx) {
                     // When surjecting, do anchor pruning.
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS;
                 }
