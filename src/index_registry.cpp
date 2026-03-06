@@ -17,8 +17,10 @@
 #include <cstdlib>
 #include <regex>
 #include <omp.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -626,7 +628,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Unsampled Giraffe GBZ Distance Index", "unsampled.dist");
     registry.register_index("Unsampled Giraffe GBZ Top Level Chain Distance Index", "tcdist");
     registry.register_index("Unsampled Giraffe GBZ r index", "unsampled.ri");
-    registry.register_index("Haplotype FASTQs", "hap.fastq");
+    registry.register_index("Sample FASTQ", "sample.fastq");
     registry.register_index("Haplotype Index", "hapl");
     registry.register_index("KFF Kmer Counts", "kff");
     
@@ -4212,8 +4214,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
 
     // Build "KFF Kmer Counts" (.kff) by counting k-mers from the provided reads
-    // using kmc. The reads are registered as "Haplotype FASTQs".
-    registry.register_recipe({"KFF Kmer Counts"}, {"Haplotype FASTQs"},
+    // using kmc. The reads are registered as "Sample FASTQ".
+    registry.register_recipe({"KFF Kmer Counts"}, {"Sample FASTQ"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
@@ -4256,15 +4258,52 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         mkdir(kmc_tmp_dir.c_str(), 0700);
 
         // Run kmc: count 29-mers in KFF format with canonical k-mers.
-        string cmd = "kmc -k29 -m128 -okff -hp @" + list_file
-                     + " " + kmc_prefix + " " + kmc_tmp_dir;
-        if (IndexingParameters::verbosity == IndexingParameters::None) {
-            cmd += " > /dev/null 2>&1";
-        }
-        int ret = system(cmd.c_str());
-        if (ret != 0) {
-            error(context) << "kmc failed with exit code " << ret
-                           << ". Make sure kmc is in your PATH." << endl;
+        // Use fork()+execvp() instead of system() to avoid shell quoting issues.
+        string reads_arg = "@" + list_file;
+        {
+            // Flush all stdio streams before forking so the child doesn't
+            // inherit buffered data that would be flushed twice.
+            fflush(nullptr);
+            cout.flush();
+            cerr.flush();
+
+            pid_t pid = fork();
+            if (pid == -1) {
+                error(context) << "fork() failed for kmc: " << strerror(errno) << endl;
+            } else if (pid == 0) {
+                // Child: redirect stdout/stderr to /dev/null when not verbose.
+                if (IndexingParameters::verbosity == IndexingParameters::None) {
+                    int devnull = open("/dev/null", O_WRONLY);
+                    if (devnull != -1) {
+                        dup2(devnull, STDOUT_FILENO);
+                        dup2(devnull, STDERR_FILENO);
+                        close(devnull);
+                    }
+                }
+                char* kmc_argv[] = {
+                    const_cast<char*>("kmc"),
+                    const_cast<char*>("-k29"),
+                    const_cast<char*>("-m128"),
+                    const_cast<char*>("-okff"),
+                    const_cast<char*>("-hp"),
+                    const_cast<char*>(reads_arg.c_str()),
+                    const_cast<char*>(kmc_prefix.c_str()),
+                    const_cast<char*>(kmc_tmp_dir.c_str()),
+                    nullptr
+                };
+                execvp("kmc", kmc_argv);
+                // execvp only returns on failure.
+                _exit(127);
+            } else {
+                int child_stat;
+                waitpid(pid, &child_stat, 0);
+                int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
+                if (ret == 127) {
+                    error(context) << "kmc could not be executed. Make sure kmc is installed and in your PATH." << endl;
+                } else if (ret != 0) {
+                    error(context) << "kmc failed with exit code " << ret << "." << endl;
+                }
+            }
         }
 
         output_names.push_back(output_name);

@@ -27,6 +27,7 @@
 #include "../hts_alignment_emitter.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
+#include "../utility.hpp"
 #include "../watchdog.hpp"
 #include "../crash.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -1536,14 +1537,18 @@ int main_giraffe(int argc, char** argv) {
             if (!fastq_filename_2.empty()) {
                 fastqs.push_back(fastq_filename_2);
             }
-            registry.provide("Haplotype FASTQs", fastqs);
+            registry.provide("Sample FASTQ", fastqs);
         }
 
         // Auto-provide the unsampled distance index from the original GBZ
-        // basename if a .dist file exists there and we don't already have one.
+        // basename if a dist file exists there and we don't already have one.
         if (!registry.available("Unsampled Giraffe GBZ Distance Index")) {
-            string dist_candidate = original_basename + ".dist";
-            if (ifstream(dist_candidate).good()) {
+            // Prefer a top-level-chain-only .tcdist, then fall back to full .dist.
+            string tcdist_candidate = original_basename + ".tcdist";
+            string dist_candidate   = original_basename + ".dist";
+            if (file_exists(tcdist_candidate)) {
+                registry.provide("Unsampled Giraffe GBZ Top Level Chain Distance Index", tcdist_candidate);
+            } else if (file_exists(dist_candidate)) {
                 registry.provide("Unsampled Giraffe GBZ Distance Index", dist_candidate);
             }
         }
