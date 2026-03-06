@@ -24,6 +24,7 @@
 #include <bdsg/packed_graph.hpp>
 #include <xg.hpp>
 #include <gbwt/variants.h>
+#include <gbwt/fast_locate.h>
 #include <gbwtgraph/index.h>
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/gbz.h>
@@ -54,6 +55,7 @@
 #include "gfa.hpp"
 #include "job_schedule.hpp"
 #include "path.hpp"
+#include "recombinator.hpp"
 #include "zip_code.hpp"
 
 #include "io/save_handle_graph.hpp"
@@ -125,6 +127,9 @@ int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAUL
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
+std::unordered_set<std::string> IndexingParameters::haplotype_reference_samples = {};
+std::string IndexingParameters::haplotype_fastq_1 = "";
+std::string IndexingParameters::haplotype_fastq_2 = "";
 
 void copy_file(const string& from_fp, const string& to_fp) {
     require_exists(context, from_fp);
@@ -619,6 +624,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("GBWTGraph", "gg");
     registry.register_index("GBZ", "gbz");
     registry.register_index("Giraffe GBZ", "giraffe.gbz");
+    registry.register_index("Unsampled Giraffe GBZ", "unsampled.gbz");
+    registry.register_index("Haplotype Index", "hapl");
+    registry.register_index("KFF Kmer Counts", "kff");
     
     registry.register_index("Short Read Minimizers", "shortread.withzip.min");
     registry.register_index("Short Read Zipcodes", "shortread.zipcodes");
@@ -3957,7 +3965,255 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     // GBZ Recipes
     ////////////////////////////////////
-    
+
+    // Haplotype sampling: produce a personalized "Giraffe GBZ" by sampling
+    // haplotypes from a full-pangenome "Unsampled Giraffe GBZ" given
+    // haplotype information and kmer counts from reads.
+    registry.register_recipe({"Giraffe GBZ"}, {"Haplotype Index", "KFF Kmer Counts", "Unsampled Giraffe GBZ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Sampling haplotypes." << endl;
+        }
+
+        assert(inputs.size() == 3);
+        auto hapl_filenames = inputs[0]->get_filenames();
+        auto kff_filenames = inputs[1]->get_filenames();
+        auto gbz_filenames = inputs[2]->get_filenames();
+        assert(gbz_filenames.size() == 1);
+        assert(hapl_filenames.size() == 1);
+        assert(kff_filenames.size() == 1);
+        auto gbz_filename = gbz_filenames.front();
+        auto hapl_filename = hapl_filenames.front();
+        auto kff_filename = kff_filenames.front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        // Load GBZ.
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        // Override reference samples if requested.
+        if (!IndexingParameters::haplotype_reference_samples.empty()) {
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                info(context) << "Updating reference samples." << endl;
+            }
+            size_t present = gbz.set_reference_samples(IndexingParameters::haplotype_reference_samples);
+            if (present != IndexingParameters::haplotype_reference_samples.size()) {
+                warn(context) << "Only " << present << " out of "
+                              << IndexingParameters::haplotype_reference_samples.size()
+                              << " reference samples are present." << endl;
+            }
+        }
+
+        // Load haplotype information.
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Loading haplotype information from " << hapl_filename << "." << endl;
+        }
+        Haplotypes haplotypes;
+        haplotypes.load_from(hapl_filename);
+
+        // Sample haplotypes.
+        Haplotypes::Verbosity hap_verbosity = (IndexingParameters::verbosity != IndexingParameters::None
+                                               ? Haplotypes::verbosity_basic
+                                               : Haplotypes::verbosity_silent);
+        Recombinator recombinator(gbz, haplotypes, hap_verbosity);
+        Recombinator::Parameters parameters(Recombinator::Parameters::preset_diploid);
+        gbwt::GBWT sampled_gbwt = recombinator.generate_haplotypes(kff_filename, parameters);
+
+        // Build GBWTGraph and save GBZ.
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Building GBWTGraph." << endl;
+        }
+        gbwtgraph::GBZ sampled_graph(std::move(sampled_gbwt), gbz);
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(sampled_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // Allow "Unsampled Giraffe GBZ" to be built from GBWT + GBWTGraph,
+    // so users who provide those two files can still do haplotype sampling.
+    registry.register_recipe({"Unsampled Giraffe GBZ"}, {"GBWTGraph", "Giraffe GBWT"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Combining Giraffe GBWT and GBWTGraph into unsampled GBZ." << endl;
+        }
+
+        assert(inputs.size() == 2);
+        auto gg_filenames = inputs[0]->get_filenames();
+        auto gbwt_filenames = inputs[1]->get_filenames();
+        assert(gg_filenames.size() == 1);
+        assert(gbwt_filenames.size() == 1);
+        auto gg_filename = gg_filenames.front();
+        auto gbwt_filename = gbwt_filenames.front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbwt_filename, gg_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // Build "Haplotype Index" (.hapl) from an unsampled GBZ.
+    // The distance index is found at <gbz_basename>.dist or built from the GBZ.
+    // The r-index is constructed inline from the GBZ's GBWT.
+    // Using only "Unsampled Giraffe GBZ" as input avoids the cycle:
+    //   Haplotype Index → Giraffe Distance Index → Giraffe GBZ → Haplotype Index
+    registry.register_recipe({"Haplotype Index"}, {"Unsampled Giraffe GBZ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Generating haplotype information." << endl;
+        }
+
+        assert(inputs.size() == 1);
+        auto gbz_filenames = inputs[0]->get_filenames();
+        assert(gbz_filenames.size() == 1);
+        auto gbz_filename = gbz_filenames.front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto hapl_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        // Load GBZ.
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        // Find the distance index by stripping known GBZ suffixes from the filename.
+        SnarlDistanceIndex distance_index;
+        string dist_candidate = gbz_filename;
+        for (const string& suffix : {".unsampled.gbz", ".giraffe.gbz", ".gbz"}) {
+            if (dist_candidate.size() > suffix.size() &&
+                dist_candidate.substr(dist_candidate.size() - suffix.size()) == suffix) {
+                dist_candidate = dist_candidate.substr(0, dist_candidate.size() - suffix.size()) + ".dist";
+                break;
+            }
+        }
+        if (ifstream(dist_candidate).is_open()) {
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                info(context) << "Loading distance index from " << dist_candidate << "." << endl;
+            }
+            distance_index.deserialize(dist_candidate);
+        } else {
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                info(context) << "Building distance index." << endl;
+            }
+            IntegratedSnarlFinder snarl_finder(gbz.graph);
+            fill_in_distance_index(&distance_index, &gbz.graph, &snarl_finder);
+        }
+
+        // Build minimizer index without payload, using short-read parameters.
+        MinimizerIndexParameters minimizer_params;
+        minimizer_params.minimizers(IndexingParameters::short_read_minimizer_k,
+                                    IndexingParameters::short_read_minimizer_w)
+                        .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+        HaplotypePartitioner::minimizer_index_type minimizer_index =
+            build_minimizer_index(gbz, nullptr, nullptr, minimizer_params);
+
+        // Build r-index inline from the GBZ's GBWT.
+        gbwt::FastLocate r_index(gbz.index);
+        r_index.setGBWT(gbz.index);
+
+        // Partition the haplotypes.
+        Haplotypes::Verbosity hap_verbosity = (IndexingParameters::verbosity != IndexingParameters::None
+                                               ? Haplotypes::verbosity_basic
+                                               : Haplotypes::verbosity_silent);
+        HaplotypePartitioner partitioner(gbz, r_index, distance_index, minimizer_index, hap_verbosity);
+        HaplotypePartitioner::Parameters partitioner_params;
+        Haplotypes haplotypes = partitioner.partition_haplotypes(partitioner_params);
+
+        // Save the haplotype information.
+        string output_name = plan->output_filepath(hapl_output);
+        haplotypes.serialize_to(output_name);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // Build "KFF Kmer Counts" (.kff) by counting k-mers from reads using kmc.
+    // FASTQ paths are passed via IndexingParameters::haplotype_fastq_1/2.
+    registry.register_recipe({"KFF Kmer Counts"}, {},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Counting k-mers from reads for haplotype sampling." << endl;
+        }
+
+        const string& fastq1 = IndexingParameters::haplotype_fastq_1;
+        const string& fastq2 = IndexingParameters::haplotype_fastq_2;
+        if (fastq1.empty()) {
+            error(context) << "No reads provided for k-mer counting. "
+                           << "Use -f to specify input reads." << endl;
+        }
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto kff_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        string output_name = plan->output_filepath(kff_output);
+
+        // Create a temp directory for kmc intermediate files.
+        string tmp_dir = temp_file::create_directory();
+
+        // Write a file listing the input reads.
+        string list_file = tmp_dir + "/reads.txt";
+        {
+            ofstream list_out(list_file);
+            list_out << fastq1 << "\n";
+            if (!fastq2.empty()) {
+                list_out << fastq2 << "\n";
+            }
+        }
+
+        // kmc produces output_prefix.kff; strip the ".kff" extension to get the prefix.
+        string kmc_prefix = output_name;
+        if (kmc_prefix.size() >= 4 && kmc_prefix.substr(kmc_prefix.size() - 4) == ".kff") {
+            kmc_prefix = kmc_prefix.substr(0, kmc_prefix.size() - 4);
+        }
+
+        string kmc_tmp_dir = tmp_dir + "/kmc_tmp";
+        mkdir(kmc_tmp_dir.c_str(), 0700);
+
+        // Run kmc: count 29-mers in KFF format with canonical k-mers.
+        string cmd = "kmc -k29 -m128 -okff -hp @" + list_file
+                     + " " + kmc_prefix + " " + kmc_tmp_dir;
+        if (IndexingParameters::verbosity == IndexingParameters::None) {
+            cmd += " > /dev/null 2>&1";
+        }
+        int ret = system(cmd.c_str());
+        if (ret != 0) {
+            error(context) << "kmc failed with exit code " << ret
+                           << ". Make sure kmc is in your PATH." << endl;
+        }
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
     registry.register_recipe({"Giraffe GBZ"}, {"GBZ"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,

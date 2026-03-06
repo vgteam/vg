@@ -31,7 +31,6 @@
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include "../gbwtgraph_helper.hpp"
-#include "../recombinator.hpp"
 
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
@@ -617,15 +616,6 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
-// Returns the name of the sampled GBZ.
-std::string sample_haplotypes(
-    const Logger& logger,
-    const std::vector<std::pair<std::string, std::string>>& indexes,
-    const std::unordered_set<std::string>& reference_samples,
-    const std::string& basename, const std::string& sample_name, const std::string& haplotype_file, const std::string& kff_file,
-    bool progress
-);
-
 //----------------------------------------------------------------------------
 
 void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
@@ -668,6 +658,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "                                and annotate alignments with them" << endl;
 
     cerr << "haplotype sampling:" << endl
+         << "      --haplotype-sampling      enable fully automatic haplotype sampling" << endl
+         << "                                (build hapl index and count kmers automatically)" << endl
          << "      --haplotype-name FILE     sample from haplotype information in FILE" << endl
          << "      --kff-name FILE           sample according to kmer counts in FILE" << endl
          << "      --index-basename STR      name prefix for generated graph/index files" << endl
@@ -761,6 +753,7 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
+    constexpr int OPT_HAPLOTYPE_SAMPLING = 1104;
 
 
     // initialize parameters with their default options
@@ -775,6 +768,7 @@ int main_giraffe(int argc, char** argv) {
 
     // For haplotype sampling.
     string haplotype_name, kff_name;
+    bool haplotype_sampling_flag = false;
     std::unordered_set<std::string> reference_samples;
 
     string output_basename;
@@ -1071,6 +1065,7 @@ int main_giraffe(int argc, char** argv) {
         {"zipcode-name", required_argument, 0, 'z'},
         {"dist-name", required_argument, 0, 'd'},
         {"progress", no_argument, 0, 'p'},
+        {"haplotype-sampling", no_argument, 0, OPT_HAPLOTYPE_SAMPLING},
         {"haplotype-name", required_argument, 0, OPT_HAPLOTYPE_NAME},
         {"kff-name", required_argument, 0, OPT_KFF_NAME},
         {"index-basename", required_argument, 0, OPT_INDEX_BASENAME},
@@ -1186,6 +1181,9 @@ int main_giraffe(int argc, char** argv) {
                 show_progress = true;
                 break;
 
+            case OPT_HAPLOTYPE_SAMPLING:
+                haplotype_sampling_flag = true;
+                break;
             case OPT_HAPLOTYPE_NAME:
                 haplotype_name = optarg;
                 break;
@@ -1405,6 +1403,12 @@ int main_giraffe(int argc, char** argv) {
     for (const auto& filename : provided_indexes) {
         require_exists(logger, filename.second);
     }
+    if (!haplotype_name.empty()) {
+        require_exists(logger, haplotype_name);
+    }
+    if (!kff_name.empty()) {
+        require_exists(logger, kff_name);
+    }
     
     // Decide if we are outputting to an htslib format
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
@@ -1459,21 +1463,72 @@ int main_giraffe(int argc, char** argv) {
         // We don't have file paths to load defined for recombination-aware short-read minimizers.
         logger.error() << "Path minimizers cannot be used with short reads." << endl;
     }
-    bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
+    // Haplotype sampling is active when explicitly requested (--haplotype-sampling)
+    // or when either --haplotype-name or --kff-name is given.
+    bool haplotype_sampling = haplotype_sampling_flag || !haplotype_name.empty() || !kff_name.empty();
+    // Save the GBZ-derived basename before any override, so we can find
+    // dist and other indexes co-located with the source GBZ during sampling.
+    string original_basename = index_basename;
     if (!index_basename_override.empty()) {
         index_basename = index_basename_override;
     }
     if (haplotype_sampling) {
-        // If we do haplotype sampling, we get a new GBZ and later build indexes for it.
-        string gbz_name = sample_haplotypes(logger, provided_indexes, reference_samples, index_basename, 
-                                            sample_name, haplotype_name, kff_name, show_progress);
-        registry.provide("Giraffe GBZ", gbz_name);
-        index_basename = split_ext(gbz_name).first;
+
+        // Determine sample name early so we can incorporate it into the
+        // index basename; downstream indexes (dist, min) will then be
+        // co-located with the sampled GBZ.
+        string sample = sample_name;
+        if (sample.empty()) {
+            if (!kff_name.empty()) {
+                sample = file_base_name(kff_name);
+                if (show_progress) {
+                    logger.info() << "Guessing from " << kff_name
+                                  << " that sample name is " << sample << std::endl;
+                }
+            } else if (!fastq_filename_1.empty()) {
+                // Strip .gz then use file_base_name to strip .fq/.fastq
+                sample = file_base_name(strip_suffixes(fastq_filename_1, {".gz"}));
+                if (show_progress) {
+                    logger.info() << "Guessing from " << fastq_filename_1
+                                  << " that sample name is " << sample << std::endl;
+                }
+            } else {
+                sample = "sample";
+            }
+        }
+        if (sample == "giraffe") {
+            logger.warn() << "Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
+        }
+        index_basename = index_basename + "." + sample;
+
+        // Pass parameters to the recipes through IndexingParameters.
+        IndexingParameters::haplotype_reference_samples = reference_samples;
+        IndexingParameters::haplotype_fastq_1 = fastq_filename_1;
+        IndexingParameters::haplotype_fastq_2 = fastq_filename_2;
+
+        // Provide inputs to the registry.  The full-pangenome GBZ is typed
+        // as "Unsampled Giraffe GBZ" so the sampling recipe can distinguish
+        // it from the personalized "Giraffe GBZ" it will produce.
+        for (auto& index : provided_indexes) {
+            if (index.first == "Giraffe GBZ") {
+                registry.provide("Unsampled Giraffe GBZ", index.second);
+            } else {
+                registry.provide(index.first, index.second);
+            }
+        }
+
+        // Provide haplotype index and kff only if explicitly given.
+        if (!haplotype_name.empty()) {
+            registry.provide("Haplotype Index", haplotype_name);
+        }
+        if (!kff_name.empty()) {
+            registry.provide("KFF Kmer Counts", kff_name);
+        }
+
     } else {
-        // Otherwise we use the provided indexes.
+        // Otherwise use the provided indexes directly.
         for (auto& index : provided_indexes) {
             registry.provide(index.first, index.second);
-
         }
     }
     registry.set_prefix(index_basename);
@@ -2292,92 +2347,6 @@ int main_giraffe(int argc, char** argv) {
     });
         
     return 0;
-}
-
-//----------------------------------------------------------------------------
-
-std::string sample_haplotypes(
-    const Logger& logger,
-    const std::vector<std::pair<std::string, std::string>>& indexes,
-    const std::unordered_set<std::string>& reference_samples,
-    const std::string& basename, const std::string& sample_name, const std::string& haplotype_file, const std::string& kff_file,
-    bool progress
-) {
-    if (progress) {
-        logger.info() << "Sampling haplotypes" << std::endl;
-    }
-
-    // Sanity checks.
-    if (haplotype_file.empty() || kff_file.empty()) {
-        logger.error() << "Haplotype sampling requires --haplotype-name and --kff-name." << std::endl;
-    }
-
-    // Determine output name.
-    std::string sample = sample_name;
-    if (sample.empty()) {
-        sample = file_base_name(kff_file);
-        if (progress) {
-            logger.info() << "Guessing from " << kff_file
-                          << " that sample name is " << sample << std::endl;
-        }
-    }
-    if (sample == "giraffe") {
-        logger.warn() << "Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
-    }
-    std::string output_name = basename + "." + sample + ".gbz";
-
-    // Load GBZ.
-    gbwtgraph::GBZ gbz;
-    if (indexes.size() == 1 && indexes[0].first == "Giraffe GBZ") {
-        load_gbz(gbz, indexes[0].second, progress);
-    } else if (indexes.size() == 2 && indexes[0].first == "Giraffe GBWT" && indexes[1].first == "GBWTGraph") {
-        load_gbz(gbz, indexes[0].second, indexes[1].second, progress);
-    } else if (indexes.size() == 2 && indexes[0].first == "GBWTGraph" && indexes[1].first == "Giraffe GBWT") {
-        load_gbz(gbz, indexes[1].second, indexes[0].second, progress);
-    } else {
-        logger.error() << "Haplotype sampling requires either -Z "
-                       << "or (-g and -H) with no other indexes." << std::endl;
-    }
-
-    // Override reference samples if necessary.
-    if (!reference_samples.empty()) {
-        if (progress) {
-            logger.info() << "Updating reference samples" << std::endl;
-        }
-        size_t present = gbz.set_reference_samples(reference_samples);
-        if (present != reference_samples.size()) {
-            logger.warn() << "Only " << present << " out of " << reference_samples.size()
-                             << " reference samples are present" << std::endl;
-        }
-    }
-
-    // Load haplotype information.
-    if (progress) {
-        logger.info() << "Loading haplotype information from "
-                      << haplotype_file << std::endl;
-    }
-    Haplotypes haplotypes;
-    haplotypes.load_from(haplotype_file);
-
-    // Sample haplotypes.
-    Haplotypes::Verbosity verbosity = (progress ? Haplotypes::verbosity_basic : Haplotypes::verbosity_silent);
-    Recombinator recombinator(gbz, haplotypes, verbosity);
-    Recombinator::Parameters parameters(Recombinator::Parameters::preset_diploid);
-    gbwt::GBWT sampled_gbwt;
-    try {
-        sampled_gbwt = recombinator.generate_haplotypes(kff_file, parameters);
-    } catch (const std::runtime_error& e) {
-        logger.error() << "Haplotype sampling failed: " << e.what() << std::endl;
-    }
-
-    // Create GBWTGraph and save GBZ.
-    if (progress) {
-        logger.info() << "Building GBWTGraph" << std::endl;
-    }
-    gbwtgraph::GBZ sampled_graph(std::move(sampled_gbwt), gbz);
-    save_gbz(sampled_graph, output_name, progress);
-
-    return output_name;
 }
 
 //----------------------------------------------------------------------------
