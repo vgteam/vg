@@ -226,7 +226,7 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'V':
-            logger.warn() << "-V/--extract-vg is deprecated" << endl;
+            logger.error() << "-V/--extract-vg has been removed" << endl;
             break;
                 
         case 'd':
