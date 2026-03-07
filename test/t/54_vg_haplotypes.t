@@ -73,7 +73,7 @@ is $(vg gbwt -H -Z diploid3.gbz) 3 "2 generated + 1 reference haplotypes"
 vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     -f haplotype-sampling/HG003.fq.gz > default.gam 2> /dev/null
 is $? 0 "Giraffe integration with a guessed output name"
-cmp diploid.gbz full.HG003.giraffe.gbz
+cmp diploid.gbz full.HG003.gbz
 is $? 0 "the sampled graph is identical to a manually sampled one"
 
 # Giraffe integration, specified output name
@@ -81,7 +81,7 @@ vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/
     --index-basename sampled -N 003HG \
     -f haplotype-sampling/HG003.fq.gz > specified.gam 2> /dev/null
 is $? 0 "Giraffe integration with a specified output name"
-cmp full.HG003.giraffe.gbz sampled.003HG.giraffe.gbz
+cmp full.HG003.gbz sampled.003HG.gbz
 is $? 0 "the sampled graphs are identical"
 
 # Giraffe integration, specified reference sample
@@ -89,7 +89,7 @@ vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/
     --index-basename GRCh38 -N HG003 --set-reference GRCh38 \
     -f haplotype-sampling/HG003.fq.gz > HG003_GRCh38.gam 2> /dev/null
 is $? 0 "Giraffe integration with a specified reference sample"
-cmp diploid3.gbz GRCh38.HG003.giraffe.gbz
+cmp diploid3.gbz GRCh38.HG003.gbz
 is $? 0 "the sampled graph is identical to a manually sampled one"
 
 # Giraffe integration, haplotype index built automatically from the GBZ.
@@ -99,7 +99,7 @@ vg giraffe -Z full.gbz --kff-name haplotype-sampling/HG003.kff \
     --index-basename auto_hapl -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_hapl.gam 2> /dev/null
 is $? 0 "Giraffe builds haplotype index automatically"
-is $(vg gbwt -H -Z auto_hapl.HG003.giraffe.gbz) 4 "auto-built hapl produces 2 diploid + 2 reference haplotypes"
+is $(vg gbwt -H -Z auto_hapl.HG003.gbz) 4 "auto-built hapl produces 2 diploid + 2 reference haplotypes"
 
 # Giraffe integration, kmer counting done automatically from reads.
 # Providing --haplotype-name without --kff-name implies haplotype sampling;
@@ -108,7 +108,7 @@ vg giraffe -Z full.gbz --haplotype-name full.hapl \
     --index-basename auto_kff -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_kff.gam 2> /dev/null
 is $? 0 "Giraffe counts kmers from reads automatically"
-is $(vg gbwt -H -Z auto_kff.HG003.giraffe.gbz) 4 "auto kmer counting produces 2 diploid + 2 reference haplotypes"
+is $(vg gbwt -H -Z auto_kff.HG003.gbz) 4 "auto kmer counting produces 2 diploid + 2 reference haplotypes"
 
 # Giraffe integration, fully automatic: both hapl and kff are built by the
 # IndexRegistry. Triggered by --haplotype-sampling without either input file.
@@ -116,7 +116,7 @@ vg giraffe -Z full.gbz --haplotype-sampling \
     --index-basename auto_all -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_all.gam 2> /dev/null
 is $? 0 "Giraffe does fully automatic haplotype sampling"
-is $(vg gbwt -H -Z auto_all.HG003.giraffe.gbz) 4 "fully automatic haplotype sampling produces 2 diploid + 2 reference haplotypes"
+is $(vg gbwt -H -Z auto_all.HG003.gbz) 4 "fully automatic haplotype sampling produces 2 diploid + 2 reference haplotypes"
 
 # Attempts to use mismatched files fail
 vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff -g /dev/null diploid.gbz 2> log.txt

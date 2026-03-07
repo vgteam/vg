@@ -1,3 +1,4 @@
+<!-- !test program bash -eo pipefail -->
 # Haplotype sampling example
 
 This directory contains a small test case for haplotype sampling using the `vg haplotypes` subcommand.
@@ -17,6 +18,7 @@ File `HG003.kff` contains 29-mer counts for the reads computed using KMC.
 
 First we need to build the indexes used by Giraffe:
 
+<!-- !test check Index the GFA -->
 ```
 vg autoindex --workflow giraffe --prefix micb-kir3dl1 -g micb-kir3dl1.gfa
 ```
@@ -25,6 +27,7 @@ This converts the graph into GBZ format (`micb-kir3dl1.giraffe.gbz`) and builds 
 
 Then we can map the reads, specifying the GBZ file, the fastq file, and the output file:
 
+<!-- !test check Map to original graph -->
 ```
 vg giraffe -Z micb-kir3dl1.giraffe.gbz -f HG003.fq.gz -p > to-original.gam
 ```
@@ -35,6 +38,7 @@ However, because the graph contains two sets of reference paths (GRCh38 and CHM1
 
 We can use the `vg stats` subcommand to compute statistics on the aligned reads:
 
+<!-- !test check Get original mapping stats -->
 ```
 vg stats -a to-original.gam micb-kir3dl1.giraffe.gbz
 ```
@@ -46,6 +50,7 @@ vg stats -a to-original.gam micb-kir3dl1.giraffe.gbz
 In order to build the haplotype information used for haplotype sampling, we need a GBZ graph, a distance index, and an r-index.
 We build them using the following commands:
 
+<!-- !test check Build the GBZ and r index -->
 ```
 vg gbwt -G micb-kir3dl1.gfa --max-node 32 --gbz-format -g micb-kir3dl1.gbz -r micb-kir3dl1.ri
 vg index -j micb-kir3dl1.dist micb-kir3dl1.gbz
@@ -56,6 +61,7 @@ This makes the resulting GBZ graph (and hence the distance index) indentical to 
 
 Now we can build the haplotype information file `micb-kir3dl1.hapl`:
 
+<!-- !test check Haplotype index the graph -->
 ```
 vg haplotypes -v 2 --subchain-length 300 -H micb-kir3dl1.hapl micb-kir3dl1.gbz
 ```
@@ -67,6 +73,7 @@ The latter makes the example more interesting than the default 10000 bp.
 
 We can now sample the haplotypes using the haplotype information, the k-mer counts, and the original graph:
 
+<!-- !test check Haplotype sample -->
 ```
 vg haplotypes -v 2 -i micb-kir3dl1.hapl -k HG003.kff \
     --include-reference --diploid-sampling \
@@ -79,9 +86,10 @@ Now we have the sampled graph `HG003.gbz`.
 We could build the indexes for Giraffe manually.
 But because the graph is a temporary object intended only for mapping a specific set of reads, we can let Giraffe handle index construction:
 
+<!-- !test check Map to sampled graph -->
 ```
 # Set the temporary directory as you wish
-export TMPDIR=/scratch/tmp
+# export TMPDIR=/scratch/tmp
 
 vg giraffe -Z HG003.gbz -f HG003.fq.gz -p --index-basename ${TMPDIR}/HG003 > to-sampled.gam
 ```
@@ -90,40 +98,44 @@ Here we specify that the indexes go to the temporary directory with base name `H
 
 We can again use `vg stats` to compute statistics:
 
+<!-- !test check Get stats for mappings to sampled graph -->
 ```
 vg stats -a to-sampled.gam HG003.gbz
 ```
 
 ### Giraffe integration
 
-Instead of sampling the haplotypes manually, we can let Giraffe handle everything:
+Instead of sampling the haplotypes manually, we can let Giraffe handle the sampling:
 
+<!-- !test check Haplotype sample in Giraffe -->
 ```
 # Set the temporary directory as you wish
-export TMPDIR=/scratch/tmp
+# export TMPDIR=/scratch/tmp
 
 vg giraffe -Z micb-kir3dl1.gbz --haplotype-name micb-kir3dl1.hapl --kff-name HG003.kff \
-    -f HG003.fq.gz -p --index-basename ${TMPDIR}/integration > giraffe-integration.gam
+    -f HG003.fq.gz -p --index-basename integration > giraffe-integration.gam
 ```
 
 This uses the best practices for haplotype sampling, which currently means including the reference paths and using diploid sampling.
 We put the sampled graph and the automatically built indexes into the temporary directory.
-The naming scheme (e.g. `${TMPDIR}/integration.HG003.gbz`) consists of three parts:
+The naming scheme (e.g. `integration.HG003.gbz`) consists of three parts:
 
-* Base name `${TMPDIR}/integration` specified with option `--index-basename`.
+* Base name `integration` specified with option `--index-basename`.
 * Sample name `HG003` guessed from the name of the KFF file or specified with option `--sample`.
 * Extension (e.g. `gbz`) that depends on the file.
 
 The statistics should be similar to those in the previous section:
 
+<!-- !test check Get stats for haplotype sampling in Giraffe -->
 ```
-vg stats -a giraffe-integration.gam ${TMPDIR}/integration.HG003.gbz
+vg stats -a giraffe-integration.gam integration.HG003.gbz
 ```
 
 ## Mapping reads to a linear reference
 
 Given a GBZ file, we can extract the paths corresponding to a given sample in fasta format:
 
+<!-- !test check Get linear reference -->
 ```
 vg paths -x micb-kir3dl1.gbz --extract-fasta --sample GRCh38 > reference.fa
 ```

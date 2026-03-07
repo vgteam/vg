@@ -764,8 +764,10 @@ int main_giraffe(int argc, char** argv) {
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
 
     // Indexes provided to IndexRegistry in the arguments. We do not apply them
-    // immediately, because we may want to do haplotype sampling.
-    vector<pair<string, string>> provided_indexes;
+    // immediately, because we may want to do haplotype sampling. We need them
+    // indexed for lookup. We only support one file per index (FASTQs get
+    // handled separately).
+    std::unordered_map<string, string> provided_indexes;
     string index_basename, index_basename_override;
 
     // For haplotype sampling.
@@ -1134,7 +1136,7 @@ int main_giraffe(int argc, char** argv) {
             case 'Z':
                 // All provided_indexes are later validated
                 // with require_exists()
-                provided_indexes.emplace_back("Giraffe GBZ", optarg);
+                provided_indexes.emplace("GBZ", optarg);
 
                 // If we have a GBZ we probably want to use its name as the base name.
                 // But see -g.
@@ -1143,7 +1145,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'x':
-                provided_indexes.emplace_back("XG", optarg);
+                provided_indexes.emplace("XG", optarg);
                 
                 // If we have an XG we probably want to use its name as the base name.
                 // But see -g.
@@ -1152,7 +1154,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'g':
-                provided_indexes.emplace_back("GBWTGraph", optarg);
+                provided_indexes.emplace("GBWTGraph", optarg);
                 
                 // But if we have a GBWTGraph we probably want to use *its* name as the base name.
                 // Whichever is specified last will win, unless we also have a FASTA input name.
@@ -1161,22 +1163,22 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'H':
-                provided_indexes.emplace_back("Giraffe GBWT", optarg);
+                provided_indexes.emplace("Giraffe GBWT", optarg);
                 break;
                 
             case 'm':
-                provided_indexes.emplace_back("Long Read Minimizers", optarg);
-                provided_indexes.emplace_back("Short Read Minimizers", optarg);
-                provided_indexes.emplace_back("Long Read PathMinimizers", optarg);
+                provided_indexes.emplace("Long Read Minimizers", optarg);
+                provided_indexes.emplace("Short Read Minimizers", optarg);
+                provided_indexes.emplace("Long Read PathMinimizers", optarg);
                 break;
                 
             case 'z':
-                provided_indexes.emplace_back("Long Read Zipcodes", optarg);
-                provided_indexes.emplace_back("Short Read Zipcodes", optarg);
-                provided_indexes.emplace_back("Long Read PathZipcodes", optarg);
+                provided_indexes.emplace("Long Read Zipcodes", optarg);
+                provided_indexes.emplace("Short Read Zipcodes", optarg);
+                provided_indexes.emplace("Long Read PathZipcodes", optarg);
                 break;
             case 'd':
-                provided_indexes.emplace_back("Giraffe Distance Index", optarg);
+                provided_indexes.emplace("Giraffe Distance Index", optarg);
                 break;
 
             case 'p':
@@ -1187,10 +1189,10 @@ int main_giraffe(int argc, char** argv) {
                 haplotype_sampling_flag = true;
                 break;
             case OPT_HAPLOTYPE_NAME:
-                haplotype_name = optarg;
+                provided_indexes.emplace("Haplotype Index", optarg);
                 break;
             case OPT_KFF_NAME:
-                kff_name = optarg;
+                provided_indexes.emplace("KFF Kmer Counts", optarg);
                 break;
             case OPT_INDEX_BASENAME:
                 index_basename_override = optarg;
@@ -1366,7 +1368,7 @@ int main_giraffe(int argc, char** argv) {
                            << " is not named like a FASTA" << std::endl;
         }
         
-        provided_indexes.emplace_back("Reference FASTA", fasta_filename);
+        provided_indexes.emplace("Reference FASTA", fasta_filename);
         // Everything else should be named like the FASTA by default
         index_basename = fasta_parts.first;
         
@@ -1389,7 +1391,7 @@ int main_giraffe(int argc, char** argv) {
             string file_type = IndexRegistry::vcf_is_phased(vcf_filename) ? "VCF w/ Phasing" : "VCF";
             
             // Feed it to the index registry to maybe use
-            provided_indexes.emplace_back(file_type, vcf_filename);
+            provided_indexes.emplace(file_type, vcf_filename);
         }
     }
 
@@ -1402,14 +1404,8 @@ int main_giraffe(int argc, char** argv) {
     
     // Now all the arguments are parsed, so see if they make sense
 
-    for (const auto& filename : provided_indexes) {
-        require_exists(logger, filename.second);
-    }
-    if (!haplotype_name.empty()) {
-        require_exists(logger, haplotype_name);
-    }
-    if (!kff_name.empty()) {
-        require_exists(logger, kff_name);
+    for (const auto& type_and_filename : provided_indexes) {
+        require_exists(logger, type_and_filename.second);
     }
     
     // Decide if we are outputting to an htslib format
@@ -1465,9 +1461,15 @@ int main_giraffe(int argc, char** argv) {
         // We don't have file paths to load defined for recombination-aware short-read minimizers.
         logger.error() << "Path minimizers cannot be used with short reads." << endl;
     }
+    
+    // Use all the provided indexes
+    for (auto& index : provided_indexes) {
+        registry.provide(index.first, index.second);
+    }
+
     // Haplotype sampling is active when explicitly requested (--haplotype-sampling)
     // or when either --haplotype-name or --kff-name is given.
-    bool haplotype_sampling = haplotype_sampling_flag || !haplotype_name.empty() || !kff_name.empty();
+    bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || provided_indexes.count("KFF Kmer Counts");
     // Save the GBZ-derived basename before any override, so we can find
     // dist and other indexes co-located with the source GBZ during sampling.
     string original_basename = index_basename;
@@ -1488,7 +1490,8 @@ int main_giraffe(int argc, char** argv) {
                                   << " that sample name is " << sample << std::endl;
                 }
             } else if (!fastq_filename_1.empty()) {
-                // Strip .gz then use file_base_name to strip .fq/.fastq
+                // Strip .gz then use file_base_name to strip .fq/.fastq, since
+                // strip_suffixes stops at the first one that's not there.
                 sample = file_base_name(strip_suffixes(fastq_filename_1, {".gz"}));
                 if (show_progress) {
                     logger.info() << "Guessing from " << fastq_filename_1
@@ -1506,59 +1509,50 @@ int main_giraffe(int argc, char** argv) {
         // Pass parameters to the recipes through IndexingParameters.
         IndexingParameters::haplotype_reference_samples = reference_samples;
 
-        // Provide inputs to the registry.  The full-pangenome GBZ is typed
-        // as "Unsampled Giraffe GBZ" so the sampling recipe can distinguish
-        // it from the personalized "Giraffe GBZ" it will produce.
-        // Likewise, a provided "Giraffe Distance Index" is re-typed as
-        // "Unsampled Giraffe GBZ Distance Index" since it belongs to the
-        // unsampled graph.
-        for (auto& index : provided_indexes) {
-            if (index.first == "Giraffe GBZ") {
-                registry.provide("Unsampled Giraffe GBZ", index.second);
-            } else if (index.first == "Giraffe Distance Index") {
-                registry.provide("Unsampled Giraffe GBZ Distance Index", index.second);
-            } else {
-                registry.provide(index.first, index.second);
-            }
-        }
-
-        // Provide haplotype index and kff only if explicitly given.
-        if (!haplotype_name.empty()) {
-            registry.provide("Haplotype Index", haplotype_name);
-        }
-        if (!kff_name.empty()) {
-            registry.provide("KFF Kmer Counts", kff_name);
-        }
-
-        // Provide FASTQs as a registry node so the KFF kmer counting recipe
-        // can discover them without going through IndexingParameters.
         if (!fastq_filename_1.empty()) {
+            // If FASTQs are available, send those and we will do haplotype sampling.
             vector<string> fastqs = {fastq_filename_1};
             if (!fastq_filename_2.empty()) {
                 fastqs.push_back(fastq_filename_2);
             }
-            registry.provide("Sample FASTQ", fastqs);
+            registry.provide("FASTQ", fastqs);
+        } else if (!provided_indexes.count("KFF Kmer Counts")) {
+            // TODO: Eventually learn to kmer count from GAM
+            logger.error() << "Cannot do haplotype sampling without kmer counts (--kff-name) or FASTQ input (--fastq-in/-f)" << std::endl; 
         }
-
-        // Auto-provide the unsampled distance index from the original GBZ
-        // basename if a dist file exists there and we don't already have one.
-        if (!registry.available("Unsampled Giraffe GBZ Distance Index")) {
-            // Prefer a top-level-chain-only .tcdist, then fall back to full .dist.
+        // Otherwise, we know we're sending kmer counts and will still do haplotype sampling
+        
+        if (!registry.available("Top Level Chain Distance Index")) {
+            // Look for base GBZ distance index
             string tcdist_candidate = original_basename + ".tcdist";
-            string dist_candidate   = original_basename + ".dist";
+            string dist_candidate = original_basename + ".dist";
             if (file_exists(tcdist_candidate)) {
-                registry.provide("Unsampled Giraffe GBZ Top Level Chain Distance Index", tcdist_candidate);
+                registry.provide("Top Level Chain Distance Index", tcdist_candidate);
             } else if (file_exists(dist_candidate)) {
-                registry.provide("Unsampled Giraffe GBZ Distance Index", dist_candidate);
+                // Provide it as a top level chain index even though it has more stuff
+                registry.provide("Top Level Chain Distance Index", dist_candidate);
+            }
+        }
+        
+        if (!registry.available("Haplotype Index")) {
+            // Look for hapl index
+            string hapl_candidate = original_basename + ".hapl";
+            if (file_exists(hapl_candidate)) {
+                registry.provide("Haplotype Index", hapl_candidate);
             }
         }
 
-    } else {
-        // Otherwise use the provided indexes directly.
-        for (auto& index : provided_indexes) {
-            registry.provide(index.first, index.second);
+        if (!registry.available("r Index")) {
+            // Look for r index
+            string r_candidate = original_basename + ".ri";
+            if (file_exists(r_candidate)) {
+                registry.provide("r Index", r_candidate);
+            }
         }
+
     }
+
+    // Use the basename we've determined for generated indexes
     registry.set_prefix(index_basename);
 
     // The IndexRegistry doesn't try to infer index files based on the
@@ -1595,18 +1589,13 @@ int main_giraffe(int argc, char** argv) {
         for (auto& extension : index_and_extensions->second) {
             // For each extension in priority order
             string inferred_filename = registry.get_prefix() + "." + extension;
-            if (ifstream(inferred_filename).is_open()) {
+            if (file_exists(inferred_filename)) {
                 // A file with the appropriate name exists and we can read it.
-                if (haplotype_sampling) {
-                    // If we did haplotype sampling, we are going to overwrite existing indexes.
-                    logger.warn() << inferred_filename << " exists and will be overwritten" << endl;
-                } else {
-                    // Report it because this may not be desired behavior.
-                    logger.info() << "Guessing that " << inferred_filename
-                                  << " is " << index_and_extensions->first << endl;
-                    registry.provide(index_and_extensions->first, inferred_filename);
-                    found = true;
-                }
+                // Report it because this may not be desired behavior.
+                logger.info() << "Guessing that " << inferred_filename
+                              << " is " << index_and_extensions->first << endl;
+                registry.provide(index_and_extensions->first, inferred_filename);
+                found = true;
                 // Skip other extension options for the index
                 break;
             }
@@ -1619,6 +1608,16 @@ int main_giraffe(int argc, char** argv) {
             ++index_and_extensions;
         }
     }
+
+    if (haplotype_sampling && !registry.available("Giraffe GBZ") && !registry.available("GBZ")) {
+        // When doing haplotype sampling, we need to name our sampled GBZ just
+        // .gbz on top of the basename we put the sample name in, because the
+        // tests require it. This means we can't build a base .gbz and a
+        // sampled .gbz in the same indexing run, or they will fight over the
+        // name. So make sure we don't try.
+        logger.error() << "Cannot do haplotype sampling without a GBZ available" << std::endl;
+    }
+    // TODO: Actually force the index registry to use the name we want for the sampled GBZ even though it's not the one it would generate.
 
     //If we're making new zipcodes, we should rebuild the minimizers too
     if (!(indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
