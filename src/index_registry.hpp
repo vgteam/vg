@@ -185,7 +185,7 @@ public:
     // TODO: is this where this function wants to live?
     /// The memory limit, with a little slosh for prediction inaccuracy
     int64_t target_memory_usage() const;
-    /// The mmeory limit with no slosh
+    /// The memory limit with no slosh
     int64_t literal_target_memory_usage() const;
     
     /// Returns the recipes in the plan that depend on this index, including the one in which
@@ -199,6 +199,10 @@ protected:
     vector<RecipeName> steps;
     /// The indexes to create as outputs.
     set<IndexName> targets;
+    /// The scope qualifying each index in the plan (for example, if an index
+    /// applies only to a particular sample, it will be scoped to the sample
+    /// name).
+    map<IndexName, vector<string>> scopes;
     
     /// The registry that the plan is using.
     /// The registry must not move while the plan is in use.
@@ -261,11 +265,13 @@ public:
     /// by the generalization must be semantically identical to those of the generalizee
     void register_generalization(const RecipeName& generalizer, const RecipeName& generalizee);
     
-    /// Indicate a serialized file that contains some identified index
-    void provide(const IndexName& identifier, const string& filename);
+    /// Indicate a serialized file that contains some identified index,
+    /// optionally with a scope that propagates to descendant files.
+    void provide(const IndexName& identifier, const string& filename, const std::string& scope = "");
     
-    /// Indicate a list of serialized files that contains some identified index
-    void provide(const IndexName& identifier, const vector<string>& filenames);
+    /// Indicate a list of serialized files that contains some identified index,
+    /// optionally with a scope that propagates to descendant files.
+    void provide(const IndexName& identifier, const vector<string>& filenames, const std::string& scope = "");
 
     /// Remove a provided index
     void reset(const IndexName& identifier);
@@ -275,6 +281,7 @@ public:
     bool available(const IndexName& identifier) const;
 
     /// Get the possible filename(s) associated with the given index with the given prefix.
+    /// TODO: Get this to account for sample-scoped indexes.
     vector<string> get_possible_filenames(const IndexName& identifier) const;
     
     /// Get the filename(s) associated with the given index. Aborts if the

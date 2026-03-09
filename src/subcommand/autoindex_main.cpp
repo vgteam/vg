@@ -390,7 +390,7 @@ int main_autoindex(int argc, char** argv) {
             if (!registry.available(target)) {
                 vector<string> inferred_file_names = registry.get_possible_filenames(target);
                 for (const string& filename : inferred_file_names) {
-                    if (ifstream(filename).is_open()) {
+                    if (file_exists(filename)) {
                         logger.info() << "Guessing that " << filename << " is " << target << endl;
                         registry.provide(target, filename);
                         break;
