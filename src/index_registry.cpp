@@ -67,9 +67,9 @@
 #include "algorithms/component.hpp"
 #include "algorithms/find_translation.hpp"
 
-//#define debug_index_registry
+#define debug_index_registry
 //#define debug_index_registry_setup
-//#define debug_index_registry_recipes
+#define debug_index_registry_recipes
 //#define debug_index_registry_path_state
 
 namespace std {
@@ -4241,13 +4241,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         Recombinator::Parameters parameters(Recombinator::Parameters::preset_diploid);
         gbwt::GBWT sampled_gbwt = recombinator.generate_haplotypes(kff_filename, parameters);
 
-        // Build GBWTGraph and save GBZ.
+        // Build GBZ.
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            info(context) << "Building GBWTGraph." << endl;
+            info(context) << "Building GBZ." << endl;
         }
         gbwtgraph::GBZ sampled_graph(std::move(sampled_gbwt), gbz);
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(sampled_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Saved GBZ to " << output_name << endl;
+        }
 
         output_names.push_back(output_name);
         return all_outputs;
@@ -4584,6 +4588,15 @@ bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
     return !targets.count(identifier);
 }
 
+const vector<string> IndexingPlan::get_scopes(const IndexName& identifier) const {
+    auto found = scopes.find(identifier);
+    if (found == scopes.end()) {
+        return {};
+    }
+    // TODO: we can't really return an empty vector reference so we are stuck doing a copy here.
+    return found->second;
+}
+
 int64_t IndexingPlan::target_memory_usage() const {
     return IndexingParameters::max_memory_proportion * registry->get_target_memory_usage();
 }
@@ -4608,12 +4621,9 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         // we're not saving this file, make it temporary
         filepath << registry->get_work_dir() + "/" + sha1sum(identifier);
     }
-    auto found = scopes.find(identifier);
-    if (found != scopes.end()) {
-        for (auto& scope : found->second) {
-            // This index belongs to just a sample or something.
-            filepath << "." << scope;
-        }
+    for (auto& scope : get_scopes(identifier)) {
+        // This index belongs to just a sample or something.
+        filepath << "." << scope;
     }
     if (num_chunks > 1) {
         // we add digits to make the suffix unique for this chunk (the setup disallows suffixes
@@ -4621,6 +4631,7 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         filepath << "." << to_string(chunk);
     }
     filepath << "." << registry->get_index(identifier)->get_suffix();
+    std::cerr << "Considering output file path " << filepath.str() << std::endl;
     return filepath.str();
 }
  
@@ -4655,6 +4666,16 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
         }
     }
     return dependent_steps;
+}
+
+void IndexingPlan::add_scope(const IndexName& identifier, const string& scope) {
+    auto index_scopes = scopes[identifier];
+
+    // TODO: Change the data structure here if we anticipate an appreciable number of scopes.
+    auto found = std::find(index_scopes.begin(), index_scopes.end(), scope);
+    if (found == index_scopes.end()) {
+        index_scopes.push_back(scope);
+    }
 }
 
 IndexRegistry::~IndexRegistry() {
@@ -4736,6 +4757,10 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 if (!index->was_provided_directly()) {
                     // and assign the new (or first) ones
                     index->assign_constructed(results);
+                    for (auto& scope : plan.get_scopes(*it)) {
+                        // and keep their scopes (in case we ever need them)
+                        index->add_scope(scope);
+                    }
                 }
                 ++it;
             }
@@ -4792,7 +4817,10 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         auto f = find(aliasors.begin(), aliasors.end(), aliasee);
         bool can_move = f == aliasors.end() && !get_index(aliasee)->was_provided_directly();
         if (!can_move) {
-            // just remove the "alias" so we don't need to deal with it
+            // We need to copy.
+            // Just remove the "alias" for the index itself so that from here
+            // on we only need to wory about things that *do* need to be
+            // created.
             std::swap(*f, aliasors.back());
             aliasors.pop_back();
         }
@@ -4801,15 +4829,21 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         
         // copy aliases for any that we need to (start past index 0 if we can move it)
         for (size_t i = can_move; i < aliasors.size(); ++i) {
+            // We want the aliasor to point at the new paths
+            vector<string> new_aliasor_files;
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
                 
                 auto copy_filename = plan.output_filepath(aliasors[i], j, aliasee_filenames.size());
                 copy_file(aliasee_filenames[j], copy_filename);
+                new_aliasor_files.push_back(copy_filename);
             }
+            // Point the aliasor index at the new paths
+            get_index(aliasors[i])->assign_constructed(new_aliasor_files);
         }
         // if we can move the aliasee (i.e. it is intermediate), then make
-        // one index by moving instead of copying
+        // one index (the 0th one) by moving instead of copying
         if (can_move) {
+            vector<string> new_aliasor_files;
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
                 auto move_filename = plan.output_filepath(aliasors[0], j, aliasee_filenames.size());
                 int code = rename(aliasee_filenames[j].c_str(), move_filename.c_str());
@@ -4817,7 +4851,10 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                     // moving failed (maybe because the files on separate drives?) fall back on copying
                     copy_file(aliasee_filenames[j], move_filename);
                 }
+                new_aliasor_files.push_back(move_filename);
             }
+            // Point the aliasor index at the new paths
+            get_index(aliasors[0])->assign_constructed(new_aliasor_files);
         }
     }
     
@@ -5714,6 +5751,14 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
    
     // Now fill in the plan struct that the recipes need to know how to run.
     IndexingPlan plan;
+
+    // The plan has methods that need to interact with the registry, including
+    // some we need to use here.
+    //
+    // Some of them modify the registry. We're not going to use any of those,
+    // but we have to hand off a non-const pointer to ourselves so the plan can
+    // modify us later.
+    plan.registry = const_cast<IndexRegistry*>(this);
     
     // Copy over the end products
     std::copy(end_products.begin(), end_products.end(), std::inserter(plan.targets, plan.targets.begin()));
@@ -5744,54 +5789,48 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
     }
 #endif
 
-    // Figure out if any of the input files apply a sample scope to descendant files in the plan.
-    // This holds sets of later recipes and the scopes to give them when we get there.
-    // TODO: This is complicated and the queueing is not needed; we can just apply the scopes when we find the descendants.
-    std::vector<std::pair<std::set<RecipeName>, std::vector<std::string>> scope_queue;
-    for (auto plan_it = plan.steps.begin(); plan_it != plan.steps.end(); ++plan_it) {
-        // For each step in ther plan in order
-        
-        for (auto& names_and_scopes : scope_queue) {
-            if (names_and_scopes.first.count(plan_it->first)) {
-                // We have scopes from a previous step to apply to the indexes
-                // generated by this step.
-                //
-                // TODO: We assume a single scope only ever comes from one
-                // input file, and we don't enforce a particular scope order
-                // other than rule order.
-                for (const IndexName& index_name : plan_it->first) {
-                    // Append all the new scopes to any existing scopes on this index.
-                    std::copy(names_and_scopes.second().begin(), names_and_scopes.second().end(), std::back_inserter(scopes[index_name])); 
-                }
-            }
-        }
-
-        for (const IndexName& index_name : plan_it->first) {
-            // For each index that step would generate
-            const IndexFile* index = get_index(index_name);
-            if (!index->was_provided_directly()) {
-                // Only directly provided indexes introduce new scopes
-                continue;
-            }
-            auto& provided_scopes = index->provided_scopes();
-            if (!provided_scopes.empty()) {
-                // We need to attach these scopes to anything based on this index.
-                set<RecipeName> dependent_recipes = dependents(index_name);
-            }
-        }
-    }
-
-
     // Now remove the input data from the plan
     plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe_choice) {
         return all_finished(recipe_choice.first);
     }) - plan.steps.begin());
 
-    // The plan has methods that can come back and modify the registry.
-    // We're not going to call any of them, but we have to hand off a non-const
-    // pointer to ourselves so the plan can modify us later.
-    plan.registry = const_cast<IndexRegistry*>(this);
-    
+    // Now we're allowed to use dependents()
+
+    // Propagate scopes from input files
+    for (auto plan_it = plan.steps.begin(); plan_it != plan.steps.end(); ++plan_it) {
+        // For each step in ther plan in order
+        
+        for (const IndexName& index_name : plan_it->first) {
+            // For each index that step would generate
+            const IndexFile* index = get_index(index_name);
+            if (!index->is_finished()) {
+                // Only finished indexes bring in new scopes
+                continue;
+            }
+
+            // Get the scopes that came in with this input
+            auto& provided_scopes = index->get_scopes();
+            
+            // We need to attach these scopes to anything based on this index.
+            // TODO: Should we just propagate scopes step by step as we scan the plan instead?
+            for (const RecipeName& dependent_recipe : plan.dependents(index_name)) {
+                // For each recipe transitively depending on this input
+                for (const IndexName& dependent_index_name : dependent_recipe.first) {
+                    // For each index the recipe generates
+                    
+                    for (auto& scope : provided_scopes) {
+                        // Make sure that index is scoped with all scopes on the input.
+                        plan.add_scope(dependent_index_name, scope);
+                    }
+
+                    // Note that all outputs will get their scopes from the
+                    // inputs added in the same order (the order that the
+                    // inputs appear in the plan).
+                }
+            }
+        }
+    }
+
     return plan;
 }
 
@@ -5932,10 +5971,6 @@ IndexFile::IndexFile(const IndexName& identifier, const string& suffix) : identi
     // nothing more to do
 }
 
-bool IndexFile::is_finished() const {
-    return !filenames.empty();
-}
-
 const IndexName& IndexFile::get_identifier() const {
     return identifier;
 }
@@ -5958,12 +5993,38 @@ void IndexFile::provide(const vector<string>& filenames) {
 }
 
 void IndexFile::assign_constructed(const vector<string>& filenames) {
+    std::cerr << "Set " << get_identifier() << " to be at:";
+    for (auto& f : filenames) {
+        std::cerr << " " << f;
+    }
+    std::cerr << std::endl;
     this->filenames = filenames;
     provided_directly = false;
 }
 
 bool IndexFile::was_provided_directly() const {
     return provided_directly;
+}
+
+void IndexFile::add_scope(const string& scope) {
+    if (!is_finished()) {
+        // Scopes for nonexistent files belong to the plan, not us.
+        throw std::logic_error("Cannot assign " + scope + " scope to unfinished " + get_identifier() + " index");
+    }
+
+    // TODO: Change the data structure here if we anticipate an appreciable number of scopes.
+    auto found = std::find(scopes.begin(), scopes.end(), scope);
+    if (found == scopes.end()) {
+        scopes.push_back(scope);
+    }
+}
+
+const vector<string>& IndexFile::get_scopes() const {
+    return scopes;
+}
+
+bool IndexFile::is_finished() const {
+    return !filenames.empty();
 }
 
 void IndexFile::reset() {

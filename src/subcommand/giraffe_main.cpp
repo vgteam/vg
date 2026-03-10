@@ -60,6 +60,8 @@ static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu
 }
 #endif
 
+#define debug
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -768,7 +770,7 @@ int main_giraffe(int argc, char** argv) {
     // indexed for lookup. We only support one file per index (FASTQs get
     // handled separately).
     std::unordered_map<string, string> provided_indexes;
-    string index_basename, index_basename_override;
+    string index_basename_guess, index_basename;
 
     // For haplotype sampling.
     string haplotype_name, kff_name;
@@ -1139,8 +1141,7 @@ int main_giraffe(int argc, char** argv) {
                 provided_indexes.emplace("GBZ", optarg);
 
                 // If we have a GBZ we probably want to use its name as the base name.
-                // But see -g.
-                index_basename = strip_suffixes(std::string(optarg), { ".gbz", ".giraffe" });
+                index_basename_guess = strip_suffixes(std::string(optarg), { ".gbz", ".giraffe" });
 
                 break;
 
@@ -1148,17 +1149,15 @@ int main_giraffe(int argc, char** argv) {
                 provided_indexes.emplace("XG", optarg);
                 
                 // If we have an XG we probably want to use its name as the base name.
-                // But see -g.
-                index_basename = split_ext(optarg).first;
+                index_basename_guess = split_ext(optarg).first;
                 
                 break;
 
             case 'g':
                 provided_indexes.emplace("GBWTGraph", optarg);
                 
-                // But if we have a GBWTGraph we probably want to use *its* name as the base name.
-                // Whichever is specified last will win, unless we also have a FASTA input name.
-                index_basename = split_ext(optarg).first;
+                // If we have a GBWTGraph we probably want to use its name as the base name.
+                index_basename_guess = split_ext(optarg).first;
                 
                 break;
 
@@ -1195,7 +1194,7 @@ int main_giraffe(int argc, char** argv) {
                 provided_indexes.emplace("KFF Kmer Counts", optarg);
                 break;
             case OPT_INDEX_BASENAME:
-                index_basename_override = optarg;
+                index_basename = optarg;
                 break;
 
             case 'G':
@@ -1369,8 +1368,9 @@ int main_giraffe(int argc, char** argv) {
         }
         
         provided_indexes.emplace("Reference FASTA", fasta_filename);
-        // Everything else should be named like the FASTA by default
-        index_basename = fasta_parts.first;
+        // Everything else should be named like the FASTA by default. This is a
+        // better guess than the other siurces.
+        index_basename_guess = fasta_parts.first;
         
         if (have_input_file(optind, argc, argv)) {
             // Next one must be VCF, but check.
@@ -1393,6 +1393,11 @@ int main_giraffe(int argc, char** argv) {
             // Feed it to the index registry to maybe use
             provided_indexes.emplace(file_type, vcf_filename);
         }
+    }
+
+    if (index_basename.empty()) {
+        // Try to pick an index basename now
+        index_basename = index_basename_guess;
     }
 
     // If we don't want rescue, let the user see we don't try it.
@@ -1470,12 +1475,7 @@ int main_giraffe(int argc, char** argv) {
     // Haplotype sampling is active when explicitly requested (--haplotype-sampling)
     // or when either --haplotype-name or --kff-name is given.
     bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || provided_indexes.count("KFF Kmer Counts");
-    // Save the GBZ-derived basename before any override, so we can find
-    // dist and other indexes co-located with the source GBZ during sampling.
-    string original_basename = index_basename;
-    if (!index_basename_override.empty()) {
-        index_basename = index_basename_override;
-    }
+    
     if (haplotype_sampling) {
 
         // Determine sample name early so we can incorporate it into the
@@ -1504,7 +1504,6 @@ int main_giraffe(int argc, char** argv) {
         if (sample == "giraffe") {
             logger.warn() << "Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
         }
-        index_basename = index_basename + "." + sample;
 
         // Pass parameters to the recipes through IndexingParameters.
         IndexingParameters::haplotype_reference_samples = reference_samples;
@@ -1515,45 +1514,52 @@ int main_giraffe(int argc, char** argv) {
             if (!fastq_filename_2.empty()) {
                 fastqs.push_back(fastq_filename_2);
             }
-            registry.provide("FASTQ", fastqs);
+            // Provide the FASTQs to the index registry, but mark everything
+            // derived from them as being scoped to the particular sample.
+            registry.provide("FASTQ", fastqs, sample);
         } else if (!provided_indexes.count("KFF Kmer Counts")) {
             // TODO: Eventually learn to kmer count from GAM
             logger.error() << "Cannot do haplotype sampling without kmer counts (--kff-name) or FASTQ input (--fastq-in/-f)" << std::endl; 
         }
         // Otherwise, we know we're sending kmer counts and will still do haplotype sampling
         
-        if (!registry.available("Top Level Chain Distance Index")) {
-            // Look for base GBZ distance index
-            string tcdist_candidate = original_basename + ".tcdist";
-            string dist_candidate = original_basename + ".dist";
-            if (file_exists(tcdist_candidate)) {
-                registry.provide("Top Level Chain Distance Index", tcdist_candidate);
-            } else if (file_exists(dist_candidate)) {
-                // Provide it as a top level chain index even though it has more stuff
-                registry.provide("Top Level Chain Distance Index", dist_candidate);
+        if (!index_basename.empty()) {
+            // We have some idea where indexes might be, so guess them.
+            if (!registry.available("Top Level Chain Distance Index")) {
+                // Look for base GBZ distance index
+                string tcdist_candidate = index_basename + ".tcdist";
+                string dist_candidate = index_basename + ".dist";
+                if (file_exists(tcdist_candidate)) {
+                    registry.provide("Top Level Chain Distance Index", tcdist_candidate);
+                } else if (file_exists(dist_candidate)) {
+                    // Provide it as a top level chain index even though it has more stuff
+                    registry.provide("Top Level Chain Distance Index", dist_candidate);
+                }
             }
-        }
-        
-        if (!registry.available("Haplotype Index")) {
-            // Look for hapl index
-            string hapl_candidate = original_basename + ".hapl";
-            if (file_exists(hapl_candidate)) {
-                registry.provide("Haplotype Index", hapl_candidate);
+            
+            if (!registry.available("Haplotype Index")) {
+                // Look for hapl index
+                string hapl_candidate = index_basename + ".hapl";
+                if (file_exists(hapl_candidate)) {
+                    registry.provide("Haplotype Index", hapl_candidate);
+                }
             }
-        }
 
-        if (!registry.available("r Index")) {
-            // Look for r index
-            string r_candidate = original_basename + ".ri";
-            if (file_exists(r_candidate)) {
-                registry.provide("r Index", r_candidate);
+            if (!registry.available("r Index")) {
+                // Look for r index
+                string r_candidate = index_basename + ".ri";
+                if (file_exists(r_candidate)) {
+                    registry.provide("r Index", r_candidate);
+                }
             }
         }
 
     }
-
-    // Use the basename we've determined for generated indexes
-    registry.set_prefix(index_basename);
+    
+    if (!index_basename.empty()) {
+        // Use the basename we've determined for generated indexes
+        registry.set_prefix(index_basename);
+    }
 
     // The IndexRegistry doesn't try to infer index files based on the
     // basename, so do that here. We can have multiple extension options that

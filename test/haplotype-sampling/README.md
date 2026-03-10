@@ -147,3 +147,9 @@ The resulting fasta file can be used as the reference with any linear aligner.
 
 Documentation for the `vg haplotypes` subcommand can be found in the [vg wiki](https://github.com/vgteam/vg/wiki/Haplotype-Sampling).
 You may also want to read about the [best practices](https://github.com/vgteam/vg/wiki/Giraffe-best-practices) for mapping reads with Giraffe.
+
+Remember to clean up after trying all the examples:
+<!-- !test check Clean up after examples -->
+```
+rm -f HG003.gbz giraffe-integration.gam micb-kir3dl1.dist micb-kir3dl1.gbz micb-kir3dl1.giraffe.gbz micb-kir3dl1.hapl micb-kir3dl1.ri micb-kir3dl1.shortread.withzip.min micb-kir3dl1.shortread.zipcodes reference.fa to-original.gam to-sampled.gam
+```
