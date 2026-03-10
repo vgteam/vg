@@ -99,13 +99,12 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     this->interval_snarl_bounds.clear();
     this->node_to_interval.clear();
     this->graph = graph;
-    // Rank traversal fragments by path name only, ignoring coverage. This ensures
-    // deterministic output: the same lowest-name path wins in every snarl, so adjacent
-    // snarl intervals land on the same path and only same-path merging is needed,
-    // eliminating dependence on OpenMP thread scheduling during the global fold.
-    // TODO: to re-enable coverage-based ranking, the global fold must be made
-    // deterministic (e.g. by sorting intervals before folding rather than relying
-    // on per-thread vector order).
+    // Rank by name only (ignoring coverage) produces fewer, longer intervals
+    // in practice: adjacent snarls tend to pick the same path, so same-path
+    // merging succeeds more often during the fold.
+    // Determinism is ensured by sorting all thread intervals into a canonical
+    // order before the global fold, so the result is independent of OpenMP
+    // thread scheduling.
     this->rank_by_name = true;
 
     // start with the reference paths
@@ -173,26 +172,41 @@ void AugRefCover::compute(const PathHandleGraph* graph,
         }
     });
 
-    // now we need to fold up the thread covers
+    // Collect all thread intervals into a single vector, then sort into a
+    // deterministic order so that the fold result is independent of which
+    // thread computed each snarl.
+    struct FoldEntry {
+        pair<step_handle_t, step_handle_t> interval;
+        pair<nid_t, nid_t> snarl_bounds;
+    };
+    vector<FoldEntry> all_intervals;
     for (int64_t t = 0; t < thread_count; ++t) {
-#ifdef debug
-#pragma omp critical(cerr)
-        cerr << "Adding " << augref_intervals_vector[t].size() << " augref intervals from thread " << t << endl;
-#endif
-        // important to go through function rather than do a raw copy since
-        // inter-top-level snarl merging may need to happen
         for (int64_t j = 0; j < augref_intervals_vector[t].size(); ++j) {
-            // the true flag at the end disables the overlap check. since they were computed
-            // in separate threads, snarls can overlap by a single node
-            const pair<step_handle_t, step_handle_t>& interval = augref_intervals_vector[t][j];
+            const auto& interval = augref_intervals_vector[t][j];
             if (interval.first != graph->path_end(graph->get_path_handle_of_step(interval.first))) {
-                add_interval(this->augref_intervals, this->node_to_interval, augref_intervals_vector[t][j], true,
-                             &this->interval_snarl_bounds, snarl_bounds_vector[t][j]);
+                all_intervals.push_back({interval, snarl_bounds_vector[t][j]});
             }
         }
         augref_intervals_vector[t].clear();
         node_to_interval_vector[t].clear();
         snarl_bounds_vector[t].clear();
+    }
+    std::sort(all_intervals.begin(), all_intervals.end(), [&](const FoldEntry& a, const FoldEntry& b) {
+        // primary: snarl boundary nodes (groups intervals from the same snarl)
+        if (a.snarl_bounds != b.snarl_bounds) return a.snarl_bounds < b.snarl_bounds;
+        // secondary: path name
+        string pa = graph->get_path_name(graph->get_path_handle_of_step(a.interval.first));
+        string pb = graph->get_path_name(graph->get_path_handle_of_step(b.interval.first));
+        if (pa != pb) return pa < pb;
+        // tertiary: start node id
+        return graph->get_id(graph->get_handle_of_step(a.interval.first)) <
+               graph->get_id(graph->get_handle_of_step(b.interval.first));
+    });
+
+    // Fold sorted intervals into the global cover
+    for (auto& entry : all_intervals) {
+        add_interval(this->augref_intervals, this->node_to_interval, entry.interval, true,
+                     &this->interval_snarl_bounds, entry.snarl_bounds);
     }
 
     // remove any intervals that were made redundant by add_interval
