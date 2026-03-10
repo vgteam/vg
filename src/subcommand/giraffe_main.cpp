@@ -667,8 +667,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     cerr << "haplotype sampling:" << endl
          << "      --haplotype-sampling      use per-sample personalized graph (will be" << endl
          << "                                built if not found)" << endl
-         << "      --haplotype-name FILE     sample from haplotype information in FILE (implies" << endl
-         << "                                --haplotype-sampling)" << endl
+         << "      --haplotype-name FILE     sample from haplotype information in FILE" << endl
+         << "                                (implies --haplotype-sampling)" << endl
          << "      --kff-name FILE           sample according to kmer counts in FILE (implies" << endl
          << "                                --haplotype-sampling)" << endl
          << "      --set-reference STR       include this sample as a reference" << endl
@@ -1208,7 +1208,7 @@ int main_giraffe(int argc, char** argv) {
             case OPT_KFF_NAME:
                 // We need to provide the KFF with sample scope if we provide
                 // it, but we're not sure of the sample name yet.
-                kff_filename = optarg;
+                kff_filename = require_exists(logger, optarg);
                 break;
 
             case OPT_SET_REFERENCE:
