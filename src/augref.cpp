@@ -283,20 +283,27 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
 
             if (uncovered_nodes.count(node_id)) {
                 if (interval_nodes.count(node_id)) {
-                    // This node is already in the current interval — close to avoid cycle,
-                    // then start a new interval at this node (same logic as get_uncovered_intervals)
+                    // This node is already in the current interval — close to avoid cycle.
+                    // close_interval() will remove covered nodes from uncovered_nodes,
+                    // so we must re-check before adding the node to a new interval.
                     close_interval();
                 }
-                if (!in_interval) {
-                    // Start a new interval
-                    in_interval = true;
-                    interval_start = step;
-                    interval_length = 0;
-                    interval_nodes.clear();
+                // Re-check: close_interval() may have just covered this node
+                if (!uncovered_nodes.count(node_id)) {
+                    // Node was covered by the interval we just closed — treat as covered
+                    close_interval();
+                } else {
+                    if (!in_interval) {
+                        // Start a new interval
+                        in_interval = true;
+                        interval_start = step;
+                        interval_length = 0;
+                        interval_nodes.clear();
+                    }
+                    interval_end = graph->get_next_step(step);
+                    interval_length += graph->get_length(graph->get_handle_of_step(step));
+                    interval_nodes.insert(node_id);
                 }
-                interval_end = graph->get_next_step(step);
-                interval_length += graph->get_length(graph->get_handle_of_step(step));
-                interval_nodes.insert(node_id);
             } else {
                 // This node is already covered — close current interval
                 close_interval();
@@ -1081,7 +1088,8 @@ void AugRefCover::forwardize_augref_paths(MutablePathMutableHandleGraph* mutable
             mutable_graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                 handle_t handle = mutable_graph->get_handle_of_step(step_handle);
                 if (mutable_graph->get_is_reverse(handle)) {
-                    cerr << "[augref] error: Failed to fowardize node " << mutable_graph->get_id(handle) << " in path " << path_name << endl;
+                    nid_t bad_id = mutable_graph->get_id(handle);
+                    cerr << "[augref] error: Failed to forwardize node " << bad_id << " in path " << path_name << endl;
                     exit(1);
                 }
             });
