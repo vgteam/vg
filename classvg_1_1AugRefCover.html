@@ -147,6 +147,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a207306f88d136a51ed3afb0a91a2ed89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a593ba1ed50ca87f311635a7691e39164"><td class="memItemLeft" align="right" valign="top">optional&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a593ba1ed50ca87f311635a7691e39164">try_extend_backward</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;other_interval)</td></tr>
 <tr class="separator:a593ba1ed50ca87f311635a7691e39164"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8455ba81cd11a584e3f6f43c49d2cb1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#ae8455ba81cd11a584e3f6f43c49d2cb1">merge_would_duplicate_node</a> (const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;interval_a, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;interval_b) const</td></tr>
+<tr class="separator:ae8455ba81cd11a584e3f6f43c49d2cb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae69ff569f12371c34897cdcc14c06511"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#ae69ff569f12371c34897cdcc14c06511">get_coverage</a> (const vector&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;trav, const pair&lt; int64_t, int64_t &gt; &amp;uncovered_interval)</td></tr>
 <tr class="separator:ae69ff569f12371c34897cdcc14c06511"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0e84c41ae50607cd969308f2c573be3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#af0e84c41ae50607cd969308f2c573be3">forwardize_augref_paths</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *mutable_graph)</td></tr>
@@ -825,6 +827,42 @@ Protected Attributes</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae8455ba81cd11a584e3f6f43c49d2cb1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8455ba81cd11a584e3f6f43c49d2cb1">&#9670;&nbsp;</a></span>merge_would_duplicate_node()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::AugRefCover::merge_would_duplicate_node </td>
+          <td>(</td>
+          <td class="paramtype">const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>interval_a</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>interval_b</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
