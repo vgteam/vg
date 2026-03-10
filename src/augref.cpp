@@ -262,6 +262,7 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
         step_handle_t interval_end;
         int64_t interval_length = 0;
         unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
+        bool interval_reverse = false;  // orientation of current interval
 
         // Helper to close the current interval and add it if long enough
         auto close_interval = [&]() {
@@ -280,6 +281,7 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
 
         graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+            bool is_reverse = graph->get_is_reverse(graph->get_handle_of_step(step));
 
             if (uncovered_nodes.count(node_id)) {
                 if (interval_nodes.count(node_id)) {
@@ -292,6 +294,17 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
                 if (!uncovered_nodes.count(node_id)) {
                     // Node was covered by the interval we just closed — treat as covered
                     close_interval();
+                } else if (in_interval && is_reverse != interval_reverse) {
+                    // Orientation changed — close current interval and start fresh
+                    close_interval();
+                    in_interval = true;
+                    interval_start = step;
+                    interval_length = 0;
+                    interval_nodes.clear();
+                    interval_reverse = is_reverse;
+                    interval_end = graph->get_next_step(step);
+                    interval_length += graph->get_length(graph->get_handle_of_step(step));
+                    interval_nodes.insert(node_id);
                 } else {
                     if (!in_interval) {
                         // Start a new interval
@@ -299,6 +312,7 @@ void AugRefCover::fill_uncovered_nodes(int64_t minimum_length) {
                         interval_start = step;
                         interval_length = 0;
                         interval_nodes.clear();
+                        interval_reverse = is_reverse;
                     }
                     interval_end = graph->get_next_step(step);
                     interval_length += graph->get_length(graph->get_handle_of_step(step));
@@ -451,6 +465,24 @@ void AugRefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
             }
         }
 
+        // Check if this interval is all-reverse (needs to be flipped when writing)
+        bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(augref_intervals[i].first));
+
+        // Safety check: verify consistent orientation (should be guaranteed by upstream filtering)
+        bool mixed = false;
+        for (step_handle_t step_handle = augref_intervals[i].first; step_handle != augref_intervals[i].second;
+             step_handle = graph->get_next_step(step_handle)) {
+            if (graph->get_is_reverse(graph->get_handle_of_step(step_handle)) != all_reverse) {
+                mixed = true;
+                break;
+            }
+        }
+        if (mixed) {
+            // Mixed-orientation interval should not reach here; skip as safety net
+            skipped_intervals++;
+            continue;
+        }
+
         // Get next available augref index for this base path
         int64_t augref_index = ++base_path_augref_counter[base_path_name];
 
@@ -461,10 +493,25 @@ void AugRefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         path_handle_t augref_handle = mutable_graph->create_path_handle(augref_name, false);
 
         int64_t interval_length = 0;
-        for (step_handle_t step_handle = augref_intervals[i].first; step_handle != augref_intervals[i].second;
-             step_handle = mutable_graph->get_next_step(step_handle)) {
-            mutable_graph->append_step(augref_handle, mutable_graph->get_handle_of_step(step_handle));
-            interval_length += mutable_graph->get_length(mutable_graph->get_handle_of_step(step_handle));
+        if (!all_reverse) {
+            // Forward interval: walk forward and append steps as-is
+            for (step_handle_t step_handle = augref_intervals[i].first; step_handle != augref_intervals[i].second;
+                 step_handle = mutable_graph->get_next_step(step_handle)) {
+                mutable_graph->append_step(augref_handle, mutable_graph->get_handle_of_step(step_handle));
+                interval_length += mutable_graph->get_length(mutable_graph->get_handle_of_step(step_handle));
+            }
+        } else {
+            // All-reverse interval: collect handles, reverse order, flip each to forward
+            vector<handle_t> handles;
+            for (step_handle_t step_handle = augref_intervals[i].first; step_handle != augref_intervals[i].second;
+                 step_handle = graph->get_next_step(step_handle)) {
+                handles.push_back(mutable_graph->flip(mutable_graph->get_handle_of_step(step_handle)));
+            }
+            std::reverse(handles.begin(), handles.end());
+            for (handle_t h : handles) {
+                mutable_graph->append_step(augref_handle, h);
+                interval_length += mutable_graph->get_length(h);
+            }
         }
         written_intervals++;
         written_length += interval_length;
@@ -473,8 +520,6 @@ void AugRefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 #ifdef debug
     cerr << "[augref] apply: wrote " << written_intervals << " augref paths (" << written_length << " bp), skipped " << skipped_intervals << " empty intervals" << endl;
 #endif
-
-    this->forwardize_augref_paths(mutable_graph);
 }
 
 int64_t AugRefCover::get_rank(nid_t node_id) const {
@@ -567,7 +612,9 @@ void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_tr
         for (const auto& uncovered_interval : uncovered_intervals) {
             unordered_set<nid_t> cycle_check;
             bool cyclic = false;
+            bool mixed_orientation = false;
             int64_t interval_length = 0;
+            int64_t fwd_count = 0, rev_count = 0;
             for (int64_t i = uncovered_interval.first; i < uncovered_interval.second && !cyclic; ++i) {
                 handle_t handle = graph->get_handle_of_step(trav[i]);
                 interval_length += graph->get_length(handle);
@@ -577,8 +624,14 @@ void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_tr
                 } else {
                     cycle_check.insert(node_id);
                 }
+                if (graph->get_is_reverse(handle)) {
+                    ++rev_count;
+                } else {
+                    ++fwd_count;
+                }
             }
-            if (!cyclic && interval_length >= minimum_length) {
+            mixed_orientation = fwd_count > 0 && rev_count > 0;
+            if (!cyclic && !mixed_orientation && interval_length >= minimum_length) {
                 int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, uncovered_interval);
                 ranked_trav_fragments.push_back({trav_coverage, &trav_names[trav_idx], trav_idx, uncovered_interval});
             }
@@ -632,10 +685,15 @@ void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_tr
         if (chopped) {
             for (const pair<int64_t, int64_t>& chopped_interval : chopped_intervals) {
                 int64_t chopped_trav_length = 0;
+                bool chopped_mixed = false;
+                int64_t chopped_fwd = 0, chopped_rev = 0;
                 for (int64_t i = chopped_interval.first; i < chopped_interval.second; ++i) {
-                    chopped_trav_length += graph->get_length(graph->get_handle_of_step(trav[i]));
+                    handle_t h = graph->get_handle_of_step(trav[i]);
+                    chopped_trav_length += graph->get_length(h);
+                    if (graph->get_is_reverse(h)) { ++chopped_rev; } else { ++chopped_fwd; }
                 }
-                if (chopped_trav_length >= minimum_length) {
+                chopped_mixed = chopped_fwd > 0 && chopped_rev > 0;
+                if (!chopped_mixed && chopped_trav_length >= minimum_length) {
                     int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, chopped_interval);
                     ranked_trav_fragments.push_back({trav_coverage, best_stats_fragment.name, best_stats_fragment.trav_idx, chopped_interval});
                     std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
@@ -789,7 +847,11 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
             int64_t prev_idx = thread_node_to_interval[prev_node_id];
             pair<step_handle_t, step_handle_t>& prev_interval = thread_augref_intervals[prev_idx];
             if (graph->get_path_handle_of_step(prev_interval.first) == path_handle) {
-                if ((prev_interval.second == new_interval.first ||
+                // Same-path left merge: only merge if orientations are consistent
+                bool orientations_match = graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ==
+                                          graph->get_is_reverse(graph->get_handle_of_step(new_interval.first));
+                if (orientations_match &&
+                    (prev_interval.second == new_interval.first ||
                     (global && graph->get_previous_step(prev_interval.second) == new_interval.first)) &&
                     !merge_would_duplicate_node(prev_interval, new_interval)) {
 #ifdef debug
@@ -863,8 +925,12 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
             pair<step_handle_t, step_handle_t>& next_interval = thread_augref_intervals[next_idx];
             path_handle_t next_path = graph->get_path_handle_of_step(next_interval.first);
             if (graph->get_path_handle_of_step(next_interval.first) == path_handle) {
-                if (next_interval.first == effective_interval.second ||
-                    (global && next_interval.first == graph->get_previous_step(effective_interval.second))) {
+                // Same-path right merge: only merge if orientations are consistent
+                bool orientations_match = graph->get_is_reverse(graph->get_handle_of_step(effective_interval.first)) ==
+                                          graph->get_is_reverse(graph->get_handle_of_step(next_interval.first));
+                if (orientations_match &&
+                    (next_interval.first == effective_interval.second ||
+                    (global && next_interval.first == graph->get_previous_step(effective_interval.second)))) {
                     // Check for duplicate nodes before merging: use the already-merged
                     // interval for the both-sided case, or effective_interval for right-only.
                     pair<step_handle_t, step_handle_t> left_side = merged ?
@@ -1017,85 +1083,6 @@ int64_t AugRefCover::get_coverage(const vector<step_handle_t>& trav, const pair<
     return coverage;
 }
 
-// Ensure all nodes in augref paths are in forward orientation
-void AugRefCover::forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph) {
-    assert(this->graph == static_cast<PathHandleGraph*>(mutable_graph));
-
-    unordered_map<nid_t, nid_t> id_map;
-    mutable_graph->for_each_path_handle([&](path_handle_t path_handle) {
-        string path_name = mutable_graph->get_path_name(path_handle);
-        if (is_augref_name(path_name)) {
-            size_t fw_count = 0;
-            size_t total_steps = 0;
-            mutable_graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-                handle_t handle = mutable_graph->get_handle_of_step(step_handle);
-                if (mutable_graph->get_is_reverse(handle)) {
-                    handle_t flipped_handle = mutable_graph->create_handle(mutable_graph->get_sequence(handle));
-                    id_map[mutable_graph->get_id(flipped_handle)] = mutable_graph->get_id(handle);
-                    mutable_graph->follow_edges(handle, true, [&](handle_t prev_handle) {
-                        if (mutable_graph->get_id(prev_handle) != mutable_graph->get_id(handle)) {
-                            mutable_graph->create_edge(prev_handle, flipped_handle);
-                        }
-                    });
-                    mutable_graph->follow_edges(handle, false, [&](handle_t next_handle) {
-                        if (mutable_graph->get_id(handle) != mutable_graph->get_id(next_handle)) {
-                            mutable_graph->create_edge(flipped_handle, next_handle);
-                        }
-                    });
-                    // self-loop cases we punted on above:
-                    if (mutable_graph->has_edge(handle, handle)) {
-                        mutable_graph->create_edge(flipped_handle, flipped_handle);
-                    }
-                    if (mutable_graph->has_edge(handle, mutable_graph->flip(handle))) {
-                        mutable_graph->create_edge(flipped_handle, mutable_graph->flip(flipped_handle));
-                    }
-                    if (mutable_graph->has_edge(mutable_graph->flip(handle), handle)) {
-                        mutable_graph->create_edge(mutable_graph->flip(flipped_handle), flipped_handle);
-                    }
-                    vector<step_handle_t> steps = mutable_graph->steps_of_handle(handle);
-                    size_t ref_count = 0;
-                    for (step_handle_t step : steps) {
-                        if (mutable_graph->get_path_handle_of_step(step) == path_handle) {
-                            ++ref_count;
-                        }
-                        step_handle_t next_step = mutable_graph->get_next_step(step);
-                        handle_t new_handle = mutable_graph->get_is_reverse(mutable_graph->get_handle_of_step(step)) ? flipped_handle :
-                            mutable_graph->flip(flipped_handle);
-                        mutable_graph->rewrite_segment(step, next_step, {new_handle});
-                    }
-                    if (ref_count > 1) {
-                        cerr << "[augref] error: Cycle detected in augref path " << path_name << " at node " << mutable_graph->get_id(handle) << endl;
-                        exit(1);
-                    }
-                    ++fw_count;
-                    assert(mutable_graph->steps_of_handle(handle).empty());
-                    dynamic_cast<DeletableHandleGraph*>(mutable_graph)->destroy_handle(handle);
-                }
-                ++total_steps;
-            });
-        }
-    });
-
-    // rename all the ids back to what they were (so nodes keep their ids, just get flipped around)
-    mutable_graph->reassign_node_ids([&id_map](nid_t new_id) {
-        return id_map.count(new_id) ? id_map[new_id] : new_id;
-    });
-
-    // do a check just to be sure
-    mutable_graph->for_each_path_handle([&](path_handle_t path_handle) {
-        string path_name = mutable_graph->get_path_name(path_handle);
-        if (is_augref_name(path_name)) {
-            mutable_graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-                handle_t handle = mutable_graph->get_handle_of_step(step_handle);
-                if (mutable_graph->get_is_reverse(handle)) {
-                    nid_t bad_id = mutable_graph->get_id(handle);
-                    cerr << "[augref] error: Failed to forwardize node " << bad_id << " in path " << path_name << endl;
-                    exit(1);
-                }
-            });
-        }
-    });
-}
 
 vector<pair<int64_t, nid_t>> AugRefCover::get_reference_nodes(nid_t node_id, bool first) const {
 
@@ -1337,6 +1324,20 @@ void AugRefCover::write_augref_segments(ostream& os) {
 
         // Skip empty intervals
         if (interval.first == graph->path_end(source_path_handle)) {
+            continue;
+        }
+
+        // Skip mixed-orientation intervals (must match apply() logic)
+        bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
+        bool mixed = false;
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            if (graph->get_is_reverse(graph->get_handle_of_step(step)) != all_reverse) {
+                mixed = true;
+                break;
+            }
+        }
+        if (mixed) {
             continue;
         }
 

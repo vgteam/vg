@@ -160,11 +160,6 @@ protected:
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 
-    // Make sure all nodes in all augref paths are in forward orientation.
-    // This is always possible because they are, by definition, disjoint.
-    // This should only be run from inside apply().
-    void forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph);
-
     // Second pass: greedily cover any nodes not covered by snarl traversals.
     // This handles nodes that are outside of snarls or in complex regions
     // where the traversal finder couldn't find good coverage.
