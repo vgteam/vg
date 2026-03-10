@@ -661,7 +661,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "      --comments-as-tags        treat comments in name lines as SAM-style tags" << endl
          << "                                and annotate alignments with them" << endl
          << "      --index-basename STR      name prefix for autodetected and generated" << endl
-         << "                                graph/index files (default: from graph and sample)" << endl;
+         << "                                graph/index files (default: from graph and" << endl
+         << "                                sample)" << endl;
 
     cerr << "haplotype sampling:" << endl
          << "      --haplotype-sampling      use per-sample personalized graph (will be" << endl
