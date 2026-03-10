@@ -151,5 +151,5 @@ You may also want to read about the [best practices](https://github.com/vgteam/v
 Remember to clean up after trying all the examples:
 <!-- !test check Clean up after examples -->
 ```
-rm -f HG003.gbz giraffe-integration.gam micb-kir3dl1.dist micb-kir3dl1.gbz micb-kir3dl1.giraffe.gbz micb-kir3dl1.hapl micb-kir3dl1.ri micb-kir3dl1.shortread.withzip.min micb-kir3dl1.shortread.zipcodes reference.fa to-original.gam to-sampled.gam
+rm -f HG003.gbz giraffe-integration.gam micb-kir3dl1.dist micb-kir3dl1.gbz micb-kir3dl1.giraffe.gbz micb-kir3dl1.hapl micb-kir3dl1.ri micb-kir3dl1.shortread.withzip.min micb-kir3dl1.shortread.zipcodes reference.fa to-original.gam to-sampled.gam integration.*
 ```

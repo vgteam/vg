@@ -130,9 +130,11 @@ int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAUL
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
-std::unordered_set<std::string> IndexingParameters::haplotype_reference_samples = {};
-int IndexingParameters::haplotype_minimizer_k = 29;
-int IndexingParameters::haplotype_minimizer_w = 11;
+std::unordered_set<std::string> IndexingParameters::haplotype_sampling_reference_samples = {};
+size_t IndexingParameters::haplotype_sampling_num_haplotypes = Recombinator::NUM_CANDIDATES;
+bool IndexingParameters::haplotype_sampling_diploid = true;
+int IndexingParameters::haplotype_sampling_minimizer_k = 29;
+int IndexingParameters::haplotype_sampling_minimizer_w = 11;
 
 void copy_file(const string& from_fp, const string& to_fp) {
     require_exists(context, from_fp);
@@ -4215,14 +4217,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
 
         // Override reference samples if requested.
-        if (!IndexingParameters::haplotype_reference_samples.empty()) {
+        if (!IndexingParameters::haplotype_sampling_reference_samples.empty()) {
             if (IndexingParameters::verbosity != IndexingParameters::None) {
                 info(context) << "Updating reference samples." << endl;
             }
-            size_t present = gbz.set_reference_samples(IndexingParameters::haplotype_reference_samples);
-            if (present != IndexingParameters::haplotype_reference_samples.size()) {
+            size_t present = gbz.set_reference_samples(IndexingParameters::haplotype_sampling_reference_samples);
+            if (present != IndexingParameters::haplotype_sampling_reference_samples.size()) {
                 warn(context) << "Only " << present << " out of "
-                              << IndexingParameters::haplotype_reference_samples.size()
+                              << IndexingParameters::haplotype_sampling_reference_samples.size()
                               << " reference samples are present." << endl;
             }
         }
@@ -4239,7 +4241,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                ? Haplotypes::verbosity_basic
                                                : Haplotypes::verbosity_silent);
         Recombinator recombinator(gbz, haplotypes, hap_verbosity);
-        Recombinator::Parameters parameters(Recombinator::Parameters::preset_diploid);
+        Recombinator::Parameters parameters(Recombinator::Parameters::preset_default);
+        parameters.num_haplotypes = IndexingParameters::haplotype_sampling_num_haplotypes;
+        parameters.diploid_sampling = IndexingParameters::haplotype_sampling_diploid;
+        parameters.include_reference = true;
         gbwt::GBWT sampled_gbwt = recombinator.generate_haplotypes(kff_filename, parameters);
 
         // Build GBZ.
@@ -4356,8 +4361,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         // Build minimizer index without payload.
         MinimizerIndexParameters minimizer_params;
-        minimizer_params.minimizers(IndexingParameters::haplotype_minimizer_k,
-                                    IndexingParameters::haplotype_minimizer_w)
+        minimizer_params.minimizers(IndexingParameters::haplotype_sampling_minimizer_k,
+                                    IndexingParameters::haplotype_sampling_minimizer_w)
                         .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
         HaplotypePartitioner::minimizer_index_type minimizer_index =
             build_minimizer_index(gbz, nullptr, nullptr, minimizer_params);
@@ -4432,7 +4437,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Run kmc: count k-mers in KFF format with canonical k-mers.
         // Use fork()+execvp() instead of system() to avoid shell quoting issues.
         string reads_arg = "@" + list_file;
-        string kmc_k_arg = "-k" + to_string(IndexingParameters::haplotype_minimizer_k);
+        string kmc_k_arg = "-k" + to_string(IndexingParameters::haplotype_sampling_minimizer_k);
         const char* kmc_argv[] = {"kmc", kmc_k_arg.c_str(), "-m128", "-okff", "-hp",
             reads_arg.c_str(), kmc_prefix.c_str(), kmc_tmp_dir.c_str(), nullptr};
 

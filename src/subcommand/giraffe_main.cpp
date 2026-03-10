@@ -659,17 +659,21 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "  -i, --interleaved             GAM/FASTQ/FASTA input is interleaved pairs," << endl
          << "                                for paired-end alignment" << endl
          << "      --comments-as-tags        treat comments in name lines as SAM-style tags" << endl
-         << "                                and annotate alignments with them" << endl;
+         << "                                and annotate alignments with them" << endl
+         << "      --index-basename STR      name prefix for autodetected and generated" << endl
+         << "                                graph/index files (default: from graph and sample)" << endl;
 
     cerr << "haplotype sampling:" << endl
-         << "      --haplotype-sampling      enable fully automatic haplotype sampling" << endl
-         << "                                (build hapl index and count kmers automatically)" << endl
-         << "      --haplotype-name FILE     sample from haplotype information in FILE" << endl
-         << "      --kff-name FILE           sample according to kmer counts in FILE" << endl
-         << "      --index-basename STR      name prefix for generated graph/index files" << endl
-         << "                                (default: from graph name)" << endl
+         << "      --haplotype-sampling      use per-sample personalized graph (will be" << endl
+         << "                                built if not found)" << endl
+         << "      --haplotype-name FILE     sample from haplotype information in FILE (implies" << endl
+         << "                                --haplotype-sampling)" << endl
+         << "      --kff-name FILE           sample according to kmer counts in FILE (implies" << endl
+         << "                                --haplotype-sampling)" << endl
          << "      --set-reference STR       include this sample as a reference" << endl
-         << "                                in the personalized graph (may repeat)" << endl;
+         << "                                in the personalized graph (may repeat)" << endl
+         << "      --num-haplotypes N        haplotypes candidates to sample (default: " << IndexingParameters::haplotype_sampling_num_haplotypes << ")" << endl
+         << "      --no-diploid-sampling     turn off downsampling candidates to best diploid" << endl;
 
     cerr << "alternate graphs:" << endl
          << "  -x, --xg-name FILE            map to this graph (if no -Z / -g)," << endl
@@ -758,6 +762,8 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
     constexpr int OPT_HAPLOTYPE_SAMPLING = 1104;
+    constexpr int OPT_NUM_HAPLOTYPES = 1105;
+    constexpr int OPT_NO_DIPLOID_SAMPLING = 1106;
 
 
     // initialize parameters with their default options
@@ -1071,11 +1077,13 @@ int main_giraffe(int argc, char** argv) {
         {"zipcode-name", required_argument, 0, 'z'},
         {"dist-name", required_argument, 0, 'd'},
         {"progress", no_argument, 0, 'p'},
+        {"index-basename", required_argument, 0, OPT_INDEX_BASENAME},
         {"haplotype-sampling", no_argument, 0, OPT_HAPLOTYPE_SAMPLING},
         {"haplotype-name", required_argument, 0, OPT_HAPLOTYPE_NAME},
         {"kff-name", required_argument, 0, OPT_KFF_NAME},
-        {"index-basename", required_argument, 0, OPT_INDEX_BASENAME},
         {"set-reference", required_argument, 0, OPT_SET_REFERENCE},
+        {"num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES},
+        {"no-diploid-sampling", no_argument, 0, OPT_NO_DIPLOID_SAMPLING},
         {"gam-in", required_argument, 0, 'G'},
         {"fastq-in", required_argument, 0, 'f'},
         {"interleaved", no_argument, 0, 'i'},
@@ -1184,19 +1192,37 @@ int main_giraffe(int argc, char** argv) {
                 show_progress = true;
                 break;
 
+            case OPT_INDEX_BASENAME:
+                index_basename = optarg;
+                break;
+
             case OPT_HAPLOTYPE_SAMPLING:
                 haplotype_sampling_flag = true;
                 break;
+
             case OPT_HAPLOTYPE_NAME:
                 provided_indexes.emplace("Haplotype Index", optarg);
                 break;
+
             case OPT_KFF_NAME:
                 // We need to provide the KFF with sample scope if we provide
                 // it, but we're not sure of the sample name yet.
                 kff_filename = optarg;
                 break;
-            case OPT_INDEX_BASENAME:
-                index_basename = optarg;
+
+            case OPT_SET_REFERENCE:
+                reference_samples.insert(optarg);
+                break;
+
+            case OPT_NUM_HAPLOTYPES:
+                IndexingParameters::haplotype_sampling_num_haplotypes = parse<size_t>(optarg);
+                if (IndexingParameters::haplotype_sampling_num_haplotypes == 0) {
+                    logger.error() << "number of haplotypes cannot be 0" << std::endl;
+                }
+                break;
+
+            case OPT_NO_DIPLOID_SAMPLING:
+                IndexingParameters::haplotype_sampling_diploid = false;
                 break;
 
             case 'G':
@@ -1261,10 +1287,6 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_OUTPUT_BASENAME:
                 output_basename = optarg;
-                break;
-
-            case OPT_SET_REFERENCE:
-                reference_samples.insert(optarg);
                 break;
 
             case OPT_REPORT_NAME:
@@ -1502,15 +1524,16 @@ int main_giraffe(int argc, char** argv) {
                                   << " that sample name is " << sample_scope << std::endl;
                 }
             } else {
-                sample_scope = "sample";
+                logger.error() << "Unable to determine a sample name for haplotype sampling; provide --sample" << endl;
             }
         }
         if (sample_scope == "giraffe") {
             logger.warn() << "Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
         }
 
-        // Pass parameters to the recipes through IndexingParameters.
-        IndexingParameters::haplotype_reference_samples = reference_samples;
+        // Pass parameters not directly provided in option parsers to the
+        // recipes through IndexingParameters.
+        IndexingParameters::haplotype_sampling_reference_samples = reference_samples;
         
         if (kff_filename.empty() && fastq_filename_1.empty()) {
             // TODO: Eventually learn to kmer count from GAM
@@ -1630,16 +1653,6 @@ int main_giraffe(int argc, char** argv) {
             ++index_and_extensions;
         }
     }
-
-    if (haplotype_sampling && !registry.available("Giraffe GBZ") && !registry.available("GBZ")) {
-        // When doing haplotype sampling, we need to name our sampled GBZ just
-        // .gbz on top of the basename we put the sample name in, because the
-        // tests require it. This means we can't build a base .gbz and a
-        // sampled .gbz in the same indexing run, or they will fight over the
-        // name. So make sure we don't try.
-        logger.error() << "Cannot do haplotype sampling without a GBZ available" << std::endl;
-    }
-    // TODO: Actually force the index registry to use the name we want for the sampled GBZ even though it's not the one it would generate.
 
     //If we're making new zipcodes, we should rebuild the minimizers too
     if (!(indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {

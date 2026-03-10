@@ -131,12 +131,16 @@ struct IndexingParameters {
     static double thread_chunk_inflation_factor;
     // whether indexing algorithms will log progress (if available) [Basic]
     static Verbosity verbosity;
-    // reference samples to override in GBZ during haplotype sampling [{}]
-    static std::unordered_set<std::string> haplotype_reference_samples;
+    // Set of samples to make references and retain during haplotype sampling [{}]
+    static std::unordered_set<std::string> haplotype_sampling_reference_samples;
+    // Number of haplotypes to sample during haplotype sampling [Recombinator::NUM_CANDIDATES]
+    static size_t haplotype_sampling_num_haplotypes;
+    // Whether to do diploid sampling during haplotype sampling [true]
+    static bool haplotype_sampling_diploid;
     // length of k-mer used in haplotype index and kmer counting [29]
-    static int haplotype_minimizer_k;
+    static int haplotype_sampling_minimizer_k;
     // length of window used in haplotype index [11]
-    static int haplotype_minimizer_w;
+    static int haplotype_sampling_minimizer_w;
 };
 
 /**

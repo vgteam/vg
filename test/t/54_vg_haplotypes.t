@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 40
+plan tests 44
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -118,6 +118,20 @@ vg giraffe -Z full.gbz --haplotype-sampling \
 is $? 0 "Giraffe does fully automatic haplotype sampling"
 is $(vg gbwt -H -Z auto_all.HG003.gbz) 4 "fully automatic haplotype sampling produces 2 diploid + 2 reference haplotypes"
 
+# Giraffe integration, non-diploid
+vg giraffe -Z full.gbz --haplotype-sampling --no-diploid-sampling --num-haplotypes 3 \
+    --index-basename auto_nondip -N HG003 \
+    -f haplotype-sampling/HG003.fq.gz > auto_nondip.gam 2> /dev/null
+is $? 0 "Giraffe does non-diploid haplotype sampling"
+is $(vg gbwt -H -Z auto_nondip.HG003.gbz) 5 "non-diploid haplotype sampling sampling produces 3 requested + 2 reference haplotypes"
+
+# Giraffe integration, single reference
+vg giraffe -Z full.gbz --haplotype-sampling --set-reference GRCh38 \
+    --index-basename auto_oneref -N HG003 \
+    -f haplotype-sampling/HG003.fq.gz > auto_oneref.gam 2> /dev/null
+is $? 0 "Giraffe does haplotype sampling when setting reference"
+is $(vg gbwt -H -Z auto_oneref.HG003.gbz) 3 "setting reference produces 2 diploid + 1 reference haplotypes"
+
 # Attempts to use mismatched files fail
 vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff -g /dev/null diploid.gbz 2> log.txt
 is $? 1 "sampling with mismatched GBZ and haplotype information fails"
@@ -133,4 +147,6 @@ rm -f GRCh38.HG003.* HG003_GRCh38.gam
 rm -f auto_hapl.HG003.* auto_hapl.gam
 rm -f auto_kff.HG003.* auto_kff.gam
 rm -f auto_all.HG003.* auto_all.gam
+rm -f auto_nondip.HG003.* auto_nondip.gam
+rm -f auto_oneref.HG003.* auto_oneref.gam
 rm -f log.txt
