@@ -4826,35 +4826,27 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         }
         
         const auto& aliasee_filenames = get_index(aliasee)->get_filenames();
-        
-        // copy aliases for any that we need to (start past index 0 if we can move it)
-        for (size_t i = can_move; i < aliasors.size(); ++i) {
-            // We want the aliasor to point at the new paths
+
+        for (auto it = aliasors.rbegin(); it != aliasors.rend(); ++it) {
+            // Fulfill the aliasor from the aliasee (in reverse order, so the
+            // 0th aliasor gets to have the moved files).
             vector<string> new_aliasor_files;
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
-                
-                auto copy_filename = plan.output_filepath(aliasors[i], j, aliasee_filenames.size());
-                copy_file(aliasee_filenames[j], copy_filename);
-                new_aliasor_files.push_back(copy_filename);
-            }
-            // Point the aliasor index at the new paths
-            get_index(aliasors[i])->assign_constructed(new_aliasor_files);
-        }
-        // if we can move the aliasee (i.e. it is intermediate), then make
-        // one index (the 0th one) by moving instead of copying
-        if (can_move) {
-            vector<string> new_aliasor_files;
-            for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
-                auto move_filename = plan.output_filepath(aliasors[0], j, aliasee_filenames.size());
-                int code = rename(aliasee_filenames[j].c_str(), move_filename.c_str());
-                if (code) {
-                    // moving failed (maybe because the files on separate drives?) fall back on copying
-                    copy_file(aliasee_filenames[j], move_filename);
+                auto dest_filename = plan.output_filepath(*it, j, aliasee_filenames.size());
+                bool moved = false;
+                if (can_move && (it + 1 == aliasors.rend())) {
+                    // We can move and this is the last aliasor we will do, so try moving
+                    moved = rename(aliasee_filenames[j].c_str(), dest_filename.c_str()) == 0;
                 }
-                new_aliasor_files.push_back(move_filename);
+                if (!moved) {
+                    // moving failed or is not allowed, fall back on copying
+                    copy_file(aliasee_filenames[j], dest_filename);
+                }
+
+                new_aliasor_files.push_back(dest_filename);
             }
             // Point the aliasor index at the new paths
-            get_index(aliasors[0])->assign_constructed(new_aliasor_files);
+            get_index(*it)->assign_constructed(new_aliasor_files);
         }
     }
     
