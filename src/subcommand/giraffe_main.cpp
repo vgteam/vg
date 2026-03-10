@@ -773,7 +773,7 @@ int main_giraffe(int argc, char** argv) {
     string index_basename_guess, index_basename;
 
     // For haplotype sampling.
-    string haplotype_name, kff_name;
+    string kff_filename;
     bool haplotype_sampling_flag = false;
     std::unordered_set<std::string> reference_samples;
 
@@ -1191,7 +1191,9 @@ int main_giraffe(int argc, char** argv) {
                 provided_indexes.emplace("Haplotype Index", optarg);
                 break;
             case OPT_KFF_NAME:
-                provided_indexes.emplace("KFF Kmer Counts", optarg);
+                // We need to provide the KFF with sample scope if we provide
+                // it, but we're not sure of the sample name yet.
+                kff_filename = optarg;
                 break;
             case OPT_INDEX_BASENAME:
                 index_basename = optarg;
@@ -1474,40 +1476,50 @@ int main_giraffe(int argc, char** argv) {
 
     // Haplotype sampling is active when explicitly requested (--haplotype-sampling)
     // or when either --haplotype-name or --kff-name is given.
-    bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || provided_indexes.count("KFF Kmer Counts");
+    // Otherwise we'd always sample when we had reads available.
+    bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || !kff_filename.empty();
     
+    string sample_scope;
     if (haplotype_sampling) {
 
-        // Determine sample name early so we can incorporate it into the
+        // Determine sample scope so we can incorporate it into the
         // index basename; downstream indexes (dist, min) will then be
-        // co-located with the sampled GBZ.
-        string sample = sample_name;
-        if (sample.empty()) {
-            if (!kff_name.empty()) {
-                sample = file_base_name(kff_name);
+        // scoped to the sample.
+        sample_scope = sample_name;
+        if (sample_scope.empty()) {
+            if (!kff_filename.empty()) {
+                sample_scope = file_base_name(kff_filename);
                 if (show_progress) {
-                    logger.info() << "Guessing from " << kff_name
-                                  << " that sample name is " << sample << std::endl;
+                    logger.info() << "Guessing from " << kff_filename
+                                  << " that sample name is " << sample_scope << std::endl;
                 }
             } else if (!fastq_filename_1.empty()) {
                 // Strip .gz then use file_base_name to strip .fq/.fastq, since
                 // strip_suffixes stops at the first one that's not there.
-                sample = file_base_name(strip_suffixes(fastq_filename_1, {".gz"}));
+                sample_scope = file_base_name(strip_suffixes(fastq_filename_1, {".gz"}));
                 if (show_progress) {
                     logger.info() << "Guessing from " << fastq_filename_1
-                                  << " that sample name is " << sample << std::endl;
+                                  << " that sample name is " << sample_scope << std::endl;
                 }
             } else {
-                sample = "sample";
+                sample_scope = "sample";
             }
         }
-        if (sample == "giraffe") {
+        if (sample_scope == "giraffe") {
             logger.warn() << "Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
         }
 
         // Pass parameters to the recipes through IndexingParameters.
         IndexingParameters::haplotype_reference_samples = reference_samples;
+        
+        if (kff_filename.empty() && fastq_filename_1.empty()) {
+            // TODO: Eventually learn to kmer count from GAM
+            logger.error() << "Cannot do haplotype sampling without kmer counts (--kff-name) or FASTQ input (--fastq-in/-f)" << std::endl; 
+        }
 
+        if (!kff_filename.empty()) {
+            registry.provide("KFF Kmer Counts", kff_filename, sample_scope);
+        }
         if (!fastq_filename_1.empty()) {
             // If FASTQs are available, send those and we will do haplotype sampling.
             vector<string> fastqs = {fastq_filename_1};
@@ -1516,12 +1528,9 @@ int main_giraffe(int argc, char** argv) {
             }
             // Provide the FASTQs to the index registry, but mark everything
             // derived from them as being scoped to the particular sample.
-            registry.provide("FASTQ", fastqs, sample);
-        } else if (!provided_indexes.count("KFF Kmer Counts")) {
-            // TODO: Eventually learn to kmer count from GAM
-            logger.error() << "Cannot do haplotype sampling without kmer counts (--kff-name) or FASTQ input (--fastq-in/-f)" << std::endl; 
+            registry.provide("FASTQ", fastqs, sample_scope);
         }
-        // Otherwise, we know we're sending kmer counts and will still do haplotype sampling
+        
         
         if (!index_basename.empty()) {
             // We have some idea where indexes might be, so guess them.
@@ -1594,13 +1603,20 @@ int main_giraffe(int argc, char** argv) {
         bool found = false;
         for (auto& extension : index_and_extensions->second) {
             // For each extension in priority order
-            string inferred_filename = registry.get_prefix() + "." + extension;
+            string inferred_filename = registry.get_prefix();
+            if (haplotype_sampling) {
+                // All these are sample-scoped if we're haplotype sampling.
+                // TODO: Let index registry generate the filenames, which it knows how to do.
+                inferred_filename += "." + sample_scope;
+            }
+            
+            inferred_filename += "." + extension;
             if (file_exists(inferred_filename)) {
                 // A file with the appropriate name exists and we can read it.
                 // Report it because this may not be desired behavior.
                 logger.info() << "Guessing that " << inferred_filename
                               << " is " << index_and_extensions->first << endl;
-                registry.provide(index_and_extensions->first, inferred_filename);
+                registry.provide(index_and_extensions->first, inferred_filename, haplotype_sampling ? sample_scope : "");
                 found = true;
                 // Skip other extension options for the index
                 break;

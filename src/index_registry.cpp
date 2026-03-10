@@ -4647,6 +4647,10 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
     IndexGroup successor_indexes{identifier};
     
     for (const auto& step : steps) {
+        if (!registry->has_recipe(step)) {
+            // This step is just a provided input and not a real recipe step.
+            continue;
+        }
                 
         // TODO: should this behavior change if some of the inputs were provided directly?
         
@@ -4669,12 +4673,14 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
 }
 
 void IndexingPlan::add_scope(const IndexName& identifier, const string& scope) {
-    auto index_scopes = scopes[identifier];
+    // Get a mutable reference to the scopes we need to add to.
+    auto& index_scopes = scopes[identifier];
 
     // TODO: Change the data structure here if we anticipate an appreciable number of scopes.
     auto found = std::find(index_scopes.begin(), index_scopes.end(), scope);
     if (found == index_scopes.end()) {
         index_scopes.push_back(scope);
+        std::cerr << "Plan scope " << scope << " for " << identifier << std::endl;
     }
 }
 
@@ -4894,7 +4900,9 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
             require_exists(context, filename);
         }
     }
-    get_index(identifier)->provide(filenames);
+    auto index = get_index(identifier);
+    index->provide(filenames);
+    index->add_scope(scope);
 }
 
 void IndexRegistry::reset(const IndexName& identifier) {
@@ -5503,6 +5511,8 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         IndexGroup product_group{product};
         
         // records of (identifier, requesters, ordinal index of recipe selected)
+        // A max-value sentinel index means no recipe is used and the index is
+        // provided.
         vector<tuple<size_t, set<size_t>, size_t>> plan_path;
         
         // map dependency priority to requesters
@@ -5643,6 +5653,7 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             
             // get the latest file in the dependency order that we have left to build
             auto it = queue.begin();
+            // Imagine starting with the first recipe for it
             plan_path.emplace_back(it->first, it->second, 0);
             
 #ifdef debug_index_registry
@@ -5666,6 +5677,10 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
                 cerr << "index has been provided as input" << endl;
 #endif
+
+                // Don't point to a recipe for it that might exist; point to a
+                // nonexistent sentinel recipe.
+                get<2>(plan_path.back()) = std::numeric_limits<size_t>::max();
                 continue;
             }
             else if (recipe_registry.count(index_group)) {
@@ -5728,7 +5743,13 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
         cerr << "final plan path for index " << product << ":" << endl;
         for (auto path_elem : plan_path) {
-            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", recipe " << get<2>(path_elem) << ", from:" << endl;
+            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]);
+            if (get<2>(path_elem) == std::numeric_limits<size_t>::max()) {
+                cerr << ", provided";
+            } else {
+                cerr << ", recipe " << get<2>(path_elem);
+            }
+            cerr << ", from:" << endl;
             for (auto d : get<1>(path_elem)) {
                 cerr << "\t\t" << to_string(identifier_order[d]) << endl;
             }
@@ -5764,7 +5785,7 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
     cerr << "plan before applying generalizations:" << endl;
     for (auto plan_elem : plan.steps) {
-        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
+        cerr << "\t" << to_string(plan_elem.first) << " " << (plan_elem.second == std::numeric_limits<size_t>::max() ? "Provided" : std::to_string(plan_elem.second)) << endl;
     }
 #endif
     
@@ -5777,16 +5798,9 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
     cerr << "full plan including provided files:" << endl;
     for (auto plan_elem : plan.steps) {
-        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
+        cerr << "\t" << to_string(plan_elem.first) << " " << (plan_elem.second == std::numeric_limits<size_t>::max() ? "Provided" : std::to_string(plan_elem.second)) << endl;
     }
 #endif
-
-    // Now remove the input data from the plan
-    plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe_choice) {
-        return all_finished(recipe_choice.first);
-    }) - plan.steps.begin());
-
-    // Now we're allowed to use dependents()
 
     // Propagate scopes from input files
     for (auto plan_it = plan.steps.begin(); plan_it != plan.steps.end(); ++plan_it) {
@@ -5797,15 +5811,18 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             const IndexFile* index = get_index(index_name);
             if (!index->is_finished()) {
                 // Only finished indexes bring in new scopes
+                std::cerr << "Index " << index_name << " isn't finished and can't bring in scopes" << std::endl;
                 continue;
             }
 
             // Get the scopes that came in with this input
             auto& provided_scopes = index->get_scopes();
-            
+
             // We need to attach these scopes to anything based on this index.
             // TODO: Should we just propagate scopes step by step as we scan the plan instead?
-            for (const RecipeName& dependent_recipe : plan.dependents(index_name)) {
+            auto dependents = plan.dependents(index_name);
+            std::cerr << "Index " << index_name << " adds " << provided_scopes.size() << " scopes to " << dependents.size() << " dependents" << std::endl;
+            for (const RecipeName& dependent_recipe : dependents) {
                 // For each recipe transitively depending on this input
                 for (const IndexName& dependent_index_name : dependent_recipe.first) {
                     // For each index the recipe generates
@@ -5823,7 +5840,23 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         }
     }
 
+    // Now remove the input data from the plan
+    plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe_choice) {
+        return all_finished(recipe_choice.first);
+    }) - plan.steps.begin());
+
     return plan;
+}
+
+bool IndexRegistry::has_recipe(const RecipeName& recipe_name) const {
+    auto found = recipe_registry.find(recipe_name.first);
+    if (found == recipe_registry.end()) {
+        // No recipes at all for this
+        return false;
+    }
+    // Detemrine if this recipe index is in range.
+    // Sentinel max-value names are always out of range.
+    return recipe_name.second < found->second.size();
 }
 
 const IndexRecipe& IndexRegistry::get_recipe(const RecipeName& recipe_name) const {
@@ -6008,6 +6041,7 @@ void IndexFile::add_scope(const string& scope) {
     auto found = std::find(scopes.begin(), scopes.end(), scope);
     if (found == scopes.end()) {
         scopes.push_back(scope);
+        std::cerr << "Added scope " << scope << " to " << get_identifier() << std::endl;
     }
 }
 
@@ -6022,6 +6056,7 @@ bool IndexFile::is_finished() const {
 void IndexFile::reset() {
     filenames.clear();
     provided_directly = false;
+    scopes.clear();
 }
 
 IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
