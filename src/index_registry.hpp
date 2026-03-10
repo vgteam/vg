@@ -215,6 +215,9 @@ protected:
     /// applies only to a particular sample, it will be scoped to the sample
     /// name). Stored deduplicated and in the order added.
     map<IndexName, vector<string>> scopes;
+    /// The unique (when combined with scopes) suffix for each index in the
+    /// plan.
+    map<IndexName, string> assigned_suffix;
     
     /// The registry that the plan is using.
     /// The registry must not move while the plan is in use.
@@ -266,6 +269,11 @@ public:
     
     /// Register an index containing the given identifier
     void register_index(const IndexName& identifier, const string& suffix);
+
+    /// Register an index containing the given identifier, with multiple possible suffixes.
+    /// The first suffix not already occupied will be used (allowing scopes to
+    /// disambiguate between unscoped and scoped indexes with the same suffix).
+    void register_index(const IndexName& identifier, const vector<string>& suffixes);
     
     /// Register a recipe to produce an index using other indexes
     /// or input files. Recipes registered earlier will have higher priority.
@@ -281,12 +289,20 @@ public:
     /// optionally with a scope that propagates to descendant files.
     ///
     /// The empty string represents no scope.
+    ///
+    /// TODO: If scopes contain ".", we can run into problems with combinations
+    /// of different scopes producing the same final string. Right now we only
+    /// use one kind of scope, which avoids this.
     void provide(const IndexName& identifier, const string& filename, const std::string& scope = "");
     
     /// Indicate a list of serialized files that contains some identified index,
     /// optionally with a scope that propagates to descendant files.
     ///
     /// The empty string represents no scope.
+    ///
+    /// TODO: If scopes contain ".", we can run into problems with combinations
+    /// of different scopes producing the same final string. Right now we only
+    /// use one kind of scope, which avoids this.
     void provide(const IndexName& identifier, const vector<string>& filenames, const std::string& scope = "");
 
     /// Remove a provided index
@@ -408,12 +424,15 @@ public:
     
     /// Create a new IndexFile with a unique identifier
     IndexFile(const IndexName& identifier, const string& suffix);
+    
+    /// Create a new IndexFile with a unique identifier, which may use one of several suffixes.
+    IndexFile(const IndexName& identifier, const vector<string>& suffixes);
         
     /// Get the globally unique identifier for this index
     const IndexName& get_identifier() const;
     
-    /// Returns the suffix to be used for this index
-    const string& get_suffix() const;
+    /// Returns the suffixes that can used for this index
+    const vector<string>& get_suffixes() const;
     
     /// Get the filename(s) that contain this index
     const vector<string>& get_filenames() const;
@@ -450,8 +469,8 @@ private:
     // the global identifier for the
     IndexName identifier;
     
-    // the suffix it adds to output files
-    const string suffix;
+    // the suffixes it can add to output files
+    const vector<string> suffixes;
     
     // the filename(s) associated with the index
     vector<string> filenames;

@@ -18,6 +18,7 @@
 #include <regex>
 #include <omp.h>
 #include <fcntl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -625,7 +626,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_index("GBWTGraph", "gg");
     registry.register_index("GBZ", "gbz");
-    registry.register_index("Giraffe GBZ", "giraffe.gbz");
+    registry.register_index("Giraffe GBZ", std::vector<string>{"gbz", "giraffe.gbz"});
     registry.register_index("Haplotype-Sampled GBZ", "sampled.gbz");
     registry.register_index("Top Level Chain Distance Index", "tcdist");
     registry.register_index("r Index", "ri");
@@ -4426,6 +4427,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         string kmc_tmp_dir = tmp_dir + "/kmc_tmp";
         mkdir(kmc_tmp_dir.c_str(), 0700);
+        assert(std::filesystem::exists(kmc_tmp_dir));
 
         // Run kmc: count k-mers in KFF format with canonical k-mers.
         // Use fork()+execvp() instead of system() to avoid shell quoting issues.
@@ -4452,6 +4454,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     close(devnull);
                 }
             }
+            
+            // Allow enough open files for kmc to work; see
+            // <https://github.com/refresh-bio/KMC?tab=readme-ov-file#quick-start>
+            // and <https://stackoverflow.com/a/42741227>
+            // TODO: Probably this isn't allowed after fork but we do it anyway.
+            struct rlimit new_limit;
+            new_limit.rlim_cur = 2048;
+            new_limit.rlim_max = RLIM_INFINITY;
+            setrlimit(RLIMIT_NOFILE, &new_limit);
+
             // execvp promises never to modify its arguments but casn't say
             // that in the C++ type system because it causes problems in the C
             // type system. See https://stackoverflow.com/a/19505361
@@ -4630,7 +4642,9 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         // that start with digits)
         filepath << "." << to_string(chunk);
     }
-    filepath << "." << registry->get_index(identifier)->get_suffix();
+    // Use the suffix we've assigned, which is the first one we have that's
+    // unique within the scopes.
+    filepath << "." << assigned_suffix.at(identifier);
     return filepath.str();
 }
  
@@ -4859,26 +4873,41 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
 }
 
 void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {
+    register_index(identifier, vector<string>{suffix});
+}
+
+void IndexRegistry::register_index(const IndexName& identifier, const vector<string>& suffixes) {
     // Add this index to the registry
     if (identifier.empty()) {
         error(context) << "indexes must have a non-empty identifier" << endl;
     }
-    if (suffix.empty()) {
-        error(context) << "indexes must have a non-empty suffix" << endl;
-    }
-    if (isdigit(suffix.front())) {
-        // this ensures that we can add numbers to the suffix to create a unique suffix
-        // for chunked workflows
-        error(context) << "suffixes cannot start with a digit" << endl;
-    }
     if (index_registry.count(identifier)) {
         error(context) << "index registry contains a duplicated identifier: " << identifier << endl;
     }
-    if (registered_suffixes.count(suffix)) {
-        error(context) << "index registry contains a duplicated suffix: " << suffix << endl;
+    bool has_unique_suffix = false;
+    for (auto suffix : suffixes) {
+        if (suffix.empty()) {
+            error(context) << "indexes must have a non-empty suffix" << endl;
+        }
+        if (isdigit(suffix.front())) {
+            // this ensures that we can add numbers to the suffix to create a unique suffix
+            // for chunked workflows
+            error(context) << "suffixes cannot start with a digit" << endl;
+        }
+        if (!registered_suffixes.count(suffix)) {
+            has_unique_suffix = true;
+        }
     }
-    index_registry[identifier] = unique_ptr<IndexFile>(new IndexFile(identifier, suffix));
-    registered_suffixes.insert(suffix);
+    if (!has_unique_suffix) {
+        // We need each index to have at least one new suffix not yet used or
+        // we might not be able to find a place to put it when making the
+        // indexes in the order registered.
+        error(context) << "index registry contains other indexes for all suffixes for " << identifier << endl;
+    }
+    index_registry[identifier] = unique_ptr<IndexFile>(new IndexFile(identifier, suffixes));
+    for (auto suffix : suffixes) {
+        registered_suffixes.insert(suffix);
+    }
 }
 
 
@@ -4934,7 +4963,12 @@ vector<string> IndexRegistry::get_possible_filenames(const IndexName& identifier
         error(context) << "cannot require unregistered index: " << identifier << endl;
     }
     const IndexFile* index = get_index(identifier);
-    return {get_prefix() + "." + index->get_suffix()};
+    vector<string> filenames;
+    for (auto& suffix : index->get_suffixes()) {
+        // Try all the possible suffixes
+        filenames.push_back(get_prefix() + "." + suffix);
+    }
+    return filenames;
 }
 
 vector<string> IndexRegistry::require(const IndexName& identifier) const {
@@ -5844,6 +5878,44 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         }
     }
 
+    // Assign each index a unique scoped suffix, so we can use .<sample>.gbz
+    // for the Giraffe GBZ and .gbz for the plain one.
+    unordered_set<string> used_scoped_suffixes;
+    for (auto& step : plan.steps) {
+        for (const IndexName& index_name : step.first) {
+            auto index = get_index(index_name);
+            // If scopes were provided, this is an input, and just use those
+            vector<string> scopes = index->get_scopes();
+            if (scopes.empty()) {
+                // Otherwise see if we have planned scopes
+                scopes = plan.get_scopes(index_name);
+            }
+
+            // Build the part that is any scopes (either provided or planned)
+            std::stringstream suffix_base;
+            for (auto& scope : scopes) {
+                suffix_base << scope << ".";
+            }
+
+            for (auto& suffix : index->get_suffixes()) {
+                // Condider this suffix option on top of the scopes
+                string candidate_suffix = suffix_base.str() + suffix;
+                
+                auto found = used_scoped_suffixes.find(candidate_suffix);
+                if (found == used_scoped_suffixes.end()) {
+                    // This is a fresh one. Use it.
+                    used_scoped_suffixes.emplace_hint(found, candidate_suffix);
+                    // We only remember the suffix itself; we reconstruct the
+                    // actual name later, with chunk info inserted.
+                    // TODO: Instead of building an essentially fake string key
+                    // should we do something else?
+                    plan.assigned_suffix[index_name] = suffix;
+                    break;
+                }
+            }
+        }
+    }
+
     // Now remove the input data from the plan
     plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe_choice) {
         return all_finished(recipe_choice.first);
@@ -5996,7 +6068,11 @@ string IndexRegistry::to_dot(const vector<IndexName>& targets) const {
     return strm.str();
 }
 
-IndexFile::IndexFile(const IndexName& identifier, const string& suffix) : identifier(identifier), suffix(suffix) {
+IndexFile::IndexFile(const IndexName& identifier, const string& suffix) : IndexFile(identifier, vector<string>{suffix}) {
+    // Nothing to do!
+}
+
+IndexFile::IndexFile(const IndexName& identifier, const vector<string>& suffixes) : identifier(identifier), suffixes(suffixes) {
     // nothing more to do
 }
 
@@ -6004,8 +6080,8 @@ const IndexName& IndexFile::get_identifier() const {
     return identifier;
 }
 
-const string& IndexFile::get_suffix() const {
-    return suffix;
+const vector<string>& IndexFile::get_suffixes() const {
+    return suffixes;
 }
 
 const vector<string>& IndexFile::get_filenames() const {
@@ -6022,10 +6098,6 @@ void IndexFile::provide(const vector<string>& filenames) {
 }
 
 void IndexFile::assign_constructed(const vector<string>& filenames) {
-    for (auto& f : filenames) {
-        std::cerr << " " << f;
-    }
-    std::cerr << std::endl;
     this->filenames = filenames;
     provided_directly = false;
 }
