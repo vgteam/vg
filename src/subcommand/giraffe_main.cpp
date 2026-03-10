@@ -60,7 +60,7 @@ static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu
 }
 #endif
 
-#define debug
+//#define debug
 
 using namespace std;
 using namespace vg;

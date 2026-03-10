@@ -67,9 +67,9 @@
 #include "algorithms/component.hpp"
 #include "algorithms/find_translation.hpp"
 
-#define debug_index_registry
+//#define debug_index_registry
 //#define debug_index_registry_setup
-#define debug_index_registry_recipes
+//#define debug_index_registry_recipes
 //#define debug_index_registry_path_state
 
 namespace std {
@@ -4631,7 +4631,6 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         filepath << "." << to_string(chunk);
     }
     filepath << "." << registry->get_index(identifier)->get_suffix();
-    std::cerr << "Considering output file path " << filepath.str() << std::endl;
     return filepath.str();
 }
  
@@ -4680,7 +4679,6 @@ void IndexingPlan::add_scope(const IndexName& identifier, const string& scope) {
     auto found = std::find(index_scopes.begin(), index_scopes.end(), scope);
     if (found == index_scopes.end()) {
         index_scopes.push_back(scope);
-        std::cerr << "Plan scope " << scope << " for " << identifier << std::endl;
     }
 }
 
@@ -4902,7 +4900,9 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
     }
     auto index = get_index(identifier);
     index->provide(filenames);
-    index->add_scope(scope);
+    if (!scope.empty()) {
+        index->add_scope(scope);
+    }
 }
 
 void IndexRegistry::reset(const IndexName& identifier) {
@@ -5811,7 +5811,9 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             const IndexFile* index = get_index(index_name);
             if (!index->is_finished()) {
                 // Only finished indexes bring in new scopes
+#ifdef debug_index_registry
                 std::cerr << "Index " << index_name << " isn't finished and can't bring in scopes" << std::endl;
+#endif
                 continue;
             }
 
@@ -5821,7 +5823,9 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             // We need to attach these scopes to anything based on this index.
             // TODO: Should we just propagate scopes step by step as we scan the plan instead?
             auto dependents = plan.dependents(index_name);
+#ifdef debug_index_registry
             std::cerr << "Index " << index_name << " adds " << provided_scopes.size() << " scopes to " << dependents.size() << " dependents" << std::endl;
+#endif
             for (const RecipeName& dependent_recipe : dependents) {
                 // For each recipe transitively depending on this input
                 for (const IndexName& dependent_index_name : dependent_recipe.first) {
@@ -6018,7 +6022,6 @@ void IndexFile::provide(const vector<string>& filenames) {
 }
 
 void IndexFile::assign_constructed(const vector<string>& filenames) {
-    std::cerr << "Set " << get_identifier() << " to be at:";
     for (auto& f : filenames) {
         std::cerr << " " << f;
     }
@@ -6041,7 +6044,9 @@ void IndexFile::add_scope(const string& scope) {
     auto found = std::find(scopes.begin(), scopes.end(), scope);
     if (found == scopes.end()) {
         scopes.push_back(scope);
+#ifdef debug_index_registry
         std::cerr << "Added scope " << scope << " to " << get_identifier() << std::endl;
+#endif
     }
 }
 
