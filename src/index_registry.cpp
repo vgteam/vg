@@ -628,7 +628,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_index("GBWTGraph", "gg");
     registry.register_index("GBZ", "gbz");
-    registry.register_index("Giraffe GBZ", std::vector<string>{"gbz", "giraffe.gbz"});
+    registry.register_index("Giraffe GBZ", std::vector<string>{"{sample}.gbz", "giraffe.gbz"});
     registry.register_index("Haplotype-Sampled GBZ", "sampled.gbz");
     registry.register_index("Top Level Chain Distance Index", "tcdist");
     registry.register_index("r Index", "ri");
@@ -4605,13 +4605,18 @@ bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
     return !targets.count(identifier);
 }
 
-const vector<string> IndexingPlan::get_scopes(const IndexName& identifier) const {
+const map<string, string> IndexingPlan::get_scopes(const IndexName& identifier) const {
     auto found = scopes.find(identifier);
     if (found == scopes.end()) {
         return {};
     }
-    // TODO: we can't really return an empty vector reference so we are stuck doing a copy here.
+    // We can't refer into a new slot so we need to copy
     return found->second;
+}
+
+const map<string, string>& IndexingPlan::get_scopes(const IndexName& identifier) {
+    // We can create the entry if not present
+    return scopes[identifier];
 }
 
 int64_t IndexingPlan::target_memory_usage() const {
@@ -4638,18 +4643,58 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         // we're not saving this file, make it temporary
         filepath << registry->get_work_dir() + "/" + sha1sum(identifier);
     }
-    for (auto& scope : get_scopes(identifier)) {
-        // This index belongs to just a sample or something.
-        filepath << "." << scope;
+    
+    // We need the planned scopes, not the scopes for a completed file.
+    auto planned_scopes = get_scopes(identifier);
+    string substituted_suffix;
+    for (auto& suffix : registry->get_index(identifier)->get_suffixes()) {
+        // Find the first suffix where all its wildcards are filled in by scopes
+        auto needed_keys = IndexRegistry::get_wildcards(suffix);
+        bool missing_keys = false;
+        for (auto& key : needed_keys) {
+            if (!planned_scopes.count(key)) {
+                missing_keys = true;
+                break;
+            }
+        }
+        if (missing_keys) {
+            continue;
+        }
+        // Now we know we want this suffix
+
+        // Substitute the suffix
+        substituted_suffix = IndexRegistry::substitute_wildcards(suffix, planned_scopes);
+
+        // Make the set of scopes not accounted for in the suffix.
+        // TODO: Merge with substitution?
+        // TODO: Just make all scope-able files say so?
+        set<string> unused_scopes;
+        for (auto& kv : planned_scopes) {
+            unused_scopes.insert(kv.first);
+        }
+        for (auto& used : needed_keys) {
+            unused_scopes.erase(used);
+        }
+
+        for (auto& key : unused_scopes) {
+            // Put the extra scopes in the filename
+            filepath << "." << planned_scopes.at(key);
+        }
+        
+        break;
+    }
+    if (substituted_suffix.empty()) {
+        // We really should find a suffix to use
+        throw std::runtime_error("No suffix for " + identifier + " can be used with available scopes.");
     }
     if (num_chunks > 1) {
         // we add digits to make the suffix unique for this chunk (the setup disallows suffixes
-        // that start with digits)
+        // that start with digits).
+        // TODO: What if a scope starts with digits? Put the numbers somewhere else?
         filepath << "." << to_string(chunk);
     }
-    // Use the suffix we've assigned, which is the first one we have that's
-    // unique within the scopes.
-    filepath << "." << assigned_suffix.at(identifier);
+    // Use the suffix we've substituted.
+    filepath << "." << substituted_suffix;
     return filepath.str();
 }
  
@@ -4690,14 +4735,13 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
     return dependent_steps;
 }
 
-void IndexingPlan::add_scope(const IndexName& identifier, const string& scope) {
+void IndexingPlan::add_scope(const IndexName& identifier, const string& key, const string& value) {
     // Get a mutable reference to the scopes we need to add to.
     auto& index_scopes = scopes[identifier];
 
-    // TODO: Change the data structure here if we anticipate an appreciable number of scopes.
-    auto found = std::find(index_scopes.begin(), index_scopes.end(), scope);
+    auto found = index_scopes.find(key);
     if (found == index_scopes.end()) {
-        index_scopes.push_back(scope);
+        index_scopes.emplace_hint(found, key, value);
     }
 }
 
@@ -4780,9 +4824,9 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 if (!index->was_provided_directly()) {
                     // and assign the new (or first) ones
                     index->assign_constructed(results);
-                    for (auto& scope : plan.get_scopes(*it)) {
+                    for (auto& scope_kv : plan.get_scopes(*it)) {
                         // and keep their scopes (in case we ever need them)
-                        index->add_scope(scope);
+                        index->add_scope(scope_kv.first, scope_kv.second);
                     }
                 }
                 ++it;
@@ -4915,12 +4959,96 @@ void IndexRegistry::register_index(const IndexName& identifier, const vector<str
     }
 }
 
-
-void IndexRegistry::provide(const IndexName& identifier, const string& filename, const std::string& scope) {
-    provide(identifier, vector<string>(1, filename), scope);
+set<string> IndexRegistry::get_wildcards(const string& pattern) {
+    set<string> result;
+    size_t wildcard_start = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < pattern.size(); i++) {
+        // Scan the string and find the wildcards
+        auto& c = pattern[i];
+        if (wildcard_start == std::numeric_limits<size_t>::max()) {
+            // Need an open brace
+            if (c == '{') {
+                wildcard_start = i;
+            } else if (c == '}') {
+                throw std::runtime_error("Unmatched closing brace in " + pattern);
+            }
+        } else {
+            // Need a close brace
+            if (c == '}') {
+                if (i - wildcard_start < 2) {
+                    // There's no name here
+                    throw std::runtime_error("Empty wildcard in " + pattern);
+                }
+                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 2);
+                auto found = result.find(name);
+                if (found != result.end()) {
+                    throw std::runtime_error("Duplicate wildcard in " + pattern);
+                }
+                // Save the new wildcard
+                result.emplace_hint(found, name);
+                // Go back to not-in-a-wildcard state
+                wildcard_start = std::numeric_limits<size_t>::max();
+            }
+        }
+    }
+    if (wildcard_start != std::numeric_limits<size_t>::max()) {
+        // We ended while reading a wildcard
+        throw std::runtime_error("Unmatched opening brace in " + pattern);
+    }
+    return result;
 }
 
-void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames, const std::string& scope) {
+string IndexRegistry::substitute_wildcards(const string& pattern, const map<string, string> values) {
+    // TODO: Deduplicate code with get_wildcards somehow
+
+    std::stringstream result;
+
+    size_t wildcard_start = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < pattern.size(); i++) {
+        // Scan the string and find the wildcards
+        auto& c = pattern[i];
+        if (wildcard_start == std::numeric_limits<size_t>::max()) {
+            // Need an open brace
+            if (c == '{') {
+                wildcard_start = i;
+            } else if (c == '}') {
+                throw std::runtime_error("Unmatched closing brace in " + pattern);
+            } else {
+                result << c;
+            }
+        } else {
+            // Need a close brace
+            if (c == '}') {
+                if (i - wildcard_start < 2) {
+                    // There's no name here
+                    throw std::runtime_error("Empty wildcard in " + pattern);
+                }
+                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 2);
+                auto found = values.find(name);
+                if (found == values.end()) {
+                    throw std::runtime_error("Undefined wildcard " + name + " in " + pattern);
+                }
+                // Output the wildcard value
+                result << found->second;
+                // Go back to not-in-a-wildcard state
+                wildcard_start = std::numeric_limits<size_t>::max();
+            }
+        }
+    }
+    if (wildcard_start != std::numeric_limits<size_t>::max()) {
+        // We ended while reading a wildcard
+        throw std::runtime_error("Unmatched opening brace in " + pattern);
+    }
+
+    return result.str();
+}
+
+
+void IndexRegistry::provide(const IndexName& identifier, const string& filename, const map<string, string>& scopes) {
+    provide(identifier, vector<string>(1, filename), scopes);
+}
+
+void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames, const map<string, string>& scopes) {
     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
         info(context) << "Provided: " << identifier << endl;
     }
@@ -4934,8 +5062,8 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
     }
     auto index = get_index(identifier);
     index->provide(filenames);
-    if (!scope.empty()) {
-        index->add_scope(scope);
+    for (auto& scope_kv : scopes) {
+        index->add_scope(scope_kv.first, scope_kv.second);
     }
 }
 
@@ -5870,52 +5998,10 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
                 for (const IndexName& dependent_index_name : dependent_recipe.first) {
                     // For each index the recipe generates
                     
-                    for (auto& scope : provided_scopes) {
+                    for (auto& scope_kv : provided_scopes) {
                         // Make sure that index is scoped with all scopes on the input.
-                        plan.add_scope(dependent_index_name, scope);
+                        plan.add_scope(dependent_index_name, scope_kv.first, scope_kv.second);
                     }
-
-                    // Note that all outputs will get their scopes from the
-                    // inputs added in the same order (the order that the
-                    // inputs appear in the plan).
-                }
-            }
-        }
-    }
-
-    // Assign each index a unique scoped suffix, so we can use .<sample>.gbz
-    // for the Giraffe GBZ and .gbz for the plain one.
-    unordered_set<string> used_scoped_suffixes;
-    for (auto& step : plan.steps) {
-        for (const IndexName& index_name : step.first) {
-            auto index = get_index(index_name);
-            // If scopes were provided, this is an input, and just use those
-            vector<string> scopes = index->get_scopes();
-            if (scopes.empty()) {
-                // Otherwise see if we have planned scopes
-                scopes = plan.get_scopes(index_name);
-            }
-
-            // Build the part that is any scopes (either provided or planned)
-            std::stringstream suffix_base;
-            for (auto& scope : scopes) {
-                suffix_base << scope << ".";
-            }
-
-            for (auto& suffix : index->get_suffixes()) {
-                // Condider this suffix option on top of the scopes
-                string candidate_suffix = suffix_base.str() + suffix;
-                
-                auto found = used_scoped_suffixes.find(candidate_suffix);
-                if (found == used_scoped_suffixes.end()) {
-                    // This is a fresh one. Use it.
-                    used_scoped_suffixes.emplace_hint(found, candidate_suffix);
-                    // We only remember the suffix itself; we reconstruct the
-                    // actual name later, with chunk info inserted.
-                    // TODO: Instead of building an essentially fake string key
-                    // should we do something else?
-                    plan.assigned_suffix[index_name] = suffix;
-                    break;
                 }
             }
         }
@@ -6111,23 +6197,22 @@ bool IndexFile::was_provided_directly() const {
     return provided_directly;
 }
 
-void IndexFile::add_scope(const string& scope) {
+void IndexFile::add_scope(const string& key, const string& value) {
     if (!is_finished()) {
         // Scopes for nonexistent files belong to the plan, not us.
-        throw std::logic_error("Cannot assign " + scope + " scope to unfinished " + get_identifier() + " index");
+        throw std::logic_error("Cannot assign " + key + " = " + value + " scope to unfinished " + get_identifier() + " index");
     }
 
-    // TODO: Change the data structure here if we anticipate an appreciable number of scopes.
-    auto found = std::find(scopes.begin(), scopes.end(), scope);
+    auto found = scopes.find(key);
     if (found == scopes.end()) {
-        scopes.push_back(scope);
+        scopes.emplace_hint(found, key, value);
 #ifdef debug_index_registry
-        std::cerr << "Added scope " << scope << " to " << get_identifier() << std::endl;
+        std::cerr << "Added scope " << key << " = " + value + " to " << get_identifier() << std::endl;
 #endif
     }
 }
 
-const vector<string>& IndexFile::get_scopes() const {
+const map<string, string>& IndexFile::get_scopes() const {
     return scopes;
 }
 

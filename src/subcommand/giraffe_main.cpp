@@ -1542,7 +1542,7 @@ int main_giraffe(int argc, char** argv) {
         }
 
         if (!kff_filename.empty()) {
-            registry.provide("KFF Kmer Counts", kff_filename, sample_scope);
+            registry.provide("KFF Kmer Counts", kff_filename, {{"sample", sample_scope}});
         }
         if (!fastq_filename_1.empty()) {
             // If FASTQs are available, send those and we will do haplotype sampling.
@@ -1552,7 +1552,7 @@ int main_giraffe(int argc, char** argv) {
             }
             // Provide the FASTQs to the index registry, but mark everything
             // derived from them as being scoped to the particular sample.
-            registry.provide("FASTQ", fastqs, sample_scope);
+            registry.provide("FASTQ", fastqs, {{"sample", sample_scope}});
         }
         
         
@@ -1640,7 +1640,11 @@ int main_giraffe(int argc, char** argv) {
                 // Report it because this may not be desired behavior.
                 logger.info() << "Guessing that " << inferred_filename
                               << " is " << index_and_extensions->first << endl;
-                registry.provide(index_and_extensions->first, inferred_filename, haplotype_sampling ? sample_scope : "");
+                std::map<std::string, std::string> scopes;
+                if (haplotype_sampling) {
+                    scopes.emplace("sample", sample_scope);
+                }
+                registry.provide(index_and_extensions->first, inferred_filename, scopes);
                 found = true;
                 // Skip other extension options for the index
                 break;
