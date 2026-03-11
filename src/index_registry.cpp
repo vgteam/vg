@@ -4654,6 +4654,9 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         for (auto& key : needed_keys) {
             if (!planned_scopes.count(key)) {
                 missing_keys = true;
+#ifdef debug_index_registry
+                std::cerr << "Pattern " << suffix << " can't be used because " << key << " scope is not available for " << identifier << std::endl;
+#endif
                 break;
             }
         }
@@ -4675,6 +4678,10 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
         for (auto& used : needed_keys) {
             unused_scopes.erase(used);
         }
+
+#ifdef debug_index_registry
+        std::cerr << "Pattern " << suffix << " substituted as " << substituted_suffix << " for " << identifier << "; " << unused_scopes.size() << " extra scopes" << std::endl;
+#endif
 
         for (auto& key : unused_scopes) {
             // Put the extra scopes in the filename
@@ -4979,7 +4986,7 @@ set<string> IndexRegistry::get_wildcards(const string& pattern) {
                     // There's no name here
                     throw std::runtime_error("Empty wildcard in " + pattern);
                 }
-                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 2);
+                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 1);
                 auto found = result.find(name);
                 if (found != result.end()) {
                     throw std::runtime_error("Duplicate wildcard in " + pattern);
@@ -5023,7 +5030,7 @@ string IndexRegistry::substitute_wildcards(const string& pattern, const map<stri
                     // There's no name here
                     throw std::runtime_error("Empty wildcard in " + pattern);
                 }
-                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 2);
+                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 1);
                 auto found = values.find(name);
                 if (found == values.end()) {
                     throw std::runtime_error("Undefined wildcard " + name + " in " + pattern);
