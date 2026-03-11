@@ -4995,6 +4995,8 @@ set<string> IndexRegistry::get_wildcards(const string& pattern) {
                 result.emplace_hint(found, name);
                 // Go back to not-in-a-wildcard state
                 wildcard_start = std::numeric_limits<size_t>::max();
+            } else if (c == '{') {
+                throw std::runtime_error("Opening brace inside wildcard " + pattern);
             }
         }
     }
@@ -5039,6 +5041,8 @@ string IndexRegistry::substitute_wildcards(const string& pattern, const map<stri
                 result << found->second;
                 // Go back to not-in-a-wildcard state
                 wildcard_start = std::numeric_limits<size_t>::max();
+            } else if (c == '{') {
+                throw std::runtime_error("Opening brace inside wildcard " + pattern);
             }
         }
     }
