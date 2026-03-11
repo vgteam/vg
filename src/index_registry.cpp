@@ -17,13 +17,17 @@
 #include <cstdlib>
 #include <regex>
 #include <omp.h>
+#include <fcntl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
 #include <xg.hpp>
 #include <gbwt/variants.h>
+#include <gbwt/fast_locate.h>
 #include <gbwtgraph/index.h>
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/gbz.h>
@@ -54,6 +58,7 @@
 #include "gfa.hpp"
 #include "job_schedule.hpp"
 #include "path.hpp"
+#include "recombinator.hpp"
 #include "zip_code.hpp"
 
 #include "io/save_handle_graph.hpp"
@@ -125,6 +130,11 @@ int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAUL
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
+std::unordered_set<std::string> IndexingParameters::haplotype_sampling_reference_samples = {};
+size_t IndexingParameters::haplotype_sampling_num_haplotypes = Recombinator::NUM_CANDIDATES;
+bool IndexingParameters::haplotype_sampling_diploid = true;
+int IndexingParameters::haplotype_sampling_minimizer_k = 29;
+int IndexingParameters::haplotype_sampling_minimizer_w = 11;
 
 void copy_file(const string& from_fp, const string& to_fp) {
     require_exists(context, from_fp);
@@ -618,7 +628,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_index("GBWTGraph", "gg");
     registry.register_index("GBZ", "gbz");
-    registry.register_index("Giraffe GBZ", "giraffe.gbz");
+    registry.register_index("Giraffe GBZ", std::vector<string>{"{sample}.gbz", "giraffe.gbz"});
+    registry.register_index("Haplotype-Sampled GBZ", "sampled.gbz");
+    registry.register_index("Top Level Chain Distance Index", "tcdist");
+    registry.register_index("r Index", "ri");
+    registry.register_index("FASTQ", "fastq");
+    registry.register_index("Haplotype Index", "hapl");
+    registry.register_index("KFF Kmer Counts", "kff");
     
     registry.register_index("Short Read Minimizers", "shortread.withzip.min");
     registry.register_index("Short Read Zipcodes", "shortread.zipcodes");
@@ -3955,9 +3971,21 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     ////////////////////////////////////
-    // GBZ Recipes
+    // Giraffe GBZ Recipes
     ////////////////////////////////////
-    
+
+    // Top priority: If we have the inputs to do haplotype sampling, use a
+    // haloptype sampled GBZ.
+    registry.register_recipe({"Giraffe GBZ"}, {"Haplotype-Sampled GBZ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        alias_graph.register_alias(*constructing.begin(), inputs[0]);
+        return vector<vector<string>>(1, inputs.front()->get_filenames());
+    });
+
+    // Next priority: if we were handed a GBZ, use it as the Giraffe GBZ
     registry.register_recipe({"Giraffe GBZ"}, {"GBZ"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
@@ -3966,62 +3994,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         alias_graph.register_alias(*constructing.begin(), inputs[0]);
         return vector<vector<string>>(1, inputs.front()->get_filenames());
     });
-    
-    registry.register_recipe({"GBZ"}, {"Reference GFA w/ Haplotypes"},
-                             [](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        if (IndexingParameters::verbosity != IndexingParameters::None) {
-            info(context) << "Constructing a GBZ from GFA input." << endl;
-        }
-        
-        assert(inputs.size() == 1);
-        if (inputs[0]->get_filenames().size() != 1) {
-            error(context) << "Graph construction does not support multiple GFAs at this time." << endl;
-        }
-        auto gfa_filename = inputs[0]->get_filenames().front();
-        
-        assert(constructing.size() == 1);
-        vector<vector<string>> all_outputs(constructing.size());
-        auto gbz_output = *constructing.begin();
-        auto& output_names = all_outputs[0];
-        
-        string output_name = plan->output_filepath(gbz_output);
-        
-        gbwtgraph::GFAParsingParameters params = get_best_gbwtgraph_gfa_parsing_parameters();
-        // TODO: there's supposedly a heuristic to set batch size that could perform better than this global param,
-        // but it would be kind of a pain to update it like we do the global param
-        params.batch_size = IndexingParameters::gbwt_insert_batch_size;
-        params.sample_interval = IndexingParameters::gbwt_sampling_interval;
-        params.max_node_length = IndexingParameters::max_node_size;
-        // TODO: Here we assume that the GFA file contains 100 haplotypes. If there are more,
-        // we could safely launch more jobs. Using 600 as the divisor would be a better
-        // estimate of the number of segments, but we chop long segments to 32 bp nodes.
-        params.parallel_jobs = guess_parallel_gbwt_jobs(
-            std::max(get_file_size(gfa_filename) / 300, std::int64_t(1)),
-            100,
-            plan->target_memory_usage(),
-            params.batch_size
-        );
-        params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
-        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-            info(context) << "Running " << params.parallel_jobs << " jobs in parallel" << std::endl;
-        }
-
-        // jointly generate the GBWT and record sequences
-        unique_ptr<gbwt::GBWT> gbwt_index;
-        unique_ptr<gbwtgraph::NaiveGraph> seq_source;
-        tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
-        
-        // convert sequences into GBZ and save
-        gbwtgraph::GBZ gbz(gbwt_index, seq_source);
-        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-        
-        output_names.push_back(output_name);
-        return all_outputs;
-    });
-
+   
+    // After that, start trying the old GBWT-based workflows
     registry.register_recipe({"Giraffe GBZ"}, {"GBWTGraph", "Giraffe GBWT"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
@@ -4054,7 +4028,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return all_outputs;
     });
     
-    // Thses used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+    // These used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
     
     registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "NamedNodeBackTranslation", "XG"},
                              [](const vector<const IndexFile*>& inputs,
@@ -4148,6 +4122,374 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         output_names.push_back(output_name);
         return all_outputs;
     });
+
+    ////////////////////////////////////
+    // General GBZ Recipes
+    ////////////////////////////////////
+
+    registry.register_recipe({"GBZ"}, {"Reference GFA w/ Haplotypes"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Constructing a GBZ from GFA input." << endl;
+        }
+        
+        assert(inputs.size() == 1);
+        if (inputs[0]->get_filenames().size() != 1) {
+            error(context) << "Graph construction does not support multiple GFAs at this time." << endl;
+        }
+        auto gfa_filename = inputs[0]->get_filenames().front();
+        
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+        
+        string output_name = plan->output_filepath(gbz_output);
+        
+        gbwtgraph::GFAParsingParameters params = get_best_gbwtgraph_gfa_parsing_parameters();
+        // TODO: there's supposedly a heuristic to set batch size that could perform better than this global param,
+        // but it would be kind of a pain to update it like we do the global param
+        params.batch_size = IndexingParameters::gbwt_insert_batch_size;
+        params.sample_interval = IndexingParameters::gbwt_sampling_interval;
+        params.max_node_length = IndexingParameters::max_node_size;
+        // TODO: Here we assume that the GFA file contains 100 haplotypes. If there are more,
+        // we could safely launch more jobs. Using 600 as the divisor would be a better
+        // estimate of the number of segments, but we chop long segments to 32 bp nodes.
+        params.parallel_jobs = guess_parallel_gbwt_jobs(
+            std::max(get_file_size(gfa_filename) / 300, std::int64_t(1)),
+            100,
+            plan->target_memory_usage(),
+            params.batch_size
+        );
+        params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            info(context) << "Running " << params.parallel_jobs << " jobs in parallel" << std::endl;
+        }
+
+        // jointly generate the GBWT and record sequences
+        unique_ptr<gbwt::GBWT> gbwt_index;
+        unique_ptr<gbwtgraph::NaiveGraph> seq_source;
+        tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
+        
+        // convert sequences into GBZ and save
+        gbwtgraph::GBZ gbz(gbwt_index, seq_source);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    ////////////////////////////////////
+    // Haplotype Sampling Recipes
+    ////////////////////////////////////
+
+    // Haplotype sampling: produce a personalized "Haplotype-Sampled GBZ"
+    registry.register_recipe({"Haplotype-Sampled GBZ"}, {"GBZ", "Haplotype Index", "KFF Kmer Counts"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Sampling haplotypes." << endl;
+        }
+
+        assert(inputs.size() == 3);
+        auto gbz_filenames = inputs[0]->get_filenames();
+        auto hapl_filenames = inputs[1]->get_filenames();
+        auto kff_filenames = inputs[2]->get_filenames();
+        assert(gbz_filenames.size() == 1);
+        assert(hapl_filenames.size() == 1);
+        assert(kff_filenames.size() == 1);
+        auto gbz_filename = gbz_filenames.front();
+        auto hapl_filename = hapl_filenames.front();
+        auto kff_filename = kff_filenames.front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        // Load GBZ.
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        // Override reference samples if requested.
+        if (!IndexingParameters::haplotype_sampling_reference_samples.empty()) {
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                info(context) << "Updating reference samples." << endl;
+            }
+            size_t present = gbz.set_reference_samples(IndexingParameters::haplotype_sampling_reference_samples);
+            if (present != IndexingParameters::haplotype_sampling_reference_samples.size()) {
+                warn(context) << "Only " << present << " out of "
+                              << IndexingParameters::haplotype_sampling_reference_samples.size()
+                              << " reference samples are present." << endl;
+            }
+        }
+
+        // Load haplotype information.
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Loading haplotype information from " << hapl_filename << "." << endl;
+        }
+        Haplotypes haplotypes;
+        haplotypes.load_from(hapl_filename);
+
+        // Sample haplotypes.
+        Haplotypes::Verbosity hap_verbosity = (IndexingParameters::verbosity != IndexingParameters::None
+                                               ? Haplotypes::verbosity_basic
+                                               : Haplotypes::verbosity_silent);
+        Recombinator recombinator(gbz, haplotypes, hap_verbosity);
+        Recombinator::Parameters parameters(Recombinator::Parameters::preset_default);
+        parameters.num_haplotypes = IndexingParameters::haplotype_sampling_num_haplotypes;
+        parameters.diploid_sampling = IndexingParameters::haplotype_sampling_diploid;
+        parameters.include_reference = true;
+        gbwt::GBWT sampled_gbwt = recombinator.generate_haplotypes(kff_filename, parameters);
+
+        // Build GBZ.
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Building GBZ." << endl;
+        }
+        gbwtgraph::GBZ sampled_graph(std::move(sampled_gbwt), gbz);
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(sampled_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Saved GBZ to " << output_name << endl;
+        }
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // Build the r-index for a GBZ from its GBWT.
+    registry.register_recipe({"r Index"}, {"GBZ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Building r-index for GBZ." << endl;
+        }
+
+        assert(inputs.size() == 1);
+        auto gbz_filename = inputs[0]->get_filenames().front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto& output_names = all_outputs[0];
+
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        gbwt::FastLocate r_index(gbz.index);
+        string output_name = plan->output_filepath(*constructing.begin());
+        save_r_index(r_index, output_name, IndexingParameters::verbosity != IndexingParameters::None);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    registry.register_recipe({"Top Level Chain Distance Index"},
+                             {"GBZ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Building top-level-chain distance index for GBZ." << endl;
+        }
+
+        assert(inputs.size() == 1);
+        auto gbz_filename = inputs[0]->get_filenames().front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto& output_names = all_outputs[0];
+
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        string output_name = plan->output_filepath(*constructing.begin());
+        SnarlDistanceIndex distance_index;
+        IntegratedSnarlFinder snarl_finder(gbz.graph);
+        // Only do top level chains
+        fill_in_distance_index(&distance_index, &gbz.graph, &snarl_finder,
+                               50000, true);
+        distance_index.serialize(output_name);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // Build "Haplotype Index" (.hapl) from the GBZ, its top-level-chain
+    // distance index, and its r-index.
+    registry.register_recipe({"Haplotype Index"},
+                             {"GBZ",
+                              "Top Level Chain Distance Index",
+                              "r Index"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Generating haplotype information." << endl;
+        }
+
+        assert(inputs.size() == 3);
+        auto gbz_filename  = inputs[0]->get_filenames().front();
+        auto dist_filename = inputs[1]->get_filenames().front();
+        auto ri_filename   = inputs[2]->get_filenames().front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto& output_names = all_outputs[0];
+
+        // Load GBZ.
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbz_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        // Load distance index.
+        SnarlDistanceIndex distance_index;
+        distance_index.deserialize(dist_filename);
+
+        // Load r-index and restore the GBWT pointer.
+        gbwt::FastLocate r_index;
+        load_r_index(r_index, ri_filename, IndexingParameters::verbosity != IndexingParameters::None);
+        r_index.setGBWT(gbz.index);
+
+        // Build minimizer index without payload.
+        MinimizerIndexParameters minimizer_params;
+        minimizer_params.minimizers(IndexingParameters::haplotype_sampling_minimizer_k,
+                                    IndexingParameters::haplotype_sampling_minimizer_w)
+                        .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
+        HaplotypePartitioner::minimizer_index_type minimizer_index =
+            build_minimizer_index(gbz, nullptr, nullptr, minimizer_params);
+
+        // Partition the haplotypes.
+        Haplotypes::Verbosity hap_verbosity = (IndexingParameters::verbosity != IndexingParameters::None
+                                               ? Haplotypes::verbosity_basic
+                                               : Haplotypes::verbosity_silent);
+        HaplotypePartitioner partitioner(gbz, r_index, distance_index, minimizer_index, hap_verbosity);
+        HaplotypePartitioner::Parameters partitioner_params;
+        Haplotypes haplotypes = partitioner.partition_haplotypes(partitioner_params);
+
+        // Save the haplotype information.
+        string output_name = plan->output_filepath(*constructing.begin());
+        haplotypes.serialize_to(output_name);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // Build "KFF Kmer Counts" (.kff) by counting k-mers from the provided reads
+    // using kmc.
+    //
+    // Having the FASTQ available to the indexing logic is the limiting reagent
+    // that should determine if we do haplotype sampling or not, when given a
+    // GBZ.
+    registry.register_recipe({"KFF Kmer Counts"}, {"FASTQ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            info(context) << "Counting k-mers from reads for haplotype sampling." << endl;
+        }
+
+        assert(inputs.size() == 1);
+        auto fastq_filenames = inputs[0]->get_filenames();
+        if (fastq_filenames.empty()) {
+            error(context) << "No reads provided for k-mer counting." << endl;
+        }
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto& output_names = all_outputs[0];
+
+        string output_name = plan->output_filepath(*constructing.begin());
+
+        // Create a temp directory for kmc intermediate files.
+        string tmp_dir = temp_file::create_directory();
+
+        // Write a file listing the input reads.
+        string list_file = tmp_dir + "/reads.txt";
+        {
+            ofstream list_out(list_file);
+            for (const string& fq : fastq_filenames) {
+                list_out << fq << "\n";
+            }
+        }
+
+        // kmc produces output_prefix.kff; strip the ".kff" extension to get the prefix.
+        string kmc_prefix;
+        if (output_name.size() >= 4 && output_name.substr(output_name.size() - 4) == ".kff") {
+            kmc_prefix = output_name.substr(0, output_name.size() - 4);
+        } else {
+            error(context) << "KFF file has wrong extension: " << output_name << endl;
+        }
+
+        string kmc_tmp_dir = tmp_dir + "/kmc_tmp";
+        mkdir(kmc_tmp_dir.c_str(), 0700);
+        assert(std::filesystem::exists(kmc_tmp_dir));
+
+        // Run kmc: count k-mers in KFF format with canonical k-mers.
+        // Use fork()+execvp() instead of system() to avoid shell quoting issues.
+        string reads_arg = "@" + list_file;
+        string kmc_k_arg = "-k" + to_string(IndexingParameters::haplotype_sampling_minimizer_k);
+        const char* kmc_argv[] = {"kmc", kmc_k_arg.c_str(), "-m128", "-okff", "-hp",
+            reads_arg.c_str(), kmc_prefix.c_str(), kmc_tmp_dir.c_str(), nullptr};
+
+        // Flush shared output streams before forking
+        cout.flush();
+        cerr.flush();
+        fflush(nullptr);
+
+        pid_t pid = fork();
+        if (pid == -1) {
+            error(context) << "fork() failed for kmc: " << strerror(errno) << endl;
+        } else if (pid == 0) {
+            // Child: redirect stdout/stderr to /dev/null when not verbose.
+            if (IndexingParameters::verbosity == IndexingParameters::None) {
+                int devnull = open("/dev/null", O_WRONLY);
+                if (devnull != -1) {
+                    dup2(devnull, STDOUT_FILENO);
+                    dup2(devnull, STDERR_FILENO);
+                    close(devnull);
+                }
+            }
+            
+            // Allow enough open files for kmc to work; see
+            // <https://github.com/refresh-bio/KMC?tab=readme-ov-file#quick-start>
+            // and <https://stackoverflow.com/a/42741227>
+            // TODO: Probably this isn't allowed after fork but we do it anyway.
+            struct rlimit new_limit;
+            new_limit.rlim_cur = 2048;
+            new_limit.rlim_max = RLIM_INFINITY;
+            setrlimit(RLIMIT_NOFILE, &new_limit);
+
+            // execvp promises never to modify its arguments but casn't say
+            // that in the C++ type system because it causes problems in the C
+            // type system. See https://stackoverflow.com/a/19505361
+            execvp("kmc", (char**)kmc_argv);
+            // execvp only returns on failure.
+            _exit(127);
+        } else {
+            int child_stat;
+            waitpid(pid, &child_stat, 0);
+            int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
+            if (ret == 127) {
+                error(context) << "kmc could not be executed. Make sure kmc is installed and in your PATH." << endl;
+            } else if (ret != 0) {
+                error(context) << "kmc failed with exit code " << ret << "." << endl;
+            }
+        }
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
 
     ////////////////////////////////////
     // Minimizers Recipes
@@ -4263,6 +4605,20 @@ bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
     return !targets.count(identifier);
 }
 
+const map<string, string> IndexingPlan::get_scopes(const IndexName& identifier) const {
+    auto found = scopes.find(identifier);
+    if (found == scopes.end()) {
+        return {};
+    }
+    // We can't refer into a new slot so we need to copy
+    return found->second;
+}
+
+const map<string, string>& IndexingPlan::get_scopes(const IndexName& identifier) {
+    // We can create the entry if not present
+    return scopes[identifier];
+}
+
 int64_t IndexingPlan::target_memory_usage() const {
     return IndexingParameters::max_memory_proportion * registry->get_target_memory_usage();
 }
@@ -4277,23 +4633,76 @@ string IndexingPlan::output_filepath(const IndexName& identifier) const {
 
 string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, size_t num_chunks) const {
     
-    string filepath;
+    std::stringstream filepath;
     if (registry->keep_intermediates ||
         (!is_intermediate(identifier) && !registry->get_index(identifier)->was_provided_directly())) {
         // we're saving this file, put it at the output prefix
-        filepath = registry->output_prefix;
+        filepath << registry->output_prefix;
     }
     else {
         // we're not saving this file, make it temporary
-        filepath = registry->get_work_dir() + "/" + sha1sum(identifier);
+        filepath << registry->get_work_dir() + "/" + sha1sum(identifier);
+    }
+    
+    // We need the planned scopes, not the scopes for a completed file.
+    auto planned_scopes = get_scopes(identifier);
+    string substituted_suffix;
+    for (auto& suffix : registry->get_index(identifier)->get_suffixes()) {
+        // Find the first suffix where all its wildcards are filled in by scopes
+        auto needed_keys = IndexRegistry::get_wildcards(suffix);
+        bool missing_keys = false;
+        for (auto& key : needed_keys) {
+            if (!planned_scopes.count(key)) {
+                missing_keys = true;
+#ifdef debug_index_registry
+                std::cerr << "Pattern " << suffix << " can't be used because " << key << " scope is not available for " << identifier << std::endl;
+#endif
+                break;
+            }
+        }
+        if (missing_keys) {
+            continue;
+        }
+        // Now we know we want this suffix
+
+        // Substitute the suffix
+        substituted_suffix = IndexRegistry::substitute_wildcards(suffix, planned_scopes);
+
+        // Make the set of scopes not accounted for in the suffix.
+        // TODO: Merge with substitution?
+        // TODO: Just make all scope-able files say so?
+        set<string> unused_scopes;
+        for (auto& kv : planned_scopes) {
+            unused_scopes.insert(kv.first);
+        }
+        for (auto& used : needed_keys) {
+            unused_scopes.erase(used);
+        }
+
+#ifdef debug_index_registry
+        std::cerr << "Pattern " << suffix << " substituted as " << substituted_suffix << " for " << identifier << "; " << unused_scopes.size() << " extra scopes" << std::endl;
+#endif
+
+        for (auto& key : unused_scopes) {
+            // Put the extra scopes in the filename
+            filepath << "." << planned_scopes.at(key);
+        }
+        
+        break;
+    }
+    if (substituted_suffix.empty()) {
+        // We really should find a suffix to use
+        throw std::runtime_error("No suffix for " + identifier + " can be used with available scopes.");
     }
     if (num_chunks > 1) {
         // we add digits to make the suffix unique for this chunk (the setup disallows suffixes
-        // that start with digits)
-        filepath += "." + to_string(chunk);
+        // that start with digits).
+        // TODO: What if a scope starts with digits? Put the numbers somewhere else?
+        filepath << "." << to_string(chunk);
     }
-    filepath += "." + registry->get_index(identifier)->get_suffix();
-    return filepath;
+    // Use the suffix we've substituted.
+    filepath << "." << substituted_suffix;
+    return filepath.str();
 }
  
 const vector<RecipeName>& IndexingPlan::get_steps() const {
@@ -4308,6 +4717,10 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
     IndexGroup successor_indexes{identifier};
     
     for (const auto& step : steps) {
+        if (!registry->has_recipe(step)) {
+            // This step is just a provided input and not a real recipe step.
+            continue;
+        }
                 
         // TODO: should this behavior change if some of the inputs were provided directly?
         
@@ -4327,6 +4740,16 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
         }
     }
     return dependent_steps;
+}
+
+void IndexingPlan::add_scope(const IndexName& identifier, const string& key, const string& value) {
+    // Get a mutable reference to the scopes we need to add to.
+    auto& index_scopes = scopes[identifier];
+
+    auto found = index_scopes.find(key);
+    if (found == index_scopes.end()) {
+        index_scopes.emplace_hint(found, key, value);
+    }
 }
 
 IndexRegistry::~IndexRegistry() {
@@ -4408,6 +4831,10 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 if (!index->was_provided_directly()) {
                     // and assign the new (or first) ones
                     index->assign_constructed(results);
+                    for (auto& scope_kv : plan.get_scopes(*it)) {
+                        // and keep their scopes (in case we ever need them)
+                        index->add_scope(scope_kv.first, scope_kv.second);
+                    }
                 }
                 ++it;
             }
@@ -4464,32 +4891,36 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         auto f = find(aliasors.begin(), aliasors.end(), aliasee);
         bool can_move = f == aliasors.end() && !get_index(aliasee)->was_provided_directly();
         if (!can_move) {
-            // just remove the "alias" so we don't need to deal with it
+            // We need to copy.
+            // Just remove the "alias" for the index itself so that from here
+            // on we only need to wory about things that *do* need to be
+            // created.
             std::swap(*f, aliasors.back());
             aliasors.pop_back();
         }
         
         const auto& aliasee_filenames = get_index(aliasee)->get_filenames();
-        
-        // copy aliases for any that we need to (start past index 0 if we can move it)
-        for (size_t i = can_move; i < aliasors.size(); ++i) {
+
+        for (auto it = aliasors.rbegin(); it != aliasors.rend(); ++it) {
+            // Fulfill the aliasor from the aliasee (in reverse order, so the
+            // 0th aliasor gets to have the moved files).
+            vector<string> new_aliasor_files;
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
-                
-                auto copy_filename = plan.output_filepath(aliasors[i], j, aliasee_filenames.size());
-                copy_file(aliasee_filenames[j], copy_filename);
-            }
-        }
-        // if we can move the aliasee (i.e. it is intermediate), then make
-        // one index by moving instead of copying
-        if (can_move) {
-            for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
-                auto move_filename = plan.output_filepath(aliasors[0], j, aliasee_filenames.size());
-                int code = rename(aliasee_filenames[j].c_str(), move_filename.c_str());
-                if (code) {
-                    // moving failed (maybe because the files on separate drives?) fall back on copying
-                    copy_file(aliasee_filenames[j], move_filename);
+                auto dest_filename = plan.output_filepath(*it, j, aliasee_filenames.size());
+                bool moved = false;
+                if (can_move && (it + 1 == aliasors.rend())) {
+                    // We can move and this is the last aliasor we will do, so try moving
+                    moved = rename(aliasee_filenames[j].c_str(), dest_filename.c_str()) == 0;
                 }
+                if (!moved) {
+                    // moving failed or is not allowed, fall back on copying
+                    copy_file(aliasee_filenames[j], dest_filename);
+                }
+
+                new_aliasor_files.push_back(dest_filename);
             }
+            // Point the aliasor index at the new paths
+            get_index(*it)->assign_constructed(new_aliasor_files);
         }
     }
     
@@ -4498,34 +4929,137 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
 }
 
 void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {
+    register_index(identifier, vector<string>{suffix});
+}
+
+void IndexRegistry::register_index(const IndexName& identifier, const vector<string>& suffixes) {
     // Add this index to the registry
     if (identifier.empty()) {
         error(context) << "indexes must have a non-empty identifier" << endl;
     }
-    if (suffix.empty()) {
-        error(context) << "indexes must have a non-empty suffix" << endl;
-    }
-    if (isdigit(suffix.front())) {
-        // this ensures that we can add numbers to the suffix to create a unique suffix
-        // for chunked workflows
-        error(context) << "suffixes cannot start with a digit" << endl;
-    }
     if (index_registry.count(identifier)) {
         error(context) << "index registry contains a duplicated identifier: " << identifier << endl;
     }
-    if (registered_suffixes.count(suffix)) {
-        error(context) << "index registry contains a duplicated suffix: " << suffix << endl;
+    bool has_unique_suffix = false;
+    for (auto suffix : suffixes) {
+        if (suffix.empty()) {
+            error(context) << "indexes must have a non-empty suffix" << endl;
+        }
+        if (isdigit(suffix.front())) {
+            // this ensures that we can add numbers to the suffix to create a unique suffix
+            // for chunked workflows
+            error(context) << "suffixes cannot start with a digit" << endl;
+        }
+        if (!registered_suffixes.count(suffix)) {
+            has_unique_suffix = true;
+        }
     }
-    index_registry[identifier] = unique_ptr<IndexFile>(new IndexFile(identifier, suffix));
-    registered_suffixes.insert(suffix);
+    if (!has_unique_suffix) {
+        // We need each index to have at least one new suffix not yet used or
+        // we might not be able to find a place to put it when making the
+        // indexes in the order registered.
+        error(context) << "index registry contains other indexes for all suffixes for " << identifier << endl;
+    }
+    index_registry[identifier] = unique_ptr<IndexFile>(new IndexFile(identifier, suffixes));
+    for (auto suffix : suffixes) {
+        registered_suffixes.insert(suffix);
+    }
+}
+
+set<string> IndexRegistry::get_wildcards(const string& pattern) {
+    set<string> result;
+    size_t wildcard_start = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < pattern.size(); i++) {
+        // Scan the string and find the wildcards
+        auto& c = pattern[i];
+        if (wildcard_start == std::numeric_limits<size_t>::max()) {
+            // Need an open brace
+            if (c == '{') {
+                wildcard_start = i;
+            } else if (c == '}') {
+                throw std::runtime_error("Unmatched closing brace in " + pattern);
+            }
+        } else {
+            // Need a close brace
+            if (c == '}') {
+                if (i - wildcard_start < 2) {
+                    // There's no name here
+                    throw std::runtime_error("Empty wildcard in " + pattern);
+                }
+                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 1);
+                auto found = result.find(name);
+                if (found != result.end()) {
+                    throw std::runtime_error("Duplicate wildcard in " + pattern);
+                }
+                // Save the new wildcard
+                result.emplace_hint(found, name);
+                // Go back to not-in-a-wildcard state
+                wildcard_start = std::numeric_limits<size_t>::max();
+            } else if (c == '{') {
+                throw std::runtime_error("Opening brace inside wildcard " + pattern);
+            }
+        }
+    }
+    if (wildcard_start != std::numeric_limits<size_t>::max()) {
+        // We ended while reading a wildcard
+        throw std::runtime_error("Unmatched opening brace in " + pattern);
+    }
+    return result;
+}
+
+string IndexRegistry::substitute_wildcards(const string& pattern, const map<string, string> values) {
+    // TODO: Deduplicate code with get_wildcards somehow
+
+    std::stringstream result;
+
+    size_t wildcard_start = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < pattern.size(); i++) {
+        // Scan the string and find the wildcards
+        auto& c = pattern[i];
+        if (wildcard_start == std::numeric_limits<size_t>::max()) {
+            // Need an open brace
+            if (c == '{') {
+                wildcard_start = i;
+            } else if (c == '}') {
+                throw std::runtime_error("Unmatched closing brace in " + pattern);
+            } else {
+                result << c;
+            }
+        } else {
+            // Need a close brace
+            if (c == '}') {
+                if (i - wildcard_start < 2) {
+                    // There's no name here
+                    throw std::runtime_error("Empty wildcard in " + pattern);
+                }
+                string name = pattern.substr(wildcard_start + 1, i - wildcard_start - 1);
+                auto found = values.find(name);
+                if (found == values.end()) {
+                    throw std::runtime_error("Undefined wildcard " + name + " in " + pattern);
+                }
+                // Output the wildcard value
+                result << found->second;
+                // Go back to not-in-a-wildcard state
+                wildcard_start = std::numeric_limits<size_t>::max();
+            } else if (c == '{') {
+                throw std::runtime_error("Opening brace inside wildcard " + pattern);
+            }
+        }
+    }
+    if (wildcard_start != std::numeric_limits<size_t>::max()) {
+        // We ended while reading a wildcard
+        throw std::runtime_error("Unmatched opening brace in " + pattern);
+    }
+
+    return result.str();
 }
 
 
-void IndexRegistry::provide(const IndexName& identifier, const string& filename) {
-    provide(identifier, vector<string>(1, filename));
+void IndexRegistry::provide(const IndexName& identifier, const string& filename, const map<string, string>& scopes) {
+    provide(identifier, vector<string>(1, filename), scopes);
 }
 
-void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
+void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames, const map<string, string>& scopes) {
     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
         info(context) << "Provided: " << identifier << endl;
     }
@@ -4537,7 +5071,11 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
             require_exists(context, filename);
         }
     }
-    get_index(identifier)->provide(filenames);
+    auto index = get_index(identifier);
+    index->provide(filenames);
+    for (auto& scope_kv : scopes) {
+        index->add_scope(scope_kv.first, scope_kv.second);
+    }
 }
 
 void IndexRegistry::reset(const IndexName& identifier) {
@@ -4569,7 +5107,28 @@ vector<string> IndexRegistry::get_possible_filenames(const IndexName& identifier
         error(context) << "cannot require unregistered index: " << identifier << endl;
     }
     const IndexFile* index = get_index(identifier);
-    return {get_prefix() + "." + index->get_suffix()};
+    auto& index_scopes = index->get_scopes();
+    vector<string> filenames;
+    for (auto& suffix : index->get_suffixes()) {
+        // Find all suffixes where all wildcards are filled in by scopes.
+        // TODO: We might want to really match the wildcards against filenames,
+        // Snakemake-style.
+        auto needed_keys = IndexRegistry::get_wildcards(suffix);
+        bool missing_keys = false;
+        for (auto& key : needed_keys) {
+            if (!index_scopes.count(key)) {
+                missing_keys = true;
+                break;
+            }
+        }
+        if (missing_keys) {
+            continue;
+        }
+
+        // Try all those suffixes
+        filenames.push_back(get_prefix() + "." + suffix);
+    }
+    return filenames;
 }
 
 vector<string> IndexRegistry::require(const IndexName& identifier) const {
@@ -5146,6 +5705,8 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         IndexGroup product_group{product};
         
         // records of (identifier, requesters, ordinal index of recipe selected)
+        // A max-value sentinel index means no recipe is used and the index is
+        // provided.
         vector<tuple<size_t, set<size_t>, size_t>> plan_path;
         
         // map dependency priority to requesters
@@ -5286,6 +5847,7 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             
             // get the latest file in the dependency order that we have left to build
             auto it = queue.begin();
+            // Imagine starting with the first recipe for it
             plan_path.emplace_back(it->first, it->second, 0);
             
 #ifdef debug_index_registry
@@ -5309,6 +5871,10 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
                 cerr << "index has been provided as input" << endl;
 #endif
+
+                // Don't point to a recipe for it that might exist; point to a
+                // nonexistent sentinel recipe.
+                get<2>(plan_path.back()) = std::numeric_limits<size_t>::max();
                 continue;
             }
             else if (recipe_registry.count(index_group)) {
@@ -5371,7 +5937,13 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
         cerr << "final plan path for index " << product << ":" << endl;
         for (auto path_elem : plan_path) {
-            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", recipe " << get<2>(path_elem) << ", from:" << endl;
+            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]);
+            if (get<2>(path_elem) == std::numeric_limits<size_t>::max()) {
+                cerr << ", provided";
+            } else {
+                cerr << ", recipe " << get<2>(path_elem);
+            }
+            cerr << ", from:" << endl;
             for (auto d : get<1>(path_elem)) {
                 cerr << "\t\t" << to_string(identifier_order[d]) << endl;
             }
@@ -5386,6 +5958,14 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
    
     // Now fill in the plan struct that the recipes need to know how to run.
     IndexingPlan plan;
+
+    // The plan has methods that need to interact with the registry, including
+    // some we need to use here.
+    //
+    // Some of them modify the registry. We're not going to use any of those,
+    // but we have to hand off a non-const pointer to ourselves so the plan can
+    // modify us later.
+    plan.registry = const_cast<IndexRegistry*>(this);
     
     // Copy over the end products
     std::copy(end_products.begin(), end_products.end(), std::inserter(plan.targets, plan.targets.begin()));
@@ -5399,7 +5979,7 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
     cerr << "plan before applying generalizations:" << endl;
     for (auto plan_elem : plan.steps) {
-        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
+        cerr << "\t" << to_string(plan_elem.first) << " " << (plan_elem.second == std::numeric_limits<size_t>::max() ? "Provided" : std::to_string(plan_elem.second)) << endl;
     }
 #endif
     
@@ -5412,21 +5992,65 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
     cerr << "full plan including provided files:" << endl;
     for (auto plan_elem : plan.steps) {
-        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
+        cerr << "\t" << to_string(plan_elem.first) << " " << (plan_elem.second == std::numeric_limits<size_t>::max() ? "Provided" : std::to_string(plan_elem.second)) << endl;
     }
 #endif
+
+    // Propagate scopes from input files
+    for (auto plan_it = plan.steps.begin(); plan_it != plan.steps.end(); ++plan_it) {
+        // For each step in ther plan in order
+        
+        for (const IndexName& index_name : plan_it->first) {
+            // For each index that step would generate
+            const IndexFile* index = get_index(index_name);
+            if (!index->is_finished()) {
+                // Only finished indexes bring in new scopes
+#ifdef debug_index_registry
+                std::cerr << "Index " << index_name << " isn't finished and can't bring in scopes" << std::endl;
+#endif
+                continue;
+            }
+
+            // Get the scopes that came in with this input
+            auto& provided_scopes = index->get_scopes();
+
+            // We need to attach these scopes to anything based on this index.
+            // TODO: Should we just propagate scopes step by step as we scan the plan instead?
+            auto dependents = plan.dependents(index_name);
+#ifdef debug_index_registry
+            std::cerr << "Index " << index_name << " adds " << provided_scopes.size() << " scopes to " << dependents.size() << " dependents" << std::endl;
+#endif
+            for (const RecipeName& dependent_recipe : dependents) {
+                // For each recipe transitively depending on this input
+                for (const IndexName& dependent_index_name : dependent_recipe.first) {
+                    // For each index the recipe generates
+                    
+                    for (auto& scope_kv : provided_scopes) {
+                        // Make sure that index is scoped with all scopes on the input.
+                        plan.add_scope(dependent_index_name, scope_kv.first, scope_kv.second);
+                    }
+                }
+            }
+        }
+    }
 
     // Now remove the input data from the plan
     plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe_choice) {
         return all_finished(recipe_choice.first);
     }) - plan.steps.begin());
-    
-    // The plan has methods that can come back and modify the registry.
-    // We're not going to call any of them, but we have to hand off a non-const
-    // pointer to ourselves so the plan can modify us later.
-    plan.registry = const_cast<IndexRegistry*>(this);
-    
+
     return plan;
+}
+
+bool IndexRegistry::has_recipe(const RecipeName& recipe_name) const {
+    auto found = recipe_registry.find(recipe_name.first);
+    if (found == recipe_registry.end()) {
+        // No recipes at all for this
+        return false;
+    }
+    // Detemrine if this recipe index is in range.
+    // Sentinel max-value names are always out of range.
+    return recipe_name.second < found->second.size();
 }
 
 const IndexRecipe& IndexRegistry::get_recipe(const RecipeName& recipe_name) const {
@@ -5562,20 +6186,20 @@ string IndexRegistry::to_dot(const vector<IndexName>& targets) const {
     return strm.str();
 }
 
-IndexFile::IndexFile(const IndexName& identifier, const string& suffix) : identifier(identifier), suffix(suffix) {
-    // nothing more to do
+IndexFile::IndexFile(const IndexName& identifier, const string& suffix) : IndexFile(identifier, vector<string>{suffix}) {
+    // Nothing to do!
 }
 
-bool IndexFile::is_finished() const {
-    return !filenames.empty();
+IndexFile::IndexFile(const IndexName& identifier, const vector<string>& suffixes) : identifier(identifier), suffixes(suffixes) {
+    // nothing more to do
 }
 
 const IndexName& IndexFile::get_identifier() const {
     return identifier;
 }
 
-const string& IndexFile::get_suffix() const {
-    return suffix;
+const vector<string>& IndexFile::get_suffixes() const {
+    return suffixes;
 }
 
 const vector<string>& IndexFile::get_filenames() const {
@@ -5600,9 +6224,33 @@ bool IndexFile::was_provided_directly() const {
     return provided_directly;
 }
 
+void IndexFile::add_scope(const string& key, const string& value) {
+    if (!is_finished()) {
+        // Scopes for nonexistent files belong to the plan, not us.
+        throw std::logic_error("Cannot assign " + key + " = " + value + " scope to unfinished " + get_identifier() + " index");
+    }
+
+    auto found = scopes.find(key);
+    if (found == scopes.end()) {
+        scopes.emplace_hint(found, key, value);
+#ifdef debug_index_registry
+        std::cerr << "Added scope " << key << " = " + value + " to " << get_identifier() << std::endl;
+#endif
+    }
+}
+
+const map<string, string>& IndexFile::get_scopes() const {
+    return scopes;
+}
+
+bool IndexFile::is_finished() const {
+    return !filenames.empty();
+}
+
 void IndexFile::reset() {
     filenames.clear();
     provided_directly = false;
+    scopes.clear();
 }
 
 IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,

@@ -390,7 +390,16 @@ int main_autoindex(int argc, char** argv) {
             if (!registry.available(target)) {
                 vector<string> inferred_file_names = registry.get_possible_filenames(target);
                 for (const string& filename : inferred_file_names) {
-                    if (ifstream(filename).is_open()) {
+                    if (target == "Giraffe GBZ" && !ends_with(filename, ".giraffe.gbz")) {
+                        // TODO: Giraffe GBZ indexes can be saved as .<sample>.gbz or .giraffe.gbz.
+                        // But we can't pick up .<sample>.gbz automatically without possibly mistaking a plain GBZ for a Giraffe one.
+                        // And we don't handle haplotype samplign in autoindex yet anyway.
+                        // So only find Giraffe GBZs.
+                        // TODO: Allow the siffixes to have Snakemake-style
+                        // wildcards that populate scopes on the files.
+                        continue;
+                    }
+                    if (file_exists(filename)) {
                         logger.info() << "Guessing that " << filename << " is " << target << endl;
                         registry.provide(target, filename);
                         break;
