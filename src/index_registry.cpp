@@ -5096,9 +5096,25 @@ vector<string> IndexRegistry::get_possible_filenames(const IndexName& identifier
         error(context) << "cannot require unregistered index: " << identifier << endl;
     }
     const IndexFile* index = get_index(identifier);
+    auto& index_scopes = index->get_scopes();
     vector<string> filenames;
     for (auto& suffix : index->get_suffixes()) {
-        // Try all the possible suffixes
+        // Find all suffixes where all wildcards are filled in by scopes.
+        // TODO: We might want to really match the wildcards against filenames,
+        // Snakemake-style.
+        auto needed_keys = IndexRegistry::get_wildcards(suffix);
+        bool missing_keys = false;
+        for (auto& key : needed_keys) {
+            if (!index_scopes.count(key)) {
+                missing_keys = true;
+                break;
+            }
+        }
+        if (missing_keys) {
+            continue;
+        }
+
+        // Try all those suffixes
         filenames.push_back(get_prefix() + "." + suffix);
     }
     return filenames;
