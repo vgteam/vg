@@ -621,7 +621,7 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
 std::string sample_haplotypes(
     const Logger& logger,
     const std::vector<std::pair<std::string, std::string>>& indexes,
-    const std::unordered_set<std::string>& reference_samples,
+    const gbwtgraph::sample_name_set& reference_samples,
     const std::string& basename, const std::string& sample_name, const std::string& haplotype_file, const std::string& kff_file,
     bool progress
 );
@@ -775,7 +775,7 @@ int main_giraffe(int argc, char** argv) {
 
     // For haplotype sampling.
     string haplotype_name, kff_name;
-    std::unordered_set<std::string> reference_samples;
+    gbwtgraph::sample_name_set reference_samples;
 
     string output_basename;
     string report_name;
@@ -2299,7 +2299,7 @@ int main_giraffe(int argc, char** argv) {
 std::string sample_haplotypes(
     const Logger& logger,
     const std::vector<std::pair<std::string, std::string>>& indexes,
-    const std::unordered_set<std::string>& reference_samples,
+    const gbwtgraph::sample_name_set& reference_samples,
     const std::string& basename, const std::string& sample_name, const std::string& haplotype_file, const std::string& kff_file,
     bool progress
 ) {

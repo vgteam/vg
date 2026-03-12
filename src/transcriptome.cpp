@@ -756,7 +756,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
     return parsed_lines;
 }
 
-string Transcriptome::get_base_gbwt_path_name(const gbwt::GBWT & haplotype_index, const size_t path_id, const unordered_set<string> & gbwt_reference_samples) const {
+string Transcriptome::get_base_gbwt_path_name(const gbwt::GBWT & haplotype_index, const size_t path_id, const gbwtgraph::sample_name_set& gbwt_reference_samples) const {
 
     auto gbwt_path_metadata = haplotype_index.metadata.path(path_id);
     PathSense sense = gbwtgraph::get_path_sense(haplotype_index.metadata, gbwt_path_metadata, gbwt_reference_samples);
@@ -1608,7 +1608,7 @@ void Transcriptome::project_haplotype_transcripts_callback(list<CompletedTranscr
 }
 
 list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index,
-                                                                  const unordered_set<string>& reference_samples, const float mean_node_length) const {
+                                                                  const gbwtgraph::sample_name_set& reference_samples, const float mean_node_length) const {
     
     assert(haplotype_index.bidirectional());
 
@@ -1833,7 +1833,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
     return edited_transcript_paths; 
 }
 
-vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const unordered_set<string>& reference_samples, const int32_t expected_length) const {
+vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const gbwtgraph::sample_name_set& reference_samples, const int32_t expected_length) const {
 
     assert(expected_length > 0);
     
