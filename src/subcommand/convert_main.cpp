@@ -417,10 +417,12 @@ int main_convert(int argc, char** argv) {
             if (gbz == nullptr) {
                 logger.error() << "GBWTGraph library GFA conversion algorithm cannot be used without a GBZ graph" << endl;
             }
-            
             gbwtgraph::GFAExtractionParameters parameters;
             parameters.num_threads = num_threads;
             parameters.use_translation = use_translation;
+            if(drop_haplotypes) {
+                parameters.mode = gbwtgraph::GFAExtractionParameters::mode_ref_only;
+            }
             gbwtgraph::gbwt_to_gfa(*gbz, std::cout, parameters);
         } else if (gfa_output_algorithm == algorithm_vg) {
             // Use HandleGraph GFA conversion code
