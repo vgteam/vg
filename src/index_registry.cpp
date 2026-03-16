@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <cstdlib>
+#include <filesystem>
 #include <regex>
 #include <omp.h>
 #include <fcntl.h>
