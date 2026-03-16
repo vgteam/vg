@@ -782,7 +782,7 @@ int main_giraffe(int argc, char** argv) {
     // For haplotype sampling.
     string kff_filename;
     bool haplotype_sampling_flag = false;
-    std::unordered_set<std::string> reference_samples;
+    gbwtgraph::sample_name_set reference_samples;
 
     string output_basename;
     string report_name;

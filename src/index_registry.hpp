@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include <limits>
 
+#include <gbwtgraph/utils.h>
+
 namespace vg {
 
 using namespace std;
@@ -132,7 +134,7 @@ struct IndexingParameters {
     // whether indexing algorithms will log progress (if available) [Basic]
     static Verbosity verbosity;
     // Set of samples to make references and retain during haplotype sampling [{}]
-    static std::unordered_set<std::string> haplotype_sampling_reference_samples;
+    static gbwtgraph::sample_name_set haplotype_sampling_reference_samples;
     // Number of haplotypes to sample during haplotype sampling [Recombinator::NUM_CANDIDATES]
     static size_t haplotype_sampling_num_haplotypes;
     // Whether to do diploid sampling during haplotype sampling [true]
