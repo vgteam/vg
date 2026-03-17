@@ -827,12 +827,101 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
     }
+    // Implement the logic for minimap2 long indels penalty adjustment.
+    // The new alignment score penalize long continous indels less, using the formula:
+    // score = matches - (mismatches + gap_opens)/2d - sum_{i=1}^{gap_opens} (log_2(1 + gap_length_i))
+    // with d = max{0.02, (mismatches + gap_opens)/(matches + mismatches + gap_opens)}
+    for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
+        if (alignments[alignment_index].path().mapping_size() == 0) {
+            // Unmapped, so skip it.
+            continue;
+        }
+        int matches = 0;
+        int mismatches = 0;
+        int gap_opens = 0;
+        vector<size_t> gap_lengths;
+        for (size_t i = 0; i < alignments[alignment_index].path().mapping_size(); ++i) {
+            auto& mapping = alignments[alignment_index].path().mapping(i);
+            for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                auto& edit = mapping.edit(j);
+                if (edit.from_length() == edit.to_length() && edit.from_length() > 0) {
+                    if (edit.sequence().empty()) {
+                        matches += edit.from_length();
+                    } else {
+                        mismatches += edit.from_length();
+                    }
+                } else if (edit.from_length() == 0 && edit.to_length() > 0) {
+                    gap_opens++;
+                    gap_lengths.push_back(edit.to_length());
+                } else if (edit.from_length() > 0 && edit.to_length() == 0) {
+                    gap_opens++;
+                    gap_lengths.push_back(edit.from_length());
+                } else {
+                    mismatches += max(edit.from_length(), edit.to_length());
+                }
+            }
+        }
+       
+        double d = max(0.02, static_cast<double>(mismatches + gap_opens) / static_cast<double>(matches + mismatches + gap_opens));
+        double non_match_penalty = static_cast<double>(mismatches + gap_opens) / (2.0 * d);
+        
+        double indel_penalty = 0;
+        for (auto& gap_length : gap_lengths) {
+            indel_penalty += log2(1 + gap_length);
+        }
+        int adjusted_score = static_cast<int>(matches - non_match_penalty - indel_penalty);
+        alignments[alignment_index].set_score(adjusted_score);
+         if (show_work) {
+            #pragma omp critical (cerr)
+            {   
+                // cerr << log_name() << "Alignment " << alignment_index << " CIGAR:";
+                // // print whole cigar compressed with separated matches/mismatches
+                // vector<pair<int, char>> cigar_ops;
+                // auto add_op = [&](int len, char op) {
+                //     if (len == 0) return;
+                //     if (!cigar_ops.empty() && cigar_ops.back().second == op) {
+                //         cigar_ops.back().first += len;
+                //     } else {
+                //         cigar_ops.push_back({len, op});
+                //     }
+                // };
 
+                // for (size_t i = 0; i < alignments[alignment_index].path().mapping_size(); ++i) {
+                //     auto& mapping = alignments[alignment_index].path().mapping(i);
+                //     for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                //         auto& edit = mapping.edit(j);
+                //         if (edit.from_length() == edit.to_length() && edit.from_length() > 0) {
+                //             if (edit.sequence().empty()) {
+                //                 add_op(edit.from_length(), '=');
+                //             } else {
+                //                 add_op(edit.from_length(), 'X');
+                //             }
+                //         } else if (edit.from_length() == 0 && edit.to_length() > 0) {
+                //             add_op(edit.to_length(), 'I');
+                //         } else if (edit.from_length() > 0 && edit.to_length() == 0) {
+                //             add_op(edit.from_length(), 'D');
+                //         } else {
+                //             add_op(max(edit.from_length(), edit.to_length()), 'X');
+                //         }
+                //     }
+                // }
+                // for (auto& op : cigar_ops) {
+                //     cerr << " " << op.first << op.second;
+                // }
+                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_opens << " New score: " << adjusted_score << endl;
+            }
+        }
+    }
     if (!chain_rec_counts.empty() && !alignments_to_source.empty()) {
         for (size_t alignment_index = 0; alignment_index < alignments_to_source.size(); ++alignment_index) {
             size_t chain_index = alignments_to_source[alignment_index];
             if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
                 set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
+                if (rec_penalty_chain != 0) {
+                    int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
+                    int64_t adjusted_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
+                    alignments[alignment_index].set_score(static_cast<int>(adjusted_score));
+                }
             }
         }
     }

@@ -556,6 +556,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     base_seed_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
+    // Track eval bonus for heuristic comparison (path conservation bonus, used for
+    // selection only without affecting the actual stored score).
+    // Starting from nowhere means full path conservation, so bonus = recomb_penalty.
+    std::vector<int> eval_bonuses(to_chain.size(), std::max(0, recomb_penalty));
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
         chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
@@ -583,8 +587,20 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], 
-                                                      {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()});
+        // This also has full path conservation (bonus = recomb_penalty).
+        {
+            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
+            int nowhere_bonus = std::max(0, recomb_penalty);
+            int eval_nowhere = from_nowhere.score + nowhere_bonus;
+            int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
+            if (eval_nowhere > eval_current) {
+                chain_scores[transition.to_anchor] = from_nowhere;
+                eval_bonuses[transition.to_anchor] = nowhere_bonus;
+            } else if (eval_nowhere == eval_current && from_nowhere > chain_scores[transition.to_anchor]) {
+                chain_scores[transition.to_anchor] = from_nowhere;
+                eval_bonuses[transition.to_anchor] = nowhere_bonus;
+            }
+        }
         
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
@@ -657,8 +673,34 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             TracedScore from_source_score = source_score.add_points(jump_points + item_points)
                                                         .set_shared_paths(here.anchor_paths());
             
-            // Remember that we could make this jump
-            chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], from_source_score);
+            // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
+            // Bonus = fraction of conserved paths * recomb_penalty.
+            // Bonus is 0 when recombination occurs (no shared paths).
+            int eval_bonus_from = 0;
+            if (recomb_penalty > 0) {
+                int pre_count = __builtin_popcountll(source_score.paths);
+                if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
+                    // No recombination: bonus = fraction of paths conserved * penalty
+                    int post_count = __builtin_popcountll(from_source_score.paths);
+                    eval_bonus_from = (recomb_penalty * post_count) / pre_count;
+                }
+                // Recombination case (no shared paths): bonus stays 0
+            }
+
+            auto& current_best = chain_scores[transition.to_anchor];
+            int eval_from = from_source_score.score + eval_bonus_from;
+            int eval_best = current_best.score + eval_bonuses[transition.to_anchor];
+
+            if (eval_from > eval_best) {
+                current_best = from_source_score;
+                eval_bonuses[transition.to_anchor] = eval_bonus_from;
+            } else if (eval_from == eval_best) {
+                // Tie-breaker using actual underlying standard formulations
+                if (from_source_score > current_best) {
+                    current_best = from_source_score;
+                    eval_bonuses[transition.to_anchor] = eval_bonus_from;
+                }
+            }
                                            
             if (show_work) {
                 cerr << "\t\tWe can reach #" << transition.to_anchor << " with " << source_score << " + " << jump_points
