@@ -60,7 +60,7 @@ var searchData=
   ['ln_5fto_5flog10_3454',['ln_to_log10',['../namespacevg.html#a664ec3301c226596ad971b97a8e1fa65',1,'vg']]],
   ['load_3455',['load',['../classvg_1_1StreamIndexBase.html#af30b1923f99ff4946103625f90ea1d9c',1,'vg::StreamIndexBase::load()'],['../classvg_1_1Translator.html#aec046a08186a8235a9dec5e844e30536',1,'vg::Translator::load()'],['../classxg_1_1XGPath.html#aeeb9f00d9af56f7f4aae8981f9dafe35',1,'xg::XGPath::load()'],['../classvg_1_1AugRefCover.html#a278b0030abd0ece4c6c20f6f02bcc2dc',1,'vg::AugRefCover::load()'],['../classvg_1_1Packer.html#aa85311440b3cd054439b59d64581a58a',1,'vg::Packer::load()'],['../classvg_1_1Packers.html#a66b45adedcd2fb5da8cd8aaf8bd43abc',1,'vg::Packers::load()'],['../classvg_1_1Paths.html#ab8a32e29f758ec6b62e0dc87e7f8018d',1,'vg::Paths::load()']]],
   ['load_5falignments_3456',['load_alignments',['../classvg_1_1MSAConverter.html#aa03dea64fc16011eb69d212deb115446',1,'vg::MSAConverter']]],
-  ['load_5fand_5fvalidate_5fheader_3457',['load_and_validate_header',['../describe__main_8cpp.html#ad7c132b0ca6f7c305d4c6a07e2d6f87b',1,'describe_main.cpp']]],
+  ['load_5fand_5fvalidate_5fheader_3457',['load_and_validate_header',['../describe__main_8cpp.html#a867e759e1f1bbc5429c8d83c99711efa',1,'describe_main.cpp']]],
   ['load_5fbed_3458',['load_bed',['../classvg_1_1FeatureSet.html#a373be59592f7f4f8c98f6d76563051ef',1,'vg::FeatureSet']]],
   ['load_5ffrom_3459',['load_from',['../classvg_1_1Haplotypes.html#ae4ce505e821cdd049f26dc932d6bfc2c',1,'vg::Haplotypes']]],
   ['load_5ffrom_5ffile_3460',['load_from_file',['../classvg_1_1Packer.html#a55b21208921e13f2399f4475d4d02b32',1,'vg::Packer']]],
