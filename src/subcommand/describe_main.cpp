@@ -218,7 +218,9 @@ void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostrea
     out << "  " << (metadata ? "Contains" : "Does not contain") << " path metadata" << std::endl;
     out << std::endl;
 
-    list_tags(in, simple_sds, index_type, out);
+    if (header.version >= gbwt::GBWTHeader::TAGS_VERSION) {
+        list_tags(in, simple_sds, index_type, out);
+    }
 }
 
 void describe_r_index(std::ifstream& in, const std::string& index_type, std::ostream& out) {
@@ -271,7 +273,9 @@ void describe_minimizer_index(std::ifstream& in, const std::string& index_type, 
     out << "  " << key_bits << "-bit keys and " << payload_words << "-word payloads" << std::endl;
     out << std::endl;
 
-    list_tags(in, false, index_type, out);
+    if (header.version >= gbwtgraph::MinimizerHeader::TAGS_VERSION) {
+        list_tags(in, false, index_type, out);
+    }
 }
 
 //----------------------------------------------------------------------------
