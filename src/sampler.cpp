@@ -634,6 +634,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            double fragment_length_stdev,
                            double error_multiplier,
                            bool retry_on_Ns,
+                           bool use_avg_length,
                            bool sample_unsheared_paths,
                            uint64_t manual_seed) :
       AbstractReadSampler(graph)
@@ -643,6 +644,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , fragment_mean(fragment_length_mean)
     , fragment_sd(fragment_length_stdev)
     , retry_on_Ns(retry_on_Ns)
+    , use_avg_length(use_avg_length)
     , strand_sampler(0, 1)
     , background_sampler(0, alphabet.size() - 1)
     , mut_sampler(0, alphabet.size() - 2)
@@ -858,29 +860,34 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     // auto-detect the read length
     size_t modal_length = 0;
     size_t modal_length_count = 0;
+    size_t total_length = 0;
     size_t total_reads = 0;
     for (const pair<size_t, size_t>& length_record : length_count) {
         if (length_record.second > modal_length_count) {
             modal_length_count = length_record.second;
             modal_length = length_record.first;
         }
+        total_length += length_record.first * length_record.second;
         total_reads += length_record.second;
     }
+
+    size_t final_read_length = use_avg_length ? total_length / total_reads 
+                                              : modal_length;
     
-    if (((double) modal_length_count) / total_reads < 0.5 && !sample_unsheared_paths) {
+    if (((double) modal_length_count) / total_reads < 0.5 && !sample_unsheared_paths && !use_avg_length) {
         cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " encompasses less than half of training reads, NGSSimulator is optimized for training data in which most reads are the same length" << endl;
     }
     
-    if (modal_length > fragment_length_mean - 2.0 * fragment_length_stdev && !sample_unsheared_paths) {
-        cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean fragment length " << fragment_length_mean << " and standard deviation " << fragment_length_stdev << ". Sampling may take additional time and the statistical properties of the fragment length distribution may not reflect input parameters." << endl;
+    if (final_read_length > fragment_length_mean - 2.0 * fragment_length_stdev && !sample_unsheared_paths) {
+        cerr << "warning:[NGSSimulator] Auto-detected read length of " << final_read_length << " is long compared to mean fragment length " << fragment_length_mean << " and standard deviation " << fragment_length_stdev << ". Sampling may take additional time and the statistical properties of the fragment length distribution may not reflect input parameters." << endl;
     }
     
-    // shorten the quality string samplers until they are the modal length (this determines read length later)
+    // shorten the quality string samplers until they are the final length (this determines read length later)
     // if we're sampling unsheared paths, take the whole read
-    while (transition_distrs_1.size() > modal_length && !sample_unsheared_paths) {
+    while (transition_distrs_1.size() > final_read_length && !sample_unsheared_paths) {
         transition_distrs_1.pop_back();
     }
-    while (transition_distrs_2.size() > modal_length && !sample_unsheared_paths) {
+    while (transition_distrs_2.size() > final_read_length && !sample_unsheared_paths) {
         transition_distrs_2.pop_back();
     }
     

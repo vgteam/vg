@@ -225,6 +225,7 @@ public:
                  double fragment_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
+                 bool use_avg_length = false,
                  bool sample_unsheared_paths = false,
                  uint64_t seed = 0);
     
@@ -387,6 +388,8 @@ private:
     
     /// Should we try again for a read without Ns of we get Ns?
     const bool retry_on_Ns;
+    /// Should we use the mean read length instead of the mode?
+    const bool use_avg_length;
     const bool sample_unsheared_paths;
     
     /// Restrict reads to just these paths (path-only mode) if nonempty.
