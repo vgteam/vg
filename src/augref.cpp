@@ -102,10 +102,12 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     // Rank by name only (ignoring coverage) produces fewer, longer intervals
     // in practice: adjacent snarls tend to pick the same path, so same-path
     // merging succeeds more often during the fold.
-    // Determinism is ensured by (1) clearing thread-local coverage between
-    // top-level snarls so each is computed independently, (2) sorting
-    // intervals longest-first so the fold result is independent of OpenMP
-    // thread scheduling, and (3) skipping fully-covered intervals in the fold.
+    // Correctness requires (1) clearing thread-local coverage between
+    // top-level snarls so each snarl's interval choices are based only on
+    // its own traversals, (2) folding longest intervals first so shorter
+    // duplicates don't displace them, and (3) skipping fully-covered
+    // intervals in the fold.  Together these also guarantee determinism
+    // regardless of thread count or scheduling.
     this->rank_by_name = true;
 
     // start with the reference paths
@@ -148,10 +150,10 @@ void AugRefCover::compute(const PathHandleGraph* graph,
         unordered_map<nid_t, int64_t>& thread_node_to_interval = node_to_interval_vector[omp_get_thread_num()];
         vector<pair<nid_t, nid_t>>& thread_snarl_bounds = snarl_bounds_vector[omp_get_thread_num()];
 
-        // Clear thread-local coverage so each top-level snarl is processed
-        // independently.  Without this, coverage leaks between top-level
-        // snarls assigned to the same thread, making results depend on
-        // thread count and scheduling order.
+        // Clear thread-local coverage so each top-level snarl's interval
+        // choices are based only on its own traversals.  Without this,
+        // leftover coverage from a previous snarl on the same thread causes
+        // incorrect interval selections (and non-determinism across thread counts).
         // Note: only the map is cleared, not thread_augref_intervals.  The
         // intervals vector must accumulate across snarls because the fold
         // phase collects all entries from it.  New map entries get correct
@@ -211,8 +213,7 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     }
     std::sort(all_intervals.begin(), all_intervals.end(), [&](const FoldEntry& a, const FoldEntry& b) {
         // primary: longer intervals first (by node-ID span, an O(1) proxy
-        // for step count in topologically-sorted graphs), preventing short
-        // intervals from pre-empting longer ones
+        // for step count in topologically-sorted graphs)
         if (a.node_span != b.node_span) return a.node_span > b.node_span;
         // secondary: snarl boundary nodes (groups intervals from the same snarl)
         if (a.snarl_bounds != b.snarl_bounds) return a.snarl_bounds < b.snarl_bounds;
@@ -223,14 +224,12 @@ void AugRefCover::compute(const PathHandleGraph* graph,
                graph->get_id(graph->get_handle_of_step(b.interval.first));
     });
 
-    // Fold sorted intervals into the global cover.  Because top-level snarls
-    // are processed independently (thread_node_to_interval is cleared per
-    // snarl), different snarls may produce overlapping intervals.  Skip any
-    // interval whose nodes are already fully covered to avoid short intervals
-    // from one snarl pre-empting longer ones from another.  Partially
-    // overlapping intervals may still be added and temporarily reassign
-    // some nodes in node_to_interval; defragment_intervals() below rebuilds
-    // the index from scratch to resolve any such inconsistencies.
+    // Fold sorted intervals into the global cover.  Different snarls may
+    // produce overlapping intervals, so skip any interval whose nodes are
+    // already fully covered.  Partially overlapping intervals may still be
+    // added and temporarily reassign some nodes in node_to_interval;
+    // defragment_intervals() below rebuilds the index from scratch to
+    // resolve any such inconsistencies.
     for (auto& entry : all_intervals) {
         // Quick check: if the first node is already covered, do a full scan.
         // With longest-first ordering, most fully-covered intervals have a
@@ -893,6 +892,20 @@ bool AugRefCover::extension_would_duplicate_node(const unordered_map<nid_t, int6
     return false;
 }
 
+bool AugRefCover::would_duplicate_node(bool global,
+                                        const unordered_map<nid_t, int64_t>& nti,
+                                        int64_t target_idx,
+                                        step_handle_t ext_start, step_handle_t ext_end,
+                                        bool skip_first,
+                                        const pair<step_handle_t, step_handle_t>& interval_a,
+                                        const pair<step_handle_t, step_handle_t>& interval_b) const {
+    if (global) {
+        return extension_would_duplicate_node(nti, target_idx, ext_start, ext_end, skip_first);
+    } else {
+        return merge_would_duplicate_node(interval_a, interval_b);
+    }
+}
+
 bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
                                  unordered_map<nid_t, int64_t>& thread_node_to_interval,
                                  const pair<step_handle_t, step_handle_t>& new_interval,
@@ -936,10 +949,9 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                 if (orientations_match &&
                     (prev_interval.second == new_interval.first ||
                     (global && graph->get_previous_step(prev_interval.second) == new_interval.first)) &&
-                    !(global ? extension_would_duplicate_node(thread_node_to_interval, prev_idx,
-                                                              new_interval.first, new_interval.second,
-                                                              overlap_by_one)
-                             : merge_would_duplicate_node(prev_interval, new_interval))) {
+                    !would_duplicate_node(global, thread_node_to_interval, prev_idx,
+                                          new_interval.first, new_interval.second, overlap_by_one,
+                                          prev_interval, new_interval)) {
 #ifdef debug
 #pragma omp critical(cerr)
                     cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
@@ -968,9 +980,9 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                     // Try 1: extend prev_interval forward on its path to cover new_interval's nodes
                     auto ext_fwd = try_extend_forward(prev_interval.second, prev_path, new_interval);
                     if (ext_fwd &&
-                        !(global ? extension_would_duplicate_node(thread_node_to_interval, prev_idx,
-                                                                   prev_interval.second, *ext_fwd, false)
-                                 : merge_would_duplicate_node(prev_interval, {prev_interval.second, *ext_fwd}))) {
+                        !would_duplicate_node(global, thread_node_to_interval, prev_idx,
+                                              prev_interval.second, *ext_fwd, false,
+                                              prev_interval, {prev_interval.second, *ext_fwd})) {
                         prev_interval.second = *ext_fwd;
                         merged = true;
                         merged_interval_idx = prev_idx;
@@ -1021,23 +1033,18 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                     (global && next_interval.first == graph->get_previous_step(effective_interval.second)))) {
                     // Check for duplicate nodes before merging: use the already-merged
                     // interval for the both-sided case, or effective_interval for right-only.
-                    // When global & merged, use fast nti check on next_interval (avoids
-                    // walking the potentially very long merged interval).
                     bool right_overlap = next_interval.first != effective_interval.second;
                     bool no_dup;
-                    if (global && merged) {
-                        no_dup = !extension_would_duplicate_node(thread_node_to_interval, merged_interval_idx,
-                                                                  next_interval.first, next_interval.second,
-                                                                  right_overlap);
-                    } else if (global && !merged) {
-                        // effective_interval isn't in nti yet; walk it against next_idx
-                        no_dup = !extension_would_duplicate_node(thread_node_to_interval, next_idx,
-                                                                  effective_interval.first, effective_interval.second,
-                                                                  right_overlap);
+                    if (merged) {
+                        // Walk next_interval against the merged left interval
+                        no_dup = !would_duplicate_node(global, thread_node_to_interval, merged_interval_idx,
+                                                       next_interval.first, next_interval.second, right_overlap,
+                                                       thread_augref_intervals[merged_interval_idx], next_interval);
                     } else {
-                        pair<step_handle_t, step_handle_t> left_side = merged ?
-                            thread_augref_intervals[merged_interval_idx] : effective_interval;
-                        no_dup = !merge_would_duplicate_node(left_side, next_interval);
+                        // Walk effective_interval against next_interval
+                        no_dup = !would_duplicate_node(global, thread_node_to_interval, next_idx,
+                                                       effective_interval.first, effective_interval.second, right_overlap,
+                                                       effective_interval, next_interval);
                     }
                     if (no_dup) {
 #ifdef debug
@@ -1080,9 +1087,9 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                     step_handle_t next_pred = graph->get_previous_step(next_interval.first);
                     auto ext_bwd = try_extend_backward(next_pred, next_path, effective_interval);
                     if (ext_bwd &&
-                        !(global ? extension_would_duplicate_node(thread_node_to_interval, next_idx,
-                                                                   *ext_bwd, next_interval.first, false)
-                                 : merge_would_duplicate_node({*ext_bwd, next_interval.first}, next_interval))) {
+                        !would_duplicate_node(global, thread_node_to_interval, next_idx,
+                                              *ext_bwd, next_interval.first, false,
+                                              {*ext_bwd, next_interval.first}, next_interval)) {
                         next_interval.first = *ext_bwd;
                         merged = true;
                         merged_interval_idx = next_idx;

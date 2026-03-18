@@ -166,6 +166,17 @@ protected:
                                         step_handle_t start, step_handle_t end,
                                         bool skip_first_node) const;
 
+    // Unified duplicate-node check: dispatches to extension_would_duplicate_node
+    // (O(extension_length)) when global=true, or merge_would_duplicate_node
+    // (O(combined_length)) otherwise.
+    bool would_duplicate_node(bool global,
+                              const unordered_map<nid_t, int64_t>& nti,
+                              int64_t target_idx,
+                              step_handle_t ext_start, step_handle_t ext_end,
+                              bool skip_first,
+                              const pair<step_handle_t, step_handle_t>& interval_a,
+                              const pair<step_handle_t, step_handle_t>& interval_b) const;
+
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 
