@@ -98,6 +98,8 @@ public:
     vector<string> source_paths;
     vg::discrete_distribution<> path_sampler; // draw an index in source_paths
     size_t total_seq_length = 0;
+    /// Error/warning logger
+    Logger logger;
     
     /// Make a Sampler to sample from the given graph.
     /// If sampling from particular paths, source_paths should contain their
@@ -117,7 +119,8 @@ public:
           forward_only(forward_only),
           no_Ns(!allow_Ns),
           nonce(0),
-          source_paths(source_paths) {
+          source_paths(source_paths),
+          logger(Logger("Sampler")) {
         // sum seq lengths
         graph.for_each_handle([&](const handle_t& handle) {
             total_seq_length += graph.get_length(handle);
@@ -396,6 +399,9 @@ private:
     vector<string> source_paths;
     
     ofstream position_file;
+
+    /// Error/warning logger
+    Logger logger;
 };
     
 

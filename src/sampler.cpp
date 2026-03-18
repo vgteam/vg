@@ -32,17 +32,14 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
                                const vector<pair<string, double>>& transcript_expressions,
                                const vector<tuple<string, string, size_t>>& haplotype_transcripts) {
     if (!source_paths.empty() && !transcript_expressions.empty()) {
-        cerr << "error:[Sampler] cannot sample from list of paths and from list of transcripts simultaneously" << endl;
-        exit(1);
+        logger.error() << "cannot sample from list of paths and from list of transcripts simultaneously" << endl;
     }
     else if (!haplotype_transcripts.empty() && transcript_expressions.empty()) {
-        cerr << "error:[Sampler] cannot sample from haplotype transcripts without an expression profile" << endl;
-        exit(1);
+        logger.error() << "cannot sample from haplotype transcripts without an expression profile" << endl;
     }
     if (!source_path_ploidies.empty() && source_path_ploidies.size() != source_paths.size()) {
-        cerr << "error:[Sampler] cannot sample from list of paths with the wrong number of ploidy weights ("
-            << source_path_ploidies.size() << " vs. " << source_paths.size() << ")" << endl;
-        exit(1);
+        logger.error() << "cannot sample from list of paths with the wrong number of ploidy weights ("
+                       << source_path_ploidies.size() << " vs. " << source_paths.size() << ")" << endl;
     }
     else if (!transcript_expressions.empty()) {
         this->source_paths.clear();
@@ -564,8 +561,8 @@ Alignment Sampler::alignment_with_error(size_t length,
         }
     }
     if (iter == max_tries) {
-        cerr << "[vg::Sampler] Warning: could not generate alignment of sufficient length in "
-             << max_tries << " tries. Graph may be too small, or indel rate too high." << endl;
+        logger.warn() << "could not generate alignment of sufficient length in "
+                      << max_tries << " tries. Graph may be too small, or indel rate too high." << endl;
     }
     aln.set_identity(identity(aln.path()));
     
@@ -603,10 +600,10 @@ bool Sampler::is_valid(const Alignment& aln) {
         auto expected_bases = graph.get_length(graph.get_handle(mapping.position().node_id()));
         
         if (accounted_bases != expected_bases) {
-            cerr << "[vg::Sampler] Warning: alignment mapping " << i << " accounts for "
-                << accounted_bases << " bases of graph sequence, but needs to account for "
-                << expected_bases << endl;
-            cerr << pb2json(aln) << endl;
+            logger.warn() << "alignment mapping " << i << " accounts for "
+                          << accounted_bases << " bases of graph sequence, but needs to account for "
+                          << expected_bases << endl
+                          << pb2json(aln) << endl;
             return false;
         }
     }
@@ -653,48 +650,42 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , source_paths(source_paths_input)
     , joint_initial_distr(manual_seed ? 1760681024122689423ull * manual_seed + 1107607255714504485ull : random_device()())
     , sample_unsheared_paths(sample_unsheared_paths)
+    , logger(Logger("NGSSimulator"))
 {
     if (!ngs_paired_fastq_file.empty() && interleaved_fastq) {
-        cerr << "error:[NGSSimulator] cannot indicate interleaved FASTQ and paired FASTQs simultaneously" << endl;
-        exit(1);
+        logger.error() << "cannot indicate interleaved FASTQ and paired FASTQs simultaneously" << endl;
     }
     
     if (!source_paths.empty() && !transcript_expressions.empty()) {
-        cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expression profile" << endl;
-        exit(1);
+        logger.error() << "cannot simultaneously limit sampling to paths and match an expression profile" << endl;
     }
     
     if (!source_path_ploidies.empty() && source_path_ploidies.size() != source_paths.size()) {
-        cerr << "error:[NGSSimulator] cannot sample from list of paths with the wrong number of ploidy weights ("
-            << source_path_ploidies.size() << " vs. " << source_paths.size() << ")" << endl;
-        exit(1);
+        logger.error() << "cannot sample from list of paths with the wrong number of ploidy weights ("
+                       << source_path_ploidies.size() << " vs. " << source_paths.size() << ")" << endl;
     }
     
     if (!haplotype_transcripts.empty() && transcript_expressions.empty()) {
-        cerr << "error:[NGSSimulator] cannot sample from haplotype transcripts without an expression profile" << endl;
-        exit(1);
+        logger.error() << "cannot sample from haplotype transcripts without an expression profile" << endl;
     }
     
     if (substition_polymorphism_rate < 0.0 || substition_polymorphism_rate > 1.0
         || indel_polymorphism_rate < 0.0 || indel_polymorphism_rate > 1.0
         || indel_error_proportion < 0.0 || indel_error_proportion > 1.0) {
-        cerr << "error:[NGSSimulator] All proportions must be between 0.0 and 1.0" << endl;
-        exit(1);
+        logger.error() << "All proportions must be between 0.0 and 1.0" << endl;
     }
     
     if (substition_polymorphism_rate + indel_polymorphism_rate > 1.0) {
-        cerr << "error:[NGSSimulator] Indel polymorphism rate and substitution polymorphism rate cannot sum to greater than 1.0" << endl;
-        exit(1);
+        logger.error() << "Indel polymorphism rate and substitution polymorphism rate"
+                       << " cannot sum to greater than 1.0" << endl;
     }
     
     if (fragment_length_mean <= 0.0) {
-        cerr << "error:[NGSSimulator] Mean fragment length must be positive" << endl;
-        exit(1);
+        logger.error() << "Mean fragment length must be positive" << endl;
     }
     
     if (fragment_length_stdev < 0.0) {
-        cerr << "error:[NGSSimulator] Fragment length standard deviation must be positive" << endl;
-        exit(1);
+        logger.error() << "Fragment length standard deviation must be positive" << endl;
     }
     
     
@@ -875,11 +866,18 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                                               : modal_length;
     
     if (((double) modal_length_count) / total_reads < 0.5 && !sample_unsheared_paths && !use_avg_length) {
-        cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " encompasses less than half of training reads, NGSSimulator is optimized for training data in which most reads are the same length" << endl;
+        logger.warn() << "Auto-detected read length of " << modal_length 
+                      << " encompasses less than half of training reads;"
+                      << " NGSSimulator is optimized for training data"
+                      << " in which most reads are the same length" << endl;
     }
     
     if (final_read_length > fragment_length_mean - 2.0 * fragment_length_stdev && !sample_unsheared_paths) {
-        cerr << "warning:[NGSSimulator] Auto-detected read length of " << final_read_length << " is long compared to mean fragment length " << fragment_length_mean << " and standard deviation " << fragment_length_stdev << ". Sampling may take additional time and the statistical properties of the fragment length distribution may not reflect input parameters." << endl;
+        logger.warn() << "Auto-detected read length of " << final_read_length 
+                      << " is long compared to mean fragment length " << fragment_length_mean 
+                      << " and standard deviation " << fragment_length_stdev 
+                      << ". Sampling may take additional time and the statistical properties"
+                      << " of the fragment length distribution may not reflect input parameters." << endl;
     }
     
     // shorten the quality string samplers until they are the final length (this determines read length later)
@@ -892,8 +890,8 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     }
     
     if (transition_distrs_1.size() != transition_distrs_2.size() && transition_distrs_2.size() > 0) {
-        cerr << "error:[NGSSimulator] One fragment end in training data has no reads at the modal length, cannot produce joint samples" << endl;
-        exit(1);
+        logger.error() << "One fragment end in training data has no reads at the modal length;"
+                       << " cannot produce joint samples" << endl;
     }
     
     finalize();
@@ -915,13 +913,11 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
 
 void NGSSimulator::connect_to_position_file(const string& filename) {
     if (source_paths.empty()) {
-        cerr << "warning:[NGSSimulator] path position file will not be created because not simulating from paths" << endl;
-        return;
+        logger.warn() << "path position file will not be created because not simulating from paths" << endl;
     }
     position_file.open(filename);
     if (!position_file) {
-        cerr << "error:[NGSSimulator] failed to open position file: " << filename << endl;
-        exit(1);
+        logger.error() << "failed to open position file: " << filename << endl;
     }
     position_file << "read\tpath\toffset\treverse" << endl;
 }
