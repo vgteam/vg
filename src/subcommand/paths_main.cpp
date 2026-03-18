@@ -80,7 +80,7 @@ void help_paths(char** argv) {
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
-         << "                            applies only to snarl finding within -n" << endl;
+         << "                            applies to -n (snarl finding) and -u (augref)" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.

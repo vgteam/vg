@@ -157,6 +157,15 @@ protected:
     bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
                                     const pair<step_handle_t, step_handle_t>& interval_b) const;
 
+    // Fast duplicate check for global fold: walks only new_steps [start, end) and
+    // checks whether any of those node IDs already belong to target_interval_idx
+    // in the given node-to-interval map.  skip_first_node should be true for
+    // overlap-by-one merges where the boundary node is shared by design.
+    bool extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
+                                        int64_t target_interval_idx,
+                                        step_handle_t start, step_handle_t end,
+                                        bool skip_first_node) const;
+
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 
