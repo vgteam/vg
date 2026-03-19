@@ -152,13 +152,13 @@ protected:
     optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
                                                  const pair<step_handle_t, step_handle_t>& other_interval);
 
+    // Check if merging two adjacent/overlapping step ranges on the same path
+    // would produce a duplicate node ID.  Walks [interval_a.first, interval_b.second).
+    bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
+                                    const pair<step_handle_t, step_handle_t>& interval_b) const;
+
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
-
-    // Make sure all nodes in all augref paths are in forward orientation.
-    // This is always possible because they are, by definition, disjoint.
-    // This should only be run from inside apply().
-    void forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph);
 
     // Second pass: greedily cover any nodes not covered by snarl traversals.
     // This handles nodes that are outside of snarls or in complex regions

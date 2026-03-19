@@ -8,6 +8,7 @@
 
 #include <google/protobuf/util/message_differencer.h>
 #include <gbwt/dynamic_gbwt.h>
+#include <gbwtgraph/utils.h>
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
@@ -276,7 +277,7 @@ class Transcriptome {
         int32_t parse_transcripts(vector<Transcript> * transcripts, uint32_t * number_of_excluded_transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
 
         /// Returns gbwt path name without phaseblock and subrange. 
-        string get_base_gbwt_path_name(const gbwt::GBWT & haplotype_index, const size_t path_id, const unordered_set<string> & gbwt_reference_samples) const;
+        string get_base_gbwt_path_name(const gbwt::GBWT & haplotype_index, const size_t path_id, const gbwtgraph::sample_name_set& gbwt_reference_samples) const;
 
         /// Parse gtf/gff3 attribute value.
         string parse_attribute_value(const string & attribute, const string & name) const;
@@ -330,11 +331,11 @@ class Transcriptome {
 
         /// Projects transcripts onto haplotypes in a GBWT index and returns the resulting transcript paths.
         list<EditedTranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index,
-                                                           const unordered_set<string>& reference_samples, const float mean_node_length) const;
+                                                           const gbwtgraph::sample_name_set& reference_samples, const float mean_node_length) const;
 
         /// Extracts all unique haplotype paths between two nodes from a GBWT index and returns the 
         /// resulting paths and the corresponding haplotype ids for each path.
-        vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index,  const unordered_set<string>& reference_samples, const int32_t expected_length) const;
+        vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index,  const gbwtgraph::sample_name_set& reference_samples, const int32_t expected_length) const;
 
         /// Remove redundant transcript paths and update index.
         template <class T>
