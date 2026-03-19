@@ -102,12 +102,12 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     // Rank by name only (ignoring coverage) produces fewer, longer intervals
     // in practice: adjacent snarls tend to pick the same path, so same-path
     // merging succeeds more often during the fold.
-    // Correctness requires (1) clearing thread-local coverage between
-    // top-level snarls so each snarl's interval choices are based only on
-    // its own traversals, (2) folding longest intervals first so shorter
-    // duplicates don't displace them, and (3) skipping fully-covered
-    // intervals in the fold.  Together these also guarantee determinism
-    // regardless of thread count or scheduling.
+    // Correctness requires each top-level snarl's interval choices to be
+    // based only on its own traversals (the node-to-interval map is local
+    // to each snarl iteration below).  Determinism is ensured by sorting
+    // longest intervals first and skipping fully-covered intervals in the
+    // fold, which selects a single canonical cover regardless of thread
+    // count or scheduling.
     this->rank_by_name = true;
 
     // start with the reference paths
@@ -140,25 +140,15 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     // we collect the augref cover in parallel as a list of path fragments
     size_t thread_count = get_thread_count();
     vector<vector<pair<step_handle_t, step_handle_t>>> augref_intervals_vector(thread_count);
-    vector<unordered_map<nid_t, int64_t>> node_to_interval_vector(thread_count);
     vector<vector<pair<nid_t, nid_t>>> snarl_bounds_vector(thread_count);
 
     // we process top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
-        // per-thread output
+        // per-thread output (intervals and snarl bounds accumulate across snarls)
         vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals = augref_intervals_vector[omp_get_thread_num()];
-        unordered_map<nid_t, int64_t>& thread_node_to_interval = node_to_interval_vector[omp_get_thread_num()];
         vector<pair<nid_t, nid_t>>& thread_snarl_bounds = snarl_bounds_vector[omp_get_thread_num()];
-
-        // Clear thread-local coverage so each top-level snarl's interval
-        // choices are based only on its own traversals.  Without this,
-        // leftover coverage from a previous snarl on the same thread causes
-        // incorrect interval selections (and non-determinism across thread counts).
-        // Note: only the map is cleared, not thread_augref_intervals.  The
-        // intervals vector must accumulate across snarls because the fold
-        // phase collects all entries from it.  New map entries get correct
-        // indices because add_interval always appends to the vector.
-        thread_node_to_interval.clear();
+        // scratch: maps node IDs to interval indices within this snarl only
+        unordered_map<nid_t, int64_t> thread_node_to_interval;
 
         // capture the top-level snarl boundary node IDs
         nid_t top_snarl_start = snarl->start().node_id();
@@ -208,7 +198,6 @@ void AugRefCover::compute(const PathHandleGraph* graph,
             }
         }
         augref_intervals_vector[t].clear();
-        node_to_interval_vector[t].clear();
         snarl_bounds_vector[t].clear();
     }
     std::sort(all_intervals.begin(), all_intervals.end(), [&](const FoldEntry& a, const FoldEntry& b) {
