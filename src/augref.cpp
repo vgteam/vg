@@ -1,6 +1,7 @@
 #include "augref.hpp"
 #include <sstream>
 #include <algorithm>
+#include <functional>
 #include <queue>
 #include <iomanip>
 
@@ -20,7 +21,7 @@ string AugRefCover::make_augref_name(const string& base_path_name, int64_t augre
 bool AugRefCover::is_augref_name(const string& path_name) {
     // Check for pattern: _{digits}_alt at the end
     // Must end with "_alt"
-    if (path_name.length() < 6) {  // minimum: "x_1_alt"
+    if (path_name.length() < 7) {  // minimum: "x_1_alt" (7 chars)
         return false;
     }
     if (path_name.substr(path_name.length() - 4) != augref_suffix) {
@@ -254,7 +255,7 @@ void AugRefCover::compute(const PathHandleGraph* graph,
     fill_uncovered_nodes(1 /*defer length filter to post-merge*/);
 
     // debug: verify all nodes are covered
-    verify_cover();
+    verify_cover(minimum_length);
 
     // second length filter: remove any tiny intervals from fill_uncovered_nodes
     filter_short_intervals(minimum_length);
@@ -427,7 +428,10 @@ void AugRefCover::load(const PathHandleGraph* graph,
 }
 
 void AugRefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
-    assert(this->graph == static_cast<PathHandleGraph*>(mutable_graph));
+    if (this->graph != static_cast<const PathHandleGraph*>(mutable_graph)) {
+        cerr << "[augref] error: apply() called with a different graph than compute()/load()" << endl;
+        exit(1);
+    }
 #ifdef debug
     cerr << "applying augref cover with " << this->num_ref_intervals << " ref intervals "
          << " and " << this->augref_intervals.size() << " total intervals" << endl;
@@ -648,7 +652,8 @@ void AugRefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_tr
     for (int64_t trav_idx = 0; trav_idx < travs.size(); ++trav_idx) {
         // only a reference traversal (or deletion that we don't need to consider)
         // will have its first two nodes covered
-        if (this->node_to_interval.count(graph->get_id(graph->get_handle_of_step(travs[trav_idx][0]))) &&
+        if (travs[trav_idx].size() >= 2 &&
+            this->node_to_interval.count(graph->get_id(graph->get_handle_of_step(travs[trav_idx][0]))) &&
             this->node_to_interval.count(graph->get_id(graph->get_handle_of_step(travs[trav_idx][1])))) {
             continue;
         }
@@ -919,11 +924,26 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
     path_handle_t path_handle = graph->get_path_handle_of_step(new_interval.first);
     pair<step_handle_t, step_handle_t> effective_interval = new_interval;
     bool left_cross_path_merged = false;
-    int64_t deleted_idx = -1;
-    step_handle_t deleted_interval_first, deleted_interval_second;  // save before decommission
 
-    // check the before-first step. if it's in an interval then it must be immediately
-    // preceeding so we merge the new interval to the end of the found interval
+    // Track decommissioned intervals for node_to_interval fixup in the commit phase.
+    // Multiple decommissions can occur (left try-2 + right try-2), so we use a vector.
+    struct DecommissionRecord {
+        step_handle_t saved_first, saved_second;
+    };
+    vector<DecommissionRecord> decommissioned;
+    auto decommission = [&](pair<step_handle_t, step_handle_t>& interval,
+                            path_handle_t path, int64_t idx) {
+        decommissioned.push_back({interval.first, interval.second});
+        interval.first = graph->path_end(path);
+        interval.second = graph->path_front_end(path);
+        if (snarl_bounds_vec) {
+            (*snarl_bounds_vec)[idx] = {0, 0};
+        }
+    };
+
+    // --- Left neighbor merge ---
+    // If the node immediately before new_interval belongs to an existing interval,
+    // try to merge (same-path extend, or cross-path extend/absorb).
     step_handle_t before_first_step = graph->get_previous_step(new_interval.first);
     if (before_first_step != graph->path_front_end(graph->get_path_handle_of_step(before_first_step))) {
         nid_t prev_node_id = graph->get_id(graph->get_handle_of_step(before_first_step));
@@ -982,15 +1002,7 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                         if (ext_bwd &&
                             !merge_would_duplicate_node({*ext_bwd, new_interval.first}, new_interval)) {
                             effective_interval.first = *ext_bwd;
-                            // Decommission prev_interval
-                            deleted_interval_first = prev_interval.first;
-                            deleted_interval_second = prev_interval.second;
-                            deleted_idx = prev_idx;
-                            prev_interval.first = graph->path_end(prev_path);
-                            prev_interval.second = graph->path_front_end(prev_path);
-                            if (snarl_bounds_vec) {
-                                (*snarl_bounds_vec)[prev_idx] = {0, 0};
-                            }
+                            decommission(prev_interval, prev_path, prev_idx);
                             left_cross_path_merged = true;
                             // merged stays false — effective_interval will be pushed as new
                         }
@@ -1000,12 +1012,13 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
         }
     }
 
-    // check the end step. if it's in an interval then it must be immediately
-    // following we merge the new interval to the front of the found interval
-    // Skip right merge only after left cross-path try 1 (merged=true), where the
-    // merged interval lives on a different path and right-checking effective_interval
-    // would mix paths. After try 2 (merged=false), effective_interval is on the
-    // original path and right merge is valid.
+    // --- Right neighbor merge ---
+    // If the node at effective_interval's end belongs to an existing interval,
+    // try to merge (same-path extend, or cross-path extend/absorb).
+    // Skip after left cross-path try-1 (merged=true): the merged interval lives
+    // on a different path, so right-checking effective_interval would mix paths.
+    // After left try-2 (merged=false), effective_interval is on the original path
+    // and right merge is valid.
     if (!(left_cross_path_merged && merged) &&
         effective_interval.second != graph->path_end(graph->get_path_handle_of_step(effective_interval.second))) {
         nid_t next_node_id = graph->get_id(graph->get_handle_of_step(effective_interval.second));
@@ -1047,18 +1060,9 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                         }
 #endif
                         if (merged == true) {
-                            // save the interval bounds BEFORE decommissioning
-                            deleted_interval_first = next_interval.first;
-                            deleted_interval_second = next_interval.second;
-                            deleted_idx = next_idx;
-                            // decomission next_interval
-                            next_interval.first = graph->path_end(next_path);
-                            next_interval.second = graph->path_front_end(next_path);
-                            if (snarl_bounds_vec) {
-                                (*snarl_bounds_vec)[next_idx] = {0, 0};
-                            }
-                            // extend the previous interval right to cover both new_interval and the deleted next_interval
-                            thread_augref_intervals[merged_interval_idx].second = deleted_interval_second;
+                            decommission(next_interval, next_path, next_idx);
+                            // extend the merged interval right to cover new_interval + decommissioned next_interval
+                            thread_augref_intervals[merged_interval_idx].second = decommissioned.back().saved_second;
                         } else {
                             // extend next_interval left
                             next_interval.first = effective_interval.first;
@@ -1088,15 +1092,7 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                         if (ext_fwd &&
                             !merge_would_duplicate_node(effective_interval, {effective_interval.second, *ext_fwd})) {
                             effective_interval.second = *ext_fwd;
-                            // Decommission next_interval
-                            deleted_interval_first = next_interval.first;
-                            deleted_interval_second = next_interval.second;
-                            deleted_idx = next_idx;
-                            next_interval.first = graph->path_end(next_path);
-                            next_interval.second = graph->path_front_end(next_path);
-                            if (snarl_bounds_vec) {
-                                (*snarl_bounds_vec)[next_idx] = {0, 0};
-                            }
+                            decommission(next_interval, next_path, next_idx);
                         }
                     }
                 }
@@ -1104,7 +1100,7 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
         }
     }
 
-    // add the interval to the local (thread safe) structures
+    // --- Commit: apply the merge result ---
     if (!merged) {
         merged_interval_idx = thread_augref_intervals.size();
         thread_augref_intervals.push_back(effective_interval);
@@ -1115,10 +1111,11 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
     for (step_handle_t step = effective_interval.first; step != effective_interval.second; step = graph->get_next_step(step)) {
         thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
     }
-    if (deleted_idx >= 0) {
-        // move the links to the deleted interval to the merged interval
-        // use saved bounds since the interval has been decommissioned
-        for (step_handle_t step = deleted_interval_first; step != deleted_interval_second; step = graph->get_next_step(step)) {
+    // Remap nodes from any decommissioned intervals to the merged interval.
+    // Usually redundant (effective_interval already covers the same node IDs),
+    // but necessary when a cross-path merge extends onto a different path.
+    for (const auto& rec : decommissioned) {
+        for (step_handle_t step = rec.saved_first; step != rec.saved_second; step = graph->get_next_step(step)) {
             thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
         }
     }
@@ -1177,9 +1174,13 @@ int64_t AugRefCover::get_coverage(const vector<step_handle_t>& trav, const pair<
     for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
         const step_handle_t& step = trav[i];
         handle_t handle = graph->get_handle_of_step(step);
-        vector<step_handle_t> all_steps = graph->steps_of_handle(handle);
+        int64_t step_count = 0;
+        graph->for_each_step_on_handle(handle, [&](step_handle_t) {
+            ++step_count;
+            return true;
+        });
         int64_t length = graph->get_length(handle);
-        coverage += length * all_steps.size();
+        coverage += length * step_count;
     }
 
     return coverage;
@@ -1190,7 +1191,9 @@ vector<pair<int64_t, nid_t>> AugRefCover::get_reference_nodes(nid_t node_id, boo
 
     // search back to reference in order to find the rank.
     unordered_set<nid_t> visited;
-    priority_queue<pair<int64_t, nid_t>> queue;
+    // Min-heap by distance: explore nearest nodes first to find shortest path to reference
+    priority_queue<pair<int64_t, nid_t>, vector<pair<int64_t, nid_t>>,
+                   std::greater<pair<int64_t, nid_t>>> queue;
     queue.push(make_pair(0, node_id));
 
     nid_t current_id;
@@ -1255,12 +1258,10 @@ vector<pair<int64_t, nid_t>> AugRefCover::get_reference_nodes(nid_t node_id, boo
     return output_reference_nodes;
 }
 
-void AugRefCover::verify_cover() const {
-    if (!verbose) {
-        return;
-    }
-
-    // Check that every node in the graph is covered by the augref cover
+void AugRefCover::verify_cover(int64_t minimum_length) const {
+    // Check that every node in the graph is covered by the augref cover.
+    // Uncovered nodes are expected when minimum_length > 1 (short intervals
+    // will be filtered later), so only warn when full coverage was intended.
     int64_t total_nodes = 0;
     int64_t total_length = 0;
     int64_t ref_nodes = 0;
@@ -1277,7 +1278,6 @@ void AugRefCover::verify_cover() const {
         total_length += node_len;
 
         if (!node_to_interval.count(node_id)) {
-            // Node is not covered (expected when min-augref-len > 0)
             uncovered_nodes++;
             uncovered_length += node_len;
         } else {
@@ -1292,12 +1292,19 @@ void AugRefCover::verify_cover() const {
         }
     });
 
-    cerr << "[augref] verify_cover summary:" << endl
-         << "  Total nodes: " << total_nodes << " (" << total_length << " bp)" << endl
-         << "  Reference nodes: " << ref_nodes << " (" << ref_length << " bp)" << endl
-         << "  Alt nodes: " << alt_nodes << " (" << alt_length << " bp)" << endl
-         << "  Uncovered nodes: " << uncovered_nodes << " (" << uncovered_length << " bp)" << endl
-         << "  Intervals: " << num_ref_intervals << " ref + " << (augref_intervals.size() - num_ref_intervals) << " alt" << endl;
+    if (uncovered_nodes > 0 && minimum_length <= 1) {
+        cerr << "[augref] warning: " << uncovered_nodes << " nodes ("
+             << uncovered_length << " bp) not covered by augref paths" << endl;
+    }
+
+    if (verbose) {
+        cerr << "[augref] verify_cover summary:" << endl
+             << "  Total nodes: " << total_nodes << " (" << total_length << " bp)" << endl
+             << "  Reference nodes: " << ref_nodes << " (" << ref_length << " bp)" << endl
+             << "  Alt nodes: " << alt_nodes << " (" << alt_length << " bp)" << endl
+             << "  Uncovered nodes: " << uncovered_nodes << " (" << uncovered_length << " bp)" << endl
+             << "  Intervals: " << num_ref_intervals << " ref + " << (augref_intervals.size() - num_ref_intervals) << " alt" << endl;
+    }
 }
 
 void AugRefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,

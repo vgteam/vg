@@ -192,7 +192,7 @@ protected:
 
     // Debug function: verify that every node in the graph is covered by the augref cover.
     // Prints a summary of coverage statistics to stderr.
-    void verify_cover() const;
+    void verify_cover(int64_t minimum_length) const;
 
     const PathHandleGraph* graph = nullptr;
 
@@ -211,7 +211,7 @@ protected:
 
     // Counter for generating unique augref indices per base path.
     // Using mutable so it can be updated in apply() which is logically const for the cover.
-    mutable unordered_map<string, int64_t> base_path_augref_counter;
+    unordered_map<string, int64_t> base_path_augref_counter;
 
     // Optional sample name for augref paths. When set, base paths are copied to this
     // sample and augref paths are created under it.
