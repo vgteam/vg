@@ -137,6 +137,11 @@ protected:
     // add_interval() can delete an existing interval. This requires a full update at the end.
     void defragment_intervals();
 
+    // Post-insertion cross-path merge: tries to consolidate the interval containing
+    // ref_step with any cross-path neighbor at its left or right boundary.
+    // Operates on this->augref_intervals and this->node_to_interval.
+    void try_cross_path_merge(step_handle_t ref_step);
+
     // Remove non-reference intervals shorter than minimum_length, then defragment.
     // Called after all merging is complete so short intervals have had a chance to merge.
     void filter_short_intervals(int64_t minimum_length);
