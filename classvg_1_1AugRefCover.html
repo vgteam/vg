@@ -141,6 +141,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:aa22bf5fd49cf2806c100d10ed9e3d002"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a276cf7393ac2b6150b9a7bd0e468ac4e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a276cf7393ac2b6150b9a7bd0e468ac4e">defragment_intervals</a> ()</td></tr>
 <tr class="separator:a276cf7393ac2b6150b9a7bd0e468ac4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a187b19efd4c1e27baac8e679a9b570e3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a187b19efd4c1e27baac8e679a9b570e3">try_cross_path_merge</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> ref_step)</td></tr>
+<tr class="separator:a187b19efd4c1e27baac8e679a9b570e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9c7aa29c5e1e932f2f624d711f83910c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a9c7aa29c5e1e932f2f624d711f83910c">filter_short_intervals</a> (int64_t minimum_length)</td></tr>
 <tr class="separator:a9c7aa29c5e1e932f2f624d711f83910c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a207306f88d136a51ed3afb0a91a2ed89"><td class="memItemLeft" align="right" valign="top">optional&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a207306f88d136a51ed3afb0a91a2ed89">try_extend_forward</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;other_interval)</td></tr>
@@ -149,14 +151,18 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a593ba1ed50ca87f311635a7691e39164"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8455ba81cd11a584e3f6f43c49d2cb1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#ae8455ba81cd11a584e3f6f43c49d2cb1">merge_would_duplicate_node</a> (const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;interval_a, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;interval_b) const</td></tr>
 <tr class="separator:ae8455ba81cd11a584e3f6f43c49d2cb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6f6ccb279ef95a615f3417e0ea8364ba"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a6f6ccb279ef95a615f3417e0ea8364ba">extension_would_duplicate_node</a> (const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, int64_t &gt; &amp;nti, int64_t target_interval_idx, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end, bool skip_first_node) const</td></tr>
+<tr class="separator:a6f6ccb279ef95a615f3417e0ea8364ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a764ae473b4091552b332f517f9a9e714"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a764ae473b4091552b332f517f9a9e714">would_duplicate_node</a> (bool global, const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, int64_t &gt; &amp;nti, int64_t target_idx, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> ext_start, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> ext_end, bool skip_first, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;interval_a, const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;interval_b) const</td></tr>
+<tr class="separator:a764ae473b4091552b332f517f9a9e714"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae69ff569f12371c34897cdcc14c06511"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#ae69ff569f12371c34897cdcc14c06511">get_coverage</a> (const vector&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;trav, const pair&lt; int64_t, int64_t &gt; &amp;uncovered_interval)</td></tr>
 <tr class="separator:ae69ff569f12371c34897cdcc14c06511"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08f724686ee214efa9a225cbfcf985d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a08f724686ee214efa9a225cbfcf985d3">fill_uncovered_nodes</a> (int64_t minimum_length)</td></tr>
 <tr class="separator:a08f724686ee214efa9a225cbfcf985d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af66fcab2f055c580ee0b21452ac4e01a"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int64_t, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#af66fcab2f055c580ee0b21452ac4e01a">get_reference_nodes</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool first) const</td></tr>
 <tr class="separator:af66fcab2f055c580ee0b21452ac4e01a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a310ea8c492fb4d72914dd48023961f05"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a310ea8c492fb4d72914dd48023961f05">verify_cover</a> () const</td></tr>
-<tr class="separator:a310ea8c492fb4d72914dd48023961f05"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a66099c1ac7ed4394fb2846d229faf350"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a66099c1ac7ed4394fb2846d229faf350">verify_cover</a> (int64_t minimum_length) const</td></tr>
+<tr class="separator:a66099c1ac7ed4394fb2846d229faf350"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68eca4f6f4f6d8e7b19c4e0d6f6de9b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html#a68eca4f6f4f6d8e7b19c4e0d6f6de9b2">copy_base_paths_to_sample</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *mutable_graph, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;reference_paths)</td></tr>
 <tr class="separator:a68eca4f6f4f6d8e7b19c4e0d6f6de9b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -440,6 +446,60 @@ Protected Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6f6ccb279ef95a615f3417e0ea8364ba"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6f6ccb279ef95a615f3417e0ea8364ba">&#9670;&nbsp;</a></span>extension_would_duplicate_node()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::AugRefCover::extension_would_duplicate_node </td>
+          <td>(</td>
+          <td class="paramtype">const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>nti</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>target_interval_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>skip_first_node</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -929,6 +989,32 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a187b19efd4c1e27baac8e679a9b570e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a187b19efd4c1e27baac8e679a9b570e3">&#9670;&nbsp;</a></span>try_cross_path_merge()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::AugRefCover::try_cross_path_merge </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_step</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a593ba1ed50ca87f311635a7691e39164"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a593ba1ed50ca87f311635a7691e39164">&#9670;&nbsp;</a></span>try_extend_backward()</h2>
 
@@ -1013,8 +1099,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a310ea8c492fb4d72914dd48023961f05"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a310ea8c492fb4d72914dd48023961f05">&#9670;&nbsp;</a></span>verify_cover()</h2>
+<a id="a66099c1ac7ed4394fb2846d229faf350"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a66099c1ac7ed4394fb2846d229faf350">&#9670;&nbsp;</a></span>verify_cover()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1025,8 +1111,81 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::AugRefCover::verify_cover </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>minimum_length</em></td><td>)</td>
           <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a764ae473b4091552b332f517f9a9e714"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a764ae473b4091552b332f517f9a9e714">&#9670;&nbsp;</a></span>would_duplicate_node()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::AugRefCover::would_duplicate_node </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>global</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>nti</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>target_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ext_start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ext_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>skip_first</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>interval_a</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>interval_b</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -1138,7 +1297,7 @@ Protected Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">protected</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
