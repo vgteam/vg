@@ -98,6 +98,8 @@ public:
     vector<string> source_paths;
     vg::discrete_distribution<> path_sampler; // draw an index in source_paths
     size_t total_seq_length = 0;
+    /// Error/warning logger
+    Logger logger;
     
     /// Make a Sampler to sample from the given graph.
     /// If sampling from particular paths, source_paths should contain their
@@ -117,7 +119,8 @@ public:
           forward_only(forward_only),
           no_Ns(!allow_Ns),
           nonce(0),
-          source_paths(source_paths) {
+          source_paths(source_paths),
+          logger(Logger("Sampler")) {
         // sum seq lengths
         graph.for_each_handle([&](const handle_t& handle) {
             total_seq_length += graph.get_length(handle);
@@ -225,6 +228,7 @@ public:
                  double fragment_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
+                 bool use_avg_length = false,
                  bool sample_unsheared_paths = false,
                  uint64_t seed = 0);
     
@@ -387,12 +391,17 @@ private:
     
     /// Should we try again for a read without Ns of we get Ns?
     const bool retry_on_Ns;
+    /// Should we use the mean read length instead of the mode?
+    const bool use_avg_length;
     const bool sample_unsheared_paths;
     
     /// Restrict reads to just these paths (path-only mode) if nonempty.
     vector<string> source_paths;
     
     ofstream position_file;
+
+    /// Error/warning logger
+    Logger logger;
 };
     
 
