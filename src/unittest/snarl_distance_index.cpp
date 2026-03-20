@@ -270,7 +270,7 @@ namespace vg {
             Edge* e17 = graph.create_edge(n11, n12);
             Edge* e18 = graph.create_edge(n12, n13);
             
-            //vg::io::save_handle_graph(&graph, "test_graph.vg");
+            vg::io::save_handle_graph(&graph, "test_graph.vg");
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 

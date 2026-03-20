@@ -1,4 +1,4 @@
-//#define debug_distance_indexing
+#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
 //#define debug_subgraph
@@ -792,7 +792,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
  * Populate a row of the distance matrix.
  * Also responsible for filling in min_length, distance_start_start, and distance_start_end on the TemporarySnarlRecord when a distance matrix is used.
  */
-static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const SnarlDistanceIndex::temp_record_ref_t& start_index, const HandleGraph* graph, size_t start_rank, bool is_internal_node, size_t size_limit); 
+static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const SnarlDistanceIndex::temp_record_ref_t& start_index, const HandleGraph* graph, size_t start_rank, bool is_internal_node, size_t size_limit); 
 
 /** 
  * Fills in required distance matrix rows for each child
@@ -801,7 +801,7 @@ static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIn
  * - size_limit == 0: no distances in index, so no rows
  * - Top-level chain distances only: ??? 
  */
-static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
+static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
 
 /**
  * Does three things:
@@ -809,14 +809,14 @@ static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDist
  * - Builds the hub labels
  * - Stores labels in temp_snarl_record
  */
-static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph);
+static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph);
 
 /**
  * Determine if a snarl is regular or not.
  *
  * A regular snarl is a snarl that, while not simple, consists of only nodes or
  * chains connected to the start and end, without any connections between
- * multiple children, or any way to turn around. THere may be an edge directly
+ * multiple children, or any way to turn around. There may be an edge directly
  * across.
  */
 static bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, const SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph);
@@ -1129,7 +1129,7 @@ void populate_snarl_index(
     temp_index.max_bits = std::max(temp_index.max_bits, 22 + SnarlDistanceIndex::bit_width(temp_snarl_record.children.size()));   
 } 
 
-void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph) {
+void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph) {
   CHOverlay ov = make_boost_graph(temp_index, snarl_index, temp_snarl_record, all_children, graph);
 
 #ifdef debug_hub_label_build
@@ -1192,7 +1192,7 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
 #endif
 }
 
-void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances) {
+void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances) {
     if (size_limit != 0 && !only_top_level_chain_distances) { 
       //If we are saving distances
       //Reserve enough space to store all possible distances
@@ -1201,10 +1201,10 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
               : temp_snarl_record.node_count * temp_snarl_record.node_count);
     } else {
       temp_snarl_record.include_distances = false;
-    } 
-    while (!all_children.empty()) {
-        const SnarlDistanceIndex::temp_record_ref_t start_index = std::move(all_children.back());
-        all_children.pop_back();
+    }
+    for (auto it = all_children.rbegin(); it != all_children.rend(); ++it) {
+        // Visit all the children in reverse order
+        const SnarlDistanceIndex::temp_record_ref_t& start_index = *it;
 
         bool is_internal_node = false;
 
@@ -1278,7 +1278,7 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
       
     
                         
-void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const SnarlDistanceIndex::temp_record_ref_t& start_index, const HandleGraph* graph, size_t start_rank, bool is_internal_node, size_t size_limit) {
+void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const SnarlDistanceIndex::temp_record_ref_t& start_index, const HandleGraph* graph, size_t start_rank, bool is_internal_node, size_t size_limit) {
     /*Helper function to find the ancestor of a node that is a child of this snarl */
     auto get_ancestor_of_node = [&](SnarlDistanceIndex::temp_record_ref_t curr_index,
                                     SnarlDistanceIndex::temp_record_ref_t ancestor_snarl_index) {
@@ -1613,12 +1613,22 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
 }
 
 bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, const SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph) {
+#ifdef debug_distance_indexing
+    std::cerr << "Check if snarl " << temp_snarl_record.start_node_id << " to " << temp_snarl_record.end_node_id << " with " << all_children.size() << " children is regular" << std::endl;
+#endif
+
     if (temp_snarl_record.is_root_snarl) {
         // Roots can't be regular.
+#ifdef debug_distance_indexing
+        std::cerr << "Snarl is not regular because it is a root snarl." << std::endl;
+#endif
         return false;
     }
     if (temp_snarl_record.is_simple) {
         // Simple snarls can't be regular because simple is more specific and useful.
+#ifdef debug_distance_indexing
+        std::cerr << "Snarl is not regular because it is simple." << std::endl;
+#endif
         return false;
     }
 
@@ -1653,36 +1663,63 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
         bool saw_other = false;
 
         auto handle_destination = [&](const handle_t& next_handle) {
+#ifdef debug_distance_indexing
+            std::cerr << "\tConnects to " << graph->get_id(next_handle) << (graph->get_is_reverse(next_handle) ? "-" : "+") << std::endl;
+#endif
+
             // Every edge out the end the child must go to a snarl boundary out
             // that hasn't been reached yet.
             if (next_handle == start_out && !saw_start) {
                 saw_start = true;
+#ifdef debug_distance_indexing
+                std::cerr << "\t\tThis is a new connection to snarl start" << std::endl;
+#endif
                 return true;
             } else if (next_handle == end_out && !saw_end) {
                 saw_end = true;
+#ifdef debug_distance_indexing
+                std::cerr << "\t\tThis is a new connection to snarl end" << std::endl;
+#endif
                 return true;
             } else {
                 saw_other = true;
                 // We don't care if we have an edge going the right way because
                 // we found an edge going the wrong way.
+#ifdef debug_distance_indexing
+                std::cerr << "\t\tThis is an unwanted connection!" << std::endl;
+#endif
                 return false;
             }
         };
         
         // Check the edges off the child start
-        graph->follow_edges(child_start_out(child_index), false, handle_destination);
+        handle_t here = child_start_out(child_index);
+#ifdef debug_distance_indexing
+            std::cerr << "Look right from " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+") << std::endl;
+#endif
+        graph->follow_edges(here, false, handle_destination);
 
         if (saw_other || !(saw_start != saw_end)) {
             // We have an edge we shouldn't, or we don't connect to exactly one boundary.
+#ifdef debug_distance_indexing
+            std::cerr << "\tWe must not be regular" << std::endl;
+#endif
             return false;
         }
         
         // Check the edges off the child end
-        graph->follow_edges(child_end_out(child_index), false, handle_destination);
+        here = child_end_out(child_index);
+#ifdef debug_distance_indexing
+            std::cerr << "Look right from " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+") << std::endl;
+#endif
+        graph->follow_edges(here, false, handle_destination);
 
         if (saw_other || !saw_start || !saw_end) {
             // We have an edge we shouldn't, or we haven't reached both
             // boundaries exactly once across the two ends of the child.
+#ifdef debug_distance_indexing
+            std::cerr << "\tWe must not be regular" << std::endl;
+#endif
             return false;
         }
 
@@ -1691,10 +1728,16 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
             const SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.get_chain(child_index);
             if (!temp_chain_record.forward_loops.empty() && temp_chain_record.forward_loops.front() != std::numeric_limits<size_t>::max()) {
                 // There's a forward loop in this child chain, so the snarl's not regular.
+#ifdef debug_distance_indexing
+                std::cerr << "We are not regular because there's a forward loop in this child chain." << std::endl;
+#endif
                 return false;
             }
             if (!temp_chain_record.backward_loops.empty() && temp_chain_record.backward_loops.back() != std::numeric_limits<size_t>::max()) {
                 // There's a backward loop in this child chain, so the snarl's not regular.
+#ifdef debug_distance_indexing
+                std::cerr << "We are not regular because there's a backward loop in this child chain." << std::endl;
+#endif
                 return false;
             }
         }
@@ -1705,11 +1748,17 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
 
     handle_t start_in = graph->flip(start_out);
     if (graph->has_edge(start_in, start_out)) {
+#ifdef debug_distance_indexing
+        std::cerr << "We are not regular because we have a start-start loop." << std::endl;
+#endif
         return false;
     }
 
     handle_t end_in = graph->flip(end_out);
     if (graph->has_edge(end_in, end_out)) {
+#ifdef debug_distance_indexing
+        std::cerr << "We are not regular because we have an end-end loop." << std::endl;
+#endif
         return false;
     }
 
@@ -1717,6 +1766,11 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
     // without the exact right connectivity, we must be regular.
 
     // We don't make sure we actually had any children.
+    
+#ifdef debug_distance_indexing
+    std::cerr << "We are a regular snarl." << std::endl;
+#endif
+
     return true;
 }
 
