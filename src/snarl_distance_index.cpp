@@ -494,7 +494,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.get_chain(chain_index);
 #ifdef debug_distance_indexing
         assert(!temp_chain_record.is_trivial);
-        cerr << "  At "  << (temp_chain_record.is_trivial ? " trivial " : "") << " chain " << temp_index.structure_start_end_as_string(chain_index) << endl;
+        cerr << "  At"  << (temp_chain_record.is_trivial ? " trivial " : "") << "chain " << temp_index.structure_start_end_as_string(chain_index) << endl;
 #endif
 
         //Add the first values for the prefix sum and backwards loop vectors
@@ -1061,10 +1061,6 @@ void populate_snarl_index(
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.end_node_id);
     }
 
-    #ifdef debug_distance_indexing 
-      cerr << "is_simple: " << temp_snarl_record.is_simple << endl;
-    #endif 
-
     if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {           
       temp_index.most_oversized_snarl_size = std::max(temp_index.most_oversized_snarl_size, temp_snarl_record.node_count);
       temp_index.use_oversized_snarls = true;
@@ -1090,7 +1086,11 @@ void populate_snarl_index(
       }
       //Also fills in min_lenght, distance_start_start, and distance_start_end, and sets is_simple to false if snarl isn't simple
       populate_distance_matrix_if_needed(temp_index, snarl_index, temp_snarl_record, all_children, graph, size_limit, only_top_level_chain_distances);
-    } 
+    }
+
+#ifdef debug_distance_indexing 
+    cerr << "snarl " << temp_index.structure_start_end_as_string(snarl_index) << " is_simple: " << temp_snarl_record.is_simple << endl;
+#endif
 
     if (temp_snarl_record.is_simple) {
         // If this is a simple snarl (one with only single nodes that connect to the start and end nodes), then
@@ -1364,12 +1364,19 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                                                   temp_index.get_chain(current_index).end_node_rev));
 
 #ifdef debug_distance_indexing
-                    cerr << "    at child " << temp_index.structure_start_end_as_string(current_index) << " going "
-                         << (current_rev ? "rev" : "fd") << " at actual node " << graph->get_id(current_end_handle) 
-                         << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
+                cerr << "    at child " << temp_index.structure_start_end_as_string(current_index) << " going "
+                     << (current_rev ? "rev" : "fd") << " at actual node " << graph->get_id(current_end_handle) 
+                     << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
 #endif
             graph->follow_edges(current_end_handle, false, [&](const handle_t& next_handle) {
-                if (graph->get_id(current_end_handle) == graph->get_id(next_handle)){
+#ifdef debug_distance_indexing
+                cerr << "      see edge " << graph->get_id(current_end_handle) 
+                     << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd")
+                     << " -> " << graph->get_id(next_handle) 
+                     << (graph->get_is_reverse(next_handle) ? "rev" : "fd") << endl;
+#endif
+
+                if (graph->get_id(current_end_handle) == graph->get_id(next_handle)) {
                     //If this loops onto the same node side then this isn't a simple snarl
                     temp_snarl_record.is_simple = false;
                 } else if ((current_index.first == SnarlDistanceIndex::TEMP_NODE ? current_index.second 
@@ -1412,8 +1419,14 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                         ? node_record.rank_in_parent
                         : temp_index.get_chain(next_index).rank_in_parent;
                 if (next_index.first == SnarlDistanceIndex::TEMP_NODE && next_index.second == temp_snarl_record.start_node_id) {
+#ifdef debug_distance_indexing
+                    std::cerr << "        edge arrived at start" << std::endl;
+#endif
                     next_rank = 0;
                 } else if (next_index.first == SnarlDistanceIndex::TEMP_NODE && next_index.second == temp_snarl_record.end_node_id) {
+#ifdef debug_distance_indexing
+                    std::cerr << "        edge arrived at end" << std::endl;
+#endif
                     next_rank = 1;
                 } else {
                     //If the next thing wasn't a boundary node and this was an internal node, then it isn't a simple snarl
@@ -1432,26 +1445,49 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                 bool start_is_boundary = !temp_snarl_record.is_root_snarl && (start_rank == 0 || start_rank == 1);
                 bool next_is_boundary = !temp_snarl_record.is_root_snarl && (next_rank == 0 || next_rank == 1);
 
-                if (size_limit != 0 &&
+                pair<size_t, bool> start = start_is_boundary 
+                    ? make_pair(start_rank, false) : make_pair(start_rank, !start_rev);
+                pair<size_t, bool> next = next_is_boundary 
+                    ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
+
+                if (size_limit == 0 && start_is_boundary && next_is_boundary) {
+                    // If not measuring distances, we need to use
+                    // distance_start_start and distance_end_end as
+                    // connectivity flags so we can still detect reversals
+                    // within chains and recognize regular snarls.
+                    if (start_rank == 0 && next_rank == 0) {
+                        temp_snarl_record.distance_start_start = 0;
+#ifdef debug_distance_indexing
+                        cerr << "        set loop indicator start start distance " << temp_snarl_record.distance_start_start << endl;
+#endif
+                    } else if (start_rank == 1 && next_rank == 1) {
+                        temp_snarl_record.distance_end_end = 0;
+#ifdef debug_distance_indexing
+                        cerr << "        set loop indicator end end distance " << temp_snarl_record.distance_start_start << endl;
+#endif
+                    }
+                } else if (size_limit != 0 &&
                     (temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary)) {
                     //If the snarl is too big, then we don't record distances between internal nodes
                     //If we are looking at all distances or we are looking at boundaries
                     bool added_new_distance = false;
 
                     //Set the distance
-                    pair<size_t, bool> start = start_is_boundary 
-                        ? make_pair(start_rank, false) : make_pair(start_rank, !start_rev);
-                    pair<size_t, bool> next = next_is_boundary 
-                        ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
                     if (start_is_boundary && next_is_boundary) {
                         //If it is between bounds of the snarl, then the snarl stores it
                         if (start_rank == 0 && next_rank == 0 && 
                             temp_snarl_record.distance_start_start == std::numeric_limits<size_t>::max()) {
                             temp_snarl_record.distance_start_start = current_distance;
+#ifdef debug_distance_indexing
+                            cerr << "        set start start distance " << temp_snarl_record.distance_start_start << endl;
+#endif
                             added_new_distance = true;
                         } else if (start_rank == 1 && next_rank == 1 && 
                                    temp_snarl_record.distance_end_end == std::numeric_limits<size_t>::max()) {
                             temp_snarl_record.distance_end_end = current_distance;
+#ifdef debug_distance_indexing
+                            cerr << "        set end end distance " << temp_snarl_record.distance_start_start << endl;
+#endif
                             added_new_distance = true;
                         } else if (((start_rank == 0 && next_rank == 1) || (start_rank == 1 && next_rank == 0))
                                     && temp_snarl_record.min_length == std::numeric_limits<size_t>::max()){
@@ -1554,7 +1590,7 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                     }
                 }
 #ifdef debug_distance_indexing
-                cerr << "        reached child " << temp_index.structure_start_end_as_string(next_index) << "going " 
+                cerr << "        reached child " << temp_index.structure_start_end_as_string(next_index) << " going " 
                      << (next_rev ? "rev" : "fd") << " with distance " << current_distance << " for ranks " << start_rank << " " << next_rank << endl;
 #endif
             });
@@ -1735,7 +1771,18 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
 
         if (child_index.first == SnarlDistanceIndex::TEMP_CHAIN) {
             // If a child is a chain, check it for loops
+#ifdef debug_distance_indexing
+            std::cerr << "Check child chain for loops." << std::endl;
+#endif
             const SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.get_chain(child_index);
+#ifdef debug_distance_indexing
+            std::cerr << "Forward loops:";
+            for (auto& l : temp_chain_record.forward_loops) {
+                std::cerr << " " << l;
+            }
+            std::cerr << std::endl;
+#endif
+
             if (!temp_chain_record.forward_loops.empty() && temp_chain_record.forward_loops.front() != std::numeric_limits<size_t>::max()) {
                 // There's a forward loop in this child chain, so the snarl's not regular.
 #ifdef debug_distance_indexing
@@ -1743,6 +1790,15 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
 #endif
                 return false;
             }
+
+#ifdef debug_distance_indexing
+            std::cerr << "Backward loops:";
+            for (auto& l : temp_chain_record.backward_loops) {
+                std::cerr << " " << l;
+            }
+            std::cerr << std::endl;
+#endif
+
             if (!temp_chain_record.backward_loops.empty() && temp_chain_record.backward_loops.back() != std::numeric_limits<size_t>::max()) {
                 // There's a backward loop in this child chain, so the snarl's not regular.
 #ifdef debug_distance_indexing
