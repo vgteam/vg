@@ -121,7 +121,7 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
                 }
                 return;
             }
-        } else if (distance_index.is_regular_snarl(current_ancestor, false, graph_ptr)) {
+        } else if (distance_index.is_regular_snarl(current_ancestor)) {
             snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
             zipcode.add_value(snarl_code.get_raw_code_type());
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
