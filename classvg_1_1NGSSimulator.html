@@ -96,8 +96,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a51e3a4117f9339b3195d73f2c6cf560e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a51e3a4117f9339b3195d73f2c6cf560e">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; double &gt; &amp;source_path_ploidies={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, uint64_t <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">seed</a>=0)</td></tr>
-<tr class="separator:a51e3a4117f9339b3195d73f2c6cf560e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adc32b2a14a29b701f17a46c93fc7e0c9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#adc32b2a14a29b701f17a46c93fc7e0c9">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; double &gt; &amp;source_path_ploidies={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#a3476f2d0a75d87d8b8a5af91bdb96675">use_avg_length</a>=false, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, uint64_t <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">seed</a>=0)</td></tr>
+<tr class="separator:adc32b2a14a29b701f17a46c93fc7e0c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50a20af9dd3edd86233edf1de13a5cda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">sample_read</a> ()</td></tr>
 <tr class="memdesc:a50a20af9dd3edd86233edf1de13a5cda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an individual read and alignment.  <a href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">More...</a><br /></td></tr>
 <tr class="separator:a50a20af9dd3edd86233edf1de13a5cda"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -238,6 +238,9 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a95f6ffd660c8c041e4d8b1d36a823bdd"><td class="memItemLeft" align="right" valign="top">const bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a></td></tr>
 <tr class="memdesc:a95f6ffd660c8c041e4d8b1d36a823bdd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should we try again for a read without Ns of we get Ns?  <a href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">More...</a><br /></td></tr>
 <tr class="separator:a95f6ffd660c8c041e4d8b1d36a823bdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3476f2d0a75d87d8b8a5af91bdb96675"><td class="memItemLeft" align="right" valign="top">const bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a3476f2d0a75d87d8b8a5af91bdb96675">use_avg_length</a></td></tr>
+<tr class="memdesc:a3476f2d0a75d87d8b8a5af91bdb96675"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should we use the mean read length instead of the mode?  <a href="classvg_1_1NGSSimulator.html#a3476f2d0a75d87d8b8a5af91bdb96675">More...</a><br /></td></tr>
+<tr class="separator:a3476f2d0a75d87d8b8a5af91bdb96675"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7441bd12030f0e189aca5ba2e0b47ef"><td class="memItemLeft" align="right" valign="top">const bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a></td></tr>
 <tr class="separator:af7441bd12030f0e189aca5ba2e0b47ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac377f66a4c6d84f5cb660950d56022ff"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a></td></tr>
@@ -245,6 +248,9 @@ Private Attributes</h2></td></tr>
 <tr class="separator:ac377f66a4c6d84f5cb660950d56022ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a46a332d871425d98495b0b1215ad88e5"><td class="memItemLeft" align="right" valign="top">ofstream&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a46a332d871425d98495b0b1215ad88e5">position_file</a></td></tr>
 <tr class="separator:a46a332d871425d98495b0b1215ad88e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff75573e7c083c69c3d57726897d9c9c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Logger.html">Logger</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#aff75573e7c083c69c3d57726897d9c9c">logger</a></td></tr>
+<tr class="memdesc:aff75573e7c083c69c3d57726897d9c9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Error/warning logger.  <a href="classvg_1_1NGSSimulator.html#aff75573e7c083c69c3d57726897d9c9c">More...</a><br /></td></tr>
+<tr class="separator:aff75573e7c083c69c3d57726897d9c9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
 Static Private Attributes</h2></td></tr>
@@ -273,8 +279,8 @@ Additional Inherited Members</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that simulates reads with alignments to a graph that mimic the error profile of NGS sequencing data. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a51e3a4117f9339b3195d73f2c6cf560e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a51e3a4117f9339b3195d73f2c6cf560e">&#9670;&nbsp;</a></span>NGSSimulator() <span class="overload">[1/2]</span></h2>
+<a id="adc32b2a14a29b701f17a46c93fc7e0c9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adc32b2a14a29b701f17a46c93fc7e0c9">&#9670;&nbsp;</a></span>NGSSimulator() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -368,6 +374,12 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>retry_on_Ns</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>use_avg_length</em> = <code>false</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1698,6 +1710,30 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="aff75573e7c083c69c3d57726897d9c9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff75573e7c083c69c3d57726897d9c9c">&#9670;&nbsp;</a></span>logger</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Logger.html">Logger</a> vg::NGSSimulator::logger</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Error/warning logger. </p>
+
+</div>
+</div>
 <a id="a9501d39b8059ad161395f2b7ba89d424"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9501d39b8059ad161395f2b7ba89d424">&#9670;&nbsp;</a></span>mut_sampler</h2>
 
@@ -2105,6 +2141,30 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>A second set of Markov distributions for the second read in a pair. </p>
+
+</div>
+</div>
+<a id="a3476f2d0a75d87d8b8a5af91bdb96675"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3476f2d0a75d87d8b8a5af91bdb96675">&#9670;&nbsp;</a></span>use_avg_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const bool vg::NGSSimulator::use_avg_length</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Should we use the mean read length instead of the mode? </p>
 
 </div>
 </div>
