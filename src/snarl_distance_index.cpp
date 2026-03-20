@@ -1,4 +1,4 @@
-#define debug_distance_indexing
+//#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
 //#define debug_subgraph
@@ -1655,6 +1655,16 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
     };
 
     for (const SnarlDistanceIndex::temp_record_ref_t& child_index : all_children) {
+        // We should only have nodes and chains as children
+        assert(child_index.first == SnarlDistanceIndex::TEMP_NODE
+            || child_index.first == SnarlDistanceIndex::TEMP_CHAIN);
+        if (child_index.first == SnarlDistanceIndex::TEMP_NODE
+            && (child_index.second == temp_snarl_record.start_node_id
+                || child_index.second == temp_snarl_record.end_node_id)) {
+            // Don't think about children for the snarl bounds now; we handle the bounds later.
+            continue;
+        }
+
         // Have we seen the snarl start?
         bool saw_start = false;
         // Have we seen the snarl end?
