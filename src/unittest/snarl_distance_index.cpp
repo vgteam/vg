@@ -232,7 +232,45 @@ namespace vg {
                 }
             }
         }
-        TEST_CASE( "Can distance index nested chain with loop", "[snarl_distance]" ) {
+        TEST_CASE( "Can distance index nested chain with a loop hiding in the middle", "[snarl_distance]" ) {
+            bdsg::HashGraph graph;
+            handle_t h1 = graph.create_handle("G");
+            handle_t h2 = graph.create_handle("A");
+            handle_t h3 = graph.create_handle("T");
+            handle_t h4 = graph.create_handle("T");
+            handle_t h5 = graph.create_handle("A");
+            handle_t h6 = graph.create_handle("C");
+            handle_t h7 = graph.create_handle("A");
+            
+            // Wire it up as a stick
+            graph.create_edge(h1, h2);
+            graph.create_edge(h2, h3);
+            graph.create_edge(h3, h4);
+            graph.create_edge(h4, h5);
+            graph.create_edge(h5, h6);
+            graph.create_edge(h6, h7);
+
+            // Allow skipping a run of nodes to make a snarl with a child chain that has a few nodes in it
+            graph.create_edge(h1, h6);
+
+            // Allow turning around with an edge hiding somewhere in the middle of the chain
+            graph.create_edge(h3, graph.flip(h3));
+
+            IntegratedSnarlFinder snarl_finder(graph);
+
+            SECTION("Snarl classifications are correct") {
+                SECTION("Distance index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
+                } SECTION("Distanceless index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
+                }
+            }
+        }
+        TEST_CASE( "Can distance index nested chain with a loop", "[snarl_distance]" ) {
         
             VG graph;
                 
