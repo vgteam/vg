@@ -840,74 +840,65 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         int mismatches = 0;
         int gap_opens = 0;
         vector<size_t> gap_lengths;
+        
+        enum class EditType { MATCH, MISMATCH, INS, DEL, COMPLEX, NONE };
+        EditType prev_type = EditType::NONE;
+        size_t current_gap_length = 0;
+        
+        auto finish_gap = [&]() {
+            if (current_gap_length > 0) {
+                gap_opens++;
+                gap_lengths.push_back(current_gap_length);
+                current_gap_length = 0;
+            }
+        };
+
         for (size_t i = 0; i < alignments[alignment_index].path().mapping_size(); ++i) {
             auto& mapping = alignments[alignment_index].path().mapping(i);
             for (size_t j = 0; j < mapping.edit_size(); ++j) {
                 auto& edit = mapping.edit(j);
                 if (edit.from_length() == edit.to_length() && edit.from_length() > 0) {
+                    finish_gap();
                     if (edit.sequence().empty()) {
                         matches += edit.from_length();
+                        prev_type = EditType::MATCH;
                     } else {
                         mismatches += edit.from_length();
+                        prev_type = EditType::MISMATCH;
                     }
                 } else if (edit.from_length() == 0 && edit.to_length() > 0) {
-                    gap_opens++;
-                    gap_lengths.push_back(edit.to_length());
+                    if (prev_type != EditType::INS) finish_gap();
+                    current_gap_length += edit.to_length();
+                    prev_type = EditType::INS;
                 } else if (edit.from_length() > 0 && edit.to_length() == 0) {
-                    gap_opens++;
-                    gap_lengths.push_back(edit.from_length());
+                    if (prev_type != EditType::DEL) finish_gap();
+                    current_gap_length += edit.from_length();
+                    prev_type = EditType::DEL;
                 } else {
+                    finish_gap();
                     mismatches += max(edit.from_length(), edit.to_length());
+                    prev_type = EditType::COMPLEX;
                 }
             }
         }
+        finish_gap();
        
+        if (matches + mismatches + gap_opens == 0) {
+            continue;
+        }
+
         double d = max(0.02, static_cast<double>(mismatches + gap_opens) / static_cast<double>(matches + mismatches + gap_opens));
         double non_match_penalty = static_cast<double>(mismatches + gap_opens) / (2.0 * d);
         
         double indel_penalty = 0;
         for (auto& gap_length : gap_lengths) {
-            indel_penalty += log2(1 + gap_length);
+            indel_penalty += log2(1.0 + gap_length);
         }
-        int adjusted_score = static_cast<int>(matches - non_match_penalty - indel_penalty);
+        int adjusted_score = std::round(matches - non_match_penalty - indel_penalty);
         alignments[alignment_index].set_score(adjusted_score);
          if (show_work) {
             #pragma omp critical (cerr)
             {   
-                // cerr << log_name() << "Alignment " << alignment_index << " CIGAR:";
-                // // print whole cigar compressed with separated matches/mismatches
-                // vector<pair<int, char>> cigar_ops;
-                // auto add_op = [&](int len, char op) {
-                //     if (len == 0) return;
-                //     if (!cigar_ops.empty() && cigar_ops.back().second == op) {
-                //         cigar_ops.back().first += len;
-                //     } else {
-                //         cigar_ops.push_back({len, op});
-                //     }
-                // };
-
-                // for (size_t i = 0; i < alignments[alignment_index].path().mapping_size(); ++i) {
-                //     auto& mapping = alignments[alignment_index].path().mapping(i);
-                //     for (size_t j = 0; j < mapping.edit_size(); ++j) {
-                //         auto& edit = mapping.edit(j);
-                //         if (edit.from_length() == edit.to_length() && edit.from_length() > 0) {
-                //             if (edit.sequence().empty()) {
-                //                 add_op(edit.from_length(), '=');
-                //             } else {
-                //                 add_op(edit.from_length(), 'X');
-                //             }
-                //         } else if (edit.from_length() == 0 && edit.to_length() > 0) {
-                //             add_op(edit.to_length(), 'I');
-                //         } else if (edit.from_length() > 0 && edit.to_length() == 0) {
-                //             add_op(edit.from_length(), 'D');
-                //         } else {
-                //             add_op(max(edit.from_length(), edit.to_length()), 'X');
-                //         }
-                //     }
-                // }
-                // for (auto& op : cigar_ops) {
-                //     cerr << " " << op.first << op.second;
-                // }
                 cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_opens << " New score: " << adjusted_score << endl;
             }
         }
@@ -918,6 +909,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
                 set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
                 if (rec_penalty_chain != 0) {
+                    //int64_t penalty = min(static_cast<int64_t>(1), static_cast<int64_t>(rec_penalty_chain)/5) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t adjusted_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
                     alignments[alignment_index].set_score(static_cast<int>(adjusted_score));
@@ -1852,7 +1844,7 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
             best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
             best_chain_total_jump += jump;
         }
-        best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+        best_chain_average_jump = chains.at(best_chain).size() > 1 ? (double)best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
     }
 
     // Also count anchors in the chain
