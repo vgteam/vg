@@ -71,7 +71,7 @@ is $(vg gbwt -H -Z diploid3.gbz) 3 "2 generated + 1 reference haplotypes"
 
 # Giraffe integration, guessed output name
 rm -f full.HG003.* default.gam
-vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
+vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     -f haplotype-sampling/HG003.fq.gz > default.gam
 is $? 0 "Giraffe integration with a guessed output name"
 cmp diploid.gbz full.HG003.gbz
@@ -79,7 +79,7 @@ is $? 0 "the sampled graph is identical to a manually sampled one"
 
 # Giraffe integration, specified output name
 rm -f sampled.003HG.* specified.gam
-vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
+vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     --index-basename sampled -N 003HG \
     -f haplotype-sampling/HG003.fq.gz > specified.gam
 is $? 0 "Giraffe integration with a specified output name"
@@ -88,7 +88,7 @@ is $? 0 "the sampled graphs are identical"
 
 # Giraffe integration, specified reference sample
 rm -f GRCh38.HG003.* HG003_GRCh38.gam
-vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
+vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     --index-basename GRCh38 -N HG003 --set-reference GRCh38 \
     -f haplotype-sampling/HG003.fq.gz > HG003_GRCh38.gam
 is $? 0 "Giraffe integration with a specified reference sample"
@@ -99,7 +99,7 @@ is $? 0 "the sampled graph is identical to a manually sampled one"
 # Providing --kff-name without --haplotype-name implies haplotype sampling;
 # the haplotype index (.hapl) is built by the IndexRegistry from the GBZ.
 rm -f auto_hapl.HG003.* auto_hapl.gam
-vg giraffe -Z full.gbz --kff-name haplotype-sampling/HG003.kff \
+vg giraffe --progress -Z full.gbz --kff-name haplotype-sampling/HG003.kff \
     --index-basename auto_hapl -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_hapl.gam
 is $? 0 "Giraffe builds haplotype index automatically"
@@ -109,7 +109,7 @@ is "$(vg gbwt -H -Z auto_hapl.HG003.gbz)" 4 "auto-built hapl produces 2 diploid 
 # Providing --haplotype-name without --kff-name implies haplotype sampling;
 # the kmer counts (.kff) are built by the IndexRegistry from the reads using kmc.
 rm -f auto_kff.HG003.* auto_kff.gam
-vg giraffe -Z full.gbz --haplotype-name full.hapl \
+vg giraffe --progress -Z full.gbz --haplotype-name full.hapl \
     --index-basename auto_kff -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_kff.gam
 is $? 0 "Giraffe counts kmers from reads automatically"
@@ -118,7 +118,7 @@ is "$(vg gbwt -H -Z auto_kff.HG003.gbz)" 4 "auto kmer counting produces 2 diploi
 # Giraffe integration, fully automatic: both hapl and kff are built by the
 # IndexRegistry. Triggered by --haplotype-sampling without either input file.
 rm -f auto_all.HG003.* auto_all.gam
-vg giraffe -Z full.gbz --haplotype-sampling \
+vg giraffe --progress -Z full.gbz --haplotype-sampling \
     --index-basename auto_all -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_all.gam
 is $? 0 "Giraffe does fully automatic haplotype sampling"
@@ -126,7 +126,7 @@ is "$(vg gbwt -H -Z auto_all.HG003.gbz)" 4 "fully automatic haplotype sampling p
 
 # Giraffe integration, non-diploid
 rm -f auto_nondip.HG003.* auto_nondip.gam
-vg giraffe -Z full.gbz --haplotype-sampling --no-diploid-sampling --num-haplotypes 3 \
+vg giraffe --progress -Z full.gbz --haplotype-sampling --no-diploid-sampling --num-haplotypes 3 \
     --index-basename auto_nondip -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_nondip.gam
 is $? 0 "Giraffe does non-diploid haplotype sampling"
@@ -134,7 +134,7 @@ is "$(vg gbwt -H -Z auto_nondip.HG003.gbz)" 5 "non-diploid haplotype sampling sa
 
 # Giraffe integration, single reference
 rm -f auto_oneref.HG003.* auto_oneref.gam
-vg giraffe -Z full.gbz --haplotype-sampling --set-reference GRCh38 \
+vg giraffe --progress -Z full.gbz --haplotype-sampling --set-reference GRCh38 \
     --index-basename auto_oneref -N HG003 \
     -f haplotype-sampling/HG003.fq.gz > auto_oneref.gam
 is $? 0 "Giraffe does haplotype sampling when setting reference"

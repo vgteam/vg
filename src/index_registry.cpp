@@ -4414,13 +4414,39 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Create a temp directory for kmc intermediate files.
         string tmp_dir = temp_file::create_directory();
 
+        // Total up the read file size in bytes
+        std::uintmax_t total_read_bytes = 0;
+
         // Write a file listing the input reads.
         string list_file = tmp_dir + "/reads.txt";
         {
             ofstream list_out(list_file);
             for (const string& fq : fastq_filenames) {
+                // Get the file size
+                try {
+                    total_read_bytes += std::filesystem::file_size(fq);
+                } catch (std::filesystem::filesystem_error& e) {
+                    warn(context) << "Cannot measure size of read file " << fq << ": " << e.what() << endl;
+                }
+
+                // Put the file in the list
                 list_out << fq << "\n";
             }
+        }
+
+        // Determine GB of memory to allow (or max for unlimited).
+        // We shouldn't need more memory than our read file size, if small.
+        // KMC will ask for all its memory up front and might OOM on small test runs.
+        // TODO: KMC might think in GiB but call it GB
+        size_t kmc_gb = total_read_bytes / (1000 * 1000 * 1000);
+        if (kmc_gb == 0) {
+            // 2 is the minimum KMC can use
+            kmc_gb = 2;
+        }
+        if (kmc_gb >= 12) {
+            // 12 is the documented KMC default memory limit.
+            // If we'd use more than that, just leave off the extra limit options.
+            kmc_gb = std::numeric_limits<size_t>::max();
         }
 
         // kmc produces output_prefix.kff; strip the ".kff" extension to get the prefix.
@@ -4437,10 +4463,47 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         // Run kmc: count k-mers in KFF format with canonical k-mers.
         // Use fork()+execvp() instead of system() to avoid shell quoting issues.
-        string reads_arg = "@" + list_file;
-        string kmc_k_arg = "-k" + to_string(IndexingParameters::haplotype_sampling_minimizer_k);
-        const char* kmc_argv[] = {"kmc", kmc_k_arg.c_str(), "-m128", "-okff", "-hp",
-            reads_arg.c_str(), kmc_prefix.c_str(), kmc_tmp_dir.c_str(), nullptr};
+        
+        // This copies several options but makes memory management for optional flags easy.
+        std::vector<std::string> kmc_args {
+            "kmc",
+            "-k" + to_string(IndexingParameters::haplotype_sampling_minimizer_k),
+            "-m128",
+            "-okff",
+            "-hp"
+        };
+
+        if (kmc_gb != std::numeric_limits<size_t>::max()) {
+            // Add optional memory arguments
+            kmc_args.push_back("-m" + std::to_string(kmc_gb));
+            kmc_args.push_back("-sm");
+        }
+
+        // Add the positional arguments
+        kmc_args.push_back("@" + list_file);
+        kmc_args.push_back(kmc_prefix);
+        kmc_args.push_back(kmc_tmp_dir);
+        
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            info(context) << "kmc command:";
+        }
+
+        // Convert to null-terminated pointer array.
+        std::vector<const char*> kmc_arg_pointers;
+        kmc_arg_pointers.reserve(kmc_args.size());
+        for (auto& s : kmc_args) {
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                std::cerr << " " << s;
+            }
+            kmc_arg_pointers.push_back(s.c_str());
+        }
+        kmc_arg_pointers.push_back(nullptr);
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            std::cerr << std::endl;
+        }
+
+        // Get into an argv of the right type to exec with.
+        const char** kmc_argv = &kmc_arg_pointers[0];
 
         // Flush shared output streams before forking
         cout.flush();
@@ -4480,10 +4543,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             int child_stat;
             waitpid(pid, &child_stat, 0);
             int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                info(context) << "kmc return: " << ret << std::endl;
+            }
             if (ret == 127) {
                 error(context) << "kmc could not be executed. Make sure kmc is installed and in your PATH." << endl;
             } else if (ret != 0) {
                 error(context) << "kmc failed with exit code " << ret << "." << endl;
+            }
+            // KMC will also sometimes print an error and exit with 0.
+            if (!file_exists(output_name)) {
+                error(context) << "kmc returned " << ret << " but did not cvreate output " << output_name << endl;
             }
         }
 
