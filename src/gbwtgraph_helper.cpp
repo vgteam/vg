@@ -443,16 +443,16 @@ void cache_payloads(
     const handlegraph::HandleGraph* graph_ptr = (const handlegraph::HandleGraph*) &gbz.graph;
 
     double total_zipcode_time = 0.0, total_decoder_time = 0.0;
-    uint64_t node_count = 0;
+    std::atomic<uint64_t> node_count = 0;
     gbz.graph.for_each_handle([&](const handle_t& handle) {
         nid_t node_id = gbz.graph.get_id(handle);
         pos_t pos = make_pos_t(node_id, false, 0);
         ZipCode zipcode;
         zipcode.fill_in_zipcode_from_pos(distance_index, pos, false, graph_ptr);
         zipcode.fill_in_full_decoder();
-        node_count++;
-        if (node_count % 10000 == 0) {
+        if (++node_count % 10000 == 0 && progress) {
             double telapsed = gbwt::readTimer() - start;
+            #pragma omp critical (cerr)
             std::cerr << "  Cached " << node_count << " nodes in " << telapsed << "s" << std::endl;
         }
 

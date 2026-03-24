@@ -1069,7 +1069,7 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
     //Tag to say that it's a regular snarl
     snarl_code.set_code_type(1);
 
-    //The number of children — read directly from the stored record (O(1)) rather than iterating
+    //The number of children
     snarl_code.set_child_count(distance_index.get_snarl_child_count(snarl));
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
@@ -1100,7 +1100,7 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
     //Tag to say that it's an irregular snarl
     snarl_code.set_code_type(distance_index.is_dag(snarl) ? 0 : 2);
 
-    //The number of children — read directly from the stored record (O(1)) rather than iterating
+    //The number of children
     snarl_code.set_child_count(distance_index.get_snarl_child_count(snarl));
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
