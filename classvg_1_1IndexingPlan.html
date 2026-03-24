@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="#friends">Friends</a> &#124;
 <a href="classvg_1_1IndexingPlan-members.html">List of all members</a>  </div>
@@ -88,21 +89,29 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a405ede5620e8a7263fbb734f656c9971"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the suffix with which to save the given index's files.  <a href="classvg_1_1IndexingPlan.html#a405ede5620e8a7263fbb734f656c9971">More...</a><br /></td></tr>
 <tr class="separator:a405ede5620e8a7263fbb734f656c9971"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5ef2f8275a2f997e94d178089107502a"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a5ef2f8275a2f997e94d178089107502a">output_filepath</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier, size_t chunk, size_t num_chunks) const</td></tr>
-<tr class="memdesc:a5ef2f8275a2f997e94d178089107502a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the suffix with which to save the given index's files.  <a href="classvg_1_1IndexingPlan.html#a5ef2f8275a2f997e94d178089107502a">More...</a><br /></td></tr>
 <tr class="separator:a5ef2f8275a2f997e94d178089107502a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52c631c507d1cd0f0451ce7de71f2091"><td class="memItemLeft" align="right" valign="top">const vector&lt; <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a52c631c507d1cd0f0451ce7de71f2091">get_steps</a> () const</td></tr>
 <tr class="memdesc:a52c631c507d1cd0f0451ce7de71f2091"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ge the steps of the plan.  <a href="classvg_1_1IndexingPlan.html#a52c631c507d1cd0f0451ce7de71f2091">More...</a><br /></td></tr>
 <tr class="separator:a52c631c507d1cd0f0451ce7de71f2091"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae04def089761ea2ef65532fabd909794"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#ae04def089761ea2ef65532fabd909794">is_intermediate</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier) const</td></tr>
 <tr class="separator:ae04def089761ea2ef65532fabd909794"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a689c5e9161f3fc7c2ef4980c3508fd9e"><td class="memItemLeft" align="right" valign="top">const map&lt; string, string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a689c5e9161f3fc7c2ef4980c3508fd9e">get_scopes</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier) const</td></tr>
+<tr class="separator:a689c5e9161f3fc7c2ef4980c3508fd9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a247573b98c643f1b38508a02114fac22"><td class="memItemLeft" align="right" valign="top">const map&lt; string, string &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a247573b98c643f1b38508a02114fac22">get_scopes</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier)</td></tr>
+<tr class="separator:a247573b98c643f1b38508a02114fac22"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fd91843fb2c901d9db661e6bc50f07a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a1fd91843fb2c901d9db661e6bc50f07a">target_memory_usage</a> () const</td></tr>
 <tr class="memdesc:a1fd91843fb2c901d9db661e6bc50f07a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The memory limit, with a little slosh for prediction inaccuracy.  <a href="classvg_1_1IndexingPlan.html#a1fd91843fb2c901d9db661e6bc50f07a">More...</a><br /></td></tr>
 <tr class="separator:a1fd91843fb2c901d9db661e6bc50f07a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a93541f9db06d755f91d420072fe733e4"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a93541f9db06d755f91d420072fe733e4">literal_target_memory_usage</a> () const</td></tr>
-<tr class="memdesc:a93541f9db06d755f91d420072fe733e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">The mmeory limit with no slosh.  <a href="classvg_1_1IndexingPlan.html#a93541f9db06d755f91d420072fe733e4">More...</a><br /></td></tr>
+<tr class="memdesc:a93541f9db06d755f91d420072fe733e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">The memory limit with no slosh.  <a href="classvg_1_1IndexingPlan.html#a93541f9db06d755f91d420072fe733e4">More...</a><br /></td></tr>
 <tr class="separator:a93541f9db06d755f91d420072fe733e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8dc425414eec61802c17ef877d9483d"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#ad8dc425414eec61802c17ef877d9483d">dependents</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier) const</td></tr>
 <tr class="separator:ad8dc425414eec61802c17ef877d9483d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:ae3a8fbef92ea7e1d6d1ae166a37e18c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#ae3a8fbef92ea7e1d6d1ae166a37e18c7">add_scope</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier, const string &amp;key, const string &amp;value)</td></tr>
+<tr class="separator:ae3a8fbef92ea7e1d6d1ae166a37e18c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -111,6 +120,8 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:adda5d82310890614f02b317e46e702a1"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#adda5d82310890614f02b317e46e702a1">targets</a></td></tr>
 <tr class="memdesc:adda5d82310890614f02b317e46e702a1"><td class="mdescLeft">&#160;</td><td class="mdescRight">The indexes to create as outputs.  <a href="classvg_1_1IndexingPlan.html#adda5d82310890614f02b317e46e702a1">More...</a><br /></td></tr>
 <tr class="separator:adda5d82310890614f02b317e46e702a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3784478067ebffa15e3ddb3f63e3ac5"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a>, map&lt; string, string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#ac3784478067ebffa15e3ddb3f63e3ac5">scopes</a></td></tr>
+<tr class="separator:ac3784478067ebffa15e3ddb3f63e3ac5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a8e639fb6e8225162a5ff532c4b963d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1IndexRegistry.html">IndexRegistry</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a7a8e639fb6e8225162a5ff532c4b963d">registry</a></td></tr>
 <tr class="separator:a7a8e639fb6e8225162a5ff532c4b963d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -173,6 +184,49 @@ Friends</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="ae3a8fbef92ea7e1d6d1ae166a37e18c7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae3a8fbef92ea7e1d6d1ae166a37e18c7">&#9670;&nbsp;</a></span>add_scope()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexingPlan::add_scope </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;&#160;</td>
+          <td class="paramname"><em>identifier</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>key</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Add a scope to the scopes the given index will be qualified with when generated, if not present already. </p>
+
+</div>
+</div>
 <a id="ad8dc425414eec61802c17ef877d9483d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad8dc425414eec61802c17ef877d9483d">&#9670;&nbsp;</a></span>dependents()</h2>
 
@@ -188,7 +242,45 @@ Friends</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns the recipes in the plan that depend on this index, including the one in which it was created (if any) </p>
+<p>Returns the recipes in the plan that depend on this index, including the one in which it was created (if any). </p>
+
+</div>
+</div>
+<a id="a247573b98c643f1b38508a02114fac22"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a247573b98c643f1b38508a02114fac22">&#9670;&nbsp;</a></span>get_scopes() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const map&lt; string, string &gt; &amp; vg::IndexingPlan::get_scopes </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;&#160;</td>
+          <td class="paramname"><em>identifier</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the scopes that the given index will be qualified with when generated. Only works for indexes that will be generated by the plan, not for inputs. </p>
+
+</div>
+</div>
+<a id="a689c5e9161f3fc7c2ef4980c3508fd9e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a689c5e9161f3fc7c2ef4980c3508fd9e">&#9670;&nbsp;</a></span>get_scopes() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const map&lt; string, string &gt; vg::IndexingPlan::get_scopes </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;&#160;</td>
+          <td class="paramname"><em>identifier</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the scopes that the given index will be qualified with when generated. Only works for indexes that will be generated by the plan, not for inputs. </p>
 
 </div>
 </div>
@@ -245,7 +337,7 @@ Friends</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>The mmeory limit with no slosh. </p>
+<p>The memory limit with no slosh. </p>
 
 </div>
 </div>
@@ -300,8 +392,10 @@ Friends</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Get the suffix with which to save the given index's files. </p>
+<p>Get the suffix with which to save the given index's files.</p>
+<p>The path will substitute scopes into any {wildcards} in the index's suffix, and scopes not used in the suffix will appear in the filename in key order.</p>
+<p>The suffix used will be the first one for which all wildcards can be substituted. <br  />
+ </p>
 
 </div>
 </div>
@@ -368,6 +462,29 @@ Friends</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>The registry that the plan is using. The registry must not move while the plan is in use. Can't be const because we need to get_work_dir() on it, which may create the work directory. </p>
+
+</div>
+</div>
+<a id="ac3784478067ebffa15e3ddb3f63e3ac5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3784478067ebffa15e3ddb3f63e3ac5">&#9670;&nbsp;</a></span>scopes</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">map&lt;<a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a>, map&lt;string, string&gt; &gt; vg::IndexingPlan::scopes</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>The scopes qualifying each index in the plan (for example, if an index applies only to a particular sample, it will be scoped to the sample name). Stored using an ordered map to ensure a consistent iteration order. </p>
 
 </div>
 </div>

@@ -76,6 +76,7 @@ $(function() {
 <div class="textblock"><code>#include &lt;omp.h&gt;</code><br />
 <code>#include &lt;unistd.h&gt;</code><br />
 <code>#include &lt;getopt.h&gt;</code><br />
+<code>#include &lt;fstream&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;cassert&gt;</code><br />
 <code>#include &lt;cstring&gt;</code><br />
@@ -95,11 +96,11 @@ $(function() {
 <code>#include &quot;<a class="el" href="hts__alignment__emitter_8hpp.html">../hts_alignment_emitter.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="minimizer__mapper_8hpp.html">../minimizer_mapper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="index__registry_8hpp.html">../index_registry.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="utility_8hpp.html">../utility.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="watchdog_8hpp.html">../watchdog.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="crash_8hpp.html">../crash.hpp</a>&quot;</code><br />
 <code>#include &lt;bdsg/overlays/overlay_helper.hpp&gt;</code><br />
 <code>#include &quot;<a class="el" href="gbwtgraph__helper_8hpp.html">../gbwtgraph_helper.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="recombinator_8hpp.html">../recombinator.hpp</a>&quot;</code><br />
 <code>#include &lt;gbwtgraph/gbz.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/minimizer.h&gt;</code><br />
 <code>#include &lt;sys/ioctl.h&gt;</code><br />
@@ -117,8 +118,6 @@ Classes</h2></td></tr>
 Functions</h2></td></tr>
 <tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
 <tr class="separator:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a113f91d9d805c4f3554b60b6a735b4d8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a113f91d9d805c4f3554b60b6a735b4d8">sample_haplotypes</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const std::vector&lt; std::pair&lt; std::string, std::string &gt;&gt; &amp;indexes, const gbwtgraph::sample_name_set &amp;reference_samples, const std::string &amp;basename, const std::string &amp;sample_name, const std::string &amp;haplotype_file, const std::string &amp;kff_file, bool progress)</td></tr>
-<tr class="separator:a113f91d9d805c4f3554b60b6a735b4d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#aa6d5c2140d259252f3cad8b7bf6b4b1a">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser, const std::map&lt; std::string, <a class="el" href="structvg_1_1subcommand_1_1Preset.html">Preset</a> &gt; &amp;presets, bool full_help)</td></tr>
 <tr class="separator:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
@@ -184,70 +183,6 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">char **&#160;</td>
           <td class="paramname"><em>argv</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a113f91d9d805c4f3554b60b6a735b4d8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a113f91d9d805c4f3554b60b6a735b4d8">&#9670;&nbsp;</a></span>sample_haplotypes()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string sample_haplotypes </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
-          <td class="paramname"><em>logger</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; std::pair&lt; std::string, std::string &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>indexes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwtgraph::sample_name_set &amp;&#160;</td>
-          <td class="paramname"><em>reference_samples</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>basename</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>sample_name</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>haplotype_file</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>kff_file</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>progress</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

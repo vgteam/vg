@@ -160,6 +160,16 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:a4eb6ab42c2e0c51a9a8891ec24ab9433"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a049ee4a66bf7bb31d99ac77df0984579"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3">Verbosity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a049ee4a66bf7bb31d99ac77df0984579">verbosity</a> = <a class="el" href="structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3acc2841d7d13fb6afa6ae0bdaac318bec">IndexingParameters::Basic</a></td></tr>
 <tr class="separator:a049ee4a66bf7bb31d99ac77df0984579"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a091b971a89db9218259aaba939061764"><td class="memItemLeft" align="right" valign="top">static gbwtgraph::sample_name_set&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a091b971a89db9218259aaba939061764">haplotype_sampling_reference_samples</a> = {}</td></tr>
+<tr class="separator:a091b971a89db9218259aaba939061764"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d6546a2a7665d3fa556836d1e7e2668"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a1d6546a2a7665d3fa556836d1e7e2668">haplotype_sampling_num_haplotypes</a> = <a class="el" href="classvg_1_1Recombinator.html#a5768e471a3447a31b14f1d8d94a11588">Recombinator::NUM_CANDIDATES</a></td></tr>
+<tr class="separator:a1d6546a2a7665d3fa556836d1e7e2668"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa11257638c6cec35c1a0e0cedc14a6a"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#aaa11257638c6cec35c1a0e0cedc14a6a">haplotype_sampling_diploid</a> = true</td></tr>
+<tr class="separator:aaa11257638c6cec35c1a0e0cedc14a6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab913da0442ba1c68beeebe667c90c440"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ab913da0442ba1c68beeebe667c90c440">haplotype_sampling_minimizer_k</a> = 29</td></tr>
+<tr class="separator:ab913da0442ba1c68beeebe667c90c440"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a47bcf66fb4ccc7ad8cabcb550329a640"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a47bcf66fb4ccc7ad8cabcb550329a640">haplotype_sampling_minimizer_w</a> = 11</td></tr>
+<tr class="separator:a47bcf66fb4ccc7ad8cabcb550329a640"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A struct namespace for global handling of parameters used by the <a class="el" href="classvg_1_1IndexRegistry.html">IndexRegistry</a> </p>
@@ -456,6 +466,116 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">int vg::IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aaa11257638c6cec35c1a0e0cedc14a6a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa11257638c6cec35c1a0e0cedc14a6a">&#9670;&nbsp;</a></span>haplotype_sampling_diploid</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexingParameters::haplotype_sampling_diploid = true</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab913da0442ba1c68beeebe667c90c440"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab913da0442ba1c68beeebe667c90c440">&#9670;&nbsp;</a></span>haplotype_sampling_minimizer_k</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::haplotype_sampling_minimizer_k = 29</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a47bcf66fb4ccc7ad8cabcb550329a640"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a47bcf66fb4ccc7ad8cabcb550329a640">&#9670;&nbsp;</a></span>haplotype_sampling_minimizer_w</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::haplotype_sampling_minimizer_w = 11</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1d6546a2a7665d3fa556836d1e7e2668"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d6546a2a7665d3fa556836d1e7e2668">&#9670;&nbsp;</a></span>haplotype_sampling_num_haplotypes</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::IndexingParameters::haplotype_sampling_num_haplotypes = <a class="el" href="classvg_1_1Recombinator.html#a5768e471a3447a31b14f1d8d94a11588">Recombinator::NUM_CANDIDATES</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a091b971a89db9218259aaba939061764"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a091b971a89db9218259aaba939061764">&#9670;&nbsp;</a></span>haplotype_sampling_reference_samples</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwtgraph::sample_name_set vg::IndexingParameters::haplotype_sampling_reference_samples = {}</td>
         </tr>
       </table>
   </td>
