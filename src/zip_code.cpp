@@ -14,15 +14,11 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
 
     //Put all ancestors of the node in a vector, starting from the node, and not including the root
-    size_t depth = 0;
     while (!distance_index.is_root(current_handle)) {
         ancestors.emplace_back(distance_index.start_end_traversal_of(current_handle));
-        current_handle = distance_index.get_parent(current_handle);
-        if (++depth > 10000) {
-            std::cerr << "[fill_in_zipcode_from_pos] ERROR: ancestor loop exceeded depth 10000 at node "
-                      << id(pos) << " — likely infinite loop in snarl tree" << std::endl;
-            std::abort();
-        }
+        net_handle_t parent_handle = distance_index.get_parent(current_handle);
+        crash_unless(parent_handle != current_handle, "net handle is its own parent");
+        current_handle = parent_handle;
     }
 
     //Now add the root-level snarl or chain
