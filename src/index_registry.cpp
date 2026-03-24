@@ -4437,8 +4437,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Determine GB of memory to allow (or max for unlimited).
         // We shouldn't need more memory than our read file size, if small.
         // KMC will ask for all its memory up front and might OOM on small test runs.
-        // TODO: KMC might think in GiB but call it GB
-        size_t kmc_gb = total_read_bytes / (1000 * 1000 * 1000);
+        // We also shouldn't in general try to use more than our target.
+        // TODO: KMC might think in GiB but call it GB.
+        size_t kmc_gb = std::min(total_read_bytes, (std::uintmax_t) plan->target_memory_usage()) / (1000 * 1000 * 1000);
         if (kmc_gb == 0) {
             // 2 is the minimum KMC can use
             kmc_gb = 2;
