@@ -1,3 +1,5 @@
+#include "crash.hpp"
+
 #include "zip_code.hpp"
 
 //#define DEBUG_ZIPCODE
@@ -17,7 +19,7 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
     while (!distance_index.is_root(current_handle)) {
         ancestors.emplace_back(distance_index.start_end_traversal_of(current_handle));
         net_handle_t parent_handle = distance_index.get_parent(current_handle);
-        crash_unless(parent_handle != current_handle, "net handle is its own parent");
+        crash_unless(parent_handle != current_handle);
         current_handle = parent_handle;
     }
 
