@@ -536,9 +536,14 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         // A zipcode only depends on the node id.
         vg::hash_map<nid_t, payload_t> node_id_to_payload;
         node_id_to_payload.reserve(gbz.graph.max_node_id() - gbz.graph.min_node_id());
-        // Re-preload the distance index: find_frequent_kmers runs for a long time before this
-        // point and evicts the mmap'd index pages from the OS page cache, causing cache_payloads
-        // to page-fault on every node. Reloading here ensures the index is warm.
+        // Preload the distance index right before we use it.
+        // find_frequent_kmers uses a lot of memory/IO scanning the whole graph
+        // and might evict the mmap'd index pages from the OS page cache,
+        // causing cache_payloads to page-fault on every node. So we preload
+        // after kmer counting to ensure the index is warm.
+        if (params.progress) {
+            std::cerr << "Preloading distance index";
+        }
         distance_index->preload(true);
         cache_payloads(gbz, *distance_index, node_id_to_payload, oversized_zipcodes, params.progress);
 
