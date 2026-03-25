@@ -1617,14 +1617,20 @@ int main_giraffe(int argc, char** argv) {
         indexes_and_extensions.emplace(std::string("Short Read Minimizers"), std::vector<std::string>({"shortread.withzip.min","withzip.min", "min"}));
         indexes_and_extensions.emplace(std::string("Short Read Zipcodes"), std::vector<std::string>({"shortread.zipcodes", "zipcodes"}));
     }
+
+    if (!haplotype_sampling && registry.available("GBZ")) {
+        // If we're not doing haplotype sampling and we got a GBZ, it should really be the Giraffe GBZ.
+        // Instead of relying on the alias rule, just provide it again.
+        // TODO: This is a hack. But otherwise, we end up guessing the Giraffe
+        // GBZ path and finding it at the GBZ path, which seems worse.
+        registry.provide("Giraffe GBZ", registry.require("GBZ").at(0));
+    }
+    // TODO: What if you want to add a pre-made GBZ to an existing hap sampling
+    // command line that already included a GBZ? We'd need a different option.
     
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
-        if (completed == "GBZ") {
-            // Don't try and guess a Giraffe GBZ if we already have a GBZ.
-            indexes_and_extensions.erase("Giraffe GBZ");
-        }
     }
     for (auto index_and_extensions = indexes_and_extensions.begin(); index_and_extensions != indexes_and_extensions.end(); ) {
         // For each index type
