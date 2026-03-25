@@ -735,7 +735,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 #endif
 
-    // Turn all the seeds into anchors. Either we'll fragment them directly or
+    // Turn all the seeds into anchors. Either we'll chain them directly or
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
