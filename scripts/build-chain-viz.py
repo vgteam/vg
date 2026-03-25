@@ -513,6 +513,7 @@ def generate_svg(seeds, transitions, output_path):
               }
             } else {
               if (prevSelected) {
+                viz.#hideTraceback();
                 viz.seedCircles.filter(s => s.index === prevSelected.index)
                   .classed('selected', false)
                   .classed('hovered', false);
