@@ -1084,7 +1084,7 @@ TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure"
             std::string node_seq = stick_sequence.substr(node_start, node_size);
 
             handle_t here = graph.create_handle(node_seq);
-            if (nose_start != 0) {
+            if (node_start != 0) {
                 graph.create_edge(last, here);
             }
 
@@ -1092,6 +1092,8 @@ TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure"
                 // Record the positions
                 graph_forward_strand.emplace_back(graph.get_id(here), false, i);
             }
+
+            last = here;
         }
 
         IntegratedSnarlFinder snarl_finder(graph);
@@ -1106,6 +1108,7 @@ TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure"
         size_t min_length = 5;
 
         for (size_t min_start = 0; min_start + min_length < stick_sequence.size(); min_start++) {
+            std::cerr << "Minimizer start: " << min_start << std::endl;
             for (bool min_reverse : {false, true}) {
                 // Consider just one minimizer and one seed at a time, in its own collection.
                 vector<MinimizerMapper::Minimizer> minimizers;
@@ -1118,7 +1121,7 @@ TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure"
                 minimizers.back().value.is_reverse = min_reverse;
 
                 // Find the anchor point in the graph
-                pos_t graph_pos = graph_forward_strand.at(min_reverse ? min_start + min_length - 1 : min_start)
+                pos_t graph_pos = graph_forward_strand.at(min_reverse ? min_start + min_length - 1 : min_start);
 
                 // Give it a seed, but ignore zipcodes.
                 seeds.push_back({ graph_pos, minimizers.size() - 1, {}});
