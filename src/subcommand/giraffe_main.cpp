@@ -1621,6 +1621,10 @@ int main_giraffe(int argc, char** argv) {
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
+        if (completed == "GBZ") {
+            // Don't try and guess a Giraffe GBZ if we already have a GBZ.
+            indexes_and_extensions.erase("Giraffe GBZ");
+        }
     }
     for (auto index_and_extensions = indexes_and_extensions.begin(); index_and_extensions != indexes_and_extensions.end(); ) {
         // For each index type
