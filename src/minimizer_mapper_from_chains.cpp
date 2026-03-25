@@ -3828,7 +3828,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is.
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
-    int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
+    int score = aligner->score_exact_match(aln, read_start - margin_left, margin_left + length + margin_right);
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive, paths); 
 }
 

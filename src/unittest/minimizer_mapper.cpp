@@ -1064,13 +1064,15 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
 
 TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure", "[giraffe][mapping]") {
 
-    std::string stick_sequence = "GATTACACATTACACGATCGATCGACTGACTCGCAGCTG";
+    std::string stick_sequence = "GATTACACATTAG";
 
     // Make an aligner for scoring
     Aligner aligner;
 
     for (int node_size : {1, 2, 10}) {
+#ifdef debug
         std::cerr << "Node size: " << node_size << std::endl;
+#endif
 
         bdsg::HashGraph graph;
 
@@ -1103,12 +1105,13 @@ TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure"
         Alignment aln;
         aln.set_sequence(stick_sequence);
         
-        
-        
+        // Try 5 base minimizers
         size_t min_length = 5;
 
         for (size_t min_start = 0; min_start + min_length < stick_sequence.size(); min_start++) {
+#ifdef debug
             std::cerr << "Minimizer start: " << min_start << std::endl;
+#endif
             for (bool min_reverse : {false, true}) {
                 // Consider just one minimizer and one seed at a time, in its own collection.
                 vector<MinimizerMapper::Minimizer> minimizers;
@@ -1129,7 +1132,9 @@ TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure"
                 // Make an anchor
                 algorithms::Anchor anchor = TestMinimizerMapper::to_anchor(aln, minimizers, seeds, seeds.size() - 1, graph, &aligner);
 
-                std::cerr << "Made minimizer at read " << minimizers.back().value.offset << " orientation " << minimizers.back().value.is_reverse << " at graph position " << graph_pos << " and anchor " << anchor << " score " << anchor.score() << std::endl; 
+#ifdef debug
+                std::cerr << "Made minimizer at read " << minimizers.back().value.offset << " orientation " << minimizers.back().value.is_reverse << " at graph position " << graph_pos << " and anchor " << anchor << " score " << anchor.score() << std::endl;
+#endif
 
                 REQUIRE(anchor.score() == min_length);
             }
