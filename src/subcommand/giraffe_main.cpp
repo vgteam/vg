@@ -1945,7 +1945,7 @@ int main_giraffe(int argc, char** argv) {
         minimizer_mapper.track_correctness = track_correctness;
         report_flag("track-position", track_position);
         minimizer_mapper.track_position = track_position;
-        report_flag("haplotype-positions", haplotype-positions);
+        report_flag("haplotype-positions", haplotype_positions);
         report_flag("show-work", show_work);
         minimizer_mapper.show_work = show_work;
         if (paired) {
