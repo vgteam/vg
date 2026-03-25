@@ -464,7 +464,7 @@ def generate_svg(seeds, transitions, output_path):
         this.tracebackLayer = this.zoomG.append('g');
         this.secondaryTransitionLayer = this.zoomG.append('g');
         this.hoveredToSelectedLayer = this.zoomG.append('g');
-        this._seedLayer = this.zoomG.append('g');
+        this.seedLayer = this.zoomG.append('g');
       }
 
       /**
@@ -477,7 +477,7 @@ def generate_svg(seeds, transitions, output_path):
         /// D3 selection of all seed <circle> elements; stored so interaction
         /// methods can restyle seeds (e.g. classed 'on-traceback') without
         /// re-selecting.
-        this.seedCircles = this._seedLayer.selectAll('.seed')
+        this.seedCircles = this.seedLayer.selectAll('.seed')
           .data(seeds)
           .enter()
           .append('circle')
@@ -489,9 +489,9 @@ def generate_svg(seeds, transitions, output_path):
             viz.hoveredSeed = d;
             if (viz.selectedSeed !== d) {
               d3.select(this).classed('hovered', true);
+              viz.#showSecondaryTransitions(d.index);
             }
             viz.#updateSeedTooltip(d3.select(this), d);
-            viz.#showSecondaryTransitions(d.index);
             viz.#highlightTransitionToSelected(d.index);
           })
           .on('mouseout', function(event, d) {
