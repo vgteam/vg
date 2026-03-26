@@ -814,10 +814,12 @@ static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& te
 /**
  * Determine if a snarl is regular or not.
  *
- * A regular snarl is a snarl that, while not simple, consists of only nodes or
+ * A regular snarl is a snarl that consists of only nodes or
  * chains connected to the start and end, without any connections between
  * multiple children, or any way to turn around. There may be an edge directly
  * across.
+ *
+ * A simple snarl is always regular.
  */
 static bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, const SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph);
 
@@ -1661,11 +1663,11 @@ bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& temp_ind
         return false;
     }
     if (temp_snarl_record.is_simple) {
-        // Simple snarls can't be regular because simple is more specific and useful.
+        // Simple snarls are always also regular.
 #ifdef debug_distance_indexing
-        std::cerr << "Snarl is not regular because it is simple." << std::endl;
+        std::cerr << "Snarl is regular because it is simple." << std::endl;
 #endif
-        return false;
+        return true;
     }
 
     // Get the snarl boundary nodes, facing out

@@ -88,10 +88,11 @@ int main_minimizer(int argc, char** argv) {
     if (!config.distance_name.empty()) {
         // new distance index
         if (config.progress) {
-            logger.info() << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
+            logger.info() << "Opening SnarlDistanceIndex at " << config.distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_name);
-        distance_index->preload(true);
+        // Note that we don't fault in the index until we're actually about to
+        // use it, or it might get paged out again.
     }
 
     ZipCodeCollection oversized_zipcodes;
