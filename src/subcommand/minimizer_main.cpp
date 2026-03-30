@@ -88,11 +88,16 @@ int main_minimizer(int argc, char** argv) {
     if (!config.distance_name.empty()) {
         // new distance index
         if (config.progress) {
-            logger.info() << "Opening SnarlDistanceIndex at " << config.distance_name << std::endl;
+            logger.info() << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_name);
-        // Note that we don't fault in the index until we're actually about to
-        // use it, or it might get paged out again.
+        // Preload the index eagerly to establish it as recently-used in the OS
+        // page cache. Even though kmer counting may evict some pages, we
+        // re-preload right before cache_payloads. The double-preload is
+        // necessary: a single preload just before cache_payloads isn't enough
+        // to keep the index resident under the memory pressure of 32 parallel
+        // threads and the remaining in-memory data structures.
+        distance_index->preload(true);
     }
 
     ZipCodeCollection oversized_zipcodes;
