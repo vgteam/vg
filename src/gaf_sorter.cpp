@@ -43,18 +43,18 @@ void GAFSorterRecord::set_key(key_type type) {
     if (type == key_node_interval) {
         std::uint32_t min_id = std::numeric_limits<std::uint32_t>::max();
         std::uint32_t max_id = 0;
-        str_view path = this->get_field(PATH_FIELD);
+        std::string_view path = this->get_field(PATH_FIELD);
         size_t start = 1;
-        while (start < path.size) {
+        while (start < path.size()) {
             std::uint32_t id = 0;
-            auto result = std::from_chars(path.data + start, path.data + path.size, id);
+            auto result = std::from_chars(path.data() + start, path.data() + path.size(), id);
             if (result.ec != std::errc()) {
                 this->key = MISSING_KEY;
                 return;
             }
             min_id = std::min(min_id, id);
             max_id = std::max(max_id, id);
-            start = (result.ptr - path.data) + 1;
+            start = (result.ptr - path.data()) + 1;
         }
         if (min_id == std::numeric_limits<std::uint32_t>::max()) {
             this->key = MISSING_KEY;
@@ -107,9 +107,9 @@ bool GAFSorterRecord::read_line(std::istream& in, key_type type) {
     return true;
 }
 
-str_view GAFSorterRecord::get_field(size_t field) const {
-    str_view result;
-    this->for_each_field([&](size_t i, str_view value) -> bool {
+std::string_view GAFSorterRecord::get_field(size_t field) const {
+    std::string_view result;
+    this->for_each_field([&](size_t i, std::string_view value) -> bool {
         if (i == field) {
             result = value;
             return false;
@@ -119,12 +119,12 @@ str_view GAFSorterRecord::get_field(size_t field) const {
     return result;
 }
 
-void GAFSorterRecord::for_each_field(const std::function<bool(size_t, str_view)>& lambda) const {
+void GAFSorterRecord::for_each_field(const std::function<bool(size_t, std::string_view)>& lambda) const {
     size_t start = 0, end = 0;
     size_t i = 0;
     while (end != std::string::npos) {
         end = this->value.find('\t', start);
-        if (!lambda(i, str_view(this->value).substr(start, end - start))) {
+        if (!lambda(i, std::string_view(this->value).substr(start, end - start))) {
             break;
         }
         start = end + 1;
@@ -133,8 +133,8 @@ void GAFSorterRecord::for_each_field(const std::function<bool(size_t, str_view)>
 }
 
 gbwt::vector_type GAFSorterRecord::as_gbwt_path(bool* ok) const {
-    str_view strand, path;
-    this->for_each_field([&](size_t i, str_view value) -> bool {
+    std::string_view strand, path;
+    this->for_each_field([&](size_t i, std::string_view value) -> bool {
         if (i == STRAND_FIELD) {
             strand = value;
         } else if (i == PATH_FIELD) {
@@ -145,13 +145,13 @@ gbwt::vector_type GAFSorterRecord::as_gbwt_path(bool* ok) const {
     });
 
     gbwt::vector_type result;
-    if (path.size == 1 && path[0] == '*') {
+    if (path.size() == 1 && path[0] == '*') {
         // Unaligned read.
         return result;
     }
 
     size_t start = 0;
-    while (start < path.size) {
+    while (start < path.size()) {
         bool is_reverse;
         if (path[start] == '<') {
             is_reverse = true;
@@ -161,26 +161,26 @@ gbwt::vector_type GAFSorterRecord::as_gbwt_path(bool* ok) const {
             is_reverse = false;
             if (ok != nullptr) {
                 *ok = false;
-                std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+                std::cerr << "error: [gaf_sorter] invalid path: " << path << std::endl;
             }
             return result;
         }
         start++;
         gbwt::size_type node_id = 0;
-        auto res = std::from_chars(path.data + start, path.data + path.size, node_id);
+        auto res = std::from_chars(path.data() + start, path.data() + path.size(), node_id);
         if (res.ec != std::errc() || node_id == 0) {
             if (ok != nullptr) {
                 *ok = false;
-                std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+                std::cerr << "error: [gaf_sorter] invalid path: " << path << std::endl;
             }
             return result;
         }
         result.push_back(gbwt::Node::encode(node_id, is_reverse));
-        start = res.ptr - path.data;
+        start = res.ptr - path.data();
     }
 
     // Now check the orientation.
-    if (strand.size == 1 && strand[0] == '-') {
+    if (strand.size() == 1 && strand[0] == '-') {
         gbwt::reversePath(result);
     }
 
@@ -636,14 +636,17 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     std::priority_queue<std::pair<GAFSorterRecord, size_t>> queue;
     for (size_t i = 0; i < records.size(); i++) {
         if (!records[i].empty()) {
-            queue.emplace(std::move(records[i].front()), i);
+            // We already flipped the key for the max heap in `read_buffer()`.
+            // We also need to flip the source index to get a stable order.
+            size_t source_index = records.size() - 1 - i;
+            queue.emplace(std::move(records[i].front()), source_index);
             records[i].pop_front();
         }
     }
     while (!queue.empty()) {
         GAFSorterRecord record = std::move(queue.top().first);
         record.flip_key(); // Restore the original key.
-        size_t source = queue.top().second;
+        size_t source = records.size() - 1 - queue.top().second; // Flip the source index back.
         queue.pop();
         buffer.push_back(std::move(record));
         if (buffer.size() >= buffer_size) {
@@ -661,7 +664,9 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
             }
         }
         if (!records[source].empty()) {
-            queue.emplace(std::move(records[source].front()), source);
+            // Max heap; we use flipped keys and source indexes.
+            size_t source_index = records.size() - 1 - source;
+            queue.emplace(std::move(records[source].front()), source_index);
             records[source].pop_front();
         }
     }

@@ -12,11 +12,11 @@ void RareVariantSimplifier::simplify() {
     // This holds the IDs of all the nodes we want to keep around
     unordered_set<id_t> to_keep;
 
-    graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path) {
+    graph.for_each_path_handle([&](const path_handle_t& path) {
         // For each path
-        
+
         if (!Paths::is_alt(graph.get_path_name(path))) {
-            // If it isn't an alt or haplotype path, we want to trace it
+            // If it isn't an alt path, we want to trace it
 
             // For each occurrence from start to end
             // Put the ID of the node we are visiting in the to-keep set

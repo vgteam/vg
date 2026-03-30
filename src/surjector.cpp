@@ -383,6 +383,7 @@ using namespace std;
                     for (const auto& surjection : surjections) {
                         aln_surjections[surj_record.first].emplace_back(Alignment(), surjection.second);
                         optimal_alignment(surjection.first, aln_surjections[surj_record.first].back().first, allow_negative_scores);
+                        transfer_read_metadata(*source_aln, aln_surjections[surj_record.first].back().first);
                     }
                     choose_primary(aln_surjections[surj_record.first]);
                 }

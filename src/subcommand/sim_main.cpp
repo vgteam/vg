@@ -114,6 +114,8 @@ void help_sim(char** argv) {
          << "  -v, --frag-std-dev FLOAT    use this standard deviation" << endl
          << "                              for fragment length estimation" << endl
          << "  -N, --allow-Ns              allow reads to be sampled with Ns in them" << endl
+         << "  -L, --use-average-length    with -F, auto-detect read length" << endl
+         << "                              as mean instead of mode" << endl
          << "      --max-tries N           attempt sampling operations up to N times [100]" << endl
          << "  -t, --threads N             number of compute threads (only when using -F) [1]" << endl
          << "simulate from paths:" << endl
@@ -163,6 +165,7 @@ int main_sim(int argc, char** argv) {
     int fragment_length = 0;
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
+    bool use_avg_length = false;
     size_t max_tries = 100;
     bool strip_bonuses = false;
     bool interleaved = false;
@@ -222,6 +225,7 @@ int main_sim(int argc, char** argv) {
             {"json-out", no_argument, 0, 'J'},
             {"multi-position", no_argument, 0, OPT_MULTI_POSITION},
             {"allow-Ns", no_argument, 0, 'N'},
+            {"use-average-length", no_argument, 0, 'L'},
             {"max-tries", required_argument, 0, OPT_MAX_TRIES},
             {"unsheared", no_argument, 0, 'u'},
             {"sub-rate", required_argument, 0, 'e'},
@@ -236,7 +240,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?rl:n:s:e:i:fax:qJp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
+        c = getopt_long (argc, argv, "h?rl:n:s:e:i:fax:qJp:v:NLud:F:P:Am:R:g:T:H:S:It:E:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -364,6 +368,10 @@ int main_sim(int argc, char** argv) {
         case 'N':
             reads_may_contain_Ns = true;
             break;
+
+        case 'L':
+            use_avg_length = true;
+            break;
             
         case OPT_MAX_TRIES:
             max_tries = parse<size_t>(optarg);
@@ -461,6 +469,11 @@ int main_sim(int argc, char** argv) {
     
     if (fastq_name.empty() && unsheared_fragments) {
         logger.error() << "unsheared fragment option only available "
+                       << "when simulating from FASTQ-trained errors" << std::endl;
+    }
+
+    if (fastq_name.empty() && use_avg_length) {
+        logger.error() << "average length option only available "
                        << "when simulating from FASTQ-trained errors" << std::endl;
     }
     
@@ -801,6 +814,9 @@ int main_sim(int argc, char** argv) {
         if (reads_may_contain_Ns) {
             opt_info << "--allow-Ns" << std::endl;
         }
+        if (use_avg_length) {
+            opt_info << "--use-average-length" << std::endl;
+        }
         if (max_tries != 100) {
             opt_info << "--max-tries" << max_tries << std::endl;
         }
@@ -836,6 +852,7 @@ int main_sim(int argc, char** argv) {
                                        fragment_std_dev ? fragment_std_dev : 0.000001,
                                        error_scale_factor,
                                        !reads_may_contain_Ns,
+                                       use_avg_length,
                                        unsheared_fragments,
                                        seed_val));
     }

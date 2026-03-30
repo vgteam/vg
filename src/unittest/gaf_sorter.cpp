@@ -268,7 +268,7 @@ void integrated_test(size_t count, bool with_header, size_t path_length, double 
     // Check the output.
     GAFSorterFile output(output_file, std::move(header), params.gbwt_file, params.bidirectional_gbwt);
     output.records = count; // This is a new file object, so we need to set the record count.
-    check_sorted(output, true, count, params.key_type, false);
+    check_sorted(output, true, count, params.key_type, params.stable);
 
     // Remove the output file(s).
     temp_file::remove(output_file);
@@ -557,7 +557,6 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
 
 //------------------------------------------------------------------------------
 
-// FIXME: with header
 TEST_CASE("GAF sorting", "[gaf_sorter]") {
     SECTION("one full batch") {
         size_t n = 1000;
@@ -571,6 +570,14 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         GAFSorterParameters params;
         params.records_per_file = 1000;
         integrated_test(n, true, 10, 0.05, params);
+    }
+
+    SECTION("one batch with stable sorting") {
+        size_t n = 1000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.stable = true;
+        integrated_test(n, true, 1, 0.05, params);
     }
 
     SECTION("one full batch with GBWT") {
@@ -698,6 +705,15 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         params.records_per_file = 1000;
         params.files_per_merge = 2;
         integrated_test(n, true, 10, 0.05, params);
+    }
+
+    SECTION("multiple levels of merges with stable sorting") {
+        size_t n = 10000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.files_per_merge = 2;
+        params.stable = true;
+        integrated_test(n, true, 1, 0.05, params);
     }
 
     SECTION("multiple levels of merges with GBWT") {

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 35
+plan tests 60
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -27,6 +27,12 @@ is $(vg paths --list -S 1 -g x.gbwt | wc -l) 2 "thread selection by sample name 
 vg paths --list -S 2 -g x.gbwt > out.txt 2> err.txt
 is $(cat out.txt | wc -l) 0 "no threads are reported for invalid samples"
 is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 threads are matched"
+
+# Exclude sample from selection
+is $(vg paths --list -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "excluding sample removes all matching threads from GBWT listing"
+is $(vg paths --list -g x.gbwt --exclude-sample nonexistent | wc -l) 2 "excluding nonexistent sample has no effect on GBWT listing"
+is $(vg paths --list -Q "1#0#x#" -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "exclude-sample combined with -Q prefix selection works"
+is $(vg paths --list -x x.xg --exclude-sample nonexistent | wc -l) 1 "excluding nonexistent sample has no effect on graph path listing"
 
 # Extract threads as alignments
 is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
@@ -126,9 +132,81 @@ is "$(cat out.txt | wc -l)" "1" "vg paths sees the haplotype path in a GBZ with 
 rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
 rm -f empty.vg empty.gbwt empty.fa
 
+# Augref (augmented reference path) computation tests
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 > augref_test.vg
+vg validate augref_test.vg
+is $? 0 "augref computation produces valid graph"
 
-   
-   
+is $(vg paths -x augref_test.vg -L | grep "_alt$" | wc -l) 2 "augref computation creates expected number of augref paths"
+
+is $(vg paths -x augref_test.vg -L | grep "^x$" | wc -l) 1 "original reference path is preserved after augref computation"
+
+# Test augref naming convention matches pattern x_{N}_alt
+is $(vg paths -x augref_test.vg -L | grep -E "^x_[0-9]+_alt$" | wc -l) 2 "augref paths follow naming convention path_{N}_alt"
+
+# Test with triple_nested.gfa which has more complex structure
+vg paths -x nesting/triple_nested.gfa -Q x --compute-augref --min-augref-len 1 > triple_augref.vg
+vg validate triple_augref.vg
+is $? 0 "augref computation works on complex nested structure"
+
+is $(vg paths -x triple_augref.vg -L | grep "_alt$" | wc -l) 2 "correct number of augref paths for triple nested graph"
+
+# Test minimum length filter
+vg paths -x nesting/triple_nested.gfa -Q x --compute-augref --min-augref-len 100 > triple_augref_long.vg
+is $(vg paths -x triple_augref_long.vg -L | grep "_alt$" | wc -l) 0 "min-augref-len filters out short fragments"
+
+# Test second pass coverage of dangling nodes (nodes outside snarls but on haplotype paths)
+vg paths -x nesting/dangling_node.gfa -Q x --compute-augref --min-augref-len 1 > dangling_augref.vg
+vg validate dangling_augref.vg
+is $? 0 "augref computation handles dangling nodes outside snarls"
+
+is $(vg paths -x dangling_augref.vg -L | grep "_alt$" | wc -l) 2 "augref second pass covers dangling nodes"
+
+# Verify the dangling node (node 5, 8bp) is covered by checking augref path lengths include 8bp
+# Note: use -E with grep instead of -Q since augref paths are filtered from prefix matching
+is $(vg paths -x dangling_augref.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum}') 12 "augref paths cover both snarl node and dangling node"
+
+# Test --augref-segs option for writing segment table
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-segs augref_test.segs > augref_segs_test.vg
+is $? 0 "augref-segs option produces no error"
+
+is $(wc -l < augref_test.segs) 2 "augref-segs produces correct number of lines"
+
+is $(cut -f4 augref_test.segs | grep -c "x_.*_alt") 2 "augref-segs contains augref path names"
+
+is $(cut -f1 augref_test.segs | grep -c "#") 2 "augref-segs contains source path names with metadata"
+
+is $(cut -f5 augref_test.segs | grep -c "^x$") 2 "augref-segs contains reference path name"
+
+# Test that augref-segs requires compute-augref
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --augref-segs augref_test.segs 2>&1 | grep -q "requires --compute-augref"
+is $? 0 "augref-segs requires compute-augref option"
+
+# Test augref-segs with augref-sample option
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-sample TESTSAMPLE --augref-segs augref_sample_test.segs > augref_sample_test.vg
+is $(cut -f4 augref_sample_test.segs | grep -c "TESTSAMPLE") 2 "augref-segs uses augref-sample for path names"
+
+# Test cross-path interval merging (left merge: new interval absorbs previous from different path)
+vg paths -x nesting/cross_path_merge.gfa -Q x --compute-augref --min-augref-len 1 > cross_merge_test.vg
+vg validate cross_merge_test.vg
+is $? 0 "cross-path merge: augref computation produces valid graph"
+
+# Cross-path merge should combine snarl interval [2,3,4] + dangling [9] into one path on hap3
+# Without merging: 3 augref paths. With merging: 2 augref paths.
+is $(vg paths -x cross_merge_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path left merge reduces augref path count"
+
+# Test cross-path interval merging (right merge: new interval absorbs following from different path)
+vg paths -x nesting/cross_path_merge_right.gfa -Q x --compute-augref --min-augref-len 1 > cross_merge_right_test.vg
+vg validate cross_merge_right_test.vg
+is $? 0 "cross-path right merge: augref computation produces valid graph"
+
+# Cross-path merge should combine dangling [9] + snarl interval [2,3,4] into one path on hap3
+is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path right merge reduces augref path count"
+
+rm -f augref_test.vg triple_augref.vg triple_augref_long.vg dangling_augref.vg x.pg x.gbwt x.gbz
+rm -f augref_test.segs augref_segs_test.vg augref_sample_test.segs augref_sample_test.vg
+rm -f cross_merge_test.vg cross_merge_right_test.vg
+
 
 
 
