@@ -1269,7 +1269,7 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
             });
             if (!has_edges) {
                 temp_index.get_node(node_index).is_tip = true;
-                temp_snarl_record.tippy_child_ranks.insert(rank);
+                temp_snarl_record.tippy_child_ranks.emplace(rank, false);
                 temp_snarl_record.is_simple=false; //It is a tip so this isn't simple snarl
             }
             has_edges = false;
@@ -1278,7 +1278,7 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
             });
             if (!has_edges) {
                 temp_index.get_node(node_index).is_tip = true;
-                temp_snarl_record.tippy_child_ranks.insert(rank);
+                temp_snarl_record.tippy_child_ranks.emplace(rank, true);
                 temp_snarl_record.is_simple=false; //It is a tip so this isn't simple snarl
             }
         } else if (start_index.first == SnarlDistanceIndex::TEMP_CHAIN && !temp_index.get_chain(start_index).is_trivial) {
