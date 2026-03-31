@@ -44,8 +44,6 @@ We maintain a support forum on biostars: https://www.biostars.org/tag/vg/
 
 ## Installation
 
-*Update:* GCC version 10 or higher now required for those compiling from source.
-
 ### Download Releases
 
 The easiest way to get vg is to download one of our release builds for Linux. We have a 6-week release cadence, so our builds are never too far out of date.
@@ -95,7 +93,7 @@ On other distros, or if you do not have root access, you will need to perform th
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
                          libzstd-dev pybind11-dev python3-pybind11 libssl-dev kmc
                          
-At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
+At present, you will need GCC version 10 or greater, with support for C++20, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 
