@@ -44,6 +44,8 @@ We maintain a support forum on biostars: https://www.biostars.org/tag/vg/
 
 ## Installation
 
+*Update:* GCC version 10 or higher now required for those compiling from source.
+
 ### Download Releases
 
 The easiest way to get vg is to download one of our release builds for Linux. We have a 6-week release cadence, so our builds are never too far out of date.

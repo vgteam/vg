@@ -158,7 +158,7 @@ oldest-supported-compiler-job:
     GIT_SUBMODULE_STRATEGY: none
     # DO NOT change this version number without updating the README to reflect
     # the requirement bump.
-    COMPILER_VERSION: 9
+    COMPILER_VERSION: 10
 
 
 # We define one job to do the Docker container build
