@@ -154,6 +154,9 @@ public:
         /// Sequence `i` contains kmer `j` if and only if `kmers_present[i * kmers.size() + j] == 1`.
         sdsl::bit_vector kmers_present;
 
+        Subchain(Subchain&&) noexcept = default;
+        Subchain& operator=(Subchain&&) noexcept = default;
+
         /// Returns the start node as a GBWTGraph handle.
         handle_t start_handle() const { return gbwtgraph::GBWTGraph::node_to_handle(this->start); }
 

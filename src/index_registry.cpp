@@ -4832,7 +4832,7 @@ IndexRegistry::~IndexRegistry() {
     }
 }
 
-IndexRegistry::IndexRegistry(IndexRegistry&& other) :
+IndexRegistry::IndexRegistry(IndexRegistry&& other) noexcept :
     index_registry(std::move(other.index_registry)),
     recipe_registry(std::move(other.recipe_registry)),
     registered_suffixes(std::move(other.registered_suffixes)),
@@ -4844,7 +4844,7 @@ IndexRegistry::IndexRegistry(IndexRegistry&& other) :
     other.work_dir.clear();
 }
 
-IndexRegistry& IndexRegistry::operator=(IndexRegistry&& other) {
+IndexRegistry& IndexRegistry::operator=(IndexRegistry&& other) noexcept {
     index_registry = std::move(other.index_registry);
     recipe_registry = std::move(other.recipe_registry);
     registered_suffixes = std::move(other.registered_suffixes);

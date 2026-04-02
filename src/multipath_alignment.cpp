@@ -31,7 +31,7 @@ namespace vg {
         *this = other;
     }
 
-    multipath_alignment_t::multipath_alignment_t(multipath_alignment_t&& other) {
+    multipath_alignment_t::multipath_alignment_t(multipath_alignment_t&& other) noexcept {
         *this = std::move(other);
     }
 
@@ -64,7 +64,7 @@ namespace vg {
         return *this;
     }
 
-    multipath_alignment_t& multipath_alignment_t::operator=(multipath_alignment_t&& other) {
+    multipath_alignment_t& multipath_alignment_t::operator=(multipath_alignment_t&& other) noexcept {
         if (this != &other) {
             _sequence = std::move(other._sequence);
             _quality = std::move(other._quality);

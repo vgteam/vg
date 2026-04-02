@@ -291,9 +291,9 @@ public:
     /// Copy assignment
     XdropAligner& operator=(const XdropAligner& other);
     /// Move constructor
-    XdropAligner(XdropAligner&& other);
+    XdropAligner(XdropAligner&& other) noexcept;
     /// Move assignment
-    XdropAligner& operator=(XdropAligner&& other);
+    XdropAligner& operator=(XdropAligner&& other) noexcept;
 };
 
 /*
@@ -337,9 +337,9 @@ public:
     /// Copy assignment
     QualAdjXdropAligner& operator=(const QualAdjXdropAligner& other);
     /// Move constructor
-    QualAdjXdropAligner(QualAdjXdropAligner&& other);
+    QualAdjXdropAligner(QualAdjXdropAligner&& other) noexcept;
     /// Move assignment
-    QualAdjXdropAligner& operator=(QualAdjXdropAligner&& other);
+    QualAdjXdropAligner& operator=(QualAdjXdropAligner&& other) noexcept;
 };
 
 } // end of namespace vg

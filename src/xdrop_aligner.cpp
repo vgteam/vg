@@ -50,12 +50,12 @@ XdropAligner& XdropAligner::operator=(const XdropAligner& other)
 	return *this;
 }
 
-XdropAligner::XdropAligner(XdropAligner&& other)
+XdropAligner::XdropAligner(XdropAligner&& other) noexcept
 {
     *this = other;
 }
 
-XdropAligner& XdropAligner::operator=(XdropAligner&& other)
+XdropAligner& XdropAligner::operator=(XdropAligner&& other) noexcept
 {
 	if (this != &other) {
         if (dz) {

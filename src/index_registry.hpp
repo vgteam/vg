@@ -269,8 +269,8 @@ public:
     IndexRegistry& operator=(const IndexRegistry& other) = delete;
     
     // And we need to be moved carefully
-    IndexRegistry(IndexRegistry&& other);
-    IndexRegistry& operator=(IndexRegistry&& other);
+    IndexRegistry(IndexRegistry&& other) noexcept;
+    IndexRegistry& operator=(IndexRegistry&& other) noexcept;
     
     
     /// Prefix for all saved outputs

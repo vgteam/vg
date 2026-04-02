@@ -53,12 +53,12 @@ QualAdjXdropAligner& QualAdjXdropAligner::operator=(const QualAdjXdropAligner& o
 	return *this;
 }
 
-QualAdjXdropAligner::QualAdjXdropAligner(QualAdjXdropAligner&& other)
+QualAdjXdropAligner::QualAdjXdropAligner(QualAdjXdropAligner&& other) noexcept
 {
     *this = other;
 }
 
-QualAdjXdropAligner& QualAdjXdropAligner::operator=(QualAdjXdropAligner&& other)
+QualAdjXdropAligner& QualAdjXdropAligner::operator=(QualAdjXdropAligner&& other) noexcept
 {
 	if (this != &other) {
         if (dz) {
