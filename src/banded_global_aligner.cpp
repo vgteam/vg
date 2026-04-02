@@ -2793,7 +2793,7 @@ BandedGlobalAligner<IntType>::AltTracebackStack::Deflection::Deflection(const in
 }
 
 template <class IntType>
-BandedGlobalAligner<IntType>::AltTracebackStack::Deflection::~Deflection() {
+BandedGlobalAligner<IntType>::AltTracebackStack::Deflection::~Deflection() noexcept {
     // nothing to do
 }
 

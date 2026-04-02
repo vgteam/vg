@@ -314,7 +314,7 @@ namespace vg {
     public:
         Deflection(const int64_t from_node_id, const int64_t row_idx, const int64_t col_idx,
                    const int64_t to_node_id, const matrix_t to_matrix);
-        ~Deflection();
+        ~Deflection() noexcept;
         
         /// Node ID where deflection occurs
         const int64_t from_node_id;

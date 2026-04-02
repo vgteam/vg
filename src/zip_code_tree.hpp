@@ -331,7 +331,7 @@ public:
 
         /// Compare to other instances. TODO: Use default when we get C++20. 
         inline bool operator==(const seed_result_t& other) const {
-            return distance == other.distance && oriented_seed_t::operator==((oriented_seed_t)other);
+            return distance == other.distance && oriented_seed_t::operator==(static_cast<const oriented_seed_t&>(other));
         }
 
         /// Compare to other instances. TODO: Use default when we get C++20. 
