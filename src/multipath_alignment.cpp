@@ -2712,12 +2712,11 @@ namespace vg {
     }
 
     bool is_supplementary(const multipath_alignment_t& multipath_aln) {
-        if (!multipath_aln.has_annotation("supplementary")) {
+        auto annotation = multipath_aln.get_annotation("supplementary");
+        if (annotation.second == nullptr) {
             return false;
         }
-        else {
-            return *((bool*) multipath_aln.get_annotation("supplementary").second);
-        }
+        return *((bool*) annotation.second);
     }
 
     vector<tuple<int64_t, int64_t, int64_t, int64_t>>

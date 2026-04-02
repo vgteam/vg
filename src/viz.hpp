@@ -22,7 +22,7 @@ using namespace std;
 class Viz {
 public:
     Viz(void) { }
-    ~Viz(void) { close(); }
+    ~Viz(void) { try { close(); } catch (...) {} }
     Viz(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
     void init(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
     void draw(void);

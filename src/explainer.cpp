@@ -297,7 +297,11 @@ DiagramExplainer::~DiagramExplainer() {
     if (!explaining()) {
         return;
     }
-    write_connected_components();
+    try {
+        write_connected_components();
+    } catch (...) {
+        // Cannot propagate exceptions from destructor
+    }
 }
 
 void DiagramExplainer::add_globals(const annotation_t& annotations) {

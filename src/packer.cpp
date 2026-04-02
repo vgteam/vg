@@ -679,6 +679,7 @@ size_t Packer::node_quality_vector_size(void) const {
 }
 
 pair<size_t, size_t> Packer::coverage_bin_offset(size_t i) const {
+    if (cov_bin_size == 0) return {0, i};
     size_t bin = min((size_t)(i / cov_bin_size), (size_t)(coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
     size_t offset = i - bin * cov_bin_size;
@@ -693,6 +694,7 @@ pair<size_t, size_t> Packer::edge_coverage_bin_offset(size_t i) const {
 }
 
 pair<size_t, size_t> Packer::node_quality_bin_offset(size_t i) const {
+    if (node_qual_bin_size == 0) return {0, i};
     size_t bin = min((size_t)(i / node_qual_bin_size), (size_t)(node_quality_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
     size_t offset = i - bin * node_qual_bin_size;

@@ -518,7 +518,7 @@ HTSWriter::~HTSWriter() {
     
     for (size_t thread_number = 0; thread_number < sam_files.size(); thread_number++) {
         // For each thread, find its samFile*
-        auto& sam_file = sam_files.at(thread_number);
+        auto& sam_file = sam_files[thread_number];
     
         if (sam_file != nullptr) {
             // Close out all the open samFile*s and flush their data before the

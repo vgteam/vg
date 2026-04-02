@@ -20,7 +20,11 @@ zstd_compress_buf::zstd_compress_buf(std::streambuf* inner, int compression_leve
 }
 
 zstd_compress_buf::~zstd_compress_buf() {
-    this->sync();
+    try {
+        this->sync();
+    } catch (...) {
+        // Cannot propagate exceptions from destructor
+    }
     ZSTD_freeCCtx(this->context); this->context = nullptr;
 }
 

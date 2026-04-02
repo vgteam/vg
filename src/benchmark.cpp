@@ -156,7 +156,11 @@ BenchmarkResult run_benchmark(const string& name, size_t iterations, const funct
         test_samples.push_back(chrono::duration_cast<benchtime>(test_stop - test_start).count());
         control_samples.push_back(chrono::duration_cast<benchtime>(control_stop - control_start).count());
     }
-    
+
+    if (iterations == 0) {
+        return to_return;
+    }
+
     // Calculate the moments with magic numeric algorithms
     // See <https://stackoverflow.com/a/7616783>
     
