@@ -223,6 +223,10 @@ public:
 
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
+
+    /// Get the total elapsed seconds from start() to stop().
+    /// Only valid after stop() has been called.
+    double total_seconds() const;
     
     /// Call the given callback with stage name, a vector of result item sizes
     /// at that stage, a vector of correct item scores at that stage (if any),

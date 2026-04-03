@@ -428,6 +428,10 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
+double Funnel::total_seconds() const {
+    return chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+}
+
 void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const {
     for (auto& stage : stages) {
         // Make a vector of item sizes

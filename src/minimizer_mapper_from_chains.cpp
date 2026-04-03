@@ -5,6 +5,7 @@
  */
 
 #include "minimizer_mapper.hpp"
+#include "giraffe_stats.hpp"
 
 #include "annotation.hpp"
 #include "banded_global_aligner.hpp"
@@ -718,12 +719,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (this->track_provenance) {
         funnel.stage("tree");
+        funnel.substage("fill_in_forest");
     }
 
     // Make them into a zip code tree
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
+
+    if (this->track_provenance) {
+        funnel.substage_stop();
+    }
 
 #ifdef debug_print_forest
     if (show_work) {
@@ -1004,9 +1010,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Stop this alignment
     funnel.stop();
 
+    // Record aggregate stats and log slow reads if instrumentation is enabled.
+    if (giraffe_stats) {
+        giraffe_stats->record_read(funnel, aln.name());
+    }
+
     // Annotate with whatever's in the funnel
     funnel.annotate_mapped_alignment(mappings[0], track_correctness);
-    
+
     if (track_provenance) {
         if (track_correctness) {
             annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), chains.size(), funnel);
@@ -1095,6 +1106,9 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
     bool do_gapless_extension = aln.sequence().size() <= gapless_extension_limit;
 
     // First score all the zip code trees in the forest by summing the scores of their involved minimizers.
+    if (track_provenance) {
+        funnel.substage("score_trees");
+    }
     vector<double> tree_scores;
     double best_tree_score = 0;
     double second_best_tree_score = 0;
@@ -1151,6 +1165,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
 
 
     if (track_provenance) {
+        funnel.substage_stop();
         funnel.stage("chain");
         funnel.substage("chain");
     }
