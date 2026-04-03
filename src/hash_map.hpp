@@ -140,6 +140,8 @@ public:
     hash_map() {
         this->set_empty_key(-1);
     }
+#else
+    hash_map() = default;
 #endif
 };
 
@@ -172,6 +174,8 @@ public:
     pair_hash_map() {
         this->set_empty_key(K(-1, -1));
     }
+#else
+    pair_hash_map() = default;
 #endif
 };
 
@@ -207,6 +211,8 @@ public:
     hash_set() {
         this->set_empty_key(-1);
     }
+#else
+    hash_set() = default;
 #endif
 };
 
@@ -239,6 +245,8 @@ public:
     pair_hash_set() {
         this->set_empty_key(K(-1, -1));
     }
+#else
+    pair_hash_set() = default;
 #endif
 };
 
