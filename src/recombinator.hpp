@@ -154,6 +154,7 @@ public:
         /// Sequence `i` contains kmer `j` if and only if `kmers_present[i * kmers.size() + j] == 1`.
         sdsl::bit_vector kmers_present;
 
+        Subchain() = default;
         Subchain(Subchain&&) noexcept = default;
         Subchain& operator=(Subchain&&) noexcept = default;
 

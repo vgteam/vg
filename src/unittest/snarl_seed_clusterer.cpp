@@ -1367,7 +1367,7 @@ namespace unittest {
                 for (size_t s : c.seeds) {
                     h.insert(s);
                 }
-                cluster_sets.push_back(h);
+                cluster_sets.push_back(std::move(h));
             }
             REQUIRE( clusters.size() == 2);
             REQUIRE (( (cluster_sets[0].count(0) == 1 &&
@@ -1952,7 +1952,7 @@ namespace unittest {
                 for (size_t s : c.seeds) {
                     h.insert(s);
                 }
-                cluster_sets.push_back(h);
+                cluster_sets.push_back(std::move(h));
             }
             REQUIRE (( (cluster_sets[0].count(0) == 1 &&
                        cluster_sets[0].count(1) == 1 &&

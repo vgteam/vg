@@ -3821,7 +3821,7 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGrap
                 }
             }
         }
-        next = todo;
+        next = std::move(todo);
     }
     // ensure positions are sorted by remainder
     std::sort(positions.begin(), positions.end(),
