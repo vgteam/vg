@@ -1590,8 +1590,8 @@ void MinimizerMapper::process_until_threshold_e(size_t items, const function<Sco
         if (threshold != 0 && get_score(item_num) <= cutoff) {
             // Item would fail the score threshold
             
-            bool escape = false;
-            if (unskipped < min_count || (escape = threshold_escape(item_num))) {
+            bool escape = threshold_escape(item_num);
+            if (unskipped < min_count || escape) {
                 // But we need it to make up the minimum number, or the item escapes the
                 // score threshold.
                 

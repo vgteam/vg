@@ -58,8 +58,8 @@ namespace unittest {
         SnarlDistanceIndex di;
         IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index (&di, &graph, &snarl_finder);
-        TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
-                               new SnarlMinDistance(di)); 
+        TargetValueSearch tvs(graph, std::make_unique<TipAnchoredMaxDistance>(di),
+                               std::make_unique<SnarlMinDistance>(di));
     
         
         SECTION( "Test tvs" ) {
@@ -142,8 +142,8 @@ namespace unittest {
         SnarlDistanceIndex di;
         IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index (&di, &graph, &snarl_finder);
-        TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
-                               new SnarlMinDistance(di)); 
+        TargetValueSearch tvs(graph, std::make_unique<TipAnchoredMaxDistance>(di),
+                               std::make_unique<SnarlMinDistance>(di));
     
         
         SECTION( "Test tvs" ) {
@@ -202,8 +202,8 @@ namespace unittest {
         SnarlDistanceIndex di;
         IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index (&di, &graph, &snarl_finder);
-        TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
-                               new SnarlMinDistance(di)); 
+        TargetValueSearch tvs(graph, std::make_unique<TipAnchoredMaxDistance>(di),
+                               std::make_unique<SnarlMinDistance>(di));
     
         
         SECTION( "Test tvs" ) {
@@ -240,8 +240,8 @@ namespace unittest {
             SnarlDistanceIndex di;
             IntegratedSnarlFinder snarl_finder(graph);
             fill_in_distance_index (&di, &graph, &snarl_finder);
-            TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
-                               new SnarlMinDistance(di));    
+            TargetValueSearch tvs(graph, std::make_unique<TipAnchoredMaxDistance>(di),
+                               std::make_unique<SnarlMinDistance>(di));   
 
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {

@@ -731,7 +731,8 @@ int main_msga(int argc, char** argv) {
             db_out.close();
         }
 #endif
-        while (incomplete && iter++ < iter_max) {
+        while (incomplete && iter < iter_max) {
+            iter++;
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) {
                 logger.info() << name << ": adding to graph "

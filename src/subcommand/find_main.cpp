@@ -608,7 +608,7 @@ int main_find(int argc, char** argv) {
             if (node_ids.size() != 2) {
                 logger.error() << "exactly 2 nodes (-n) required with -D" << endl;
             }
-            cout << vg::algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex),
+            cout << vg::algorithms::min_approx_path_distance(xindex,
                 make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }

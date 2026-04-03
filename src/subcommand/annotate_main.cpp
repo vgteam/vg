@@ -415,7 +415,7 @@ int main_annotate(int argc, char** argv) {
             }
             
             // define a function that converts to GGFF
-            RegionExpander region_expander(&(*xg_index), &(*snarl_manager));
+            RegionExpander region_expander(xg_index, snarl_manager.get());
             function<void(const GFFRecord&)> output_ggff_record = [&](const GFFRecord& record) {
                 
                 auto subgraph = region_expander.expanded_subgraph(record);
