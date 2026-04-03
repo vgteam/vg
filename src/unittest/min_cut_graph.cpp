@@ -12,7 +12,8 @@
 #include "catch.hpp"
 #include <unordered_set>
 #include "sparse_union_find.hpp"
-#include <stdlib.h>     
+#include "support/randomness.hpp"
+#include <stdlib.h>
 #include <time.h>
 #include <chrono>  
 #include <iterator>     
@@ -1041,14 +1042,12 @@ namespace vg {
         TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
             Graph graph;
             size_t max_nodes = 1000;
+            std::mt19937 rng(vg::unittest::test_seed_source());
+            std::uniform_int_distribution<int> dist(1, 999); // 1–999, 0 not allowed
             for(size_t i = 0; i<max_nodes; i++){
-                
-                //assign edge a random edge weight using a rand num generator 
-                int random_weight = 0;  
-                // 0 weights not allowed  
-                while(random_weight == 0){
-                    random_weight = rand() % 1000; 
-                }
+
+                //assign edge a random edge weight using a rand num generator
+                int random_weight = dist(rng);
 // #ifdef debug
 //                 cout << "============================================================================= " << endl;
 //                 cout << "random weight" << random_weight << endl;        

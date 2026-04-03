@@ -84,14 +84,14 @@ class SnarlDistanceIndexClusterer {
             }
 
             //Move constructor
-            Seed (Seed&& other) :
+            Seed (Seed&& other) noexcept :
                 pos(std::move(other.pos)),
                 source(std::move(other.source)),
                 zipcode(std::move(other.zipcode)),
                 paths(std::move(other.paths)){}
 
             //Move assignment operator
-            Seed& operator=(Seed&& other) {
+            Seed& operator=(Seed&& other) noexcept {
                 pos = std::move(other.pos);
                 source = std::move(other.source);
                 zipcode = std::move(other.zipcode);
@@ -277,9 +277,10 @@ class SnarlDistanceIndexClusterer {
 
             bool is_trivial_chain = false;
             bool is_looping_chain = false;
-            
 
-
+            // Explicit noexcept move operations
+            SnarlTreeNodeProblem(SnarlTreeNodeProblem&&) noexcept = default;
+            SnarlTreeNodeProblem& operator=(SnarlTreeNodeProblem&&) noexcept = default;
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)

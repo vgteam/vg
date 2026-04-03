@@ -9,7 +9,6 @@
  */
 
 #include <random>
-#include <cstdlib>
 
 namespace vg {
 namespace unittest {
@@ -21,8 +20,8 @@ namespace unittest {
  * USE INSTEAD OF A NEW std::random_device FOR ALL TESTING PURPOSES!
  */
 inline unsigned int test_seed_source() {
-    // TODO: make thread safe
-    return (unsigned int) rand();
+    static std::mt19937 rng(std::random_device{}());
+    return static_cast<unsigned int>(rng());
 }
 
 }

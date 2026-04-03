@@ -34,7 +34,7 @@ class SmallBitset {
             this->copy(another);
         }
 
-        SmallBitset(SmallBitset&& another) {
+        SmallBitset(SmallBitset&& another) noexcept {
             this->move(another);
         }
 
@@ -46,7 +46,7 @@ class SmallBitset {
             return *this;
         }
 
-        SmallBitset& operator=(SmallBitset&& another) {
+        SmallBitset& operator=(SmallBitset&& another) noexcept {
             if (&another != this) {
                 this->clear();
                 this->move(another);

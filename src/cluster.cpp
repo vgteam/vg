@@ -2672,9 +2672,9 @@ int64_t TipAnchoredMaxDistance::operator()(const pos_t& pos_1, const pos_t& pos_
 }
 
 TargetValueSearch::TargetValueSearch(const HandleGraph& handle_graph,
-                                     DistanceHeuristic* upper_bound_heuristic,
-                                     DistanceHeuristic* lower_bound_heuristic) :
-    handle_graph(handle_graph), upper_bound_heuristic(upper_bound_heuristic), lower_bound_heuristic(lower_bound_heuristic) {
+                                     std::unique_ptr<DistanceHeuristic> upper_bound_heuristic,
+                                     std::unique_ptr<DistanceHeuristic> lower_bound_heuristic) :
+    handle_graph(handle_graph), upper_bound_heuristic(std::move(upper_bound_heuristic)), lower_bound_heuristic(std::move(lower_bound_heuristic)) {
     // nothing else to do
 }
 
@@ -3164,8 +3164,10 @@ int64_t TargetValueSearch::tv_path_length(const pos_t& pos_1, const pos_t& pos_2
 }
     
 TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, SnarlDistanceIndex* distance_index) :
-      tvs(*handle_graph, new TipAnchoredMaxDistance(*distance_index), new SnarlMinDistance(*distance_index))   {
-    
+      tvs(*handle_graph,
+          std::make_unique<TipAnchoredMaxDistance>(*distance_index),
+          std::make_unique<SnarlMinDistance>(*distance_index)) {
+
     // nothing else to do
 }
     

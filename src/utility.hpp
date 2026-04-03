@@ -288,9 +288,9 @@ struct VectorView {
     // Behave like a nice value.
     ~VectorView() = default;
     VectorView(const VectorView& other) = default;
-    VectorView(VectorView&& other) = default;
+    VectorView(VectorView&& other) noexcept = default;
     VectorView& operator=(const VectorView& other) = default;
-    VectorView& operator=(VectorView&& other) = default;
+    VectorView& operator=(VectorView&& other) noexcept = default;
     
     /**
      * Make a VectorView of a whole vector. Provides an implicit conversion.
@@ -574,9 +574,9 @@ public:
     IndirectVectorView() = default;
     ~IndirectVectorView() = default;
     IndirectVectorView(const IndirectVectorView& other) = default;
-    IndirectVectorView(IndirectVectorView&& other) = default;
+    IndirectVectorView(IndirectVectorView&& other) noexcept = default;
     IndirectVectorView& operator=(const IndirectVectorView& other) = default;
-    IndirectVectorView& operator=(IndirectVectorView&& other) = default;
+    IndirectVectorView& operator=(IndirectVectorView&& other) noexcept = default;
     
     void push_back(Item& item) {
         return items.push_back(&item);

@@ -3,6 +3,7 @@
 /// unit tests for the minimizer mapper
 
 #include <iostream>
+#include <random>
 #include "vg/io/json2pb.h"
 #include "../io/json2graph.hpp"
 #include <vg/vg.pb.h>
@@ -14,6 +15,7 @@
 #include "xg.hpp"
 #include "vg.hpp"
 #include "catch.hpp"
+#include "support/randomness.hpp"
 
 namespace vg {
 namespace unittest {
@@ -191,20 +193,23 @@ TEST_CASE("Mapping quality cap cannot be confused by fuzzing with high base qual
     minimizer_template.occs.first = nullptr;
     minimizer_template.score = 1;
     
+    std::mt19937 rng(vg::unittest::test_seed_source());
     for (size_t try_number = 0; try_number < 100000; try_number++) {
-    
+
         vector<TestMinimizerMapper::Minimizer> minimizers;
         // They are all going to be explored
         vector<size_t> minimizers_explored;
-        
-        size_t minimizer_count = rand() % 100 + 5;
-        
+
+        size_t minimizer_count = std::uniform_int_distribution<size_t>(5, 104)(rng);
+
         for (size_t i = 0; i < minimizer_count; i++) {
             // Generate a random and not very realistic agglomeration
-            size_t core_width = rand() % std::min(sequence.size()/2 - 1, (size_t)32 - 1) + 1;
-            size_t run_length = rand() % std::min(sequence.size() - core_width, (size_t)32 - core_width);
-            size_t flank_width = rand() % 10;
-            size_t core_start = rand() % (sequence.size() - core_width - run_length);
+            size_t max_core_width = std::min(sequence.size()/2 - 1, (size_t)32 - 1);
+            size_t core_width = std::uniform_int_distribution<size_t>(1, max_core_width)(rng);
+            size_t max_run_length = std::min(sequence.size() - core_width, (size_t)32 - core_width);
+            size_t run_length = std::uniform_int_distribution<size_t>(0, max_run_length)(rng);
+            size_t flank_width = std::uniform_int_distribution<size_t>(0, 9)(rng);
+            size_t core_start = std::uniform_int_distribution<size_t>(0, sequence.size() - core_width - run_length - 1)(rng);
                 
             string min_seq;
             for (int i = 0; i < core_width; i++) {

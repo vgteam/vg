@@ -204,10 +204,10 @@ struct Range : public subcommand::TickChainLink {
     }
     
     /// Move, preserving destination links
-    Range(Range&& other): start(other.start), end(other.end), step(other.step) {
+    Range(Range&& other) noexcept: start(other.start), end(other.end), step(other.step) {
         // Nothing to do
     }
-    
+
     /// Copy assignment, preserving destination links
     Range& operator=(const Range& other) {
         start = other.start;
@@ -215,9 +215,9 @@ struct Range : public subcommand::TickChainLink {
         step = other.step;
         return *this;
     }
-    
+
     /// Move assignment, preserving destination links
-    Range& operator=(Range&& other) {
+    Range& operator=(Range&& other) noexcept {
         start = other.start;
         end = other.end;
         step = other.step;
@@ -447,9 +447,9 @@ struct Valuation : public BaseValuation {
 
     // Valuations are copyable and assignable.
     Valuation(const Valuation<T>& other) = default;
-    Valuation(Valuation<T>&& other) = default;
+    Valuation(Valuation<T>&& other) noexcept = default;
     Valuation<T>& operator=(const Valuation<T>& other) = default;
-    Valuation<T>& operator=(Valuation<T>&& other) = default;
+    Valuation<T>& operator=(Valuation<T>&& other) noexcept = default;
     
     /// Value for the option
     T value;

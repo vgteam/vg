@@ -619,8 +619,8 @@ class TargetValueSearch {
 public:
     TargetValueSearch() = delete;
     TargetValueSearch(const HandleGraph& handle_graph,
-                      DistanceHeuristic* upper_bound_heuristic,
-                      DistanceHeuristic* lower_bound_heuristic);
+                      std::unique_ptr<DistanceHeuristic> upper_bound_heuristic,
+                      std::unique_ptr<DistanceHeuristic> lower_bound_heuristic);
     ~TargetValueSearch() = default;
     
     /// Does a path exist from pos_1 to pos_2 with length within the tolerance from the target value?
