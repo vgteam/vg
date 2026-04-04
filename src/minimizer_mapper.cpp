@@ -30,8 +30,11 @@
 
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cfloat>
+
+#include <omp.h>
 
 // Turn on debugging prints
 //#define debug
@@ -621,17 +624,34 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         return aln.sequence();
     });
 
+    // Set up per-stage timing.
+    stage_timings_t* per_thread_timings = nullptr;
+    if (!stage_timings_by_thread.empty()) {
+        per_thread_timings = &stage_timings_by_thread[omp_get_thread_num()];
+    }
+    auto stage_clock_now = []() { return std::chrono::high_resolution_clock::now(); };
+    auto stage_ns = [](std::chrono::high_resolution_clock::time_point s,
+                       std::chrono::high_resolution_clock::time_point e) {
+        return std::chrono::duration<double, std::nano>(e - s).count();
+    };
+    auto total_start = stage_clock_now();
+
     // Minimizers sorted by position
+    auto minimizer_stage_start = stage_clock_now();
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
     // Indexes of minimizers, sorted into score order, best score first
     std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read, rng);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
+    if (per_thread_timings) { per_thread_timings->minimizer_ns += stage_ns(minimizer_stage_start, stage_clock_now()); }
 
     // Find the seeds and mark the minimizers that were located.
+    auto seed_stage_start = stage_clock_now();
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
-  
+    if (per_thread_timings) { per_thread_timings->seed_ns += stage_ns(seed_stage_start, stage_clock_now()); }
+
     // Cluster the seeds. Get sets of input seed indexes that go together.
+    auto tree_stage_start = stage_clock_now(); // "tree" slot holds cluster+extend for extensions path
     if (track_provenance) {
         funnel.stage("cluster");
     }
@@ -832,6 +852,8 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         });
         
     std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
+    if (per_thread_timings) { per_thread_timings->chain_ns += stage_ns(tree_stage_start, stage_clock_now()); }
+    auto align_stage_start = stage_clock_now();
     if (track_provenance) {
         funnel.stage("align");
     }
@@ -1073,11 +1095,13 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         supplementaries = std::move(identify_supplementary_alignments(alignments, funnel));
     }
     
+    if (per_thread_timings) { per_thread_timings->align_ns += stage_ns(align_stage_start, stage_clock_now()); }
+    auto winner_stage_start = stage_clock_now();
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnel.stage("winner");
     }
-    
+
     // Fill this in with the alignments we will output as mappings
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
@@ -1272,6 +1296,13 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         {
             funnel.to_dot(cerr);
         }
+    }
+
+    // Record winner stage and total map_from_extensions time.
+    if (per_thread_timings) {
+        per_thread_timings->winner_ns += stage_ns(winner_stage_start, stage_clock_now());
+        per_thread_timings->total_ns  += stage_ns(total_start,        stage_clock_now());
+        per_thread_timings->read_count++;
     }
 
     return mappings;

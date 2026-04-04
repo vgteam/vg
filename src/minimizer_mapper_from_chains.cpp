@@ -29,9 +29,12 @@
 
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cfloat>
 #include <unordered_set>
+
+#include <omp.h>
 
 // Turn on debugging prints
 //#define debug
@@ -697,8 +700,20 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         return aln.sequence();
     });
 
+    // Set up per-stage timing.
+    stage_timings_t* per_thread_timings = nullptr;
+    if (!stage_timings_by_thread.empty()) {
+        per_thread_timings = &stage_timings_by_thread[omp_get_thread_num()];
+    }
+    auto stage_clock_now = []() { return std::chrono::high_resolution_clock::now(); };
+    auto stage_ns = [](std::chrono::high_resolution_clock::time_point s,
+                       std::chrono::high_resolution_clock::time_point e) {
+        return std::chrono::duration<double, std::nano>(e - s).count();
+    };
+    auto total_start = stage_clock_now();
 
     // Minimizers sorted by position
+    auto minimizer_stage_start = stage_clock_now();
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
     // Flag minimizers as being in repetitive regions of the read or not
     this->flag_repetitive_minimizers(minimizers_in_read);
@@ -706,10 +721,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read, rng);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
-
+    if (per_thread_timings) { per_thread_timings->minimizer_ns += stage_ns(minimizer_stage_start, stage_clock_now()); }
 
     // Find the seeds and mark the minimizers that were located.
+    auto seed_stage_start = stage_clock_now();
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+    if (per_thread_timings) { per_thread_timings->seed_ns += stage_ns(seed_stage_start, stage_clock_now()); }
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
@@ -721,6 +738,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Make them into a zip code tree
+    auto tree_stage_start = stage_clock_now();
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
@@ -739,6 +757,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
+    if (per_thread_timings) { per_thread_timings->tree_ns += stage_ns(tree_stage_start, stage_clock_now()); }
     
     // If we do gapless extension, then it is possible to find full-length gapless extensions at this stage
     // If we have at least one good gapless extension, then we will turn them directly into alignments
@@ -765,11 +784,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
     std::vector<double> multiplicity_by_chain;
 
+    auto chain_stage_start = stage_clock_now();
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
                          chains, chain_rec_flags, chain_source_tree, chain_score_estimates,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
+    if (per_thread_timings) { per_thread_timings->chain_ns += stage_ns(chain_stage_start, stage_clock_now()); }
 
     //Fill in chain stats for annotating the final alignment
     bool best_chain_correct = false;
@@ -821,26 +842,29 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     alignments_to_source.reserve(chain_score_estimates.size());
 
     if (alignments.size() == 0) {
-        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
-                               minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
+        auto align_stage_start = stage_clock_now();
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates,
+                               minimizer_kept_chain_count, alignments, multiplicity_by_alignment,
                                alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
+        if (per_thread_timings) { per_thread_timings->align_ns += stage_ns(align_stage_start, stage_clock_now()); }
     }
-    
-    
+
+
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnel.stage("winner");
     }
     
     // Fill this in with the alignments we will output as mappings
+    auto winner_stage_start = stage_clock_now();
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
     //The scores of the mappings
     vector<double> scores;
     //The multiplicities of mappings
     vector<double> multiplicity_by_mapping;
-    
-    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source, chain_score_estimates, 
+
+    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source, chain_score_estimates,
                                   mappings, scores, multiplicity_by_mapping, funnel_depleted, rng, funnel);
     
     if (track_provenance) {
@@ -1071,6 +1095,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     Explainer::clear_context();
+
+    // Record winner stage and total map_from_chains time.
+    if (per_thread_timings) {
+        per_thread_timings->winner_ns += stage_ns(winner_stage_start, stage_clock_now());
+        per_thread_timings->total_ns  += stage_ns(total_start,        stage_clock_now());
+        per_thread_timings->read_count++;
+    }
 
     return mappings;
 }
