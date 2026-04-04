@@ -6,6 +6,7 @@
 
 #include <omp.h>
 #include <algorithm>
+#include <format>
 #include <iomanip>
 #include <numeric>
 #include <sstream>
@@ -31,9 +32,7 @@ void GiraffeStats::record_read(const Funnel& funnel, const std::string& read_nam
     // Accumulate per-stage data and optionally build the slow-read message.
     std::ostringstream slow_msg;
     if (is_slow) {
-        slow_msg << "warning[vg::Giraffe]: Slow read \"" << read_name
-                 << "\" took " << std::fixed << std::setprecision(3)
-                 << total << "s:\n";
+        slow_msg << std::format("warning[vg::Giraffe]: Slow read \"{}\" took {:.3f}s:\n", read_name, total);
     }
 
     funnel.for_each_stage([&](const std::string& stage,
@@ -55,9 +54,7 @@ void GiraffeStats::record_read(const Funnel& funnel, const std::string& read_nam
         }
 
         if (is_slow) {
-            slow_msg << "  " << stage << ": "
-                     << std::fixed << std::setprecision(3) << duration << "s"
-                     << " (" << result_sizes.size() << " items)\n";
+            slow_msg << std::format("  {}: {:.3f}s ({} items)\n", stage, duration, result_sizes.size());
             for (auto& kv : sub_durations) {
                 slow_msg << "    " << kv.first << ": "
                          << std::fixed << std::setprecision(3) << kv.second << "s\n";
@@ -87,9 +84,9 @@ void GiraffeStats::print_summary(std::ostream& out) const {
     // Use the stage order from thread 0 (or whichever thread saw stages first),
     // then append any stages seen by other threads.
     std::vector<std::string> stage_order;
-    std::unordered_map<std::string, std::vector<double>> stage_durations;
-    std::unordered_map<std::string, std::vector<size_t>> stage_item_counts;
-    std::unordered_map<std::string, std::vector<double>> substage_durations;
+    std::unordered_map<std::string, std::vector<double>, StringHash, StringEqual> stage_durations;
+    std::unordered_map<std::string, std::vector<size_t>, StringHash, StringEqual> stage_item_counts;
+    std::unordered_map<std::string, std::vector<double>, StringHash, StringEqual> substage_durations;
     std::vector<double> read_durations;
     size_t slow_read_count = 0;
     size_t total_reads = 0;
