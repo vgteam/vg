@@ -18,33 +18,6 @@ namespace vg {
 using namespace std;
 
 /**
- * Transparent hasher for std::string keys in unordered_map.
- * Allows heterogeneous lookup with string_view and other compatible types.
- */
-struct StringHash {
-    using is_transparent = void;
-    size_t operator()(std::string_view str) const {
-        return std::hash<std::string_view>()(str);
-    }
-    size_t operator()(const std::string& str) const {
-        return std::hash<std::string>()(str);
-    }
-};
-
-/**
- * Transparent equality for std::string keys in unordered_map.
- */
-struct StringEqual {
-    using is_transparent = void;
-    bool operator()(std::string_view lhs, std::string_view rhs) const {
-        return lhs == rhs;
-    }
-    bool operator()(const std::string& lhs, const std::string& rhs) const {
-        return lhs == rhs;
-    }
-};
-
-/**
  * Thread-safe aggregate statistics collector for the Giraffe mapper.
  *
  * Each thread pushes data into its own ThreadData slot (no locking on the hot
@@ -76,11 +49,11 @@ private:
         // Per-stage accumulated durations and item counts.
         // Stage names appear in insertion order the first time they're seen.
         std::vector<std::string> stage_order;
-        std::unordered_map<std::string, std::vector<double>, StringHash, StringEqual> stage_durations;
-        std::unordered_map<std::string, std::vector<size_t>, StringHash, StringEqual> stage_item_counts;
+        std::unordered_map<std::string, std::vector<double>> stage_durations;
+        std::unordered_map<std::string, std::vector<size_t>> stage_item_counts;
 
         // Per-substage accumulated durations, keyed as "stage/substage".
-        std::unordered_map<std::string, std::vector<double>, StringHash, StringEqual> substage_durations;
+        std::unordered_map<std::string, std::vector<double>> substage_durations;
 
         // Total per-read duration.
         std::vector<double> read_durations;
