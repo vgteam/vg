@@ -29,7 +29,6 @@
 #include "../index_registry.hpp"
 #include "../utility.hpp"
 #include "../watchdog.hpp"
-#include "../giraffe_stats.hpp"
 #include "../crash.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
@@ -766,7 +765,6 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_HAPLOTYPE_SAMPLING = 1104;
     constexpr int OPT_NUM_HAPLOTYPES = 1105;
     constexpr int OPT_NO_DIPLOID_SAMPLING = 1106;
-    constexpr int OPT_SLOW_READ_THRESHOLD = 1200;
 
 
     // initialize parameters with their default options
@@ -834,11 +832,7 @@ int main_giraffe(int argc, char** argv) {
     bool track_position = MinimizerMapper::default_track_position;
     // Should we log our mapping decision making?
     bool show_work = MinimizerMapper::default_show_work;
-
-    // Reads longer than this (in seconds) get a per-stage breakdown logged to stderr.
-    // 0 disables per-read slow logging. The aggregate summary is always printed when > 0.
-    double slow_read_threshold = 0.0;
-
+    
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
     
@@ -1115,7 +1109,6 @@ int main_giraffe(int argc, char** argv) {
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"track-position", no_argument, 0, OPT_TRACK_POSITION},
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
-        {"slow-read-threshold", required_argument, 0, OPT_SLOW_READ_THRESHOLD},
         {"threads", required_argument, 0, 't'},
     };
     parser->make_long_options(long_options);
@@ -1369,11 +1362,7 @@ int main_giraffe(int argc, char** argv) {
                 // Also turn on saving explanations
                 Explainer::save_explanations = true;
                 break;
-
-            case OPT_SLOW_READ_THRESHOLD:
-                slow_read_threshold = parse<double>(optarg);
-                break;
-
+                
             case 't':
                 set_thread_count(logger, optarg);
                 break;
@@ -1976,13 +1965,6 @@ int main_giraffe(int argc, char** argv) {
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();
 
-        // Set up per-stage timing instrumentation if requested.
-        unique_ptr<GiraffeStats> giraffe_stats;
-        if (slow_read_threshold > 0.0) {
-            giraffe_stats.reset(new GiraffeStats(thread_count, slow_read_threshold));
-            minimizer_mapper.giraffe_stats = giraffe_stats.get();
-        }
-
         // Set up counters per-thread for total reads mapped
         vector<size_t> reads_mapped_by_thread(thread_count, 0);
         
@@ -2433,11 +2415,8 @@ int main_giraffe(int argc, char** argv) {
 
             logger.info() << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
-
-        if (giraffe_stats) {
-            giraffe_stats->print_summary(cerr);
-        }
-
+        
+        
         if (report) {
             // Log output filename and mapping speed in reads/second/thread to report TSV
             report << output_filename << "\t" << reads_per_second_per_thread << endl;

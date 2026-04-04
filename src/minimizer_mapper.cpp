@@ -4,7 +4,6 @@
  */
 
 #include "minimizer_mapper.hpp"
-#include "giraffe_stats.hpp"
 
 #include "crash.hpp"
 #include "annotation.hpp"
@@ -635,16 +634,11 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
-        funnel.substage("cluster_seeds");
     }
 
     // Find the clusters
     std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
-
-    if (track_provenance) {
-        funnel.substage_stop();
-    }
-
+    
 #ifdef debug_validate_clusters
     vector<vector<Cluster>> all_clusters;
     all_clusters.emplace_back(clusters);
@@ -1230,15 +1224,10 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     
     // Stop this alignment
     funnel.stop();
-
-    // Record aggregate stats and log slow reads if instrumentation is enabled.
-    if (giraffe_stats) {
-        giraffe_stats->record_read(funnel, aln.name());
-    }
-
+    
     // Annotate with whatever's in the funnel
     funnel.annotate_mapped_alignment(mappings[0], track_correctness);
-
+    
     if (track_provenance) {
         if (track_correctness) {
             annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), 0, funnel);

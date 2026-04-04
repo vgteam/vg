@@ -31,9 +31,6 @@ namespace vg {
 using namespace std;
 using namespace vg::io;
 
-// Forward-declare GiraffeStats so the mapper can hold a pointer without a full include.
-class GiraffeStats;
-
 class MinimizerMapper : public AlignerClient {
     public:
     // Definitions used with minimizer indexes.
@@ -434,10 +431,6 @@ class MinimizerMapper : public AlignerClient {
     /// If set, log what the mapper is thinking in its mapping of each read.
     static constexpr bool default_show_work = false;
     bool show_work = default_show_work;
-
-    /// If set, collect per-stage aggregate timing statistics and log slow reads.
-    /// Not owned by this object; caller manages lifetime.
-    class GiraffeStats* giraffe_stats = nullptr;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     static constexpr double default_paired_distance_stdevs = 2.0;
