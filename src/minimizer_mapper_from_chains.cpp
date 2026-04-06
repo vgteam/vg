@@ -267,19 +267,19 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 ss << seed_anchors.at(seed_num);
                                 seedpos.field(ss.str());
                             }
-                            if (handle_and_positions.second.empty()) {
-                                // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
-                                // Report it.
-                                seedpos.line();
-                                seedpos.field(seed_anchors.at(seed_num).read_start());
-                                seedpos.field("");
-                                seedpos.field("");
-                                seedpos.field("");
-                                seedpos.field(seed_num);
-                                std::stringstream ss;
-                                ss << seed_anchors.at(seed_num);
-                                seedpos.field(ss.str());
-                            }
+                        }
+                        if (found->second.empty()) {
+                            // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
+                            // Report it.
+                            seedpos.line();
+                            seedpos.field(seed_anchors.at(seed_num).read_start());
+                            seedpos.field("");
+                            seedpos.field("");
+                            seedpos.field("");
+                            seedpos.field(seed_num);
+                            std::stringstream ss;
+                            ss << seed_anchors.at(seed_num);
+                            seedpos.field(ss.str());
                         }
                     }
                 }
