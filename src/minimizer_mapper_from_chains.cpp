@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cfloat>
 #include <unordered_set>
+#include <bitset>
 
 // Turn on debugging prints
 //#define debug
@@ -1619,9 +1620,13 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 indel_limit,
                 show_work
             );
+#ifdef debug_rec
+            if (true) {
+#else
             if (show_work) {
+#endif
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
+                cerr << log_name() << "\t[" << aln.name() << "] Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
@@ -1631,7 +1636,12 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 auto& entry = chain_results.chains[result];
                 auto& scored_chain = entry.scored_chain;
                 auto& chain_rec_positions = entry.rec_positions;
-                if (show_work) {
+#ifdef debug_rec
+                if (true)
+#else
+                if (show_work)
+#endif
+                {
 #ifdef debug
                     if(true)
 #else
@@ -1653,10 +1663,30 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                                     }
                                 }
                                 cerr << std::endl;
-#ifdef debug
-
-                                for (auto& anchor_number : scored_chain.second) {
-                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
+#ifdef debug_rec
+                                algorithms::path_flags_t current_paths = 0;
+                                bool first = true;
+                                for (auto& selected_number : scored_chain.second) {
+                                    auto& anchor = anchor_view[selected_number];
+                                    auto new_paths = anchor.anchor_paths();
+                                    if (first) {
+                                        current_paths = new_paths.second;
+                                        first = false;
+                                    } else {
+                                        if (new_paths.first == new_paths.second) {
+                                            if ((current_paths & new_paths.first) == 0) {
+                                                current_paths = new_paths.first;
+                                            } else {
+                                                current_paths &= new_paths.first;
+                                            }
+                                        } else {
+                                            current_paths = new_paths.second;
+                                        }
+                                    }
+                                    
+                                    std::cerr << log_name() << "\t\t" << anchor 
+                                              << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
+                                              << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
                                 }
 #endif
 
