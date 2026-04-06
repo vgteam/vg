@@ -17,7 +17,10 @@ from collections import defaultdict, Counter
 def parse_seeds_file(filepath):
     """
     Parse a chain seeds file.
-    Returns list of dicts with keys: read_pos, ref_name, ref_pos, strand, seed_num, seed_name
+    Returns list of dicts with keys: read_pos, ref_name, ref_pos, strand,
+    seed_num, seed_name. Seeds that don't lie on any linear reference path
+    have empty strings for ref_name, ref_pos, and strand; ref_pos is stored
+    as None in that case.
     """
     seeds = []
     with open(filepath, 'r') as f:
@@ -30,9 +33,9 @@ def parse_seeds_file(filepath):
                 continue
             seeds.append({
                 'read_pos': int(parts[0]),
-                'ref_name': parts[1],
-                'ref_pos': int(parts[2]),
-                'strand': parts[3],
+                'ref_name': parts[1] or None,
+                'ref_pos': int(parts[2]) if parts[2] else None,
+                'strand': parts[3] or None,
                 'seed_num': int(parts[4]),
                 'seed_name': parts[5]
             })
@@ -76,32 +79,90 @@ def find_all_chaindump_files(data_dir):
     return glob.glob(pattern)
 
 
+def compute_winning_traceback(seeds, transitions):
+    """
+    Compute the winning chain traceback on the full transition graph.
+
+    Returns an ordered list of seed names from the highest-scoring seed
+    backward to the chain start.
+    """
+    max_score_by_dest = {}
+    best_transition_to = {}
+    for t in transitions:
+        if t['score'] > 0:
+            dest = t['dest_name']
+            prev = max_score_by_dest.get(dest, 0)
+            if t['score'] > prev:
+                max_score_by_dest[dest] = t['score']
+                best_transition_to[dest] = t
+
+    if not max_score_by_dest:
+        return []
+
+    best_seed_name = max(max_score_by_dest, key=max_score_by_dest.get)
+
+    traceback = []
+    visited = set()
+    current = best_seed_name
+    while current and current not in visited:
+        traceback.append(current)
+        visited.add(current)
+        bt = best_transition_to.get(current)
+        if bt:
+            current = bt['source_name']
+        else:
+            break
+    return traceback
+
+
 def generate_svg(seeds, transitions, output_path):
     """Generate an SVG file with embedded D3.js visualization."""
 
-    # Filter seeds to the most common reference path
-    ref_name_counts = Counter(s['ref_name'] for s in seeds)
-    if ref_name_counts:
-        best_ref_name = ref_name_counts.most_common(1)[0][0]
-        seeds = [s for s in seeds if s['ref_name'] == best_ref_name]
+    # Compute the winning traceback on the complete, unfiltered graph so that
+    # the visualization can show the real best chain even when it passes
+    # through seeds that don't lie on the displayed linear reference.
+    winning_traceback = compute_winning_traceback(seeds, transitions)
+    traceback_name_set = set(winning_traceback)
+
+    print(f"Winning traceback has {len(winning_traceback)} seeds:", file=sys.stderr)
+    for name in winning_traceback:
+        print(f"  {name}", file=sys.stderr)
+
+    # Identify transitions on the winning traceback path.
+    # The traceback list goes [dest, ..., source], so consecutive pairs are
+    # (traceback[i] = dest, traceback[i+1] = source).
+    traceback_edge_set = set()
+    for i in range(len(winning_traceback) - 1):
+        traceback_edge_set.add(
+            (winning_traceback[i + 1], winning_traceback[i])
+        )
+
+    # Find the most common linear reference among the seeds.
+    ref_name_counts = Counter(s['ref_name'] for s in seeds if s['ref_name'] is not None)
+    best_ref_name = ref_name_counts.most_common(1)[0][0] if ref_name_counts else None
+
+    # Keep seeds that are on the best reference path, plus any seeds on the
+    # winning traceback that aren't.
+    seeds = [s for s in seeds if s['ref_name'] == best_ref_name or s['seed_name'] in traceback_name_set]
 
     # Index seeds by name.
     # We use the index in seeds as our main identifier for the seeds in the
     # visualization, though we still track the "seed number" and human-readable
     # name to display.
     seed_index = {s['seed_name']: i for i, s in enumerate(seeds)}
-    
-    # Filter transitions and translate them to be in terms of seed index.
+
+    # Keep transitions where both endpoints are included seeds.
     translated_transitions = []
     for t in transitions:
         source_index = seed_index.get(t['source_name'])
         dest_index = seed_index.get(t['dest_name'])
-        if source_index is not None and dest_index is not None:
-            translated_transitions.append({
-                'source_index': source_index,
-                'dest_index': dest_index,
-                'score': t['score']
-            })
+        if source_index is None or dest_index is None:
+            continue
+        translated_transitions.append({
+            'source_index': source_index,
+            'dest_index': dest_index,
+            'score': t['score']
+        })
     transitions.clear()
 
     # Compute max positive score per destination index
@@ -191,6 +252,12 @@ def generate_svg(seeds, transitions, output_path):
       stroke: red;
       stroke-width: 3px;
       opacity: 1;
+    }
+    .transition.traceback-skip {
+      stroke: red;
+      stroke-width: 3px;
+      stroke-dasharray: 8,4;
+      opacity: 0.7;
     }
     .axis text {
       font-family: sans-serif;
@@ -354,7 +421,7 @@ def generate_svg(seeds, transitions, output_path):
        * Compute 1:1 aspect ratio domains, create xScale/yScale/colorScale.
        */
       #setupScales() {
-        const seeds = this.data.seeds;
+        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
         const margin = {top: 40, right: 40, bottom: 60, left: 80};
         const svgWidth = 1200;
         const svgHeight = 800;
@@ -364,8 +431,8 @@ def generate_svg(seeds, transitions, output_path):
         const width = this._width;
         const height = this._height;
 
-        let xExtent = d3.extent(seeds, d => d.ref_pos);
-        let yExtent = d3.extent(seeds, d => d.read_pos);
+        let xExtent = d3.extent(onRefSeeds, d => d.ref_pos);
+        let yExtent = d3.extent(onRefSeeds, d => d.read_pos);
         if (xExtent[0] === undefined) xExtent = [0, 1000];
         if (yExtent[0] === undefined) yExtent = [0, 1000];
 
@@ -472,13 +539,13 @@ def generate_svg(seeds, transitions, output_path):
        */
       #setupSeeds() {
         const viz = this;
-        const seeds = this.data.seeds;
+        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
 
-        /// D3 selection of all seed <circle> elements; stored so interaction
-        /// methods can restyle seeds (e.g. classed 'on-traceback') without
-        /// re-selecting.
+        /// D3 selection of all on-reference seed <circle> elements; stored so
+        /// interaction methods can restyle seeds (e.g. classed 'on-traceback')
+        /// without re-selecting.
         this.seedCircles = this.seedLayer.selectAll('.seed')
-          .data(seeds)
+          .data(onRefSeeds)
           .enter()
           .append('circle')
           .attr('class', 'seed')
@@ -559,17 +626,18 @@ def generate_svg(seeds, transitions, output_path):
        * Find best seed, select it, show traceback, mark best chain, zoom to fit.
        */
       #initialize() {
-        const seeds = this.data.seeds;
-        const bestSeed = seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), seeds[0]);
+        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
+        if (onRefSeeds.length === 0) return;
+        const bestSeed = onRefSeeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), onRefSeeds[0]);
         if (bestSeed && bestSeed.max_score > 0) {
           this.selectedSeed = bestSeed;
           this.seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
           this.#showTraceback(bestSeed.index);
           const bestChainSeedIndices = new Set(this.tracebackSeedIndices);
           this.seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
-          this.#zoomToFit(seeds.filter(s => this.tracebackSeedIndices.has(s.index)), 0.05);
+          this.#zoomToFit(onRefSeeds.filter(s => this.tracebackSeedIndices.has(s.index)), 0.05);
         } else {
-          this.#zoomToFit(seeds, 0.05);
+          this.#zoomToFit(onRefSeeds, 0.05);
         }
       }
 
@@ -644,34 +712,76 @@ def generate_svg(seeds, transitions, output_path):
       }
 
       /**
-       * Display the traceback path from seedIndex as red lines.
+       * Flatten a traceback path into the linear reference space: collapse
+       * runs of off-reference seeds into single skip edges connecting the
+       * on-reference seeds that bracket them.
+       *
+       * Returns an array of display edges, each with source_index,
+       * dest_index, and skip (boolean).
+       */
+      #flattenTraceback(path, startSeedIndex) {
+        const seeds = this.data.seeds;
+        const displayEdges = [];
+
+        // The traceback starts at startSeedIndex (the dest of path[0]).
+        let lastOnRefIndex = seeds[startSeedIndex].ref_pos !== null
+            ? startSeedIndex : null;
+        let skippedOffRef = seeds[startSeedIndex].ref_pos === null;
+
+        for (const t of path) {
+          const sourceSeed = seeds[t.source_index];
+          if (sourceSeed.ref_pos !== null) {
+            if (lastOnRefIndex !== null) {
+              displayEdges.push({
+                source_index: t.source_index,
+                dest_index: lastOnRefIndex,
+                skip: skippedOffRef,
+                score: skippedOffRef ? undefined : t.score,
+                fraction: skippedOffRef ? undefined : t.fraction
+              });
+            }
+            lastOnRefIndex = t.source_index;
+            skippedOffRef = false;
+          } else {
+            skippedOffRef = true;
+          }
+        }
+
+        return displayEdges;
+      }
+
+      /**
+       * Display the traceback path from seedIndex as red lines, with
+       * dashed skip edges where the traceback crosses off-reference seeds.
        */
       #showTraceback(seedIndex) {
         const path = this.#computeTraceback(seedIndex);
+        const displayEdges = this.#flattenTraceback(path, seedIndex);
+
         this.tracebackSeedIndices.clear();
-        path.forEach(t => {
-          this.tracebackSeedIndices.add(t.source_index);
-          this.tracebackSeedIndices.add(t.dest_index);
+        displayEdges.forEach(e => {
+          this.tracebackSeedIndices.add(e.source_index);
+          this.tracebackSeedIndices.add(e.dest_index);
         });
 
         const tracebackSet = this.tracebackSeedIndices;
         this.seedCircles.classed('on-traceback', d => tracebackSet.has(d.index) && d.index !== seedIndex);
 
-        const lines = this.tracebackLayer.selectAll('.traceback')
-          .data(path, d => d.source_name + '->' + d.dest_name);
+        const lines = this.tracebackLayer.selectAll('.traceback, .traceback-skip')
+          .data(displayEdges, d => d.source_index + '->' + d.dest_index);
 
         lines.enter()
           .append('line')
-          .attr('class', 'transition traceback')
+          .attr('class', d => d.skip ? 'transition traceback-skip' : 'transition traceback')
           .call(this.#positionLinesFn())
           .append('title')
-          .text(d => this.#transitionTooltipText(d));
+          .text(d => d.skip ? 'Traceback crosses off-reference seeds' : this.#transitionTooltipText(d));
 
         lines.exit().remove();
       }
 
       #hideTraceback() {
-        this.tracebackLayer.selectAll('.traceback').remove();
+        this.tracebackLayer.selectAll('.traceback, .traceback-skip').remove();
         this.tracebackSeedIndices.clear();
         this.seedCircles.classed('on-traceback', false);
       }
