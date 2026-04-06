@@ -79,22 +79,14 @@ def find_all_chaindump_files(data_dir):
     return glob.glob(pattern)
 
 
-def compute_winning_traceback(seeds, transitions):
+def compute_winning_traceback(max_score_by_dest, best_transition_to):
     """
     Compute the winning chain traceback on the full transition graph.
 
     Returns an ordered list of seed names from the highest-scoring seed
     backward to the chain start.
     """
-    max_score_by_dest = {}
-    best_transition_to = {}
-    for t in transitions:
-        if t['score'] > 0:
-            dest = t['dest_name']
-            prev = max_score_by_dest.get(dest, 0)
-            if t['score'] > prev:
-                max_score_by_dest[dest] = t['score']
-                best_transition_to[dest] = t
+    
 
     if not max_score_by_dest:
         return []
@@ -118,24 +110,22 @@ def compute_winning_traceback(seeds, transitions):
 def generate_svg(seeds, transitions, output_path):
     """Generate an SVG file with embedded D3.js visualization."""
 
+    # Load up the DP graph in terms of seed names.
+    max_score_by_dest = {}
+    best_transition_to = {}
+    for t in transitions:
+        if t['score'] > 0:
+            dest = t['dest_name']
+            prev = max_score_by_dest.get(dest, 0)
+            if t['score'] > prev:
+                max_score_by_dest[dest] = t['score']
+                best_transition_to[dest] = t
+
     # Compute the winning traceback on the complete, unfiltered graph so that
     # the visualization can show the real best chain even when it passes
     # through seeds that don't lie on the displayed linear reference.
-    winning_traceback = compute_winning_traceback(seeds, transitions)
+    winning_traceback = compute_winning_traceback(max_score_by_dest, best_transition_to)
     traceback_name_set = set(winning_traceback)
-
-    print(f"Winning traceback has {len(winning_traceback)} seeds:", file=sys.stderr)
-    for name in winning_traceback:
-        print(f"  {name}", file=sys.stderr)
-
-    # Identify transitions on the winning traceback path.
-    # The traceback list goes [dest, ..., source], so consecutive pairs are
-    # (traceback[i] = dest, traceback[i+1] = source).
-    traceback_edge_set = set()
-    for i in range(len(winning_traceback) - 1):
-        traceback_edge_set.add(
-            (winning_traceback[i + 1], winning_traceback[i])
-        )
 
     # Find the most common linear reference among the seeds.
     ref_name_counts = Counter(s['ref_name'] for s in seeds if s['ref_name'] is not None)
@@ -150,6 +140,10 @@ def generate_svg(seeds, transitions, output_path):
     # visualization, though we still track the "seed number" and human-readable
     # name to display.
     seed_index = {s['seed_name']: i for i, s in enumerate(seeds)}
+
+    print(f"Winning traceback has {len(winning_traceback)} seeds:", file=sys.stderr)
+    for i, name in enumerate(winning_traceback):
+        print(f"  {i} = {seed_index[name]}: {name} score {max_score_by_dest.get(name, 0)}", file=sys.stderr)
 
     # Keep transitions where both endpoints are included seeds.
     translated_transitions = []
@@ -166,15 +160,21 @@ def generate_svg(seeds, transitions, output_path):
     transitions.clear()
 
     # Compute max positive score per destination index
-    max_score_by_dest = [float('-inf')] * len(seeds)
+    max_score_by_index = [float('-inf')] * len(seeds)
     for t in translated_transitions:
-        if t['score'] > 0 and t['score'] > max_score_by_dest[t['dest_index']]:
-            max_score_by_dest[t['dest_index']] = t['score']
+        if t['score'] > 0 and t['score'] > max_score_by_index[t['dest_index']]:
+            max_score_by_index[t['dest_index']] = t['score']
+
+    # Make sure we haven't lost any score form our overall best traceback
+    for seed_name in winning_traceback:
+        assert max_score_by_index[seed_index[seed_name]] == max_score_by_dest.get(seed_name, float('-inf')), f"{seed_name} should have score {max_score_by_dest.get(seed_name, float('-inf'))} but appears to have score {max_score_by_index[seed_index[seed_name]]}"
+    assert max(max_score_by_index) == max(max_score_by_dest.values())
+    print(f"Max score: {max(max_score_by_index)}", file=sys.stderr)
 
     # Build seeds data with score info
     seeds_data = []
     for i, s in enumerate(seeds):
-        max_score = max_score_by_dest[i]
+        max_score = max_score_by_index[i]
         seed_data = dict(
             s,
             index=i,
@@ -187,7 +187,7 @@ def generate_svg(seeds, transitions, output_path):
     # Build transitions data with fraction of max
     transitions_data = []
     for t in translated_transitions:
-        max_score = max_score_by_dest[t['dest_index']]
+        max_score = max_score_by_index[t['dest_index']]
         fraction = max(0, t['score'] / max_score) if max_score > 0 else 0
         transition_data = dict(
             t,
@@ -320,7 +320,7 @@ def generate_svg(seeds, transitions, output_path):
       }
 
       /**
-       * Stores arrays and builds four index Maps.
+       * Save seed and transition arrays and build index Maps over them.
        */
       constructor(seeds, transitions) {
         /// The raw seed array, for looking seeds up by index, and extent
@@ -626,16 +626,22 @@ def generate_svg(seeds, transitions, output_path):
        * Find best seed, select it, show traceback, mark best chain, zoom to fit.
        */
       #initialize() {
+        if (this.data.seeds.length === 0) return;
+        const bestSeed = this.data.seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), this.data.seeds[0]);
+        console.log(`Best seed score: ${bestSeed.max_score}`);
         const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
-        if (onRefSeeds.length === 0) return;
-        const bestSeed = onRefSeeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), onRefSeeds[0]);
         if (bestSeed && bestSeed.max_score > 0) {
           this.selectedSeed = bestSeed;
           this.seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
           this.#showTraceback(bestSeed.index);
           const bestChainSeedIndices = new Set(this.tracebackSeedIndices);
           this.seedCircles.classed('on-best-chain', d => bestChainSeedIndices.has(d.index));
-          this.#zoomToFit(onRefSeeds.filter(s => this.tracebackSeedIndices.has(s.index)), 0.05);
+          const onRefTracebackSeeds = onRefSeeds.filter(s => this.tracebackSeedIndices.has(s.index));
+          if (onRefTracebackSeeds.length !== 0) {
+            this.#zoomToFit(onRefTracebackSeeds, 0.05);
+          } else {
+            this.#zoomToFit(onRefSeeds, 0.05);
+          }
         } else {
           this.#zoomToFit(onRefSeeds, 0.05);
         }
@@ -698,8 +704,12 @@ def generate_svg(seeds, transitions, output_path):
         const path = [];
         const visited = new Set();
         let currentIndex = seedIndex;
+        let i = 0;
+        console.log("Traceback:");
         while (currentIndex !== undefined && !visited.has(currentIndex)) {
           visited.add(currentIndex);
+          console.log(`  ${i} = ${currentIndex}: ${this.data.seeds[currentIndex].seed_name} score ${this.data.seeds[currentIndex].max_score}`);
+          i++;
           const bestTrans = this.data.bestTransitionTo(currentIndex);
           if (bestTrans) {
             path.push(bestTrans);
