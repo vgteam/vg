@@ -7,7 +7,6 @@
 #include <getopt.h>
 #include <fstream>
 #include <iostream>
-#include <iomanip>
 #include <cassert>
 #include <cstring>
 #include <ctime>
@@ -1968,9 +1967,6 @@ int main_giraffe(int argc, char** argv) {
 
         // Set up counters per-thread for total reads mapped
         vector<size_t> reads_mapped_by_thread(thread_count, 0);
-
-        // Initialize per-thread stage timing accumulators.
-        minimizer_mapper.initialize_stage_timings(thread_count);
         
         // For timing, we may run one thread first and then switch to all threads. So track both start times.
         std::chrono::time_point<std::chrono::system_clock> first_thread_start;
@@ -2418,28 +2414,6 @@ int main_giraffe(int argc, char** argv) {
             }
 
             logger.info() << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
-
-            // Report per-stage timing breakdown.
-            auto timings = minimizer_mapper.get_stage_timings();
-            if (timings.read_count > 0) {
-                double rc = (double)timings.read_count;
-                // Convert nanoseconds per read to milliseconds.
-                auto ms = [&](double ns) { return ns / rc / 1e6; };
-                double total_ms = timings.total_ns / rc / 1e6;
-                auto pct = [&](double ns) -> double {
-                    return total_ms > 0 ? (ns / rc / 1e6) / total_ms * 100.0 : 0.0;
-                };
-                auto li = logger.info();
-                li << "Stage timing breakdown (avg per read across " << timings.read_count << " reads):\n";
-                li << std::fixed << std::setprecision(3);
-                li << "  minimizer: " << std::setw(8) << ms(timings.minimizer_ns) << " ms (" << std::setw(5) << std::setprecision(1) << pct(timings.minimizer_ns) << "%)\n";
-                li << "  seed:      " << std::setw(8) << std::setprecision(3) << ms(timings.seed_ns)      << " ms (" << std::setw(5) << std::setprecision(1) << pct(timings.seed_ns)      << "%)\n";
-                li << "  tree:      " << std::setw(8) << std::setprecision(3) << ms(timings.tree_ns)      << " ms (" << std::setw(5) << std::setprecision(1) << pct(timings.tree_ns)      << "%)\n";
-                li << "  chain:     " << std::setw(8) << std::setprecision(3) << ms(timings.chain_ns)     << " ms (" << std::setw(5) << std::setprecision(1) << pct(timings.chain_ns)     << "%)\n";
-                li << "  align:     " << std::setw(8) << std::setprecision(3) << ms(timings.align_ns)     << " ms (" << std::setw(5) << std::setprecision(1) << pct(timings.align_ns)     << "%)\n";
-                li << "  winner:    " << std::setw(8) << std::setprecision(3) << ms(timings.winner_ns)    << " ms (" << std::setw(5) << std::setprecision(1) << pct(timings.winner_ns)    << "%)\n";
-                li << "  total:     " << std::setw(8) << std::setprecision(3) << total_ms                 << " ms (100.0%)" << endl;
-            }
         }
         
         

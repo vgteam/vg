@@ -590,45 +590,7 @@ class MinimizerMapper : public AlignerClient {
             return this->occs.second;
         }
     };
-
-    /// Struct for per-stage timing accumulators
-    struct stage_timings_t {
-        double minimizer_ns = 0; ///< find_minimizers + flag_repetitive + sort
-        double seed_ns = 0;      ///< find_seeds
-        double tree_ns = 0;      ///< zip code forest fill + to_anchors + tree scoring
-        double chain_ns = 0;     ///< do_chaining_on_trees (incl. gapless extension)
-        double align_ns = 0;     ///< do_alignment_on_chains
-        double winner_ns = 0;    ///< pick_mappings + MAPQ + annotation
-        double total_ns = 0;     ///< full map_from_chains/map_from_extensions wall time
-        size_t read_count = 0;
-
-        inline stage_timings_t& operator+=(const stage_timings_t& other) {
-            minimizer_ns += other.minimizer_ns;
-            seed_ns      += other.seed_ns;
-            tree_ns      += other.tree_ns;
-            chain_ns     += other.chain_ns;
-            align_ns     += other.align_ns;
-            winner_ns    += other.winner_ns;
-            total_ns     += other.total_ns;
-            read_count   += other.read_count;
-            return *this;
-        }
-    };
-
-    /// Initialize per-thread stage timing accumulators for the given number of threads
-    void initialize_stage_timings(size_t thread_count) {
-        stage_timings_by_thread.assign(thread_count, stage_timings_t{});
-    }
-
-    /// Aggregate stage timings across all threads.
-    stage_timings_t get_stage_timings() const {
-        stage_timings_t total;
-        for (auto& t : stage_timings_by_thread) {
-            total += t;
-        }
-        return total;
-    }
-
+    
 protected:
     
     /// Types of paired alignments in paired-end mapping
@@ -822,10 +784,7 @@ protected:
      */
     double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
     
-    /// Per-thread stage timing accumulators. Must be resized to thread_count before mapping.
-    std::vector<stage_timings_t> stage_timings_by_thread;
-
-    /// Struct to represent per-DP-method stats.
+    /// Struct to represent per-DP-method stats. 
     struct aligner_stats_t {
 
         /// Collection of values you can +=
