@@ -79,19 +79,25 @@ def find_all_chaindump_files(data_dir):
     return glob.glob(pattern)
 
 
-def compute_winning_traceback(max_score_by_dest, best_transition_to):
+def compute_winning_traceback(max_score_by_dest, best_transition_to, seed_names):
     """
-    Compute the winning chain traceback on the full transition graph.
+    Compute the winning chain traceback on the full transition graph,
+    starting from the highest-scoring seed in seed_names.
 
     Returns an ordered list of seed names from the highest-scoring seed
-    backward to the chain start.
+    backward to the chain start.  The traceback can pass through seeds
+    not in seed_names (off-reference seeds reachable via transitions).
     """
-    
 
     if not max_score_by_dest:
         return []
 
-    best_seed_name = max(max_score_by_dest, key=max_score_by_dest.get)
+    # Start from the best seed that actually belongs to this chain.
+    candidates = [(max_score_by_dest.get(n, 0), n) for n in seed_names
+                  if max_score_by_dest.get(n, 0) > 0]
+    if not candidates:
+        return []
+    best_seed_name = max(candidates)[1]
 
     traceback = []
     visited = set()
@@ -124,7 +130,8 @@ def generate_svg(seeds, transitions, output_path):
     # Compute the winning traceback on the complete, unfiltered graph so that
     # the visualization can show the real best chain even when it passes
     # through seeds that don't lie on the displayed linear reference.
-    winning_traceback = compute_winning_traceback(max_score_by_dest, best_transition_to)
+    seed_names = {s['seed_name'] for s in seeds}
+    winning_traceback = compute_winning_traceback(max_score_by_dest, best_transition_to, seed_names)
     traceback_name_set = set(winning_traceback)
 
     # Find the most common linear reference among the seeds.
@@ -163,8 +170,11 @@ def generate_svg(seeds, transitions, output_path):
 
     # Make sure we haven't lost any score from our overall best traceback
     for seed_name in winning_traceback:
-        assert max_score_by_index[seed_index[seed_name]] == max_score_by_dest.get(seed_name, float('-inf'))
-    assert max(max_score_by_index) == max(max_score_by_dest.values())
+        assert max_score_by_index[seed_index[seed_name]] == max_score_by_dest.get(seed_name, float('-inf')), \
+            f"Score mismatch for {seed_name}: index={max_score_by_index[seed_index[seed_name]]}, dest={max_score_by_dest.get(seed_name, float('-inf'))}"
+    if winning_traceback:
+        tb_best = max(max_score_by_dest.get(n, 0) for n in winning_traceback)
+        assert max(max_score_by_index) >= tb_best
 
     # Build seeds data with score info
     seeds_data = []
@@ -400,6 +410,9 @@ def generate_svg(seeds, transitions, output_path):
         /// Set of seed indices along the current traceback path. Used both
         /// for styling and as the seed set for #zoomToFit on startup.
         this.tracebackSeedIndices = new Set();
+        /// Closures that reposition off-reference indicator lines and
+        /// their gradients; called on every zoom event.
+        this._offRefIndicatorRepositioners = [];
 
         this.#setupScales();
         this.#setupSVG();
@@ -612,6 +625,7 @@ def generate_svg(seeds, transitions, output_path):
               .attr('cx', d => viz.currentXScale(d.ref_pos))
               .attr('cy', d => viz.currentYScale(d.read_pos));
             viz.zoomG.selectAll('.transition').call(viz.#positionLinesFn());
+            viz.#repositionOffRefIndicators();
           });
 
         this.svg.call(this.zoom);
@@ -728,6 +742,10 @@ def generate_svg(seeds, transitions, output_path):
             ? startSeedIndex : null;
         let skippedOffRef = seeds[startSeedIndex].ref_pos === null;
 
+        // Track whether the traceback extends off-reference beyond the
+        // outermost on-reference seeds.
+        let leadingOffRef = skippedOffRef;
+
         for (const t of path) {
           const sourceSeed = seeds[t.source_index];
           if (sourceSeed.ref_pos !== null) {
@@ -747,7 +765,9 @@ def generate_svg(seeds, transitions, output_path):
           }
         }
 
-        return displayEdges;
+        // skippedOffRef is true if the traceback ended on off-ref seeds
+        // after the last on-ref seed.
+        return {edges: displayEdges, leadingOffRef, trailingOffRef: skippedOffRef};
       }
 
       /**
@@ -756,7 +776,12 @@ def generate_svg(seeds, transitions, output_path):
        */
       #showTraceback(seedIndex) {
         const path = this.#computeTraceback(seedIndex);
-        const displayEdges = this.#flattenTraceback(path, seedIndex);
+        const {edges: displayEdges, leadingOffRef, trailingOffRef} =
+            this.#flattenTraceback(path, seedIndex);
+
+        this.tracebackLayer.selectAll('.traceback-offref-indicator').remove();
+        this.svg.selectAll('defs linearGradient[id^="offref-grad-"]').remove();
+        this._offRefIndicatorRepositioners = [];
 
         this.tracebackSeedIndices.clear();
         displayEdges.forEach(e => {
@@ -778,10 +803,81 @@ def generate_svg(seeds, transitions, output_path):
           .text(d => d.skip ? 'Traceback crosses off-reference seeds' : this.#transitionTooltipText(d));
 
         lines.exit().remove();
+
+        // Draw fading diagonal indicators where the traceback extends
+        // off-reference beyond the outermost on-reference seeds.
+        this.tracebackLayer.selectAll('.traceback-offref-indicator').remove();
+        if (displayEdges.length > 0) {
+          const seeds = this.data.seeds;
+          // "leading" = high-read-pos end (dest of first edge),
+          // "trailing" = low-read-pos end (source of last edge).
+          if (leadingOffRef) {
+            const tipSeed = seeds[displayEdges[0].dest_index];
+            this.#drawOffRefIndicator(tipSeed, +1);
+          }
+          if (trailingOffRef) {
+            const tipSeed = seeds[displayEdges[displayEdges.length - 1].source_index];
+            this.#drawOffRefIndicator(tipSeed, -1);
+          }
+        }
+      }
+
+      /**
+       * Draw a fading diagonal line from an on-reference seed, indicating
+       * the traceback continues off-reference.  `direction` is +1 to
+       * extend toward increasing read_pos, -1 toward decreasing.
+       */
+      #drawOffRefIndicator(seed, direction) {
+        const viz = this;
+        // Extend a fixed pixel length along the ±1 diagonal matching
+        // the strand, so the indicator is a directional cue rather than
+        // a line aimed at any particular data-space position.
+        const refSign = seed.strand === '+' ? 1 : -1;
+        // Screen-space direction: dx and dy each get ±1/√2 of the
+        // pixel length, giving a 45° line.  The Y axis is inverted in
+        // screen space (increasing Y = decreasing read_pos in the
+        // scale), so negate the read component.
+        const pxLen = 80;
+        const dx = direction * refSign * pxLen / Math.SQRT2;
+        const dy = -direction * pxLen / Math.SQRT2;
+
+        const gradId = 'offref-grad-' + seed.index + '-' + direction;
+        const defs = this.svg.select('defs');
+        const grad = defs.append('linearGradient')
+          .attr('id', gradId)
+          .attr('gradientUnits', 'userSpaceOnUse');
+
+        grad.append('stop').attr('offset', '0%')
+          .attr('stop-color', 'red').attr('stop-opacity', 1);
+        grad.append('stop').attr('offset', '100%')
+          .attr('stop-color', 'red').attr('stop-opacity', 0);
+
+        const line = this.tracebackLayer.append('line')
+          .attr('class', 'traceback-offref-indicator')
+          .attr('stroke', `url(#${gradId})`)
+          .attr('stroke-width', 3);
+
+        function reposition() {
+          const x1 = viz.currentXScale(seed.ref_pos);
+          const y1 = viz.currentYScale(seed.read_pos);
+          const x2 = x1 + dx;
+          const y2 = y1 + dy;
+          line.attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2);
+          grad.attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2);
+        }
+
+        reposition();
+        this._offRefIndicatorRepositioners.push(reposition);
+      }
+
+      #repositionOffRefIndicators() {
+        for (const fn of this._offRefIndicatorRepositioners) fn();
       }
 
       #hideTraceback() {
-        this.tracebackLayer.selectAll('.traceback, .traceback-skip').remove();
+        this.tracebackLayer.selectAll('.traceback, .traceback-skip, .traceback-offref-indicator').remove();
+        this.svg.selectAll('defs linearGradient[id^="offref-grad-"]').remove();
+        this._offRefIndicatorRepositioners = [];
         this.tracebackSeedIndices.clear();
         this.seedCircles.classed('on-traceback', false);
       }
