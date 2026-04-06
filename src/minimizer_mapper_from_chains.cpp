@@ -2706,7 +2706,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
-                    << " separated by ~" << graph_dist << " bp and sequence \"" << linking_bases << "\"" << endl;
+                    << " separated by ~" << graph_dist << " bp";
+                if (linking_bases.size() < 200) {
+                    cerr << " and sequence \"" << linking_bases << "\"";
+                }
+                cerr << endl;
             }
         }
 #endif
@@ -2894,7 +2898,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned and added link of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
+                cerr << log_name() << "Aligned and added link to " << *next << " of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
             }
         }
         
