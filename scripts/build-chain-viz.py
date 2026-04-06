@@ -141,10 +141,6 @@ def generate_svg(seeds, transitions, output_path):
     # name to display.
     seed_index = {s['seed_name']: i for i, s in enumerate(seeds)}
 
-    print(f"Winning traceback has {len(winning_traceback)} seeds:", file=sys.stderr)
-    for i, name in enumerate(winning_traceback):
-        print(f"  {i} = {seed_index[name]}: {name} score {max_score_by_dest.get(name, 0)}", file=sys.stderr)
-
     # Keep transitions where both endpoints are included seeds.
     translated_transitions = []
     for t in transitions:
@@ -165,11 +161,10 @@ def generate_svg(seeds, transitions, output_path):
         if t['score'] > 0 and t['score'] > max_score_by_index[t['dest_index']]:
             max_score_by_index[t['dest_index']] = t['score']
 
-    # Make sure we haven't lost any score form our overall best traceback
+    # Make sure we haven't lost any score from our overall best traceback
     for seed_name in winning_traceback:
-        assert max_score_by_index[seed_index[seed_name]] == max_score_by_dest.get(seed_name, float('-inf')), f"{seed_name} should have score {max_score_by_dest.get(seed_name, float('-inf'))} but appears to have score {max_score_by_index[seed_index[seed_name]]}"
+        assert max_score_by_index[seed_index[seed_name]] == max_score_by_dest.get(seed_name, float('-inf'))
     assert max(max_score_by_index) == max(max_score_by_dest.values())
-    print(f"Max score: {max(max_score_by_index)}", file=sys.stderr)
 
     # Build seeds data with score info
     seeds_data = []
@@ -628,7 +623,6 @@ def generate_svg(seeds, transitions, output_path):
       #initialize() {
         if (this.data.seeds.length === 0) return;
         const bestSeed = this.data.seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), this.data.seeds[0]);
-        console.log(`Best seed score: ${bestSeed.max_score}`);
         const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
         if (bestSeed && bestSeed.max_score > 0) {
           this.selectedSeed = bestSeed;
@@ -704,12 +698,8 @@ def generate_svg(seeds, transitions, output_path):
         const path = [];
         const visited = new Set();
         let currentIndex = seedIndex;
-        let i = 0;
-        console.log("Traceback:");
         while (currentIndex !== undefined && !visited.has(currentIndex)) {
           visited.add(currentIndex);
-          console.log(`  ${i} = ${currentIndex}: ${this.data.seeds[currentIndex].seed_name} score ${this.data.seeds[currentIndex].max_score}`);
-          i++;
           const bestTrans = this.data.bestTransitionTo(currentIndex);
           if (bestTrans) {
             path.push(bestTrans);
