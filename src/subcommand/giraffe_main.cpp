@@ -839,7 +839,7 @@ int main_giraffe(int argc, char** argv) {
     // Should we log our mapping decision making?
     bool show_work = MinimizerMapper::default_show_work;
     // Should we index all haplotypes for more informative logs and dumps?
-    bool haplotype_positions = false;
+    bool haplotype_positions = MinimizerMapper::default_haplotype_positions;
     // TODO: We could also add machinery to index particular haplotypes for
     // debugging using positions on them.
     
@@ -1946,6 +1946,7 @@ int main_giraffe(int argc, char** argv) {
         report_flag("track-position", track_position);
         minimizer_mapper.track_position = track_position;
         report_flag("haplotype-positions", haplotype_positions);
+        minimizer_mapper.haplotype_positions = haplotype_positions;
         report_flag("show-work", show_work);
         minimizer_mapper.show_work = show_work;
         if (paired) {
