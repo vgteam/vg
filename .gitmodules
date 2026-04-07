@@ -133,3 +133,7 @@
 [submodule "deps/mimalloc"]
 	path = deps/mimalloc
 	url = https://github.com/microsoft/mimalloc.git
+[submodule "deps/theseus-lib"]
+	path = deps/theseus-lib
+	url = https://github.com/albertjimenezbl/theseus-lib.git
+	branch = vg-integration
