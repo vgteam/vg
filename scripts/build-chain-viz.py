@@ -116,7 +116,7 @@ def compute_winning_traceback(max_score_by_dest, best_transition_to, seed_names)
     return traceback
 
 
-def generate_svg(seeds, transitions, output_path):
+def generate_svg(seeds, transitions, output_path, target_reference = None):
     """Generate an SVG file with embedded D3.js visualization."""
 
     # Load up the DP graph in terms of seed names.
@@ -136,20 +136,33 @@ def generate_svg(seeds, transitions, output_path):
     seed_names = {s['seed_name'] for s in seeds}
     winning_traceback = compute_winning_traceback(max_score_by_dest, best_transition_to, seed_names)
     traceback_name_set = set(winning_traceback)
-
-    # Find the most common linear reference among the seeds.
-    ref_name_counts = Counter(s['ref_name'] for s in seeds if s['ref_name'] is not None)
-    best_ref_name = ref_name_counts.most_common(1)[0][0] if ref_name_counts else None
+    
+    if target_reference is None:
+        # Find the most common linear reference among the seeds.
+        ref_name_counts = Counter(s['ref_name'] for s in seeds if s['ref_name'] is not None)
+        target_reference = ref_name_counts.most_common(1)[0][0] if ref_name_counts else None
+        print(f"Selected target reference: {target_reference}")
 
     # Keep seeds that are on the best reference path, plus any seeds on the
     # winning traceback that aren't.
-    seeds = [s for s in seeds if s['ref_name'] == best_ref_name or s['seed_name'] in traceback_name_set]
+    seeds = [s for s in seeds if s['ref_name'] == target_reference or s['seed_name'] in traceback_name_set]
 
     # Index seeds by name.
     # We use the index in seeds as our main identifier for the seeds in the
     # visualization, though we still track the "seed number" and human-readable
     # name to display.
     seed_index = {s['seed_name']: i for i, s in enumerate(seeds)}
+
+    # Count up how much of our best traceback is and isn't on our selected reference
+    on_target = len([n for n in traceback_name_set if seeds[seed_index[n]]['ref_name'] == target_reference])
+    print(f"{on_target}/{len(traceback_name_set)} seeds in best traceback are on target reference {target_reference}")
+
+    # Count up references again but on the best traceback
+    traceback_ref_name_counts = Counter(seeds[seed_index[n]]['ref_name'] for n in traceback_name_set if seeds[seed_index[n]]['ref_name'] is not None)
+    best_traceback_ref_name = traceback_ref_name_counts.most_common(1)[0][0] if traceback_ref_name_counts else None
+    if best_traceback_ref_name != target_reference:
+        on_traceback_best = len([n for n in traceback_name_set if seeds[seed_index[n]]['ref_name'] == best_traceback_ref_name])
+        print(f"{on_traceback_best}/{len(traceback_name_set)} seeds in best traceback are on competing reference {best_traceback_ref_name}")
 
     # Keep transitions where both endpoints are included seeds.
     translated_transitions = []
@@ -188,6 +201,12 @@ def generate_svg(seeds, transitions, output_path):
             index=i,
             max_score=max_score if max_score > float('-inf') else 0
         )
+        if seed_data['ref_name'] != target_reference:
+            # This seed is off-linear-reference; don't draw it anywhere on the
+            # linear reference
+            del seed_data['ref_pos']
+            del seed_data['strand']
+        # Drop the name either way
         del seed_data['ref_name']
         seeds_data.append(seed_data)
     seeds.clear()
@@ -296,8 +315,13 @@ def generate_svg(seeds, transitions, output_path):
      * Data model and query interface for the chaining problem.
      *
      * Holds the seed and transition arrays plus precomputed indexes for
-     * fast lookup. Seeds are points in (ref_pos, read_pos) space;
-     * transitions represent DP edges between them with cumulative scores.
+     * fast lookup.
+     * 
+     * Seeds are points in (ref_pos, read_pos) space, except that seeds off
+     * the displayed linear reference will not have a ref_pos (it will be
+     * undefined).
+     * 
+     * Transitions represent DP edges between them with cumulative scores.
      * The `fraction` and `is_max` fields on transitions are relative to
      * the best positive score arriving at each destination.
      */
@@ -432,7 +456,7 @@ def generate_svg(seeds, transitions, output_path):
        * Compute 1:1 aspect ratio domains, create xScale/yScale/colorScale.
        */
       #setupScales() {
-        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
+        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== undefined);
         const margin = {top: 40, right: 40, bottom: 60, left: 80};
         const svgWidth = 1200;
         const svgHeight = 800;
@@ -550,7 +574,7 @@ def generate_svg(seeds, transitions, output_path):
        */
       #setupSeeds() {
         const viz = this;
-        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
+        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== undefined);
 
         /// D3 selection of all on-reference seed <circle> elements; stored so
         /// interaction methods can restyle seeds (e.g. classed 'on-traceback')
@@ -640,7 +664,7 @@ def generate_svg(seeds, transitions, output_path):
       #initialize() {
         if (this.data.seeds.length === 0) return;
         const bestSeed = this.data.seeds.reduce((best, s) => (s.max_score > best.max_score ? s : best), this.data.seeds[0]);
-        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== null);
+        const onRefSeeds = this.data.seeds.filter(s => s.ref_pos !== undefined);
         if (bestSeed && bestSeed.max_score > 0) {
           this.selectedSeed = bestSeed;
           this.seedCircles.filter(s => s.index === bestSeed.index).classed('selected', true);
@@ -741,9 +765,9 @@ def generate_svg(seeds, transitions, output_path):
         const displayEdges = [];
 
         // The traceback starts at startSeedIndex (the dest of path[0]).
-        let lastOnRefIndex = seeds[startSeedIndex].ref_pos !== null
+        let lastOnRefIndex = seeds[startSeedIndex].ref_pos !== undefined
             ? startSeedIndex : null;
-        let skippedOffRef = seeds[startSeedIndex].ref_pos === null;
+        let skippedOffRef = seeds[startSeedIndex].ref_pos === undefined;
 
         // Track whether the traceback extends off-reference beyond the
         // outermost on-reference seeds.
@@ -751,7 +775,7 @@ def generate_svg(seeds, transitions, output_path):
 
         for (const t of path) {
           const sourceSeed = seeds[t.source_index];
-          if (sourceSeed.ref_pos !== null) {
+          if (sourceSeed.ref_pos !== undefined) {
             if (lastOnRefIndex !== null) {
               displayEdges.push({
                 source_index: t.source_index,
@@ -1000,13 +1024,14 @@ def generate_svg(seeds, transitions, output_path):
 
 
 def main():
-    if len(sys.argv) != 4:
-        print(f"Usage: {sys.argv[0]} <data_directory> <chain_number> <output.svg>", file=sys.stderr)
+    if len(sys.argv) not in (4, 5):
+        print(f"Usage: {sys.argv[0]} <data_directory> <chain_number> <output.svg> [<target_reference>]", file=sys.stderr)
         sys.exit(1)
 
     data_dir = sys.argv[1]
     chain_num = int(sys.argv[2])
     output_path = sys.argv[3]
+    target_reference = sys.argv[4] if len(sys.argv) > 4 else None
 
     if not os.path.isdir(data_dir):
         print(f"Error: {data_dir} is not a directory", file=sys.stderr)
@@ -1035,7 +1060,7 @@ def main():
     print(f"Total transitions: {len(all_transitions)}")
 
     # Generate SVG
-    generate_svg(seeds, all_transitions, output_path)
+    generate_svg(seeds, all_transitions, output_path, target_reference)
     print(f"Generated {output_path}")
 
 
