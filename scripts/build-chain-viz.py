@@ -36,6 +36,9 @@ def parse_seeds_file(filepath):
                 'ref_name': parts[1] or None,
                 'ref_pos': int(parts[2]) if parts[2] else None,
                 'strand': parts[3] or None,
+                # This is the seed number among all seeds in all
+                # problems/trees, NOT the anchor number that will appear in the
+                # chaining liks with #123 notation.
                 'seed_num': int(parts[4]),
                 'seed_name': parts[5]
             })
@@ -663,7 +666,7 @@ def generate_svg(seeds, transitions, output_path):
        * Base tooltip text for a seed.
        */
       #seedTooltipText(d) {
-        return `Seed #${d.seed_num} (${d.strand})\\nName: ${d.seed_name}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
+        return `Seed S${d.seed_num} (${d.strand})\\nName: ${d.seed_name}\\nRead: ${d.read_pos}\\nRef: ${d.ref_pos}\\nMax score: ${d.max_score}`;
       }
 
       /**
