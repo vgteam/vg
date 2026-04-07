@@ -74,7 +74,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph -lcrypto
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -ltheseus -lhandlegraph -lcrypto
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -374,6 +374,7 @@ IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
+THESEUS_DIR:=deps/theseus-lib
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -410,6 +411,7 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libtheseus.a
 ifneq ($(shell uname -s),Darwin)
     # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
     # backward-cpp will use.
@@ -936,6 +938,10 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -DNO_GFAKLUGE -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
 	+ar rs $@ $(XG_DIR)/xg.o
 
+$(LIB_DIR)/libtheseus.a: $(LIB_DIR)/libhandlegraph.a $(wildcard $(THESEUS_DIR)/theseus/*.cpp) $(wildcard $(THESEUS_DIR)/include/theseus/*.h)
+	+rm -Rf $(CWD)/$(INC_DIR)/theseus
+	+cd $(THESEUS_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_C_FLAGS="-fPIC $(CFLAGS)" -DCMAKE_CXX_FLAGS="-fPIC $(CPPFLAGS)" -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF -DFETCHCONTENT_SOURCE_DIR_LIBHANDLEGRAPH=$(CWD)/$(LIBHANDLEGRAPH_DIR) .. $(FILTER) && $(MAKE) theseus $(FILTER) && cp libtheseus.a $(CWD)/$(LIB_DIR)/ && cp -r $(CWD)/$(THESEUS_DIR)/include/theseus $(CWD)/$(INC_DIR)/
+
 # Auto-git-versioning
 
 # Can be overridden from the environment to supply a version if none is on disk.
@@ -1157,6 +1163,7 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	cd $(DEP_DIR) && cd libhandlegraph && rm -Rf build CMakeCache.txt CMakeFiles
 	cd $(DEP_DIR) && cd libvgio && rm -Rf build CMakeCache.txt CMakeFiles
+	cd $(DEP_DIR) && cd theseus-lib && rm -Rf build
 	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
 	# lru_cache is never built because it is header-only
 	# bash-tap is never built either
