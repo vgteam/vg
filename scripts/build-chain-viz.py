@@ -915,10 +915,13 @@ def generate_svg(seeds, transitions, output_path, target_reference = None):
       #showSecondaryTransitions(seedIndex) {
         const allTrans = this.data.transitionsTo(seedIndex);
         const positiveTrans = allTrans.filter(t => t.score > 0);
+        // Drop those from off-reference seeds
+        // TODO: Show them but show them specially?
+        const onRefTrans = positiveTrans.filter(t => this.data.seeds[t.source_index].ref_pos !== undefined);
         const className = 'secondary-dest-' + seedIndex;
 
         this.secondaryTransitionLayer.selectAll('.' + className)
-          .data(positiveTrans, d => d.source_name + '->' + d.dest_name)
+          .data(onRefTrans, d => d.source_index + '->' + d.dest_index)
           .enter()
           .append('line')
           .attr('class', 'transition secondary ' + className)
