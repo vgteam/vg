@@ -375,7 +375,7 @@ BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
 THESEUS_DIR:=deps/theseus-lib
-INCLUDE_FLAGS += -I$(CWD)/$(THESEUS_DIR)
+INCLUDE_FLAGS += -I$(CWD)/$(THESEUS_DIR)/include
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -940,8 +940,7 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 	+ar rs $@ $(XG_DIR)/xg.o
 
 $(LIB_DIR)/libtheseus.a: $(LIB_DIR)/libhandlegraph.a $(wildcard $(THESEUS_DIR)/theseus/*.cpp) $(wildcard $(THESEUS_DIR)/include/theseus/*.h)
-	+rm -Rf $(CWD)/$(INC_DIR)/theseus
-	+cd $(THESEUS_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_C_FLAGS="-fPIC $(CFLAGS)" -DCMAKE_CXX_FLAGS="-fPIC $(CPPFLAGS)" -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF -DFETCHCONTENT_SOURCE_DIR_LIBHANDLEGRAPH=$(CWD)/$(LIBHANDLEGRAPH_DIR) .. $(FILTER) && $(MAKE) theseus $(FILTER) && cp libtheseus.a $(CWD)/$(LIB_DIR)/ && cp -r $(CWD)/$(THESEUS_DIR)/include/theseus $(CWD)/$(INC_DIR)/
+	+cd $(THESEUS_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_C_FLAGS="-fPIC $(CFLAGS)" -DCMAKE_CXX_FLAGS="-fPIC $(CPPFLAGS)" -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF -DFETCHCONTENT_SOURCE_DIR_LIBHANDLEGRAPH=$(CWD)/$(LIBHANDLEGRAPH_DIR) .. $(FILTER) && $(MAKE) theseus $(FILTER) && cp libtheseus.a $(CWD)/$(LIB_DIR)/
 
 # Auto-git-versioning
 
