@@ -6,6 +6,8 @@
 
 #include <handlegraph/handle_graph.hpp>
 #include "theseus/graph.h"
+#include "theseus/alignment.h"
+#include <vg/vg.pb.h>
 
 /**
  * @file handle_graph_theseus_adapter.hpp
@@ -106,5 +108,125 @@ private:
         graph_._vertices[to_idx].in_edges.push_back(e);
     }
 };
+
+/**
+ * @brief Convert a theseus::Alignment to a vg::Alignment.
+ *
+ * theseus edit operations are per-base characters:
+ *   'M' = match, 'X' = mismatch/SNP, 'I' = insertion, 'D' = deletion.
+ * Consecutive operations of the same type are merged into a single vg Edit.
+ * Edits are split at node boundaries according to the reference bases consumed
+ * in each vertex of the theseus path.
+ *
+ * @param theseus_aln   Alignment returned by TheseusAlignerImpl::align().
+ * @param sequence      The read sequence that was aligned.
+ * @param adapter       Adapter used to map theseus vertex IDs → handle_t.
+ * @param graph         The HandleGraph the alignment was made against.
+ * @return vg::Alignment with sequence, path, and per-node mappings filled in.
+ */
+inline vg::Alignment theseus_to_vg_alignment(
+        const theseus::Alignment&          theseus_aln,
+        const std::string&                 sequence,
+        const HandleGraphTheseusAdapter&   adapter,
+        const handlegraph::HandleGraph&    graph) {
+
+    vg::Alignment vg_aln;
+    vg_aln.set_sequence(sequence);
+
+    if (theseus_aln.path.empty() || theseus_aln.edit_op.empty()) {
+        return vg_aln;
+    }
+
+    vg::Path* vg_path = vg_aln.mutable_path();
+
+    const size_t n_edits = theseus_aln.edit_op.size();
+    const size_t n_nodes = theseus_aln.path.size();
+    size_t edit_cursor = 0; // index into edit_op
+    size_t seq_cursor  = 0; // index into sequence (read bases consumed)
+
+    for (size_t node_idx = 0; node_idx < n_nodes && edit_cursor < n_edits; ++node_idx) {
+        const handlegraph::handle_t h = adapter.vertex_to_handle(theseus_aln.path[node_idx]);
+        const size_t node_len = graph.get_length(h);
+
+        // Reference range covered by this alignment on this node.
+        // start_offset applies only to the first node;
+        // end_offset (exclusive) applies only to the last node.
+        const size_t ref_start = (node_idx == 0)
+                                 ? static_cast<size_t>(theseus_aln.start_offset)
+                                 : 0;
+        const size_t ref_end   = (node_idx == n_nodes - 1)
+                                 ? static_cast<size_t>(theseus_aln.end_offset)
+                                 : node_len;
+        size_t ref_remaining   = ref_end - ref_start;
+
+        vg::Mapping* mapping = vg_path->add_mapping();
+        mapping->mutable_position()->set_node_id(graph.get_id(h));
+        mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(h));
+        mapping->mutable_position()->set_offset(static_cast<int64_t>(ref_start));
+        mapping->set_rank(static_cast<int64_t>(node_idx + 1));
+
+        while (edit_cursor < n_edits) {
+            const char op = theseus_aln.edit_op[edit_cursor];
+
+            // Insertions do not consume reference; attach to the current mapping.
+            if (op == 'I') {
+                const size_t seq_start = seq_cursor;
+                size_t run = 0;
+                while (edit_cursor < n_edits && theseus_aln.edit_op[edit_cursor] == 'I') {
+                    ++run; ++edit_cursor; ++seq_cursor;
+                }
+                vg::Edit* e = mapping->add_edit();
+                e->set_from_length(0);
+                e->set_to_length(static_cast<int32_t>(run));
+                e->set_sequence(sequence.substr(seq_start, run));
+                continue;
+            }
+
+            // Reference-consuming op: stop if this node is exhausted.
+            if (ref_remaining == 0) break;
+
+            if (op == 'M') {
+                size_t run = 0;
+                while (edit_cursor < n_edits
+                       && theseus_aln.edit_op[edit_cursor] == 'M'
+                       && run < ref_remaining) {
+                    ++run; ++edit_cursor; ++seq_cursor;
+                }
+                vg::Edit* e = mapping->add_edit();
+                e->set_from_length(static_cast<int32_t>(run));
+                e->set_to_length(static_cast<int32_t>(run));
+                // no sequence field for matches
+                ref_remaining -= run;
+            } else if (op == 'X') {
+                const size_t seq_start = seq_cursor;
+                size_t run = 0;
+                while (edit_cursor < n_edits
+                       && theseus_aln.edit_op[edit_cursor] == 'X'
+                       && run < ref_remaining) {
+                    ++run; ++edit_cursor; ++seq_cursor;
+                }
+                vg::Edit* e = mapping->add_edit();
+                e->set_from_length(static_cast<int32_t>(run));
+                e->set_to_length(static_cast<int32_t>(run));
+                e->set_sequence(sequence.substr(seq_start, run));
+                ref_remaining -= run;
+            } else if (op == 'D') {
+                size_t run = 0;
+                while (edit_cursor < n_edits
+                       && theseus_aln.edit_op[edit_cursor] == 'D'
+                       && run < ref_remaining) {
+                    ++run; ++edit_cursor;
+                    // deletions consume no read bases
+                }
+                vg::Edit* e = mapping->add_edit();
+                e->set_from_length(static_cast<int32_t>(run));
+                e->set_to_length(0);
+                ref_remaining -= run;
+            }
+        }
+    }
+
+    return vg_aln;
+}
 
 } // namespace vg
