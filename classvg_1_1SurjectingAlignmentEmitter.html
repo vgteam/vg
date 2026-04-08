@@ -90,8 +90,8 @@ Inheritance diagram for vg::SurjectingAlignmentEmitter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ae3a1a92a35d394ef9a9bb75d13c1dd39"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#ae3a1a92a35d394ef9a9bb75d13c1dd39">SurjectingAlignmentEmitter</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a3193ef16804780255b9d0bbcef8dc6ca">paths</a>, unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;<a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f">backing</a>, bool prune_suspicious_anchors=false, bool add_graph_alignment_tag=false, bool report_supplementary=false)</td></tr>
-<tr class="separator:ae3a1a92a35d394ef9a9bb75d13c1dd39"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab68e86a93eb7419679ca76b8d91b17a7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#ab68e86a93eb7419679ca76b8d91b17a7">SurjectingAlignmentEmitter</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a3193ef16804780255b9d0bbcef8dc6ca">paths</a>, unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;<a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f">backing</a>, bool prune_suspicious_anchors=false, bool add_graph_alignment_tag=false, bool report_supplementary=false, bool left_align=false)</td></tr>
+<tr class="separator:ab68e86a93eb7419679ca76b8d91b17a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">emit_singles</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln_batch)</td></tr>
 <tr class="memdesc:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of Alignments.  <a href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">More...</a><br /></td></tr>
 <tr class="separator:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -150,8 +150,8 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>An AlignmentEmitter implementation that surjects alignments before emitting them via a backing AlignmentEmitter, which it owns. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="ae3a1a92a35d394ef9a9bb75d13c1dd39"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae3a1a92a35d394ef9a9bb75d13c1dd39">&#9670;&nbsp;</a></span>SurjectingAlignmentEmitter()</h2>
+<a id="ab68e86a93eb7419679ca76b8d91b17a7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab68e86a93eb7419679ca76b8d91b17a7">&#9670;&nbsp;</a></span>SurjectingAlignmentEmitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -190,7 +190,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>report_supplementary</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>report_supplementary</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>left_align</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

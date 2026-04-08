@@ -930,6 +930,7 @@ Enumerations</h2></td></tr>
 &#160;&#160;<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a3ea893f3dade371704d31df4070e95fd">ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES</a> = 8
 , <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a28cc430ca9be87cf88ee7221e5d0a2f7">ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG</a> = 16
 , <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5aee143399f813f8eb61b67fb77b7b17cc">ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY</a> = 32
+, <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5aa3657c904158278f74cc8c7cf15be0ef">ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN</a> = 64
 <br />
  }</td></tr>
 <tr class="separator:a43fe994695e911cc22e05195e327f5b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1030,6 +1031,8 @@ Functions</h2></td></tr>
 <tr class="separator:a731242c04cdcf7b40f97f0d36ff5c480"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a553c3fcfd7de2e51f41a6f174c313947"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a553c3fcfd7de2e51f41a6f174c313947">simplify_cigar</a> (vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar)</td></tr>
 <tr class="separator:a553c3fcfd7de2e51f41a6f174c313947"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adcab04adb84b87c198346fdd6c8910a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adcab04adb84b87c198346fdd6c8910a6">normalize_indel_adjustment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool adjust_left, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool preserve_end_pos)</td></tr>
+<tr class="separator:adcab04adb84b87c198346fdd6c8910a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a70d7a2a9f4f8a1804e21c353fb0dcb48"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a70d7a2a9f4f8a1804e21c353fb0dcb48">graph_cigar</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool rev_strand)</td></tr>
 <tr class="separator:a70d7a2a9f4f8a1804e21c353fb0dcb48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a409b3e734b28613218b36c4afd20512d"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a409b3e734b28613218b36c4afd20512d">graph_CS_cigar_internal</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool rev_strand, bool verbose_format)</td></tr>
@@ -1816,6 +1819,12 @@ Functions</h2></td></tr>
 <tr class="separator:a3ff1638bd636bb4b9746545dc261aea1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4f32c345e847a3627afcee659116730c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f32c345e847a3627afcee659116730c">kmp_search</a> (const char *text, size_t text_len, const char *pattern, size_t pattern_len, const vector&lt; size_t &gt; &amp;prefix_suffix_table)</td></tr>
 <tr class="separator:a4f32c345e847a3627afcee659116730c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aabde1513089158179d685cfd22212d67"><td class="memTemplParams" colspan="2">template&lt;class StringLike &gt; </td></tr>
+<tr class="memitem:aabde1513089158179d685cfd22212d67"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aabde1513089158179d685cfd22212d67">longest_overlap</a> (const StringLike &amp;str1, const StringLike &amp;str2)</td></tr>
+<tr class="separator:aabde1513089158179d685cfd22212d67"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad14c09c7a061b8c9c3251bcde6857e83"><td class="memTemplParams" colspan="2">template&lt;class StringLike &gt; </td></tr>
+<tr class="memitem:ad14c09c7a061b8c9c3251bcde6857e83"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; int64_t &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad14c09c7a061b8c9c3251bcde6857e83">z_algorithm</a> (const StringLike &amp;str)</td></tr>
+<tr class="separator:ad14c09c7a061b8c9c3251bcde6857e83"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab63c41956b73af429507b469108d1759"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab63c41956b73af429507b469108d1759">sub_overlaps_of_first_aln</a> (const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, float overlap_fraction)</td></tr>
 <tr class="separator:ab63c41956b73af429507b469108d1759"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3240e7b9bf787fb218d6324389ea234e"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3240e7b9bf787fb218d6324389ea234e">gcsa_nodes_to_positions</a> (const vector&lt; gcsa::node_type &gt; &amp;nodes)</td></tr>
@@ -3709,6 +3718,8 @@ Variables</h2></td></tr>
 <tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5a28cc430ca9be87cf88ee7221e5d0a2f7"></a>ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG&#160;</td><td class="fielddoc"><p>When surjecting, annotate HTSlib records with a cs-style difference string that expresses the alignment in graph space in the "GR" tag </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5aee143399f813f8eb61b67fb77b7b17cc"></a>ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY&#160;</td><td class="fielddoc"><p>When surjecting, produce and report supplementary alignments. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5aa3657c904158278f74cc8c7cf15be0ef"></a>ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN&#160;</td><td class="fielddoc"><p>When surjecting, attempt to left align. </p>
 </td></tr>
 </table>
 
@@ -16482,6 +16493,36 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
+<a id="aabde1513089158179d685cfd22212d67"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aabde1513089158179d685cfd22212d67">&#9670;&nbsp;</a></span>longest_overlap()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class StringLike &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::longest_overlap </td>
+          <td>(</td>
+          <td class="paramtype">const StringLike &amp;&#160;</td>
+          <td class="paramname"><em>str1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const StringLike &amp;&#160;</td>
+          <td class="paramname"><em>str2</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a2d9f0a2379194fb00d706e90d373b378"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2d9f0a2379194fb00d706e90d373b378">&#9670;&nbsp;</a></span>make_pos_t() <span class="overload">[1/4]</span></h2>
 
@@ -18813,6 +18854,47 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Merge adjacent edits of the same type and convert all N matches to mismatches. </p>
+
+</div>
+</div>
+<a id="adcab04adb84b87c198346fdd6c8910a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adcab04adb84b87c198346fdd6c8910a6">&#9670;&nbsp;</a></span>normalize_indel_adjustment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::normalize_indel_adjustment </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>adjust_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>preserve_end_pos</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Normalize the adjustment of indels in an alignment to left or right Optionally: don't allow the ending positions of the alignment to change even if that requires the alignment to end in a deletion </p>
 
 </div>
 </div>
@@ -30573,6 +30655,26 @@ template&lt;typename T &gt; </div>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;&#160;</td>
           <td class="paramname"><em>index</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad14c09c7a061b8c9c3251bcde6857e83"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad14c09c7a061b8c9c3251bcde6857e83">&#9670;&nbsp;</a></span>z_algorithm()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class StringLike &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; int64_t &gt; vg::z_algorithm </td>
+          <td>(</td>
+          <td class="paramtype">const StringLike &amp;&#160;</td>
+          <td class="paramname"><em>str</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
