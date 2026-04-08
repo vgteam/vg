@@ -1035,6 +1035,11 @@ protected:
      */
     void wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const;
    
+    /** 
+     * Get the subgraph to align to.
+     */
+    static bdsg::HashGraph get_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, unordered_map<id_t, id_t>& local_to_base);
+
     /**
      * Clip out the part of the graph between the given positions (left facing
      * into the region to be extracted and right facing out), and dagify it

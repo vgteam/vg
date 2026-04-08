@@ -3125,25 +3125,25 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     }
 }
 
-void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const handle_t&, const handle_t&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
-    
-    if (is_empty(left_anchor) && is_empty(right_anchor)) {
-        throw ChainAlignmentFailedError("Cannot align sequence between two unset positions");
-    }
-    
-    // We need to get the graph to align to.
+bdsg::HashGraph MinimizerMapper::get_local_graph(
+    const pos_t& left_anchor,
+    const pos_t& right_anchor,
+    size_t max_path_length,
+    const HandleGraph& graph,
+    unordered_map<id_t, id_t>& local_to_base
+) {
     bdsg::HashGraph local_graph;
-    unordered_map<id_t, id_t> local_to_base;
+    
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
         // We want a graph actually between two positions.
         // Enforce strict max length to avoid extra tips.
-        local_to_base = algorithms::extract_connecting_graph(
+        local_to_base = std::move(algorithms::extract_connecting_graph(
             &graph,
             &local_graph,
             max_path_length,
             left_anchor, right_anchor,
             true
-        );
+        ));
 
         if (local_to_base.empty()) {
             // A possible result is that the one anchor is not reachable from
@@ -3161,31 +3161,45 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         }
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
-        local_to_base = algorithms::extract_extending_graph(
+        local_to_base = std::move(algorithms::extract_extending_graph(
             &graph,
             &local_graph,
             max_path_length,
             left_anchor,
             false,
             false
-        );
+        ));
     } else {
         // We only have the right anchor
-        local_to_base = algorithms::extract_extending_graph(
+        local_to_base = std::move(algorithms::extract_extending_graph(
             &graph,
             &local_graph,
             max_path_length,
             right_anchor,
             true,
             false
-        );
+        ));
     }
 
 #ifdef debug
     std::cerr << "Local graph:" << std::endl;
     dump_debug_graph(local_graph);
 #endif
+
+    return local_graph;
+}
+
+void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const handle_t&, const handle_t&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
     
+    if (is_empty(left_anchor) && is_empty(right_anchor)) {
+        throw ChainAlignmentFailedError("Cannot align sequence between two unset positions");
+    }
+    
+    // We need to get the graph to align to.
+    unordered_map<id_t, id_t> local_to_base;
+    bdsg::HashGraph local_graph = get_local_graph(left_anchor, right_anchor, max_path_length, graph, local_to_base);
+
+        
     // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
     nid_t local_left_anchor_id = 0;
     nid_t local_right_anchor_id = 0;
