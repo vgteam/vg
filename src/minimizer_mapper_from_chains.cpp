@@ -3118,8 +3118,8 @@ Alignment MinimizerMapper::find_chain_alignment(
     return result;
 }
 
-Alignment MinimizerMapper::find_chain_alignment_theseus(
-    const Alignment& aln,
+vg::Alignment MinimizerMapper::find_chain_alignment_theseus(
+    const vg::Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
     aligner_stats_t* stats
@@ -3128,14 +3128,45 @@ Alignment MinimizerMapper::find_chain_alignment_theseus(
     if (chain.empty()) {
         throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
     }
+
+    //confusingly only needed for getting penalty values
+    const Aligner& aligner = *get_regular_aligner();
     
-    //bdsg::HashGraph local_graph = get_local_graph();
+    string query_seq = aln.sequence();
+    string_view query_view(query_seq);
+    HandleGraphTheseusAdapter theseus_adapter(this->gbwt_graph);
+    theseus::Penalties theseus_penalties(
+        aligner.match,
+        aligner.mismatch,
+        aligner.gap_open,
+        aligner.gap_extension
+    );
 
+    bool is_msa = false;
+    theseus::TheseusAlignerImpl actual_aligner(
+        theseus_penalties,
+        theseus_adapter.take_graph(), //only call take_graph() once, since it moves the graph out of the adapter
+        is_msa
+    );
 
-  
+    const algorithms::Anchor start_anchor = to_chain[chain.front()];
+    const pos_t start_pos = start_anchor.graph_start();
+    const vg::id_t start_id = id(start_pos);
+    const handle_t start_handle = this->gbwt_graph.get_handle(start_id);
+    string start_handle_name = theseus_adapter.handle_name(this->gbwt_graph, start_handle);
+    theseus::Alignment theseus_alignment = actual_aligner.align(
+        query_view,
+        start_handle_name,
+        start_anchor.start_hint_offset()
+    );
 
     // Convert to a vg Alignment.
-    Alignment result;
+    vg::Alignment result = vg_alignment_from_theseus_alignment(
+        theseus_alignment,
+        query_seq,
+        theseus_adapter,
+        this->gbwt_graph
+    );
     /*
     // Simplify the path but keep internal deletions; we want to assert the
     // read deleted relative to some graph, and avoid jumps along nonexistent

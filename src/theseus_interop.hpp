@@ -6,13 +6,15 @@
 
 #include <handlegraph/handle_graph.hpp>
 #include <theseus/graph.h>
-#include <theseus/alignment.h>
+#include <theseus/theseus_aligner_impl.h>
 #include <vg/vg.pb.h>
 
 /**
  * @file theseus_interop.hpp
  *
  * @brief Interop for using Theseus in vg
+ * 
+ * [PROVISIONAL] This file is mostly placeholder code
 */
 
 namespace vg {
