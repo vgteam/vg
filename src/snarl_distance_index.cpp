@@ -1127,7 +1127,7 @@ void populate_snarl_index(
       if (size_limit == 0 || only_top_level_chain_distances) { 
         temp_snarl_record.include_distances = false;
       }
-      //Also fills in min_lenght, distance_start_start, and distance_start_end, and sets is_simple to false if snarl isn't simple
+      // Also fills in min_length, distance_start_start, and distance_start_end, and sets is_simple to false if snarl isn't simple
       populate_distance_matrix_if_needed(temp_index, snarl_index, temp_snarl_record, all_children, graph, size_limit, only_top_level_chain_distances);
     }
 
