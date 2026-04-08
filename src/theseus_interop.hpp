@@ -12,8 +12,11 @@
 /**
  * @file theseus_interop.hpp
  *
- * Builds a theseus::Graph from a HandleGraph and maintains a bidirectional
- * mapping between theseus integer vertex IDs and handle_t values.
+ * @brief Interop for using Theseus in vg
+*/
+
+namespace vg {
+/** @brief Builds a theseus::Graph from a HandleGraph and maintains a bidirectional mapping between theseus integer vertex IDs and handle_t values.
  *
  * Why this exists instead of theseus::Graph(HandleGraph):
  *   - The upstream constructor has a naming collision bug: both orientations of
@@ -26,14 +29,11 @@
  * Use handle_name() to produce the start_node string required by align().
  *
  * Usage:
- *   HandleGraphTheseusAdapter adapter(my_handle_graph);
+ *   HandleGraphTheseusAdapter adapter(handle_graph);
  *   TheseusAlignerImpl impl(penalties, adapter.take_graph(), false);
  *   auto aln = impl.align(seq, adapter.handle_name(start_handle));
  *   handle_t result_handle = adapter.vertex_to_handle(aln.some_vertex_id);
  */
-
-namespace vg {
-
 class HandleGraphTheseusAdapter {
 public:
     explicit HandleGraphTheseusAdapter(const handlegraph::HandleGraph& hg) {
@@ -124,7 +124,7 @@ private:
  * @param graph         The HandleGraph the alignment was made against.
  * @return vg::Alignment with sequence, path, and per-node mappings filled in.
  */
-inline vg::Alignment theseus_to_vg_alignment(
+inline vg::Alignment vg_alignment_from_theseus_alignment(
         const theseus::Alignment&          theseus_aln,
         const std::string&                 sequence,
         const HandleGraphTheseusAdapter&   adapter,
