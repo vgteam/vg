@@ -917,6 +917,11 @@ protected:
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
     Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+
+    /**
+     * Same as above, but with the Theseus alignment algorithm
+     */
+    Alignment find_chain_alignment_theseus(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the

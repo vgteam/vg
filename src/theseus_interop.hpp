@@ -5,12 +5,12 @@
 #include <unordered_map>
 
 #include <handlegraph/handle_graph.hpp>
-#include "theseus/graph.h"
-#include "theseus/alignment.h"
+#include <theseus/graph.h>
+#include <theseus/alignment.h>
 #include <vg/vg.pb.h>
 
 /**
- * @file handle_graph_theseus_adapter.hpp
+ * @file theseus_interop.hpp
  *
  * Builds a theseus::Graph from a HandleGraph and maintains a bidirectional
  * mapping between theseus integer vertex IDs and handle_t values.

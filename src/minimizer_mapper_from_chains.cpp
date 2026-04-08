@@ -11,6 +11,7 @@
 #include "crash.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
+#include "theseus_interop.hpp"
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
@@ -3114,6 +3115,37 @@ Alignment MinimizerMapper::find_chain_alignment(
     set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
     set_annotation(result, "right_tail_length", (double) right_tail_length);
     
+    return result;
+}
+
+Alignment MinimizerMapper::find_chain_alignment_theseus(
+    const Alignment& aln,
+    const VectorView<algorithms::Anchor>& to_chain,
+    const std::vector<size_t>& chain,
+    aligner_stats_t* stats
+) const {
+    
+    if (chain.empty()) {
+        throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
+    }
+    
+    //bdsg::HashGraph local_graph = get_local_graph();
+
+
+  
+
+    // Convert to a vg Alignment.
+    Alignment result;
+    /*
+    // Simplify the path but keep internal deletions; we want to assert the
+    // read deleted relative to some graph, and avoid jumps along nonexistent
+    // edges.
+    *result.mutable_path() = std::move(simplify(composed_path, false));
+    result.set_score(composed_score);
+    if (!result.sequence().empty()) {
+        result.set_identity(identity(result.path()));
+    }
+    */
     return result;
 }
 
