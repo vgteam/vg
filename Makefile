@@ -375,6 +375,7 @@ BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
 THESEUS_DIR:=deps/theseus-lib
+INCLUDE_FLAGS += -I$(CWD)/$(THESEUS_DIR)
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
