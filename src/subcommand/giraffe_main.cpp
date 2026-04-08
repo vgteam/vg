@@ -693,6 +693,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
+             << "      --left-align              attempt to left-align indels in linear formats" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
@@ -758,6 +759,7 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
     constexpr int OPT_COMMENTS_AS_TAGS = 1013;
+    constexpr int OPT_LEFT_ALIGN = 1014;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
@@ -850,6 +852,9 @@ int main_giraffe(int argc, char** argv) {
     std::unordered_set<std::string> reference_assembly_names;
     // When surjecting, should we annotate the reads with the graph alignment?
     bool add_graph_alignment = false;
+
+    // When surjecting, should we attempt to left-align relative to the reference?
+    bool left_align = false;
     
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
@@ -1095,6 +1100,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
+        {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
@@ -1280,6 +1286,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
                 add_graph_alignment = true;
+                break;
+                
+            case OPT_LEFT_ALIGN:
+                left_align = true;
                 break;
                 
             case 'n':
@@ -1932,6 +1942,7 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("add-graph-aln", add_graph_alignment);
+        report_flag("left-align", left_align);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
         report_flag("track-provenance", track_provenance);
@@ -2062,6 +2073,10 @@ int main_giraffe(int argc, char** argv) {
                 if (minimizer_mapper.find_supplementaries) {
                     // When surjecting, also report supplementary alignments
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY;
+                }
+                if (left_align) {
+                    // When surjecting, attempt to left align
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
