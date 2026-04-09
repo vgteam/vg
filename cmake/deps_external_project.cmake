@@ -101,53 +101,36 @@ add_dependencies(dep_ssw ssw_ep)
 # ════════════════════════════════════════════════════════════════════════════
 # sdsl-lite  (custom install.sh script; produces libsdsl, libdivsufsort)
 # ════════════════════════════════════════════════════════════════════════════
-if(APPLE)
-    set(_sdsl_build_cmd
-        ${CMAKE_COMMAND} -E env
-            BUILD_PORTABLE=1
-            AS_INTEGRATED_ASSEMBLER=1
-            "CXXFLAGS=-fPIC ${CMAKE_CXX_FLAGS}"
-            bash install.sh ${CMAKE_BINARY_DIR}
-    )
-else()
-    set(_sdsl_build_cmd
-        ${CMAKE_COMMAND} -E env
-            BUILD_PORTABLE=1
-            "CXXFLAGS=-fPIC ${CMAKE_CXX_FLAGS}"
-            bash install.sh ${CMAKE_BINARY_DIR}
-    )
-endif()
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+add_subdirectory(${DEPS_DIR}/sdsl-lite ${CMAKE_BINARY_DIR}/build/sdsl-lite)
 
-ExternalProject_Add(sdsl_ep
-    SOURCE_DIR  ${DEPS_DIR}/sdsl-lite
-    BUILD_IN_SOURCE ON
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND     ${_sdsl_build_cmd}
-    INSTALL_COMMAND ""  # install.sh handles everything
-    BUILD_BYPRODUCTS
-        ${VG_LIB_DIR}/libsdsl.a
-        ${VG_LIB_DIR}/libdivsufsort.a
-        ${VG_LIB_DIR}/libdivsufsort64.a
+# Stage sdsl headers into the shared include dir so Makefile-based deps can find them
+add_custom_target(sdsl_stage_headers
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${DEPS_DIR}/sdsl-lite/include/sdsl
+        ${VG_INC_DIR}/sdsl
+    COMMENT "Staging sdsl headers -> ${VG_INC_DIR}/sdsl"
 )
+add_dependencies(sdsl_stage_headers sdsl)
 
 add_library(dep_sdsl STATIC IMPORTED GLOBAL)
 set_target_properties(dep_sdsl PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libsdsl.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-add_dependencies(dep_sdsl sdsl_ep)
+target_link_libraries(dep_sdsl INTERFACE sdsl-lite)
 
 add_library(dep_divsufsort STATIC IMPORTED GLOBAL)
 set_target_properties(dep_divsufsort PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libdivsufsort.a
 )
-add_dependencies(dep_divsufsort sdsl_ep)
+target_link_libraries(dep_divsufsort INTERFACE sdsl-lite)
 
 add_library(dep_divsufsort64 STATIC IMPORTED GLOBAL)
 set_target_properties(dep_divsufsort64 PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libdivsufsort64.a
 )
-add_dependencies(dep_divsufsort64 sdsl_ep)
+target_link_libraries(dep_divsufsort64 INTERFACE sdsl-lite)
 
 # ════════════════════════════════════════════════════════════════════════════
 # htslib  (autoconf; depends on libdeflate)
@@ -340,9 +323,11 @@ ExternalProject_Add(gcsa2_ep
             "CFLAGS=${VG_SUB_CFLAGS}"
             "CXXFLAGS=${VG_SUB_CXXFLAGS}"
             ${CMAKE_MAKE_PROGRAM} lib/libgcsa2.a
+                "INC_DIR=${VG_INC_DIR}"
+                "LIB_DIR=${VG_LIB_DIR}"
     INSTALL_COMMAND
         ${CMAKE_COMMAND} -E copy lib/libgcsa2.a ${VG_LIB_DIR}/libgcsa2.a
-    DEPENDS sdsl_ep
+    DEPENDS sdsl_stage_headers
     BUILD_BYPRODUCTS ${VG_LIB_DIR}/libgcsa2.a
 )
 
@@ -368,9 +353,11 @@ ExternalProject_Add(gbwt_ep
             "CFLAGS=${VG_SUB_CFLAGS}"
             "CXXFLAGS=${VG_SUB_CXXFLAGS}"
             ${CMAKE_MAKE_PROGRAM}
+                "INC_DIR=${VG_INC_DIR}"
+                "LIB_DIR=${VG_LIB_DIR}"
     INSTALL_COMMAND
         ${CMAKE_COMMAND} -E copy lib/libgbwt.a ${VG_LIB_DIR}/libgbwt.a
-    DEPENDS sdsl_ep
+    DEPENDS sdsl_stage_headers
     BUILD_BYPRODUCTS ${VG_LIB_DIR}/libgbwt.a
 )
 
@@ -396,9 +383,11 @@ ExternalProject_Add(gbwtgraph_ep
             "CFLAGS=${VG_SUB_CFLAGS}"
             "CXXFLAGS=${VG_SUB_CXXFLAGS}"
             ${CMAKE_MAKE_PROGRAM}
+                "INC_DIR=${VG_INC_DIR}"
+                "LIB_DIR=${VG_LIB_DIR}"
     INSTALL_COMMAND
         ${CMAKE_COMMAND} -E copy lib/libgbwtgraph.a ${VG_LIB_DIR}/libgbwtgraph.a
-    DEPENDS gbwt_ep sdsl_ep libhandlegraph_ep
+    DEPENDS gbwt_ep sdsl_stage_headers libhandlegraph_ep
     BUILD_BYPRODUCTS ${VG_LIB_DIR}/libgbwtgraph.a
 )
 
@@ -756,7 +745,7 @@ ExternalProject_Add(libbdsg_ep
         ${CMAKE_COMMAND} -E copy <BINARY_DIR>/lib/libbdsg.a ${VG_LIB_DIR}/libbdsg.a
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${DEPS_DIR}/libbdsg/bdsg/include ${VG_INC_DIR}
-    DEPENDS libhandlegraph_ep sdsl_ep sparsehash_ep
+    DEPENDS libhandlegraph_ep dep_sdsl sparsehash_ep
     BUILD_BYPRODUCTS ${VG_LIB_DIR}/libbdsg.a
 )
 
