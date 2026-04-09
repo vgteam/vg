@@ -34,28 +34,12 @@ set(VG_DEP_CMAKE_ARGS
 # ── kff-cpp-api ───────────────────────────────────────────────────────────
 # Makefile: cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" ..
 #            && make && cp kff_io.hpp <inc> && mv libkff.a <lib>
-ExternalProject_Add(kff_ep
-    SOURCE_DIR ${DEPS_DIR}/kff-cpp-api
-    BINARY_DIR ${CMAKE_BINARY_DIR}/build/kff
-    CMAKE_ARGS
-        ${VG_DEP_CMAKE_ARGS}
-        -DCMAKE_CXX_FLAGS=-fPIC\ -Wall\ -Ofast\ -g
-    BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM}
-    INSTALL_COMMAND
-        ${CMAKE_COMMAND} -E copy
-            <BINARY_DIR>/kff_io.hpp ${VG_INC_DIR}/kff_io.hpp
-        COMMAND ${CMAKE_COMMAND} -E copy
-            <BINARY_DIR>/libkff.a   ${VG_LIB_DIR}/libkff.a
-    BUILD_BYPRODUCTS
-        ${VG_LIB_DIR}/libkff.a
-        ${VG_INC_DIR}/kff_io.hpp
-)
-
+add_subdirectory(${DEPS_DIR}/kff-cpp-api ${CMAKE_BINARY_DIR}/build/kff EXCLUDE_FROM_ALL)
 add_library(dep_kff STATIC IMPORTED GLOBAL)
 set_target_properties(dep_kff PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libkff.a
 )
-add_dependencies(dep_kff kff_ep)
+target_link_libraries(dep_kff INTERFACE kff)
 
 # ── mimalloc (optional) ───────────────────────────────────────────────────
 # Makefile: cmake ... && make && cp include/* <inc>/ && cp mimalloc.o <lib>/

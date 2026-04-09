@@ -118,7 +118,7 @@ endif()
 
 # Ensure all ExternalProject targets are built before libvg sources compile
 add_dependencies(libvg
-    libhandlegraph_ep kff_ep raptor_ep
+    libhandlegraph_ep kff raptor_ep
     libdeflate_ep ssw_ep sdsl_ep htslib_ep snappy_ep sparsehash_ep
     gcsa2_ep gbwt_ep gbwtgraph_ep tabixpp_ep gssw_ep sonlib_ep
     pinchescacti_ep libvcfh_ep fml_ep structures_ep sublinearls_ep
@@ -171,7 +171,7 @@ if(NOT APPLE)
 endif()
 
 add_dependencies(libvg_shared
-    libhandlegraph_ep kff_ep raptor_ep
+    libhandlegraph_ep kff raptor_ep
     libdeflate_ep ssw_ep sdsl_ep htslib_ep snappy_ep sparsehash_ep
     gcsa2_ep gbwt_ep gbwtgraph_ep tabixpp_ep gssw_ep sonlib_ep
     pinchescacti_ep libvcfh_ep fml_ep structures_ep sublinearls_ep
