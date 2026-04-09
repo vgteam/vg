@@ -210,6 +210,16 @@ endif()
 
 # ── install rules ─────────────────────────────────────────────────────────
 include(GNUInstallDirs)
+# Defensive fallbacks: GNUInstallDirs won't override a stale cached empty value
+if(NOT CMAKE_INSTALL_BINDIR)
+    set(CMAKE_INSTALL_BINDIR bin)
+endif()
+if(NOT CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR lib)
+endif()
+if(NOT CMAKE_INSTALL_INCLUDEDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR include)
+endif()
 
 install(TARGETS vg
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
