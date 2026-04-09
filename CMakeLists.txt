@@ -39,6 +39,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+#-───────────────────────────────────────────────────────────────
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # ────────────────────────────────────────────────────────────────
 # Build variant options  (replicate Makefile's asan/jemalloc/mimalloc vars)
 # ────────────────────────────────────────────────────────────────
@@ -138,7 +141,7 @@ pkg_check_modules(CAIRO   REQUIRED IMPORTED_TARGET cairo)
 pkg_check_modules(ZSTD    REQUIRED IMPORTED_TARGET libzstd)
 
 # Static system deps (replicate PKG_CONFIG_STATIC_DEPS := protobuf jansson)
-find_package(Protobuf REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
 pkg_check_modules(JANSSON REQUIRED IMPORTED_TARGET jansson)
 
 # ────────────────────────────────────────────────────────────────
