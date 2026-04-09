@@ -102,14 +102,20 @@ add_dependencies(dep_ssw ssw_ep)
 # sdsl-lite  (custom install.sh script; produces libsdsl, libdivsufsort)
 # ════════════════════════════════════════════════════════════════════════════
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-add_subdirectory(${DEPS_DIR}/sdsl-lite ${CMAKE_BINARY_DIR}/build/sdsl-lite)
+add_subdirectory(${DEPS_DIR}/sdsl-lite ${CMAKE_BINARY_DIR}/build/sdsl-lite EXCLUDE_FROM_ALL)
 
 # Stage sdsl headers into the shared include dir so Makefile-based deps can find them
 add_custom_target(sdsl_stage_headers
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${DEPS_DIR}/sdsl-lite/include/sdsl
         ${VG_INC_DIR}/sdsl
-    COMMENT "Staging sdsl headers -> ${VG_INC_DIR}/sdsl"
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/build/sdsl-lite/external/libdivsufsort/include/divsufsort.h
+        ${VG_INC_DIR}/sdsl/divsufsort.h
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/build/sdsl-lite/external/libdivsufsort/include/divsufsort64.h
+        ${VG_INC_DIR}/sdsl/divsufsort64.h
+    COMMENT "Staging sdsl + divsufsort headers -> ${VG_INC_DIR}/sdsl"
 )
 add_dependencies(sdsl_stage_headers sdsl)
 
@@ -387,7 +393,7 @@ ExternalProject_Add(gbwtgraph_ep
                 "LIB_DIR=${VG_LIB_DIR}"
     INSTALL_COMMAND
         ${CMAKE_COMMAND} -E copy lib/libgbwtgraph.a ${VG_LIB_DIR}/libgbwtgraph.a
-    DEPENDS gbwt_ep sdsl_stage_headers libhandlegraph_ep
+    DEPENDS gbwt_ep sdsl_stage_headers handlegraph_stage_headers
     BUILD_BYPRODUCTS ${VG_LIB_DIR}/libgbwtgraph.a
 )
 
@@ -695,63 +701,22 @@ add_dependencies(dep_wfa2 vcflib_ep)
 # ════════════════════════════════════════════════════════════════════════════
 # libvgio  (CMake; depends on htslib + libhandlegraph + protobuf)
 # ════════════════════════════════════════════════════════════════════════════
-ExternalProject_Add(libvgio_ep
-    SOURCE_DIR  ${DEPS_DIR}/libvgio
-    BINARY_DIR  ${CMAKE_BINARY_DIR}/build/libvgio
-    CMAKE_ARGS
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DCMAKE_CXX_STANDARD=17
-        -DCMAKE_VERBOSE_MAKEFILE=ON
-        -DUSE_INSTALLED_LIBHANDLEGRAPH_ONLY=ON
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
-        -DCMAKE_INSTALL_LIBDIR=lib
-        # CMAKE_PREFIX_PATH: ${CMAKE_BINARY_DIR} lets pkg_check_modules find htslib.pc
-        "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}\;/usr\;${VG_OMP_PREFIXES_STR}"
-        "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
-    BUILD_COMMAND
-        ${CMAKE_MAKE_PROGRAM} clean
-        COMMAND ${CMAKE_MAKE_PROGRAM}
-    INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
-    DEPENDS htslib_ep libhandlegraph_ep
-    BUILD_BYPRODUCTS ${VG_LIB_DIR}/libvgio.a
-)
-
+add_subdirectory(${DEPS_DIR}/libvgio ${CMAKE_BINARY_DIR}/build/libvgio)
 add_library(dep_libvgio STATIC IMPORTED GLOBAL)
 set_target_properties(dep_libvgio PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libvgio.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-add_dependencies(dep_libvgio libvgio_ep)
+target_link_libraries(dep_libvgio INTERFACE libvgio htslib_ep dep_libhandlegraph)
 
 # ════════════════════════════════════════════════════════════════════════════
 # libbdsg  (CMake; depends on libhandlegraph + sdsl + sparsepp + dynamic + mio)
 # ════════════════════════════════════════════════════════════════════════════
-ExternalProject_Add(libbdsg_ep
-    SOURCE_DIR  ${DEPS_DIR}/libbdsg
-    BINARY_DIR  ${CMAKE_BINARY_DIR}/build/libbdsg
-    CMAKE_ARGS
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DCMAKE_CXX_STANDARD=17
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
-        -DCMAKE_INSTALL_LIBDIR=lib
-        # Include our staged headers (DYNAMIC, sparsepp, mio, atomic_queue, etc.)
-        "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -I${VG_INC_DIR} -I${VG_INC_DIR}/dynamic"
-        # CMAKE_PREFIX_PATH lets libbdsg find our installed libhandlegraph and sdsl
-        "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}"
-    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
-    INSTALL_COMMAND
-        ${CMAKE_COMMAND} -E copy <BINARY_DIR>/lib/libbdsg.a ${VG_LIB_DIR}/libbdsg.a
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${DEPS_DIR}/libbdsg/bdsg/include ${VG_INC_DIR}
-    DEPENDS libhandlegraph_ep dep_sdsl sparsehash_ep
-    BUILD_BYPRODUCTS ${VG_LIB_DIR}/libbdsg.a
-)
-
+set(RUN_DOXYGEN OFF CACHE BOOL "Whether to run Doxygen for libbdsg")
+add_subdirectory(${DEPS_DIR}/libbdsg ${CMAKE_BINARY_DIR}/build/libbdsg)
 add_library(dep_libbdsg STATIC IMPORTED GLOBAL)
 set_target_properties(dep_libbdsg PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libbdsg.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-add_dependencies(dep_libbdsg libbdsg_ep)
+target_link_libraries(dep_libbdsg INTERFACE libbdsg dep_libhandlegraph sparsehash_ep)
