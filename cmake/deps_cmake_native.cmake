@@ -67,23 +67,13 @@ endif()
 # ── libhandlegraph ────────────────────────────────────────────────────────
 # Makefile: cmake -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib ..
 #            && make && make install
-ExternalProject_Add(libhandlegraph_ep
-    SOURCE_DIR ${DEPS_DIR}/libhandlegraph
-    BINARY_DIR ${CMAKE_BINARY_DIR}/build/libhandlegraph
-    CMAKE_ARGS
-        ${VG_DEP_CMAKE_ARGS}
-        -DCMAKE_VERBOSE_MAKEFILE=ON
-    BUILD_COMMAND  ${CMAKE_MAKE_PROGRAM}
-    INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
-    BUILD_BYPRODUCTS ${VG_LIB_DIR}/libhandlegraph.a
-)
-
+add_subdirectory(${DEPS_DIR}/libhandlegraph ${CMAKE_BINARY_DIR}/build/libhandlegraph EXCLUDE_FROM_ALL)
 add_library(dep_libhandlegraph STATIC IMPORTED GLOBAL)
 set_target_properties(dep_libhandlegraph PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libhandlegraph.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-add_dependencies(dep_libhandlegraph libhandlegraph_ep)
+target_link_libraries(dep_libhandlegraph INTERFACE libhandlegraph)
 
 # ── raptor ────────────────────────────────────────────────────────────────
 # Makefile recipe (complex — must regenerate turtle lexer from Bison):
