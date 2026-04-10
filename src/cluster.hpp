@@ -233,16 +233,56 @@ protected:
     void deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs, int64_t optimal_separation);
 };
     
+class MEMClusterer::HitEdge {
+public:
+    HitEdge(size_t to_idx, int32_t weight, int64_t distance) : to_idx(to_idx), weight(weight), distance(distance) {}
+    HitEdge() = default;
+    ~HitEdge() = default;
+
+    /// Index of the node that the edge points to
+    size_t to_idx;
+
+    /// Weight for dynamic programming
+    int32_t weight;
+
+    /// Estimated distance
+    int64_t distance;
+};
+
+class MEMClusterer::HitNode {
+public:
+    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) { }
+    HitNode() = default;
+    ~HitNode() = default;
+
+    const MaximalExactMatch* mem;
+
+    /// Position of GCSA hit in the graph
+    pos_t start_pos;
+
+    /// Score of the exact match this node represents
+    int32_t score;
+
+    /// Score used in dynamic programming
+    int32_t dp_score;
+
+    /// Edges from this node that are colinear with the read
+    vector<HitEdge> edges_from;
+
+    /// Edges to this node that are colinear with the read
+    vector<HitEdge> edges_to;
+};
+
 class MEMClusterer::HitGraph {
 public:
-    
+
     /// Initializes nodes in the hit graph, but does not add edges
     HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
              size_t min_mem_length = 1, bool track_components = false, const match_fanouts_t* fanouts = nullptr);
-    
+
     /// Add an edge
     void add_edge(size_t from, size_t to, int32_t weight, int64_t distance);
-    
+
     /// Returns the top scoring connected components
     vector<cluster_t> clusters(const Alignment& alignment,
                                const GSSWAligner* aligner,
@@ -251,79 +291,39 @@ public:
                                size_t min_median_mem_coverage_for_split,
                                double suboptimal_edge_pruning_factor,
                                double cluster_multiplicity_diff);
-    
+
     vector<HitNode> nodes;
-    
+
 private:
-    
+
     /// Identify weakly connected components in the graph
     void connected_components(vector<vector<size_t>>& components_out) const;
-    
+
     /// Prune edges that are not on any traceback that scores highly compared to the best score in the component,
     /// splits up the components (adding some to the end of the vector) if doing so splits a component
     void prune_low_scoring_edges(vector<vector<size_t>>& components, size_t component_idx, double score_factor);
-    
+
     /// Perform dynamic programming and store scores in nodes
     void perform_dp();
-    
+
     /// Fills input vectors with indices of source and sink nodes
     void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out) const;
-    
+
     /// Fills the input vector with the indices of a topological sort
     void topological_order(vector<size_t>& order_out) const;
-    
+
     /// Computes the topological order of
     void component_topological_order(const vector<size_t>& component, vector<size_t>& order_out) const;
-    
+
     /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
     /// redundant sub-MEMs
     size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
-    
+
     /// Should we actively keep track of connected components?
     bool track_components;
-    
+
     /// Keeps track of the connected components
     UnionFind components;
-};
-    
-class MEMClusterer::HitNode {
-public:
-    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) { }
-    HitNode() = default;
-    ~HitNode() = default;
-    
-    const MaximalExactMatch* mem;
-    
-    /// Position of GCSA hit in the graph
-    pos_t start_pos;
-    
-    /// Score of the exact match this node represents
-    int32_t score;
-    
-    /// Score used in dynamic programming
-    int32_t dp_score;
-    
-    /// Edges from this node that are colinear with the read
-    vector<HitEdge> edges_from;
-    
-    /// Edges to this node that are colinear with the read
-    vector<HitEdge> edges_to;
-};
-
-class MEMClusterer::HitEdge {
-public:
-    HitEdge(size_t to_idx, int32_t weight, int64_t distance) : to_idx(to_idx), weight(weight), distance(distance) {}
-    HitEdge() = default;
-    ~HitEdge() = default;
-    
-    /// Index of the node that the edge points to
-    size_t to_idx;
-    
-    /// Weight for dynamic programming
-    int32_t weight;
-    
-    /// Estimated distance
-    int64_t distance;
 };
 
 struct MEMClusterer::DPScoreComparator {
