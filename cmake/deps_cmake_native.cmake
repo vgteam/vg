@@ -86,7 +86,7 @@ set_target_properties(dep_libhandlegraph PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libhandlegraph.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-target_link_libraries(dep_libhandlegraph INTERFACE handlegraph_stage_headers)
+add_dependencies(dep_libhandlegraph handlegraph_stage_headers)
 
 # ── raptor ────────────────────────────────────────────────────────────────
 # Makefile recipe (complex — must regenerate turtle lexer from Bison):
