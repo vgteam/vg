@@ -106,16 +106,24 @@ add_subdirectory(${DEPS_DIR}/sdsl-lite ${CMAKE_BINARY_DIR}/build/sdsl-lite EXCLU
 
 # Stage sdsl headers into the shared include dir so Makefile-based deps can find them
 add_custom_target(sdsl_stage_headers
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${DEPS_DIR}/sdsl-lite/include/sdsl
-        ${VG_INC_DIR}/sdsl
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_BINARY_DIR}/build/sdsl-lite/external/libdivsufsort/include/divsufsort.h
         ${VG_INC_DIR}/sdsl/divsufsort.h
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_BINARY_DIR}/build/sdsl-lite/external/libdivsufsort/include/divsufsort64.h
         ${VG_INC_DIR}/sdsl/divsufsort64.h
-    COMMENT "Staging sdsl + divsufsort headers -> ${VG_INC_DIR}/sdsl"
+    # Also stage at the top level: sdsl headers use #include "divsufsort.h" (no sdsl/ prefix)
+    # and sdsl's own install puts them at <prefix>/include/, not <prefix>/include/sdsl/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/build/sdsl-lite/external/libdivsufsort/include/divsufsort.h
+        ${VG_INC_DIR}/divsufsort.h
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/build/sdsl-lite/external/libdivsufsort/include/divsufsort64.h
+        ${VG_INC_DIR}/divsufsort64.h
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${DEPS_DIR}/sdsl-lite/include/sdsl
+        ${VG_INC_DIR}/sdsl
+    COMMENT "Staging sdsl + divsufsort headers -> ${VG_INC_DIR}"
 )
 add_dependencies(sdsl_stage_headers sdsl)
 
