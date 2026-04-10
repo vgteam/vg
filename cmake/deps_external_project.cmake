@@ -144,7 +144,8 @@ set_target_properties(dep_sdsl PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libsdsl.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-target_link_libraries(dep_sdsl INTERFACE sdsl_stage_headers sdsl-lite)
+target_link_libraries(dep_sdsl INTERFACE sdsl-lite)
+add_dependencies(dep_sdsl sdsl_stage_headers)
 
 # ════════════════════════════════════════════════════════════════════════════
 # htslib  (autoconf; depends on libdeflate)
@@ -735,6 +736,13 @@ target_link_libraries(dep_libvgio INTERFACE libvgio vgio_stage_headers htslib_ep
 # ════════════════════════════════════════════════════════════════════════════
 set(RUN_DOXYGEN OFF CACHE BOOL "Whether to run Doxygen for libbdsg")
 add_subdirectory(${DEPS_DIR}/libbdsg ${CMAKE_BINARY_DIR}/build/libbdsg)
+add_custom_target(bdsg_stage_headers
+    COMMAND   
+        mkdir -p ${VG_INC_DIR}/bdsg
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${DEPS_DIR}/libbdsg/bdsg/include/bdsg
+        ${VG_INC_DIR}/bdsg
+)
 # libbdsg's CMakeLists only builds a SHARED lib; create a static archive from its
 # OBJECT library (bdsg_objs) so dep_libbdsg's IMPORTED_LOCATION is satisfied.
 add_library(libbdsg_archive STATIC $<TARGET_OBJECTS:bdsg_objs>)
@@ -749,4 +757,4 @@ set_target_properties(dep_libbdsg PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
 target_link_libraries(dep_libbdsg INTERFACE libbdsg_archive dep_libhandlegraph sparsehash_ep)
-add_dependencies(dep_libbdsg libbdsg_archive)
+add_dependencies(dep_libbdsg bdsg_stage_headers libbdsg_archive)
