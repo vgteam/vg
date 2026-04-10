@@ -74,7 +74,7 @@ target_link_libraries(libvg PUBLIC
     dep_headers_all
 
     # Phase 4: CMake-native deps
-    dep_libhandlegraph
+    #dep_libhandlegraph
     dep_kff
     dep_raptor
 
@@ -116,7 +116,8 @@ endif()
 
 # Ensure all ExternalProject targets are built before libvg sources compile
 add_dependencies(libvg
-    dep_libhandlegraph kff raptor_ep
+    #dep_libhandlegraph 
+    kff raptor_ep
     libdeflate_ep ssw_ep  htslib_ep snappy_ep sparsehash_ep
     gcsa2_ep gbwt_ep gbwtgraph_ep tabixpp_ep gssw_ep sonlib_ep
     pinchescacti_ep libvcfh_ep fml_ep structures_ep sublinearls_ep
@@ -154,7 +155,8 @@ target_compile_features(libvg_shared PUBLIC cxx_std_17)
 # Shared lib needs the same deps, plus it actually links them at build time
 target_link_libraries(libvg_shared PRIVATE
     dep_headers_all
-    dep_libhandlegraph dep_kff dep_raptor
+    #dep_libhandlegraph 
+    dep_kff dep_raptor
     dep_libdeflate dep_ssw dep_sdsl
     dep_htslib dep_snappy dep_sparsehash
     dep_gcsa2 dep_gbwt dep_gbwtgraph dep_tabixpp dep_gssw
@@ -169,7 +171,8 @@ if(NOT APPLE)
 endif()
 
 add_dependencies(libvg_shared
-    dep_libhandlegraph kff raptor_ep
+    #dep_libhandlegraph 
+    kff raptor_ep
     libdeflate_ep ssw_ep dep_sdsl htslib_ep snappy_ep sparsehash_ep
     gcsa2_ep gbwt_ep gbwtgraph_ep tabixpp_ep gssw_ep sonlib_ep
     pinchescacti_ep libvcfh_ep fml_ep structures_ep sublinearls_ep

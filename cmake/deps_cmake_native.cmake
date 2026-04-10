@@ -79,7 +79,7 @@ add_custom_target(handlegraph_stage_headers
         ${DEPS_DIR}/libhandlegraph/src/include/handlegraph
         ${VG_INC_DIR}/handlegraph
 )
-#add_dependencies(handlegraph_stage_headers libhandlegraph)
+
 
 add_library(dep_libhandlegraph STATIC IMPORTED GLOBAL)
 set_target_properties(dep_libhandlegraph PROPERTIES

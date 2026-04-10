@@ -131,20 +131,17 @@ add_library(dep_divsufsort STATIC IMPORTED GLOBAL)
 set_target_properties(dep_divsufsort PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libdivsufsort.a
 )
-target_link_libraries(dep_divsufsort INTERFACE sdsl-lite)
 
 add_library(dep_divsufsort64 STATIC IMPORTED GLOBAL)
 set_target_properties(dep_divsufsort64 PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libdivsufsort64.a
 )
-target_link_libraries(dep_divsufsort64 INTERFACE sdsl-lite)
 
 add_library(dep_sdsl STATIC IMPORTED GLOBAL)
 set_target_properties(dep_sdsl PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libsdsl.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-target_link_libraries(dep_sdsl INTERFACE sdsl-lite)
 add_dependencies(dep_sdsl sdsl_stage_headers)
 
 # ════════════════════════════════════════════════════════════════════════════
