@@ -33,8 +33,8 @@ ExternalProject_Add(xg_ep
     INSTALL_COMMAND ""
     # Must run after all header-producing deps are done
     DEPENDS
-        libhandlegraph_ep
-        dep_sdsl
+        handlegraph_stage_headers
+        sdsl_stage_headers
         sparsehash_ep
         # Phase 3 header-only deps don't have ExternalProject targets;
         # file(COPY) runs at configure time so they're always available.

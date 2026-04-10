@@ -702,12 +702,25 @@ add_dependencies(dep_wfa2 vcflib_ep)
 # libvgio  (CMake; depends on htslib + libhandlegraph + protobuf)
 # ════════════════════════════════════════════════════════════════════════════
 add_subdirectory(${DEPS_DIR}/libvgio ${CMAKE_BINARY_DIR}/build/libvgio)
+add_custom_target(vgio_stage_headers
+    COMMAND 
+        mkdir -p ${VG_INC_DIR}/vg/io
+    COMMAND 
+        protoc -I${DEPS_DIR}/libvgio/deps/
+               --cpp_out=${VG_INC_DIR}/vg
+               ${DEPS_DIR}/libvgio/deps/vg.proto
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${DEPS_DIR}/libvgio/include/vg/io
+        ${VG_INC_DIR}/vg/io
+)
+add_dependencies(vgio_stage_headers vgio)
+
 add_library(dep_libvgio STATIC IMPORTED GLOBAL)
 set_target_properties(dep_libvgio PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libvgio.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-target_link_libraries(dep_libvgio INTERFACE libvgio htslib_ep dep_libhandlegraph)
+target_link_libraries(dep_libvgio INTERFACE libvgio vgio_stage_headers htslib_ep dep_libhandlegraph)
 
 # ════════════════════════════════════════════════════════════════════════════
 # libbdsg  (CMake; depends on libhandlegraph + sdsl + sparsepp + dynamic + mio)
