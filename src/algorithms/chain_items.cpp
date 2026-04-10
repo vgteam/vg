@@ -6,6 +6,7 @@
 
 #include "chain_items.hpp"
 #include "crash.hpp"
+#include "rmq.hpp"
 
 #include <handlegraph/algorithms/dijkstra.hpp>
 #include <structures/immutable_list.hpp>
@@ -13,7 +14,7 @@
 
 //#define debug_chaining
 //#define debug_transition
-
+//#define debug_rmq
 namespace vg {
 namespace algorithms {
 
@@ -556,10 +557,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     base_seed_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
-    // Track eval bonus for heuristic comparison (path conservation bonus, used for
-    // selection only without affecting the actual stored score).
-    // Starting from nowhere means full path conservation, so bonus = recomb_penalty.
-    std::vector<int> eval_bonuses(to_chain.size(), std::max(0, recomb_penalty));
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
         chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
@@ -587,20 +584,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        // This also has full path conservation (bonus = recomb_penalty).
-        {
-            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
-            int nowhere_bonus = std::max(0, recomb_penalty);
-            int eval_nowhere = from_nowhere.score + nowhere_bonus;
-            int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
-            if (eval_nowhere > eval_current) {
-                chain_scores[transition.to_anchor] = from_nowhere;
-                eval_bonuses[transition.to_anchor] = nowhere_bonus;
-            } else if (eval_nowhere == eval_current && from_nowhere > chain_scores[transition.to_anchor]) {
-                chain_scores[transition.to_anchor] = from_nowhere;
-                eval_bonuses[transition.to_anchor] = nowhere_bonus;
-            }
-        }
+        chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], 
+                                                      {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()});
         
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
@@ -673,34 +658,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             TracedScore from_source_score = source_score.add_points(jump_points + item_points)
                                                         .set_shared_paths(here.anchor_paths());
             
-            // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
-            // Bonus = fraction of conserved paths * recomb_penalty.
-            // Bonus is 0 when recombination occurs (no shared paths).
-            int eval_bonus_from = 0;
-            if (recomb_penalty > 0) {
-                int pre_count = __builtin_popcountll(source_score.paths);
-                if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
-                    // No recombination: bonus = fraction of paths conserved * penalty
-                    int post_count = __builtin_popcountll(from_source_score.paths);
-                    eval_bonus_from = (recomb_penalty * post_count) / pre_count;
-                }
-                // Recombination case (no shared paths): bonus stays 0
-            }
-
-            auto& current_best = chain_scores[transition.to_anchor];
-            int eval_from = from_source_score.score + eval_bonus_from;
-            int eval_best = current_best.score + eval_bonuses[transition.to_anchor];
-
-            if (eval_from > eval_best) {
-                current_best = from_source_score;
-                eval_bonuses[transition.to_anchor] = eval_bonus_from;
-            } else if (eval_from == eval_best) {
-                // Tie-breaker using actual underlying standard formulations
-                if (from_source_score > current_best) {
-                    current_best = from_source_score;
-                    eval_bonuses[transition.to_anchor] = eval_bonus_from;
-                }
-            }
+            // Remember that we could make this jump
+            chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], from_source_score);
                                            
             if (show_work) {
                 cerr << "\t\tWe can reach #" << transition.to_anchor << " with " << source_score << " + " << jump_points
@@ -796,6 +755,219 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             cerr << "\tBest chain end so far: " << best_score << endl;
         }
         
+    }
+    
+    return best_score;
+}
+
+TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
+                            const VectorView<Anchor>& to_chain,
+                            const SnarlDistanceIndex& distance_index,
+                            const HandleGraph& graph,
+                            int gap_open,
+                            int gap_extension,
+                            int max_lookback_bases,
+                            int max_lookback_items,
+                            int item_bonus,
+                            double item_scale,
+                            double gap_scale,
+                            double points_per_possible_match,
+                            size_t max_indel_bases,
+                            int recomb_penalty,
+                            bool show_work) {
+
+    DiagramExplainer diagram(show_work);
+    TSVExplainer dump(show_work, "chaindump");
+    if (diagram) {
+        diagram.add_globals({{"rankdir", "LR"}});
+    }
+   
+    if (show_work) {
+        cerr << "Chaining group of " << to_chain.size() << " items using RMQ" << endl;
+    }
+
+    if (to_chain.empty()) {
+        return TracedScore::unset();
+    }
+
+    size_t base_seed_length = 0;
+    for (auto& anchor : to_chain) {
+        base_seed_length += anchor.base_seed_length();
+    }
+    base_seed_length /= to_chain.size();
+
+    chain_scores.resize(to_chain.size());
+
+    // We are using the same value for the linear gap cost as in the DP.
+    double scaled_gap_cost = 0.01 * base_seed_length * gap_scale;
+    ReadCoordinateRMQ rmq(scaled_gap_cost);
+
+    // Pre-compute relative chain offsets from zip codes for 2D RMQ scoring.
+    // get_offset_in_chain(1) gives the chromosome-level position in bp — same scale as read coords.
+    // We subtract the minimum offset so all values start near 0 (avoids large absolute values).
+    std::vector<size_t> anchor_chain_offsets(to_chain.size(), std::numeric_limits<size_t>::max());
+    size_t chain_offset_baseline = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        ZipCode* zip = to_chain[i].start_hint();
+        if (!zip) zip = to_chain[i].end_hint();
+        if (zip) {
+            zip->fill_in_full_decoder();
+            if (zip->decoder_length() > 1) {
+                size_t off = zip->get_offset_in_chain(1);
+                anchor_chain_offsets[i] = off;
+                if (off < chain_offset_baseline) chain_offset_baseline = off;
+            }
+        }
+    }
+    if (chain_offset_baseline == std::numeric_limits<size_t>::max()) chain_offset_baseline = 0;
+
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        auto& here = to_chain[i];
+        
+        // Base score if starting exactly here (from nowhere)
+        auto item_points = here.score() * item_scale + item_bonus;
+        chain_scores[i] = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
+
+        if (show_work) {
+             cerr << "RMQ: examining anchor #" << i << " at read_start " << here.read_start() << endl;
+        }
+
+        std::string here_gvnode;
+        if (diagram) {
+            here_gvnode = "i" + std::to_string(i);
+        }
+
+        // 1. Query RMQ for candidates.
+        // The RMQ gives us candidates that end BEFORE or AT our read_start, maximizing the penalized score.
+        // Because anchors shouldn't overlap in the chaining paradigm (except in specific cases handled by max_lookback_bases),
+        // we query up to `here.read_start()`.
+        auto candidates = rmq.query_top_k_candidates(here.read_start(), std::max((size_t)max_lookback_bases, (size_t)10000), 100);        
+        if (show_work) {
+             cerr << "\tRMQ returned " << candidates.size() << " candidates." << endl;
+        }
+
+        // 2. Evaluate candidates in detail
+        for (size_t j : candidates) {
+            auto& source = to_chain[j];
+            size_t read_distance = get_read_distance(source, here);
+
+            // Pre-filter using zip code chain offsets: if estimated graph distance is too far
+            // from read distance, skip before calling the expensive get_graph_distance.
+            if (anchor_chain_offsets[i] != std::numeric_limits<size_t>::max() &&
+                anchor_chain_offsets[j] != std::numeric_limits<size_t>::max()) {
+                int64_t cc_i = (int64_t)anchor_chain_offsets[i];
+                int64_t cc_j = (int64_t)anchor_chain_offsets[j];
+                size_t graph_dist_estimate = (size_t)std::abs(cc_i - cc_j);
+                size_t rd = (read_distance == std::numeric_limits<size_t>::max()) ? 0 : read_distance;
+                size_t indel_estimate = (graph_dist_estimate > rd) ? graph_dist_estimate - rd : rd - graph_dist_estimate;
+                if (indel_estimate > (size_t)max_indel_bases) {
+                    if (show_work) cerr << "\t\tCandidate #" << j << " pre-filtered (chain indel estimate " << indel_estimate << " > " << max_indel_bases << ")" << endl;
+                    continue;
+                }
+            }
+
+            size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
+            if (graph_distance == std::numeric_limits<size_t>::max() || read_distance == std::numeric_limits<size_t>::max()) {
+                if (show_work) cerr << "\t\tCandidate #" << j << " skipped (unreachable)" << endl;
+                continue;
+            }
+
+            size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
+            size_t possible_match_length = std::min(read_distance, graph_distance);
+
+            if (indel_length > max_indel_bases) {
+                if (show_work) cerr << "\t\tCandidate #" << j << " skipped (indel length " << indel_length << " > " << max_indel_bases << ")" << endl;
+                continue; 
+            }
+
+            int jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
+            jump_points -= check_recombination(chain_scores[j], here) * recomb_penalty;
+            jump_points += possible_match_length * points_per_possible_match;
+
+            TracedScore source_score = TracedScore::score_from(chain_scores, j);
+            TracedScore from_source_score = source_score.add_points(jump_points + item_points)
+                                                        .set_shared_paths(here.anchor_paths());
+
+            if (show_work) {
+                cerr << "\t\tCandidate #" << j << " gives score " << from_source_score.score 
+                     << " (" << source_score.score << " source + " << jump_points << " jump + " << item_points << " item)" << endl;
+            }
+
+            if (from_source_score > chain_scores[i]) {
+                chain_scores[i] = from_source_score;
+                if (show_work) cerr << "\t\t\t-> NEW BEST for #" << i << endl;
+            }
+
+            if (diagram && from_source_score.score > 0) {
+                std::string source_gvnode = "i" + std::to_string(j);
+                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
+                    {"label", std::to_string(jump_points)},
+                    {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
+                });
+            }
+
+            if (dump) {
+                dump.line();
+                std::stringstream source_stream; source_stream << source; dump.field(source_stream.str());
+                std::stringstream here_stream; here_stream << here; dump.field(here_stream.str());
+                dump.field(from_source_score.score);
+            }
+        }
+
+        // 3. Insert into RMQ for future queries.
+        // We insert using the end of the current read to maintain the non-overlapping property.
+        // chain_coord: relative graph position in bp (from zip code), same scale as read coords.
+        // Falls back to read_end (original 1D behavior) if zip code is unavailable.
+        size_t chain_coord = (anchor_chain_offsets[i] != std::numeric_limits<size_t>::max())
+            ? anchor_chain_offsets[i] - chain_offset_baseline
+            : here.read_end();
+#ifdef debug_rmq
+        #pragma omp critical (cerr)
+        cerr << "Read end for #" << i << " is " << here.read_end() 
+             << " and chain_coord is " << chain_coord << endl;
+#endif 
+
+        // Use 1D formula for ranking (chain_coord kept for pre-filtering below).
+        rmq.insert(here.read_end(), chain_scores[i].score, i, here.read_end());
+
+    }
+
+    TracedScore best_score = TracedScore::unset();
+    for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
+        auto& here = to_chain[to_anchor];
+        if (show_work) {
+            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
+                 << " is " << chain_scores[to_anchor] << endl;
+        }
+
+        if (diagram) {
+            auto item_points = here.score() * item_scale + item_bonus;
+            std::string here_gvnode = "i" + std::to_string(to_anchor);
+            std::stringstream label_stream;
+            label_stream << "#" << to_anchor << " " << here << " = " << item_points
+                         << "/" << chain_scores[to_anchor].score;
+            diagram.add_node(here_gvnode, {{"label", label_stream.str()}});
+            auto graph_start = here.graph_start();
+            std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode, {
+                {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+            std::string graph_gvnode2 = ("n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1))
+                                         + (is_rev(graph_start) ? "r" : "f"));
+            diagram.ensure_node(graph_gvnode2, {
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        }
+
+        best_score.max_in(chain_scores, to_anchor);
+        
+        if (show_work) {
+            cerr << "\tBest chain end so far: " << best_score << endl;
+        }
     }
     
     return best_score;
@@ -913,13 +1085,14 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         
     // We actually need to do DP
     vector<TracedScore> chain_scores;
-    TracedScore best_past_ending_score_ever = chain_items_dp(chain_scores,
+    TracedScore best_past_ending_score_ever = chain_items_rmq(chain_scores,
                                                              to_chain,
                                                              distance_index,
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
-                                                             for_each_transition,
+                                                             10000, // max_lookback_bases
+                                                             10000, // max_lookback_items
                                                              item_bonus,
                                                              item_scale,
                                                              gap_scale,

@@ -526,6 +526,25 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                         );
 
 /**
+ * Sub-quadratic alternative to chain_items_dp using RMQ (Abouelhoda & Ohlebusch).
+ */
+TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
+                            const VectorView<Anchor>& to_chain,
+                            const SnarlDistanceIndex& distance_index,
+                            const HandleGraph& graph,
+                            int gap_open,
+                            int gap_extension,
+                            int max_lookback_bases = 150,
+                            int max_lookback_items = 100,
+                            int item_bonus = 0,
+                            double item_scale = 1.0,
+                            double gap_scale = 1.0,
+                            double points_per_possible_match = 0,
+                            size_t max_indel_bases = 100,
+                            int recomb_penalty = 0,
+                            bool show_work = false);
+
+/**
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
