@@ -82,8 +82,6 @@ target_link_libraries(libvg PUBLIC
     dep_libdeflate
     dep_ssw
     dep_sdsl
-    dep_divsufsort
-    dep_divsufsort64
     dep_htslib
     dep_snappy
     dep_sparsehash
@@ -157,7 +155,7 @@ target_compile_features(libvg_shared PUBLIC cxx_std_17)
 target_link_libraries(libvg_shared PRIVATE
     dep_headers_all
     dep_libhandlegraph dep_kff dep_raptor
-    dep_libdeflate dep_ssw dep_sdsl dep_divsufsort dep_divsufsort64
+    dep_libdeflate dep_ssw dep_sdsl
     dep_htslib dep_snappy dep_sparsehash
     dep_gcsa2 dep_gbwt dep_gbwtgraph dep_tabixpp dep_gssw
     dep_sonlib dep_pinchesandcacti dep_3edgeconnected dep_libvcfh
