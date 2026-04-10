@@ -727,7 +727,7 @@ set_target_properties(dep_libvgio PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
 add_dependencies(dep_libvgio vgio_stage_headers)
-target_link_libraries(dep_libvgio INTERFACE htslib_ep dep_libhandlegraph)
+target_link_libraries(dep_libvgio INTERFACE dep_htslib dep_libhandlegraph)
 
 # ════════════════════════════════════════════════════════════════════════════
 # libbdsg  (CMake; depends on libhandlegraph + sdsl + sparsepp + dynamic + mio)
@@ -754,5 +754,5 @@ set_target_properties(dep_libbdsg PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libbdsg.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-target_link_libraries(dep_libbdsg INTERFACE libbdsg_archive dep_libhandlegraph sparsehash_ep)
+target_link_libraries(dep_libbdsg INTERFACE libbdsg_archive dep_libhandlegraph dep_sparsehash)
 add_dependencies(dep_libbdsg bdsg_stage_headers libbdsg_archive)
