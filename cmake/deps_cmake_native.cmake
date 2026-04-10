@@ -35,6 +35,11 @@ set(VG_DEP_CMAKE_ARGS
 # Makefile: cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" ..
 #            && make && cp kff_io.hpp <inc> && mv libkff.a <lib>
 add_subdirectory(${DEPS_DIR}/kff-cpp-api ${CMAKE_BINARY_DIR}/build/kff EXCLUDE_FROM_ALL)
+add_custom_target(kff_stage_headers
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_BINARY_DIR}/build/kff/src/kff_io.hpp
+            ${VG_INC_DIR}/kff_io.hpp
+)
 add_library(dep_kff STATIC IMPORTED GLOBAL)
 set_target_properties(dep_kff PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libkff.a
