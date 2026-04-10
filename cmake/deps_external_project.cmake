@@ -119,13 +119,6 @@ add_custom_target(sdsl_stage_headers
 )
 add_dependencies(sdsl_stage_headers sdsl)
 
-add_library(dep_sdsl STATIC IMPORTED GLOBAL)
-set_target_properties(dep_sdsl PROPERTIES
-    IMPORTED_LOCATION             ${VG_LIB_DIR}/libsdsl.a
-    INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
-)
-target_link_libraries(dep_sdsl INTERFACE sdsl-lite)
-
 add_library(dep_divsufsort STATIC IMPORTED GLOBAL)
 set_target_properties(dep_divsufsort PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libdivsufsort.a
@@ -137,6 +130,13 @@ set_target_properties(dep_divsufsort64 PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libdivsufsort64.a
 )
 target_link_libraries(dep_divsufsort64 INTERFACE sdsl-lite)
+
+add_library(dep_sdsl STATIC IMPORTED GLOBAL)
+set_target_properties(dep_sdsl PROPERTIES
+    IMPORTED_LOCATION             ${VG_LIB_DIR}/libsdsl.a
+    INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
+)
+target_link_libraries(dep_sdsl INTERFACE sdsl_stage_headers dep_divsufsort dep_divsufsort64 sdsl-lite)
 
 # ════════════════════════════════════════════════════════════════════════════
 # htslib  (autoconf; depends on libdeflate)
@@ -709,7 +709,7 @@ add_custom_target(vgio_stage_headers
         protoc -I${DEPS_DIR}/libvgio/deps/
                --cpp_out=${VG_INC_DIR}/vg
                ${DEPS_DIR}/libvgio/deps/vg.proto
-    COMMAND ${CMAKE_COMMAND} -E copy
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${DEPS_DIR}/libvgio/include/vg/io
         ${VG_INC_DIR}/vg/io
 )
