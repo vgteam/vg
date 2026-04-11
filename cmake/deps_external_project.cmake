@@ -33,41 +33,8 @@ else()
 endif()
 
 # ════════════════════════════════════════════════════════════════════════════
-# libdeflate  (standalone Makefile)
+# libdeflate  (CMake)
 # ════════════════════════════════════════════════════════════════════════════
-#[[
-ExternalProject_Add(libdeflate
-    SOURCE_DIR  ${DEPS_DIR}/libdeflate
-    BUILD_IN_SOURCE ON
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND
-        ${CMAKE_MAKE_PROGRAM} V=1
-            "CFLAGS=${VG_SUB_CFLAGS}"
-    INSTALL_COMMAND
-        ${CMAKE_COMMAND} -E copy libdeflate.a   ${VG_LIB_DIR}/libdeflate.a
-        COMMAND ${CMAKE_COMMAND} -E copy libdeflate.h   ${VG_INC_DIR}/libdeflate.h
-        # Shared lib: libdeflate.so (Linux) or libdeflate.dylib (Mac)
-        COMMAND ${CMAKE_COMMAND} -P
-            ${CMAKE_SOURCE_DIR}/cmake/libdeflate_install_shared.cmake
-    BUILD_BYPRODUCTS
-        ${VG_LIB_DIR}/libdeflate.a
-        ${VG_INC_DIR}/libdeflate.h
-)
-
-# Helper: copies the shared libdeflate and, on Mac, sets the install name
-file(WRITE ${CMAKE_SOURCE_DIR}/cmake/libdeflate_install_shared.cmake
-"set(SRC  \"${DEPS_DIR}/libdeflate/libdeflate.so\")
-set(DEST \"${VG_LIB_DIR}/libdeflate.${VG_SHARED_SUFFIX}\")
-if(EXISTS \"\${SRC}\")
-    file(COPY \"\${SRC}\" DESTINATION \"${VG_LIB_DIR}\")
-    if(APPLE)
-        file(RENAME \"${VG_LIB_DIR}/libdeflate.so\" \"\${DEST}\")
-        execute_process(COMMAND install_name_tool -id \"\${DEST}\" \"\${DEST}\")
-    endif()
-endif()
-")
-
-]]
 FetchContent_Declare(
     libdeflate
     GIT_REPOSITORY https://github.com/ebiggers/libdeflate
@@ -75,13 +42,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libdeflate)
 
-#[[
-set_target_properties(dep_libdeflate PROPERTIES
-    IMPORTED_LOCATION             ${VG_LIB_DIR}/libdeflate.a
-    INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
-)
-target_link_libraries(dep_libdeflate libdeflate)
-]]
 # ════════════════════════════════════════════════════════════════════════════
 # ssw  (standalone Makefile in deps/ssw/src)
 # ════════════════════════════════════════════════════════════════════════════
