@@ -158,13 +158,15 @@ target_link_libraries(libvg_shared PRIVATE
     #dep_libhandlegraph 
     dep_kff dep_raptor
     dep_libdeflate dep_ssw dep_sdsl
+    dep_divsufsort dep_divsufsort64
     dep_htslib dep_snappy dep_sparsehash
     dep_gcsa2 dep_gbwt dep_gbwtgraph dep_tabixpp dep_gssw
     dep_sonlib dep_pinchesandcacti dep_3edgeconnected dep_libvcfh
     dep_fml dep_structures dep_sublinearLS
-    dep_vcflib dep_wfa2 dep_libbdsg
+    dep_vcflib dep_wfa2 dep_libvgio dep_libbdsg
     dep_xg
     vg_system_libs
+    z
 )
 if(NOT APPLE)
     target_link_libraries(libvg_shared PRIVATE dep_elf dep_ebl dep_dwfl dep_dwelf dep_dw)
