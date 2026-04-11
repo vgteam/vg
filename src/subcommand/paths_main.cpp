@@ -15,7 +15,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
 #include "../augref.hpp"

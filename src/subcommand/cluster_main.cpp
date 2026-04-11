@@ -18,7 +18,7 @@
 #include "../zip_code_tree.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
 #include <vg/io/vpkg.hpp>

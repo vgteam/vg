@@ -14,7 +14,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../readfilter.hpp"
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>

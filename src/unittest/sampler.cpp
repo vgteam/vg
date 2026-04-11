@@ -9,7 +9,7 @@
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../sampler.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../vg.hpp"
 #include "catch.hpp"
 

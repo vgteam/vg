@@ -1,6 +1,6 @@
 #include "catch.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../flow_sort.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 

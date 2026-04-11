@@ -5,7 +5,7 @@
 #include <set>
 #include "vg/io/json2pb.h"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "catch.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"

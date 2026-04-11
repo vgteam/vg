@@ -1,7 +1,7 @@
 #include "subcommand.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../handle.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../utility.hpp"
 #include "../snarls.hpp"
 #include "../masker.hpp"

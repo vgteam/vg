@@ -12,7 +12,7 @@
 
 #include "subcommand.hpp"
 #include "../option.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>

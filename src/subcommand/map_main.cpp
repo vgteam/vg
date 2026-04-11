@@ -1,6 +1,6 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../hts_alignment_emitter.hpp"
