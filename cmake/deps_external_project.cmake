@@ -155,6 +155,7 @@ set_target_properties(dep_htslib PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
 add_dependencies(dep_htslib htslib_ep)
+target_link_libraries(dep_htslib INTERFACE libdeflate::libdeflate_shared)
 
 # ════════════════════════════════════════════════════════════════════════════
 # snappy  (autoconf; standalone; strips -fopenmp from CXXFLAGS)
