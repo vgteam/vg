@@ -43,24 +43,24 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
         bool search_left = trav.first.second;
         int64_t dist = trav.second;
         
-#ifdef debug_algorithms
-        cerr << "traversing " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+")
-        << " in " << (search_left ? "leftward" : "rightward") << " direction at distance " << dist << endl;
-#endif
+        #ifdef debug_algorithms
+                cerr << "traversing " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+")
+                << " in " << (search_left ? "leftward" : "rightward") << " direction at distance " << dist << endl;
+        #endif
        
         graph->for_each_step_of_sense(here, {PathSense::REFERENCE, PathSense::GENERIC}, [&](const step_handle_t& step) {
             // For each path visit that occurs on this node
-#ifdef debug
-            cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
-#endif
+            #ifdef debug
+                        cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
+            #endif
 
             path_handle_t path_handle = graph->get_path_handle_of_step(step);
 
             if (path_filter && !(*path_filter)(path_handle)) {
                 // We are to ignore this path
-#ifdef debug
-                cerr << "handle is on ignored path " << graph->get_path_name(path_handle) << endl;
-#endif
+                #ifdef debug
+                                cerr << "handle is on ignored path " << graph->get_path_name(path_handle) << endl;
+                #endif
                 return;
             }
 
@@ -80,9 +80,9 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
                 path_offset -= dist;
             }
             
-#ifdef debug
-            cerr << "after adding search distance and node offset, " << path_offset << " on strand " << rev_on_path << endl;
-#endif
+            #ifdef debug
+                        cerr << "after adding search distance and node offset, " << path_offset << " on strand " << rev_on_path << endl;
+            #endif
             
             // handle possible under/overflow from the search distance
             path_offset = max<int64_t>(min<int64_t>(path_offset, graph->get_path_length(path_handle)), 0);
@@ -104,10 +104,10 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
             // the next nodes in the search direction
             graph->follow_edges(here, false, [&](const handle_t& next) {
                 
-#ifdef debug_algorithms
-                cerr << "\tfollowing edge to " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+")
-                << " at dist " << dist_thru << endl;
-#endif
+                #ifdef debug_algorithms
+                                cerr << "\tfollowing edge to " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+")
+                                << " at dist " << dist_thru << endl;
+                #endif
                 
                 queue.push_or_reprioritize(make_pair(next, search_left), dist_thru);
             });
