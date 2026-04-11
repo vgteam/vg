@@ -168,7 +168,7 @@ if(NOT APPLE)
         dep_libbdsg dep_xg dep_sdsl dep_libhandlegraph crypto
         dep_dwfl dep_dw dep_dwelf dep_ebl dep_elf atomic
         ${VG_OMP_LINK_LIBS} Boost::program_options PkgConfig::CAIRO PkgConfig::ZSTD
-        dep_libvgio dep_htslib dep_libdeflate z bz2 lzma
+        dep_libvgio dep_htslib deflate z bz2 lzma
         protobuf::libprotobuf PkgConfig::JANSSON
         pthread m
         $<$<BOOL:${VG_USE_JEMALLOC}>:${VG_LIB_DIR}/libjemalloc.a>

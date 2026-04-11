@@ -81,7 +81,6 @@ target_link_libraries(libvg PUBLIC
     z
 
     # Phase 5: non-CMake deps
-    dep_libdeflate
     dep_ssw
     dep_divsufsort 
     dep_divsufsort64
@@ -122,7 +121,7 @@ endif()
 add_dependencies(libvg
     #dep_libhandlegraph 
     kff raptor_ep
-    libdeflate_ep ssw_ep  htslib_ep snappy_ep sparsehash_ep
+    ssw_ep  htslib_ep snappy_ep sparsehash_ep
     gcsa2_ep gbwt_ep gbwtgraph_ep tabixpp_ep gssw_ep sonlib_ep
     pinchescacti_ep libvcfh_ep fml_ep structures_ep sublinearls_ep
     vcflib_ep dep_libvgio dep_libbdsg xg_ep
@@ -161,7 +160,7 @@ target_link_libraries(libvg_shared PRIVATE
     dep_headers_all
     #dep_libhandlegraph 
     dep_kff dep_raptor
-    dep_libdeflate dep_ssw 
+    libdeflate::libdeflate_shared dep_ssw 
     dep_divsufsort dep_divsufsort64 
     dep_sdsl
     dep_htslib dep_snappy dep_sparsehash
@@ -180,7 +179,7 @@ endif()
 add_dependencies(libvg_shared
     #dep_libhandlegraph 
     kff raptor_ep
-    libdeflate_ep ssw_ep dep_divsufsort dep_divsufsort64 dep_sdsl htslib_ep snappy_ep sparsehash_ep
+    ssw_ep dep_divsufsort dep_divsufsort64 dep_sdsl htslib_ep snappy_ep sparsehash_ep
     gcsa2_ep gbwt_ep gbwtgraph_ep tabixpp_ep gssw_ep sonlib_ep
     pinchescacti_ep libvcfh_ep fml_ep structures_ep sublinearls_ep
     vcflib_ep dep_libvgio dep_libbdsg xg_ep

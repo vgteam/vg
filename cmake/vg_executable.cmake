@@ -150,7 +150,7 @@ target_link_libraries(vg PRIVATE
 
     dep_libvgio
     dep_htslib
-    dep_libdeflate
+    deflate
     z
     bz2
     lzma

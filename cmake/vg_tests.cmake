@@ -62,7 +62,7 @@ foreach(test_src IN LISTS UNITTEST_CPPS)
         crypto
 
         # LD_STATIC_LIB_FLAGS (no Bstatic wrapper — test binaries are dynamic)
-        dep_libvgio dep_htslib dep_libdeflate z bz2 lzma
+        dep_libvgio dep_htslib deflate z bz2 lzma
         protobuf::libprotobuf PkgConfig::JANSSON
 
         # LD_STATIC_LIB_DEPS

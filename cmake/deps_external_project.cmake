@@ -35,7 +35,8 @@ endif()
 # ════════════════════════════════════════════════════════════════════════════
 # libdeflate  (standalone Makefile)
 # ════════════════════════════════════════════════════════════════════════════
-ExternalProject_Add(libdeflate_ep
+#[[
+ExternalProject_Add(libdeflate
     SOURCE_DIR  ${DEPS_DIR}/libdeflate
     BUILD_IN_SOURCE ON
     CONFIGURE_COMMAND ""
@@ -66,13 +67,21 @@ if(EXISTS \"\${SRC}\")
 endif()
 ")
 
-add_library(dep_libdeflate STATIC IMPORTED GLOBAL)
+]]
+FetchContent_Declare(
+    libdeflate
+    GIT_REPOSITORY https://github.com/ebiggers/libdeflate
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(libdeflate)
+
+#[[
 set_target_properties(dep_libdeflate PROPERTIES
     IMPORTED_LOCATION             ${VG_LIB_DIR}/libdeflate.a
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
-add_dependencies(dep_libdeflate libdeflate_ep)
-
+target_link_libraries(dep_libdeflate libdeflate)
+]]
 # ════════════════════════════════════════════════════════════════════════════
 # ssw  (standalone Makefile in deps/ssw/src)
 # ════════════════════════════════════════════════════════════════════════════
@@ -173,7 +182,7 @@ ExternalProject_Add(htslib_ep
         ${CMAKE_MAKE_PROGRAM} clean
         COMMAND ${CMAKE_MAKE_PROGRAM}
     INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
-    DEPENDS libdeflate_ep
+    DEPENDS libdeflate::libdeflate_shared
     BUILD_BYPRODUCTS
         ${VG_LIB_DIR}/libhts.a
         ${VG_LIB_DIR}/pkgconfig/htslib.pc
