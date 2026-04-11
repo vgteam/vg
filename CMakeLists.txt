@@ -5,6 +5,8 @@ project(vg
     DESCRIPTION "Variation Graph Tools"
 )
 
+include(FetchContent)
+
 # ────────────────────────────────────────────────────────────────
 # Output directories (mirror the Makefile's bin/ lib/ layout)
 # ────────────────────────────────────────────────────────────────

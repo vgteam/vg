@@ -73,6 +73,7 @@ endif()
 # ── libhandlegraph ────────────────────────────────────────────────────────
 # Makefile: cmake -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib ..
 #            && make && make install
+#[[
 add_subdirectory(${DEPS_DIR}/libhandlegraph ${CMAKE_BINARY_DIR}/build/libhandlegraph EXCLUDE_FROM_ALL)
 # Stage handlegraph headers into the shared include dir so Makefile-based deps can find them
 add_custom_target(handlegraph_stage_headers
@@ -88,6 +89,23 @@ set_target_properties(dep_libhandlegraph PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
 )
 add_dependencies(dep_libhandlegraph handlegraph_stage_headers)
+]]
+FetchContent_Declare(libhandlegraph
+    GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(libhandlegraph)
+add_custom_target(handlegraph_stage_headers
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${libhandlegraph_SOURCE_DIR}/src/include/handlegraph
+        ${VG_INC_DIR}/handlegraph
+)
+add_library(dep_libhandlegraph STATIC IMPORTED GLOBAL)
+set_target_properties(dep_libhandlegraph PROPERTIES
+    IMPORTED_LOCATION             ${VG_LIB_DIR}/libhandlegraph.a
+    INTERFACE_INCLUDE_DIRECTORIES ${VG_INC_DIR}
+)
+add_dependencies(dep_libhandlegraph handlegraph_stage_headers libhandlegraph)
 
 # ── raptor ────────────────────────────────────────────────────────────────
 # Makefile recipe (complex — must regenerate turtle lexer from Bison):
