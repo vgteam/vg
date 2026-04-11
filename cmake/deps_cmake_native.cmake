@@ -37,12 +37,13 @@ set(VG_DEP_CMAKE_ARGS
 add_subdirectory(${DEPS_DIR}/kff-cpp-api ${CMAKE_BINARY_DIR}/build/kff EXCLUDE_FROM_ALL)
 add_custom_target(kff_stage_headers
     COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_BINARY_DIR}/build/kff/src/kff_io.hpp
+            ${CMAKE_BINARY_DIR}/kff_io.hpp
             ${VG_INC_DIR}/kff_io.hpp
 )
 add_library(dep_kff STATIC IMPORTED GLOBAL)
 set_target_properties(dep_kff PROPERTIES
     IMPORTED_LOCATION ${VG_LIB_DIR}/libkff.a
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR}
 )
 target_link_libraries(dep_kff INTERFACE kff)
 
