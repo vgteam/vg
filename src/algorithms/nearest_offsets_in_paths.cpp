@@ -48,7 +48,7 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
                 << " in " << (search_left ? "leftward" : "rightward") << " direction at distance " << dist << endl;
         #endif
        
-        graph->for_each_step_of_sense(here, {PathSense::REFERENCE, PathSense::GENERIC}, [&](const step_handle_t& step) {
+        auto add_to_return = [&](const step_handle_t& step) {
             // For each path visit that occurs on this node
             #ifdef debug
                         cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
@@ -89,7 +89,12 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
             
             // add in the search distance and add the result to the output
             return_val[path_handle].emplace_back(path_offset, rev_on_path);
-        });
+        };
+        
+        //multi path sense overload doesn't exist, so we have to call it twice
+        for (auto psense: {PathSense::REFERENCE, PathSense::GENERIC}) {
+            graph->for_each_step_of_sense(here, psense, add_to_return);
+        }
         
         if (!return_val.empty()) {
             // we found the closest, we're done
