@@ -290,7 +290,8 @@ int main_deconstruct(int argc, char** argv) {
 
         // No paths specified: use all reference and non-alt generic paths as reference to deconstruct against.
         // Altpaths are included as reference paths (priority given to non-altpaths in deconstructor.cpp)
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+        graph->for_each_path_matching(&ref_generic, nullptr, nullptr, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
                 refpaths.push_back(name);
@@ -337,7 +338,8 @@ int main_deconstruct(int argc, char** argv) {
 
     // process the prefixes to find ref paths
     if (!refpath_prefixes.empty()) {
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+        static const std::unordered_set<PathSense> ref_generic2{PathSense::REFERENCE, PathSense::GENERIC};
+        graph->for_each_path_matching(&ref_generic2, nullptr, nullptr, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             for (auto& prefix : refpath_prefixes) {
                 if (path_name.compare(0, prefix.size(), prefix) == 0) {

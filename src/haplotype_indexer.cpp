@@ -32,7 +32,8 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
 
     // Parse all non-alt, non-haplotype paths.
     std::vector<path_handle_t> path_handles;
-    graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+    static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+    graph.for_each_path_matching(&ref_generic, nullptr, nullptr, [&](path_handle_t path_handle) {
         std::string path_name = graph.get_path_name(path_handle);
         if (!Paths::is_alt(path_name)) {
             path_handles.push_back(path_handle);

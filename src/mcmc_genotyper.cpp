@@ -400,7 +400,8 @@ namespace vg {
         // TODO: This just concatenates all the reference and generic paths.
         // We're going to need to change this to handle multiple contigs, or
         // multiple references in the graph, for this to really work.
-        graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path){
+        static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+        graph.for_each_path_matching(&ref_generic, nullptr, nullptr, [&](const path_handle_t& path){
         // capture all variables (paths) in scope by reference 
 
             if(!Paths::is_alt(graph.get_path_name(path))) {

@@ -1022,7 +1022,7 @@ string Deconstructor::get_vcf_header() {
     // GBWT API?
 
     // find sample names from paths
-    graph->for_each_path_of_sense(wanted_senses, [&](const path_handle_t& path_handle) {
+    graph->for_each_path_matching(&wanted_senses, nullptr, nullptr, [&](const path_handle_t& path_handle) {
         string path_name = graph->get_path_name(path_handle);
         if (!this->ref_paths.count(path_name)) {
             // This isn't a designated decosntruction reference path.

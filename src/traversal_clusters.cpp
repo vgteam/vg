@@ -672,7 +672,8 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
     unordered_map<path_handle_t, int64_t> ref_paths;
     std::unordered_map<nid_t, size_t> extra_node_weight;
     constexpr size_t EXTRA_WEIGHT = 10000000000;
-    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+    static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+    graph->for_each_path_matching(&ref_generic, nullptr, nullptr, [&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
         if (path_name.compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {
             ref_paths[path_handle] = 0;

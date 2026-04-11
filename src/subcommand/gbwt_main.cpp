@@ -1141,7 +1141,8 @@ std::vector<job_type> determine_jobs(std::unique_ptr<PathHandleGraph>& graph, co
     // Determine the non-alt, non-haplotype paths.
     std::vector<job_type::path_type> paths;
     size_t max_length = 0;
-    graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+    static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+    graph->for_each_path_matching(&ref_generic, nullptr, nullptr, [&](path_handle_t path_handle) {
         if (!Paths::is_alt(graph->get_path_name(path_handle))) {
             paths.emplace_back(path_handle, graph->get_step_count(path_handle));
             max_length = std::max(max_length, paths.back().second);

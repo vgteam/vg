@@ -579,7 +579,8 @@ int main_call(int argc, char** argv) {
 
     // Process path prefixes to find ref paths
     if (!ref_path_prefixes.empty()) {
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+        static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+        graph->for_each_path_matching(&ref_generic, nullptr, nullptr, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             // Never include alt paths in reference paths
             if (Paths::is_alt(path_name)) {
@@ -600,7 +601,8 @@ int main_call(int argc, char** argv) {
     // No paths specified: use them all
     if (ref_paths.empty()) {
         set<string> ref_sample_names;
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        static const std::unordered_set<PathSense> ref_generic2{PathSense::REFERENCE, PathSense::GENERIC};
+        graph->for_each_path_matching(&ref_generic2, nullptr, nullptr, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(name)) {
                     string sample_name = graph->get_sample_name(path_handle);
@@ -649,7 +651,8 @@ int main_call(int argc, char** argv) {
         for (const string& ref_path : ref_paths) {
             ref_path_set[ref_path] = false;
         }
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        static const std::unordered_set<PathSense> ref_generic3{PathSense::REFERENCE, PathSense::GENERIC};
+        graph->for_each_path_matching(&ref_generic3, nullptr, nullptr, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(name, &subrange);

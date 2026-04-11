@@ -12,7 +12,8 @@ GraphSynchronizer::GraphSynchronizer(VG& graph) : graph(graph) {
     // build a path index after a path has been modified (since we don't keep
     // the ranks up to date internally), we need to build all the indexes up
     // front, even if we're just working on a single path.
-    graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path) {
+    static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+    graph.for_each_path_matching(&ref_generic, nullptr, nullptr, [&](const path_handle_t& path) {
         string name = graph.get_path_name(path);
         if (!Paths::is_alt(name)) {
             // We only care about reference and non-alt generic paths.

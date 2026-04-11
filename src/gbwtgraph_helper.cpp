@@ -362,7 +362,8 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
     size_t genome_size = 0;
 
     if (gbz.graph.get_path_count() > 0) {
-        gbz.graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+        static const std::unordered_set<PathSense> ref_generic{PathSense::REFERENCE, PathSense::GENERIC};
+        gbz.graph.for_each_path_matching(&ref_generic, nullptr, nullptr, [&](const path_handle_t& path_handle) {
             std::string path_name = gbz.graph.get_path_name(path_handle);
             if (!Paths::is_alt(path_name)) {
                 gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
