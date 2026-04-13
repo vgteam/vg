@@ -933,32 +933,33 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                 // Same-path left merge: only merge if orientations are consistent
                 bool orientations_match = graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ==
                                           graph->get_is_reverse(graph->get_handle_of_step(new_interval.first));
-                bool overlap_by_one = prev_interval.second != new_interval.first;
-                // Shared boundary (overlap_by_one) is the FIRST step of new_interval,
-                // which is the last node of prev_interval; trim it from the walk.
-                step_handle_t walk_start = overlap_by_one ? graph->get_next_step(new_interval.first)
-                                                          : new_interval.first;
                 if (orientations_match &&
                     (prev_interval.second == new_interval.first ||
-                    (global && graph->get_previous_step(prev_interval.second) == new_interval.first)) &&
-                    !would_duplicate_node(global, thread_node_to_interval, prev_idx,
-                                          walk_start, new_interval.second,
-                                          prev_interval, new_interval)) {
+                    (global && graph->get_previous_step(prev_interval.second) == new_interval.first))) {
+                    // Check for duplicate nodes before merging.
+                    // Shared boundary (overlap_by_one) is the FIRST step of new_interval.
+                    bool overlap_by_one = prev_interval.second != new_interval.first;
+                    step_handle_t walk_start = overlap_by_one ? graph->get_next_step(new_interval.first)
+                                                              : new_interval.first;
+                    if (!would_duplicate_node(global, thread_node_to_interval, prev_idx,
+                                              walk_start, new_interval.second,
+                                              prev_interval, new_interval)) {
 #ifdef debug
 #pragma omp critical(cerr)
-                    cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
-                         << ":" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ? "<" : ">")
-                         << graph->get_id(graph->get_handle_of_step(prev_interval.first));
-                    if (prev_interval.second == graph->path_end(graph->get_path_handle_of_step(prev_interval.first))) {
-                        cerr << "PATH_END" << endl;
-                    } else {
-                         cerr << "-" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.second)) ? "<" : ">")
-                              << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
-                    }
+                        cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
+                             << ":" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ? "<" : ">")
+                             << graph->get_id(graph->get_handle_of_step(prev_interval.first));
+                        if (prev_interval.second == graph->path_end(graph->get_path_handle_of_step(prev_interval.first))) {
+                            cerr << "PATH_END" << endl;
+                        } else {
+                             cerr << "-" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.second)) ? "<" : ">")
+                                  << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
+                        }
 #endif
-                    prev_interval.second = new_interval.second;
-                    merged = true;
-                    merged_interval_idx = prev_idx;
+                        prev_interval.second = new_interval.second;
+                        merged = true;
+                        merged_interval_idx = prev_idx;
+                    }
                 }
             }
         }
