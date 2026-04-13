@@ -867,18 +867,11 @@ bool AugRefCover::merge_would_duplicate_node(const pair<step_handle_t, step_hand
 
 bool AugRefCover::extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
                                                   int64_t target_interval_idx,
-                                                  step_handle_t start, step_handle_t end,
-                                                  bool skip_first_node) const {
+                                                  step_handle_t ext_start, step_handle_t ext_end) const {
     // Walk only the new/extension steps and check if any node already belongs
     // to the interval being merged into.  O(extension_length) instead of
     // O(combined_length), which is critical when intervals grow through merging.
-    bool first = true;
-    for (step_handle_t step = start; step != end; step = graph->get_next_step(step)) {
-        if (first && skip_first_node) {
-            first = false;
-            continue;
-        }
-        first = false;
+    for (step_handle_t step = ext_start; step != ext_end; step = graph->get_next_step(step)) {
         nid_t nid = graph->get_id(graph->get_handle_of_step(step));
         auto it = nti.find(nid);
         if (it != nti.end() && it->second == target_interval_idx) {
@@ -892,11 +885,10 @@ bool AugRefCover::would_duplicate_node(bool global,
                                         const unordered_map<nid_t, int64_t>& nti,
                                         int64_t target_idx,
                                         step_handle_t ext_start, step_handle_t ext_end,
-                                        bool skip_first,
                                         const pair<step_handle_t, step_handle_t>& interval_a,
                                         const pair<step_handle_t, step_handle_t>& interval_b) const {
     if (global) {
-        return extension_would_duplicate_node(nti, target_idx, ext_start, ext_end, skip_first);
+        return extension_would_duplicate_node(nti, target_idx, ext_start, ext_end);
     } else {
         return merge_would_duplicate_node(interval_a, interval_b);
     }
@@ -942,11 +934,15 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                 bool orientations_match = graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ==
                                           graph->get_is_reverse(graph->get_handle_of_step(new_interval.first));
                 bool overlap_by_one = prev_interval.second != new_interval.first;
+                // Shared boundary (overlap_by_one) is the FIRST step of new_interval,
+                // which is the last node of prev_interval; trim it from the walk.
+                step_handle_t walk_start = overlap_by_one ? graph->get_next_step(new_interval.first)
+                                                          : new_interval.first;
                 if (orientations_match &&
                     (prev_interval.second == new_interval.first ||
                     (global && graph->get_previous_step(prev_interval.second) == new_interval.first)) &&
                     !would_duplicate_node(global, thread_node_to_interval, prev_idx,
-                                          new_interval.first, new_interval.second, overlap_by_one,
+                                          walk_start, new_interval.second,
                                           prev_interval, new_interval)) {
 #ifdef debug
 #pragma omp critical(cerr)
@@ -986,17 +982,25 @@ bool AugRefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& threa
                     (global && next_interval.first == graph->get_previous_step(new_interval.second)))) {
                     // Check for duplicate nodes before merging: use the already-merged
                     // interval for the both-sided case, or new_interval for right-only.
+                    // The shared boundary (right_overlap) sits at different ends of the
+                    // two possible walks, so each branch trims it from its own side.
                     bool right_overlap = next_interval.first != new_interval.second;
                     bool no_dup;
                     if (merged) {
-                        // Walk next_interval against the merged left interval
+                        // Walk next_interval against the merged left interval.
+                        // Shared boundary is the FIRST step of next_interval.
+                        step_handle_t walk_start = right_overlap ? graph->get_next_step(next_interval.first)
+                                                                 : next_interval.first;
                         no_dup = !would_duplicate_node(global, thread_node_to_interval, merged_interval_idx,
-                                                       next_interval.first, next_interval.second, right_overlap,
+                                                       walk_start, next_interval.second,
                                                        thread_augref_intervals[merged_interval_idx], next_interval);
                     } else {
-                        // Walk new_interval against next_interval
+                        // Walk new_interval against next_interval.
+                        // Shared boundary is the LAST step of new_interval.
+                        step_handle_t walk_end = right_overlap ? graph->get_previous_step(new_interval.second)
+                                                               : new_interval.second;
                         no_dup = !would_duplicate_node(global, thread_node_to_interval, next_idx,
-                                                       new_interval.first, new_interval.second, right_overlap,
+                                                       new_interval.first, walk_end,
                                                        new_interval, next_interval);
                     }
                     if (no_dup) {
@@ -1105,7 +1109,7 @@ void AugRefCover::try_cross_path_merge(step_handle_t ref_step) {
                     auto ext_fwd = try_extend_forward(other_interval.second, other_path, my_interval);
                     if (ext_fwd &&
                         !extension_would_duplicate_node(this->node_to_interval, other_idx,
-                                                        other_interval.second, *ext_fwd, false)) {
+                                                        other_interval.second, *ext_fwd)) {
                         step_handle_t saved_second = other_interval.second;
                         other_interval.second = *ext_fwd;
                         // Remap the newly extended steps to other_idx.
@@ -1158,7 +1162,7 @@ void AugRefCover::try_cross_path_merge(step_handle_t ref_step) {
                     auto ext_bwd = try_extend_backward(other_pred, other_path, my_interval);
                     if (ext_bwd &&
                         !extension_would_duplicate_node(this->node_to_interval, other_idx,
-                                                        *ext_bwd, other_interval.first, false)) {
+                                                        *ext_bwd, other_interval.first)) {
                         step_handle_t saved_first = other_interval.first;
                         other_interval.first = *ext_bwd;
                         // Remap the newly extended steps to other_idx.
