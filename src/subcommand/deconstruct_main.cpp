@@ -356,13 +356,18 @@ int main_deconstruct(int argc, char** argv) {
             if (locus == PathMetadata::NO_LOCUS_NAME) {
                 locus = refpath;
             }
+            // Strip subrange so that subpaths of the same contig (e.g.
+            // chr6[0-133516] and chr6[135228-245436]) are not treated as
+            // ambiguous — they map to the same contig name by design.
+            subrange_t subrange;
+            string base_refpath = Paths::strip_subrange(refpath, &subrange);
             auto it = locus_to_refpath.find(locus);
-            if (it != locus_to_refpath.end() && it->second != refpath) {
+            if (it != locus_to_refpath.end() && it->second != base_refpath) {
                 logger.error() << "-C (--contig-only-ref) cannot be used because reference paths \""
                                << it->second << "\" and \"" << refpath
                                << "\" both map to contig name \"" << locus << "\"" << endl;
             }
-            locus_to_refpath[locus] = refpath;
+            locus_to_refpath[locus] = base_refpath;
         }
     }
 
