@@ -249,7 +249,7 @@ var searchData=
   ['extension_5fset_5fmin_5fscore_1703',['extension_set_min_score',['../classvg_1_1MinimizerMapper.html#aceeb71c78d5d236c86272ee14592cd10',1,'vg::MinimizerMapper']]],
   ['extension_5fset_5fscore_5fthreshold_1704',['extension_set_score_threshold',['../classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee',1,'vg::MinimizerMapper']]],
   ['extension_5fto_5falignment_1705',['extension_to_alignment',['../classvg_1_1MinimizerMapper.html#a33fac2713ca1929fc6f870f4bb9e82b8',1,'vg::MinimizerMapper']]],
-  ['extension_5fwould_5fduplicate_5fnode_1706',['extension_would_duplicate_node',['../classvg_1_1AugRefCover.html#a6f6ccb279ef95a615f3417e0ea8364ba',1,'vg::AugRefCover']]],
+  ['extension_5fwould_5fduplicate_5fnode_1706',['extension_would_duplicate_node',['../classvg_1_1AugRefCover.html#a1800a32769bbadcb232db0850a7acb5d',1,'vg::AugRefCover']]],
   ['external_5fhandle_1707',['external_handle',['../classxg_1_1XGPath.html#a002267f235e618bb59e28cad12bb02a3',1,'xg::XGPath']]],
   ['external_5fid_5fmap_1708',['external_id_map',['../classvg_1_1algorithms_1_1GFAParser.html#a2047be69a33b61966ddd33570c96a632',1,'vg::algorithms::GFAParser']]],
   ['extra_5fdata_1709',['extra_data',['../structvg_1_1FeatureSet_1_1Feature.html#ad95acb3def1e4c9b5fa2a590b77e4993',1,'vg::FeatureSet::Feature']]],

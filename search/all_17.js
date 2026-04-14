@@ -103,7 +103,7 @@ var searchData=
   ['without_5fread_7054',['without_read',['../structvg_1_1MinimizerMapper_1_1alignment__index__t.html#a47bd23402cc2f8dd8596580a01d66737',1,'vg::MinimizerMapper::alignment_index_t']]],
   ['work_5fdir_7055',['work_dir',['../classvg_1_1IndexRegistry.html#ab2e9084645b146ff321f70a231161d66',1,'vg::IndexRegistry']]],
   ['worst_5falignment_5fscore_7056',['worst_alignment_score',['../namespacevg.html#a8e2c6fbf0d030acabb7dd6b8d428e143',1,'vg']]],
-  ['would_5fduplicate_5fnode_7057',['would_duplicate_node',['../classvg_1_1AugRefCover.html#a764ae473b4091552b332f517f9a9e714',1,'vg::AugRefCover']]],
+  ['would_5fduplicate_5fnode_7057',['would_duplicate_node',['../classvg_1_1AugRefCover.html#a15feed731703ba2aeaf0313101fa5ded',1,'vg::AugRefCover']]],
   ['wrap_7058',['wrap',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01false_01_4.html#a2dc122df61cb917d075af250c16931de',1,'handlegraph::BoolReturningWrapper&lt; Iteratee, false &gt;::wrap()'],['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01true_01_4.html#afdb8a7b86ca03dafaa44a27b573c0c7d',1,'handlegraph::BoolReturningWrapper&lt; Iteratee, true &gt;::wrap()']]],
   ['wrap_5fbare_5floader_7059',['wrap_bare_loader',['../namespacevg_1_1io.html#ab7710b0019aa9d50ba14fbc0967c07c6',1,'vg::io']]],
   ['wrap_5fbare_5fsaver_7060',['wrap_bare_saver',['../namespacevg_1_1io.html#a5772a8ef2d6d725b910e46b0094412fa',1,'vg::io']]],

@@ -49,7 +49,7 @@ var searchData=
   ['with_5fvector_12290',['with_vector',['../structvg_1_1VectorView.html#af21c3547b8588e6c20f10f5dc67620bf',1,'vg::VectorView::with_vector(const std::function&lt; void(const vector&lt; Item &gt; &amp;)&gt; &amp;callback) const'],['../structvg_1_1VectorView.html#a2e2e6494c350a37135b9c77cd6320f05',1,'vg::VectorView::with_vector(const std::function&lt; void(vector&lt; Item &gt; &amp;)&gt; &amp;callback)']]],
   ['without_5fread_12291',['without_read',['../structvg_1_1MinimizerMapper_1_1alignment__index__t.html#a47bd23402cc2f8dd8596580a01d66737',1,'vg::MinimizerMapper::alignment_index_t']]],
   ['worst_5falignment_5fscore_12292',['worst_alignment_score',['../namespacevg.html#a8e2c6fbf0d030acabb7dd6b8d428e143',1,'vg']]],
-  ['would_5fduplicate_5fnode_12293',['would_duplicate_node',['../classvg_1_1AugRefCover.html#a764ae473b4091552b332f517f9a9e714',1,'vg::AugRefCover']]],
+  ['would_5fduplicate_5fnode_12293',['would_duplicate_node',['../classvg_1_1AugRefCover.html#a15feed731703ba2aeaf0313101fa5ded',1,'vg::AugRefCover']]],
   ['wrap_12294',['wrap',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01true_01_4.html#afdb8a7b86ca03dafaa44a27b573c0c7d',1,'handlegraph::BoolReturningWrapper&lt; Iteratee, true &gt;::wrap()'],['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01false_01_4.html#a2dc122df61cb917d075af250c16931de',1,'handlegraph::BoolReturningWrapper&lt; Iteratee, false &gt;::wrap()']]],
   ['wrap_5fbare_5floader_12295',['wrap_bare_loader',['../namespacevg_1_1io.html#ab7710b0019aa9d50ba14fbc0967c07c6',1,'vg::io']]],
   ['wrap_5fbare_5fsaver_12296',['wrap_bare_saver',['../namespacevg_1_1io.html#a5772a8ef2d6d725b910e46b0094412fa',1,'vg::io']]],

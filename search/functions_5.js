@@ -146,7 +146,7 @@ var searchData=
   ['extend_5fseed_5fgroup_9430',['extend_seed_group',['../classvg_1_1MinimizerMapper.html#adf57055010f3109518838b251663cc20',1,'vg::MinimizerMapper']]],
   ['extend_5fstate_9431',['extend_state',['../classvg_1_1PhaseUnfolder.html#a610d8256b9dc58fe6d04b1ff7aaafebb',1,'vg::PhaseUnfolder']]],
   ['extension_5fto_5falignment_9432',['extension_to_alignment',['../classvg_1_1MinimizerMapper.html#a33fac2713ca1929fc6f870f4bb9e82b8',1,'vg::MinimizerMapper']]],
-  ['extension_5fwould_5fduplicate_5fnode_9433',['extension_would_duplicate_node',['../classvg_1_1AugRefCover.html#a6f6ccb279ef95a615f3417e0ea8364ba',1,'vg::AugRefCover']]],
+  ['extension_5fwould_5fduplicate_5fnode_9433',['extension_would_duplicate_node',['../classvg_1_1AugRefCover.html#a1800a32769bbadcb232db0850a7acb5d',1,'vg::AugRefCover']]],
   ['external_5fhandle_9434',['external_handle',['../classxg_1_1XGPath.html#a002267f235e618bb59e28cad12bb02a3',1,'xg::XGPath']]],
   ['extract_9435',['extract',['../classvg_1_1algorithms_1_1GFAParser.html#af845e3a9176f98ccbb7c04b31f4f6dc0',1,'vg::algorithms::GFAParser']]],
   ['extract_5fas_5fgbwt_5fpath_9436',['extract_as_gbwt_path',['../namespacevg.html#a0d1c00a44e9aeb5c4294edd60fcbaa61',1,'vg']]],
