@@ -514,8 +514,19 @@ int main_paths(int argc, char** argv) {
             return 1;
         }
 
-        // Compute snarls
-        IntegratedSnarlFinder finder(*graph);
+        // Compute snarls, biasing the cactus decomposition to root on the
+        // reference path endpoints (matching snarls_main.cpp).  Without this
+        // bias the snarl tree can root arbitrarily, producing backward-oriented
+        // top-level snarls that don't align with the reference.
+        std::unordered_map<nid_t, size_t> extra_node_weight;
+        constexpr size_t EXTRA_WEIGHT = 10000000000;
+        for (const path_handle_t& ph : ref_paths) {
+            if (!graph->is_empty(ph)) {
+                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(ph)))] += EXTRA_WEIGHT;
+                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(ph)))] += EXTRA_WEIGHT;
+            }
+        }
+        IntegratedSnarlFinder finder(*graph, extra_node_weight);
         SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
 
         // Compute and apply augref cover
