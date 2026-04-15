@@ -1535,6 +1535,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a017e7cda40a98b4b044507ab78a34da9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a017e7cda40a98b4b044507ab78a34da9">save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:a017e7cda40a98b4b044507ab78a34da9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to the file.  <a href="namespacevg.html#a017e7cda40a98b4b044507ab78a34da9">More...</a><br /></td></tr>
 <tr class="separator:a017e7cda40a98b4b044507ab78a34da9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38e1b204daa854d314ebb51a337d64ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38e1b204daa854d314ebb51a337d64ad">save_gbz_v1</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a38e1b204daa854d314ebb51a337d64ad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to the file, writing version 1 of the format for compatibility with older tools.  <a href="namespacevg.html#a38e1b204daa854d314ebb51a337d64ad">More...</a><br /></td></tr>
+<tr class="separator:a38e1b204daa854d314ebb51a337d64ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2e65e6d30eb069448ca696a10cafe64f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e65e6d30eb069448ca696a10cafe64f">save_gbz</a> (const gbwt::GBWT &amp;index, gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress)</td></tr>
 <tr class="separator:a2e65e6d30eb069448ca696a10cafe64f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7669e457f62e6f197f3120086a091e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
@@ -24753,6 +24756,42 @@ template&lt;class T1 , class T2 &gt; </div>
 </div><div class="memdoc">
 
 <p>Save GBZ to separate GBWT / GBWTGraph files. </p>
+
+</div>
+</div>
+<a id="a38e1b204daa854d314ebb51a337d64ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a38e1b204daa854d314ebb51a337d64ad">&#9670;&nbsp;</a></span>save_gbz_v1()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbz_v1 </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save GBZ to the file, writing version 1 of the format for compatibility with older tools. </p>
 
 </div>
 </div>

@@ -134,6 +134,8 @@ Functions</h2></td></tr>
 <tr class="separator:a13d462ac627c7beb00b431280ac9b0c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a559cad6ab46d0a7dc260987e61ed1175"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a559cad6ab46d0a7dc260987e61ed1175">subchain_statistics</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
 <tr class="separator:a559cad6ab46d0a7dc260987e61ed1175"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8527dd271a7864ec3762165dca966c01"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a8527dd271a7864ec3762165dca966c01">density_statistics</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
+<tr class="separator:a8527dd271a7864ec3762165dca966c01"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8ab8ef2233eb016b7b7f0c2bd5c9411"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ae8ab8ef2233eb016b7b7f0c2bd5c9411">main_haplotypes</a> (int argc, char **argv)</td></tr>
 <tr class="separator:ae8ab8ef2233eb016b7b7f0c2bd5c9411"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06899318e624a0766060720e2403f380"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a06899318e624a0766060720e2403f380">help_haplotypes</a> (char **argv, bool developer_options)</td></tr>
@@ -152,6 +154,8 @@ Functions</h2></td></tr>
 <tr class="separator:aed90215616b71a8c576afeeb7a137596"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b30753087f33c8b7435de129492e67d"><td class="memItemLeft" align="right" valign="top">gbwt::size_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a1b30753087f33c8b7435de129492e67d">path_for_sample_contig</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const gbwtgraph::GBZ &amp;gbz, const std::string &amp;sample_name, const std::string &amp;contig_name)</td></tr>
 <tr class="separator:a1b30753087f33c8b7435de129492e67d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a321245806dfe7c40adae01585cc82977"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a321245806dfe7c40adae01585cc82977">format_kmer_presence</a> (size_t present, size_t total)</td></tr>
+<tr class="separator:a321245806dfe7c40adae01585cc82977"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa2d607487bc2383196fd7f59936075b1"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:aa2d607487bc2383196fd7f59936075b1"><td class="memTemplItemLeft" align="right" valign="top">std::string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#aa2d607487bc2383196fd7f59936075b1">expected_got</a> (T expected, T got)</td></tr>
 <tr class="separator:aa2d607487bc2383196fd7f59936075b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -188,6 +192,40 @@ Variables</h2></td></tr>
 <div class="textblock"><p>Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.</p>
 <p>TODO: Tests for &ndash;linear-structure, &ndash;extra-fragments, and fragmented haplotypes. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="a8527dd271a7864ec3762165dca966c01"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8527dd271a7864ec3762165dca966c01">&#9670;&nbsp;</a></span>density_statistics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void density_statistics </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
+          <td class="paramname"><em>haplotypes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;&#160;</td>
+          <td class="paramname"><em>config</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aa2d607487bc2383196fd7f59936075b1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa2d607487bc2383196fd7f59936075b1">&#9670;&nbsp;</a></span>expected_got()</h2>
 
@@ -207,6 +245,34 @@ template&lt;typename T &gt; </div>
           <td></td>
           <td class="paramtype">T&#160;</td>
           <td class="paramname"><em>got</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a321245806dfe7c40adae01585cc82977"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a321245806dfe7c40adae01585cc82977">&#9670;&nbsp;</a></span>format_kmer_presence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string format_kmer_presence </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>present</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>total</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
