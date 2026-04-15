@@ -417,7 +417,7 @@ is "$(vg gbwt --tags -Z gfa3.gbz | grep reference_samples | cut -f 2)" "CHM13 GR
 # Try writing and reading GBZ v1.
 vg gbwt -Z gfa.gbz -g gfa_v1.gbz --gbz-v1
 is $? 0 "GBZ version 1 output"
-is "$(head -c 8 gfa_v1.gbz | xxd -p)" "47425a2001000000" "GBZ v1 has the correct magic number and version"
+is "$(vg describe gfa_v1.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 1')" "1" "Correct version for GBZ v1 output"
 vg gbwt -Z gfa_v1.gbz -g gfa_v2.gbz
 is $? 0 "GBZ v1 can be read and rewritten as GBZ v2"
 cmp gfa.gbz gfa_v2.gbz
