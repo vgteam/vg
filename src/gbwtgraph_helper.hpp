@@ -57,6 +57,9 @@ void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filena
 /// Save GBZ to the file.
 void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress = false);
 
+/// Save GBZ to the file, writing version 1 of the format for compatibility with older tools.
+void save_gbz_v1(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress = false);
+
 /// Save GBWT and GBWTGraph to the GBZ file.
 /// NOTE: GBZ tags will be empty, apart from the source tag.
 void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
