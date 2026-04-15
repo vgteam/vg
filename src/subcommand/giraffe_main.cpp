@@ -908,6 +908,7 @@ int main_giraffe(int argc, char** argv) {
         // This is always on in the non-chaining codepath right now, but just to be sure...
         .add_entry<bool>("explored-cap", true);
     
+    --chain-score-threshold 234 --min-chains 2 --min-chain-score-per-base 0.24 --max-min-chain-score 46 --max-chains-per-tree 3 --item-bonus 2 --gap-scale 0.27579
     presets["hifi"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
@@ -935,14 +936,14 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
-        .add_entry<int>("item-bonus", 20)
+        .add_entry<int>("item-bonus", 2)
         .add_entry<double>("item-scale", 1.0)
-        .add_entry<double>("gap-scale", 0.2)
-        .add_entry<double>("chain-score-threshold", 200.0)
+        .add_entry<double>("gap-scale", 0.27579)
+        .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
-        .add_entry<double>("min-chain-score-per-base", 0.1)
+        .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<int>("max-min-chain-score", 100)
+        .add_entry<int>("max-min-chain-score", 46)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
