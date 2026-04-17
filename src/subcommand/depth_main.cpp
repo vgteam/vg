@@ -222,7 +222,13 @@ int main_depth(int argc, char** argv) {
         map<pair<string, int64_t>, string> ref_paths;
         unordered_set<string> base_path_set;
         
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        // Include HAPLOTYPE sense so haplotype paths stored in GBZ/GBWT are
+        // reachable as selection targets.  On non-GBZ graphs this is equivalent
+        // to the old for_each_path_handle iteration (default sense filter).
+        static const std::unordered_set<PathSense> path_senses{
+            PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE
+        };
+        graph->for_each_path_of_sense(path_senses, [&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(path_name, &subrange);
