@@ -6,7 +6,7 @@
 
 #include "chain_items.hpp"
 #include "crash.hpp"
-#include "rmq.hpp"
+#include "rmq_st.hpp"
 
 #include <handlegraph/algorithms/dijkstra.hpp>
 #include <structures/immutable_list.hpp>
@@ -767,7 +767,6 @@ TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
                             int gap_open,
                             int gap_extension,
                             int max_lookback_bases,
-                            int max_lookback_items,
                             int item_bonus,
                             double item_scale,
                             double gap_scale,
@@ -800,26 +799,13 @@ TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
 
     // We are using the same value for the linear gap cost as in the DP.
     double scaled_gap_cost = 0.01 * base_seed_length * gap_scale;
-    ReadCoordinateRMQ rmq(scaled_gap_cost);
 
-    // Pre-compute relative chain offsets from zip codes for 2D RMQ scoring.
-    // get_offset_in_chain(1) gives the chromosome-level position in bp — same scale as read coords.
-    // We subtract the minimum offset so all values start near 0 (avoids large absolute values).
-    std::vector<size_t> anchor_chain_offsets(to_chain.size(), std::numeric_limits<size_t>::max());
-    size_t chain_offset_baseline = std::numeric_limits<size_t>::max();
-    for (size_t i = 0; i < to_chain.size(); i++) {
-        ZipCode* zip = to_chain[i].start_hint();
-        if (!zip) zip = to_chain[i].end_hint();
-        if (zip) {
-            zip->fill_in_full_decoder();
-            if (zip->decoder_length() > 1) {
-                size_t off = zip->get_offset_in_chain(1);
-                anchor_chain_offsets[i] = off;
-                if (off < chain_offset_baseline) chain_offset_baseline = off;
-            }
-        }
-    }
-    if (chain_offset_baseline == std::numeric_limits<size_t>::max()) chain_offset_baseline = 0;
+    // Collect all read-end coordinates upfront for offline coordinate compression.
+    std::vector<size_t> all_read_ends;
+    all_read_ends.reserve(to_chain.size());
+    for (const auto& anchor : to_chain) all_read_ends.push_back(anchor.read_end());
+    ReadCoordinateRMQ rmq(scaled_gap_cost, all_read_ends);
+
 
     for (size_t i = 0; i < to_chain.size(); i++) {
         auto& here = to_chain[i];
@@ -841,7 +827,7 @@ TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
         // The RMQ gives us candidates that end BEFORE or AT our read_start, maximizing the penalized score.
         // Because anchors shouldn't overlap in the chaining paradigm (except in specific cases handled by max_lookback_bases),
         // we query up to `here.read_start()`.
-        auto candidates = rmq.query_top_k_candidates(here.read_start(), std::max((size_t)max_lookback_bases, (size_t)10000), 100);        
+        auto candidates = rmq.query_top_k_candidates(here.read_start(), max_lookback_bases, 64);
         if (show_work) {
              cerr << "\tRMQ returned " << candidates.size() << " candidates." << endl;
         }
@@ -851,20 +837,6 @@ TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
             auto& source = to_chain[j];
             size_t read_distance = get_read_distance(source, here);
 
-            // Pre-filter using zip code chain offsets: if estimated graph distance is too far
-            // from read distance, skip before calling the expensive get_graph_distance.
-            if (anchor_chain_offsets[i] != std::numeric_limits<size_t>::max() &&
-                anchor_chain_offsets[j] != std::numeric_limits<size_t>::max()) {
-                int64_t cc_i = (int64_t)anchor_chain_offsets[i];
-                int64_t cc_j = (int64_t)anchor_chain_offsets[j];
-                size_t graph_dist_estimate = (size_t)std::abs(cc_i - cc_j);
-                size_t rd = (read_distance == std::numeric_limits<size_t>::max()) ? 0 : read_distance;
-                size_t indel_estimate = (graph_dist_estimate > rd) ? graph_dist_estimate - rd : rd - graph_dist_estimate;
-                if (indel_estimate > (size_t)max_indel_bases) {
-                    if (show_work) cerr << "\t\tCandidate #" << j << " pre-filtered (chain indel estimate " << indel_estimate << " > " << max_indel_bases << ")" << endl;
-                    continue;
-                }
-            }
 
             size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
             if (graph_distance == std::numeric_limits<size_t>::max() || read_distance == std::numeric_limits<size_t>::max()) {
@@ -916,19 +888,12 @@ TracedScore chain_items_rmq(vector<TracedScore>& chain_scores,
 
         // 3. Insert into RMQ for future queries.
         // We insert using the end of the current read to maintain the non-overlapping property.
-        // chain_coord: relative graph position in bp (from zip code), same scale as read coords.
-        // Falls back to read_end (original 1D behavior) if zip code is unavailable.
-        size_t chain_coord = (anchor_chain_offsets[i] != std::numeric_limits<size_t>::max())
-            ? anchor_chain_offsets[i] - chain_offset_baseline
-            : here.read_end();
 #ifdef debug_rmq
         #pragma omp critical (cerr)
-        cerr << "Read end for #" << i << " is " << here.read_end() 
-             << " and chain_coord is " << chain_coord << endl;
-#endif 
+        cerr << "Read end for #" << i << " is " << here.read_end() << endl;
+#endif
 
-        // Use 1D formula for ranking (chain_coord kept for pre-filtering below).
-        rmq.insert(here.read_end(), chain_scores[i].score, i, here.read_end());
+        rmq.insert(here.read_end(), chain_scores[i].score, i);
 
     }
 
@@ -1091,8 +1056,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
-                                                             10000, // max_lookback_bases
-                                                             10000, // max_lookback_items
+                                                             2500, // max_lookback_bases
                                                              item_bonus,
                                                              item_scale,
                                                              gap_scale,
