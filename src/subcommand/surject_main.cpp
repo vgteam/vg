@@ -56,6 +56,7 @@ void help_surject(char** argv) {
          << "  -b, --bam-output          write BAM instead of GAM to stdout" << endl
          << "  -s, --sam-output          write SAM instead of GAM to stdout" << endl
          << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
+         << "  -B, --left-align          attempt to left-align indels" << endl
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
          << "                            (rather than global) alignments" << endl
          << "  -T, --max-tail-len N      only align up to N bases of read tails [10000]" << endl
@@ -181,6 +182,7 @@ int main_surject(int argc, char** argv) {
     bool multimap = false;
     bool validate = true;
     bool show_progress = false;
+    bool left_align = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -206,6 +208,7 @@ int main_surject(int argc, char** argv) {
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
             {"supplementary", no_argument, 0, 'u'},
+            {"left-align", no_argument, 0, 'B'},
             {"read-length", required_argument, 0, 'D'},
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
@@ -227,7 +230,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuBN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -296,6 +299,10 @@ int main_surject(int argc, char** argv) {
 
         case 'u':
             report_supplementary = true;
+            break;
+
+        case 'B':
+            left_align = true;
             break;
                 
         case 'D':
@@ -485,6 +492,7 @@ int main_surject(int argc, char** argv) {
     }
     surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
     surjector.report_supplementary = report_supplementary;
+    surjector.left_align = left_align;
     surjector.multimap_to_all_paths = multimap;
 
     // Count our threads

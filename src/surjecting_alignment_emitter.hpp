@@ -36,7 +36,7 @@ public:
     SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph,
         unordered_set<path_handle_t> paths, unique_ptr<AlignmentEmitter>&& backing,
         bool prune_suspicious_anchors = false, bool add_graph_alignment_tag = false,
-        bool report_supplementary = false);
+        bool report_supplementary = false, bool left_align = false);
    
     ///  Force full length alignment in surjection resolution 
     bool surject_subpath_global = true;

@@ -158,6 +158,9 @@ using namespace std;
         
         // A function for computing band padding
         std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
+
+        /// Attempt to left-align indels relative to the forward strand of the surjection path
+        bool left_align = false;
         
         /// How many anchors (per path) will we use when surjecting using
         /// anchors?
@@ -177,6 +180,7 @@ using namespace std;
         
         bool annotate_with_all_path_scores = false;
         bool annotate_with_graph_alignment = false;
+        
         
     protected:
 
