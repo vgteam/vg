@@ -67,14 +67,14 @@ DEPGEN_FLAGS := -MMD -MP
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I$(CWD)/$(INC_DIR)/GFAz -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
 
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph -lcrypto
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lhandlegraph -lgfa_compression_core -lzstd -lcrypto
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -372,6 +372,7 @@ IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
+GFAz_DIR=deps/GFAz
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -408,6 +409,7 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libgfa_compression_core.a
 ifneq ($(shell uname -s),Darwin)
     # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
     # backward-cpp will use.
@@ -518,6 +520,7 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
+
 
 .PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man .pre-build version
 
@@ -917,6 +920,16 @@ $(INC_DIR)/mio/mmap.hpp: $(MIO_DIR)/include/mio/*
 # It would be better to copy the atomic_queue directory rather than its contents, but to avoid re-writing mmmultimap...
 $(INC_DIR)/atomic_queue.h: $(ATOMIC_QUEUE_DIR)/include/*
 	+cp -r $(ATOMIC_QUEUE_DIR)/include/atomic_queue/* $(CWD)/$(INC_DIR)/
+
+
+
+$(LIB_DIR)/libgfa_compression_core.a: $(GFAz_DIR)/CMakeLists.txt $(wildcard $(GFAz_DIR)/src/*) $(wildcard $(GFAz_DIR)/src/gpu/*) $(wildcard $(GFAz_DIR)/include/*) $(wildcard $(GFAz_DIR)/include/gpu/*)
+	+rm -f $(CWD)/$(LIB_DIR)/libgfa_compression_core.a
+	+rm -Rf $(CWD)/$(INC_DIR)/GFAz
+	+cd $(GFAz_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_FLAGS="-fPIC $(CXXFLAGS) $(CPPFLAGS)" -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CLI=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_TESTS=OFF -DGFAZ_USE_SYSTEM_ZSTD=ON .. && $(MAKE) $(FILTER) gfa_compression_core && cp libgfa_compression_core.a $(CWD)/$(LIB_DIR)/
+	+mkdir -p $(CWD)/$(INC_DIR)/GFAz
+	+cp -r $(GFAz_DIR)/include/* $(CWD)/$(INC_DIR)/GFAz/
+
 
 $(INC_DIR)/mmmultiset.hpp: $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mmmultimap.hpp
 $(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.h

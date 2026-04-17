@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 22
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 
@@ -84,6 +84,8 @@ printf "L\t200\t+\t300\t+\t0M\n" >> tiny-stubs.gfa
 vg clip tiny.gfa -s -P x | sort > tiny-nostubs.gfa
 diff tiny.gfa tiny-nostubs.gfa
 is "$?" 0 "stub clipping removed all stubs"
+diff <(vg clip tiny/tiny.gfa -s -P x | vg paths -v - -E | sort) <(vg clip tiny/tiny.gfaz -s -P x | vg paths -v - -E | sort)
+is "$?" 0 "clip preserves path sequences for matching GFA and GFAZ inputs"
 
 printf "x\t5\t25\n" > region.bed
 is $(vg clip tiny-stubs.gfa -s -b region.bed | vg stats -N -) "17" "region clipping filtered out only 2 / 4 stub nodes"
@@ -107,4 +109,3 @@ is $(vg stats -E sc-A2d1g.gfa) "30" "One net edges clipped"
 is $(vg stats -N sc-A2d1g.gfa) "22" "No other nodes were clipped with net edge filter"
 
 rm -f sc-A2d1g.gfa
-

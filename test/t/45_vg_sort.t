@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 5
+plan tests 6
 
 # Make a big graph that is probably not in sorted order
 # Chopping it accomplishes that and makes it have several chunks
@@ -31,8 +31,10 @@ is "${?}" "0" "a vg graph can be sorted with Eades algorithm without crashing"
 vg sort -a max-flow -r q giab.vg >/dev/null
 is "${?}" "0" "a vg graph can be sorted with the max-flow algorithm without crashing"
 
+diff <(vg paths -v <(vg sort -a id tiny/tiny.gfa) -E | sort) <(vg paths -v <(vg sort -a id tiny/tiny.gfaz) -E | sort)
+is "${?}" "0" "sorting preserves path sequences for matching GFA and GFAZ inputs"
+
 rm -f giab.vg giab.sorted.vg giab.sorted.vg.vgi ids.txt ids.sorted.txt
 
 
  
-
