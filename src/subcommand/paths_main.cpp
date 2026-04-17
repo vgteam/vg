@@ -425,6 +425,10 @@ int main_paths(int argc, char** argv) {
     if (list_metadata && !gbwt_file.empty()) {
         logger.error() << "listing path metadata is not compatible with a GBWT index" << std::endl;
     }
+    if ((drop_paths || retain_paths || normalize_paths) && !gbwt_file.empty()) {
+        logger.error() << "dropping, retaining or normalizing paths "
+                       << "only works on embedded graph paths, not GBWT threads" << std::endl;
+    }
     if (coverage && !gbwt_file.empty()) {
         logger.error() << "coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
     }
