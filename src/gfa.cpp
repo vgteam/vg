@@ -23,7 +23,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
     
     // Compute reference-sense sample header tags
-    unordered_set<string> reference_samples;
+    gbwtgraph::sample_name_set reference_samples;
     graph->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& h) {
             if (!rgfa_paths.count(graph->get_path_name(h)) || rgfa_pline) {
                 // If it is going to be something other than an rGFA path,

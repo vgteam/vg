@@ -427,6 +427,10 @@ class MinimizerMapper : public AlignerClient {
     /// Track linear reference position for placements in log output.
     static constexpr bool default_track_position = false;
     bool track_position = default_track_position;
+
+    /// Track positions along haplotypes
+    static constexpr bool default_haplotype_positions = false;
+    bool haplotype_positions = default_haplotype_positions;
     
     /// If set, log what the mapper is thinking in its mapping of each read.
     static constexpr bool default_show_work = false;
@@ -1468,7 +1472,8 @@ protected:
                                    const std::vector<std::vector<size_t>>& chains,
                                    const std::vector<std::vector<bool>>& chain_rec_flags,
                                    const std::vector<size_t>& chain_source_tree,
-                                   const PathPositionHandleGraph* path_graph);
+                                   const PathPositionHandleGraph* path_graph,
+                                   bool haplotype_positions);
 
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);

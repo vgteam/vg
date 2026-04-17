@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 53
+plan tests 59
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -192,14 +192,16 @@ is $(grep -c "^##contig" nested_snp_in_ins.vcf) 3 "nested deconstruction gets al
 
 rm -f nested_snp_in_ins.augref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
 
-# Test: Double-nested SNP
-vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_nested_ins.gfa -Q x > nested_snp_in_nested_ins.augref.pg
-vg deconstruct nested_snp_in_nested_ins.augref.pg -P x -a > nested_snp_in_nested_ins.vcf
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP"
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP"
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP"
-
-rm -f nested_snp_in_nested_ins.augref.pg nested_snp_in_nested_ins.vcf
+# Test: Double-nested SNP (run with -t 1, -t 2, and default threads to verify determinism)
+for thread_opt in "-t 1" "-t 2" ""; do
+    thread_label=${thread_opt:- default}
+    vg paths --compute-augref --min-augref-len 0 $thread_opt -x nesting/nested_snp_in_nested_ins.gfa -Q x > nested_snp_in_nested_ins.augref.pg
+    vg deconstruct nested_snp_in_nested_ins.augref.pg -P x -a > nested_snp_in_nested_ins.vcf
+    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP ($thread_label)"
+    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP ($thread_label)"
+    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP ($thread_label)"
+    rm -f nested_snp_in_nested_ins.augref.pg nested_snp_in_nested_ins.vcf
+done
 
 # Test: Nested site with cycle
 vg paths --compute-augref --min-augref-len 0 -x nesting/nested_snp_in_ins_cycle.gfa -Q x > nested_snp_in_ins_cycle.augref.pg
@@ -268,7 +270,9 @@ is $(grep -c "##INFO=<ID=RS" rc_decon_test.vcf) 1 "deconstruct: RS header is pre
 is $(grep -c "##INFO=<ID=RD" rc_decon_test.vcf) 1 "deconstruct: RD header is present in VCF"
 
 # Check that all variants have RC, RS, RD tags
-RC_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | wc -l)
+# Use grep -c "" instead of wc -l: macOS wc -l pads output with leading
+# whitespace which breaks string comparison in is assertions.
+RC_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | grep -c "")
 RC_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RC=")
 is "$RC_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RC tag"
 
@@ -280,7 +284,7 @@ is "$RD_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RD tag"
 
 # Check that nested variants point to top-level's contig
 NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
-NESTED_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+NESTED_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "")
 is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=x (top-level contig)"
 
 rm -f rc_decon_test.augref.pg rc_decon_test.vcf

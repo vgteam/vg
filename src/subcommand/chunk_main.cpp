@@ -29,6 +29,9 @@
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
 
+#include "../gbwtgraph_helper.hpp"
+#include <gbwtgraph/algorithms.h>
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -40,7 +43,8 @@ static string chunk_name(const string& out_chunk_prefix, int i, const Region& re
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
 static void check_read(const Alignment& aln, const HandleGraph* graph, const Logger& logger);
-                     
+
+void chunk_gbz(const string& graph_filename, const std::string& contig_name, const std::string& out_prefix, Logger& logger);
 
 void help_chunk(char** argv) {
     cerr << "usage: " << argv[0] << " chunk [options] > [chunk.vg]" << endl
@@ -85,6 +89,10 @@ void help_chunk(char** argv) {
          << "                                limit to components containing them" << endl
          << "  -M, --path-components         create a chunk for each path" << endl
          << "                                in the graph's connected component" << endl
+         << "GBZ chunking:" << endl
+         << "      --gbz                     input graph (-x) is GBZ, output format is GBZ" << endl
+         << "                                implies -C, ignores other options except -b" << endl
+         << "      --contig STR              output only components containing this contig" << endl
          << "general:" << endl
          << "  -s, --chunk-size N            create chunks spanning N bases" << endl
          << "                                (or nodes with -r/-R) for all input regions." << endl
@@ -145,8 +153,13 @@ int main_chunk(int argc, char** argv) {
     bool components = false;
     bool path_components = false;
     string snarl_filename;
-    
+
+    bool gbz_chunking = false;
+    std::string contig_name;
+
     constexpr int OPT_NO_EMBEDDED_HAPLOTYPES = 1000;
+    constexpr int OPT_GBZ_CHUNKING = 1001;
+    constexpr int OPT_GBZ_CONTIG = 1002;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -184,6 +197,8 @@ int main_chunk(int argc, char** argv) {
             {"components", no_argument, 0, 'C'},
             {"path-components", no_argument, 0, 'M'},
             {"output-fmt", required_argument, 0, 'O'},
+            {"gbz", no_argument, 0, OPT_GBZ_CHUNKING},
+            {"contig", required_argument, 0, OPT_GBZ_CONTIG},
             {0, 0, 0, 0}
         };
 
@@ -313,6 +328,13 @@ int main_chunk(int argc, char** argv) {
             output_format_set = true;
             break;
 
+        case OPT_GBZ_CHUNKING:
+            gbz_chunking = true;
+            break;
+        case OPT_GBZ_CONTIG:
+            contig_name = optarg;
+            break;
+
         case 'h':
         case '?':
             help_chunk(argv);
@@ -322,6 +344,12 @@ int main_chunk(int argc, char** argv) {
         default:
             abort ();
         }
+    }
+
+    // GBZ chunking: ignore all the other logic.
+    if (gbz_chunking) {
+        chunk_gbz(xg_file, contig_name, out_chunk_prefix, logger);
+        return 0;
     }
 
     // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
@@ -711,7 +739,7 @@ int main_chunk(int argc, char** argv) {
     vector<Region> output_regions(num_regions);
 
     // initialize chunkers
-    size_t threads = get_thread_count();
+    size_t threads = omp_get_max_threads();
     vector<PathChunker> chunkers(threads);
     for (auto& chunker : chunkers) {
         chunker.graph = graph;
@@ -1100,7 +1128,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
     unique_ptr<vg::io::StreamMultiplexer> gam_multiplexer;
     
     // We need to know how many threads there will be.
-    size_t thread_count = get_thread_count();
+    size_t thread_count = omp_get_max_threads();
     
     // Each thread needs a place to keep a MessageEmitter
     vector<unique_ptr<vg::io::MessageEmitter>> emitters(thread_count);
@@ -1245,3 +1273,20 @@ static void check_read(const Alignment& aln, const HandleGraph* graph, const Log
     }
 }
 
+void chunk_gbz(const string& graph_filename, const std::string& contig_name, const std::string& out_prefix, Logger& logger) {
+    if (graph_filename.empty()) {
+        logger.error() << "GBZ chunking requires an input graph (-x)" << endl;
+    }
+
+    gbwtgraph::GBZ gbz;
+    load_gbz(gbz, graph_filename);
+
+    gbwtgraph::ChunkParameters params;
+    params.contig_name = contig_name;
+    auto result = gbwtgraph::chunk_graph(gbz, params);
+
+    for(size_t i = 0; i < result.first.size(); i++) {
+        std::string out_name = out_prefix + "_" + std::to_string(i) + "_" + result.second[i] + ".gbz";
+        save_gbz(result.first[i], out_name);
+    }
+}

@@ -195,7 +195,8 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                          const std::vector<std::vector<size_t>>& chains,
                                          const std::vector<std::vector<bool>>& chain_rec_flags,
                                          const std::vector<size_t>& chain_source_tree,
-                                         const PathPositionHandleGraph* path_graph) {
+                                         const PathPositionHandleGraph* path_graph,
+                                         bool haplotype_positions) {
     if (!path_graph) {
         // We don't have a path positional graph for this
         return;
@@ -243,6 +244,10 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
 
         // Determine the positions of all the involved seeds.
         std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
+        std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
+        if (haplotype_positions) {
+            wanted_senses.insert(PathSense::HAPLOTYPE);
+        }
         for (auto& kv : seed_sets) {
             for (const std::vector<size_t> included_seeds : kv.second) {
                 for (auto& seed_num : included_seeds) {
@@ -252,7 +257,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                     auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
                         // If we don't know the seed's positions yet, get them
-                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
                         for (auto& handle_and_positions : found->second) {
                             std::string path_name = path_graph->get_path_name(handle_and_positions.first);
                             for (auto& position : handle_and_positions.second) {
@@ -268,6 +273,19 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 ss << seed_anchors.at(seed_num);
                                 seedpos.field(ss.str());
                             }
+                        }
+                        if (found->second.empty()) {
+                            // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
+                            // Report it.
+                            seedpos.line();
+                            seedpos.field(seed_anchors.at(seed_num).read_start());
+                            seedpos.field("");
+                            seedpos.field("");
+                            seedpos.field("");
+                            seedpos.field(seed_num);
+                            std::stringstream ss;
+                            ss << seed_anchors.at(seed_num);
+                            seedpos.field(ss.str());
                         }
                     }
                 }
@@ -736,7 +754,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 #endif
 
-    // Turn all the seeds into anchors. Either we'll fragment them directly or
+    // Turn all the seeds into anchors. Either we'll chain them directly or
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
@@ -784,7 +802,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
     if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_rec_flags, chain_source_tree, this->path_graph);
+        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_rec_flags, chain_source_tree, this->path_graph, this->haplotype_positions);
     }
 
     if (alignments.size() == 0) {
@@ -1753,9 +1771,13 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                     // Add position annotations for the good-looking chains.
                     // Should be much faster than full correctness tracking from every seed.
                     crash_unless(this->path_graph);
+                    std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
+                    if (haplotype_positions) {
+                        wanted_senses.insert(PathSense::HAPLOTYPE);
+                    }
                     for (auto& boundary : {anchor_view[scored_chain.second.front()].graph_start(), anchor_view[scored_chain.second.back()].graph_end()}) {
                         // For each end of the chain
-                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100);
+                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
                         for (auto& handle_and_positions : offsets) {
                             for (auto& position : handle_and_positions.second) {
                                 // Tell the funnel all the effective positions, ignoring orientation
@@ -2829,7 +2851,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
-                    << " separated by ~" << graph_dist << " bp and sequence \"" << linking_bases << "\"" << endl;
+                    << " separated by ~" << graph_dist << " bp";
+                if (linking_bases.size() < 200) {
+                    cerr << " and sequence \"" << linking_bases << "\"";
+                }
+                cerr << endl;
             }
         }
 #endif
@@ -3017,7 +3043,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned and added link of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
+                cerr << log_name() << "Aligned and added link to " << *next << " of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
             }
         }
         
@@ -3951,7 +3977,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is.
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
-    int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
+    int score = aligner->score_exact_match(aln, read_start - margin_left, margin_left + length + margin_right);
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive, paths); 
 }
 
