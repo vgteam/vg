@@ -396,6 +396,10 @@ int main_paths(int argc, char** argv) {
         logger.error() << "at least one input format (-x, -g) must be specified" << std::endl;
     }
     if (!gbwt_file.empty()) {
+        if (!list_names && !list_lengths && !list_cyclicity && !extract_as_gam && !extract_as_gaf && !extract_as_fasta) {
+            logger.error() << "no operation implemented for a GBWT (-E, -L, -C, -X, -A, -F) was specified" << std::endl;
+        }
+
         bool need_graph = (extract_as_gam || extract_as_gaf || drop_paths
                            || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && graph_file.empty()) {
@@ -568,6 +572,7 @@ int main_paths(int argc, char** argv) {
     
     if (gbwt_index) {
         // We want to operate on a GBWT instead of the graph.
+        logger.info() << "Extracting from GBWT" << std::endl;
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
             logger.error() << "the GBWT index does not contain path names" << std::endl;
@@ -624,6 +629,8 @@ int main_paths(int argc, char** argv) {
         if (thread_ids.empty()) {
             logger.warn() << "no matching paths found in GBWT index" << std::endl;
             return 0;
+        } else {
+            logger.info() << "found " << thread_ids.size() << " matching paths in GBWT index" << std::endl;
         }
 
         // Process the threads.
