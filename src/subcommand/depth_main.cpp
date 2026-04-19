@@ -291,7 +291,14 @@ int main_depth(int argc, char** argv) {
             omp_set_max_active_levels(1);
         }
 
-#pragma omp parallel for ordered schedule(dynamic, 1) if(parallel_outer)
+        // Collect each path's output into its own slot so threads never block
+        // on emission.  Avoids the `#pragma omp ordered` pitfall where a thread
+        // that finishes a short iteration has to wait for earlier (potentially
+        // much longer) iterations to emit before it can pick up new work.
+        // Emitting serially after the parallel region preserves path order.
+        vector<string> path_output(ordered_paths.size());
+
+#pragma omp parallel for schedule(dynamic, 1) if(parallel_outer)
         for (size_t i = 0; i < ordered_paths.size(); ++i) {
             const string& base_path = get<0>(ordered_paths[i]);
             const string& ref_path = get<1>(ordered_paths[i]);
@@ -321,12 +328,15 @@ int main_depth(int argc, char** argv) {
                 }
             }
 
-#pragma omp ordered
-            cout << buf.str();
+            path_output[i] = buf.str();
         }
 
         if (parallel_outer) {
             omp_set_max_active_levels(saved_max_levels);
+        }
+
+        for (const string& s : path_output) {
+            cout << s;
         }
     }
 
