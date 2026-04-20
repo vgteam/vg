@@ -13,11 +13,34 @@
 
 #include "alignment.hpp"
 #include "gbwtgraph_helper.hpp"
+#include "path.hpp"
 #include "utility.hpp"
 
 namespace vg {
 
 using namespace std;
+
+namespace {
+
+vector<GiraffeGraphStep> graph_path_from_alignment(const Alignment& aln) {
+    vector<GiraffeGraphStep> steps;
+    if (!aln.has_path()) {
+        return steps;
+    }
+    const Path& p = aln.path();
+    steps.reserve(static_cast<size_t>(p.mapping_size()));
+    for (int i = 0; i < p.mapping_size(); ++i) {
+        const Mapping& m = p.mapping(i);
+        GiraffeGraphStep step;
+        step.node_id = m.position().node_id();
+        step.is_reverse = m.position().is_reverse();
+        step.from_length = mapping_from_length(m);
+        steps.push_back(step);
+    }
+    return steps;
+}
+
+} // namespace
 
 void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineConfig& config) {
     if (paths.gbz_path.empty() || paths.minimizer_path.empty() || paths.distance_path.empty() || paths.zipcode_path.empty()) {
@@ -81,9 +104,9 @@ vector<string> GiraffeEngine::gaf_header_lines() const {
     return graph_name.gaf_header_lines();
 }
 
-vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& reads) {
+vector<GiraffeReadMappings> GiraffeEngine::map_reads_detailed(const vector<GiraffeFastqRead>& reads) {
     require_loaded();
-    vector<vector<string>> results(reads.size());
+    vector<GiraffeReadMappings> results(reads.size());
     if (reads.empty()) {
         return results;
     }
@@ -111,13 +134,16 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
             toUppercaseInPlace(*aln.mutable_sequence());
 
             vector<Alignment> mapped = mapper_->map(aln);
-            auto& lines = results[i];
-            lines.reserve(mapped.size());
+            auto& out_read = results[i];
+            out_read.alignments.reserve(mapped.size());
             for (auto& m : mapped) {
+                GiraffeAlignmentRecord rec;
+                rec.graph_path = graph_path_from_alignment(m);
                 auto gaf = io::alignment_to_gaf(gbz_->graph, m);
                 stringstream ss;
                 ss << gaf;
-                lines.emplace_back(ss.str());
+                rec.gaf_line = ss.str();
+                out_read.alignments.emplace_back(move(rec));
             }
         } catch (...) {
             lock_guard<mutex> guard(worker_error_mutex);
@@ -131,6 +157,19 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
         rethrow_exception(worker_error);
     }
 
+    return results;
+}
+
+vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& reads) {
+    auto detailed = map_reads_detailed(reads);
+    vector<vector<string>> results(detailed.size());
+    for (size_t i = 0; i < detailed.size(); ++i) {
+        auto& lines = results[i];
+        lines.reserve(detailed[i].alignments.size());
+        for (const auto& ar : detailed[i].alignments) {
+            lines.push_back(ar.gaf_line);
+        }
+    }
     return results;
 }
 
