@@ -908,7 +908,6 @@ int main_giraffe(int argc, char** argv) {
         // This is always on in the non-chaining codepath right now, but just to be sure...
         .add_entry<bool>("explored-cap", true);
     
-    --chain-score-threshold 234 --min-chains 2 --min-chain-score-per-base 0.24 --max-min-chain-score 46 --max-chains-per-tree 3 --item-bonus 2 --gap-scale 0.27579
     presets["hifi"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
@@ -1829,8 +1828,10 @@ int main_giraffe(int argc, char** argv) {
     if (show_work || track_correctness || track_position || set_refpos || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
-        // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
-        if (registry.available("XG")) {
+        // But if an XG is around, and we don't need haplotype paths, we should
+        // use that instead. Otherwise, it's not possible to provide paths when
+        // using an old GBWT/GBZ that doesn't have them.
+        if (registry.available("XG") && !haplotype_positions) {
             if (show_progress) {
                 logger.info() << "Loading XG Graph" << endl;
             }

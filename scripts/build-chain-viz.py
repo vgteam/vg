@@ -38,7 +38,7 @@ def parse_seeds_file(filepath):
                 'strand': parts[3] or None,
                 # This is the seed number among all seeds in all
                 # problems/trees, NOT the anchor number that will appear in the
-                # chaining liks with #123 notation.
+                # chaining like with #123 notation.
                 'seed_num': int(parts[4]),
                 'seed_name': parts[5]
             })

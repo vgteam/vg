@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 80
+plan tests 82
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -128,6 +128,9 @@ vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work
 # Check that at least some TSV files and directories were created 
 is "$(find explanation_read1 -name 'chain*-dotplot*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
 is "$(ls -d explanation_* 2>/dev/null | wc -l | tr -d ' ')" "3" "Explanation directories are created per read"
+is "$(cat explanation_read1/chain0-seeds*.tsv | wc -l | tr -d ' ')" "1" "Chain reports one seed with one position"
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr --haplotype-positions > /dev/null 2>&1
+is "$(cat explanation_read1/chain0-seeds*.tsv | wc -l | tr -d ' ')" "3" "Chain reports one seed with three positions when checking haplotypes"
 
 rm -rf explanation_*
 rm -f x.giraffe.gbz wrong.gbz
