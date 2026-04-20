@@ -1828,8 +1828,10 @@ int main_giraffe(int argc, char** argv) {
     if (show_work || track_correctness || track_position || set_refpos || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
-        // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
-        if (registry.available("XG")) {
+        // But if an XG is around, and we don't need haplotype paths, we should
+        // use that instead. Otherwise, it's not possible to provide paths when
+        // using an old GBWT/GBZ that doesn't have them.
+        if (registry.available("XG") && !haplotype_positions) {
             if (show_progress) {
                 logger.info() << "Loading XG Graph" << endl;
             }
