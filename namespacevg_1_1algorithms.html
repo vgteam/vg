@@ -325,8 +325,8 @@ Functions</h2></td></tr>
 <tr class="separator:a7ae1eba2313c3ce068851c85b8d019e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5cd4d23b1a702613134895c2d5618154"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5cd4d23b1a702613134895c2d5618154">min_cut_decomposition</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
 <tr class="separator:a5cd4d23b1a702613134895c2d5618154"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a477330d3ab29cbd3c48e4830d51b3e0f">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos, int64_t max_search, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adb55cd7e52574f1742b9859fb0465199"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#adb55cd7e52574f1742b9859fb0465199">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos, int64_t max_search, const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; &amp;desired_senses, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:adb55cd7e52574f1742b9859fb0465199"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos)</td></tr>
 <tr class="separator:aef24fa77dadb09d5920ec94b88af2128"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">simple_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos)</td></tr>
@@ -4028,8 +4028,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a477330d3ab29cbd3c48e4830d51b3e0f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a477330d3ab29cbd3c48e4830d51b3e0f">&#9670;&nbsp;</a></span>nearest_offsets_in_paths()</h2>
+<a id="adb55cd7e52574f1742b9859fb0465199"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adb55cd7e52574f1742b9859fb0465199">&#9670;&nbsp;</a></span>nearest_offsets_in_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4055,6 +4055,12 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>desired_senses</em> = <code>{PathSense::REFERENCE,&#160;PathSense::GENERIC}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
           <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
@@ -4067,7 +4073,7 @@ template&lt;typename Collection &gt; </div>
 </div><div class="memdoc">
 <p>Return, for the nearest position in a path to the given position, subject to the given max search distance, a mapping from path handle to all positions on each path where that pos_t occurs. Stops search when path(s) are ancountered.</p>
 <p>If path_filter is set, ignores paths for which it returns false.</p>
-<p>Doesn't consider haplotype paths. </p>
+<p>Doesn't consider haplotype paths. by default. </p>
 
 </div>
 </div>

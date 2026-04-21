@@ -326,6 +326,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a7896c6cccfa011c4fbad1b916d30052e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35a153c8cd62696021e17fe9d970b2b3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a35a153c8cd62696021e17fe9d970b2b3">track_position</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a3357a4536f0714508781c4ef201d002c">default_track_position</a></td></tr>
 <tr class="separator:a35a153c8cd62696021e17fe9d970b2b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0c089b0256f6cf1d4a048b9c7e773a9c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0c089b0256f6cf1d4a048b9c7e773a9c">haplotype_positions</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a24dc27d2f881837798878990079cc4e8">default_haplotype_positions</a></td></tr>
+<tr class="separator:a0c089b0256f6cf1d4a048b9c7e773a9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a089bb5c8a56a7614a2f494690f3b5acd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a089bb5c8a56a7614a2f494690f3b5acd">show_work</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a5b420aef79b283dfe483246b135aa2e1">default_show_work</a></td></tr>
 <tr class="separator:a089bb5c8a56a7614a2f494690f3b5acd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94bd867270265d26c4f2abfbd730f316"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a94bd867270265d26c4f2abfbd730f316">paired_distance_stdevs</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a075eb4ce854be73a0764fc1149721346">default_paired_distance_stdevs</a></td></tr>
@@ -561,6 +563,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a3357a4536f0714508781c4ef201d002c"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3357a4536f0714508781c4ef201d002c">default_track_position</a> = false</td></tr>
 <tr class="memdesc:a3357a4536f0714508781c4ef201d002c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track linear reference position for placements in log output.  <a href="classvg_1_1MinimizerMapper.html#a3357a4536f0714508781c4ef201d002c">More...</a><br /></td></tr>
 <tr class="separator:a3357a4536f0714508781c4ef201d002c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24dc27d2f881837798878990079cc4e8"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a24dc27d2f881837798878990079cc4e8">default_haplotype_positions</a> = false</td></tr>
+<tr class="memdesc:a24dc27d2f881837798878990079cc4e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track positions along haplotypes.  <a href="classvg_1_1MinimizerMapper.html#a24dc27d2f881837798878990079cc4e8">More...</a><br /></td></tr>
+<tr class="separator:a24dc27d2f881837798878990079cc4e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5b420aef79b283dfe483246b135aa2e1"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5b420aef79b283dfe483246b135aa2e1">default_show_work</a> = false</td></tr>
 <tr class="memdesc:a5b420aef79b283dfe483246b135aa2e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">If set, log what the mapper is thinking in its mapping of each read.  <a href="classvg_1_1MinimizerMapper.html#a5b420aef79b283dfe483246b135aa2e1">More...</a><br /></td></tr>
 <tr class="separator:a5b420aef79b283dfe483246b135aa2e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -801,8 +806,8 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="separator:a79654a1638227197fd75f33ab24b1276"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1997418c9faffdc16674de0cda5bcfa2"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1997418c9faffdc16674de0cda5bcfa2">dump_debug_dotplot</a> (const std::string &amp;name, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const std::vector&lt; std::pair&lt; std::string, std::vector&lt; std::vector&lt; size_t &gt;&gt;&gt;&gt; &amp;seed_sets, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>)</td></tr>
 <tr class="separator:a1997418c9faffdc16674de0cda5bcfa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa2f82d9076010096a2aa1e88948591b5"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa2f82d9076010096a2aa1e88948591b5">dump_debug_chains</a> (const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;chains, const std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;chain_rec_flags, const std::vector&lt; size_t &gt; &amp;chain_source_tree, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>)</td></tr>
-<tr class="separator:aa2f82d9076010096a2aa1e88948591b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a21b038c9298166c53d6510597688a5c1"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a21b038c9298166c53d6510597688a5c1">dump_debug_chains</a> (const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;chains, const std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;chain_rec_flags, const std::vector&lt; size_t &gt; &amp;chain_source_tree, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>, bool <a class="el" href="classvg_1_1MinimizerMapper.html#a0c089b0256f6cf1d4a048b9c7e773a9c">haplotype_positions</a>)</td></tr>
+<tr class="separator:a21b038c9298166c53d6510597688a5c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af667c12a73803c136e79fe22c3fc6cb7"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af667c12a73803c136e79fe22c3fc6cb7">dump_debug_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
 <tr class="memdesc:af667c12a73803c136e79fe22c3fc6cb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dump a graph.  <a href="classvg_1_1MinimizerMapper.html#af667c12a73803c136e79fe22c3fc6cb7">More...</a><br /></td></tr>
 <tr class="separator:af667c12a73803c136e79fe22c3fc6cb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2039,8 +2044,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="aa2f82d9076010096a2aa1e88948591b5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa2f82d9076010096a2aa1e88948591b5">&#9670;&nbsp;</a></span>dump_debug_chains()</h2>
+<a id="a21b038c9298166c53d6510597688a5c1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a21b038c9298166c53d6510597688a5c1">&#9670;&nbsp;</a></span>dump_debug_chains()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2094,7 +2099,13 @@ Friends</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>path_graph</em>&#160;</td>
+          <td class="paramname"><em>path_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>haplotype_positions</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -6118,6 +6129,30 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
+<a id="a24dc27d2f881837798878990079cc4e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a24dc27d2f881837798878990079cc4e8">&#9670;&nbsp;</a></span>default_haplotype_positions</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr bool vg::MinimizerMapper::default_haplotype_positions = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Track positions along haplotypes. </p>
+
+</div>
+</div>
 <a id="adaea07e204eca95eeac41c22013725d6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#adaea07e204eca95eeac41c22013725d6">&#9670;&nbsp;</a></span>default_hard_hit_cap</h2>
 
@@ -8056,6 +8091,20 @@ template&lt;typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>This is our primary graph. </p>
+
+</div>
+</div>
+<a id="a0c089b0256f6cf1d4a048b9c7e773a9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0c089b0256f6cf1d4a048b9c7e773a9c">&#9670;&nbsp;</a></span>haplotype_positions</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::haplotype_positions = <a class="el" href="classvg_1_1MinimizerMapper.html#a24dc27d2f881837798878990079cc4e8">default_haplotype_positions</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
