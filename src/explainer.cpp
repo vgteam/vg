@@ -98,7 +98,10 @@ TSVExplainer::TSVExplainer(bool enabled, const std::string& name) : Explainer(en
     out.open(filename);
 }
 TSVExplainer::~TSVExplainer() {
-    // Nothing to do!
+    if (need_line) {
+        // Newline-terminate the last line before closing.
+        out << std::endl;
+    }
 }
 
 void TSVExplainer::line() {
