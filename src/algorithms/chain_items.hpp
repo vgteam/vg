@@ -483,9 +483,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
  * Iterates over all pairs of seeds and uses the distance index
  * to determine if there SHOULD have been a transition.
  * 
- * Returns failed transitions.
+ * Returns if any transitions were missing.
  */
-std::vector<transition_info> find_missing_zip_tree_transitions(
+bool find_missing_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
