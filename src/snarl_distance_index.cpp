@@ -1178,28 +1178,7 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
 #ifdef debug_hub_label_build
   // Dump CHOverlay graph to stderr for debugging
   std::cerr << "=== CHOverlay Graph Dump ===" << std::endl;
-  std::cerr << "Vertices: " << num_vertices(ov) << ", Edges: " << num_edges(ov) << std::endl;
-  std::cerr << "--- Nodes ---" << std::endl;
-  for (auto v : boost::make_iterator_range(vertices(ov))) {
-    const NodeProp& np = ov[v];
-    std::cerr << "Node " << v << ": seqlen=" << np.seqlen
-              << " max_out=" << np.max_out
-              << " contracted_neighbors=" << np.contracted_neighbors
-              << " level=" << np.level
-              << " arc_cover=" << np.arc_cover
-              << " contracted=" << (np.contracted ? "true" : "false")
-              // Skip new_id since it is not initialized until make_contraction_hierarchy is run.
-              << std::endl;
-  }
-  std::cerr << "--- Edges ---" << std::endl;
-  for (auto e : boost::make_iterator_range(edges(ov))) {
-    const EdgeProp& ep = ov[e];
-    std::cerr << "Edge " << source(e, ov) << " -> " << target(e, ov)
-              << ": contracted=" << (ep.contracted ? "true" : "false")
-              << " weight=" << ep.weight
-              << " arc_cover=" << ep.arc_cover
-              << " ori=" << (ep.ori ? "true" : "false") << std::endl;
-  }
+  std::cerr << ov << std::endl;
   std::cerr << "=== End CHOverlay Dump ===" << std::endl;
 #endif
 
