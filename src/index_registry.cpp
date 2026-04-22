@@ -4670,10 +4670,8 @@ vector<IndexName> VGIndexes::get_default_long_path_giraffe_indexes() {
 
 vector<IndexName> VGIndexes::get_default_haplotype_sampling_indexes() {
     vector<IndexName> indexes{
-        "Top Level Chain Distance Index",
         "GBZ",
         "Haplotype Index",
-        "r Index"
     };
     return indexes;
 }
