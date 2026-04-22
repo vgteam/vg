@@ -13,6 +13,7 @@
 
 //#define debug_chaining
 //#define debug_transition
+#define debug_missing_transition
 //#define debug_dp
 
 namespace vg {
@@ -262,6 +263,23 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
                                           seed_to_starting, seed_to_ending);
 
+#ifdef debug_missing_transition
+        std::vector<transition_info> missing = \
+        find_missing_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+                                          seed_to_starting, seed_to_ending, distance_index, 
+                                          all_transitions);
+        if (missing.empty()) {
+            cerr << "No missing transitions" << endl;
+        } else {
+            cerr << "!!Missing transitions:" << endl;
+            for (const auto& miss : missing) {
+                cerr << "\t" << miss.from_anchor << " -> " << miss.to_anchor 
+                     << " dist " << miss.graph_distance << endl;
+            }
+            throw std::runtime_error("Zipcode tree iterator failed to output some transitions");
+        }
+#endif
+
         std::vector<transition_info> filtered_transitions =
             calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
 
@@ -383,6 +401,29 @@ std::vector<transition_info> generate_zip_tree_transitions(
     }
 
     return all_transitions;
+}
+
+std::vector<transition_info> find_missing_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    const ZipCodeTree& zip_code_tree,
+    size_t max_graph_lookback_bases,
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending,
+    const SnarlDistanceIndex& distance_index,
+    const std::vector<transition_info>& all_transitions) {
+    
+    // {source anchor : {dest anchor : dist}}
+    std::unordered_map<size_t, std::unordered_map<size_t, size_t>> found;
+    for (const auto& transition : all_transitions) {
+        if (!found.count(transition.from_anchor)) {
+            found[transition.from_anchor] = std::unordered_map<size_t, size_t>();
+        }
+        found[transition.from_anchor][transition.to_anchor] = transition.graph_distance;
+    }
+
+    std::vector<transition_info> missing;
+
+    return missing;
 }
 
 std::vector<transition_info> calculate_transition_read_distances(

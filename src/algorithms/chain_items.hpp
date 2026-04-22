@@ -478,6 +478,23 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const std::unordered_map<size_t, size_t>& seed_to_ending);
 
 /**
+ * Check if all possible transitions were actually found.
+ * 
+ * Iterates over all pairs of seeds and uses the distance index
+ * to determine if there SHOULD have been a transition.
+ * 
+ * Returns failed transitions.
+ */
+std::vector<transition_info> find_missing_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    const ZipCodeTree& zip_code_tree,
+    size_t max_graph_lookback_bases,
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending,
+    const SnarlDistanceIndex& distance_index,
+    const std::vector<transition_info>& all_transitions);
+
+/**
  * Calculate read distances for each of the zip tree's transitions.
  * Also filters out transitions that can't be used,
  * e.g. not reachable in the read.
