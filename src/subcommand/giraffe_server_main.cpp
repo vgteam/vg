@@ -41,7 +41,6 @@ void help_giraffe_server(char** argv) {
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
          << "      --framed-output          emit read-grouped framed output for middleware" << endl
-         << "      --emit-graph-path        after each GAF line, emit @GRAPH with node/rev/len triples" << endl
          << "  -h, --help                   show help" << endl
          << endl
          << "stdin protocol (one read per line):" << endl
@@ -73,7 +72,6 @@ int main_giraffe_server(int argc, char** argv) {
     size_t batch_size = 256;
     bool emit_header = false;
     bool framed_output = false;
-    bool emit_graph_path = false;
 
     int c;
     optind = 2;
@@ -88,7 +86,6 @@ int main_giraffe_server(int argc, char** argv) {
             {"batch-size", required_argument, 0, 'b'},
             {"emit-header", no_argument, 0, 1000},
             {"framed-output", no_argument, 0, 1001},
-            {"emit-graph-path", no_argument, 0, 1002},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
@@ -127,9 +124,6 @@ int main_giraffe_server(int argc, char** argv) {
             case 1001:
                 framed_output = true;
                 break;
-            case 1002:
-                emit_graph_path = true;
-                break;
             case 'h':
             case '?':
             default:
@@ -164,32 +158,14 @@ int main_giraffe_server(int argc, char** argv) {
             if (batch.empty()) {
                 return;
             }
-            if (emit_graph_path) {
-                auto detailed = engine.map_reads_detailed(batch);
-                for (size_t i = 0; i < detailed.size(); ++i) {
-                    const auto& read_mappings = detailed[i].alignments;
-                    if (framed_output) {
-                        cout << "@READ\t" << batch[i].name << '\t' << read_mappings.size() << '\n';
-                    }
-                    for (const auto& rec : read_mappings) {
-                        cout << rec.gaf_line << '\n';
-                        cout << "@GRAPH";
-                        for (const auto& step : rec.graph_path) {
-                            cout << '\t' << step.node_id << '\t' << (step.is_reverse ? 1 : 0) << '\t' << step.from_length;
-                        }
-                        cout << '\n';
-                    }
+            auto mapped = engine.map_reads(batch);
+            for (size_t i = 0; i < mapped.size(); ++i) {
+                const auto& read_mappings = mapped[i];
+                if (framed_output) {
+                    cout << "@READ\t" << batch[i].name << '\t' << read_mappings.size() << '\n';
                 }
-            } else {
-                auto mapped = engine.map_reads(batch);
-                for (size_t i = 0; i < mapped.size(); ++i) {
-                    const auto& read_mappings = mapped[i];
-                    if (framed_output) {
-                        cout << "@READ\t" << batch[i].name << '\t' << read_mappings.size() << '\n';
-                    }
-                    for (const auto& gaf_line : read_mappings) {
-                        cout << gaf_line << '\n';
-                    }
+                for (const auto& gaf_line : read_mappings) {
+                    cout << gaf_line << '\n';
                 }
             }
             cout.flush();

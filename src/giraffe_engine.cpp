@@ -12,8 +12,8 @@
 #include <vg/io/vpkg.hpp>
 
 #include "alignment.hpp"
+#include "annotation.hpp"
 #include "gbwtgraph_helper.hpp"
-#include "path.hpp"
 #include "utility.hpp"
 
 namespace vg {
@@ -22,22 +22,18 @@ using namespace std;
 
 namespace {
 
-vector<GiraffeGraphStep> graph_path_from_alignment(const Alignment& aln) {
-    vector<GiraffeGraphStep> steps;
-    if (!aln.has_path()) {
-        return steps;
+void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
+    string seq_ids_csv;
+    seq_ids_csv.reserve(r.seq_ids.size() * 8);
+    for (size_t i = 0; i < r.seq_ids.size(); ++i) {
+        if (i) seq_ids_csv.push_back(',');
+        seq_ids_csv += std::to_string(r.seq_ids[i]);
     }
-    const Path& p = aln.path();
-    steps.reserve(static_cast<size_t>(p.mapping_size()));
-    for (int i = 0; i < p.mapping_size(); ++i) {
-        const Mapping& m = p.mapping(i);
-        GiraffeGraphStep step;
-        step.node_id = m.position().node_id();
-        step.is_reverse = m.position().is_reverse();
-        step.from_length = mapping_from_length(m);
-        steps.push_back(step);
-    }
-    return steps;
+    set_annotation(aln, "haplotype_seq_ids", seq_ids_csv);
+    set_annotation(aln, "haplotype_candidate_count", static_cast<double>(r.candidate_count));
+    set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
+    set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
+    set_annotation(aln, "haplotype_truncated", r.truncated);
 }
 
 } // namespace
@@ -79,6 +75,8 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     auto mapper = make_unique<MinimizerMapper>(gbz->graph, *minimizer_index, distance_index.get(), zipcodes.get());
     mapper->max_multimaps = config.max_multimaps;
 
+    auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
+
     // Keep the same behavior as vg giraffe: global OMP thread count controls mapping parallelism.
     omp_set_num_threads(static_cast<int>(config.threads));
 
@@ -88,6 +86,7 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     distance_index_ = move(distance_index);
     zipcodes_ = move(zipcodes);
     mapper_ = move(mapper);
+    haplotype_assigner_ = move(assigner);
 }
 
 bool GiraffeEngine::is_loaded() const {
@@ -104,9 +103,9 @@ vector<string> GiraffeEngine::gaf_header_lines() const {
     return graph_name.gaf_header_lines();
 }
 
-vector<GiraffeReadMappings> GiraffeEngine::map_reads_detailed(const vector<GiraffeFastqRead>& reads) {
+vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& reads) {
     require_loaded();
-    vector<GiraffeReadMappings> results(reads.size());
+    vector<vector<string>> results(reads.size());
     if (reads.empty()) {
         return results;
     }
@@ -134,16 +133,20 @@ vector<GiraffeReadMappings> GiraffeEngine::map_reads_detailed(const vector<Giraf
             toUppercaseInPlace(*aln.mutable_sequence());
 
             vector<Alignment> mapped = mapper_->map(aln);
-            auto& out_read = results[i];
-            out_read.alignments.reserve(mapped.size());
+            if (this->assign_haplotypes && this->haplotype_assigner_) {
+                for (auto& m : mapped) {
+                    auto hap = this->haplotype_assigner_->assign(
+                        m, this->assign_haplotypes_extend_to_snarls);
+                    attach_haplotype_annotations(m, hap);
+                }
+            }
+            auto& lines = results[i];
+            lines.reserve(mapped.size());
             for (auto& m : mapped) {
-                GiraffeAlignmentRecord rec;
-                rec.graph_path = graph_path_from_alignment(m);
                 auto gaf = io::alignment_to_gaf(gbz_->graph, m);
                 stringstream ss;
                 ss << gaf;
-                rec.gaf_line = ss.str();
-                out_read.alignments.emplace_back(move(rec));
+                lines.emplace_back(ss.str());
             }
         } catch (...) {
             lock_guard<mutex> guard(worker_error_mutex);
@@ -157,19 +160,6 @@ vector<GiraffeReadMappings> GiraffeEngine::map_reads_detailed(const vector<Giraf
         rethrow_exception(worker_error);
     }
 
-    return results;
-}
-
-vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& reads) {
-    auto detailed = map_reads_detailed(reads);
-    vector<vector<string>> results(detailed.size());
-    for (size_t i = 0; i < detailed.size(); ++i) {
-        auto& lines = results[i];
-        lines.reserve(detailed[i].alignments.size());
-        for (const auto& ar : detailed[i].alignments) {
-            lines.push_back(ar.gaf_line);
-        }
-    }
     return results;
 }
 
