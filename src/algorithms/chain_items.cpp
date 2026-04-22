@@ -13,6 +13,7 @@
 
 //#define debug_chaining
 //#define debug_transition
+//#define debug_dp
 
 namespace vg {
 namespace algorithms {
@@ -564,8 +565,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // We will run this over every transition in a good DP order.
     auto iteratee = [&](const transition_info& transition) {
         if (show_work) {
+#ifdef debug_dp
             cerr << "DP: " << transition.from_anchor << "->" << transition.to_anchor 
                  << " rd " << transition.read_distance << " gd " << transition.graph_distance << endl;
+#endif
         }
         
         crash_unless(chain_scores.size() > transition.to_anchor);
@@ -590,8 +593,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& source = to_chain[transition.from_anchor];
             
         if (show_work) {
+#ifdef debug_dp
             cerr << "\t\tCome from score " << chain_scores[transition.from_anchor]
                 << " across " << source << " to " << here << endl;
+#endif
         }
             
         // How much does it pay (+) or cost (-) to make the jump from there
@@ -608,9 +613,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         size_t possible_match_length = std::min(transition.read_distance, transition.graph_distance);
         
         if (show_work) {
+#ifdef debug_dp
             cerr << "\t\t\tFor read distance " << transition.read_distance << " and graph distance " << transition.graph_distance
                  << " an indel of length " << indel_length
                  << ((transition.read_distance > transition.graph_distance) ? " seems plausible" : " would be required") << endl;
+#endif
         }
 
         if (indel_length > max_indel_bases) {
@@ -661,8 +668,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], from_source_score);
                                            
             if (show_work) {
+#ifdef debug_dp
                 cerr << "\t\tWe can reach #" << transition.to_anchor << " with " << source_score << " + " << jump_points
                      << " from transition + " << item_points << " from item = " << from_source_score << endl;
+#endif
             }
             
             if (diagram) {
@@ -692,7 +701,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             }
         } else {
             if (show_work) {
+#ifdef debug_dp
                 cerr << "\t\tTransition is impossible." << endl;
+#endif
             }
         }
     };
@@ -751,7 +762,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         best_score.max_in(chain_scores, to_anchor);
         
         if (show_work) {
+#ifdef debug_dp
             cerr << "\tBest chain end so far: " << best_score << endl;
+#endif
         }
         
     }

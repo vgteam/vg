@@ -1010,7 +1010,7 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                     // Make sure the anchor is right.
                     // It needs to start at the right place in the read.
                     REQUIRE(anchors.back().read_start() == minimizers.at(seeds.at(i).source).forward_offset());
-                    // Sinve the minimizers are all within single nodes here, the anchor should be as long as the minimizer.
+                    // Since the minimizers are all within single nodes here, the anchor should be as long as the minimizer.
                     REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
                 }
 
@@ -1062,6 +1062,85 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
     }
 }
 
+TEST_CASE("MinimizerMapper scores anchors the same regardless of node structure", "[giraffe][mapping]") {
+
+    std::string stick_sequence = "GATTACACATTAG";
+
+    // Make an aligner for scoring
+    Aligner aligner;
+
+    for (int node_size : {1, 2, 10}) {
+#ifdef debug
+        std::cerr << "Node size: " << node_size << std::endl;
+#endif
+
+        bdsg::HashGraph graph;
+
+        // This has the pos_t of every position along the forward strand of the graph.
+        std::vector<pos_t> graph_forward_strand;
+        graph_forward_strand.reserve(stick_sequence.size());
+
+        handle_t last;
+        for (size_t node_start = 0; node_start < stick_sequence.size(); node_start += node_size) {
+            // Build a stick of this size of node
+            std::string node_seq = stick_sequence.substr(node_start, node_size);
+
+            handle_t here = graph.create_handle(node_seq);
+            if (node_start != 0) {
+                graph.create_edge(last, here);
+            }
+
+            for (size_t i = 0; i < node_seq.size(); i++) {
+                // Record the positions
+                graph_forward_strand.emplace_back(graph.get_id(here), false, i);
+            }
+
+            last = here;
+        }
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        Alignment aln;
+        aln.set_sequence(stick_sequence);
+        
+        // Try 5 base minimizers
+        size_t min_length = 5;
+
+        for (size_t min_start = 0; min_start + min_length < stick_sequence.size(); min_start++) {
+#ifdef debug
+            std::cerr << "Minimizer start: " << min_start << std::endl;
+#endif
+            for (bool min_reverse : {false, true}) {
+                // Consider just one minimizer and one seed at a time, in its own collection.
+                vector<MinimizerMapper::Minimizer> minimizers;
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
+
+                // Start a minimizer at this start position, on this read strand.
+                minimizers.emplace_back();
+                minimizers.back().length = min_length;
+                minimizers.back().value.offset = min_reverse ? min_start + min_length - 1 : min_start;
+                minimizers.back().value.is_reverse = min_reverse;
+
+                // Find the anchor point in the graph
+                pos_t graph_pos = graph_forward_strand.at(min_reverse ? min_start + min_length - 1 : min_start);
+
+                // Give it a seed, but ignore zipcodes.
+                seeds.push_back({ graph_pos, minimizers.size() - 1, {}});
+                
+                // Make an anchor
+                algorithms::Anchor anchor = TestMinimizerMapper::to_anchor(aln, minimizers, seeds, seeds.size() - 1, graph, &aligner);
+
+#ifdef debug
+                std::cerr << "Made minimizer at read " << minimizers.back().value.offset << " orientation " << minimizers.back().value.is_reverse << " at graph position " << graph_pos << " and anchor " << anchor << " score " << anchor.score() << std::endl;
+#endif
+
+                REQUIRE(anchor.score() == min_length);
+            }
+        }
+    }
+}
 
 TEST_CASE("MinimizerMapper can fix up alignments with deletions on the ends", "[giraffe][mapping]") {
     

@@ -18,6 +18,7 @@ using namespace std;
 path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
                                                   const pos_t& pos,
                                                   int64_t max_search,
+                                                  const std::unordered_set<PathSense>& desired_senses,
                                                   const std::function<bool(const path_handle_t&)>* path_filter) {
     
     // init the return value
@@ -48,7 +49,7 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
         << " in " << (search_left ? "leftward" : "rightward") << " direction at distance " << dist << endl;
 #endif
        
-        graph->for_each_step_of_sense(here, {PathSense::REFERENCE, PathSense::GENERIC}, [&](const step_handle_t& step) {
+        graph->for_each_step_of_sense(here, desired_senses, [&](const step_handle_t& step) {
             // For each path visit that occurs on this node
 #ifdef debug
             cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
