@@ -31,6 +31,12 @@
 
 namespace vg {
     namespace unittest {
+
+    // TODO: Having *any* operator<< overloads in vg::unittest seems to hide
+    // the ones that are just in vg, somehow.
+    using vg::operator<<;
+
+
     static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
         VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
         pair<unordered_set<Node*>, unordered_set<Edge*> > ret;

@@ -27,6 +27,11 @@ enum class DecompositionEventType {
     END_SNARL
 };
 
+inline std::ostream& operator<<(std::ostream& out, const DecompositionEventType& t) {
+    int bits = (int)t;
+    return out << (bits & 1 ? "END" : "BEGIN") << "_" << (bits & 2 ? "SNARL" : "CHAIN");
+}
+
 /// Flip the polatiry of an event type (start vs. end)
 inline DecompositionEventType flip(const DecompositionEventType& t) {
     // We can flip by toggling the low bit.
@@ -34,15 +39,51 @@ inline DecompositionEventType flip(const DecompositionEventType& t) {
 }
 
 /// A single event in a snarl decomposition traversal.
+/// This is in terms of IDs and orientations because those are easier to write in test code.
 struct DecompositionEvent {
+    DecompositionEventType type;
+    nid_t id;
+    bool is_reverse;
+
+    inline bool operator==(const DecompositionEvent& other) const {
+        return type == other.type && id == other.id && is_reverse == other.is_reverse;
+    }
+
+    inline bool operator!=(const DecompositionEvent& other) const {
+        return ! (*this == other);
+    }
+};
+
+inline std::ostream& operator<<(std::ostream& out, const DecompositionEvent& e) {
+    return out << e.type << "(" << e.id << (e.is_reverse ? "-" : "+") << ")";
+}
+
+/// A single event in a snarl decomposition traversal.
+/// This is in terms of handles because those are easier to work with internally.
+struct DecompositionHandleEvent {
     DecompositionEventType type;
     handle_t handle;
 };
 
 /// Flip the polarity of a whole event (event type between begin and end, and handle orientation)
-inline DecompositionEvent flip(const DecompositionEvent& e, const HandleGraph* g) {
+inline DecompositionHandleEvent flip(const DecompositionHandleEvent& e, const HandleGraph* g) {
     return {flip(e.type), g->flip(e.handle)};
 }
+
+/// Turn begin and end functions to call into a function that emits an event by
+/// type. The provided functions must outlive the returned function.
+std::function<void(const DecompositionHandleEvent&)> event_emitter(
+    const std::function<void(handle_t)>& begin_chain,
+    const std::function<void(handle_t)>& end_chain,
+    const std::function<void(handle_t)>& begin_snarl,
+    const std::function<void(handle_t)>& end_snarl
+);
+
+/// Capture all events emitted by a snarl finder, in terms of IDs and orientations.
+std::vector<DecompositionEvent> capture_events(const HandleGraphSnarlFinder& finder, const HandleGraph& graph);
+
+/// Capture all events emitted by a snarl finder, in terms of handles.
+std::vector<DecompositionHandleEvent> capture_events(const HandleGraphSnarlFinder& finder);
 
 /**
  * A HandleGraphSnarlFinder that wraps another HandleGraphSnarlFinder and
@@ -111,15 +152,10 @@ private:
  */
 class ReplaySnarlFinder : public HandleGraphSnarlFinder {
 public:
-    /// Alias for shared event types
-    using EventType = DecompositionEventType;
-    using Event = DecompositionEvent;
-
     /**
      * Construct a replay finder that will emit the given events.
-     * The graph pointer can be null since we never actually use it.
      */
-    ReplaySnarlFinder(const std::vector<Event>& events);
+    ReplaySnarlFinder(const HandleGraph* graph, const std::vector<DecompositionEvent>& events);
 
     virtual ~ReplaySnarlFinder() = default;
 
@@ -134,6 +170,11 @@ public:
     ) const override;
 
 private:
+
+    using EventType = DecompositionEventType;
+    using Event = DecompositionHandleEvent;
+    
+    /// This stores events we are going to replay.
     std::vector<Event> events;
 };
 
