@@ -8,7 +8,6 @@ namespace unittest {
 
 using ET = DecompositionEventType;
 
-// SnarlDecompositionFuzzer deterministic constructor
 SnarlDecompositionFuzzer::SnarlDecompositionFuzzer(
     const HandleGraph* graph,
     const HandleGraphSnarlFinder* finder,

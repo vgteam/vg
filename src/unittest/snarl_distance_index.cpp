@@ -231,7 +231,8 @@ namespace vg {
                     SnarlDistanceIndex distance_index;
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                     REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
-                } SECTION("Distanceless index") {
+                }
+                SECTION("Distanceless index") {
                     SnarlDistanceIndex distance_index;
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
                     REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
@@ -269,7 +270,8 @@ namespace vg {
                     SnarlDistanceIndex distance_index;
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                     REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
-                } SECTION("Distanceless index") {
+                }
+                SECTION("Distanceless index") {
                     SnarlDistanceIndex distance_index;
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
                     REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));

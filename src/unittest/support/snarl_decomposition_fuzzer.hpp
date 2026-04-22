@@ -92,9 +92,8 @@ std::vector<DecompositionHandleEvent> capture_events(const HandleGraphSnarlFinde
  * for flipping, it gets flipped again (canceling the parent's flip for that
  * child).
  *
- * For deterministic testing, chains_to_flip can be provided, which is a set
- * of (begin_handle, end_handle) pairs identifying chains to flip. When
- * provided, p_flip and the generator are ignored.
+ * For non-randomized testing, the specific chains to flip can be 
+ * pre-identified and provided on construction.
  */
 class SnarlDecompositionFuzzer : public HandleGraphSnarlFinder {
 public:
@@ -141,7 +140,8 @@ private:
     const HandleGraphSnarlFinder* wrapped;
 
     /// Function that decides whether to flip a chain, given either of its
-    /// bounding node IDs. May be nondeterministic.
+    /// bounding node IDs. May produce different results when called
+    /// multiple times with the same input.
     std::function<bool(nid_t)> should_flip;
 };
 
@@ -178,7 +178,6 @@ private:
     std::vector<Event> events;
 };
 
-// Template implementation
 
 template<typename URNG>
 SnarlDecompositionFuzzer::SnarlDecompositionFuzzer(
