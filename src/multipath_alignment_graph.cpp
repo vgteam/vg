@@ -6505,7 +6505,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         for (const auto& path_node : path_nodes) {
             for (const auto& edge : path_node.edges) {
                 const auto& next_node = path_nodes[edge.first];
-                shift = max<size_t>(shift, std::abs(static_cast<int64_t>((next_node.begin - path_node.end) - edge.second)));
+                shift = max<size_t>(shift, std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second)));
             }
         }
         return shift;
@@ -6529,7 +6529,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     ++in_degree[edge.first];
                     
                     const auto& next_node = path_nodes[edge.first];
-                    size_t shift = std::abs(static_cast<int64_t>((next_node.begin - path_node.end) - edge.second));
+                    size_t shift = std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second));
                     
 #ifdef debug_shift_pruning
                     cerr << "shift DP reverse " << i << " <- " << edge.first << " with shift " << shift << " for total " << min_shift_rev[edge.first] + shift << endl;
@@ -6555,7 +6555,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             else {
                 for (auto& edge : path_node.edges) {
                     const auto& next_node = path_nodes[edge.first];
-                    size_t shift = std::abs(static_cast<int64_t>((next_node.begin - path_node.end) - edge.second));
+                    size_t shift = std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second));
 #ifdef debug_shift_pruning
                     cerr << "shift DP forward " << i << " -> " << edge.first << " with shift " << shift << " for total " << min_shift_fwd[i] + shift << endl;
 #endif
@@ -6577,7 +6577,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             for (size_t j = 0; j < path_node.edges.size(); ++j) {
                 auto& edge = path_node.edges[j];
                 const auto& next_node = path_nodes[edge.first];
-                size_t shift = std::abs(static_cast<int64_t>((next_node.begin - path_node.end) - edge.second));
+                size_t shift = std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second));
                 
                 size_t min_edge_shift = min_shift_fwd[i] + shift + min_shift_rev[edge.first];
                 

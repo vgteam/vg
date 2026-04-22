@@ -103,7 +103,7 @@ void help_autoindex(char** argv) {
          << "  -r, --ref-fasta FILE   FASTA file with the reference sequence (may repeat)" << endl
          << "  -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
          << "  -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
-         << "  -g, --gfa FILE         GFA file to make a graph from" << endl
+         << "  -g, --gfa FILE         GFA file to make a graph from (uncompressed)" << endl
          << "  -G, --gbz FILE         GBZ file to make indexes from" << endl
          << "  -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
          << "  -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations " << endl
@@ -247,6 +247,7 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'g':
                 gfa_name = require_exists(logger, optarg);
+                require_non_gzipped(logger, gfa_name);
                 break;
             case 'G':
                 gbz_name = require_exists(logger, optarg);

@@ -91,6 +91,7 @@ struct HaplotypesConfig {
         mode_preprocess,
         mode_sample_haplotypes,
         mode_statistics,
+        mode_density,
     };
 
     // Logger to use when reporting errors/progress
@@ -128,6 +129,8 @@ void set_reference_samples(gbwtgraph::GBZ& gbz, const HaplotypesConfig& config);
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
+
+void density_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 //----------------------------------------------------------------------------
 
@@ -179,6 +182,11 @@ int main_haplotypes(int argc, char** argv) {
         subchain_statistics(gbz, haplotypes, config);
     }
 
+    // Output statistics on kmer presence matrix density.
+    if (config.mode == HaplotypesConfig::mode_density) {
+        density_statistics(gbz, haplotypes, config);
+    }
+
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         double gib = gbwt::inGigabytes(gbwt::memoryUsage());
@@ -199,6 +207,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << usage << "-i graph.hapl -k kmers.kff -g output.gbz graph.gbz" << std::endl;
     if (developer_options) {
         std::cerr << usage << "-i graph.hapl --statistics ref_sample graph.gbz > output.tsv" << std::endl;
+        std::cerr << usage << "-i graph.hapl --density graph.gbz > output.txt" << std::endl;
     }
     std::cerr << std::endl;
 
@@ -257,6 +266,7 @@ void help_haplotypes(char** argv, bool developer_options) {
         std::cerr << "Developer options:" << std::endl;
         std::cerr << "      --validate               validate the generated information (may be slow)" << std::endl;
         std::cerr << "      --statistics NAME        output subchain statistics over reference sample" << std::endl;
+        std::cerr << "      --density                output statistics on kmer presence matrix density" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -283,6 +293,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_BAN_SAMPLE = 1312;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
+    constexpr int OPT_DENSITY = 1600;
 
     static struct option long_options[] =
     {
@@ -313,6 +324,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
         { "statistics", required_argument, 0, OPT_STATISTICS },
+        { "density", no_argument, 0, OPT_DENSITY },
         { "help", no_argument, 0, 'h' },
         { 0, 0, 0, 0 }
     };
@@ -457,7 +469,11 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             this->validate = true;
             break;
         case OPT_STATISTICS:
+            this->mode = mode_statistics;
             this->ref_sample = optarg;
+            break;
+        case OPT_DENSITY:
+            this->mode = mode_density;
             break;
 
         case 'h':
@@ -469,24 +485,30 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         }
     }
 
-    // Determine input graph and set operating mode.
+    // Determine input graph.
     if (optind + 1 != argc) {
         help_haplotypes(argv, false);
         std::exit(EXIT_FAILURE);
     }
     this->graph_name = argv[optind];
-    if (this->haplotype_input.empty() && !this->kmer_input.empty() && !this->gbz_output.empty()) {
-        this->mode = mode_sample_graph;
-    } else if (this->haplotype_input.empty() && !this->haplotype_output.empty()) {
-        this->mode = mode_preprocess;
-    } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() && !this->gbz_output.empty()) {
-        this->mode = mode_sample_haplotypes;
-    } else if (!this->haplotype_input.empty() && !this->ref_sample.empty()) {
-        this->mode = mode_statistics;
-    }
+
+    // Validate the parameters according to the operating mode.
     if (this->mode == mode_invalid) {
-        help_haplotypes(argv, false);
-        std::exit(EXIT_FAILURE);
+        if (this->haplotype_input.empty() && !this->kmer_input.empty() && !this->gbz_output.empty()) {
+            this->mode = mode_sample_graph;
+        } else if (this->haplotype_input.empty() && !this->haplotype_output.empty()) {
+            this->mode = mode_preprocess;
+        } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() && !this->gbz_output.empty()) {
+            this->mode = mode_sample_haplotypes;
+        } else {
+            help_haplotypes(argv, false);
+            std::exit(EXIT_FAILURE);
+        }
+    } else if (this->mode == mode_statistics || this->mode == mode_density) {
+        if (this->haplotype_input.empty()) {
+            help_haplotypes(argv, true);
+            std::exit(EXIT_FAILURE);
+        }
     }
 
     // Use conditional defaults if the user did not override them.
@@ -851,6 +873,67 @@ void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes
                 << kmers << "\t"
                 << sequences << std::endl;
         }
+    }
+}
+
+//----------------------------------------------------------------------------
+
+std::string format_kmer_presence(size_t present, size_t total) {
+    std::ostringstream oss;
+    oss << present << " / " << total << " kmers present (density " << std::fixed << std::setprecision(3)
+        << (total > 0 ? static_cast<double>(present) / total : 0.0) << ")";
+    return oss.str();
+}
+
+void density_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
+    if (config.verbosity == Haplotypes::verbosity_silent) {
+        return;
+    }
+
+    for (size_t chain_id = 0; chain_id < haplotypes.chains.size(); chain_id++) {
+        const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
+
+        // First pass: Statistics for the top-level chain.
+        size_t total_kmers = 0, total_present = 0;
+        for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+            const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
+            sdsl::bit_vector::rank_1_type rank(&subchain.kmers_present);
+            total_kmers += subchain.kmers_present.size();
+            total_present += rank(subchain.kmers_present.size());
+        }
+        std::cout << "Chain " << chain_id << " (" << chain.contig_name << "): "
+            << format_kmer_presence(total_present, total_kmers) << std::endl;
+
+        // Second pass: Statistics for each subchain and possibly for each sequence in each subchain.
+        if (config.verbosity >= Haplotypes::verbosity_detailed) {
+            for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+                const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
+                sdsl::bit_vector::rank_1_type rank(&subchain.kmers_present);
+                size_t subchain_kmers = subchain.kmers_present.size();
+                size_t subchain_present = rank(subchain_kmers);
+                std::cout << "    Subchain " << subchain_id << ": "
+                    << format_kmer_presence(subchain_present, subchain_kmers) << std::endl;
+
+                if (config.verbosity >= Haplotypes::verbosity_debug) {
+                    std::vector<std::pair<size_t, std::string>> sequence_stats; // (present kmers, path name)
+                    for (size_t i = 0; i < subchain.sequences.size(); i++) {
+                        gbwt::size_type sequence_id = subchain.sequences[i].first;
+                        gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+                        path_handle_t path_handle = gbz.graph.path_to_handle(path_id);
+                        std::string path_name = gbz.graph.get_path_name(path_handle);
+                        size_t present = rank((i + 1) * subchain.kmers.size()) - rank(i * subchain.kmers.size());
+                        sequence_stats.emplace_back(present, path_name);
+                    }
+                    std::sort(sequence_stats.begin(), sequence_stats.end());
+                    for (const auto& [present, path_name] : sequence_stats) {
+                        std::cout << "        " << path_name << ": "
+                            << format_kmer_presence(present, subchain.kmers.size()) << std::endl;
+                    }
+                }
+            }
+        }
+
+        std::cout << std::endl;
     }
 }
 

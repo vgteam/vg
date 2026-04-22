@@ -215,8 +215,13 @@ int main_gampcompare(int argc, char** argv) {
                         for (size_t j = 0; j < path_mapped_positions.size(); ++j) {
                             if (path_true_positions[i].second == path_mapped_positions[j].second) {
                                 // there is a pair of positions on the same strand of the same path
-                                abs_dist = min<int64_t>(abs_dist,
-                                                        std::abs(static_cast<int64_t>(path_true_positions[i].first - path_mapped_positions[j].first)));
+                                abs_dist = min<int64_t>(
+                                    abs_dist,
+                                    std::abs(
+                                        static_cast<int64_t>(path_true_positions[i].first) - 
+                                        static_cast<int64_t>(path_mapped_positions[j].first)
+                                    )
+                                );
                             }
                         }
                     }

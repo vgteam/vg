@@ -225,7 +225,6 @@ using namespace std;
                                      vector<tuple<string, int64_t, bool>>& positions_out,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
-        
         // we need one and only one data type: Alignment or multipath_alignment_t
         assert(!(source_aln && source_mp_aln));
         assert((source_aln && alns_out) || (source_mp_aln && mp_alns_out));
@@ -3707,7 +3706,7 @@ using namespace std;
             }
         }
         
-            // transfer applicable metadata (including data that doesn't transit through multipath_alignment_t)
+        // transfer applicable metadata (including data that doesn't transit through multipath_alignment_t)
         for (auto& surj : surjected) {
             surj.first.set_name(source.name());
             surj.first.set_read_group(source.read_group());
@@ -3722,6 +3721,47 @@ using namespace std;
             }
             if (source.has_annotation()) {
                 *surj.first.mutable_annotation() = source.annotation();
+            }
+        }
+
+        if (left_align) {
+            for (size_t i = 0; i < surjected.size(); ++i) {
+
+                auto& surj = surjected[i];
+
+                // remember how many nodes the alignment visits before left-alignment
+                size_t num_mappings = surj.first.path().mapping_size();
+
+                // do left alignment relative to the strand
+                if (rev_strand) {
+                    normalize_indel_adjustment(surj.first, false, *path_position_graph, sinks_are_anchors);
+                }
+                else {
+                    normalize_indel_adjustment(surj.first, true, *path_position_graph, sources_are_anchors);
+                }
+
+                surj.first.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(source));
+
+                // pinch in the step ranges if left-aligning caused us to shift the alignment off of the first node
+                for (size_t j = 0, n = num_mappings - surj.first.path().mapping_size(); j < n; ++j) {
+
+                    if (rev_strand) {
+                        surj.second.second = path_position_graph->get_next_step(surj.second.second);
+                    }
+                    else {
+                        surj.second.first = path_position_graph->get_next_step(surj.second.first);
+                    }
+                    if (all_path_ranges_out) {
+                        for (auto& path_range : (*all_path_ranges_out)[i]) {
+                            if (rev_strand) {
+                                path_range.second = path_position_graph->get_next_step(path_range.second);
+                            }
+                            else {
+                                path_range.first = path_position_graph->get_next_step(path_range.first);
+                            }
+                        }
+                    }
+                }
             }
         }
         

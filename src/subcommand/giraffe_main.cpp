@@ -693,6 +693,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
+             << "      --left-align              attempt to left-align indels in linear formats" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
@@ -703,6 +704,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
              << "                                about mapping locations (use one read at a time)" << endl;
+             
     }
 
     if (full_help) {
@@ -723,7 +725,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "                                (implies --track-provenance)" << endl
              << "      --track-position          coarsely track linear reference positions of" << endl
              << "                                good intermediate alignment candidates" << endl
-             << "                                (implies --track-provenance)" << endl;
+             << "                                (implies --track-provenance)" << endl
+             << "      --haplotype-positions     index all haplotypes for position reporting" << endl;
              
 
         auto helps = parser.get_help();
@@ -747,24 +750,29 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_OUTPUT_BASENAME = 1000;
     constexpr int OPT_REPORT_NAME = 1001;
     constexpr int OPT_SET_REFPOS = 1002;
-    constexpr int OPT_TRACK_PROVENANCE = 1003;
-    constexpr int OPT_TRACK_CORRECTNESS = 1004;
-    constexpr int OPT_TRACK_POSITION = 1005;
-    constexpr int OPT_FRAGMENT_MEAN = 1006;
-    constexpr int OPT_FRAGMENT_STDEV = 1007;
-    constexpr int OPT_REF_PATHS = 1008;
-    constexpr int OPT_REF_NAME = 1009;
-    constexpr int OPT_SHOW_WORK = 1010;
+    constexpr int OPT_FRAGMENT_MEAN = 1003;
+    constexpr int OPT_FRAGMENT_STDEV = 1004;
+    constexpr int OPT_REF_PATHS = 1005;
+    constexpr int OPT_REF_NAME = 1006;
     constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
     constexpr int OPT_COMMENTS_AS_TAGS = 1013;
+    constexpr int OPT_LEFT_ALIGN = 1014;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
+
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
     constexpr int OPT_HAPLOTYPE_SAMPLING = 1104;
     constexpr int OPT_NUM_HAPLOTYPES = 1105;
     constexpr int OPT_NO_DIPLOID_SAMPLING = 1106;
+
+    constexpr int OPT_TRACK_PROVENANCE = 1201;
+    constexpr int OPT_TRACK_CORRECTNESS = 1202;
+    constexpr int OPT_TRACK_POSITION = 1203;
+    constexpr int OPT_HAPLOTYPE_POSITIONS = 1204;
+    constexpr int OPT_SHOW_WORK = 1205;
+
 
 
     // initialize parameters with their default options
@@ -832,6 +840,10 @@ int main_giraffe(int argc, char** argv) {
     bool track_position = MinimizerMapper::default_track_position;
     // Should we log our mapping decision making?
     bool show_work = MinimizerMapper::default_show_work;
+    // Should we index all haplotypes for more informative logs and dumps?
+    bool haplotype_positions = MinimizerMapper::default_haplotype_positions;
+    // TODO: We could also add machinery to index particular haplotypes for
+    // debugging using positions on them.
     
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
@@ -850,6 +862,9 @@ int main_giraffe(int argc, char** argv) {
     std::unordered_set<std::string> reference_assembly_names;
     // When surjecting, should we annotate the reads with the graph alignment?
     bool add_graph_alignment = false;
+
+    // When surjecting, should we attempt to left-align relative to the reference?
+    bool left_align = false;
     
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
@@ -920,14 +935,14 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
-        .add_entry<int>("item-bonus", 20)
+        .add_entry<int>("item-bonus", 2)
         .add_entry<double>("item-scale", 1.0)
-        .add_entry<double>("gap-scale", 0.2)
-        .add_entry<double>("chain-score-threshold", 200.0)
+        .add_entry<double>("gap-scale", 0.27579)
+        .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
-        .add_entry<double>("min-chain-score-per-base", 0.1)
+        .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<int>("max-min-chain-score", 100)
+        .add_entry<int>("max-min-chain-score", 46)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
@@ -1095,6 +1110,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
+        {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
@@ -1108,6 +1124,7 @@ int main_giraffe(int argc, char** argv) {
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"track-position", no_argument, 0, OPT_TRACK_POSITION},
+        {"haplotype-positions", no_argument, 0, OPT_HAPLOTYPE_POSITIONS},
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
         {"threads", required_argument, 0, 't'},
     };
@@ -1282,6 +1299,10 @@ int main_giraffe(int argc, char** argv) {
                 add_graph_alignment = true;
                 break;
                 
+            case OPT_LEFT_ALIGN:
+                left_align = true;
+                break;
+                
             case 'n':
                 discard_alignments = true;
                 break;
@@ -1355,6 +1376,10 @@ int main_giraffe(int argc, char** argv) {
             case OPT_TRACK_POSITION:
                 track_provenance = true;
                 track_position = true;
+                break;
+
+            case OPT_HAPLOTYPE_POSITIONS:
+                haplotype_positions = true;
                 break;
                 
             case OPT_SHOW_WORK:
@@ -1803,8 +1828,10 @@ int main_giraffe(int argc, char** argv) {
     if (show_work || track_correctness || track_position || set_refpos || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
-        // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
-        if (registry.available("XG")) {
+        // But if an XG is around, and we don't need haplotype paths, we should
+        // use that instead. Otherwise, it's not possible to provide paths when
+        // using an old GBWT/GBZ that doesn't have them.
+        if (registry.available("XG") && !haplotype_positions) {
             if (show_progress) {
                 logger.info() << "Loading XG Graph" << endl;
             }
@@ -1815,7 +1842,7 @@ int main_giraffe(int argc, char** argv) {
         // If we want to be able to spit out positions along haplotype paths,
         // for debugging, we need to index them for position queries.
         std::unordered_set<std::string> extra_indexed_paths;
-        if (show_work) {
+        if (haplotype_positions) {
             base_graph->for_each_path_of_sense(PathSense::HAPLOTYPE, [&](const path_handle_t& path) {
                 // Say every haplotype path is in the "extra" path set to
                 // index, so we index everything.
@@ -1932,14 +1959,17 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("add-graph-aln", add_graph_alignment);
+        report_flag("left-align", left_align);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
         report_flag("track-provenance", track_provenance);
         minimizer_mapper.track_provenance = track_provenance;
-        report_flag("track-position", track_position);
-        minimizer_mapper.track_position = track_position;
         report_flag("track-correctness", track_correctness);
         minimizer_mapper.track_correctness = track_correctness;
+        report_flag("track-position", track_position);
+        minimizer_mapper.track_position = track_position;
+        report_flag("haplotype-positions", haplotype_positions);
+        minimizer_mapper.haplotype_positions = haplotype_positions;
         report_flag("show-work", show_work);
         minimizer_mapper.show_work = show_work;
         if (paired) {
@@ -2062,6 +2092,10 @@ int main_giraffe(int argc, char** argv) {
                 if (minimizer_mapper.find_supplementaries) {
                     // When surjecting, also report supplementary alignments
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY;
+                }
+                if (left_align) {
+                    // When surjecting, attempt to left align
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
