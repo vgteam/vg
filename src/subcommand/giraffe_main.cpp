@@ -1771,7 +1771,7 @@ int main_giraffe(int argc, char** argv) {
         minimizer_indexname = "Short Read Minimizers";
     }
     if (!registry.predates("Giraffe Distance Index", minimizer_indexname)) {
-        logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(minimizer_indexname).at(0) << " but should depend on it" << std::endl;
+        logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(minimizer_indexname).at(0) << " which depends on it" << std::endl;
     }
     minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_indexname).at(0));
     require_payload(*minimizer_index, payload_type);
@@ -1792,7 +1792,7 @@ int main_giraffe(int argc, char** argv) {
         oversized_zipcodes_indexname = "Short Read Zipcodes";
     }
     if (!registry.predates("Giraffe Distance Index", oversized_zipcodes_indexname)) {
-        logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(oversized_zipcodes_indexname).at(0) << " but should depend on it" << std::endl;
+        logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(oversized_zipcodes_indexname).at(0) << " which depends on it" << std::endl;
     }
     ifstream zip_in (registry.require(oversized_zipcodes_indexname).at(0));
     oversized_zipcodes.deserialize(zip_in);
