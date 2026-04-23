@@ -5222,6 +5222,22 @@ vector<string> IndexRegistry::require(const IndexName& identifier) const {
     return index->get_filenames();
 }
 
+bool IndexRegistry::predates(const IndexName& earlier, const IndexName& later) const {
+    // Get all the files
+    std::vector<std::string> earlier_files = require(earlier);
+    std::vector<std::string> later_files = require(later);
+
+    // Get all their modification times
+    std::filesystem::file_time_type (*predicate)(const std::filesystem::path&) = std::filesystem::last_write_time;
+    std::vector<std::filesystem::file_time_type> earlier_times;
+    std::transform(earlier_files.begin(), earlier_files.end(), std::back_inserter(earlier_times), predicate);
+    std::vector<std::filesystem::file_time_type> later_times;
+    std::transform(later_files.begin(), later_files.end(), std::back_inserter(later_times), predicate);
+
+    // Return if the earlier files are touched no later than the later files.
+    return std::max_element(earlier_times.begin(), earlier_times.end()) <= std::min_element(later_times.begin(), later_times.end());;
+}
+
 void IndexRegistry::set_target_memory_usage(int64_t bytes) {
     target_memory_usage = bytes;
 }
