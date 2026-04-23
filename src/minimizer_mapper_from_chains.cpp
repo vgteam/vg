@@ -855,70 +855,21 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             // Unmapped, so skip it.
             continue;
         }
-        int matches = 0;
-        int mismatches = 0;
-        int gap_opens = 0;
-        vector<size_t> gap_lengths;
-        
-        enum class EditType { MATCH, MISMATCH, INS, DEL, COMPLEX, NONE };
-        EditType prev_type = EditType::NONE;
-        size_t current_gap_length = 0;
-        
-        auto finish_gap = [&]() {
-            if (current_gap_length > 0) {
-                gap_opens++;
-                gap_lengths.push_back(current_gap_length);
-                current_gap_length = 0;
-            }
-        };
 
-        for (size_t i = 0; i < alignments[alignment_index].path().mapping_size(); ++i) {
-            auto& mapping = alignments[alignment_index].path().mapping(i);
-            for (size_t j = 0; j < mapping.edit_size(); ++j) {
-                auto& edit = mapping.edit(j);
-                if (edit.from_length() == edit.to_length() && edit.from_length() > 0) {
-                    finish_gap();
-                    if (edit.sequence().empty()) {
-                        matches += edit.from_length();
-                        prev_type = EditType::MATCH;
-                    } else {
-                        mismatches += edit.from_length();
-                        prev_type = EditType::MISMATCH;
-                    }
-                } else if (edit.from_length() == 0 && edit.to_length() > 0) {
-                    if (prev_type != EditType::INS) finish_gap();
-                    current_gap_length += edit.to_length();
-                    prev_type = EditType::INS;
-                } else if (edit.from_length() > 0 && edit.to_length() == 0) {
-                    if (prev_type != EditType::DEL) finish_gap();
-                    current_gap_length += edit.from_length();
-                    prev_type = EditType::DEL;
-                } else {
-                    finish_gap();
-                    mismatches += max(edit.from_length(), edit.to_length());
-                    prev_type = EditType::COMPLEX;
-                }
-            }
-        }
-        finish_gap();
-       
-        if (matches + mismatches + gap_opens == 0) {
+        size_t matches, mismatches;
+        std::vector<size_t> gap_lengths;
+        count_alignment_operations(alignments[alignment_index], matches, mismatches, gap_lengths);
+
+        if (matches + mismatches + gap_lengths.size() == 0) {
             continue;
         }
 
-        double d = max(0.02, static_cast<double>(mismatches + gap_opens) / static_cast<double>(matches + mismatches + gap_opens));
-        double non_match_penalty = static_cast<double>(mismatches + gap_opens) / (2.0 * d);
-        
-        double indel_penalty = 0;
-        for (auto& gap_length : gap_lengths) {
-            indel_penalty += log2(1.0 + gap_length);
-        }
-        int adjusted_score = std::round(matches - non_match_penalty - indel_penalty);
+        int adjusted_score = score_alignment_with_logged_gaps(matches, mismatches, gap_lengths);
         alignments[alignment_index].set_score(adjusted_score);
          if (show_work) {
             #pragma omp critical (cerr)
             {   
-                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_opens << " New score: " << adjusted_score << endl;
+                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_lengths.size() << " New score: " << adjusted_score << endl;
             }
         }
     }

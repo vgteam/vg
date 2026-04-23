@@ -330,6 +330,15 @@ bool is_supplementary(const Alignment& alignment);
 // The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
 pair<int64_t, int64_t> aligned_interval(const Alignment& aln);
 
+/// Count the various types of edits in an Alignment, including individual gap lengths.
+void count_alignment_operations(const Alignment& aln, size_t& matches, size_t& mismatches, std::vector<size_t>& gaps_lengths);
+/// Compute an alignment score using minimap2 long indels penalty adjustment.
+///
+/// This scoring method penalize long continous indels less, using the formula:
+/// score = matches - (mismatches + gap_opens)/2d - sum_{i=1}^{gap_opens} (log_2(1 + gap_length_i))
+/// with d = max{0.02, (mismatches + gap_opens)/(matches + mismatches + gap_opens)}
+int score_alignment_with_logged_gaps(const size_t& matches, const size_t& mismatches, const std::vector<size_t>& gap_lengths);
+
 // create an annotation string required to properly set the SAM fields/flags of a supplementary alignment
 // the arguments all refer to properties of the primary *mate* alignment
 // the path name saved in the info is the base path name, with any subrange info reflected in the position
