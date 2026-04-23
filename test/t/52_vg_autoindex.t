@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 64
+plan tests 66
 
 rm auto.*
 
@@ -212,4 +212,11 @@ vg autoindex -p auto -w lr-giraffe --gfa graphs/chain-clip.gfa
 is "$(echo $?)" 0 "autoindexing successfully completes indexing of graph with oversized snarls"
 
 rm auto.* log.txt
+
+vg autoindex -p auto -w sampling --gfa graphs/gfa_with_reference.gfa
+is "$(echo $?)" 0 "autoindexing successfully completes indexing for haplotype sampling"
+vg haplotypes -i auto.hapl -k haplotype-sampling/HG003.kff -g sampled.gbz auto.gbz
+is "$(echo $?)" 0 "haplotype sampling indexes can be used"
+
+rm auto.* sampled.gbz
 rm read.fq read.gam
