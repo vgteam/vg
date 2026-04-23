@@ -163,6 +163,8 @@ struct VGIndexes {
     static vector<IndexName> get_default_long_giraffe_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe on long reads with path minimizers
     static vector<IndexName> get_default_long_path_giraffe_indexes();
+    /// A list of the identifiers of the default indexes to run vg haplotypes
+    static vector<IndexName> get_default_haplotype_sampling_indexes();
 };
 
 /**

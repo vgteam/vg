@@ -4668,6 +4668,14 @@ vector<IndexName> VGIndexes::get_default_long_path_giraffe_indexes() {
     return indexes;
 }
 
+vector<IndexName> VGIndexes::get_default_haplotype_sampling_indexes() {
+    vector<IndexName> indexes{
+        "GBZ",
+        "Haplotype Index",
+    };
+    return indexes;
+}
+
 bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
     if (registry->get_index(identifier)->was_provided_directly()) {
         // It's not an intermediate if it is input
