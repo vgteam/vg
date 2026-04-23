@@ -124,6 +124,8 @@ is "$(grep -c 'error.*are not compatible' log.txt)" "1" "appropriate error messa
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
 
+rm -rf explanation_*
+
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr > /dev/null 2>&1
 # Check that at least some TSV files and directories were created 
 is "$(find explanation_read1 -name 'chain*-dotplot*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
