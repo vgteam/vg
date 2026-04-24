@@ -22,13 +22,18 @@ using namespace std;
 
 namespace {
 
-void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
+string haplotype_seq_ids_csv(const HaplotypeAssignmentResult& r) {
     string seq_ids_csv;
     seq_ids_csv.reserve(r.seq_ids.size() * 8);
     for (size_t i = 0; i < r.seq_ids.size(); ++i) {
         if (i) seq_ids_csv.push_back(',');
         seq_ids_csv += std::to_string(r.seq_ids[i]);
     }
+    return seq_ids_csv;
+}
+
+void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
+    string seq_ids_csv = haplotype_seq_ids_csv(r);
     set_annotation(aln, "haplotype_seq_ids", seq_ids_csv);
     set_annotation(aln, "haplotype_candidate_count", static_cast<double>(r.candidate_count));
     set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
@@ -133,19 +138,31 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
             toUppercaseInPlace(*aln.mutable_sequence());
 
             vector<Alignment> mapped = mapper_->map(aln);
+            vector<HaplotypeAssignmentResult> hap_results;
             if (this->assign_haplotypes && this->haplotype_assigner_) {
+                hap_results.reserve(mapped.size());
                 for (auto& m : mapped) {
                     auto hap = this->haplotype_assigner_->assign(
                         m, this->assign_haplotypes_extend_to_snarls);
                     attach_haplotype_annotations(m, hap);
+                    hap_results.emplace_back(std::move(hap));
                 }
             }
             auto& lines = results[i];
             lines.reserve(mapped.size());
-            for (auto& m : mapped) {
+            for (size_t j = 0; j < mapped.size(); ++j) {
+                auto& m = mapped[j];
                 auto gaf = io::alignment_to_gaf(gbz_->graph, m);
                 stringstream ss;
                 ss << gaf;
+                if (!hap_results.empty()) {
+                    const auto& hap = hap_results[j];
+                    ss << "\thp:Z:" << haplotype_seq_ids_csv(hap)
+                       << "\thc:i:" << hap.candidate_count
+                       << "\thl:i:" << hap.left_boundary_node
+                       << "\thr:i:" << hap.right_boundary_node
+                       << "\tht:i:" << (hap.truncated ? 1 : 0);
+                }
                 lines.emplace_back(ss.str());
             }
         } catch (...) {
