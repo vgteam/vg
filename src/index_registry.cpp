@@ -551,6 +551,10 @@ construct_minimizers_impl(
         *gbz, distance_index.get(), &oversized_zipcodes, params
     );
 
+    // Close the distance index so it can't appear to be modified after the
+    // files that depend on it.
+    distance_index.reset();
+
     string output_name = plan->output_filepath(minimizer_output);
     save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
     output_name_minimizer.push_back(output_name);

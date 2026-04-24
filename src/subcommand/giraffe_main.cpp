@@ -1810,6 +1810,14 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         logger.info() << "Loading Distance Index" << endl;
     }
+    // TODO: Now that we enforce that the minimizer and zipcodes files are
+    // newer than the distance index, we really shouldn't modify it ourselves
+    // by fixing any indirect pointers that may still be in it. So we should be
+    // able to open the file read-only and map the file read-only here, which
+    // in turn would solve problems with writable mappings being slow on shared
+    // filesystems even when not being written. But the VPKG system doesn't
+    // really support doing that, so we'd have to get the file descriptor
+    // manually and deserialize() on it and close() it later.
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     if (show_progress) {
