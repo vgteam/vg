@@ -2698,52 +2698,86 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
 
-        //Next, we want to skip seeds that are in repetitive regions of the read
-        //Since skipping all repetitive seeds would leave too many gaps in the chain, only skip seeds if they are involved in gaps,
-        //i.e. the distances in the read and graph are different
+        // Next, we want to skip seeds that are in repetitive regions of the read
+        // Since skipping all repetitive seeds would leave too many gaps in the chain,
+        // only skip seeds if they are involved in gaps,
+        // i.e. the distances in the read and graph are different
 
-        //Keep track of the total distance from the previous seed to the next one we choose in the graph
+        // Keep track of the total distance from the previous seed to the next one we choose in the graph
         size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
         size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
 
-        //The sum of the differences between read and graph lengths
-        size_t gap_lengths=std::max(total_graph_distance, prev_read_distance) - std::min(total_graph_distance, prev_read_distance);
+        // The sum of the differences between read and graph lengths
+        size_t gap_lengths = (std::max(total_graph_distance, prev_read_distance) 
+                            - std::min(total_graph_distance, prev_read_distance));
 
-        auto next_skippable_it = next_it;
+        auto skip_to_it = next_it;
 
-        while (next_skippable_it != chain.end()) {
-            const algorithms::Anchor* next_skippable = &to_chain[*next_skippable_it];
+        while (skip_to_it != chain.end()) {
+            const algorithms::Anchor* skip_to = &to_chain[*skip_to_it];
             // Try and find a next thing to connect to
             
-           //TODO: Getting the graph distance is probably slow, might want to save it from chaining
-           size_t graph_distance = next_skippable_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                               : algorithms::get_graph_distance(*next_skippable, to_chain[*(next_skippable_it+1)], *distance_index, gbwt_graph);
+            //TODO: Getting the graph distance is probably slow, might want to save it from chaining
+            size_t cur_graph_distance;
+            if (skip_to_it+1 == chain.end()) {
+                // We can't skip any further
+                cur_graph_distance = std::numeric_limits<size_t>::max();
+            } else {
+                // Distance from end of this anchor to start of next anchor
+                cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[*(skip_to_it+1)], 
+                                                                    *distance_index, gbwt_graph);
+                // Also add in distance from start of this anchor to end of this anchor
+                cur_graph_distance += skip_to->length();
+                // Combined those are graph start -> start dist we are trying to skip past
+            }
 
-            if (next_skippable->is_skippable() && next_skippable_it+1 != chain.end() && 
-                total_graph_distance+graph_distance < this->max_skipped_bases) {
+            if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
+                total_graph_distance+cur_graph_distance < this->max_skipped_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_skippable_it << " because it is repetitive" << endl;
+                        cerr << log_name() << "Try to avoid connecting " << *here_it 
+                             << " to " << *skip_to_it << " because it is repetitive" << endl;
                     }
                 }
 #endif
-                size_t read_distance = next_skippable_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                                       : algorithms::get_read_distance(*next_skippable, to_chain[*(next_skippable_it+1)]);
-                total_graph_distance += graph_distance;
-                gap_lengths += (std::max(read_distance, graph_distance) - std::min(read_distance, graph_distance));
+                // Read start -> start distance for what we're skipping
+                size_t cur_read_distance = algorithms::get_read_distance(*skip_to, to_chain[*(skip_to_it+1)]);
+                cur_read_distance += skip_to->length();
+                // Total gap so far
+                gap_lengths += (std::max(cur_read_distance, cur_graph_distance) 
+                              - std::min(cur_read_distance, cur_graph_distance));
+                total_graph_distance += cur_graph_distance;
             
-                ++next_skippable_it;
+                ++skip_to_it;
             } else {
-                //The next_skippable_it is either not skippable or too far away so stop
+                // skip_to is either not skippable or too far away so stop
                 if (gap_lengths > 50) {
-                    //If there was a big gap
-                    next_it = next_skippable_it;
-                    next = &to_chain[*next_skippable_it];
+#ifdef debug_chain_alignment
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Skipping to " << *skip_to_it 
+                                 << " to avoid gap of " << gap_lengths << " in repetitive region" << endl;
+                        }
+                    }
+#endif
+                    // If there was a big gap
+                    next_it = skip_to_it;
+                    next = skip_to;
                 }
-                //If there wasn't a gap then don't skip anything
+#ifdef debug_chain_alignment
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Not bothering to skip to " << *skip_to_it 
+                                 << " because total gaps are only " << gap_lengths << endl;
+                        }
+                    }
+#endif
+                // If there wasn't a gap then don't skip anything
                 break;
             }
         }
