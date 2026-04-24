@@ -331,6 +331,13 @@ public:
     /// Return true if the given index is available and can be require()'d, and
     /// false otherwise.
     bool available(const IndexName& identifier) const;
+    
+    /// For two available indexes, returns true if the modification times
+    /// on the eariler index are no later than those on the later index.
+    ///
+    /// Useful for enforcing that downstream indexes haven't had their upstream
+    /// indexes overwritten.
+    bool predates(const IndexName& earlier, const IndexName& later) const;
 
     /// Get the possible filename(s) associated with the given index with the given prefix.
     /// TODO: Get this to account for sample-scoped indexes.
