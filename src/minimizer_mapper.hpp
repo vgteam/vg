@@ -327,8 +327,13 @@ class MinimizerMapper : public AlignerClient {
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
 
-    /// When turning chains into alignments, we can skip seeds to create gaps up to this
-    /// length in the graph
+    /// When turning chains into alignments, we can skip seeds if otherwise
+    /// there would be a forced indel of at least this much
+    static constexpr size_t default_min_indel_avoid_bases = 0;
+    size_t min_indel_avoid_bases = default_min_indel_avoid_bases;
+
+    /// When turning chains into alignments, we can skip seeds to link
+    /// seeds of at most this distance apart in the graph
     static constexpr size_t default_max_skipped_bases = 0;
     size_t max_skipped_bases = default_max_skipped_bases;
     

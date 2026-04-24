@@ -2754,7 +2754,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 ++skip_to_it;
             } else {
                 // skip_to is either not skippable or too far away so stop
-                if (gap_lengths > 50) {
+                if (gap_lengths > this->min_indel_avoid_bases) {
 #ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)

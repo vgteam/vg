@@ -493,10 +493,16 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         int_is_nonnegative
     );
     chaining_opts.add_range(
+        "min-indel-avoid-bases",
+        &MinimizerMapper::min_indel_avoid_bases,
+        MinimizerMapper::default_min_indel_avoid_bases,
+        "skip seeds in a chain for alignment which would force an indel of INT bases or more"
+    );
+    chaining_opts.add_range(
         "max-skipped-bases",
         &MinimizerMapper::max_skipped_bases,
         MinimizerMapper::default_max_skipped_bases,
-        "when skipping seeds in a chain for alignment, allow a gap of at most INT in the graph"
+        "when skipping seeds in a chain for alignment, connect seeds at most INT bases apart"
     );
     chaining_opts.add_range(
         "max-chains-per-tree",
@@ -943,6 +949,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<int>("max-min-chain-score", 46)
+        .add_entry<size_t>("max-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
@@ -998,6 +1005,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<double>("min-chain-score-per-base", 0.052)
         .add_entry<int>("max-min-chain-score", 1900.0)
+        .add_entry<size_t>("max-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
