@@ -15,6 +15,7 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 set(CMAKE_INSTALL_INCLUDEDIR include CACHE PATH "" FORCE)
 set(CMAKE_INSTALL_LIBDIR     lib     CACHE PATH "" FORCE)
+set(BUILD_PYTHON_BINDINGS OFF CACHE PATH "" FORCE)
 set(RUN_DOXYGEN OFF CACHE PATH "" FORCE)
 
 include(FetchContent)
@@ -48,15 +49,23 @@ find_package(CURL)
 #     upstream we already trust. The on-disk deps/<name>/ checkouts of these
 #     are intentionally ignored — they are untracked working-tree leftovers.
 # ---------------------------------------------------------------------------
+FetchContent_Declare(sdsl-lite
+    GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
+    GIT_TAG       5c425837929b6f323fd7cccfa6c15ffcec6d94bb)
 FetchContent_Declare(libhandlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph.git
     GIT_TAG        ae42926da7743a7108db0474bfcf1a1cdac34abb)
+FetchContent_MakeAvailable(
+    libhandlegraph
+    sdsl-lite
+)
+
 FetchContent_Declare(libvgio
     GIT_REPOSITORY https://github.com/vgteam/libvgio.git
-    GIT_TAG        fff151be9d8255672d91f32a5b41285584905743)
+    GIT_TAG        c23b62300c2f9274fc7302a7febc45bf3a78890a)
 FetchContent_Declare(libbdsg
     GIT_REPOSITORY https://github.com/vgteam/libbdsg.git
-    GIT_TAG        e74fb663a5f85bc1f76d159b2b3a3691ed85862f)
+    GIT_TAG        fab1e030991f42c5ff50e61fc4e335834616eae0)
 FetchContent_Declare(Complete-Striped-Smith-Waterman-Library
     GIT_REPOSITORY https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
     GIT_TAG        f53d459841b632ac6ab0e59e1a0ef6d056034631)
@@ -65,13 +74,12 @@ FetchContent_Declare(gssw
     GIT_TAG        594357fd2473342e6537979a091c1c6d1480b953)
 FetchContent_Declare(xg
     GIT_REPOSITORY https://github.com/vgteam/xg.git
-    GIT_TAG        db685a3d37666250171866c5ad274687c1f47d5e)
+    GIT_TAG        7d6810eec0e4cb5c82ee1283a6ea045ba7770ba1)
 FetchContent_Declare(cpp_progress_bar
     GIT_REPOSITORY https://github.com/vgteam/cpp_progress_bar.git
     GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f)
 
 FetchContent_MakeAvailable(
-    libhandlegraph
     libvgio
     libbdsg
     Complete-Striped-Smith-Waterman-Library
@@ -185,9 +193,6 @@ target_link_libraries(vg_htslib INTERFACE ZLIB::ZLIB Threads::Threads)
 # Make tabixpp's #include <htslib/...> resolve.
 target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
 
-# sdsl-lite (custom Make.helper). Has CMakeLists too — prefer it.
-add_subdirectory(${VG_DEPS_DIR}/sdsl-lite ${CMAKE_BINARY_DIR}/deps/sdsl-lite EXCLUDE_FROM_ALL)
-
 # gbwt / gcsa2 / gbwtgraph — chain of custom Makefiles depending on sdsl-lite.
 # Build via ExternalProject and import as static libs. Each one needs sdsl
 # headers/libs present at build time; they expect the sibling layout the
@@ -200,6 +205,8 @@ function(vg_makefile_dep target_name dep_name lib_filename)
         BUILD_IN_SOURCE   1
         CONFIGURE_COMMAND ""
         BUILD_COMMAND     $(MAKE) ${lib_filename}
+            SDSL_DIR=${sdsl-lite_SOURCE_DIR}
+            HG_DIR=${libhandlegraph_SOURCE_DIR}
         INSTALL_COMMAND   ""
         BUILD_BYPRODUCTS  ${lib_path})
     add_library(${target_name} STATIC IMPORTED)
@@ -291,7 +298,7 @@ target_include_directories(vg_core PUBLIC
 target_link_libraries(vg_core PUBLIC
     # vgteam (FetchContent)
     handlegraph_shared libvgio libbdsg libgssw
-    xg cpp_progress_bar
+    libxg_shared cpp_progress_bar
     # vendored static libs
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
     vg_headers_only
