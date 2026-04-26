@@ -40,7 +40,7 @@ TEST_CASE("An IndexedVG can be created for a single node", "[handle][indexed-vg]
         ]
     })";
     
-    // Load the JSON
+    // Load the JSON to Protobuf specifically.
     Graph proto_graph;
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     

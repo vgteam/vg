@@ -2448,7 +2448,7 @@ namespace vg {
                     // in the left_idxs and right_idxs vectors
                     int64_t target_len = 2 * seq_len - left_side.clip_length - right_side.clip_length;
                     auto distance_diff = [&](size_t l, size_t r) {
-                        return abs<int64_t>(get<2>(left_sites[left_idxs[l]]) + get<2>(right_sites[right_idxs[r]]) - target_len);
+                        return std::abs(static_cast<int64_t>(get<2>(left_sites[left_idxs[l]]) + get<2>(right_sites[right_idxs[r]]) - target_len));
                     };
                     
                     // sweep to identify pairs that most nearly align

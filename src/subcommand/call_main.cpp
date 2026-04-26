@@ -801,7 +801,7 @@ int main_call(int argc, char** argv) {
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
     if (gaf_output) {
-        alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
+        alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, vg::get_thread_count(), graph);
         // TODO: There should be a general function for emitting headers. See giraffe_main.cpp.
         io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(alignment_emitter.get());
         if (gbz_graph.get() != nullptr && gaf_emitter != nullptr) {

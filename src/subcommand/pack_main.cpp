@@ -200,7 +200,7 @@ int main_pack(int argc, char** argv) {
     // use some naive heuristics to come up with bin count and batch size based on thread count
     // more bins: finer grained parallelism at cost of more mutexes and allocations
     // bigger batch size: more robustness to sorted input at cost of less parallelism
-    size_t num_threads = get_thread_count();
+    size_t num_threads = vg::get_thread_count();
     size_t batch_size = Packer::estimate_batch_size(num_threads);
     size_t bin_count = Packer::estimate_bin_count(num_threads);
 

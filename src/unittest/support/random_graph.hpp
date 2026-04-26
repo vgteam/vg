@@ -1,11 +1,16 @@
+#ifndef VG_UNITTEST_RANDOM_GRAPH_HPP_INCLUDED
+#define VG_UNITTEST_RANDOM_GRAPH_HPP_INCLUDED
+/** \file random_graph.hpp
+ * Utilities for randomizing graphs for test cases.
+ */
+
+
 #include "handle.hpp"
 #include <vector>
 
-#ifndef VG_UNITTEST_RANDOM_GRAPH_HPP_INCLUDED
-#define VG_UNITTEST_RANDOM_GRAPH_HPP_INCLUDED
 
-namespace vg{
-namespace unittest{
+namespace vg {
+namespace unittest {
 
 /// Create a random graph by adding variation to a sequence of length seq_size
 /// variant_len is the mean length of a larger variation and variant_count

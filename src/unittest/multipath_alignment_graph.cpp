@@ -3,7 +3,8 @@
 /// unit tests for the multipath mapper's MultipathAlignmentGraph
 
 #include <iostream>
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include <vg/vg.pb.h>
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
@@ -47,13 +48,9 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     })";
     
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG vg;
-    vg.extend(proto_graph);
-    
+    bdsg::HashGraph vg;
+    ::vg::io::json2graph(graph_json, &vg);
+
     // Make snarls on it
     CactusSnarlFinder bubble_finder(vg);
     IntegratedSnarlFinder snarl_finder(vg);

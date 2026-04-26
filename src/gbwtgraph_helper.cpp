@@ -449,7 +449,7 @@ std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const Minim
 void cache_payloads(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex& distance_index,
-    hash_map<nid_t, payload_t>& node_id_to_payload,
+    vg::hash_map<nid_t, payload_t>& node_id_to_payload,
     ZipCodeCollection* oversized_zipcodes,
     bool progress
 ) {
@@ -460,22 +460,37 @@ void cache_payloads(
 
     const handlegraph::HandleGraph* graph_ptr = (const handlegraph::HandleGraph*) &gbz.graph;
 
+    double total_zipcode_time = 0.0, total_decoder_time = 0.0;
+    std::atomic<uint64_t> node_count = 0;
     gbz.graph.for_each_handle([&](const handle_t& handle) {
         nid_t node_id = gbz.graph.get_id(handle);
-        ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
-        zipcode.fill_in_zipcode_from_pos(distance_index, pos, true, graph_ptr);
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos, false, graph_ptr);
+        zipcode.fill_in_full_decoder();
+        if (++node_count % 10000 == 0 && progress) {
+            double telapsed = gbwt::readTimer() - start;
+            #pragma omp critical (cerr)
+            std::cerr << "  Cached " << node_count << " nodes in " << telapsed << "s" << std::endl;
+        }
+
         payload_t payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.
             // Add it to the oversized zipcode list.
-            zipcode.fill_in_full_decoder();
-            size_t offset = oversized_zipcodes->size();
-            oversized_zipcodes->emplace_back(zipcode);
+            size_t offset;
+            #pragma omp critical (cache_payloads_zipcodes)
+            {
+                offset = oversized_zipcodes->size();
+                oversized_zipcodes->emplace_back(zipcode);
+            }
             payload = { 0, offset };
         }
-        node_id_to_payload.emplace(node_id, payload);
-    });
+        #pragma omp critical (cache_payloads_map)
+        {
+            node_id_to_payload.emplace(node_id, payload);
+        }
+    }, true);
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
@@ -537,8 +552,18 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     } else {
         // Cache payloads before building the index.
         // A zipcode only depends on the node id.
-        hash_map<nid_t, payload_t> node_id_to_payload;
+        vg::hash_map<nid_t, payload_t> node_id_to_payload;
         node_id_to_payload.reserve(gbz.graph.max_node_id() - gbz.graph.min_node_id());
+        // Re-preload the distance index right before use. find_frequent_kmers
+        // runs for a long time and may evict the mmap'd index pages from the OS
+        // page cache. We also preload eagerly right after loading the index (in
+        // minimizer_main.cpp) so the kernel treats those pages as recently-used;
+        // together the two preloads prevent cache_payloads from page-faulting on
+        // every node under the memory pressure of 32 parallel threads.
+        if (params.progress) {
+            std::cerr << "Preloading distance index";
+        }
+        distance_index->preload(true);
         cache_payloads(gbz, *distance_index, node_id_to_payload, oversized_zipcodes, params.progress);
 
         auto get_payload = [&](const pos_t& pos) -> const code_type* {

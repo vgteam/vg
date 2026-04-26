@@ -9,23 +9,34 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include "vg/io/json2pb.h"
-#include <vg/vg.pb.h>
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include "catch.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
+#include "support/randomly_flipped_nodes.hpp"
+#include "support/snarl_decomposition_fuzzer.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "../traversal_finder.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 #include "xg.hpp"
+#include <handlegraph/algorithms/weakly_connected_components.hpp>
+#include <handlegraph/algorithms/find_shortest_paths.hpp>
 
 //#define debug
 
 namespace vg {
     namespace unittest {
+
+    // TODO: Having *any* operator<< overloads in vg::unittest seems to hide
+    // the ones that are just in vg, somehow.
+    using vg::operator<<;
+
+
     static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
         VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
         pair<unordered_set<Node*>, unordered_set<Edge*> > ret;
@@ -192,7 +203,82 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(2, true, 0, 2, true, 1) == 1);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
+        TEST_CASE( "Can distance index nested chain without loop", "[snarl_distance]" ) {
+            bdsg::HashGraph graph;
+            handle_t h1 = graph.create_handle("G");
+            handle_t h2 = graph.create_handle("A");
+            handle_t h3 = graph.create_handle("T");
+            handle_t h4 = graph.create_handle("T");
+            handle_t h5 = graph.create_handle("A");
+            handle_t h6 = graph.create_handle("C");
+            handle_t h7 = graph.create_handle("A");
+            
+            // Wire it up as a stick
+            graph.create_edge(h1, h2);
+            graph.create_edge(h2, h3);
+            graph.create_edge(h3, h4);
+            graph.create_edge(h4, h5);
+            graph.create_edge(h5, h6);
+            graph.create_edge(h6, h7);
+
+            // Allow skipping a run of nodes to make a snarl with a child chain
+            graph.create_edge(h2, h5);
+
+            IntegratedSnarlFinder snarl_finder(graph);
+
+            SECTION("Snarl classifications are correct") {
+                SECTION("Distance index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
+                }
+                SECTION("Distanceless index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
+                }
+            }
+        }
+        TEST_CASE( "Can distance index nested chain with a loop hiding in the middle", "[snarl_distance]" ) {
+            bdsg::HashGraph graph;
+            handle_t h1 = graph.create_handle("G");
+            handle_t h2 = graph.create_handle("A");
+            handle_t h3 = graph.create_handle("T");
+            handle_t h4 = graph.create_handle("T");
+            handle_t h5 = graph.create_handle("A");
+            handle_t h6 = graph.create_handle("C");
+            handle_t h7 = graph.create_handle("A");
+            
+            // Wire it up as a stick
+            graph.create_edge(h1, h2);
+            graph.create_edge(h2, h3);
+            graph.create_edge(h3, h4);
+            graph.create_edge(h4, h5);
+            graph.create_edge(h5, h6);
+            graph.create_edge(h6, h7);
+
+            // Allow skipping a run of nodes to make a snarl with a child chain that has a few nodes in it
+            graph.create_edge(h1, h6);
+
+            // Allow turning around with an edge hiding somewhere in the middle of the chain
+            graph.create_edge(h3, graph.flip(h3));
+
+            IntegratedSnarlFinder snarl_finder(graph);
+
+            SECTION("Snarl classifications are correct") {
+                SECTION("Distance index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
+                }
+                SECTION("Distanceless index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(graph.get_id(h3))))));
+                }
+            }
+        }
+        TEST_CASE( "Can distance index nested chain with a loop", "[snarl_distance]" ) {
         
             VG graph;
                 
@@ -230,7 +316,8 @@ namespace vg {
             Edge* e17 = graph.create_edge(n11, n12);
             Edge* e18 = graph.create_edge(n12, n13);
             
-            graph.serialize_to_file("test_graph.vg");
+            vg::io::save_handle_graph(&graph, "test_graph.vg");
+            
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SECTION("Traversal of chain") {
@@ -248,16 +335,13 @@ namespace vg {
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                     REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))));
                     REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))));
-                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), true));
-                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))));
                 } SECTION("Distanceless index") {
                     SnarlDistanceIndex distance_index;
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
-                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))), true, &graph));
-                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id()))), true, &graph));
-                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), true, &graph));
-                    // TODO: This isn't true because it would be too much work to recursively check all children using only the graph
-                    //REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false, &graph));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))));
                 }
             }
             SECTION("Minimum distances are correct") {
@@ -3577,12 +3661,9 @@ namespace vg {
             //    }
             //    )";
             //    
-            //    VG graph;
-            //    
             //    // Load up the graph
-            //    Graph g;
-            //    json2pb(g, graph_json.c_str(), graph_json.size());
-            //    graph.extend(g);
+            //    VG graph;
+            //    vg::io::json2graph(graph_json, &graph);
             //    
             //    // Define the one snarl
             //    Snarl snarl1;
@@ -3709,12 +3790,9 @@ namespace vg {
             //    string snarl2_json = R"({"type": 1, "end": {"node_id": 187209, "backward": true}, "start": {"node_id": 178895, "backward": true}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
             //    string snarl3_json = R"({"type": 1, "end": {"node_id": 178896}, "start": {"node_id": 178895}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
             //    
-            //    VG graph;
-            //    
             //    // Load up the graph
-            //    Graph g;
-            //    json2pb(g, graph_json.c_str(), graph_json.size());
-            //    graph.extend(g);
+            //    VG graph;
+            //    vg::io::json2graph(graph_json, &graph);
             //    
             //    // Load the snarls
             //    Snarl snarl1, snarl2, snarl3;
@@ -3885,9 +3963,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
@@ -4145,9 +4221,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4258,9 +4332,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4407,9 +4479,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
          
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4536,9 +4606,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4645,9 +4713,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4749,9 +4815,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4919,9 +4983,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -5042,9 +5104,7 @@ namespace vg {
             
             // Make an actual graph
             VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
+            vg::io::json2graph(graph_json, &graph);
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -6624,6 +6684,25 @@ namespace vg {
             }
         }
 
+        TEST_CASE( "Tiny oversized snarl", "[snarl_distance]" ) {
+          VG graph;
+          handle_t n1 = graph.create_handle("GCA");
+          handle_t n2 = graph.create_handle("T");
+          handle_t n3 = graph.create_handle("G");
+          handle_t n4 = graph.create_handle("CTGA");  
+
+          graph.create_edge(n1, n2);
+          graph.create_edge(n1, n3);
+          graph.create_edge(n2, n3); 
+          graph.create_edge(n2, n4);  
+          graph.create_edge(n3, n4); 
+          IntegratedSnarlFinder snarl_finder(graph);
+          SnarlDistanceIndex distance_index;
+          fill_in_distance_index(&distance_index, &graph, &snarl_finder, 1); 
+
+          REQUIRE(distance_index.minimum_distance(2, false, 0, 3, false, 0, false, &graph) == 1); 
+        } 
+
         TEST_CASE( "Oversized snarl","[snarl_distance]" ) {
             VG graph;
          
@@ -7372,6 +7451,9 @@ namespace vg {
         }
 
 
+        // TODO: This test case doesn't do anything (runs 0 iterations).
+        // When I tell it to actually run iterations, it fails.
+        // Has it ever worked?
         TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
 
             int64_t min = 20; int64_t max = 50;
@@ -7480,7 +7562,7 @@ namespace vg {
                                      << distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0)
                                      << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                      << " is in the subgraph but shouldn't be " << endl;
-                                graph.serialize_to_file("test_graph.vg");
+                                vg::io::save_handle_graph(&graph, "test_graph.vg");
                             }
                             REQUIRE((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
                         } else {
@@ -7491,7 +7573,7 @@ namespace vg {
                                      << distance_index.minimum_distance(nodeID1, false, 0,node_id, true, 0)
                                      << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                      << " is not in the subgraph but should be " << endl;
-                                graph.serialize_to_file("test_graph.vg");
+                                vg::io::save_handle_graph(&graph, "test_graph.vg");
                                 REQUIRE(!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
                             }
                         }
@@ -7556,31 +7638,49 @@ namespace vg {
         */
         
         TEST_CASE( "Distance index can traverse all the snarls in random graphs",
-                  "[snarl_distance_random]" ) {
+                  "[snarl_distance][snarl_distance_random]" ) {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
-            default_random_engine generator(test_seed_source());
+            std::default_random_engine generator(test_seed_source());
             
             for (size_t repeat = 0; repeat < 1000; repeat++) {
             
-                uniform_int_distribution<size_t> bases_dist(100, 1000);
+                std::uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
-                uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
+                std::uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
                 size_t variant_bases = variant_bases_dist(generator);
-                uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
+                std::uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
                 size_t variant_count = variant_count_dist(generator);
+                
+                std::uniform_real_distribution<double> flip_dist(0.0, 1.0);
+                double node_flip_fraction = flip_dist(generator);
+                double chain_flip_fraction = flip_dist(generator);
 
-                uniform_int_distribution<size_t> snarl_size_limit_dist(500, 1000);
+                std::uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
-                        
+
 #ifdef debug
-                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with " << node_flip_fraction << " nodes flipped and " << chain_flip_fraction << " of chains flipped, with size limit " << size_limit << endl;
 #endif
-            
-                VG graph;
-                random_graph(bases, variant_bases, variant_count, &graph);
-                IntegratedSnarlFinder finder(graph); 
+               
+                // Generate a base graph
+                VG base_graph;
+                random_graph(bases, variant_bases, variant_count, &base_graph);
+                
+                // Flip some fraction of the nodes to their local reverse orientation
+                bdsg::HashGraph graph = randomly_flipped_nodes(base_graph, node_flip_fraction, generator);
+
+                // Find snarls
+                IntegratedSnarlFinder base_finder(graph);
+
+                // Flip some fraction of the chains to their opposite orientation.
+                // Note that we can't flip the snarls because the snarl decomposition
+                // requires snarls to be articulated as forward along their
+                // chains.
+                SnarlDecompositionFuzzer finder(&graph, &base_finder, chain_flip_fraction, generator);
+                
+                // Build the index
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
@@ -7640,7 +7740,7 @@ namespace vg {
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            graph.serialize_to_file("test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                             REQUIRE(false);
                         }
                         if (max_distance < snarl_distance){
@@ -7648,11 +7748,10 @@ namespace vg {
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "minimum: " << snarl_distance << " maximum: " << max_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            graph.serialize_to_file("test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                             REQUIRE(false);
                         }
                         REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
-                            graph.serialize_to_file("test_graph.vg");
                         if (!traceback.first.empty() && ! traceback.second.empty()) {
                             size_t traceback_distance = 0;
                             for (auto x : traceback.first){
@@ -7699,7 +7798,7 @@ namespace vg {
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
-                            graph.serialize_to_file("test_graph.vg");
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
                             REQUIRE(false);
                         }
                         REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
@@ -7789,8 +7888,372 @@ namespace vg {
         //                return true;
         //            });
         //}
+        
+        TEST_CASE( "Distance index can query a troublesome oversized snarl",
+                  "[snarl_distance]" ) {
+
+            std::string graph_json = R"({
+                "node": [
+                    {"id": "19","sequence": "A"},
+                    {"id": "20","sequence": "A"},
+                    {"id": "21","sequence": "A"},
+                    {"id": "22","sequence": "A"},
+                    {"id": "23","sequence": "A"} 
+                ], "edge": [
+                    {"from": "19","to": "20"},
+                    {"from": "19","to": "22"},
+                    {"from": "20","to": "21"},
+                    {"from": "20","to": "23"},
+                    {"from": "21","to": "22"}, 
+                    {"from": "22","to": "23"}
+                ]
+            })";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+
+            id_t node_id1 = 19; bool rev1 = false ; size_t offset1 = 0;
+            id_t node_id2 = 23; bool rev2 = false ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t dijkstra_distance = std::numeric_limits<size_t>::max();
+            handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                if (reached == handle2) {
+                    dijkstra_distance = distance;
+                    dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                    dijkstra_distance += offset2;
+                    return false;
+                }
+                return true;
+            }
+            , false);
+
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
+        }
+
+        TEST_CASE( "Distance index can query out of a SNP with a reversing allele as an oversided snarl",
+                  "[snarl_distance]" ) {
+            
+            // This is a snarl from 1 to 2, where 4 nand 5 are a SNP, and 3
+            // lets you double back to the start
+            std::string graph_json = R"({
+                "node": [
+                    {"id": "1","sequence": "AAAAA"},
+                    {"id": "2","sequence": "AAAAA"},
+                    {"id": "3","sequence": "A"},
+                    {"id": "4","sequence": "A"},
+                    {"id": "5","sequence": "A"} 
+                ], "edge": [
+                    {"from": "1","to": "3"},
+                    {"from": "1","to": "4"},
+                    {"from": "1","to": "5"},
+                    {"from": "3","to": "1", "to_end": true},
+                    {"from": "4","to": "2"}, 
+                    {"from": "5","to": "2"}
+                ]
+            })";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+            
+            // We want to be able to get out of the snarl from node 4, which we definitely can.
+            id_t node_id1 = 4; bool rev1 = false ; size_t offset1 = 1;
+            id_t node_id2 = 2; bool rev2 = false ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t true_distance = 0;
+
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+
+            // And out of the snarl to the left from 3 reverse to 1 reverse should also be 0
+            node_id1 = 3; rev1 = true; offset1 = 1;
+            node_id2 = 1; rev2 = true; offset2 = 0;
+            true_distance = 0;
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+
+        }
+
+        TEST_CASE( "Distance index can query within a fiddly snarl",
+                  "[snarl_distance]" ) {
+            
+            std::string graph_json = R"({"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "3", "to_end": true}, {"from": "1", "to": "4"}, {"from": "1", "to": "5"}, {"from": "4", "to": "5", "to_end": true}, {"from": "2", "from_start": true, "to": "4", "to_end": true}], "node": [{"id": "5", "sequence": "A"}, {"id": "1", "sequence": "AAAAA"}, {"id": "4", "sequence": "A"}, {"id": "2", "sequence": "AAAAA"}, {"id": "3", "sequence": "A"}]})";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+            
+            id_t node_id1 = 4; bool rev1 = false ; size_t offset1 = 1;
+            id_t node_id2 = 5; bool rev2 = true ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t true_distance = 0;
+
+            REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == true_distance);
+        }
+
+        TEST_CASE( "Distance index can query into a child snarl in reverse",
+                  "[snarl_distance]" ) {
+            
+            std::string graph_json = R"({"node":[{"id":"79","sequence":"A"},{"id":"16","sequence":"A"},{"id":"60","sequence":"A"},{"id":"37","sequence":"A"},{"id":"40","sequence":"A"},{"id":"53","sequence":"A"},{"id":"59","sequence":"A"},{"id":"63","sequence":"A"},{"id":"18","sequence":"A"},{"id":"38","sequence":"A"},{"id":"62","sequence":"A"}],"edge":[{"from":"16","to":"53"},{"from":"16","from_start":true,"to":"79","to_end":true},{"from":"60","to":"62"},{"from":"60","from_start":true,"to":"79","to_end":true},{"from":"37","from_start":true,"to":"63","to_end":true},{"from":"37","from_start":true,"to":"40"},{"from":"53","to":"60"},{"from":"59","to":"63"},{"from":"59","from_start":true,"to":"60","to_end":true},{"from":"18","to":"53"},{"from":"18","to":"38"},{"from":"18","from_start":true,"to":"79","to_end":true},{"from":"18","from_start":true,"to":"37","to_end":true},{"from":"38","to":"63","to_end":true},{"from":"38","to":"40"},{"from":"62","to":"63"}]})";
+
+            bdsg::HashGraph graph;
+            vg::io::json2graph(graph_json, &graph);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 2);
+            
+            id_t node_id1 = 16; bool rev1 = false ; size_t offset1 = 1;
+            id_t node_id2 = 62; bool rev2 = true ; size_t offset2 = 0;
+            handle_t handle1 = graph.get_handle(node_id1, rev1);
+            handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+            //Find actual distance
+            size_t dijkstra_distance = std::numeric_limits<size_t>::max();
+            handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                if (reached == handle2) {
+                    dijkstra_distance = distance;
+                    dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                    dijkstra_distance += offset2;
+                    return false;
+                }
+                return true;
+            }
+            , false);
+
+            size_t index_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
+
+            REQUIRE(index_distance == dijkstra_distance);
+        }
+
+
+        TEST_CASE( "Distance index can query all possible 3-node-with-legs snarls",
+                 "[snarl_distance]" ) {
+
+            // We're going to generate all possible snarls you can get by
+            // starting with the boundary nodes, taking up to 3 nodes and
+            // connecting them, one nodeside at a time, onto the existing
+            // nodes.
+            //
+            // Combinatorics says this is a manageable number; each nodeside
+            // picks from one of the previous nodesides and attaches to it.
+            
+            /// Call the callback with each possible combination of choices of
+            /// previous items.
+            ///
+            /// start_size is the number of items present before we start
+            /// making choices; the first entry can choose from start_size
+            /// items.
+            /// 
+            /// end_size is the total number of items to think about, including
+            /// those in start_size.
+            /// 
+            /// Calls the callback with all possible vectors of length
+            /// (end_size - start_size) matching these constraints.
+            auto for_all_choice_combinations = [](size_t start_size, size_t end_size, const std::function<void(const std::vector<size_t>&)>& callback) { 
+
+                std::vector<size_t> choices(end_size - start_size, 0);
+                while (true) {
+#ifdef debug
+                    std::cerr << "Consider combination:";
+                    for (auto& item : choices) {
+                        std::cerr << " " << item;
+                    }
+                    std::cerr << std::endl;
+#endif
+                    callback(choices);
+                    choices.back()++;
+                    for (size_t i = end_size - 1; i >= start_size; i--) {
+                        if (choices.at(i - start_size) >= i) {
+                            // We've reached the point where we want to pick from a
+                            // choice not available at this point.
+                            // At i=2 we can choose between 0 and 1, so we carry at i.
+                            if (i == start_size) {
+                                // We've counted all possibilities
+                                return;
+                            } else {
+                                // Carry and reset to 0.
+                                choices.at(i - start_size - 1)++;
+                                choices.at(i - start_size) = 0;
+                            }
+                        } else {
+                            // No more carrying to do
+                            break;
+                        }
+                    }
+                }
+            };
+            
+            // How big should a snarl be allowed to be before being oversized?
+            size_t size_limit = 2;
+            // How many content nodes should be inside the snarl?
+            const size_t MAX_NODES = 3;
+            // How many node sides do we need to worry about, including the boundary sentinels?
+            size_t max_node_sides = MAX_NODES * 2 + 2;
+            for_all_choice_combinations(2, max_node_sides, [&](const std::vector<size_t>& choices) {
+                // Build the choices into a graph.
+
+                bdsg::HashGraph graph;
+                // Make the bounding nodes heavy so they are likely to root the snarl
+                handle_t start_node = graph.create_handle("AAAAA");
+                handle_t end_node = graph.create_handle("AAAAA");
+
+                std::vector<handle_t> connect_to;
+                connect_to.reserve(max_node_sides);
+                // Choice 0 is start node, arriving reading out
+                connect_to.push_back(graph.flip(start_node));
+                // Choice 1 is end node reading out
+                connect_to.push_back(end_node);
+
+                for (size_t i = 0; i < choices.size(); i += 2) {
+                    // Make a node
+                    handle_t new_node = graph.create_handle("A");
+                    // Make sure to remember it so it can choose itself
+                    connect_to.push_back(new_node);
+                    connect_to.push_back(graph.flip(new_node));
+                    // Connect its left and right to each pair of choices.
+                    graph.create_edge(graph.flip(new_node), connect_to.at(choices.at(i)));
+                    graph.create_edge(new_node, connect_to.at(choices.at(i + 1)));
+                }
+
+                // TODO: It might be more efficient to un-build the things that
+                // change between graphs instead of rebuilding from scratch for
+                // every case.
+                
+                // Skip graphs where the choices mean the graph isn't actually
+                // connected, because then it can't be recognized as a snarl
+                // probably.
+                std::vector<std::unordered_set<nid_t>> components = handlegraph::algorithms::weakly_connected_components(&graph);
+                if (components.size() > 1) {
+                    return;
+                }
+
+                // Now index the graph for query
+                IntegratedSnarlFinder finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
+
+                // Compute the truth all-to-all distances, between outgoing
+                // side of first handle and incoming side of second.
+                // Both handles are oriented along the connecting path.
+                // TODO: We compute/store both triangles of the matrix; can we avoid one somehow?
+                std::unordered_map<handle_t, std::unordered_map<handle_t, size_t>> dijkstra_distances;
+                graph.for_each_handle([&](const handle_t& base) {
+                    for (const handle_t& here : {base, graph.flip(base)}) {
+                        if (here == graph.flip(start_node) || here == end_node) {
+                            // Skip traversals looking out of the snarl
+                            return;
+                        }
+                        dijkstra_distances.emplace(here, handlegraph::algorithms::find_shortest_paths(&graph, here));
+                    }
+                });
+
+                // The Dijkstra traversal always sees a handle to itself at
+                // distance 0. We need to get the real back-to-self distance,
+                // if any, and fill that in.
+                graph.for_each_handle([&](const handle_t& base) {
+                    for (const handle_t& here : {base, graph.flip(base)}) {
+                        if (here == graph.flip(start_node) || here == end_node) {
+                            // Skip traversals looking out of the snarl
+                            return;
+                        }
+
+                        // The place we need to arrive at is ourselves, since
+                        // both start and end are oriented along the connecting
+                        // path here.
+                    
+                        size_t loop_distance = std::numeric_limits<size_t>::max();
+                        // See if we can get back here from any of the places we can get
+                        graph.follow_edges(here, false, [&](const handle_t next) {
+                            if (next == here) {
+                                // We found a real self loop
+                                loop_distance = 0;
+                                return false;
+                            }
+                            auto found_index = dijkstra_distances.find(next);
+                            if (found_index == dijkstra_distances.end()) {
+                                // This destination can't get anywhere.
+                                // This should be impossible since the Dijkstra always will point a node at itself.
+                                return true;
+                            }
+                            auto found_distance = found_index->second.find(here);
+                            if (found_distance == found_index->second.end()) {
+                                // This destination can't get back to us
+                                return true;
+                            }
+                            // If we find a way back, min in its distance.
+                            loop_distance = std::min(loop_distance, graph.get_length(next) + found_distance->second);
+                            return true;
+                        });
+
+#ifdef debug
+                        std::cerr << "Real self loop distance for " << graph.get_id(here) << (graph.get_is_reverse(here) ? "rev" : "fd") << " -> " << graph.get_id(here) << (graph.get_is_reverse(here) ? "rev" : "fd") << " is " << loop_distance << std::endl;
+#endif
+
+                        if (loop_distance == std::numeric_limits<size_t>::max()) {
+                            // There's really no way back from this node to itself in the same orientation. Delete the entry the Dijkstra search adds.
+                            dijkstra_distances.at(here).erase(here);
+                        } else {
+                            // There is a way back; store the value.
+                            dijkstra_distances.at(here)[here] = loop_distance;
+                        }
+                    };
+                });
+
+#ifdef debug
+                for (auto& [start_handle, distances] : dijkstra_distances) {
+                    for (auto& [end_handle, dijkstra_distance] : distances) {
+                        cerr << "Dijkstra sees: " << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << " = " << dijkstra_distance << endl;
+                    }
+                }
+#endif
+
+                // Now query all of the distances against the index
+                for (auto& [start_handle, distances] : dijkstra_distances) {
+                    for (auto& [end_handle, dijkstra_distance] : distances) {
+                        // Ask for distance between outgoing side of first handle and incoming side of second.
+                       
+#ifdef debug
+                        cerr << "Measure: " << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << endl;
+#endif
+
+                        size_t snarl_distance = distance_index.minimum_distance(graph.get_id(start_handle), graph.get_is_reverse(start_handle), graph.get_length(start_handle), graph.get_id(end_handle), graph.get_is_reverse(end_handle), 0, false, &graph);
+
+                        if (snarl_distance != dijkstra_distance) {
+                            cerr << "Failed exhaustive test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
+                            cerr << graph.get_id(start_handle) << (graph.get_is_reverse(start_handle) ? "rev" : "fd") << graph.get_length(start_handle) << " -> " << graph.get_id(end_handle) << (graph.get_is_reverse(end_handle) ? "rev" : "fd") << 0 << endl;
+                            cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
+                            cerr << "serializing graph to test_graph.vg" << endl;
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
+                        }
+                        REQUIRE(snarl_distance == dijkstra_distance);
+                    }
+                }
+            });
+            
+        }
+        
+
         TEST_CASE( "random minimum distance paths",
-                  "[snarl_distance_random_paths]" ) {
+                  "[snarl_distance][snarl_distance_random_paths]" ) {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
@@ -7809,7 +8272,7 @@ namespace vg {
                 size_t size_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
-                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with size limit " << size_limit << endl;
 #endif
             
                 VG graph;
@@ -7818,7 +8281,7 @@ namespace vg {
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
-                graph.serialize_to_file("test_graph.vg");
+                vg::io::save_handle_graph(&graph, "test_graph.vg");
                 for (size_t repeat_positions = 0 ; repeat_positions < 500 ; repeat_positions++) {
                     //Pick random pairs of positions and find the distance between them
                     id_t node_id1 = 0;

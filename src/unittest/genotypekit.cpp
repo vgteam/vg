@@ -10,6 +10,8 @@
 #include "../traversal_finder.hpp"
 #include "xg.hpp"
 #include "../haplotype_extracter.hpp"
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 
 namespace Catch {
 
@@ -62,10 +64,10 @@ namespace vg {
 namespace unittest {
 
 TEST_CASE("sites can be found with Cactus", "[genotype]") {
-    
+
   // Build a toy graph
   const string graph_json = R"(
-    
+
     {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -90,7 +92,7 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
             {"from": 6, "to": 8},
             {"from": 7, "to": 9},
             {"from": 8, "to": 9}
-            
+
         ],
         "path": [
             {"name": "hint", "mapping": [
@@ -101,14 +103,13 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
             ]}
         ]
     }
-    
+
     )";
-    
+
   // Make an actual graph
+  // Note: Using VG here because the test uses VG-specific methods like get_node() and get_edge()
   VG graph;
-  Graph chunk;
-  json2pb(chunk, graph_json.c_str(), graph_json.size());
-  graph.merge(chunk);
+  vg::io::json2graph(graph_json, &graph);
     
   // Make a CactusSnarlFinder
   unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
@@ -196,10 +197,10 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
 }
 
 TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integrated-snarl-finder]") {
-    
+
   // Build a toy graph
   const string graph_json = R"(
-    
+
     {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -224,7 +225,7 @@ TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integ
             {"from": 6, "to": 8},
             {"from": 7, "to": 9},
             {"from": 8, "to": 9}
-            
+
         ],
         "path": [
             {"name": "hint", "mapping": [
@@ -235,14 +236,13 @@ TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integ
             ]}
         ]
     }
-    
+
     )";
-    
+
   // Make an actual graph
+  // Note: Using VG here because the test uses VG-specific methods like get_node() and get_edge()
   VG graph;
-  Graph chunk;
-  json2pb(chunk, graph_json.c_str(), graph_json.size());
-  graph.merge(chunk);
+  vg::io::json2graph(graph_json, &graph);
     
   // Make an IntegratedSnarlFinder
   unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -329,7 +329,7 @@ TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integ
 }
 
 TEST_CASE("IntegratedSnarlFinder works when cactus graph contains back-to-back cycles along root path", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -351,17 +351,15 @@ TEST_CASE("IntegratedSnarlFinder works when cactus graph contains back-to-back c
             {"from": 3, "to": 5},
             {"from": 4, "to": 6},
             {"from": 5, "to": 6}
-            
+
         ]
     }
 
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -375,18 +373,16 @@ TEST_CASE("IntegratedSnarlFinder works when cactus graph contains back-to-back c
 }
 
 TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specific numbering", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
     {"node":[{"id":"2","sequence":"G"},{"id":"3","sequence":"G"},{"id":"4","sequence":"G"},{"id":"5","sequence":"G"},{"id":"6","sequence":"G"},{"id":"11","sequence":"G"}],
-    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}    
+    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -403,18 +399,16 @@ TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specif
 }
 
 TEST_CASE("IntegratedSnarlFinder roots correctly an all bridge edge Y graph with winning longest path", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
     {"node":[{"id":"2","sequence":"G"},{"id":"3","sequence":"G"},{"id":"4","sequence":"GG"},{"id":"5","sequence":"G"},{"id":"6","sequence":"G"},{"id":"11","sequence":"GG"}],
-    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}    
+    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -452,7 +446,7 @@ TEST_CASE("IntegratedSnarlFinder roots correctly an all bridge edge Y graph with
 }
 
 TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to-back cycles along root path", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -482,17 +476,15 @@ TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to
             {"from": 32, "to": 5},
             {"from": 4, "to": 6},
             {"from": 5, "to": 6}
-            
+
         ]
     }
 
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -506,50 +498,48 @@ TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to
 }
 
 TEST_CASE("IntegratedSnarlFinder works on a complex bundle-y region with a nested snarl", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
         {"edge": [{"from": "129672", "to": "129673"},
-                  {"from": "129662", "to": "129663"}, 
-                  {"from": "129662", "to": "129664"}, 
-                  {"from": "129664", "to": "129665"}, 
-                  {"from": "129664", "to": "129666"}, 
-                  {"from": "129666", "to": "129668"}, 
-                  {"from": "129666", "to": "129669"}, 
-                  {"from": "129666", "to": "129667"}, 
-                  {"from": "129667", "to": "129668"}, 
-                  {"from": "129667", "to": "129669"}, 
-                  {"from": "129669", "to": "129670"}, 
-                  {"from": "129669", "to": "129673"}, 
-                  {"from": "129671", "to": "129672"}, 
-                  {"from": "129668", "to": "129670"}, 
-                  {"from": "129668", "to": "129673"}, 
-                  {"from": "129665", "to": "129668"}, 
-                  {"from": "129665", "to": "129669"}, 
-                  {"from": "129665", "to": "129667"}, 
-                  {"from": "129670", "to": "129671"}, 
-                  {"from": "129670", "to": "129672"}, 
-                  {"from": "129663", "to": "129665"}, 
-                  {"from": "129663", "to": "129666"}], 
-        "node": [{"id": "129672", "sequence": "AT"}, 
-                 {"id": "129662", "sequence": "CAGGTCAAACTGTGAT"}, 
-                 {"id": "129664", "sequence": "T"}, 
-                 {"id": "129666", "sequence": "T"}, 
-                 {"id": "129667", "sequence": "G"}, 
-                 {"id": "129669", "sequence": "G"}, 
-                 {"id": "129671", "sequence": "T"}, 
-                 {"id": "129668", "sequence": "A"}, 
-                 {"id": "129665", "sequence": "A"}, 
-                 {"id": "129670", "sequence": "A"}, 
-                 {"id": "129673", "sequence": "ATATATATATACTTATTGTAAAAATCTTTAGA"}, 
+                  {"from": "129662", "to": "129663"},
+                  {"from": "129662", "to": "129664"},
+                  {"from": "129664", "to": "129665"},
+                  {"from": "129664", "to": "129666"},
+                  {"from": "129666", "to": "129668"},
+                  {"from": "129666", "to": "129669"},
+                  {"from": "129666", "to": "129667"},
+                  {"from": "129667", "to": "129668"},
+                  {"from": "129667", "to": "129669"},
+                  {"from": "129669", "to": "129670"},
+                  {"from": "129669", "to": "129673"},
+                  {"from": "129671", "to": "129672"},
+                  {"from": "129668", "to": "129670"},
+                  {"from": "129668", "to": "129673"},
+                  {"from": "129665", "to": "129668"},
+                  {"from": "129665", "to": "129669"},
+                  {"from": "129665", "to": "129667"},
+                  {"from": "129670", "to": "129671"},
+                  {"from": "129670", "to": "129672"},
+                  {"from": "129663", "to": "129665"},
+                  {"from": "129663", "to": "129666"}],
+        "node": [{"id": "129672", "sequence": "AT"},
+                 {"id": "129662", "sequence": "CAGGTCAAACTGTGAT"},
+                 {"id": "129664", "sequence": "T"},
+                 {"id": "129666", "sequence": "T"},
+                 {"id": "129667", "sequence": "G"},
+                 {"id": "129669", "sequence": "G"},
+                 {"id": "129671", "sequence": "T"},
+                 {"id": "129668", "sequence": "A"},
+                 {"id": "129665", "sequence": "A"},
+                 {"id": "129670", "sequence": "A"},
+                 {"id": "129673", "sequence": "ATATATATATACTTATTGTAAAAATCTTTAGA"},
                  {"id": "129663", "sequence": "G"}]}
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -579,23 +569,21 @@ TEST_CASE("IntegratedSnarlFinder works on a complex bundle-y region with a neste
 }
 
 TEST_CASE("CactusSnarlFinder safely handles a single node graph", "[genotype][cactus-snarl-finder]") {
-    
+
   // Build a toy graph
   const string graph_json = R"(
-    
+
     {
         "node": [
             {"id": 1, "sequence": "GATTACA"}
         ]
     }
-    
+
     )";
-    
+
   // Make an actual graph
-  VG graph;
-  Graph chunk;
-  json2pb(chunk, graph_json.c_str(), graph_json.size());
-  graph.merge(chunk);
+  bdsg::HashGraph graph;
+  vg::io::json2graph(graph_json, &graph);
     
   // Make a CactusSnarlFinder
   unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
@@ -607,15 +595,13 @@ TEST_CASE("CactusSnarlFinder safely handles a single node graph", "[genotype][ca
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a completely empty graph", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = "{}";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make a IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -625,7 +611,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a completely empty graph", "[gen
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -638,10 +624,8 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -651,7 +635,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype
 }
 
 TEST_CASE("IntegratedSnarlFinder produces all the correct types of single-node chains", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -673,10 +657,8 @@ TEST_CASE("IntegratedSnarlFinder produces all the correct types of single-node c
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     IntegratedSnarlFinder finder(graph);
@@ -736,7 +718,7 @@ TEST_CASE("IntegratedSnarlFinder produces all the correct types of single-node c
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at one end", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -757,10 +739,8 @@ TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at on
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -770,7 +750,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at on
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a single node connected component in a larger graph", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -787,10 +767,8 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node connected componen
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -813,7 +791,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node connected componen
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a single node cycle", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -828,10 +806,8 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node cycle", "[genotype
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -844,7 +820,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node cycle", "[genotype
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a totally connected graph", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -866,10 +842,8 @@ TEST_CASE("IntegratedSnarlFinder safely handles a totally connected graph", "[ge
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -882,7 +856,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a totally connected graph", "[ge
 }
 
 TEST_CASE("IntegratedSnarlFinder prefers to root at a bridge edge path in a tie", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -903,10 +877,8 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a bridge edge path in a tie"
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -935,7 +907,7 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a bridge edge path in a tie"
 }
 
 TEST_CASE("IntegratedSnarlFinder prefers to root at a cycle that is 1 bp longer", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -956,10 +928,8 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a cycle that is 1 bp longer"
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -988,7 +958,7 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a cycle that is 1 bp longer"
 }
 
 TEST_CASE("IntegratedSnarlFinder prefers to root at a chain with an up-weighted node", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -1009,10 +979,8 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a chain with an up-weighted 
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder that adds 10 bp to node 4's apparent length
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph, {{4, 10}}));
@@ -1041,7 +1009,7 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a chain with an up-weighted 
 }
 
 TEST_CASE("IntegratedSnarlFinder sees tips as disqualifying ultrabubbles", "[genotype][integrated-snarl-finder]") {
-    
+
     // Build a toy graph
     const string graph_json = R"(
 
@@ -1066,10 +1034,8 @@ TEST_CASE("IntegratedSnarlFinder sees tips as disqualifying ultrabubbles", "[gen
     )";
 
     // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
 
     // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
@@ -1098,10 +1064,10 @@ TEST_CASE("IntegratedSnarlFinder sees tips as disqualifying ultrabubbles", "[gen
 }
 
 TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype][cactus-snarl-finder]") {
-    
+
   // Build a toy graph
   const string graph_json = R"(
-    
+
     {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -1115,14 +1081,12 @@ TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph 
             {"id": 9, "sequence": "A"}
         ]
     }
-    
+
     )";
-    
+
   // Make an actual graph
-  VG graph;
-  Graph chunk;
-  json2pb(chunk, graph_json.c_str(), graph_json.size());
-  graph.merge(chunk);
+  bdsg::HashGraph graph;
+  vg::io::json2graph(graph_json, &graph);
     
   // Make a CactusSnarlFinder
   unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
@@ -1183,7 +1147,7 @@ TEST_CASE("fixed priors can be assigned to genotypes", "[genotype]") {
 TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
   // Build a toy graph
   const string graph_json = R"(
-    
+
     {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -1208,7 +1172,7 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
             {"from": 6, "to": 8},
             {"from": 7, "to": 9},
             {"from": 8, "to": 9}
-            
+
         ],
         "path": [
             {"name": "hint", "mapping": [
@@ -1219,14 +1183,12 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
             ]}
         ]
     }
-    
+
     )";
-    
+
   // Make an actual graph
-  VG graph;
-  Graph chunk;
-  json2pb(chunk, graph_json.c_str(), graph_json.size());
-  graph.merge(chunk);
+  bdsg::HashGraph graph;
+  vg::io::json2graph(graph_json, &graph);
     
   // Make a site
   Snarl site;
@@ -1329,12 +1291,10 @@ TEST_CASE("CactusSnarlFinder can differentiate ultrabubbles from snarls", "[geno
         ]
         }
         )";
-        
+
         // Make an actual graph
-        VG graph;
-        Graph chunk;
-        json2pb(chunk, graph_json.c_str(), graph_json.size());
-        graph.merge(chunk);
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
 
         // Find the snarls
         CactusSnarlFinder cubs(graph);
@@ -1381,10 +1341,8 @@ TEST_CASE("CactusSnarlFinder can differentiate ultrabubbles from snarls", "[geno
         )";
     
         // Make an actual graph
-        VG graph;
-        Graph chunk;
-        json2pb(chunk, graph_json.c_str(), graph_json.size());
-        graph.merge(chunk);
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
 
         // Find the snarls
         CactusSnarlFinder cubs(graph);
@@ -1454,10 +1412,8 @@ TEST_CASE("IntegratedSnarlFinder can differentiate ultrabubbles from snarls", "[
         )";
         
         // Make an actual graph
-        VG graph;
-        Graph chunk;
-        json2pb(chunk, graph_json.c_str(), graph_json.size());
-        graph.merge(chunk);
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
 
         // Find the snarls
         IntegratedSnarlFinder cubs(graph);
@@ -1504,10 +1460,8 @@ TEST_CASE("IntegratedSnarlFinder can differentiate ultrabubbles from snarls", "[
         )";
     
         // Make an actual graph
-        VG graph;
-        Graph chunk;
-        json2pb(chunk, graph_json.c_str(), graph_json.size());
-        graph.merge(chunk);
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
 
         // Find the snarls
         IntegratedSnarlFinder cubs(graph);
@@ -1581,11 +1535,9 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         }
         )";
     
-    // Make an actual graph
+    // Load the graph. Needs to be a vg because we will give it to a SupportAugmentedGraph later. 
     VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    vg::io::json2graph(graph_json, &graph);
 
     // Find the snarls
     CactusSnarlFinder cubs(graph);
@@ -1713,11 +1665,9 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals of simple inversions",
     }
     )";
 
-    // Make an actual graph
+    // Load the graph. Needs to be a vg because we will give it to a SupportAugmentedGraph later. 
     VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    vg::io::json2graph(graph_json, &graph);
 
     // Find the snarls
     CactusSnarlFinder cubs(graph);
@@ -1774,11 +1724,11 @@ TEST_CASE("GBWTTraversalFinder finds traversals for GBWT threads", "[genotype][g
     string graph_json = R"({"node": [{"id": 1, "sequence": "CAAATAAGGCTT"}, {"id": 2, "sequence": "G"}, {"id": 3, "sequence": "GGAAATTTTC"}, {"id": 4, "sequence": "C"}, {"id": 5, "sequence": "TGGAGTTCTATTATATTCC"}, {"id": 6, "sequence": "G"}, {"id": 7, "sequence": "A"}, {"id": 8, "sequence": "ACTCTCTGGTTCCTG"}, {"id": 9, "sequence": "A"}, {"id": 10, "sequence": "G"}, {"id": 11, "sequence": "TGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCA"}], "edge": [{"from": 1, "to": 2}, {"from": 1, "to": 3}, {"from": 2, "to": 3}, {"from": 3, "to": 4}, {"from": 3, "to": 5}, {"from": 4, "to": 5}, {"from": 5, "to": 6}, {"from": 5, "to": 7}, {"from": 6, "to": 8}, {"from": 7, "to": 8}, {"from": 8, "to": 9}, {"from": 8, "to": 10}, {"from": 9, "to": 11}, {"from": 10, "to": 11}]})";
   
     // Load the JSON
-    vg::Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(vg::VG(proto_graph));
+    xg_index.from_path_handle_graph(graph);
     
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
   

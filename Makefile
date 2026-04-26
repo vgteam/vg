@@ -104,7 +104,8 @@ ifeq ($(shell uname -s),Darwin)
     LD_UTIL_RPATH_FLAGS=""
 
     # Homebrew installs a Protobuf that uses an Abseil that is built with C++17, so we need to build with at least C++17
-    CXX_STANDARD?=17
+	# C++20 for spaceship operator and ranges
+    CXX_STANDARD?=20
 
     # We may need libraries from Macports
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -229,8 +230,9 @@ else
     $(info Compiler $(CXX) is assumed to be GCC)
 
 	# gbwtgraph uses inline variables and our oldest supported compiler has
-	# C++17, so we should use C++17
-    CXX_STANDARD?=17
+	# C++17, so we should use at least C++17.
+    # C++20 for spaceship operator and ranges
+    CXX_STANDARD?=20
 
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
@@ -820,7 +822,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 	+mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
-	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
+	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) src/sparsehash/internal/sparseconfig.h $(FILTER) && $(MAKE) install-data $(FILTER)
 
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/

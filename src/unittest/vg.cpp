@@ -8,22 +8,13 @@
 #include "../utility.hpp"
 #include "../algorithms/normalize.hpp"
 #include "../algorithms/disjoint_components.hpp"
+#include "../io/json2graph.hpp"
 #include "handle.hpp"
 
 namespace vg {
 namespace unittest {
 
 using namespace std;
-
-// Turn a JSON string into a VG graph
-VG string_to_graph(const string& json) {
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, json.c_str(), json.size());
-    graph.merge(chunk);
-    
-    return graph;
-}
 
 TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
    
@@ -44,7 +35,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
@@ -69,7 +60,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
@@ -93,7 +84,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
@@ -123,7 +114,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         }
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
@@ -252,7 +243,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         }
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
@@ -327,7 +318,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         }
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
@@ -417,7 +408,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         }
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
@@ -574,7 +565,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         }
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
@@ -742,7 +733,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         }
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         
         unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(2, node_translation);
@@ -904,7 +895,7 @@ TEST_CASE("expand_context_by_length() should respect barriers", "[vg][context]")
     }
     )";
     
-    VG graph = string_to_graph(graph_json);
+    VG graph; vg::io::json2graph(graph_json, &graph);
 
     SECTION("barriers on either end of the seed node should stop anything being extracted") {
 
@@ -962,7 +953,7 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     )";
     
     // Define a graph
-    VG graph = string_to_graph(graph_json);
+    VG graph; vg::io::json2graph(graph_json, &graph);
     
     const string path_json = R"(
     {
@@ -1051,7 +1042,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     )";
     
     // Define a graph
-    VG graph = string_to_graph(graph_json);
+    VG graph; vg::io::json2graph(graph_json, &graph);
     
     // And a path that doubles back on itself through an edge that isn't in the graph yet
     const string path_json = R"(
@@ -1310,7 +1301,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         algorithms::normalize(&graph);
         
         // One of the two alternative Ts should have been eliminated
@@ -1341,7 +1332,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         algorithms::normalize(&graph);
         
         // Those duplicate Ts should be eliminated
@@ -1375,7 +1366,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         algorithms::normalize(&graph);
         
         // Those duplicate Ts and Gs should be eliminated
@@ -1409,7 +1400,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         algorithms::normalize(&graph);
         
         // Those duplicate Ts and Gs should be eliminated
@@ -1447,7 +1438,7 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         algorithms::normalize(&graph);
         
         // Those duplicate Ts (actually As) should be eliminated
@@ -1486,7 +1477,7 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
     
         )";
         
-        VG graph = string_to_graph(graph_json);
+        VG graph; vg::io::json2graph(graph_json, &graph);
         algorithms::normalize(&graph);
         
         // Those duplicate Ts (actually As) and Gs (actually Cs) should be eliminated

@@ -1,9 +1,10 @@
 /// \file mapper.cpp
-///  
+///
 /// unit tests for the mapper
 
 #include <iostream>
 #include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 #include <vg/vg.pb.h>
 #include <bdsg/hash_graph.hpp>
 #include "../mapper.hpp"
@@ -25,14 +26,10 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
             ]}
         ]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -245,14 +242,10 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     {"position":{"node_id":1444},"rank":1059},
     {"position":{"node_id":1445},"rank":1060}]}]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
@@ -311,14 +304,10 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         ]}
     ]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
-    VG graph;
-    graph.extend(proto_graph);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
     
     // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
