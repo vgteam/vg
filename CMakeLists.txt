@@ -1,0 +1,373 @@
+cmake_minimum_required(VERSION 3.22)
+
+project(vg
+    LANGUAGES CXX C
+    DESCRIPTION "Variation Graph Tools"
+)
+
+# ---------------------------------------------------------------------------
+# Project setup
+# ---------------------------------------------------------------------------
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
+set(CMAKE_INSTALL_INCLUDEDIR include CACHE PATH "" FORCE)
+set(CMAKE_INSTALL_LIBDIR     lib     CACHE PATH "" FORCE)
+set(RUN_DOXYGEN OFF CACHE PATH "" FORCE)
+
+include(FetchContent)
+include(ExternalProject)
+include(GNUInstallDirs)
+
+# Build options. Allocator choices are mutually exclusive; jemalloc wins by default.
+option(VG_USE_JEMALLOC      "Use jemalloc as the allocator (default)"       ON)
+option(VG_USE_MIMALLOC      "Use mimalloc as the allocator"                 OFF)
+option(VG_USE_SYSTEM_ALLOC  "Use the system libc allocator"                 OFF)
+option(VG_BUILD_UNITTESTS   "Compile and link the in-tree Catch2 tests"     ON)
+option(VG_USE_BACKWARD      "Link backward-cpp for stack traces on crash"   ON)
+
+if(VG_USE_MIMALLOC OR VG_USE_SYSTEM_ALLOC)
+    set(VG_USE_JEMALLOC OFF)
+endif()
+
+set(VG_DEPS_DIR  "${CMAKE_SOURCE_DIR}/deps")
+set(VG_STAGE_DIR "${CMAKE_BINARY_DIR}/external")
+
+# OpenMP is non-negotiable for vg.
+find_package(OpenMP REQUIRED)
+find_package(Threads REQUIRED)
+find_package(ZLIB    REQUIRED)
+find_package(BZip2   REQUIRED)
+find_package(LibLZMA REQUIRED)
+find_package(CURL)
+
+# ---------------------------------------------------------------------------
+# 2a. FetchContent: deps that ship a CMakeLists.txt and have a canonical
+#     upstream we already trust. The on-disk deps/<name>/ checkouts of these
+#     are intentionally ignored — they are untracked working-tree leftovers.
+# ---------------------------------------------------------------------------
+FetchContent_Declare(libhandlegraph
+    GIT_REPOSITORY https://github.com/vgteam/libhandlegraph.git
+    GIT_TAG        ae42926da7743a7108db0474bfcf1a1cdac34abb)
+FetchContent_Declare(libvgio
+    GIT_REPOSITORY https://github.com/vgteam/libvgio.git
+    GIT_TAG        fff151be9d8255672d91f32a5b41285584905743)
+FetchContent_Declare(libbdsg
+    GIT_REPOSITORY https://github.com/vgteam/libbdsg.git
+    GIT_TAG        e74fb663a5f85bc1f76d159b2b3a3691ed85862f)
+FetchContent_Declare(Complete-Striped-Smith-Waterman-Library
+    GIT_REPOSITORY https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
+    GIT_TAG        f53d459841b632ac6ab0e59e1a0ef6d056034631)
+FetchContent_Declare(gssw
+    GIT_REPOSITORY https://github.com/vgteam/gssw.git
+    GIT_TAG        594357fd2473342e6537979a091c1c6d1480b953)
+FetchContent_Declare(xg
+    GIT_REPOSITORY https://github.com/vgteam/xg.git
+    GIT_TAG        db685a3d37666250171866c5ad274687c1f47d5e)
+FetchContent_Declare(cpp_progress_bar
+    GIT_REPOSITORY https://github.com/vgteam/cpp_progress_bar.git
+    GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f)
+
+FetchContent_MakeAvailable(
+    libhandlegraph
+    libvgio
+    libbdsg
+    Complete-Striped-Smith-Waterman-Library
+    gssw
+    xg
+    cpp_progress_bar)
+
+# Patch upstream gssw which doesn't expose its include dir.
+target_include_directories(libgssw INTERFACE ${gssw_SOURCE_DIR}/src)
+
+# ---------------------------------------------------------------------------
+# 2b. Vendored deps: small CMake-native libs that exist only locally
+# ---------------------------------------------------------------------------
+# These all have a CMakeLists.txt under deps/<name>/ — pull them in directly.
+foreach(dep IN ITEMS atomic_queue DYNAMIC mio kff-cpp-api backward-cpp structures mmmultimap)
+    if(EXISTS "${VG_DEPS_DIR}/${dep}/CMakeLists.txt")
+        add_subdirectory("${VG_DEPS_DIR}/${dep}" "${CMAKE_BINARY_DIR}/deps/${dep}" EXCLUDE_FROM_ALL)
+    endif()
+endforeach()
+
+# vcflib has a CMakeLists.txt but pulls a lot of optional deps; gate it.
+if(EXISTS "${VG_DEPS_DIR}/vcflib/CMakeLists.txt")
+    set(VCFLIB_WFA_DISABLE ON CACHE BOOL "" FORCE)
+    add_subdirectory("${VG_DEPS_DIR}/vcflib" "${CMAKE_BINARY_DIR}/deps/vcflib" EXCLUDE_FROM_ALL)
+endif()
+
+# ---------------------------------------------------------------------------
+# 2b'. Vendored sources wrapped as add_library (no upstream build system, or
+#      upstream is just a Makefile we don't want to invoke).
+# ---------------------------------------------------------------------------
+
+# ssw — single C TU + a C++ wrapper header
+add_library(vg_ssw STATIC
+    ${VG_DEPS_DIR}/ssw/src/ssw.c)
+target_include_directories(vg_ssw PUBLIC ${VG_DEPS_DIR}/ssw/src)
+
+# sha1
+add_library(vg_sha1 STATIC ${VG_DEPS_DIR}/sha1/sha1.cpp)
+target_include_directories(vg_sha1 PUBLIC ${VG_DEPS_DIR}/sha1)
+
+# fermi-lite — C-only de Bruijn assembler. Glob its top-level .c files,
+# excluding the example/main programs.
+file(GLOB FERMI_LITE_SOURCES CONFIGURE_DEPENDS ${VG_DEPS_DIR}/fermi-lite/*.c)
+list(FILTER FERMI_LITE_SOURCES EXCLUDE REGEX "(example|fml-asm)\\.c$")
+add_library(vg_fermi_lite STATIC ${FERMI_LITE_SOURCES})
+target_include_directories(vg_fermi_lite PUBLIC ${VG_DEPS_DIR}/fermi-lite)
+target_link_libraries(vg_fermi_lite PUBLIC ZLIB::ZLIB)
+
+# libdeflate — small C library; wrap its lib/ directory rather than invoking
+# its Makefile. Header lives at top of deps/libdeflate.
+file(GLOB_RECURSE LIBDEFLATE_SOURCES CONFIGURE_DEPENDS
+    ${VG_DEPS_DIR}/libdeflate/lib/*.c)
+add_library(vg_libdeflate STATIC ${LIBDEFLATE_SOURCES})
+target_include_directories(vg_libdeflate
+    PUBLIC  ${VG_DEPS_DIR}/libdeflate
+    PRIVATE ${VG_DEPS_DIR}/libdeflate/common
+            ${VG_DEPS_DIR}/libdeflate/lib)
+target_compile_definitions(vg_libdeflate PRIVATE LIBDEFLATE_STATIC)
+
+# tabixpp — thin C++ wrapper over htslib (htslib comes from ExternalProject)
+add_library(vg_tabixpp STATIC ${VG_DEPS_DIR}/tabixpp/tabix.cpp)
+target_include_directories(vg_tabixpp PUBLIC ${VG_DEPS_DIR}/tabixpp)
+
+# libVCFH
+add_library(vg_libvcfh STATIC ${VG_DEPS_DIR}/libVCFH/vcfheader.cpp)
+target_include_directories(vg_libvcfh PUBLIC ${VG_DEPS_DIR}/libVCFH)
+
+# sublinear-Li-Stephens — has many .cpp files in src/, no upstream CMake we
+# want. Compile as static lib.
+file(GLOB SUBLINEAR_SOURCES CONFIGURE_DEPENDS
+    ${VG_DEPS_DIR}/sublinear-Li-Stephens/src/*.cpp)
+list(FILTER SUBLINEAR_SOURCES EXCLUDE REGEX "(linhapexample)\\.")
+if(SUBLINEAR_SOURCES)
+    add_library(vg_sublinear STATIC ${SUBLINEAR_SOURCES})
+    target_include_directories(vg_sublinear PUBLIC ${VG_DEPS_DIR}/sublinear-Li-Stephens/src)
+endif()
+
+# Header-only INTERFACE libraries
+add_library(vg_headers_only INTERFACE)
+target_include_directories(vg_headers_only INTERFACE
+    ${VG_DEPS_DIR}/ips4o
+    ${VG_DEPS_DIR}/dozeu
+    ${VG_DEPS_DIR}/progress_bar
+    ${VG_DEPS_DIR}/lru_cache
+    ${VG_DEPS_DIR}/BBHash
+    ${VG_DEPS_DIR}/sparsepp
+    ${VG_DEPS_DIR}/sparsehash/src      # uses local config.h; falls back to system if missing
+    ${VG_DEPS_DIR}/sparsehash/src/google
+)
+
+# ---------------------------------------------------------------------------
+# 2c. ExternalProject: deps with autotools or custom Makefiles
+# ---------------------------------------------------------------------------
+# htslib (autotools)
+set(HTSLIB_INSTALL_DIR "${VG_STAGE_DIR}/htslib")
+ExternalProject_Add(htslib_ep
+    SOURCE_DIR        ${VG_DEPS_DIR}/htslib
+    BUILD_IN_SOURCE   1
+    CONFIGURE_COMMAND autoreconf -i COMMAND ./configure --prefix=${HTSLIB_INSTALL_DIR} --disable-bz2 --disable-lzma
+    BUILD_COMMAND     $(MAKE)
+    INSTALL_COMMAND   $(MAKE) install
+    BUILD_BYPRODUCTS  ${HTSLIB_INSTALL_DIR}/lib/libhts.a)
+file(MAKE_DIRECTORY ${HTSLIB_INSTALL_DIR}/include)
+add_library(vg_htslib STATIC IMPORTED)
+set_target_properties(vg_htslib PROPERTIES
+    IMPORTED_LOCATION ${HTSLIB_INSTALL_DIR}/lib/libhts.a
+    INTERFACE_INCLUDE_DIRECTORIES ${HTSLIB_INSTALL_DIR}/include)
+add_dependencies(vg_htslib htslib_ep)
+target_link_libraries(vg_htslib INTERFACE ZLIB::ZLIB Threads::Threads)
+
+# Make tabixpp's #include <htslib/...> resolve.
+target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
+
+# sdsl-lite (custom Make.helper). Has CMakeLists too — prefer it.
+add_subdirectory(${VG_DEPS_DIR}/sdsl-lite ${CMAKE_BINARY_DIR}/deps/sdsl-lite EXCLUDE_FROM_ALL)
+
+# gbwt / gcsa2 / gbwtgraph — chain of custom Makefiles depending on sdsl-lite.
+# Build via ExternalProject and import as static libs. Each one needs sdsl
+# headers/libs present at build time; they expect the sibling layout the
+# vendored Makefiles assume (deps/sdsl-lite/build).
+function(vg_makefile_dep target_name dep_name lib_filename)
+    set(install_dir "${VG_STAGE_DIR}/${dep_name}")
+    set(lib_path    "${VG_DEPS_DIR}/${dep_name}/${lib_filename}")
+    ExternalProject_Add(${dep_name}_ep
+        SOURCE_DIR        ${VG_DEPS_DIR}/${dep_name}
+        BUILD_IN_SOURCE   1
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND     $(MAKE) ${lib_filename}
+        INSTALL_COMMAND   ""
+        BUILD_BYPRODUCTS  ${lib_path})
+    add_library(${target_name} STATIC IMPORTED)
+    set_target_properties(${target_name} PROPERTIES
+        IMPORTED_LOCATION             ${lib_path}
+        INTERFACE_INCLUDE_DIRECTORIES "${VG_DEPS_DIR}/${dep_name}/include")
+    add_dependencies(${target_name} ${dep_name}_ep)
+endfunction()
+
+vg_makefile_dep(vg_gbwt      gbwt      libgbwt.a)
+vg_makefile_dep(vg_gcsa2     gcsa2     libgcsa2.a)
+vg_makefile_dep(vg_gbwtgraph gbwtgraph libgbwtgraph.a)
+
+# jemalloc — only when selected. Built via its autotools.
+if(VG_USE_JEMALLOC)
+    set(JEMALLOC_INSTALL_DIR "${VG_STAGE_DIR}/jemalloc")
+    ExternalProject_Add(jemalloc_ep
+        SOURCE_DIR        ${VG_DEPS_DIR}/jemalloc
+        BUILD_IN_SOURCE   1
+        CONFIGURE_COMMAND ./autogen.sh --prefix=${JEMALLOC_INSTALL_DIR} --with-jemalloc-prefix=
+        BUILD_COMMAND     $(MAKE)
+        INSTALL_COMMAND   $(MAKE) install
+        BUILD_BYPRODUCTS  ${JEMALLOC_INSTALL_DIR}/lib/libjemalloc.a)
+    file(MAKE_DIRECTORY ${JEMALLOC_INSTALL_DIR}/include)
+    add_library(vg_allocator STATIC IMPORTED GLOBAL)
+    set_target_properties(vg_allocator PROPERTIES
+        IMPORTED_LOCATION             ${JEMALLOC_INSTALL_DIR}/lib/libjemalloc.a
+        INTERFACE_INCLUDE_DIRECTORIES ${JEMALLOC_INSTALL_DIR}/include)
+    add_dependencies(vg_allocator jemalloc_ep)
+    set(VG_ALLOCATOR_SOURCE src/config/allocator_config_jemalloc.cpp)
+elseif(VG_USE_MIMALLOC)
+    # mimalloc has a real CMakeLists.txt — pull it in.
+    add_subdirectory(${VG_DEPS_DIR}/mimalloc ${CMAKE_BINARY_DIR}/deps/mimalloc EXCLUDE_FROM_ALL)
+    add_library(vg_allocator INTERFACE)
+    target_link_libraries(vg_allocator INTERFACE mimalloc-static)
+    set(VG_ALLOCATOR_SOURCE src/config/allocator_config_mimalloc.cpp)
+else()
+    add_library(vg_allocator INTERFACE)
+    set(VG_ALLOCATOR_SOURCE src/config/allocator_config_system.cpp)
+endif()
+
+# ---------------------------------------------------------------------------
+# 3. Generated headers: stamp git version + build environment macros.
+#    The hand-written src/version.cpp #includes these two headers and reads
+#    VG_GIT_VERSION at compile time. Replaces the existing Makefile rule that
+#    sed-generated the same files.
+# ---------------------------------------------------------------------------
+set(VG_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY ${VG_GENERATED_DIR})
+
+execute_process(
+    COMMAND git describe --always --tags
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE VG_GIT_DESCRIBE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+if(NOT VG_GIT_DESCRIBE)
+    set(VG_GIT_DESCRIBE "unknown")
+endif()
+
+file(WRITE ${VG_GENERATED_DIR}/vg_git_version.hpp
+    "#pragma once\n#define VG_GIT_VERSION \"${VG_GIT_DESCRIBE}\"\n")
+file(WRITE ${VG_GENERATED_DIR}/vg_environment_version.hpp
+    "#pragma once\n"
+    "#define VG_COMPILER_VERSION \"${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}\"\n"
+    "#define VG_OS \"${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION}\"\n"
+    "#define VG_BUILD_USER \"$ENV{USER}\"\n"
+    "#define VG_BUILD_HOST \"$ENV{HOSTNAME}\"\n")
+
+# ---------------------------------------------------------------------------
+# 4. vg_core: aggregate library of everything in src/ except main + subcommand
+# ---------------------------------------------------------------------------
+file(GLOB VG_CORE_TOPLEVEL CONFIGURE_DEPENDS src/*.cpp)
+list(FILTER VG_CORE_TOPLEVEL EXCLUDE REGEX "/main\\.cpp$")
+
+file(GLOB VG_CORE_ALGORITHMS CONFIGURE_DEPENDS src/algorithms/*.cpp)
+file(GLOB VG_CORE_IO         CONFIGURE_DEPENDS src/io/*.cpp)
+
+add_library(vg_core STATIC
+    ${VG_CORE_TOPLEVEL}
+    ${VG_CORE_ALGORITHMS}
+    ${VG_CORE_IO}
+    ${VG_ALLOCATOR_SOURCE})
+
+target_include_directories(vg_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+    ${VG_GENERATED_DIR})
+
+target_link_libraries(vg_core PUBLIC
+    # vgteam (FetchContent)
+    handlegraph_shared libvgio libbdsg libgssw
+    xg cpp_progress_bar
+    # vendored static libs
+    vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
+    vg_headers_only
+    # external (ExternalProject)
+    vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph
+    # CMake-native locals
+    sdsl
+    # system
+    OpenMP::OpenMP_CXX Threads::Threads
+    ZLIB::ZLIB BZip2::BZip2 LibLZMA::LibLZMA
+    vg_allocator)
+
+if(TARGET vg_sublinear)
+    target_link_libraries(vg_core PUBLIC vg_sublinear)
+endif()
+if(TARGET structures)
+    target_link_libraries(vg_core PUBLIC structures)
+endif()
+if(TARGET vcflib)
+    target_link_libraries(vg_core PUBLIC vcflib)
+endif()
+if(VG_USE_BACKWARD AND TARGET backward)
+    target_link_libraries(vg_core PUBLIC backward)
+endif()
+
+# ---------------------------------------------------------------------------
+# 5. Subcommand support + per-subcommand OBJECT libraries
+# ---------------------------------------------------------------------------
+add_library(vg_subcommand_support STATIC
+    src/subcommand/subcommand.cpp
+    src/subcommand/options.cpp)
+target_link_libraries(vg_subcommand_support PUBLIC vg_core)
+
+# Each *_main.cpp becomes its own OBJECT library. OBJECT libraries are linked
+# TU-by-TU (not as archive members), so the static-constructor side effect
+# that registers the subcommand survives the final link without any
+# --whole-archive plumbing.
+file(GLOB VG_SUBCOMMAND_MAINS CONFIGURE_DEPENDS src/subcommand/*_main.cpp)
+set(VG_SUBCOMMAND_TARGETS "")
+foreach(src IN LISTS VG_SUBCOMMAND_MAINS)
+    get_filename_component(stem ${src} NAME_WE)            # e.g. "giraffe_main"
+    string(REGEX REPLACE "_main$" "" name ${stem})         # -> "giraffe"
+    set(tgt "vg_sub_${name}")
+    add_library(${tgt} OBJECT ${src})
+    target_link_libraries(${tgt} PUBLIC vg_subcommand_support)
+    list(APPEND VG_SUBCOMMAND_TARGETS ${tgt})
+endforeach()
+
+# ---------------------------------------------------------------------------
+# 6. Unit-test object library (the `vg test` subcommand needs these linked in)
+# ---------------------------------------------------------------------------
+if(VG_BUILD_UNITTESTS)
+    file(GLOB VG_UNITTEST_SOURCES         CONFIGURE_DEPENDS src/unittest/*.cpp)
+    file(GLOB VG_UNITTEST_SUPPORT_SOURCES CONFIGURE_DEPENDS src/unittest/support/*.cpp)
+    add_library(vg_unittest OBJECT
+        ${VG_UNITTEST_SOURCES}
+        ${VG_UNITTEST_SUPPORT_SOURCES})
+    target_link_libraries(vg_unittest PUBLIC vg_subcommand_support)
+endif()
+
+# ---------------------------------------------------------------------------
+# 7. Final vg executable
+# ---------------------------------------------------------------------------
+add_executable(vg src/main.cpp)
+target_link_libraries(vg PRIVATE
+    ${VG_SUBCOMMAND_TARGETS}
+    vg_subcommand_support
+    vg_core)
+if(VG_BUILD_UNITTESTS)
+    target_link_libraries(vg PRIVATE vg_unittest)
+endif()
+
+# ---------------------------------------------------------------------------
+# 8. Install + test wiring
+# ---------------------------------------------------------------------------
+install(TARGETS vg RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+enable_testing()
+add_test(NAME unit COMMAND vg test)
