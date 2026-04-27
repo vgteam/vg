@@ -67,19 +67,29 @@ target_include_directories(sdsl INTERFACE
 
 FetchContent_Declare(libvgio
     GIT_REPOSITORY https://github.com/vgteam/libvgio.git
-    GIT_TAG        c23b62300c2f9274fc7302a7febc45bf3a78890a)
+    GIT_TAG        c23b62300c2f9274fc7302a7febc45bf3a78890a
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(libbdsg
     GIT_REPOSITORY https://github.com/vgteam/libbdsg.git
-    GIT_TAG        789ad6daf74192b477fa49fb066a8cf0df76a16d)
+    GIT_TAG        789ad6daf74192b477fa49fb066a8cf0df76a16d
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(Complete-Striped-Smith-Waterman-Library
     GIT_REPOSITORY https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
-    GIT_TAG        f53d459841b632ac6ab0e59e1a0ef6d056034631)
+    GIT_TAG        f53d459841b632ac6ab0e59e1a0ef6d056034631
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(gssw
     GIT_REPOSITORY https://github.com/vgteam/gssw.git
-    GIT_TAG        594357fd2473342e6537979a091c1c6d1480b953)
+    GIT_TAG        594357fd2473342e6537979a091c1c6d1480b953
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(xg
     GIT_REPOSITORY https://github.com/vgteam/xg.git
-    GIT_TAG        e925f5e76b2da27ea4e44bfb773a7ef53fae19a5)
+    GIT_TAG        vg-cmake-hublabel
+    EXCLUDE_FROM_ALL
+)
 
 # uses Makefile
 FetchContent_Declare(cpp_progress_bar
@@ -89,13 +99,16 @@ FetchContent_Declare(cpp_progress_bar
 FetchContent_Declare(dozeu_
     GIT_REPOSITORY https://github.com/vgteam/dozeu.git
     GIT_TAG        999a0ed5457e5a2ab3f47bb62b00fd3355b66dbf
-    SOURCE_DIR     ${CMAKE_BINARY_DIR}/deps/dozeu_include/dozeu)
+    SOURCE_DIR     ${CMAKE_BINARY_DIR}/deps/dozeu_include/dozeu
+)
 
 set(CMAKE_DISABLE_FIND_PACKAGE_pybind11 ON CACHE BOOL "" FORCE)
 set(ZIG OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(vcflib
     GIT_REPOSITORY https://github.com/vgteam/vcflib.git
-    GIT_TAG        pybind-optional)
+    GIT_TAG        pybind-optional
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(structures
     GIT_REPOSITORY https://github.com/vgteam/structures.git
     GIT_TAG        0b31cacac76d55d30f6f653950e8c74aeb8896f6)
@@ -134,10 +147,31 @@ target_include_directories(vcflib INTERFACE
 FetchContent_Declare(backward-cpp
     GIT_REPOSITORY https://github.com/bombela/backward-cpp.git
     GIT_TAG        0bfd0a07a61551413ccd2ab9a9099af3bad40681)
+FetchContent_Declare(raptor
+    GIT_REPOSITORY https://github.com/dajobe/raptor.git
+    GIT_TAG        db8e1a022f2198f207dafe1110344d045d0f3e06
+    EXCLUDE_FROM_ALL
+)
 
 FetchContent_MakeAvailable(
     backward-cpp
+    raptor
 )
+ # Expose raptor2 headers for consumers; BUILD_INTERFACE only, no install needed.
+ target_include_directories(raptor2 INTERFACE
+     $<BUILD_INTERFACE:${raptor_BINARY_DIR}/src>
+     $<BUILD_INTERFACE:${raptor_SOURCE_DIR}/src>
+ )
+
+ # raptor's utils/CMakeLists.txt uses ${CMAKE_BINARY_DIR}/src for raptor_config.h,
+ # which is wrong when raptor is a FetchContent dependency. Its generated headers
+ # live in ${raptor_BINARY_DIR}/src instead.
+ foreach(_t rapper rdfdiff)
+     if(TARGET ${_t})
+         target_include_directories(${_t} PRIVATE "${raptor_BINARY_DIR}/src")
+     endif()
+ endforeach()
+target_compile_options(turtle_lexer_test PRIVATE -Wno-incompatible-pointer-types)
 
 # ---------------------------------------------------------------------------
 # 2b. Vendored deps: small CMake-native libs that exist only locally
@@ -264,6 +298,8 @@ target_link_libraries(vg_htslib INTERFACE ZLIB::ZLIB Threads::Threads)
 
 # Make tabixpp's #include <htslib/...> resolve.
 target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
+# ditto for sublinear
+target_link_libraries(vg_sublinear PUBLIC vg_htslib)
 
 # ---------------------------------------------------------------------------
 # Unified staging prefix for the Makefile-based deps (gbwt/gcsa2/gbwtgraph).
@@ -442,7 +478,7 @@ target_link_libraries(vg_core PUBLIC
     dozeu
     # vendored static libs
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
-    vg_headers_only backward-cpp
+    vg_headers_only backward-cpp raptor2
     # external (ExternalProject)
     vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph vg_sonlib
     # CMake-native locals

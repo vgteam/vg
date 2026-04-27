@@ -11,10 +11,10 @@
 
 #include <gbwt/gbwt.h>
 #include <gbwt/dynamic_gbwt.h>
-#include <sublinearLS/reference.hpp>
-#include <sublinearLS/penalty_set.hpp>
-#include <sublinearLS/input_haplotype.hpp>
-#include <sublinearLS/probability.hpp>
+#include <reference.hpp>
+#include <penalty_set.hpp>
+#include <input_haplotype.hpp>
+#include <probability.hpp>
 
 
 using namespace std;

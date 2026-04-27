@@ -3,7 +3,7 @@
 #include "aligner.hpp"
 #include <vg/vg.pb.h>
 #include "flow_sort.hpp"
-#include <raptor2/raptor2.h>
+#include <raptor2.h>
 
 namespace vg {
 
