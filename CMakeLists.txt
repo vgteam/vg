@@ -92,6 +92,18 @@ FetchContent_MakeAvailable(
     xg
     cpp_progress_bar)
 
+# Patch xg: divsufsort.h is generated into the sdsl build tree, not the source tree.
+ # xg's CMakeLists only adds sdsl-lite_SOURCE_DIR/include, so we must add the build-dir paths.
+ foreach(_xg_tgt IN ITEMS xg_objs libxg_shared libxg_static)
+     if(TARGET ${_xg_tgt})
+         target_compile_options(${_xg_tgt} PRIVATE -Wno-missing-template-arg-list-after-template-kw)
+         target_include_directories(${_xg_tgt} PRIVATE
+             ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include
+             ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include/64
+             ${libhandlegraph_SOURCE_DIR}/src/include)
+     endif()
+ endforeach()
+
 # Patch upstream gssw which doesn't expose its include dir.
 target_include_directories(libgssw INTERFACE ${gssw_SOURCE_DIR}/src)
 
@@ -198,35 +210,77 @@ target_link_libraries(vg_htslib INTERFACE ZLIB::ZLIB Threads::Threads)
 # Make tabixpp's #include <htslib/...> resolve.
 target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
 
-# gbwt / gcsa2 / gbwtgraph — chain of custom Makefiles depending on sdsl-lite.
-# Build via ExternalProject and import as static libs. Each one needs sdsl
-# headers/libs present at build time; they expect the sibling layout the
-# vendored Makefiles assume (deps/sdsl-lite/build).
-function(vg_makefile_dep target_name dep_name lib_relpath)
-    # lib_relpath is relative to the dep's source dir, e.g. "lib/libgbwt.a"
-    set(lib_path "${VG_DEPS_DIR}/${dep_name}/${lib_relpath}")
+# ---------------------------------------------------------------------------
+# Unified staging prefix for the Makefile-based deps (gbwt/gcsa2/gbwtgraph).
+# Their hand-written Makefiles + sdsl-lite's Make.helper expect a single
+# include/ + lib/ tree containing sdsl, divsufsort{,64}, handlegraph, and
+# (for gbwtgraph) gbwt headers. We build that tree here.
+# ---------------------------------------------------------------------------
+set(MAKEDEPS_PREFIX     "${VG_STAGE_DIR}/makedeps")
+set(MAKEDEPS_INCLUDE    "${MAKEDEPS_PREFIX}/include")
+set(MAKEDEPS_LIB        "${MAKEDEPS_PREFIX}/lib")
+file(MAKE_DIRECTORY ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB})
+
+# Pre-stage: sdsl headers, divsufsort headers (from sdsl-lite's build tree),
+# handlegraph headers, and the static libs that gbwt/gcsa2 link against.
+add_custom_command(
+    OUTPUT  ${MAKEDEPS_INCLUDE}/.stamp
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${sdsl-lite_SOURCE_DIR}/include ${MAKEDEPS_INCLUDE}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include ${MAKEDEPS_INCLUDE}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${libhandlegraph_SOURCE_DIR}/src/include ${MAKEDEPS_INCLUDE}
+    COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:sdsl> ${MAKEDEPS_LIB}/libsdsl.a
+    COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:divsufsort>   ${MAKEDEPS_LIB}/libdivsufsort.a
+    COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:divsufsort64> ${MAKEDEPS_LIB}/libdivsufsort64.a
+    COMMAND ${CMAKE_COMMAND} -E touch ${MAKEDEPS_INCLUDE}/.stamp
+    DEPENDS sdsl divsufsort divsufsort64 handlegraph_static
+    COMMENT "Staging sdsl + divsufsort + handlegraph for Makefile-based deps")
+add_custom_target(makedeps_stage DEPENDS ${MAKEDEPS_INCLUDE}/.stamp)
+
+# Build a Makefile-based dep against MAKEDEPS_PREFIX, then publish its public
+# headers (and static lib) back into the same prefix so a downstream Makefile
+# dep (e.g. gbwtgraph -> gbwt) can find them.
+function(vg_makefile_dep target_name dep_name lib_relpath public_header_subdir)
+    set(lib_src  "${VG_DEPS_DIR}/${dep_name}/${lib_relpath}")
+    set(lib_dst  "${MAKEDEPS_LIB}/lib${dep_name}.a")
+    set(hdr_src  "${VG_DEPS_DIR}/${dep_name}/include/${public_header_subdir}")
+    set(hdr_dst  "${MAKEDEPS_INCLUDE}/${public_header_subdir}")
+
     ExternalProject_Add(${dep_name}_ep
         SOURCE_DIR        ${VG_DEPS_DIR}/${dep_name}
         BUILD_IN_SOURCE   1
-        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E make_directory ${VG_DEPS_DIR}/${dep_name}/obj
+        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E make_directory
+                              ${VG_DEPS_DIR}/${dep_name}/obj
+            COMMAND       ${CMAKE_COMMAND} -E make_directory
+                              ${VG_DEPS_DIR}/${dep_name}/lib
         BUILD_COMMAND     $(MAKE) ${lib_relpath}
             SDSL_DIR=${sdsl-lite_SOURCE_DIR}
-            HG_DIR=${libhandlegraph_SOURCE_DIR}
-            INC_DIR=${sdsl-lite_SOURCE_DIR}/include
-            LIB_DIR=$<TARGET_FILE_DIR:sdsl>
-        INSTALL_COMMAND   ""
-        BUILD_BYPRODUCTS  ${lib_path}
-        DEPENDS           sdsl)
+            INC_DIR=${MAKEDEPS_INCLUDE}
+            LIB_DIR=${MAKEDEPS_LIB}
+        # Publish headers + lib into the staging prefix.
+        INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy_directory ${hdr_src} ${hdr_dst}
+            COMMAND       ${CMAKE_COMMAND} -E copy ${lib_src} ${lib_dst}
+        BUILD_BYPRODUCTS  ${lib_src} ${lib_dst}
+        DEPENDS           makedeps_stage)
+
     add_library(${target_name} STATIC IMPORTED)
     set_target_properties(${target_name} PROPERTIES
-        IMPORTED_LOCATION             ${lib_path}
-        INTERFACE_INCLUDE_DIRECTORIES "${VG_DEPS_DIR}/${dep_name}/include")
+        IMPORTED_LOCATION             ${lib_dst}
+        INTERFACE_INCLUDE_DIRECTORIES "${MAKEDEPS_INCLUDE}")
     add_dependencies(${target_name} ${dep_name}_ep)
 endfunction()
 
-vg_makefile_dep(vg_gbwt      gbwt      lib/libgbwt.a)
-vg_makefile_dep(vg_gcsa2     gcsa2     lib/libgcsa2.a)
-vg_makefile_dep(vg_gbwtgraph gbwtgraph lib/libgbwtgraph.a)
+vg_makefile_dep(vg_gbwt      gbwt      lib/libgbwt.a      gbwt)
+vg_makefile_dep(vg_gcsa2     gcsa2     lib/libgcsa2.a     gcsa)
+# gbwtgraph #includes <gbwt/...> — must run after gbwt's headers are staged.
+vg_makefile_dep(vg_gbwtgraph gbwtgraph lib/libgbwtgraph.a gbwtgraph)
+add_dependencies(gbwtgraph_ep gbwt_ep)
 
 # jemalloc — only when selected. Built via its autotools.
 if(VG_USE_JEMALLOC)
