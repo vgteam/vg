@@ -1,7 +1,7 @@
 #ifndef VG_TEST_ALIGNER_HPP_INCLUDED
 #define VG_TEST_ALIGNER_HPP_INCLUDED
 
-#include "../aligner.hpp"
+#include "aligner.hpp"
 
 namespace vg {
 namespace unittest {
