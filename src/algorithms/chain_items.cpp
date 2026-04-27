@@ -559,8 +559,18 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     base_seed_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
-    // Track eval bonus for heuristic comparison (path conservation bonus, used for
-    // selection only without affecting the actual stored score).
+
+    // We want to prefer to come from seeds where the transition preserves
+    // access to matching haplotypes, because we don't want to back ourselves
+    // into a corner where we need a recombination when we don't really have
+    // to. So we cheat on the dynamic programming by adding an "evaluation
+    // bonus" to the scores of the different DP options when comparing them. We
+    // keep this bonus out of the actual recorded scores because we don't want
+    // it raising the scores we actually get the more transitions we take.
+    //
+    // We store the bonus used to select the current winning predecessor for
+    // each seed in this vector, which runs alongside the DP table.
+    //
     // Starting from nowhere means full path conservation, so bonus = recomb_penalty.
     std::vector<int> eval_bonuses(to_chain.size(), recomb_penalty);
     for (size_t i = 0; i < to_chain.size(); i++) {
@@ -695,20 +705,20 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                 }
                 // Recombination case (no shared paths): bonus stays 0
             }
-
+            
+            // Grab the DP table slot we are updating
             auto& current_best = chain_scores[transition.to_anchor];
+            // Compute the evaluation value for the new candidate
             int eval_from = from_source_score.score + eval_bonus_from;
+            // Reconstruct the evaluation value for the current winner
             int eval_best = current_best.score + eval_bonuses[transition.to_anchor];
 
-            if (eval_from > eval_best) {
+            if (eval_from > eval_best || (eval_from == eval_best && from_source_score > current_best)) {
+                // Using the evaluation values, and then if tied the real DP
+                // scores, this new candidate beats the previous winner, so
+                // replace it.
                 current_best = from_source_score;
                 eval_bonuses[transition.to_anchor] = eval_bonus_from;
-            } else if (eval_from == eval_best) {
-                // Tie-breaker using actual underlying standard formulations
-                if (from_source_score > current_best) {
-                    current_best = from_source_score;
-                    eval_bonuses[transition.to_anchor] = eval_bonus_from;
-                }
             }
                                            
             if (show_work) {
