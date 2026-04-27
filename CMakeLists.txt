@@ -84,28 +84,35 @@ FetchContent_Declare(cpp_progress_bar
     GIT_REPOSITORY https://github.com/vgteam/cpp_progress_bar.git
     GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f)
 
+set(CMAKE_DISABLE_FIND_PACKAGE_pybind11 ON CACHE BOOL "" FORCE)
+set(ZIG OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(vcflib
+    GIT_REPOSITORY https://github.com/vgteam/vcflib.git
+    GIT_TAG        1b8d3567b8ec8fc8af6efac0f39d7aa2ab3c35ef)
+
+
 FetchContent_MakeAvailable(
     libvgio
     libbdsg
     Complete-Striped-Smith-Waterman-Library
     gssw
-    xg
-    cpp_progress_bar)
+    cpp_progress_bar
+    vcflib)
 
-# Patch xg: divsufsort.h is generated into the sdsl build tree, not the source tree.
- # xg's CMakeLists only adds sdsl-lite_SOURCE_DIR/include, so we must add the build-dir paths.
- foreach(_xg_tgt IN ITEMS xg_objs libxg_shared libxg_static)
-     if(TARGET ${_xg_tgt})
-         target_compile_options(${_xg_tgt} PRIVATE -Wno-missing-template-arg-list-after-template-kw)
-         target_include_directories(${_xg_tgt} PRIVATE
-             ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include
-             ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include/64
-             ${libhandlegraph_SOURCE_DIR}/src/include)
-     endif()
- endforeach()
+FetchContent_GetProperties(xg)
+if(NOT xg_POPULATED)
+    FetchContent_Populate(xg)   # downloads sources, does NOT add_subdirectory
+endif()
 
 # Patch upstream gssw which doesn't expose its include dir.
 target_include_directories(libgssw INTERFACE ${gssw_SOURCE_DIR}/src)
+
+# Patch upstream vcflib which doesn't expose its include dir.
+target_include_directories(vcflib INTERFACE 
+    ${vcflib_SOURCE_DIR}/src 
+    ${vcflib_SOURCE_DIR}/contrib/filevercmp 
+    ${vcflib_SOURCE_DIR}/contrib/fastahack
+)
 
 # ---------------------------------------------------------------------------
 # 2b. Vendored deps: small CMake-native libs that exist only locally
@@ -116,12 +123,6 @@ foreach(dep IN ITEMS atomic_queue DYNAMIC mio kff-cpp-api backward-cpp structure
         add_subdirectory("${VG_DEPS_DIR}/${dep}" "${CMAKE_BINARY_DIR}/deps/${dep}" EXCLUDE_FROM_ALL)
     endif()
 endforeach()
-
-# vcflib has a CMakeLists.txt but pulls a lot of optional deps; gate it.
-if(EXISTS "${VG_DEPS_DIR}/vcflib/CMakeLists.txt")
-    set(VCFLIB_WFA_DISABLE ON CACHE BOOL "" FORCE)
-    add_subdirectory("${VG_DEPS_DIR}/vcflib" "${CMAKE_BINARY_DIR}/deps/vcflib" EXCLUDE_FROM_ALL)
-endif()
 
 # ---------------------------------------------------------------------------
 # 2b'. Vendored sources wrapped as add_library (no upstream build system, or
@@ -155,6 +156,29 @@ target_include_directories(vg_libdeflate
     PRIVATE ${VG_DEPS_DIR}/libdeflate/common
             ${VG_DEPS_DIR}/libdeflate/lib)
 target_compile_definitions(vg_libdeflate PRIVATE LIBDEFLATE_STATIC)
+
+# xg — compile xg.cpp directly. Don't use upstream xg's CMakeLists (it drags in
+ # conflicting FetchContent for handlegraph/sdsl and broken macOS OpenMP).
+ add_library(vg_xg STATIC ${xg_SOURCE_DIR}/src/xg.cpp)
+ target_include_directories(vg_xg PUBLIC
+     ${xg_SOURCE_DIR}/src
+     ${xg_SOURCE_DIR}/deps/ips4o
+     ${xg_SOURCE_DIR}/deps/atomic_queue/include/atomic_queue   
+     ${xg_SOURCE_DIR}/deps/mmmulti/src
+     ${xg_SOURCE_DIR}/deps/gfakluge/src
+     ${xg_SOURCE_DIR}/deps/gfakluge/src/tinyFA)
+ target_include_directories(vg_xg PRIVATE
+     ${sdsl-lite_SOURCE_DIR}/include
+     ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include
+     ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include/64
+     ${libhandlegraph_SOURCE_DIR}/src/include)
+ target_link_libraries(vg_xg PUBLIC
+     mio handlegraph_static sdsl divsufsort divsufsort64
+     OpenMP::OpenMP_CXX Threads::Threads ZLIB::ZLIB)
+ target_compile_definitions(vg_xg PRIVATE
+     _LIBCPP_ENABLE_CXX17_REMOVED_RESULT_OF=1
+     _LIBCPP_ENABLE_CXX20_REMOVED_TYPE_TRAITS=1)
+ target_compile_options(vg_xg PRIVATE -Wno-missing-template-arg-list-after-template-kw)
 
 # tabixpp — thin C++ wrapper over htslib (htslib comes from ExternalProject)
 add_library(vg_tabixpp STATIC ${VG_DEPS_DIR}/tabixpp/tabix.cpp)
@@ -359,8 +383,8 @@ target_include_directories(vg_core PUBLIC
 
 target_link_libraries(vg_core PUBLIC
     # vgteam (FetchContent)
-    handlegraph_shared libvgio libbdsg libgssw
-    libxg_shared cpp_progress_bar
+    handlegraph_shared vgio_static libbdsg libgssw
+    vg_xg cpp_progress_bar vcflib
     # vendored static libs
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
     vg_headers_only
@@ -378,9 +402,6 @@ if(TARGET vg_sublinear)
 endif()
 if(TARGET structures)
     target_link_libraries(vg_core PUBLIC structures)
-endif()
-if(TARGET vcflib)
-    target_link_libraries(vg_core PUBLIC vcflib)
 endif()
 if(VG_USE_BACKWARD AND TARGET backward)
     target_link_libraries(vg_core PUBLIC backward)
