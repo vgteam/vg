@@ -846,11 +846,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
     }
-    // Implement the logic for minimap2 long indels penalty adjustment.
-    // The new alignment score penalize long continous indels less, using the formula:
-    // score = matches - (mismatches + gap_opens)/2d - sum_{i=1}^{gap_opens} (log_2(1 + gap_length_i))
-    // with d = max{0.02, (mismatches + gap_opens)/(matches + mismatches + gap_opens)}
+    
     for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
+        // Rescore all the alignments using minimap2 logged-gap-length, read-identity-based scoring
+
         if (alignments[alignment_index].path().mapping_size() == 0) {
             // Unmapped, so skip it.
             continue;
@@ -879,7 +878,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
                 set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
                 if (rec_penalty_chain != 0) {
-                    //int64_t penalty = min(static_cast<int64_t>(1), static_cast<int64_t>(rec_penalty_chain)/5) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t adjusted_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
                     alignments[alignment_index].set_score(static_cast<int>(adjusted_score));
