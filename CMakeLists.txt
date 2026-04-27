@@ -70,7 +70,7 @@ FetchContent_Declare(libvgio
     GIT_TAG        c23b62300c2f9274fc7302a7febc45bf3a78890a)
 FetchContent_Declare(libbdsg
     GIT_REPOSITORY https://github.com/vgteam/libbdsg.git
-    GIT_TAG        fab1e030991f42c5ff50e61fc4e335834616eae0)
+    GIT_TAG        789ad6daf74192b477fa49fb066a8cf0df76a16d)
 FetchContent_Declare(Complete-Striped-Smith-Waterman-Library
     GIT_REPOSITORY https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
     GIT_TAG        f53d459841b632ac6ab0e59e1a0ef6d056034631)
@@ -80,15 +80,25 @@ FetchContent_Declare(gssw
 FetchContent_Declare(xg
     GIT_REPOSITORY https://github.com/vgteam/xg.git
     GIT_TAG        e925f5e76b2da27ea4e44bfb773a7ef53fae19a5)
+
+# uses Makefile
 FetchContent_Declare(cpp_progress_bar
     GIT_REPOSITORY https://github.com/vgteam/cpp_progress_bar.git
     GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f)
+# uses Makefile
+FetchContent_Declare(dozeu_
+    GIT_REPOSITORY https://github.com/vgteam/dozeu.git
+    GIT_TAG        999a0ed5457e5a2ab3f47bb62b00fd3355b66dbf
+    SOURCE_DIR     ${CMAKE_BINARY_DIR}/deps/dozeu_include/dozeu)
 
 set(CMAKE_DISABLE_FIND_PACKAGE_pybind11 ON CACHE BOOL "" FORCE)
 set(ZIG OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(vcflib
     GIT_REPOSITORY https://github.com/vgteam/vcflib.git
     GIT_TAG        1b8d3567b8ec8fc8af6efac0f39d7aa2ab3c35ef)
+FetchContent_Declare(structures
+    GIT_REPOSITORY https://github.com/vgteam/structures.git
+    GIT_TAG        0b31cacac76d55d30f6f653950e8c74aeb8896f6)
 
 
 FetchContent_MakeAvailable(
@@ -97,7 +107,10 @@ FetchContent_MakeAvailable(
     Complete-Striped-Smith-Waterman-Library
     gssw
     cpp_progress_bar
-    vcflib)
+    dozeu_
+    vcflib
+    structures
+)
 
 FetchContent_GetProperties(xg)
 if(NOT xg_POPULATED)
@@ -112,13 +125,23 @@ target_include_directories(vcflib INTERFACE
     ${vcflib_SOURCE_DIR}/src 
     ${vcflib_SOURCE_DIR}/contrib/filevercmp 
     ${vcflib_SOURCE_DIR}/contrib/fastahack
+    ${vcflib_SOURCE_DIR}/contrib/intervaltree
+)
+
+# external CMake
+FetchContent_Declare(backward-cpp
+    GIT_REPOSITORY https://github.com/bombela/backward-cpp.git
+    GIT_TAG        0bfd0a07a61551413ccd2ab9a9099af3bad40681)
+
+FetchContent_MakeAvailable(
+    backward-cpp
 )
 
 # ---------------------------------------------------------------------------
 # 2b. Vendored deps: small CMake-native libs that exist only locally
 # ---------------------------------------------------------------------------
 # These all have a CMakeLists.txt under deps/<name>/ — pull them in directly.
-foreach(dep IN ITEMS atomic_queue DYNAMIC mio kff-cpp-api backward-cpp structures mmmultimap)
+foreach(dep IN ITEMS atomic_queue DYNAMIC mio kff-cpp-api mmmultimap)
     if(EXISTS "${VG_DEPS_DIR}/${dep}/CMakeLists.txt")
         add_subdirectory("${VG_DEPS_DIR}/${dep}" "${CMAKE_BINARY_DIR}/deps/${dep}" EXCLUDE_FROM_ALL)
     endif()
@@ -198,12 +221,18 @@ if(SUBLINEAR_SOURCES)
     target_include_directories(vg_sublinear PUBLIC ${VG_DEPS_DIR}/sublinear-Li-Stephens/src)
 endif()
 
+# cpp_progress_bar
+add_library(progress_bar STATIC ${cpp_progress_bar_SOURCE_DIR}/progress_bar.cpp)
+target_include_directories(progress_bar PUBLIC ${cpp_progress_bar_SOURCE_DIR}/)
+
+# dozeu
+add_library(dozeu INTERFACE)
+target_include_directories(dozeu INTERFACE ${CMAKE_BINARY_DIR}/deps/dozeu_include/)
+
 # Header-only INTERFACE libraries
 add_library(vg_headers_only INTERFACE)
 target_include_directories(vg_headers_only INTERFACE
     ${VG_DEPS_DIR}/ips4o
-    ${VG_DEPS_DIR}/dozeu
-    ${VG_DEPS_DIR}/progress_bar
     ${VG_DEPS_DIR}/lru_cache
     ${VG_DEPS_DIR}/BBHash
     ${VG_DEPS_DIR}/sparsepp
@@ -306,6 +335,29 @@ vg_makefile_dep(vg_gcsa2     gcsa2     lib/libgcsa2.a     gcsa)
 vg_makefile_dep(vg_gbwtgraph gbwtgraph lib/libgbwtgraph.a gbwtgraph)
 add_dependencies(gbwtgraph_ep gbwt_ep)
 
+# sonLib — C utility library. Headers stage into sonLib/ subdir for <sonLib/X.h> includes.
+ExternalProject_Add(sonLib_ep
+    SOURCE_DIR        ${VG_DEPS_DIR}/sonLib
+    BUILD_IN_SOURCE   1
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E make_directory ${VG_DEPS_DIR}/sonLib/lib
+              COMMAND ${CMAKE_COMMAND} -E make_directory ${VG_DEPS_DIR}/sonLib/C/obj
+    BUILD_COMMAND     $(MAKE) -C C ../lib/sonLib.a
+    INSTALL_COMMAND   ${CMAKE_COMMAND} -E make_directory ${MAKEDEPS_INCLUDE}/sonLib
+              COMMAND ${CMAKE_COMMAND} -E copy_directory
+                      ${VG_DEPS_DIR}/sonLib/C/inc ${MAKEDEPS_INCLUDE}/sonLib
+              COMMAND ${CMAKE_COMMAND} -E copy_directory
+                      ${VG_DEPS_DIR}/sonLib/lib/ ${MAKEDEPS_INCLUDE}/sonLib
+              COMMAND ${CMAKE_COMMAND} -E copy
+                      ${VG_DEPS_DIR}/sonLib/lib/sonLib.a ${MAKEDEPS_LIB}/libsonLib.a
+    BUILD_BYPRODUCTS  ${VG_DEPS_DIR}/sonLib/lib/sonLib.a
+                      ${MAKEDEPS_LIB}/libsonLib.a)
+
+add_library(vg_sonlib STATIC IMPORTED)
+set_target_properties(vg_sonlib PROPERTIES
+    IMPORTED_LOCATION             ${MAKEDEPS_LIB}/libsonLib.a
+    INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
+add_dependencies(vg_sonlib sonLib_ep)
+
 # jemalloc — only when selected. Built via its autotools.
 if(VG_USE_JEMALLOC)
     set(JEMALLOC_INSTALL_DIR "${VG_STAGE_DIR}/jemalloc")
@@ -384,12 +436,13 @@ target_include_directories(vg_core PUBLIC
 target_link_libraries(vg_core PUBLIC
     # vgteam (FetchContent)
     handlegraph_shared vgio_static libbdsg libgssw
-    vg_xg cpp_progress_bar vcflib
+    vg_xg progress_bar vcflib structures_static
+    dozeu
     # vendored static libs
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
-    vg_headers_only
+    vg_headers_only backward-cpp
     # external (ExternalProject)
-    vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph
+    vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph vg_sonlib
     # CMake-native locals
     sdsl
     # system
@@ -399,9 +452,6 @@ target_link_libraries(vg_core PUBLIC
 
 if(TARGET vg_sublinear)
     target_link_libraries(vg_core PUBLIC vg_sublinear)
-endif()
-if(TARGET structures)
-    target_link_libraries(vg_core PUBLIC structures)
 endif()
 if(VG_USE_BACKWARD AND TARGET backward)
     target_link_libraries(vg_core PUBLIC backward)
