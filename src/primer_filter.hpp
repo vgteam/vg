@@ -24,8 +24,8 @@
 #include "traversal_finder.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
-#include "../primer_filter.hpp"
-#include "../recombinator.hpp"
+#include "primer_filter.hpp"
+#include "recombinator.hpp"
 
 using namespace std;
 
