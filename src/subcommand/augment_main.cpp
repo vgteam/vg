@@ -22,7 +22,7 @@
 
 #include "subcommand.hpp"
 #include "../option.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../packer.hpp"

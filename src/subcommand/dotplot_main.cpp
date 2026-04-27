@@ -13,7 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../position.hpp"

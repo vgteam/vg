@@ -10,7 +10,7 @@
 #include "subcommand.hpp"
 
 #include "../recombinator.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../zip_code.hpp"
 
 #include <gbwt/gbwt.h>

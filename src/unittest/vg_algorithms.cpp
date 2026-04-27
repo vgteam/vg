@@ -25,7 +25,7 @@
 #include "random_graph.hpp"
 #include "randomness.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include <bdsg/hash_graph.hpp>
 #include "../io/json2graph.hpp"
 

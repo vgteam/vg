@@ -9,7 +9,7 @@
 #include "../io/json2graph.hpp"
 #include <bdsg/hash_graph.hpp>
 #include "../sampler.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "catch.hpp"
 
 namespace vg {

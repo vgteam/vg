@@ -18,7 +18,7 @@
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"

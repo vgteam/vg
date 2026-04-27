@@ -14,7 +14,7 @@
 #include "../utility.hpp"
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../hts_alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>

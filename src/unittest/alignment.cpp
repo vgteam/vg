@@ -11,7 +11,7 @@
 #include <vg/vg.pb.h>
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../handle.hpp"
 #include "../annotation.hpp"
 #include "catch.hpp"

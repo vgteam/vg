@@ -1,6 +1,6 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
 #include "../gbwtgraph_helper.hpp"

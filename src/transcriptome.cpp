@@ -3,11 +3,11 @@
 
 #include <gbwtgraph/utils.h>
 
-#include "../io/save_handle_graph.hpp"
+#include "io/save_handle_graph.hpp"
 
 #include "transcriptome.hpp"
-#include "../augment.hpp"
-#include "../utility.hpp"
+#include "augment.hpp"
+#include "utility.hpp"
 
 namespace vg {
 

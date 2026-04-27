@@ -14,7 +14,7 @@
 #include "../path.hpp"
 #include "../graph_caller.hpp"
 #include "../integrated_snarl_finder.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../augref.hpp"
