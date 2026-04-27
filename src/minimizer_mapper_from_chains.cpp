@@ -862,13 +862,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (matches + mismatches + gap_lengths.size() == 0) {
             continue;
         }
-
-        int adjusted_score = score_alignment_with_logged_gaps(matches, mismatches, gap_lengths);
-        alignments[alignment_index].set_score(adjusted_score);
+        
+        // Compute the logged-gaps score
+        auto logged_gaps_score = score_alignment_with_logged_gaps(matches, mismatches, gap_lengths);
+        alignments[alignment_index].set_score(logged_gaps_score);
          if (show_work) {
             #pragma omp critical (cerr)
             {   
-                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_lengths.size() << " New score: " << adjusted_score << endl;
+                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_lengths.size() << " New score: " << logged_gaps_score << endl;
             }
         }
     }
@@ -878,9 +879,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
                 set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
                 if (rec_penalty_chain != 0) {
+                    // Penalize the score of alignment candidates according to the number of recombinations their chains required.
+                    // This allows alignments that required fewer recombinations in their chains to win.
+                    // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
                     int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
-                    int64_t adjusted_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
-                    alignments[alignment_index].set_score(static_cast<int>(adjusted_score));
+                    int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
+                    alignments[alignment_index].set_score(static_cast<int>(penalized_score));
                 }
             }
         }
