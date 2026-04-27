@@ -95,7 +95,7 @@ set(CMAKE_DISABLE_FIND_PACKAGE_pybind11 ON CACHE BOOL "" FORCE)
 set(ZIG OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(vcflib
     GIT_REPOSITORY https://github.com/vgteam/vcflib.git
-    GIT_TAG        1b8d3567b8ec8fc8af6efac0f39d7aa2ab3c35ef)
+    GIT_TAG        pybind-optional)
 FetchContent_Declare(structures
     GIT_REPOSITORY https://github.com/vgteam/structures.git
     GIT_TAG        0b31cacac76d55d30f6f653950e8c74aeb8896f6)
@@ -126,6 +126,8 @@ target_include_directories(vcflib INTERFACE
     ${vcflib_SOURCE_DIR}/contrib/filevercmp 
     ${vcflib_SOURCE_DIR}/contrib/fastahack
     ${vcflib_SOURCE_DIR}/contrib/intervaltree
+    ${vcflib_SOURCE_DIR}/contrib/smithwaterman
+    ${vcflib_SOURCE_DIR}/contrib/multichoose
 )
 
 # external CMake
