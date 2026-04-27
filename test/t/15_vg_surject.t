@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 74
+plan tests 75
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -221,6 +221,8 @@ is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GA
 rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp tiny.vg err.txt
 
 is "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --prune-low-cplx --sam-output --gaf-input surject/opposite_strands.gaf | grep -v "^@" | cut -f3-12 | sort | uniq | wc -l)" 1 "vg surject low compelxity pruning gets the same alignment regardless of read orientation"
+
+is "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --read-length long --sam-output --gaf-input surject/opposite_strands.gaf)" "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --prune-low-cplx --sam-output --gaf-input surject/opposite_strands.gaf)" "vg surject long read preset uses low-complexity pruning"
 
 vg autoindex -p d -w map -g graphs/long_deletion.gfa
 printf "@read\nGGGAGAGAGAGAGA\n+\nHHHHHHHHHHHHHH\n" > d.fq

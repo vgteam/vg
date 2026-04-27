@@ -16,6 +16,9 @@ cd "${HERE}/../test"
 echo txm --jobs 1 "${HERE}/../README.md"
 txm --jobs 1 "${HERE}/../README.md"
 
+# Test extra test READMEs
+(cd haplotype-sampling && txm --jobs 1 "README.md")
+
 # Run all the wiki tests
 find "${HERE}/wiki" -name "*.md" | xargs -n 1 -t txm --jobs 1
 

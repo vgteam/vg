@@ -9,6 +9,8 @@
 #include <cmath>
 #include <map>
 
+//#define debug_selected_haplotypes
+
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -2056,6 +2058,15 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
             );
+#ifdef debug_selected_haplotypes
+            for (size_t i = 0; i < selected_haplotypes.size(); i++) {
+                gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
+                gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+                gbwt::FullPathName path_name = this->gbz.index.metadata.fullPath(path_id);
+                cerr << "Selected haplotype " << path_name.contig_name
+                     << " with score " << selected_haplotypes[i].second << endl;
+            }
+#endif
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;

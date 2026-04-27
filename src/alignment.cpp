@@ -1,4 +1,5 @@
 #include "alignment.hpp"
+#include "longest_overlap.hpp"
 #include "vg/io/gafkluge.hpp"
 #include "annotation.hpp"
 #include <vg/io/stream.hpp>
@@ -1365,7 +1366,7 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
             cigar.front().second = 'S';
         }
     }
-    
+
     simplify_cigar(cigar);
 
     return cigar;
@@ -1502,8 +1503,8 @@ void simplify_cigar(vector<pair<int, char>>& cigar) {
     for (size_t i = 0, j = 0; i < cigar.size(); ++j) {
         if (j == cigar.size() || (cigar[j].second != 'I' && cigar[j].second != 'D')) {
             // this is the end boundary of a runs of I/D operations
-            if (j - i >= 3) {
-                // we have at least 3 adjacent I/D operations, which means they should
+            if (j - i >= 2) {
+                // we have at least 2 adjacent I/D operations, which means they should
                 // be re-consolidated
                 int d_total = 0, i_total = 0;
                 for (size_t k = i - removed, end = j - removed; k < end; ++k) {
@@ -1544,6 +1545,1105 @@ void simplify_cigar(vector<pair<int, char>>& cigar) {
         }
     }
     cigar.resize(cigar.size() - removed);
+}
+
+// #define debug_indel_adjustment
+// this algorithm is a pain to debug without these consistency checks
+// #define debug_indel_adjustment_tombstone
+
+void normalize_indel_adjustment(Alignment& aln, bool adjust_left, const HandleGraph& graph, bool preserve_end_pos) {
+
+    // a simplified Edit that can be shifted more easily
+    struct simple_edit_t {
+        simple_edit_t(int64_t f, int64_t t, bool m) : from_length(f), to_length(t), is_match(m) {}
+        simple_edit_t(const simple_edit_t& other) = default;
+        int64_t from_length = 0;
+        int64_t to_length = 0;
+        bool is_match = false;
+
+#ifdef debug_indel_adjustment_tombstone
+        // ---- tombstone state ----
+        uint32_t _tombstone_generation = 1;
+
+        void _assert_alive() const {
+            assert(_tombstone_generation != 0 && "use-after-erase detected");
+        }
+
+        void _invalidate() {
+            _tombstone_generation = 0;
+        }
+        
+        const simple_edit_t& checked() const {
+            _assert_alive();
+            return *this;
+        }
+
+        simple_edit_t& checked() {
+            _assert_alive();
+            return *this;
+        }
+#else
+        inline const simple_edit_t& checked() const {
+            return *this;
+        }
+
+        inline simple_edit_t& checked() {
+            return *this;
+        }
+#endif
+    };
+
+    auto tombstone_erase = [](list<simple_edit_t>& lst, list<simple_edit_t>::iterator it) -> list<simple_edit_t>::iterator  {
+#ifdef debug_indel_adjustment_tombstone
+        it->_invalidate();
+#endif
+        return lst.erase(it);
+    };
+
+    // copy the alignment path into data structures that facilitate internal edits
+    auto& path = *aln.mutable_path();
+
+    // collect the aligned node sequences and re-format the alignment into modifiable data structs
+    // we also consolidate runs of insertions and deletions so they are a contiguous block of deletion edits
+    // followed by a single insertion edit
+    vector<string> aligned_seqs(path.mapping_size());
+    vector<list<simple_edit_t>> shiftable_aln(path.mapping_size());
+    vector<pos_t> mapping_positions(path.mapping_size());
+    size_t buffered_insertion = 0;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        const auto& mapping = path.mapping(i);
+        auto& shift_mapping = shiftable_aln[i];
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() == 0 && !(i == 0 && j == 0)) {
+                // non-soft clip insertion
+                buffered_insertion += edit.to_length();
+            }
+            else {
+                if (edit.to_length() != 0 && buffered_insertion != 0) {
+                    // the next edit isn't a deletion, flush the insertion buffer
+                    shift_mapping.emplace_back(0, buffered_insertion, false);
+                    buffered_insertion = 0;
+                }
+                shift_mapping.emplace_back(edit.from_length(), edit.to_length(), edit.from_length() == edit.to_length() && edit.sequence().empty());
+            }
+        }
+        const auto& pos = mapping.position();
+        aligned_seqs[i] = graph.get_subsequence(graph.get_handle(pos.node_id(), pos.is_reverse()), pos.offset(), mapping_from_length(mapping));
+        mapping_positions[i] = make_pos_t(pos);
+    }
+    // flush the insertion buffer a final time
+    if (buffered_insertion) {
+        shiftable_aln.back().emplace_back(0, buffered_insertion, false);
+    }
+
+#ifdef debug_indel_adjustment
+    cerr << "adjusting left? " << adjust_left << " for alignment" << endl;
+    cerr << pb2json(aln) << endl;
+    cerr << "shiftable aln, seq " << aln.sequence() << endl;
+    size_t debug_seq_idx = 0;
+    for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+        size_t debug_node_idx = 0;
+        cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << endl;
+        for (const auto& edit : shiftable_aln[i])  {
+            cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << endl;
+            debug_node_idx += edit.from_length;
+            debug_seq_idx += edit.to_length;
+        }
+    }
+#endif
+
+    // reverse everything if we're adjusting left instead of right so that everything can be implemented
+    // as adjusting to the right internally
+    string rev_seq;
+    if (adjust_left) {
+        rev_seq.resize(aln.sequence().size(), '\0');
+        reverse_copy(aln.sequence().begin(), aln.sequence().end(), rev_seq.begin());
+        
+        reverse(shiftable_aln.begin(), shiftable_aln.end());
+        for (auto& mapping : shiftable_aln) {
+            mapping.reverse();
+        }
+        reverse(aligned_seqs.begin(), aligned_seqs.end());
+        for (auto& aligned_seq : aligned_seqs) {
+            reverse(aligned_seq.begin(), aligned_seq.end());
+        }
+        reverse(mapping_positions.begin(), mapping_positions.end());
+    }
+    const auto& seq = adjust_left ? rev_seq : aln.sequence();
+
+
+#ifdef debug_indel_adjustment
+    cerr << "after reversals, seq " << seq << endl;
+    debug_seq_idx = 0;
+    for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+        size_t debug_node_idx = 0;
+        cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << endl;
+        for (const auto& edit : shiftable_aln[i])  {
+            cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+            debug_node_idx += edit.from_length;
+            debug_seq_idx += edit.to_length;
+        }
+    }
+#endif
+    
+    // we'll keep track of whether anything changed to determine whether we need to re-construct the Alignment path
+    bool did_a_shift = false;
+
+    // move forward one edit in the shiftable alignment
+    auto advance = [&](size_t& i, list<simple_edit_t>::iterator& edit_it) {
+        ++edit_it;
+        while (i < shiftable_aln.size() && edit_it == shiftable_aln[i].end()) {
+            ++i;
+            if (i < shiftable_aln.size()) {
+                edit_it = shiftable_aln[i].begin();
+            }
+        }
+    };
+
+    // initiate shifting on an interval that contains only deletions or only insertions (although we may switch between
+    // the edit types at the end of the interval)
+    auto dispatch_shift = [&](size_t i, list<simple_edit_t>::iterator edit_it, size_t seq_idx, size_t node_idx, bool deletion_run) {
+#ifdef debug_indel_adjustment
+        cerr  << "dispatch from " << i << ", " << seq_idx << ", " << node_idx << ", " << deletion_run << endl;
+#endif
+
+        // for the current run of insertion/deletions, a buffer of (mapping idx, node seq idx, edit)
+        deque<tuple<size_t, size_t, list<simple_edit_t>::iterator>> curr_indel;
+
+        // if we partially cancel out an indel of the other type, we will switch run type and see if we can move it further
+        bool find_post_cancel_switch = false;
+        bool in_post_cancel_switch = false;
+        size_t prev_i = i;
+        for (; i < shiftable_aln.size(); advance(i, edit_it)) {
+
+#ifdef debug_indel_adjustment
+            cerr << "inner iter i " << i << ", si " << seq_idx << ", ni " << node_idx << ", fl " << edit_it->checked().from_length << ", tl " << edit_it->checked().to_length << ", im? " << edit_it->checked().is_match << endl; 
+#endif
+            
+            if (i != prev_i) {
+                node_idx = 0;
+                if (!curr_indel.empty() && get<2>(curr_indel.front())->checked().from_length == 0) {
+#ifdef debug_indel_adjustment
+                    cerr << "shift current insertion to current node" << endl;
+#endif
+                    // shift the insert from the end of the previous node to the start of this one
+                    shiftable_aln[i].emplace_front(*get<2>(curr_indel.front()));
+                    tombstone_erase(shiftable_aln[i - 1], get<2>(curr_indel.front()));
+                    get<0>(curr_indel.front()) = i;
+                    get<1>(curr_indel.front()) = 0;
+                    get<2>(curr_indel.front()) = shiftable_aln[i].begin();
+                }
+            }
+
+            if ((edit_it->checked().from_length == 0 && deletion_run) || (edit_it->checked().to_length == 0 && !deletion_run)) {
+#ifdef debug_indel_adjustment
+                cerr << "type switch" << endl;
+                cerr << "curr indel:" << endl;
+                for (const auto& r : curr_indel) {
+                    cerr << "\t" << get<0>(r) << '\t' << get<1>(r) << '\t' << get<2>(r)->checked().from_length << '\t' << get<2>(r)->checked().to_length << '\t' << get<2>(r)->checked().is_match << '\t';
+                    for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                        size_t j = 0;
+                        for (auto it = shiftable_aln[i].begin(); it != shiftable_aln[i].end(); ++it) {
+                            if (std::get<2>(r) == it) {
+                                cerr << i << ',' << j;
+                            }
+                            ++j;
+                        }
+                    }
+                    cerr << endl;
+                }
+#endif
+                // we've left an indel run of one time for the indel run of the other type
+                if (find_post_cancel_switch) {
+                    // we want to try to switch type and try to shift this partially cancelled indel
+                    curr_indel.clear();
+                    deletion_run = !deletion_run;
+                    find_post_cancel_switch = false;
+                    in_post_cancel_switch = true;
+#ifdef debug_indel_adjustment
+                    cerr << "switching run type to " << (deletion_run ? "deletion" : "insertion") << " for post-cancel shift" << endl;
+#endif
+                }
+                else if (curr_indel.empty()) {
+                    // no opportunity to cancel out an insertion and deletion
+#ifdef debug_indel_adjustment
+                    cerr << "type switch without curr indel" << endl;
+#endif
+                    break;
+                }
+                else {
+                    // try to cancel out the insertion and deletion
+
+                    size_t overlap = 0;
+                    for (bool swapped : {false, true}) {
+                        if (swapped) {
+#ifdef debug_indel_adjustment
+                            cerr << "swapping order" << endl;
+#endif
+                            // since the order of an adjacent insertion and deletion is arbitrary, try in the other orientation
+                            if (deletion_run) {
+                                // move insertion before the current deletion
+                                auto swapped_it = shiftable_aln[get<0>(curr_indel.front())].emplace(get<2>(curr_indel.front()), edit_it->checked());
+                                tombstone_erase(shiftable_aln[i], edit_it);
+                                // move trackers to before the deletion but after the insertion
+                                i = get<0>(curr_indel.front());
+                                node_idx = get<1>(curr_indel.front());
+                                edit_it = get<2>(curr_indel.front());
+                                seq_idx += swapped_it->checked().to_length;
+                                // update the indel to be the insertion
+                                curr_indel.clear();
+                                curr_indel.emplace_front(i, node_idx, swapped_it);
+                            }
+                            else {
+                                // remember the current insertion
+                                auto ins_it = get<2>(curr_indel.front());
+                                // walk the deletion and construct the new current indel
+                                curr_indel.clear();
+                                size_t del_i = i;
+                                auto del_it = edit_it;
+                                size_t prev_del_i = del_i;
+                                for (; del_i < shiftable_aln.size(); advance(del_i, del_it)) {
+                                    if (del_i != prev_del_i) {
+                                        node_idx = 0;
+                                    }
+                                    if (del_it->checked().to_length != 0) {
+                                        break;
+                                    }
+                                    curr_indel.emplace_back(del_i, node_idx, del_it);
+                                    node_idx += del_it->checked().from_length;
+                                    prev_del_i = del_i;
+                                }
+                                // swap the insertion to the other side of the deletion
+                                list<simple_edit_t>::iterator swapped_it;
+                                if (del_i == shiftable_aln.size()) {
+                                    swapped_it = shiftable_aln.back().emplace(shiftable_aln.back().end(), ins_it->checked());
+                                }
+                                else {
+                                    swapped_it = shiftable_aln[del_i].emplace(del_it, ins_it->checked());
+                                }
+                                
+                                tombstone_erase(shiftable_aln[i], ins_it);
+
+                                // update the trackers (note: node_idx was already updated)
+                                seq_idx -= swapped_it->checked().to_length;
+                                edit_it = swapped_it;
+                                i = del_i < shiftable_aln.size() ? del_i : del_i - 1;
+                            }
+                            deletion_run = !deletion_run;
+#ifdef debug_indel_adjustment
+                            cerr << "now in " << (deletion_run ? "deletion" : "insertion") << " run with curr indel:" << endl;
+                            for (const auto& r : curr_indel) {
+                                cerr << "\t" << get<0>(r) << '\t' << get<1>(r) << '\t' << get<2>(r)->checked().from_length << '\t' << get<2>(r)->checked().to_length << '\t' << get<2>(r)->checked().is_match << '\t';
+                                for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                                    size_t j = 0;
+                                    for (auto it = shiftable_aln[i].begin(); it != shiftable_aln[i].end(); ++it) {
+                                        if (std::get<2>(r) == it) {
+                                            cerr << i << ',' << j;
+                                        }
+                                        ++j;
+                                    }
+                                }
+                                cerr << endl;
+                            }
+                            
+                            cerr << "i " << i << ", node idx " << node_idx << ", seq idx " << seq_idx << ", edit " << edit_it->checked().from_length << ", " << edit_it->checked().to_length << ", " << edit_it->checked().is_match << endl;
+#endif
+                        }
+
+                        if (!deletion_run) {
+                            // insertion run
+#ifdef debug_indel_adjustment
+                            cerr << "try to cancel in ins run" << endl;
+                            cerr << "align state before attempting cancellation, seq " << seq << endl;
+                            size_t debug_seq_idx = 0;
+                            for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                                size_t debug_node_idx = 0;
+                                cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << endl;
+                                for (auto it = shiftable_aln[i].begin(); it != shiftable_aln[i].end(); ++it)  {
+                                    const auto& edit  = it->checked();
+                                    cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+                                    debug_node_idx += edit.from_length;
+                                    debug_seq_idx += edit.to_length;
+                                }
+                            }
+#endif
+
+                            // get the insertion string
+                            string curr_indel_string = std::move(seq.substr(seq_idx - get<2>(curr_indel.front())->checked().to_length, get<2>(curr_indel.front())->checked().to_length));
+                            // get the deletion string
+                            string del_ahead_string;
+                            auto del_it = edit_it;
+                            size_t del_i = i;
+                            size_t prev_del_i = del_i;
+                            size_t del_node_idx = node_idx;
+                            while (del_i != shiftable_aln.size() && del_it->checked().to_length == 0) {
+                                if (del_i != prev_del_i) {
+                                    del_node_idx = 0;
+                                }
+                                del_ahead_string.append(aligned_seqs[del_i].substr(del_node_idx, del_it->checked().from_length));
+                                del_node_idx += del_it->checked().from_length;
+                                prev_del_i = del_i;
+                                advance(del_i, del_it);
+                            }
+
+                            // figure out how much we can cancel out
+                            overlap = longest_overlap(curr_indel_string, del_ahead_string);
+#ifdef debug_indel_adjustment
+                            cerr << "strings: " << curr_indel_string << ", " << del_ahead_string << '\n';
+                            cerr << "overlap: " << overlap << endl;
+#endif
+
+                            if (overlap != 0 && overlap < del_ahead_string.size()) {
+                                // we shortened the deletion ahead, it might be possible to move it now
+                                find_post_cancel_switch = true;
+                                in_post_cancel_switch = false;
+                            }
+
+                            // we're moving this much sequence ahead of where we are now
+                            seq_idx -= overlap;
+
+                            // convert deletions ahead to matches
+                            del_it = edit_it;
+                            del_i = i;
+                            size_t overlap_remaining = overlap;
+                            while (overlap_remaining) {
+#ifdef debug_indel_adjustment
+                                cerr << "have " << overlap_remaining << " overlap remaining at " << del_i << ", " << del_it->checked().from_length << ", " << del_it->checked().to_length << ", " << del_it->checked().is_match << endl;
+#endif
+                                if (overlap_remaining < del_it->checked().from_length) {
+#ifdef debug_indel_adjustment
+                                    cerr << "make new partial edit match" << endl;
+#endif
+                                    auto split_it = shiftable_aln[del_i].emplace(del_it, overlap_remaining, overlap_remaining, true);
+                                    del_it->checked().from_length -= overlap_remaining;
+                                    if (del_it == edit_it) {
+                                        edit_it = split_it;
+                                    }
+                                    break;
+                                }
+                                else {
+                                    // entirely convert to match
+#ifdef debug_indel_adjustment
+                                    cerr << "convert to match" << endl;
+#endif
+                                    del_it->checked().to_length = del_it->checked().from_length;
+                                    del_it->checked().is_match = true;
+                                    overlap_remaining -= del_it->checked().from_length;
+                                }
+                                advance(del_i, del_it);
+                            }
+                            if (overlap != 0 && overlap_remaining == 0 && del_i != shiftable_aln.size() && del_it != shiftable_aln[del_i].begin() && del_it->checked().is_match) {
+                                // we created an adjacency between matches by clearing out the deletion ahead
+                                // note: del_i and del_it now point to the past-the-last position for the deletion 
+#ifdef debug_indel_adjustment
+                                cerr << "created adjacency between match at end of conversion: " << del_i << ", " << del_it->checked().from_length << ", " << del_it->checked().to_length << ", " << del_it->checked().is_match << endl;
+#endif
+                                auto prev_it = del_it;
+                                --prev_it;
+                                prev_it->checked().from_length += del_it->checked().from_length;
+                                prev_it->checked().to_length += del_it->checked().to_length;
+                                tombstone_erase(shiftable_aln[del_i], del_it);
+                            }
+
+                            if (overlap == get<2>(curr_indel.front())->checked().to_length) {
+#ifdef debug_indel_adjustment
+                                cerr << "entirely consumed current insertion" << endl;
+
+#endif
+                                // the entire insertion is consumed
+                                auto next_it = tombstone_erase(shiftable_aln[i], get<2>(curr_indel.front()));
+                                curr_indel.clear();
+
+                                if (next_it != shiftable_aln[i].end() && next_it != shiftable_aln[i].begin()) {
+                                    // we may have created an adjacency between matches by clearing out the insertion
+#ifdef debug_indel_adjustment
+                                    cerr << "created adjacency at beginning of conversion" << endl;
+#endif
+                                    auto prev_it = next_it;
+                                    --prev_it;
+                                    if (next_it->checked().is_match && prev_it->checked().is_match) {
+                                        if (next_it == edit_it) {
+                                            edit_it = prev_it;
+                                            seq_idx -= prev_it->checked().to_length;
+                                            node_idx -= prev_it->checked().from_length;
+                                        }
+                                        prev_it->checked().from_length += next_it->checked().from_length;
+                                        prev_it->checked().to_length += next_it->checked().to_length;
+                                        tombstone_erase(shiftable_aln[i], next_it);
+                                    }
+                                }
+                            }
+                            else if (overlap != 0) {
+#ifdef debug_indel_adjustment
+                                cerr << "current insert is reduced by " << overlap << endl;
+#endif
+                                get<2>(curr_indel.front())->checked().to_length -= overlap;
+                            }
+
+                            if (overlap != 0) {
+                                // don't continue to the swapped order
+                                break;
+                            }
+                        }
+                        else {
+                            // deletion run
+#ifdef debug_indel_adjustment
+                            cerr << "try to cancel in del run" << endl;
+                            cerr << "align state before attempting cancelation, seq " << seq << endl;
+                            size_t debug_seq_idx = 0;
+                            for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                                size_t debug_node_idx = 0;
+                                cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << ", " << shiftable_aln[i].size() << " edits" << endl;
+                                for (auto it = shiftable_aln[i].begin(); it != shiftable_aln[i].end(); ++it)  {
+                                    const auto& edit = it->checked();
+                                    cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+                                    debug_node_idx += edit.from_length;
+                                    debug_seq_idx += edit.to_length;
+                                }
+                            }
+#endif
+
+                            // get the deletion string
+                            string curr_indel_string;
+                            for (const auto& rec : curr_indel) {
+                                curr_indel_string.append(aligned_seqs[get<0>(rec)].substr(get<1>(rec), get<2>(rec)->checked().from_length));
+                            }
+                            // get the insertion string
+                            string ins_ahead_string = std::move(seq.substr(seq_idx, edit_it->checked().to_length));
+
+                            // figure out how much we can cancel out
+                            overlap = longest_overlap(curr_indel_string, ins_ahead_string);
+#ifdef debug_indel_adjustment
+                            cerr << "overlap " << overlap << ", del string len " << curr_indel_string.size() << endl;
+#endif
+
+                            if (overlap != 0 && overlap < ins_ahead_string.size()) {
+                                // we shortened the insertion ahead, it might be possible to move it now
+                                find_post_cancel_switch = true;
+                                in_post_cancel_switch = false;
+                            }
+                            
+                            // save these so we can access the insertion after retracting the cursor
+                            size_t ins_i = i;
+                            auto ins_it = edit_it;
+
+                            size_t overlap_remaining = overlap;
+                            while (overlap_remaining != 0) {
+                                if (get<0>(curr_indel.back()) != i) {
+                                    i = get<0>(curr_indel.back());
+                                    node_idx = aligned_seqs[i].size();
+                                }
+                                if (get<2>(curr_indel.back())->checked().from_length > overlap_remaining) {
+                                    // split into match and deletion
+                                    auto inserter = get<2>(curr_indel.back());
+                                    ++inserter;
+                                    edit_it = shiftable_aln[get<0>(curr_indel.back())].emplace(inserter, overlap_remaining, overlap_remaining, true);
+                                    node_idx -= overlap_remaining;
+                                    get<2>(curr_indel.back())->checked().from_length -= overlap_remaining;
+                                    break;
+                                }
+                                else {
+                                    // convert to match
+                                    edit_it = get<2>(curr_indel.back());
+                                    overlap_remaining -= edit_it->checked().from_length;
+                                    node_idx -= edit_it->checked().from_length;
+
+                                    edit_it->checked().to_length = edit_it->checked().from_length;
+                                    edit_it->checked().is_match = true;
+
+                                    curr_indel.pop_back();
+                                }
+                            }
+#ifdef debug_indel_adjustment
+                            cerr << "end with overlap remaining: " << overlap_remaining << endl;
+                            cerr << "cursor is at i " << i << ", ni " << node_idx << ", si " << seq_idx << ", edit " << edit_it->checked().from_length << ", " << edit_it->checked().to_length << ", "  << edit_it->checked().is_match << endl;
+#endif
+                            if (overlap != 0 && curr_indel.empty() && edit_it != shiftable_aln[i].begin()) {
+                                // we may have created an adjacency between matches by clearing out the deletion
+#ifdef debug_indel_adjustment
+                                cerr << "check for adjacency at start of match " << i << ", " << edit_it->checked().from_length << ", " << edit_it->checked().to_length << ", " << edit_it->checked().is_match << endl;
+#endif
+                                auto prev_it = edit_it;
+                                --prev_it;
+                                if (prev_it->checked().is_match) {
+#ifdef debug_indel_adjustment
+                                    cerr << "merge at start" << endl;
+#endif
+                                    seq_idx -= prev_it->checked().to_length;
+                                    node_idx -= prev_it->checked().from_length;
+                                    prev_it->checked().from_length += edit_it->checked().from_length;
+                                    prev_it->checked().to_length += edit_it->checked().to_length;
+                                    tombstone_erase(shiftable_aln[i], edit_it);
+                                    edit_it = prev_it;
+                                }
+                            }
+
+                            if (overlap == ins_it->checked().to_length) {
+#ifdef debug_indel_adjustment
+                                cerr << "insert is consumed" << endl;
+#endif
+                                // the neighboring insertion is consumed
+                                ins_it = tombstone_erase(shiftable_aln[ins_i], ins_it);
+
+                                // we may have created adjacencies between matches that can be merged
+                                if (ins_it != shiftable_aln[ins_i].begin() && ins_it != shiftable_aln[ins_i].end()) {
+                                    auto prev_it = ins_it;
+                                    --prev_it;
+                                    if (ins_it->checked().is_match && prev_it->checked().is_match) {
+                                        prev_it->checked().from_length += ins_it->checked().from_length;
+                                        prev_it->checked().to_length += ins_it->checked().to_length;
+                                        tombstone_erase(shiftable_aln[ins_i], ins_it);
+                                    }
+                                }
+                            }
+                            else {
+#ifdef debug_indel_adjustment
+                                cerr << "insert is reduced by " << overlap << endl;
+#endif
+                                // insertion is reduced
+                                ins_it->checked().to_length -= overlap;
+                            }
+
+                            if (overlap != 0) {
+                                // don't continue to the swapped order
+                                break;
+                            }
+                        }
+                    }
+
+                    // count an indel cancellation as a nontrivial shift
+                    did_a_shift = did_a_shift || (overlap != 0);
+                    
+                    if (!find_post_cancel_switch && (curr_indel.empty() || overlap == 0)) {
+                        // either no cancellation or both insert and delete were fully consumed
+#ifdef debug_indel_adjustment
+                        cerr << "non-cancelable type switch from run, exiting dispatch" << endl;
+#endif
+                        break;
+                    }
+#ifdef debug_indel_adjustment
+                    else if (find_post_cancel_switch) {
+                        cerr << "proceeding forward to find potentialy post-cancellation shifts in other run time" << endl;
+                    }
+#endif
+
+#ifdef debug_indel_adjustment
+                    cerr << "align state after cancellation, seq " << seq << endl;
+                    debug_seq_idx = 0;
+                    for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                        size_t debug_node_idx = 0;
+                        cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << ", " << shiftable_aln[i].size() << " edits"  << endl;
+                        for (const auto& edit : shiftable_aln[i])  {
+                            cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+                            debug_node_idx += edit.from_length;
+                            debug_seq_idx += edit.to_length;
+                        }
+                    }
+
+                    cerr << "continuing from cancellation at i " << i << ", si " << seq_idx << ", ni " << node_idx << ", " << edit_it->checked().from_length << ", " << edit_it->checked().to_length << ", " << edit_it->checked().is_match << ", run type " << (deletion_run ? "del" : "ins") << endl;
+                    cerr << "and curr indel:" << endl;
+                    for (const auto& r : curr_indel) {
+                        cerr << "\t" << get<0>(r) << '\t' << get<1>(r) << '\t' << get<2>(r)->checked().from_length << '\t' << get<2>(r)->checked().to_length << '\t' << get<2>(r)->checked().is_match << '\t';
+                        for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                            size_t j = 0;
+                            for (auto it = shiftable_aln[i].begin(); it != shiftable_aln[i].end(); ++it) {
+                                if (std::get<2>(r) == it) {
+                                    cerr << i << ',' << j;
+                                }
+                                ++j;
+                            }
+                        }
+                        cerr << endl;
+                    }
+#endif
+                }
+            }
+            
+            // record these before we start messing around with the edits
+            int64_t next_node_idx = node_idx + edit_it->checked().from_length;
+            int64_t next_seq_idx = seq_idx + edit_it->checked().to_length;
+
+            if (!curr_indel.empty() && edit_it->checked().from_length == 0) {
+                // extend the current insertion by merging the edits
+                auto insert = get<2>(curr_indel.front());
+                insert->checked().to_length += edit_it->checked().to_length;
+                tombstone_erase(shiftable_aln[i], edit_it);
+                edit_it = insert;
+            }
+            else if (!curr_indel.empty() && edit_it->checked().to_length == 0) {
+                // extend the current deletion
+                if (get<0>(curr_indel.back()) == i) {
+                    // same node, merge the edits
+                    auto del = get<2>(curr_indel.back());
+                    del->checked().from_length += edit_it->checked().from_length;
+                    tombstone_erase(shiftable_aln[i], edit_it);
+                    edit_it = del;
+                }
+                else {
+                    // different nodes, add the edit to the run
+                    curr_indel.emplace_back(i, node_idx, edit_it);
+                }
+            }
+            else if (!curr_indel.empty() && edit_it->checked().from_length == edit_it->checked().to_length) {
+                // try to shift through a match/mismatch
+
+                if (get<2>(curr_indel.front())->checked().from_length == 0) {
+                    // we're shifting an insertion
+                    
+                    int64_t shift_seq_idx = seq_idx - get<2>(curr_indel.front())->checked().to_length;
+                    while (edit_it->checked().from_length != 0 && (seq[seq_idx] == seq[shift_seq_idx] || !edit_it->checked().is_match)) {
+                        // are we shifting a match or a mismatch
+                        bool is_match = (seq[shift_seq_idx] == aligned_seqs[i][node_idx]);
+                        // get the match/mismatch we'll shift into
+                        auto leftward_aligned_it = get<2>(curr_indel.front());
+                        if (leftward_aligned_it == shiftable_aln[i].begin()) {
+                            // start a new match/mismatch at the beginning of the node
+                            leftward_aligned_it = shiftable_aln[i].emplace(leftward_aligned_it, 0, 0, is_match);
+                        }
+                        else {
+                            --leftward_aligned_it;
+                            if (leftward_aligned_it->checked().from_length != leftward_aligned_it->checked().to_length || 
+                                leftward_aligned_it->checked().is_match != is_match) {
+                                // start a new match/mismatch before the current indel
+                                leftward_aligned_it = shiftable_aln[i].emplace(get<2>(curr_indel.front()), 0, 0, is_match);
+                            }
+                        }
+                        // adjust the indexes
+                        --edit_it->checked().from_length;
+                        --edit_it->checked().to_length;
+                        ++leftward_aligned_it->checked().from_length;
+                        ++leftward_aligned_it->checked().to_length;
+                        ++seq_idx;
+                        ++node_idx;
+                        ++shift_seq_idx;
+                        did_a_shift = true;
+                    }
+                }
+                else {
+                    // we're shifting a deletion
+
+                    // cerr << "i " << i << ", fl " << edit_it->checked().from_length << ", tl " << edit_it->checked().to_length << ", im? " << edit_it->checked().is_match << ", si " << seq_idx << ", ni " << node_idx << ", cmp " << get<0>(curr_indel.front()) << ", " << get<1>(curr_indel.front()) << ", chars " << aligned_seqs[get<0>(curr_indel.front())][get<1>(curr_indel.front())] << " " << aligned_seqs[i][node_idx] << endl;
+                    while (edit_it->checked().from_length != 0 && 
+                           (aligned_seqs[get<0>(curr_indel.front())][get<1>(curr_indel.front())] == aligned_seqs[i][node_idx] || !edit_it->checked().is_match)) {
+                        // are we creating a match or a mismatch
+                        bool is_match = (seq[seq_idx] == aligned_seqs[get<0>(curr_indel.front())][get<1>(curr_indel.front())]);
+                        // get the match/mismatch we'll shift into
+                        // TODO: repetitive with insertions
+                        auto leftward_aligned_it = get<2>(curr_indel.front());
+                        if (leftward_aligned_it == shiftable_aln[get<0>(curr_indel.front())].begin()) {
+                            // start a new match/mismatch at the beginning of the node
+                            leftward_aligned_it = shiftable_aln[get<0>(curr_indel.front())].emplace(leftward_aligned_it, 0, 0, is_match);
+                        }
+                        else {
+                            --leftward_aligned_it;
+                            if (leftward_aligned_it->checked().from_length != leftward_aligned_it->checked().to_length || leftward_aligned_it->checked().is_match != is_match) {
+                                // start a new match/mismatch before the current indel
+                                leftward_aligned_it = shiftable_aln[get<0>(curr_indel.front())].emplace(get<2>(curr_indel.front()), 0, 0, is_match);
+                            }
+                        }
+                        // adjust the indexes
+                        ++seq_idx;
+                        ++node_idx;
+                        --edit_it->checked().from_length;
+                        --edit_it->checked().to_length;
+                        if (get<0>(curr_indel.back()) != i) {
+                            curr_indel.emplace_back(i, 0, shiftable_aln[i].emplace(shiftable_aln[i].begin(), 1, 0, false));
+                        }
+                        else {
+                            ++get<2>(curr_indel.back())->checked().from_length;
+                        }
+                        ++leftward_aligned_it->checked().from_length;
+                        ++leftward_aligned_it->checked().to_length;
+                        ++get<1>(curr_indel.front());
+                        --get<2>(curr_indel.front())->checked().from_length;
+                        
+                        if (get<2>(curr_indel.front())->checked().from_length == 0) {
+                            // we've shifted through the first deletion edit in this run
+                            tombstone_erase(shiftable_aln[get<0>(curr_indel.front())], get<2>(curr_indel.front()));
+                            curr_indel.pop_front();
+                        }
+                        did_a_shift = true;
+                    }
+                }
+
+                if (edit_it->checked().from_length == 0) {
+                    // we cleared out the entire match
+                    tombstone_erase(shiftable_aln[i], edit_it);
+                    edit_it = get<2>(curr_indel.back());
+                }
+                else {
+                    // we've shifted this indel as far as possible
+                    curr_indel.clear();
+                    if (in_post_cancel_switch) {
+                        // this was a partially cancelled indel, so we've shifted the remaining and can quit early
+#ifdef debug_indel_adjustment
+                        cerr << "end post cancel switch due to not clearing out a match" << endl;
+#endif
+                        break;
+                    }
+                }
+            }
+            else {
+                // we can't shift an indel through the next edit because it's not a match
+                if (in_post_cancel_switch && !curr_indel.empty()) {
+                    // this was a partially cancelled indel, so we've shifted the remaining and can quit early
+#ifdef debug_indel_adjustment
+                    cerr << "end post cancel switch due to finding a non-match" << endl;
+#endif
+                    break;
+                }
+                curr_indel.clear();
+
+                auto next_it = edit_it;
+                ++next_it;
+                if ((edit_it->checked().from_length == 0 && 
+                     !(i == 0 && edit_it == shiftable_aln[i].begin()) && !(i + 1 == shiftable_aln.size() && next_it == shiftable_aln[i].end())) ||
+                    edit_it->checked().to_length == 0) {
+                    // the next edit is a non-softclip insertion or deletion
+                    curr_indel.emplace_back(i, node_idx, edit_it);
+                }
+            }
+
+            seq_idx = next_seq_idx;
+            node_idx = next_node_idx; 
+
+            prev_i = i;
+        }
+
+#ifdef debug_indel_adjustment
+        cerr << "align state after completing dispatch, seq " << seq << endl;
+        size_t debug_seq_idx = 0;
+        for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+            size_t debug_node_idx = 0;
+            cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << endl;
+            for (const auto& edit : shiftable_aln[i])  {
+                cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+                debug_node_idx += edit.from_length;
+                debug_seq_idx += edit.to_length;
+            }
+        }
+#endif
+    };
+
+    // leftward outer iteration
+    bool in_deletion_run = false;
+    bool in_insertion_run = false;
+    size_t seq_idx = aln.sequence().size();
+    // TODO: doing this manually is somehow less cumbersome than working around the iterator invalidation on
+    // reverse_iterators
+    auto iter_backward = [](list<simple_edit_t>& l, list<simple_edit_t>::iterator& it) {
+        if (it == l.begin()) {
+            it = l.end();
+        }
+        else {
+            --it;
+        }
+    };
+    auto loop_backward = [&](int64_t& i, list<simple_edit_t>::iterator& it) {
+        iter_backward(shiftable_aln[i], it);
+        while (i >= 0 && it == shiftable_aln[i].end()) {
+            --i;
+            if (i >= 0) {
+                it = shiftable_aln[i].end();
+                iter_backward(shiftable_aln[i], it);
+            }
+        }
+    };
+
+    for (int64_t j = shiftable_aln.size() - 1; j >= 0; --j) {
+
+        size_t node_idx = aligned_seqs[j].size();
+
+        auto it = shiftable_aln[j].end();
+        --it;
+        for (; it != shiftable_aln[j].end(); iter_backward(shiftable_aln[j], it)) {
+
+#ifdef debug_indel_adjustment
+            cerr << "outer iter j " << j << ", si " << seq_idx << ", ni " << node_idx << ", fl " << it->checked().from_length << ", tl " << it->checked().to_length << ", im? " << it->checked().is_match << endl;
+#endif
+            
+            auto next_it = it;
+            ++next_it;
+            if (it->checked().from_length == 0) {
+                // insertion
+
+                if (in_deletion_run) {
+                    // see if we can swap a deletion from the other side of this insertion into this deletion run
+
+                    // look back one position
+                    int64_t s = j;
+                    auto s_it = it;
+                    loop_backward(s, s_it);
+                    // find the end of the deletion (if any)
+                    bool found = false;
+                    while (s >= 0) {
+#ifdef debug_indel_adjustment
+                        cerr << "check " << s << ", " << s_it->checked().from_length << ", " << s_it->checked().to_length << ", " << s_it->checked().is_match << " for a boundary deletion to swap into run" << endl;
+#endif
+                        if (s_it->checked().to_length == 0) {
+                            found = true;
+                        }
+                        else {
+                            break;
+                        }
+                        loop_backward(s, s_it);
+                    }
+                    if (found) {
+                        // there's a deletion preceding this insertion
+#ifdef debug_indel_adjustment
+                        cerr << "found swappable deletion" << endl;
+#endif
+
+                        // navigate back to the first edit of the deletion
+                        if (s < 0) {
+                            s = 0;
+                            s_it = shiftable_aln.front().begin();
+                        }
+                        else {
+                            // TODO: annoying type conversion
+                            size_t s_us = s;
+                            advance(s_us, s_it);
+                            s = s_us;
+                        }
+
+                        // update the node seq index
+                        // note: we only walked through deletions, so we don't need to worry about updating seq_idx
+                        node_idx = (s == j) ? node_idx : aligned_seqs[s].size();
+                        size_t t = s;
+                        auto t_it = s_it;
+                        while (t_it != it && t == s) {
+                            node_idx -= t_it->checked().from_length;
+                            advance(t, t_it);
+                        }
+
+                        // move the insertion to the beginning of the deletion
+                        auto ins_it = shiftable_aln[s].emplace(s_it, it->checked());
+                        tombstone_erase(shiftable_aln[j], it);
+
+                        // update the iteration pointer to the new location
+                        it = ins_it;
+                        j = s;
+
+#ifdef debug_indel_adjustment
+                        cerr << "align state after swapping into run" << endl;
+                        size_t debug_seq_idx = 0;
+                        for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                            size_t debug_node_idx = 0;
+                            cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << endl;
+                            for (const auto& edit : shiftable_aln[i])  {
+                                cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+                                debug_node_idx += edit.from_length;
+                                debug_seq_idx += edit.to_length;
+                            }
+                        }
+                        cerr << "j " << j << ", ni " << node_idx << ", si " << seq_idx << ", ed " << it->checked().from_length << ", " << it->checked().to_length << ", "  << it->checked().is_match << endl;
+#endif
+                    }
+
+                    // move back into the deletion run and dispatch a right shift inside it
+                    size_t i = j;
+                    auto edit_it = it;
+                    advance(i, edit_it);
+                    dispatch_shift(i, edit_it, seq_idx, i == j ? node_idx : 0, true);
+                    in_deletion_run = false;
+                }
+                
+                if (!(j == 0 && it == shiftable_aln[j].begin()) && !(j + 1 == shiftable_aln.size() && next_it == shiftable_aln.back().end())) {
+                    in_insertion_run = true;
+                }
+            }
+            else if (it->checked().to_length == 0) {
+                // deletion
+
+                if (in_insertion_run) {
+                    // see if we can find an insertion on the other side of this deletion to swap into this run
+
+                    // traverse the deletion
+                    int64_t s = j;
+                    auto s_it = it;
+                    loop_backward(s, s_it);
+                    while (s >= 0 && s_it->checked().to_length == 0) {
+#ifdef debug_indel_adjustment
+                        cerr << "check " << s << ", " << s_it->checked().from_length << ", " << s_it->checked().to_length << ", " << s_it->checked().is_match << " for a boundary insertion to swap into run" << endl;
+#endif
+                        loop_backward(s, s_it);
+                    }
+                    if (s >= 0 && s_it->checked().from_length == 0 && !(s_it == shiftable_aln.front().begin())) {
+                        // there's a non-soft-clip insertion on this boundary
+
+#ifdef debug_indel_adjustment
+                        cerr << "found swappable insertion" << endl;
+                        cerr << aln.name() << endl;
+#endif
+
+                        // update the sequence to being in front of the cursor
+                        seq_idx -= s_it->checked().to_length;
+
+                        // move the insertion ahead of the cursor
+                        auto t_it = it;
+                        ++t_it;
+                        shiftable_aln[j].emplace(t_it, s_it->checked());
+                        tombstone_erase(shiftable_aln[s], s_it);
+
+#ifdef debug_indel_adjustment
+                        cerr << "align state after swapping into run" << endl;
+                        size_t debug_seq_idx = 0;
+                        for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+                            size_t debug_node_idx = 0;
+                            cerr << i << ": " << mapping_positions[i] << " " << aligned_seqs[i] << endl;
+                            for (const auto& edit : shiftable_aln[i])  {
+                                cerr << '\t' << edit.from_length << ", " << edit.to_length << ", " << edit.is_match << ", " << debug_seq_idx << ", " << debug_node_idx << ", " << seq.substr(debug_seq_idx, edit.to_length) << ", " << aligned_seqs[i].substr(debug_node_idx, edit.from_length) << endl;
+                                debug_node_idx += edit.from_length;
+                                debug_seq_idx += edit.to_length;
+                            }
+                        }
+                        cerr << "j " << j << ", ni " << node_idx << ", si " << seq_idx << ", ed " << it->checked().from_length << ", " << it->checked().to_length << ", "  << it->checked().is_match << endl;
+#endif
+                    }
+
+                    // move back to insertion run and dispatch a right shift
+                    size_t i = j;
+                    auto edit_it = it;
+                    advance(i, edit_it);
+                    dispatch_shift(i, edit_it, seq_idx, i == j ? node_idx : 0, false);
+                    in_insertion_run = false;
+                }
+
+                in_deletion_run = true;
+            }
+
+            seq_idx -= it->checked().to_length;
+            node_idx -= it->checked().from_length;
+        }
+    }
+
+    if (in_deletion_run || in_insertion_run) {
+        // dispatch the last run that wasn't triggered by an alternation in type
+#ifdef debug_indel_adjustment
+        cerr << "final dispatch" << endl;
+#endif
+        dispatch_shift(0, shiftable_aln.front().begin(), 0, 0, in_deletion_run);
+    }
+
+    if (!did_a_shift) {
+        // no need to re-translate the path
+        return;
+    }
+
+    // indels may have moved to the end of the alignment, which can mess up softclipping and position semantics
+    {
+        // find a non-empty mapping
+        int64_t i = shiftable_aln.size() - 1;
+        auto it = shiftable_aln[i].end();
+        while (it == shiftable_aln[i].begin()) {
+            --i;
+            it = shiftable_aln[i].end();
+        }
+        // look at the final edit
+        --it;
+        size_t softclip_len = 0;
+#ifdef debug_indel_adjustment
+        cerr << "found non-empty mapping at " << i << ", fl " << it->checked().from_length << ", tl " << it->checked().to_length << ", im? " << it->checked().is_match << endl;
+#endif
+        if (it->checked().from_length == 0) {
+            // there is a softclip, erase it so we can make sure it gets added back in the right place
+            softclip_len = it->checked().to_length;
+            auto clip = it;
+            if (it == shiftable_aln[i].begin()) {
+                --i;
+                it = shiftable_aln[i].end();
+            }
+            --it;
+#ifdef debug_indel_adjustment
+            cerr << "erasing clip" << endl;
+#endif
+            //shiftable_aln[i].erase(clip);
+            tombstone_erase(shiftable_aln[i], clip);
+        }
+        while (true) {
+#ifdef debug_indel_adjustment
+            cerr << "check for hanging deletions on " << i << ", " << it->checked().from_length << ", tl " << it->checked().to_length << ", im? " << it->checked().is_match << endl;
+#endif
+            if (it->checked().from_length == it->checked().to_length || (preserve_end_pos && it->checked().from_length != 0)) {
+                // we found an aligned base, reposition the softclip if necessary
+#ifdef debug_indel_adjustment
+                cerr << "match" << endl;
+#endif
+                if (softclip_len > 0) {
+                    shiftable_aln[i].emplace_back(0, softclip_len, false);
+                }
+                break;
+            }
+            else if (it->checked().to_length == 0) {
+#ifdef debug_indel_adjustment
+                cerr << "deletion length " << it->checked().from_length << endl;
+#endif
+                if (adjust_left) {
+                    // we're removing reference bases, which will affect the position
+                    get_offset(mapping_positions[i]) += it->checked().from_length;
+                }
+            }
+            else {
+                // we will accumulate this insertion into the softclip
+#ifdef debug_indel_adjustment
+                cerr << "extra softclip" << endl;
+#endif
+                softclip_len += it->checked().to_length;
+            }
+            auto eraser = it;
+            int64_t e = i;
+#ifdef debug_indel_adjustment
+            cerr << "erase " << i << ", " << eraser->from_length << ", " << eraser->to_length << ", " << eraser->is_match << endl;
+#endif  
+            if (it == shiftable_aln[i].begin()) {
+                --i;
+                it = shiftable_aln[i].end();
+            }
+            --it;
+            tombstone_erase(shiftable_aln[e], eraser);
+        }
+    }
+
+#ifdef debug_indel_adjustment
+    cerr << "finished handling clips" << endl;
+#endif
+
+    if (adjust_left) {
+        // un-reverse the alignment for reconstruction
+        reverse(shiftable_aln.begin(), shiftable_aln.end());
+        for (auto& mapping : shiftable_aln) {
+            mapping.reverse();
+        }
+        reverse(mapping_positions.begin(), mapping_positions.end());
+    }
+
+    // clear out the old alignment path
+    path.Clear();
+    // replace it by reconstructing the shifted path
+    seq_idx = 0;
+    for (size_t i = 0; i < shiftable_aln.size(); ++i) {
+        if (shiftable_aln[i].empty()) {
+            continue;
+        }
+        auto mapping = path.add_mapping();
+        mapping->set_rank(path.mapping_size());
+        auto position = mapping->mutable_position();
+        const auto& shift_pos = mapping_positions[i];
+        position->set_node_id(id(shift_pos));
+        position->set_is_reverse(is_rev(shift_pos));
+        position->set_offset(offset(shift_pos));
+
+        for (const auto& shift_edit : shiftable_aln[i]) {
+            auto edit = mapping->add_edit();
+            edit->set_from_length(shift_edit.from_length);
+            edit->set_to_length(shift_edit.to_length);
+            if (shift_edit.from_length == 0 || !shift_edit.is_match) {
+                edit->set_sequence(aln.sequence().substr(seq_idx, shift_edit.to_length));
+            }
+            seq_idx += shift_edit.to_length;
+        }
+    }
 }
 
 vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand) {

@@ -137,6 +137,11 @@ protected:
     // add_interval() can delete an existing interval. This requires a full update at the end.
     void defragment_intervals();
 
+    // Post-insertion cross-path merge: tries to consolidate the interval containing
+    // ref_step with any cross-path neighbor at its left or right boundary.
+    // Operates on this->augref_intervals and this->node_to_interval.
+    void try_cross_path_merge(step_handle_t ref_step);
+
     // Remove non-reference intervals shorter than minimum_length, then defragment.
     // Called after all merging is complete so short intervals have had a chance to merge.
     void filter_short_intervals(int64_t minimum_length);
@@ -152,13 +157,34 @@ protected:
     optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
                                                  const pair<step_handle_t, step_handle_t>& other_interval);
 
+    // Check if merging two adjacent/overlapping step ranges on the same path
+    // would produce a duplicate node ID.  Walks [interval_a.first, interval_b.second).
+    bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
+                                    const pair<step_handle_t, step_handle_t>& interval_b) const;
+
+    // Fast duplicate check for global fold: walks [ext_start, ext_end) and
+    // checks whether any node ID in that range already belongs to
+    // target_interval_idx in nti.  The caller is responsible for pre-trimming
+    // any shared boundary step (overlap-by-one) from the walk range so that
+    // boundary nodes owned by the target are not flagged as duplicates.
+    bool extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
+                                        int64_t target_interval_idx,
+                                        step_handle_t ext_start, step_handle_t ext_end) const;
+
+    // Unified duplicate-node check: dispatches to extension_would_duplicate_node
+    // (O(extension_length)) when global=true, or merge_would_duplicate_node
+    // (O(combined_length)) otherwise.  Callers must pre-trim shared boundary
+    // steps from [ext_start, ext_end); merge_would_duplicate_node handles the
+    // shared boundary naturally via its combined walk.
+    bool would_duplicate_node(bool global,
+                              const unordered_map<nid_t, int64_t>& nti,
+                              int64_t target_idx,
+                              step_handle_t ext_start, step_handle_t ext_end,
+                              const pair<step_handle_t, step_handle_t>& interval_a,
+                              const pair<step_handle_t, step_handle_t>& interval_b) const;
+
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
-
-    // Make sure all nodes in all augref paths are in forward orientation.
-    // This is always possible because they are, by definition, disjoint.
-    // This should only be run from inside apply().
-    void forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph);
 
     // Second pass: greedily cover any nodes not covered by snarl traversals.
     // This handles nodes that are outside of snarls or in complex regions
@@ -172,7 +198,7 @@ protected:
 
     // Debug function: verify that every node in the graph is covered by the augref cover.
     // Prints a summary of coverage statistics to stderr.
-    void verify_cover() const;
+    void verify_cover(int64_t minimum_length) const;
 
     const PathHandleGraph* graph = nullptr;
 
@@ -191,7 +217,7 @@ protected:
 
     // Counter for generating unique augref indices per base path.
     // Using mutable so it can be updated in apply() which is logically const for the cover.
-    mutable unordered_map<string, int64_t> base_path_augref_counter;
+    unordered_map<string, int64_t> base_path_augref_counter;
 
     // Optional sample name for augref paths. When set, base paths are copied to this
     // sample and augref paths are created under it.

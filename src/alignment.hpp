@@ -252,6 +252,10 @@ vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const P
 /// operations, and merge adjacent operations of the same type
 void simplify_cigar(vector<pair<int, char>>& cigar);
 
+/// Normalize the adjustment of indels in an alignment to left or right
+/// Optionally: don't allow the ending positions of the alignment to change
+/// even if that requires the alignment to end in a deletion
+void normalize_indel_adjustment(Alignment& aln, bool adjust_left, const HandleGraph& graph, bool preserve_end_pos = false);
 
 /// Translate the CIGAR in the given BAM record into mappings in the given
 /// Alignment against the given path in the given graph.
