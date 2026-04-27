@@ -51,14 +51,19 @@ find_package(CURL)
 # ---------------------------------------------------------------------------
 FetchContent_Declare(sdsl-lite
     GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
-    GIT_TAG       5c425837929b6f323fd7cccfa6c15ffcec6d94bb)
+    GIT_TAG        5c425837929b6f323fd7cccfa6c15ffcec6d94bb
+    SOURCE_DIR     ${VG_DEPS_DIR}/sdsl-lite)
 FetchContent_Declare(libhandlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph.git
-    GIT_TAG        ae42926da7743a7108db0474bfcf1a1cdac34abb)
+    GIT_TAG        ae42926da7743a7108db0474bfcf1a1cdac34abb
+    SOURCE_DIR     ${VG_DEPS_DIR}/libhandlegraph)
 FetchContent_MakeAvailable(
     libhandlegraph
     sdsl-lite
 )
+target_include_directories(sdsl INTERFACE
+    $<BUILD_INTERFACE:${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include>
+    $<BUILD_INTERFACE:${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include/64>)
 
 FetchContent_Declare(libvgio
     GIT_REPOSITORY https://github.com/vgteam/libvgio.git
@@ -74,7 +79,7 @@ FetchContent_Declare(gssw
     GIT_TAG        594357fd2473342e6537979a091c1c6d1480b953)
 FetchContent_Declare(xg
     GIT_REPOSITORY https://github.com/vgteam/xg.git
-    GIT_TAG        7d6810eec0e4cb5c82ee1283a6ea045ba7770ba1)
+    GIT_TAG        e925f5e76b2da27ea4e44bfb773a7ef53fae19a5)
 FetchContent_Declare(cpp_progress_bar
     GIT_REPOSITORY https://github.com/vgteam/cpp_progress_bar.git
     GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f)
@@ -176,7 +181,7 @@ target_include_directories(vg_headers_only INTERFACE
 # htslib (autotools)
 set(HTSLIB_INSTALL_DIR "${VG_STAGE_DIR}/htslib")
 ExternalProject_Add(htslib_ep
-    SOURCE_DIR        ${VG_DEPS_DIR}/htslib
+    SOURCE_DIR        ${VG_DEPS_DIR}/htslib/htslib
     BUILD_IN_SOURCE   1
     CONFIGURE_COMMAND autoreconf -i COMMAND ./configure --prefix=${HTSLIB_INSTALL_DIR} --disable-bz2 --disable-lzma
     BUILD_COMMAND     $(MAKE)
@@ -197,18 +202,21 @@ target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
 # Build via ExternalProject and import as static libs. Each one needs sdsl
 # headers/libs present at build time; they expect the sibling layout the
 # vendored Makefiles assume (deps/sdsl-lite/build).
-function(vg_makefile_dep target_name dep_name lib_filename)
-    set(install_dir "${VG_STAGE_DIR}/${dep_name}")
-    set(lib_path    "${VG_DEPS_DIR}/${dep_name}/${lib_filename}")
+function(vg_makefile_dep target_name dep_name lib_relpath)
+    # lib_relpath is relative to the dep's source dir, e.g. "lib/libgbwt.a"
+    set(lib_path "${VG_DEPS_DIR}/${dep_name}/${lib_relpath}")
     ExternalProject_Add(${dep_name}_ep
         SOURCE_DIR        ${VG_DEPS_DIR}/${dep_name}
         BUILD_IN_SOURCE   1
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND     $(MAKE) ${lib_filename}
+        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E make_directory ${VG_DEPS_DIR}/${dep_name}/obj
+        BUILD_COMMAND     $(MAKE) ${lib_relpath}
             SDSL_DIR=${sdsl-lite_SOURCE_DIR}
             HG_DIR=${libhandlegraph_SOURCE_DIR}
+            INC_DIR=${sdsl-lite_SOURCE_DIR}/include
+            LIB_DIR=$<TARGET_FILE_DIR:sdsl>
         INSTALL_COMMAND   ""
-        BUILD_BYPRODUCTS  ${lib_path})
+        BUILD_BYPRODUCTS  ${lib_path}
+        DEPENDS           sdsl)
     add_library(${target_name} STATIC IMPORTED)
     set_target_properties(${target_name} PROPERTIES
         IMPORTED_LOCATION             ${lib_path}
@@ -216,15 +224,15 @@ function(vg_makefile_dep target_name dep_name lib_filename)
     add_dependencies(${target_name} ${dep_name}_ep)
 endfunction()
 
-vg_makefile_dep(vg_gbwt      gbwt      libgbwt.a)
-vg_makefile_dep(vg_gcsa2     gcsa2     libgcsa2.a)
-vg_makefile_dep(vg_gbwtgraph gbwtgraph libgbwtgraph.a)
+vg_makefile_dep(vg_gbwt      gbwt      lib/libgbwt.a)
+vg_makefile_dep(vg_gcsa2     gcsa2     lib/libgcsa2.a)
+vg_makefile_dep(vg_gbwtgraph gbwtgraph lib/libgbwtgraph.a)
 
 # jemalloc — only when selected. Built via its autotools.
 if(VG_USE_JEMALLOC)
     set(JEMALLOC_INSTALL_DIR "${VG_STAGE_DIR}/jemalloc")
     ExternalProject_Add(jemalloc_ep
-        SOURCE_DIR        ${VG_DEPS_DIR}/jemalloc
+        SOURCE_DIR        ${VG_DEPS_DIR}/jemalloc/malloc
         BUILD_IN_SOURCE   1
         CONFIGURE_COMMAND ./autogen.sh --prefix=${JEMALLOC_INSTALL_DIR} --with-jemalloc-prefix=
         BUILD_COMMAND     $(MAKE)
