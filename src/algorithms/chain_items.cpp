@@ -547,6 +547,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
+    crash_unless(recomb_penalty >= 0);
+
     // Compute a base seed average length.
     // TODO: Weight anchors differently?
     // TODO: Will this always be the same for all anchors in practice?
@@ -560,7 +562,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // Track eval bonus for heuristic comparison (path conservation bonus, used for
     // selection only without affecting the actual stored score).
     // Starting from nowhere means full path conservation, so bonus = recomb_penalty.
-    std::vector<int> eval_bonuses(to_chain.size(), std::max(0, recomb_penalty));
+    std::vector<int> eval_bonuses(to_chain.size(), recomb_penalty);
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
         chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
@@ -593,7 +595,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // This also has full path conservation (bonus = recomb_penalty).
         {
             TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
-            int nowhere_bonus = std::max(0, recomb_penalty);
+            int nowhere_bonus = recomb_penalty;
             int eval_nowhere = from_nowhere.score + nowhere_bonus;
             int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
             if (eval_nowhere > eval_current) {
