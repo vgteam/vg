@@ -8,7 +8,7 @@
 #include <vector>
 #include <set>
 
-#include <subcommand.hpp>
+#include "subcommand.hpp"
 
 #include "../algorithms/alignment_path_offsets.hpp"
 #include "../multipath_alignment.hpp"

@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <subcommand.hpp>
+#include "subcommand.hpp"
 
 #include "../primer_filter.hpp"
 #include "../snarl_distance_index.hpp"
