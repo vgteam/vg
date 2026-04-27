@@ -1008,7 +1008,6 @@ class ZipCodeForest {
         /// If this seed is in a nested snarl, and we're calculating
         /// using minimum_distance, then we might need to subtract the
         /// offset from inner seed to inner snarl edge
-
         size_t nested_snarl_offset;
 
         /// Pass the seed's index (which is looked up from forest_state.seeds),
