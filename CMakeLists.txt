@@ -56,7 +56,7 @@ find_package(OpenSSL REQUIRED)
 # ---------------------------------------------------------------------------
 FetchContent_Declare(sdsl-lite
     GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
-    GIT_TAG        5c425837929b6f323fd7cccfa6c15ffcec6d94bb
+    GIT_TAG        vg-cmake-hublabel
     SOURCE_DIR     ${VG_DEPS_DIR}/sdsl-lite
     EXCLUDE_FROM_ALL
 )
@@ -70,9 +70,6 @@ FetchContent_MakeAvailable(
     libhandlegraph
     sdsl-lite
 )
-target_include_directories(sdsl INTERFACE
-    $<BUILD_INTERFACE:${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include>
-    $<BUILD_INTERFACE:${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include/64>)
 
 FetchContent_Declare(libvgio
     GIT_REPOSITORY https://github.com/vgteam/libvgio.git
@@ -138,8 +135,7 @@ FetchContent_MakeAvailable(
     structures
 )
 # libvgio's pkg_check_modules finds Homebrew htslib (compiled with libdeflate),
-# which injects -ldeflate into vgio_static's link interface. Our ExternalProject
-# htslib is built without libdeflate, so strip the flag here.
+# which injects -ldeflate into vgio_static's link interface. 
 if(TARGET vgio_static)
     get_target_property(_vgio_iface vgio_static INTERFACE_LINK_LIBRARIES)
     if(_vgio_iface)
@@ -169,6 +165,11 @@ target_include_directories(vcflib INTERFACE
 )
 
 # external CMake
+FetchContent_Declare(gcsa2
+    GIT_REPOSITORY https://github.com/electricEpilith/gcsa2.git
+    GIT_TAG        a8194516cc4a08ee2ac747881e48cd2e19785695
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(backward-cpp
     GIT_REPOSITORY https://github.com/bombela/backward-cpp.git
     GIT_TAG        0bfd0a07a61551413ccd2ab9a9099af3bad40681
@@ -186,6 +187,7 @@ FetchContent_Declare(kff-cpp-api
 )
 
 FetchContent_MakeAvailable(
+    gcsa2
     backward-cpp
     raptor
     kff-cpp-api
@@ -332,7 +334,7 @@ set(HTSLIB_INSTALL_DIR "${VG_STAGE_DIR}/htslib")
 ExternalProject_Add(htslib_ep
     SOURCE_DIR        ${VG_DEPS_DIR}/htslib/htslib
     BUILD_IN_SOURCE   1
-    CONFIGURE_COMMAND autoreconf -i COMMAND ./configure --prefix=${HTSLIB_INSTALL_DIR} --disable-bz2 --disable-lzma --without-libdeflate
+    CONFIGURE_COMMAND autoreconf -i COMMAND ./configure --prefix=${HTSLIB_INSTALL_DIR} --disable-bz2 --disable-lzma
     BUILD_COMMAND     $(MAKE)
     INSTALL_COMMAND   $(MAKE) install
     BUILD_BYPRODUCTS  ${HTSLIB_INSTALL_DIR}/lib/libhts.a)
@@ -350,7 +352,7 @@ target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
 target_link_libraries(vg_sublinear PUBLIC vg_htslib)
 
 # ---------------------------------------------------------------------------
-# Unified staging prefix for the Makefile-based deps (gbwt/gcsa2/gbwtgraph).
+# Unified staging prefix for the Makefile-based deps (gbwt/gbwtgraph).
 # Their hand-written Makefiles + sdsl-lite's Make.helper expect a single
 # include/ + lib/ tree containing sdsl, divsufsort{,64}, handlegraph, and
 # (for gbwtgraph) gbwt headers. We build that tree here.
@@ -361,25 +363,19 @@ set(MAKEDEPS_LIB        "${MAKEDEPS_PREFIX}/lib")
 file(MAKE_DIRECTORY ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB})
 
 # Pre-stage: sdsl headers, divsufsort headers (from sdsl-lite's build tree),
-# handlegraph headers, and the static libs that gbwt/gcsa2 link against.
+# handlegraph headers, and the static libs that gbwt link against.
 add_custom_command(
     OUTPUT  ${MAKEDEPS_INCLUDE}/.stamp
     COMMAND ${CMAKE_COMMAND} -E make_directory ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB}
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${sdsl-lite_SOURCE_DIR}/include ${MAKEDEPS_INCLUDE}
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include ${MAKEDEPS_INCLUDE}
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${libhandlegraph_SOURCE_DIR}/src/include ${MAKEDEPS_INCLUDE}
     COMMAND ${CMAKE_COMMAND} -E copy
             $<TARGET_FILE:sdsl> ${MAKEDEPS_LIB}/libsdsl.a
-    COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:divsufsort>   ${MAKEDEPS_LIB}/libdivsufsort.a
-    COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:divsufsort64> ${MAKEDEPS_LIB}/libdivsufsort64.a
     COMMAND ${CMAKE_COMMAND} -E touch ${MAKEDEPS_INCLUDE}/.stamp
-    DEPENDS sdsl divsufsort divsufsort64 handlegraph_static
-    COMMENT "Staging sdsl + divsufsort + handlegraph for Makefile-based deps")
+    DEPENDS sdsl handlegraph_static
+    COMMENT "Staging sdsl + handlegraph for Makefile-based deps")
 add_custom_target(makedeps_stage DEPENDS ${MAKEDEPS_INCLUDE}/.stamp)
 
 # Build a Makefile-based dep against MAKEDEPS_PREFIX, then publish its public
@@ -416,7 +412,7 @@ function(vg_makefile_dep target_name dep_name lib_relpath public_header_subdir)
 endfunction()
 
 vg_makefile_dep(vg_gbwt      gbwt      lib/libgbwt.a      gbwt)
-vg_makefile_dep(vg_gcsa2     gcsa2     lib/libgcsa2.a     gcsa)
+
 # gbwtgraph #includes <gbwt/...> — must run after gbwt's headers are staged.
 vg_makefile_dep(vg_gbwtgraph gbwtgraph lib/libgbwtgraph.a gbwtgraph)
 add_dependencies(gbwtgraph_ep gbwt_ep)
@@ -557,11 +553,13 @@ target_link_libraries(vg_core PUBLIC
     handlegraph_shared vgio_static libbdsg libgssw
     vg_xg progress_bar vcflib structures_static
     dozeu
-    # vendored libs
+    # additional vg stuff
+    vg_gbwt vg_gbwtgraph gcsa2
+    # not owned by member of vg team
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
     vg_headers_only backward raptor2 kff
     # external (ExternalProject)
-    vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph 
+    vg_htslib
     vg_pinchesAndCacti vg_3edge vg_sonlib
     # CMake-native locals
     sdsl
