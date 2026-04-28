@@ -173,8 +173,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:a671ecec9187f2c6b3f4f7789c30ec27e"><td class="memItemLeft" align="right" valign="top">static std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a671ecec9187f2c6b3f4f7789c30ec27e">align_sequence_between_consistently</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, size_t max_gap_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const std::string *alignment_name=nullptr, size_t <a class="el" href="classvg_1_1MinimizerMapper.html#af673f62cfdb402e93acaf2eb81680772">max_dp_cells</a>=std::numeric_limits&lt; size_t &gt;::max(), const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#acf23e356fb872617417ff73d54f6f141">choose_band_padding</a>=<a class="el" href="namespacevg_1_1algorithms.html#a1595847c7bb233f3b8edfbee3397a224">algorithms::pad_band_random_walk</a>())</td></tr>
-<tr class="separator:a671ecec9187f2c6b3f4f7789c30ec27e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a03b27541df96a7a63d338ca67c70e23d"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a03b27541df96a7a63d338ca67c70e23d">align_sequence_between_consistently</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, size_t max_gap_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const std::string *alignment_name=nullptr, size_t <a class="el" href="classvg_1_1MinimizerMapper.html#af673f62cfdb402e93acaf2eb81680772">max_dp_cells</a>=std::numeric_limits&lt; size_t &gt;::max(), const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#acf23e356fb872617417ff73d54f6f141">choose_band_padding</a>=<a class="el" href="namespacevg_1_1algorithms.html#a1595847c7bb233f3b8edfbee3397a224">algorithms::pad_band_random_walk</a>())</td></tr>
+<tr class="separator:a03b27541df96a7a63d338ca67c70e23d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_static_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_static_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Static Public Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a4a56c0bf099b670763c0f5ce3653811b inherit pub_static_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">static int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a4a56c0bf099b670763c0f5ce3653811b">parse_matrix</a> (std::istream &amp;matrix_stream)</td></tr>
 <tr class="memdesc:a4a56c0bf099b670763c0f5ce3653811b inherit pub_static_methods_classvg_1_1AlignerClient"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocates an array to hold a 4x4 substitution matrix and returns it.  <a href="classvg_1_1AlignerClient.html#a4a56c0bf099b670763c0f5ce3653811b">More...</a><br /></td></tr>
@@ -750,8 +750,8 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="separator:a226a76ceb57a96d07ab467269541bfea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa0f917b2d622c95d9f8bc65186cb898f"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa0f917b2d622c95d9f8bc65186cb898f">longest_detectable_gap_in_range</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::string::const_iterator &amp;sequence_begin, const std::string::const_iterator &amp;sequence_end, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner)</td></tr>
 <tr class="separator:aa0f917b2d622c95d9f8bc65186cb898f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3757672b798dedc0d9ce9b4306f638c4"><td class="memItemLeft" align="right" valign="top">static std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3757672b798dedc0d9ce9b4306f638c4">align_sequence_between</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, size_t max_gap_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const std::string *alignment_name=nullptr, size_t <a class="el" href="classvg_1_1MinimizerMapper.html#af673f62cfdb402e93acaf2eb81680772">max_dp_cells</a>=std::numeric_limits&lt; size_t &gt;::max(), const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#acf23e356fb872617417ff73d54f6f141">choose_band_padding</a>=<a class="el" href="namespacevg_1_1algorithms.html#a1595847c7bb233f3b8edfbee3397a224">algorithms::pad_band_random_walk</a>())</td></tr>
-<tr class="separator:a3757672b798dedc0d9ce9b4306f638c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a91d146b213790ff33782fe34522a7eb0"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a91d146b213790ff33782fe34522a7eb0">align_sequence_between</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, size_t max_gap_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const std::string *alignment_name=nullptr, size_t <a class="el" href="classvg_1_1MinimizerMapper.html#af673f62cfdb402e93acaf2eb81680772">max_dp_cells</a>=std::numeric_limits&lt; size_t &gt;::max(), const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#acf23e356fb872617417ff73d54f6f141">choose_band_padding</a>=<a class="el" href="namespacevg_1_1algorithms.html#a1595847c7bb233f3b8edfbee3397a224">algorithms::pad_band_random_walk</a>())</td></tr>
+<tr class="separator:a91d146b213790ff33782fe34522a7eb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2bba608ac7474700ace2ac9a071198f1"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="structvg_1_1WFAAlignment.html">WFAAlignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2bba608ac7474700ace2ac9a071198f1">connect_consistently</a> (const std::string &amp;sequence, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, const <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> &amp;wfa_extender)</td></tr>
 <tr class="separator:a2bba608ac7474700ace2ac9a071198f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7999b2f0a931930bfa9eddec4065b51b"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7999b2f0a931930bfa9eddec4065b51b">window_breaking_quality</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, vector&lt; size_t &gt; &amp;broken, const string &amp;sequence, const string &amp;quality_bytes)</td></tr>
@@ -1065,8 +1065,8 @@ Friends</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a3757672b798dedc0d9ce9b4306f638c4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3757672b798dedc0d9ce9b4306f638c4">&#9670;&nbsp;</a></span>align_sequence_between()</h2>
+<a id="a91d146b213790ff33782fe34522a7eb0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a91d146b213790ff33782fe34522a7eb0">&#9670;&nbsp;</a></span>align_sequence_between()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1075,7 +1075,7 @@ Friends</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt; size_t, size_t &gt; vg::MinimizerMapper::align_sequence_between </td>
+          <td class="memname">bool vg::MinimizerMapper::align_sequence_between </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>left_anchor</em>, </td>
@@ -1150,13 +1150,13 @@ Friends</h2></td></tr>
 <p>Finds an alignment against a graph path if it is &lt;= max_path_length.</p>
 <p>If one of the anchor positions is empty, does pinned alignment against the other position.</p>
 <p>For pinned alignment, restricts the alignment to have gaps no longer than max_gap_length, and to use &lt;= max_dp_cells cells. If too many DP cells would be used, produces a softclip alignment.</p>
-<p>For connecting alignment, restricts the alignment to use &lt;= max_dp_cells cells. If too many DP cells would be used, produces an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with and empty path.</p>
-<p>Returns the number of nodes and bases in the graph aligned against. </p>
+<p>For connecting alignment, restricts the alignment to use &lt;= max_dp_cells cells. If too many DP cells would be used, produces an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with an empty path.</p>
+<p>Returns whether a graph was aligned against or not. </p>
 
 </div>
 </div>
-<a id="a671ecec9187f2c6b3f4f7789c30ec27e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a671ecec9187f2c6b3f4f7789c30ec27e">&#9670;&nbsp;</a></span>align_sequence_between_consistently()</h2>
+<a id="a03b27541df96a7a63d338ca67c70e23d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03b27541df96a7a63d338ca67c70e23d">&#9670;&nbsp;</a></span>align_sequence_between_consistently()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1165,7 +1165,7 @@ Friends</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt; size_t, size_t &gt; vg::MinimizerMapper::align_sequence_between_consistently </td>
+          <td class="memname">bool vg::MinimizerMapper::align_sequence_between_consistently </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>left_anchor</em>, </td>
@@ -1236,7 +1236,7 @@ Friends</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> of <a class="el" href="classvg_1_1MinimizerMapper.html#a3757672b798dedc0d9ce9b4306f638c4">align_sequence_between()</a> that guarantees that you get the same answer (modulo reverse-complementation) no matter whether the sequence and anchors are reverse-complemented or not. </p>
+<p><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> of <a class="el" href="classvg_1_1MinimizerMapper.html#a91d146b213790ff33782fe34522a7eb0">align_sequence_between()</a> that guarantees that you get the same answer (modulo reverse-complementation) no matter whether the sequence and anchors are reverse-complemented or not. </p>
 
 </div>
 </div>
