@@ -295,19 +295,23 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         cerr << endl;
     }
     const Seed& current_seed = forest_state.seeds->at(seed_index);
-    bool current_is_reversed = (child_is_reversed != is_rev(current_seed.pos));
+    bool current_is_reversed_in_tree = (child_is_reversed != is_rev(current_seed.pos));
+    bool rev_relative_to_index = current_seed.zipcode.get_is_reversed_in_parent(depth) != current_is_reversed_in_tree;
+    cerr << current_seed.pos << " has forward loop (" << current_seed.zipcode.get_has_forward_loop(depth)
+         << ") | has reverse loop (" << current_seed.zipcode.get_has_reverse_loop(depth)
+         << ") | is reversed (" << current_seed.zipcode.get_is_reversed_in_parent(depth) << ")" << endl;
 
     // Would this seed be an exact duplicate of the previous one?
     tree_item_t& prev_item = trees[forest_state.active_tree_index].zip_code_tree.back();
     bool prev_is_duplicate = (prev_item.get_type() == ZipCodeTree::SEED 
                               && forest_state.seeds->at(prev_item.get_value()).pos == current_seed.pos
-                              && prev_item.get_is_reversed() == current_is_reversed);
+                              && prev_item.get_is_reversed() == current_is_reversed_in_tree);
     if (prev_is_duplicate) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Adding duplicate seed to back at " << current_seed.pos << endl;
 #endif
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
-            ZipCodeTree::SEED, seed_index, current_is_reversed);
+            ZipCodeTree::SEED, seed_index, current_is_reversed_in_tree);
         return;
     }
 
@@ -318,14 +322,14 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             trees[forest_state.active_tree_index].zip_code_tree.size() - 3];
         bool three_back_is_duplicate = (three_back_item.get_type() == ZipCodeTree::SEED 
                                         && forest_state.seeds->at(three_back_item.get_value()).pos == current_seed.pos
-                                        && three_back_item.get_is_reversed() == current_is_reversed);
+                                        && three_back_item.get_is_reversed() == current_is_reversed_in_tree);
         if (three_back_is_duplicate) {
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "Adding duplicate seed two back at " << current_seed.pos << endl;
 #endif
             trees[forest_state.active_tree_index].zip_code_tree.insert(
                 trees[forest_state.active_tree_index].zip_code_tree.end() - 2, 
-                {ZipCodeTree::SEED, seed_index, current_is_reversed});
+                {ZipCodeTree::SEED, seed_index, current_is_reversed_in_tree});
             return;
         }
     }
@@ -489,8 +493,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         }
     }
 
-    if ((current_is_reversed && current_seed.zipcode.get_has_forward_loop(depth))
-         || (!current_is_reversed && current_seed.zipcode.get_has_reverse_loop(depth))) {
+    if ((rev_relative_to_index && current_seed.zipcode.get_has_forward_loop(depth))
+         || (!rev_relative_to_index && current_seed.zipcode.get_has_reverse_loop(depth))) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\tMight need to create a reverse loop" << endl;
 #endif
@@ -516,7 +520,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
             // Look up the length of this loop
             size_t new_loop_value;
-            if (current_is_reversed) {
+            if (rev_relative_to_index) {
                 new_loop_value = forest_state.distance_index->get_reverse_loop_value(node_handle);
             } else {
                 new_loop_value = forest_state.distance_index->get_forward_loop_value(node_handle);
@@ -559,7 +563,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #endif
         // If this was a node, just remember the seed
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
-            ZipCodeTree::SEED, seed_index, current_is_reversed);
+            ZipCodeTree::SEED, seed_index, current_is_reversed_in_tree);
     } else {
         open_snarl(forest_state, depth, current_seed.zipcode.get_code_type(depth) == ZipCode::CYCLIC_SNARL); 
 
@@ -592,8 +596,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     cerr << "Added sibling with type " << current_type << endl;
 #endif
 
-    if ((current_is_reversed && current_seed.zipcode.get_has_reverse_loop(depth))
-         || (!current_is_reversed && current_seed.zipcode.get_has_forward_loop(depth))) {
+    if ((rev_relative_to_index && current_seed.zipcode.get_has_reverse_loop(depth))
+         || (!rev_relative_to_index && current_seed.zipcode.get_has_forward_loop(depth))) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\tWill create a forward loop" << endl;
 #endif
@@ -601,7 +605,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
         // Look up the length of this loop
         size_t new_loop_value;
-        if (current_is_reversed) {
+        if (rev_relative_to_index) {
             new_loop_value = forest_state.distance_index->get_reverse_loop_value(node_handle);
         } else {
             new_loop_value = forest_state.distance_index->get_forward_loop_value(node_handle);
