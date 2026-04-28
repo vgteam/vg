@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code_tree.hpp"
@@ -286,6 +286,14 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
 
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, const size_t& depth,
                                        const size_t& seed_index, bool child_is_reversed, bool chain_is_reversed) {
+    cerr << depth << " " << seed_index << " " << child_is_reversed << " " << chain_is_reversed << endl;
+    for (size_t d = 0; d < forest_state.sibling_indices_at_depth.size(); d++) {
+        cerr << "depth = " << d << ": ";
+        for (const auto& sib : forest_state.sibling_indices_at_depth[d]) {
+            cerr << sib.type << " " << sib.value << " / ";
+        }
+        cerr << endl;
+    }
     const Seed& current_seed = forest_state.seeds->at(seed_index);
     bool current_is_reversed = (child_is_reversed != is_rev(current_seed.pos));
 
@@ -323,6 +331,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     }
 
     ZipCode::code_type_t current_type = current_seed.zipcode.get_code_type(depth);
+    cerr << current_type << endl;
 
     // Is this chain actually a node pretending to be a chain?
     bool is_trivial_chain = current_type == ZipCode::CHAIN && depth == current_seed.zipcode.max_depth();
@@ -330,7 +339,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     // For a root node or trivial chain, the "chain" is actually just the node,
     // so the depth of the chain is the same. Otherwise, depth is depth-1
     size_t chain_depth = is_trivial_chain || current_type == ZipCode::ROOT_NODE ? depth : depth-1;
-    child_info_t& cur_chain = forest_state.sibling_indices_at_depth[chain_depth-1].back();
+    // For the root chain, there is no -1 depth to store its CHAIN_START,
+    // so it is jerry-rigged onto the front of 0 depth
+    child_info_t& cur_chain = forest_state.sibling_indices_at_depth[chain_depth == 0 ? 0 : chain_depth-1].back();
 
     ///////////////// Get the offset in the parent chain (or node)
     size_t current_offset;
@@ -502,13 +513,13 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         }
         
         if (add_loop) {
-            net_handle_t seed_handle = current_seed.zipcode.get_net_handle(depth, forest_state.distance_index);
+            net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
             // Look up the length of this loop
             size_t new_loop_value;
             if (current_is_reversed) {
-                new_loop_value = forest_state.distance_index->get_forward_loop_value(seed_handle);
+                new_loop_value = forest_state.distance_index->get_reverse_loop_value(node_handle);
             } else {
-                new_loop_value = forest_state.distance_index->get_reverse_loop_value(seed_handle);
+                new_loop_value = forest_state.distance_index->get_forward_loop_value(node_handle);
             }
 
             if (cur_chain.has_reverse_loop()) {
@@ -587,13 +598,13 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         cerr << "\t\tWill create a forward loop" << endl;
 #endif
 
-        net_handle_t seed_handle = current_seed.zipcode.get_net_handle(depth, forest_state.distance_index);
+        net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
         // Look up the length of this loop
         size_t new_loop_value;
         if (current_is_reversed) {
-            new_loop_value = forest_state.distance_index->get_reverse_loop_value(seed_handle);
+            new_loop_value = forest_state.distance_index->get_reverse_loop_value(node_handle);
         } else {
-            new_loop_value = forest_state.distance_index->get_forward_loop_value(seed_handle);
+            new_loop_value = forest_state.distance_index->get_forward_loop_value(node_handle);
         }
 
         if (cur_chain.has_forward_loop()) {
@@ -2812,6 +2823,14 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
          *
          *******/
 
+        for (size_t d = 0; d < forest_state.sibling_indices_at_depth.size(); d++) {
+            cerr << "depth = " << d << ": ";
+            for (const auto& sib : forest_state.sibling_indices_at_depth[d]) {
+                cerr << sib.type << " " << sib.value << " / ";
+            }
+            cerr << endl;
+        }
+
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Open next interval or (if the interval is for nodes), add seeds" << endl;
 #endif
@@ -2846,6 +2865,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                 // Open the root snarl (treated as non-cyclic)
                 open_snarl(forest_state, 0, false);
             } else if (current_interval.code_type == ZipCode::NODE) {
+                cerr << "current_interval.code_type == ZipCode::NODE" << endl;
                 // For a root node, just add it as a chain with all the seeds
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START);
 
@@ -2864,6 +2884,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                             seeds.at(forest_state.seed_sort_order[current_interval.interval_end-1]), 
                             current_interval.is_reversed); 
             } else {
+                cerr << current_interval.code_type << endl;
                 // Open the root chain/node
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START);
 
