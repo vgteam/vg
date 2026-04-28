@@ -2130,7 +2130,7 @@ namespace unittest {
         }
         SECTION("Cyclic snarl with seeds on either side") {
             // [4+0rev >24 0 {1  inf  0  0  22  22  20  24  0  22  inf 
-            //     [2+0 0 2-11rev 1 2+1 0 2-10rev 1 2+2 0 2-9rev]} 24 <48 1+0rev]
+            //     [2+0 0 2-11rev 1 2+1 0 2-10rev 1 2+2 0 2-9rev]} 24 24< 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
