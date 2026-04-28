@@ -217,8 +217,8 @@ class ZipCodeTree {
         /// Is this seed reversed in the tree? Uses is_reversed_or_cyclic
         /// Only call on a SEED
         inline bool get_is_reversed() const { 
-            if (this->type != ZipCodeTree::SEED) {
-                throw std::runtime_error("Can't get reversedness of a tree item that isn't a seed");
+            if (this->type != ZipCodeTree::SEED && this->type != ZipCodeTree::LOOP) {
+                throw std::runtime_error("Can't get reversedness of a tree item that isn't a seed or loop");
             }
             return is_reversed_or_cyclic;
         }
