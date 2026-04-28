@@ -897,97 +897,8 @@ class ZipCodeForest {
     //////////
     ////////////////////////////////////////////////////
 
-    /// Structs which need to be declared for forest_growing_state_t
-    /// See definitions later
-    struct interval_state_t;
-    struct sort_value_t;
-    struct child_info_t;
-
-    /// This stores information about the state of the forest as we fill it in
-    struct forest_growing_state_t {
-        /// Seeds which are to be put in the forest
-        const vector<Seed>* seeds;
-
-        /// Distance index for the graph being represented
-        const SnarlDistanceIndex* distance_index;
-
-        /// Sort order for the seeds
-        vector<size_t> seed_sort_order;
-
-
-        /// This stores the sort value and code type of each seed 
-        /// This will change as forest building progresses
-        /// but it will be set for the relevant seed immediately before sorting
-        /// The values also get used to calculate distance, 
-        /// as long as they have been set for the correct depth
-        vector<sort_value_t> sort_values_by_seed;
-
-        /// Stores the previous things of the current structure at each depth
-        /// The children are stored at the depth of their parents.
-        /// For example, for a root chain, the vector at index 0 would have the
-        /// chain start, seeds on the chain, and snarl starts on the chain.
-        /// Similarly, for a top-level snarl, at depth 1, the second 
-        /// vector would contain the starts of chains at depth 2 
-        vector<vector<child_info_t>> sibling_indices_at_depth;
-
-        /// We build a forest of trees. This is an index into trees
-        /// to indicate which is actively being worked on.
-        ///
-        /// A new tree is formed either when a new top-level chain is found
-        /// (or a slice of a top-level chain if far enough from previous thing),
-        /// or when part of a chain in a snarl is too far from everything else.
-        /// In the second case, the entire subtree is found before determining
-        /// that it should be a subtree, and is copied into a new ZipCodeTree.
-        /// So only one tree is actively being added to at a time.
-        /// 
-        /// Note that this can't be an actual pointer to the forest because
-        /// the address may move if the vectors get shifted around in memory.
-        size_t active_tree_index;
-
-        /// If part of a chain is unreachable with the rest of the chain,
-        /// then we want to split it off into a separate zipcode tree.
-        /// This tracks all open chains as an index to the start of the chain
-        /// in the current active tree, and a boolean for if the chain start is
-        /// farther than distance_limit from anything else in the snarl tree.
-        ///
-        /// If the index is for a CHAIN_START, it includes the whole chain.
-        /// If it points to a SEED/SNARL_START, then it is a slice.
-        ///
-        /// Any time something gets added to a chain or the chain is closed,
-        /// check if the distance to anything following is >distance_limit.
-        /// If it is, copy from the start of the chain/slice into a new tree.
-        vector<pair<size_t, bool>> open_chains;
-
-        /// A stack of intervals representing snarl tree nodes.
-        /// These are yet to be sorted and added to the zip tree.
-        /// After an interval is popped, child intervals are added in
-        /// The stack structure ensures a depth-first processing order
-        forward_list<interval_state_t> intervals_to_process;
-    
-        /// Intervals that are currently open.
-        /// These represent ancestors of whatever is currently being worked on.
-        /// So the size is the depth of the snarl tree
-        vector<interval_state_t> open_intervals;
-
-
-        /// The overall distance limit for splitting of new connected components
-        size_t distance_limit;
-
-        /// Constructor given seeds and a distance index
-        forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
-                               size_t distance_limit) :
-            seeds(&seeds), distance_index(&distance_index), 
-            distance_limit(distance_limit), active_tree_index(std::numeric_limits<size_t>::max()) {
-
-            // This represents the current sort order of the seeds
-            seed_sort_order.assign(seeds.size(), 0);
-            for (size_t i = 0 ; i < seed_sort_order.size() ; i++) {
-                seed_sort_order[i] = i;
-            }
-            sort_values_by_seed.resize(seeds.size());
-        }
-
-    };
+    // This will exist, I promise, friend compiler
+    struct forest_growing_state_t;
 
     /// Store edgemost seeds in chains when creating a snarl's distance matrix
     /// We make one pass over each chain, remembering its edge seeds, and then
@@ -1167,6 +1078,97 @@ class ZipCodeForest {
         inline void set_code_type(ZipCode::code_type_t type) { code_type = type; }
         inline void set_chain_order(size_t order) { chain_order = order; }
         inline void set_chain_component(size_t component) { chain_component = component; }
+
+    };
+
+        /// This stores information about the state of the forest as we fill it in
+    struct forest_growing_state_t {
+        /// Seeds which are to be put in the forest
+        const vector<Seed>* seeds;
+
+        /// Distance index for the graph being represented
+        const SnarlDistanceIndex* distance_index;
+
+        /// Sort order for the seeds
+        vector<size_t> seed_sort_order;
+
+
+        /// This stores the sort value and code type of each seed 
+        /// This will change as forest building progresses
+        /// but it will be set for the relevant seed immediately before sorting
+        /// The values also get used to calculate distance, 
+        /// as long as they have been set for the correct depth
+        vector<sort_value_t> sort_values_by_seed;
+
+        /// Stores the previous things of the current structure at each depth
+        /// The children are stored at the depth of their parents.
+        /// For example, for a root chain, the vector at index 0 would have the
+        /// chain start, seeds on the chain, and snarl starts on the chain.
+        /// Similarly, for a top-level snarl, at depth 1, the second 
+        /// vector would contain the starts of chains at depth 2 
+        vector<vector<child_info_t>> sibling_indices_at_depth;
+
+        /// We build a forest of trees. This is an index into trees
+        /// to indicate which is actively being worked on.
+        ///
+        /// A new tree is formed either when a new top-level chain is found
+        /// (or a slice of a top-level chain if far enough from previous thing),
+        /// or when part of a chain in a snarl is too far from everything else.
+        /// In the second case, the entire subtree is found before determining
+        /// that it should be a subtree, and is copied into a new ZipCodeTree.
+        /// So only one tree is actively being added to at a time.
+        /// 
+        /// Note that this can't be an actual pointer to the forest because
+        /// the address may move if the vectors get shifted around in memory.
+        size_t active_tree_index;
+
+        /// If part of a chain is unreachable with the rest of the chain,
+        /// then we want to split it off into a separate zipcode tree.
+        /// This tracks all open chains as an index to the start of the chain
+        /// in the current active tree, and a boolean for if the chain start is
+        /// farther than distance_limit from anything else in the snarl tree.
+        ///
+        /// If the index is for a CHAIN_START, it includes the whole chain.
+        /// If it points to a SEED/SNARL_START, then it is a slice.
+        ///
+        /// Any time something gets added to a chain or the chain is closed,
+        /// check if the distance to anything following is >distance_limit.
+        /// If it is, copy from the start of the chain/slice into a new tree.
+        vector<pair<size_t, bool>> open_chains;
+
+        /// A stack of intervals representing snarl tree nodes.
+        /// These are yet to be sorted and added to the zip tree.
+        /// After an interval is popped, child intervals are added in
+        /// The stack structure ensures a depth-first processing order
+        forward_list<interval_state_t> intervals_to_process;
+    
+        /// Intervals that are currently open.
+        /// These represent ancestors of whatever is currently being worked on.
+        /// So the size is the depth of the snarl tree
+        vector<interval_state_t> open_intervals;
+
+        /// A tracker for the current top-level chain,
+        /// so we know where the previous loops were
+        /// (would be at depth -1 in sibling_indicies_at_depth)
+        child_info_t active_top_level_chain = child_info_t(ZipCodeTree::CHAIN_START, 
+                                                           std::numeric_limits<size_t>::max());
+
+        /// The overall distance limit for splitting of new connected components
+        size_t distance_limit;
+
+        /// Constructor given seeds and a distance index
+        forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
+                               size_t distance_limit) :
+            seeds(&seeds), distance_index(&distance_index), 
+            distance_limit(distance_limit), active_tree_index(std::numeric_limits<size_t>::max()) {
+
+            // This represents the current sort order of the seeds
+            seed_sort_order.assign(seeds.size(), 0);
+            for (size_t i = 0 ; i < seed_sort_order.size() ; i++) {
+                seed_sort_order[i] = i;
+            }
+            sort_values_by_seed.resize(seeds.size());
+        }
 
     };
 

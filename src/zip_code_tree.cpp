@@ -270,6 +270,12 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
                     forest_state.sibling_indices_at_depth[depth-1].back().value);
                 // Treat distance as inf since it is over the distance limit
                 distance_to_chain_end = std::numeric_limits<size_t>::max();
+                // Reset loop storage
+                if (depth == 0) {
+                    forest_state.active_top_level_chain.reset_loop_storage();
+                } else {
+                    forest_state.sibling_indices_at_depth[depth-1].back().reset_loop_storage();
+                }
             }
         }
 
@@ -344,8 +350,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     // so the depth of the chain is the same. Otherwise, depth is depth-1
     size_t chain_depth = is_trivial_chain || current_type == ZipCode::ROOT_NODE ? depth : depth-1;
     // For the root chain, there is no -1 depth to store its CHAIN_START,
-    // so it is jerry-rigged onto the front of 0 depth
-    child_info_t& cur_chain = forest_state.sibling_indices_at_depth[chain_depth == 0 ? 0 : chain_depth-1].back();
+    // so it is stored in the forest_state instead
+    child_info_t& cur_chain = chain_depth == 0 ? forest_state.active_top_level_chain
+                                               : forest_state.sibling_indices_at_depth[chain_depth-1].back();
 
     ///////////////// Get the offset in the parent chain (or node)
     size_t current_offset;
@@ -496,7 +503,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     if ((rev_relative_to_index && current_seed.zipcode.get_has_forward_loop(depth))
          || (!rev_relative_to_index && current_seed.zipcode.get_has_reverse_loop(depth))) {
 #ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\t\tMight need to create a reverse loop" << endl;
+        cerr << "\tMight need to create a reverse loop" << endl;
 #endif
         // We might have to add in a reverse loop right before this element
         bool add_loop = true;
@@ -510,7 +517,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 && id(forest_state.seeds->at(item_after_loop.get_value()).pos) == id(current_seed.pos)) {
                 // Loops for the same node ID are by default merge-able
 #ifdef DEBUG_ZIP_CODE_TREE
-                cerr << "\t\tNope, this node ID already has a reverse loop" << endl;
+                cerr << "\tNope, this node ID already has a reverse loop" << endl;
 #endif
                 add_loop = false;
             }
@@ -521,9 +528,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             // Look up the length of this loop
             size_t new_loop_value;
             if (rev_relative_to_index) {
-                new_loop_value = forest_state.distance_index->get_reverse_loop_value(node_handle);
-            } else {
                 new_loop_value = forest_state.distance_index->get_forward_loop_value(node_handle);
+            } else {
+                new_loop_value = forest_state.distance_index->get_reverse_loop_value(node_handle);
             }
 
             if (cur_chain.has_reverse_loop()) {
@@ -535,7 +542,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                                                                                2 * cur_chain.dist_since_reverse_loop);
                 if (dist_using_last_loop == new_loop_value) {
 #ifdef DEBUG_ZIP_CODE_TREE
-                    cerr << "\t\tThis loop looks like its source is the same as the previous one " 
+                    cerr << "\tThis loop looks like its source is the same as the previous one " 
                          << new_loop_value << " at " << cur_chain.last_reverse_loop_index << endl;
 #endif
                     add_loop = false;
@@ -544,7 +551,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
             if (add_loop) {
 #ifdef DEBUG_ZIP_CODE_TREE
-                cerr << "\t\tAdding a reverse loop of value " << new_loop_value << endl;
+                cerr << "\tAdding a reverse loop of value " << new_loop_value << endl;
 #endif
                 // This looks like an actually different loop
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
@@ -599,7 +606,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     if ((rev_relative_to_index && current_seed.zipcode.get_has_reverse_loop(depth))
          || (!rev_relative_to_index && current_seed.zipcode.get_has_forward_loop(depth))) {
 #ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\t\tWill create a forward loop" << endl;
+        cerr << "\tWill create a forward loop" << endl;
 #endif
 
         net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
@@ -625,12 +632,12 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 && id(forest_state.seeds->at(item_before_loop.get_value()).pos) == id(current_seed.pos)) {
                 // Loops for the same node ID are by default merge-able
 #ifdef DEBUG_ZIP_CODE_TREE
-                cerr << "\t\tRemove prior: this node ID already has a forward loop" << endl;
+                cerr << "\tRemove prior: this node ID already has a forward loop" << endl;
 #endif
                 remove_prior = true;
             } else if (dist_using_new_loop == prev_loop_item.get_value()) {
 #ifdef DEBUG_ZIP_CODE_TREE
-                cerr << "\t\tRemove prior: this loop looks like its source is the same as the previous one " 
+                cerr << "\tRemove prior: this loop looks like its source is the same as the previous one " 
                      << prev_loop_item.get_value() << " at " << cur_chain.last_forward_loop_index << endl;
 #endif
                 remove_prior = true;
@@ -646,7 +653,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             }
         }
 #ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\t\tAdding a forward loop of value " << new_loop_value << endl;
+        cerr << "\tAdding a forward loop of value " << new_loop_value << endl;
 #endif
         // This looks like an actually different loop
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::LOOP, new_loop_value, false);
@@ -2869,7 +2876,6 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                 // Open the root snarl (treated as non-cyclic)
                 open_snarl(forest_state, 0, false);
             } else if (current_interval.code_type == ZipCode::NODE) {
-                cerr << "current_interval.code_type == ZipCode::NODE" << endl;
                 // For a root node, just add it as a chain with all the seeds
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START);
 
@@ -2888,13 +2894,14 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                             seeds.at(forest_state.seed_sort_order[current_interval.interval_end-1]), 
                             current_interval.is_reversed); 
             } else {
-                cerr << current_interval.code_type << endl;
                 // Open the root chain/node
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START);
 
                 // Remember the start of the chain
                 forest_state.sibling_indices_at_depth[0].emplace_back(ZipCodeTree::CHAIN_START, 0);
                 forest_state.sibling_indices_at_depth[0].back().chain_component = 0;
+                // Fresh top level chain loop storage
+                forest_state.active_top_level_chain.reset_loop_storage();
             }                       
         } else if (forest_state.open_intervals.back().code_type == ZipCode::CHAIN || 
                    forest_state.open_intervals.back().code_type == ZipCode::ROOT_CHAIN ||
