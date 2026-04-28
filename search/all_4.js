@@ -292,7 +292,7 @@ var searchData=
   ['divide_5fpath_1393',['divide_path',['../classvg_1_1VG.html#a0466bd1a92042266f6a99aa306d387c9',1,'vg::VG']]],
   ['dna3bit_1394',['dna3bit',['../namespacexg.html#a0b632a6673e7464eced03fe8bb491f97',1,'xg']]],
   ['do_5falignment_5fon_5fchains_1395',['do_alignment_on_chains',['../classvg_1_1MinimizerMapper.html#ae369fba07da94be9dea486d79f251d59',1,'vg::MinimizerMapper']]],
-  ['do_5fchaining_5fon_5ftrees_1396',['do_chaining_on_trees',['../classvg_1_1MinimizerMapper.html#a40af36a860d4ab79735f6f1f36bab6b8',1,'vg::MinimizerMapper']]],
+  ['do_5fchaining_5fon_5ftrees_1396',['do_chaining_on_trees',['../classvg_1_1MinimizerMapper.html#acb1175316c9af419632515b2f27cba66',1,'vg::MinimizerMapper']]],
   ['do_5fdp_1397',['do_dp',['../classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b',1,'vg::MinimizerMapper']]],
   ['do_5fpoa_1398',['do_poa',['../classvg_1_1DozeuInterface.html#a4f8194b77acf4e94604b5b0759231c62',1,'vg::DozeuInterface']]],
   ['do_5fremap_1399',['do_remap',['../classvg_1_1Filter.html#a7c02ec9d43e85148a82acf980728e9ac',1,'vg::Filter']]],

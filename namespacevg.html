@@ -1101,6 +1101,11 @@ Functions</h2></td></tr>
 <tr class="separator:ae9721e2b32c96499e0f54d3db8ed76f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7718d0846787f35750e7e938489452ff"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7718d0846787f35750e7e938489452ff">aligned_interval</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a7718d0846787f35750e7e938489452ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa6faefbb314891de47d6d02974b5e47d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa6faefbb314891de47d6d02974b5e47d">count_alignment_operations</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t &amp;matches, size_t &amp;mismatches, std::vector&lt; size_t &gt; &amp;gaps_lengths)</td></tr>
+<tr class="memdesc:aa6faefbb314891de47d6d02974b5e47d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Count the various types of edits in an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, including individual gap lengths.  <a href="namespacevg.html#aa6faefbb314891de47d6d02974b5e47d">More...</a><br /></td></tr>
+<tr class="separator:aa6faefbb314891de47d6d02974b5e47d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8944ceadd91ee5f6f24e1e6dd691a5c3"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8944ceadd91ee5f6f24e1e6dd691a5c3">score_alignment_with_logged_gaps</a> (const size_t &amp;matches, const size_t &amp;mismatches, const std::vector&lt; size_t &gt; &amp;gap_lengths)</td></tr>
+<tr class="separator:a8944ceadd91ee5f6f24e1e6dd691a5c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9aa530cac70a2d1e3b2e7c8de29bc092"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9aa530cac70a2d1e3b2e7c8de29bc092">mate_info</a> (const string &amp;path, int32_t pos, bool rev_strand, bool is_read1)</td></tr>
 <tr class="separator:a9aa530cac70a2d1e3b2e7c8de29bc092"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4f0565d89010f49aa7b2cdaf1a2b0d2e"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, int32_t, bool, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f0565d89010f49aa7b2cdaf1a2b0d2e">parse_mate_info</a> (const string &amp;info)</td></tr>
@@ -8648,6 +8653,48 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa6faefbb314891de47d6d02974b5e47d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa6faefbb314891de47d6d02974b5e47d">&#9670;&nbsp;</a></span>count_alignment_operations()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::count_alignment_operations </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>matches</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>mismatches</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>gap_lengths</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Count the various types of edits in an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, including individual gap lengths. </p>
 
 </div>
 </div>
@@ -24936,6 +24983,42 @@ template&lt;class T1 , class T2 &gt; </div>
 </div><div class="memdoc">
 
 <p>Save an r-index to the file. </p>
+
+</div>
+</div>
+<a id="a8944ceadd91ee5f6f24e1e6dd691a5c3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8944ceadd91ee5f6f24e1e6dd691a5c3">&#9670;&nbsp;</a></span>score_alignment_with_logged_gaps()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::score_alignment_with_logged_gaps </td>
+          <td>(</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>matches</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>mismatches</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>gap_lengths</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Compute an alignment score using minimap2 long indels penalty adjustment.</p>
+<p>This scoring method penalize long continous indels less, using the formula: score = matches - (mismatches + gap_opens)/2d - sum_{i=1}^{gap_opens} (log_2(1 + gap_length_i)) with d = max{0.02, (mismatches + gap_opens)/(matches + mismatches + gap_opens)} </p>
 
 </div>
 </div>
