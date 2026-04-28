@@ -43,6 +43,11 @@ find_package(ZLIB    REQUIRED)
 find_package(BZip2   REQUIRED)
 find_package(LibLZMA REQUIRED)
 find_package(CURL)
+#thanks https://stackoverflow.com/q/58252879 and Claude for the cairo code
+find_package(PkgConfig)
+pkg_check_modules(CAIRO   REQUIRED IMPORTED_TARGET cairo)
+pkg_check_modules(ZSTD    REQUIRED IMPORTED_TARGET libzstd)
+find_package(OpenSSL REQUIRED)
 
 # ---------------------------------------------------------------------------
 # 2a. FetchContent: deps that ship a CMakeLists.txt and have a canonical
@@ -52,11 +57,15 @@ find_package(CURL)
 FetchContent_Declare(sdsl-lite
     GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
     GIT_TAG        5c425837929b6f323fd7cccfa6c15ffcec6d94bb
-    SOURCE_DIR     ${VG_DEPS_DIR}/sdsl-lite)
+    SOURCE_DIR     ${VG_DEPS_DIR}/sdsl-lite
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(libhandlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph.git
     GIT_TAG        ae42926da7743a7108db0474bfcf1a1cdac34abb
-    SOURCE_DIR     ${VG_DEPS_DIR}/libhandlegraph)
+    SOURCE_DIR     ${VG_DEPS_DIR}/libhandlegraph
+    EXCLUDE_FROM_ALL
+)
 FetchContent_MakeAvailable(
     libhandlegraph
     sdsl-lite
@@ -75,7 +84,7 @@ FetchContent_Declare(libbdsg
     GIT_TAG        789ad6daf74192b477fa49fb066a8cf0df76a16d
     EXCLUDE_FROM_ALL
 )
-FetchContent_Declare(Complete-Striped-Smith-Waterman-Library
+FetchContent_Declare(cssw_lib
     GIT_REPOSITORY https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
     GIT_TAG        f53d459841b632ac6ab0e59e1a0ef6d056034631
     EXCLUDE_FROM_ALL
@@ -94,7 +103,9 @@ FetchContent_Declare(xg
 # uses Makefile
 FetchContent_Declare(cpp_progress_bar
     GIT_REPOSITORY https://github.com/vgteam/cpp_progress_bar.git
-    GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f)
+    GIT_TAG        487bb7c9c5f028daaf3b4e24b51d9e783517768f
+    EXCLUDE_FROM_ALL
+)
 # uses Makefile
 FetchContent_Declare(dozeu_
     GIT_REPOSITORY https://github.com/vgteam/dozeu.git
@@ -111,20 +122,34 @@ FetchContent_Declare(vcflib
 )
 FetchContent_Declare(structures
     GIT_REPOSITORY https://github.com/vgteam/structures.git
-    GIT_TAG        0b31cacac76d55d30f6f653950e8c74aeb8896f6)
+    GIT_TAG        0b31cacac76d55d30f6f653950e8c74aeb8896f6
+    EXCLUDE_FROM_ALL
+)
 
 
 FetchContent_MakeAvailable(
     libvgio
     libbdsg
-    Complete-Striped-Smith-Waterman-Library
+    cssw_lib
     gssw
     cpp_progress_bar
     dozeu_
     vcflib
     structures
 )
+# libvgio's pkg_check_modules finds Homebrew htslib (compiled with libdeflate),
+# which injects -ldeflate into vgio_static's link interface. Our ExternalProject
+# htslib is built without libdeflate, so strip the flag here.
+if(TARGET vgio_static)
+    get_target_property(_vgio_iface vgio_static INTERFACE_LINK_LIBRARIES)
+    if(_vgio_iface)
+        list(REMOVE_ITEM _vgio_iface "deflate")
+        set_target_properties(vgio_static PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${_vgio_iface}")
+    endif()
+endif()
 
+add_compile_options(-Wno-missing-template-arg-list-after-template-kw)
 FetchContent_GetProperties(xg)
 if(NOT xg_POPULATED)
     FetchContent_Populate(xg)   # downloads sources, does NOT add_subdirectory
@@ -146,16 +171,24 @@ target_include_directories(vcflib INTERFACE
 # external CMake
 FetchContent_Declare(backward-cpp
     GIT_REPOSITORY https://github.com/bombela/backward-cpp.git
-    GIT_TAG        0bfd0a07a61551413ccd2ab9a9099af3bad40681)
+    GIT_TAG        0bfd0a07a61551413ccd2ab9a9099af3bad40681
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(raptor
     GIT_REPOSITORY https://github.com/dajobe/raptor.git
     GIT_TAG        db8e1a022f2198f207dafe1110344d045d0f3e06
+    EXCLUDE_FROM_ALL
+)
+FetchContent_Declare(kff-cpp-api
+    GIT_REPOSITORY https://github.com/Kmer-File-Format/kff-cpp-api.git
+    GIT_TAG        cf4d866405a0afd34aebc4ac13551d3b0ff92e62
     EXCLUDE_FROM_ALL
 )
 
 FetchContent_MakeAvailable(
     backward-cpp
     raptor
+    kff-cpp-api
 )
  # Expose raptor2 headers for consumers; BUILD_INTERFACE only, no install needed.
  target_include_directories(raptor2 INTERFACE
@@ -177,7 +210,7 @@ target_compile_options(turtle_lexer_test PRIVATE -Wno-incompatible-pointer-types
 # 2b. Vendored deps: small CMake-native libs that exist only locally
 # ---------------------------------------------------------------------------
 # These all have a CMakeLists.txt under deps/<name>/ — pull them in directly.
-foreach(dep IN ITEMS atomic_queue DYNAMIC mio kff-cpp-api mmmultimap)
+foreach(dep IN ITEMS atomic_queue DYNAMIC mio mmmultimap)
     if(EXISTS "${VG_DEPS_DIR}/${dep}/CMakeLists.txt")
         add_subdirectory("${VG_DEPS_DIR}/${dep}" "${CMAKE_BINARY_DIR}/deps/${dep}" EXCLUDE_FROM_ALL)
     endif()
@@ -188,10 +221,25 @@ endforeach()
 #      upstream is just a Makefile we don't want to invoke).
 # ---------------------------------------------------------------------------
 
-# ssw — single C TU + a C++ wrapper header
+# Shim: stage gssw's 5-arg ssw_cpp.h alone so it can be on the include path
+# without bringing gssw's bundled simde/ along (which conflicts with cssw_lib's).
+set(VG_SSW_SHIM_INCLUDE "${CMAKE_BINARY_DIR}/vg_ssw_include")
+file(MAKE_DIRECTORY ${VG_SSW_SHIM_INCLUDE})
+configure_file(
+    ${gssw_SOURCE_DIR}/src/ssw_cpp.h
+    ${VG_SSW_SHIM_INCLUDE}/ssw_cpp.h
+    COPYONLY)
+
 add_library(vg_ssw STATIC
-    ${VG_DEPS_DIR}/ssw/src/ssw.c)
-target_include_directories(vg_ssw PUBLIC ${VG_DEPS_DIR}/ssw/src)
+    ${cssw_lib_SOURCE_DIR}/src/ssw.c
+    ${gssw_SOURCE_DIR}/src/ssw_cpp.cpp)
+# PUBLIC: shim dir (5-arg ssw_cpp.h) listed FIRST, then cssw_lib for everything
+# else (ssw.h, simde, etc.). cssw_lib must be on the public path so the
+# StripedSmithWaterman::* types declared in our shim ssw_cpp.h are ABI-compatible
+# with the impls compiled into ssw.c — they all come from cssw_lib otherwise.
+target_include_directories(vg_ssw PUBLIC
+    ${VG_SSW_SHIM_INCLUDE}
+    ${cssw_lib_SOURCE_DIR}/src)
 
 # sha1
 add_library(vg_sha1 STATIC ${VG_DEPS_DIR}/sha1/sha1.cpp)
@@ -284,7 +332,7 @@ set(HTSLIB_INSTALL_DIR "${VG_STAGE_DIR}/htslib")
 ExternalProject_Add(htslib_ep
     SOURCE_DIR        ${VG_DEPS_DIR}/htslib/htslib
     BUILD_IN_SOURCE   1
-    CONFIGURE_COMMAND autoreconf -i COMMAND ./configure --prefix=${HTSLIB_INSTALL_DIR} --disable-bz2 --disable-lzma
+    CONFIGURE_COMMAND autoreconf -i COMMAND ./configure --prefix=${HTSLIB_INSTALL_DIR} --disable-bz2 --disable-lzma --without-libdeflate
     BUILD_COMMAND     $(MAKE)
     INSTALL_COMMAND   $(MAKE) install
     BUILD_BYPRODUCTS  ${HTSLIB_INSTALL_DIR}/lib/libhts.a)
@@ -388,13 +436,45 @@ ExternalProject_Add(sonLib_ep
               COMMAND ${CMAKE_COMMAND} -E copy
                       ${VG_DEPS_DIR}/sonLib/lib/sonLib.a ${MAKEDEPS_LIB}/libsonLib.a
     BUILD_BYPRODUCTS  ${VG_DEPS_DIR}/sonLib/lib/sonLib.a
-                      ${MAKEDEPS_LIB}/libsonLib.a)
-
+                      ${MAKEDEPS_LIB}/libsonLib.a
+)
 add_library(vg_sonlib STATIC IMPORTED)
 set_target_properties(vg_sonlib PROPERTIES
     IMPORTED_LOCATION             ${MAKEDEPS_LIB}/libsonLib.a
     INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
 add_dependencies(vg_sonlib sonLib_ep)
+
+ExternalProject_Add(pinchesAndCacti_ep
+     SOURCE_DIR        ${VG_DEPS_DIR}/pinchesAndCacti
+     BUILD_IN_SOURCE   1
+     CONFIGURE_COMMAND ""
+     BUILD_COMMAND     $(MAKE) -C externalTools/threeEdgeConnected
+                           ../../../sonLib/lib/3EdgeConnected.a
+             COMMAND   $(MAKE) ../sonLib/lib/stPinchesAndCacti.a
+     INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
+                           ${VG_DEPS_DIR}/sonLib/lib/stPinchesAndCacti.a
+                           ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
+             COMMAND   ${CMAKE_COMMAND} -E copy
+                           ${VG_DEPS_DIR}/sonLib/lib/3EdgeConnected.a
+                           ${MAKEDEPS_LIB}/lib3EdgeConnected.a
+             COMMAND   ${CMAKE_COMMAND} -E copy_directory
+                           ${VG_DEPS_DIR}/pinchesAndCacti/inc
+                           ${MAKEDEPS_INCLUDE}/sonLib
+     BUILD_BYPRODUCTS  ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
+                       ${MAKEDEPS_LIB}/lib3EdgeConnected.a
+     DEPENDS           sonLib_ep makedeps_stage)
+
+ add_library(vg_pinchesAndCacti STATIC IMPORTED)
+ set_target_properties(vg_pinchesAndCacti PROPERTIES
+     IMPORTED_LOCATION             ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
+     INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
+ add_dependencies(vg_pinchesAndCacti pinchesAndCacti_ep)
+
+ add_library(vg_3edge STATIC IMPORTED)
+ set_target_properties(vg_3edge PROPERTIES
+     IMPORTED_LOCATION             ${MAKEDEPS_LIB}/lib3EdgeConnected.a
+     INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
+ add_dependencies(vg_3edge pinchesAndCacti_ep)
 
 # jemalloc — only when selected. Built via its autotools.
 if(VG_USE_JEMALLOC)
@@ -468,6 +548,7 @@ add_library(vg_core STATIC
     ${VG_ALLOCATOR_SOURCE})
 
 target_include_directories(vg_core PUBLIC
+    ${CAIRO_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/src
     ${VG_GENERATED_DIR})
 
@@ -476,16 +557,17 @@ target_link_libraries(vg_core PUBLIC
     handlegraph_shared vgio_static libbdsg libgssw
     vg_xg progress_bar vcflib structures_static
     dozeu
-    # vendored static libs
+    # vendored libs
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
-    vg_headers_only backward-cpp raptor2
+    vg_headers_only backward raptor2 kff
     # external (ExternalProject)
-    vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph vg_sonlib
+    vg_htslib vg_gbwt vg_gcsa2 vg_gbwtgraph 
+    vg_pinchesAndCacti vg_3edge vg_sonlib
     # CMake-native locals
     sdsl
     # system
-    OpenMP::OpenMP_CXX Threads::Threads
-    ZLIB::ZLIB BZip2::BZip2 LibLZMA::LibLZMA
+    OpenMP::OpenMP_CXX Threads::Threads OpenSSL::Crypto
+    ZLIB::ZLIB BZip2::BZip2 LibLZMA::LibLZMA 
     vg_allocator)
 
 if(TARGET vg_sublinear)
@@ -524,6 +606,8 @@ endforeach()
 if(VG_BUILD_UNITTESTS)
     file(GLOB VG_UNITTEST_SOURCES         CONFIGURE_DEPENDS src/unittest/*.cpp)
     file(GLOB VG_UNITTEST_SUPPORT_SOURCES CONFIGURE_DEPENDS src/unittest/support/*.cpp)
+    list(REMOVE_ITEM VG_UNITTEST_SUPPORT_SOURCES
+     "${CMAKE_CURRENT_SOURCE_DIR}/src/unittest/support/driver.cpp")
     add_library(vg_unittest OBJECT
         ${VG_UNITTEST_SOURCES}
         ${VG_UNITTEST_SUPPORT_SOURCES})
@@ -534,10 +618,13 @@ endif()
 # 7. Final vg executable
 # ---------------------------------------------------------------------------
 add_executable(vg src/main.cpp)
-target_link_libraries(vg PRIVATE
+target_link_libraries(vg PRIVATE 
+    PkgConfig::CAIRO
+    PkgConfig::ZSTD
     ${VG_SUBCOMMAND_TARGETS}
     vg_subcommand_support
-    vg_core)
+    vg_core
+)
 if(VG_BUILD_UNITTESTS)
     target_link_libraries(vg PRIVATE vg_unittest)
 endif()

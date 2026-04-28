@@ -22,8 +22,8 @@
 #include "../algorithms/simplify_siblings.hpp"
 #include "../algorithms/normalize.hpp"
 #include "../algorithms/intersect_path_offsets.hpp"
-#include "random_graph.hpp"
-#include "randomness.hpp"
+#include "support/random_graph.hpp"
+#include "support/randomness.hpp"
 #include "../vg.hpp"
 #include "xg.hpp"
 #include <bdsg/hash_graph.hpp>

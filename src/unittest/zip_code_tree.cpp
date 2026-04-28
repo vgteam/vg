@@ -7,9 +7,9 @@
 #include "catch.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "../integrated_snarl_finder.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 #include "../minimizer_mapper.hpp"
-#include "randomness.hpp"
+#include "support/randomness.hpp"
 #include <random>
 #include <time.h>
 

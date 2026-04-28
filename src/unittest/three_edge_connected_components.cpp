@@ -4,7 +4,7 @@
 ///
 
 #include "catch.hpp"
-#include "random_graph.hpp"
+#include "support/random_graph.hpp"
 
 #include "../algorithms/three_edge_connected_components.hpp"
 
