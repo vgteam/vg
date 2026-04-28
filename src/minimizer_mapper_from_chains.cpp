@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cfloat>
 #include <unordered_set>
+#include <bitset>
 
 // Turn on debugging prints
 //#define debug
@@ -774,6 +775,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> chains;
     // For each chain, mark per-seed whether it came from a recombinant anchor
     std::vector<std::vector<bool>> chain_rec_flags;
+    // For each chain, track how many recombination events were used
+    std::vector<size_t> chain_rec_counts;
     // The zip code tree it came from
     std::vector<size_t> chain_source_tree;
     // An estimated alignment score
@@ -784,7 +787,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> multiplicity_by_chain;
 
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                         chains, chain_rec_flags, chain_source_tree, chain_score_estimates,
+                         chains, chain_rec_flags, chain_rec_counts, chain_source_tree, chain_score_estimates,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
@@ -842,6 +845,49 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
+    }
+    
+    for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
+        // Rescore all the alignments using minimap2 logged-gap-length, read-identity-based scoring
+
+        if (alignments[alignment_index].path().mapping_size() == 0) {
+            // Unmapped, so skip it.
+            continue;
+        }
+
+        size_t matches, mismatches;
+        std::vector<size_t> gap_lengths;
+        count_alignment_operations(alignments[alignment_index], matches, mismatches, gap_lengths);
+
+        if (matches + mismatches + gap_lengths.size() == 0) {
+            continue;
+        }
+        
+        // Compute the logged-gaps score
+        auto logged_gaps_score = score_alignment_with_logged_gaps(matches, mismatches, gap_lengths);
+        alignments[alignment_index].set_score(logged_gaps_score);
+         if (show_work) {
+            #pragma omp critical (cerr)
+            {   
+                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+            }
+        }
+    }
+    if (!chain_rec_counts.empty() && !alignments_to_source.empty()) {
+        for (size_t alignment_index = 0; alignment_index < alignments_to_source.size(); ++alignment_index) {
+            size_t chain_index = alignments_to_source[alignment_index];
+            if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
+                set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
+                if (rec_penalty_chain != 0) {
+                    // Penalize the score of alignment candidates according to the number of recombinations their chains required.
+                    // This allows alignments that required fewer recombinations in their chains to win.
+                    // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
+                    int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
+                    int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
+                    alignments[alignment_index].set_score(static_cast<int>(penalized_score));
+                }
+            }
+        }
     }
     
     
@@ -1096,7 +1142,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest,
     const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
     const vector<algorithms::Anchor>& seed_anchors,
-    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags, std::vector<size_t>& chain_source_tree,
+    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+    std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
     std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
     std::vector<double>& multiplicity_by_chain,
     std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
@@ -1544,9 +1591,13 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 indel_limit,
                 show_work
             );
+#ifdef debug_rec
+            if (true) {
+#else
             if (show_work) {
+#endif
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
+                cerr << log_name() << "\t[" << aln.name() << "] Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
@@ -1556,7 +1607,12 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 auto& entry = chain_results.chains[result];
                 auto& scored_chain = entry.scored_chain;
                 auto& chain_rec_positions = entry.rec_positions;
-                if (show_work) {
+#ifdef debug_rec
+                if (true)
+#else
+                if (show_work)
+#endif
+                {
 #ifdef debug
                     if(true)
 #else
@@ -1566,24 +1622,42 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                         if (!scored_chain.second.empty()) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "\tChain with score " << scored_chain.first
+                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << scored_chain.first
                                     << " (rec num =" << chain_rec_positions.size() << ") and length " << scored_chain.second.size()
                                     << " running " << anchor_view[scored_chain.second.front()]
-                                    << " to " << anchor_view[scored_chain.second.back()] << std::endl;
+                                    << " to " << anchor_view[scored_chain.second.back()];
                                 if (!chain_rec_positions.empty()) {
-                                    {
-                                        cerr << log_name() << "\t\tRecombination introduced at anchors: ";
-                                        for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
-                                            if (pi) cerr << ", ";
-                                            cerr << chain_rec_positions[pi];
-                                        }
-                                        cerr << std::endl;
+                                    cerr << " recombination introduced at anchors: ";
+                                    for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
+                                        if (pi) cerr << ", ";
+                                        cerr << chain_rec_positions[pi];
                                     }
                                 }
-#ifdef debug
-
-                                for (auto& anchor_number : scored_chain.second) {
-                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
+                                cerr << std::endl;
+#ifdef debug_rec
+                                algorithms::path_flags_t current_paths = 0;
+                                bool first = true;
+                                for (auto& selected_number : scored_chain.second) {
+                                    auto& anchor = anchor_view[selected_number];
+                                    auto new_paths = anchor.anchor_paths();
+                                    if (first) {
+                                        current_paths = new_paths.second;
+                                        first = false;
+                                    } else {
+                                        if (new_paths.first == new_paths.second) {
+                                            if ((current_paths & new_paths.first) == 0) {
+                                                current_paths = new_paths.first;
+                                            } else {
+                                                current_paths &= new_paths.first;
+                                            }
+                                        } else {
+                                            current_paths = new_paths.second;
+                                        }
+                                    }
+                                    
+                                    std::cerr << log_name() << "\t\t" << anchor 
+                                              << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
+                                              << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
                                 }
 #endif
 
@@ -1591,7 +1665,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                         }
                     } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t<" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
                     }
                 }
 
@@ -1627,6 +1701,8 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 }
                 // Remember the score
                 chain_score_estimates.push_back(scored_chain.first);
+                // Remember how many recombinations were in this chain
+                chain_rec_counts.push_back(chain_rec_positions.size());
 
                 // Remember how we got it
                 chain_source_tree.push_back(item_num);
@@ -1773,7 +1849,7 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
             best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
             best_chain_total_jump += jump;
         }
-        best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+        best_chain_average_jump = chains.at(best_chain).size() > 1 ? (double)best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
     }
 
     // Also count anchors in the chain
