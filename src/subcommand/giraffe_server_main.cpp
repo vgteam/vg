@@ -41,13 +41,17 @@ void help_giraffe_server(char** argv) {
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
          << "      --framed-output          emit read-grouped framed output for middleware" << endl
+         << "  -S, --surject-target NAME    pre-index this haplotype path for surjection" << endl
+         << "                               (may be repeated; required for per-read targets)" << endl
          << "  -h, --help                   show help" << endl
          << endl
          << "stdin protocol (one read per line):" << endl
          << "  SEQUENCE" << endl
          << "  NAME<TAB>SEQUENCE" << endl
          << "  NAME<TAB>SEQUENCE<TAB>QUALITY" << endl
-         << "  @@FLUSH@@   (force immediate processing of buffered reads)" << endl
+         << "  NAME<TAB>SEQUENCE<TAB>QUALITY<TAB>SURJ_TARGET" << endl
+         << "                               (QUALITY may be empty when SURJ_TARGET is set)" << endl
+         << "  FLUSH_NOW   (force immediate processing of buffered reads)" << endl
          << endl;
 }
 
@@ -86,12 +90,13 @@ int main_giraffe_server(int argc, char** argv) {
             {"batch-size", required_argument, 0, 'b'},
             {"emit-header", no_argument, 0, 1000},
             {"framed-output", no_argument, 0, 1001},
+            {"surject-target", required_argument, 0, 'S'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "Z:m:d:z:t:M:b:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "Z:m:d:z:t:M:b:S:h?", long_options, &option_index);
         if (c == -1) {
             break;
         }
@@ -123,6 +128,9 @@ int main_giraffe_server(int argc, char** argv) {
                 break;
             case 1001:
                 framed_output = true;
+                break;
+            case 'S':
+                config.surjection_target_paths.emplace_back(optarg);
                 break;
             case 'h':
             case '?':
@@ -162,7 +170,7 @@ int main_giraffe_server(int argc, char** argv) {
             for (size_t i = 0; i < mapped.size(); ++i) {
                 const auto& read_mappings = mapped[i];
                 if (framed_output) {
-                    cout << "@READ\t" << batch[i].name << '\t' << read_mappings.size() << '\n';
+                    cout << "READ\t" << batch[i].name << '\t' << read_mappings.size() << '\n';
                 }
                 for (const auto& gaf_line : read_mappings) {
                     cout << gaf_line << '\n';
@@ -176,22 +184,32 @@ int main_giraffe_server(int argc, char** argv) {
             if (line.empty()) {
                 continue;
             }
-            if (line == "@@FLUSH@@") {
+            if (line == "FLUSH_NOW") {
                 flush_batch();
                 continue;
             }
             auto fields = split_tab_fields(line);
             GiraffeFastqRead read;
+            // Field layouts (tab-separated):
+            //   1: SEQ
+            //   2: NAME, SEQ
+            //   3: NAME, SEQ, QUAL
+            //   4+: NAME, SEQ, QUAL, SURJ_TARGET (QUAL may be empty)
             if (fields.size() == 1) {
                 read.name = "read_" + to_string(auto_id++);
                 read.sequence = fields[0];
             } else if (fields.size() == 2) {
                 read.name = fields[0];
                 read.sequence = fields[1];
+            } else if (fields.size() == 3) {
+                read.name = fields[0];
+                read.sequence = fields[1];
+                read.quality = fields[2];
             } else {
                 read.name = fields[0];
                 read.sequence = fields[1];
                 read.quality = fields[2];
+                read.surjection_target = fields[3];
             }
 
             if (read.sequence.empty()) {
