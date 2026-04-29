@@ -526,14 +526,24 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         if (add_loop) {
             net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
             // Look up the length of this loop (factoring offset along the node)
-            size_t new_loop_value = current_seed.zipcode.get_is_reversed_in_parent(depth) == is_rev(current_seed.pos)
-                ? offset(current_seed.pos)
-                : current_seed.zipcode.get_length(depth) - (1 + offset(current_seed.pos));
-            new_loop_value *= 2;
-            cerr << new_loop_value << "+" << endl;
+            size_t new_loop_value;
             if (rev_relative_to_index) {
+                // Distance from seed to node end (given index orientation)
+                new_loop_value = current_seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(current_seed.pos)
+                    ? offset(current_seed.pos)
+                    : current_seed.zipcode.get_length(depth) - (1 + offset(current_seed.pos));
+                // This distance must be traversed twice (once each way)
+                new_loop_value *= 2;
+                // Finally, add in loop distance from the end of the node
                 new_loop_value += forest_state.distance_index->get_forward_loop_value(node_handle);
             } else {
+                // Distance from seed to node start (given index orientation)
+                new_loop_value = current_seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(current_seed.pos)
+                    ? current_seed.zipcode.get_length(depth) - (1 + offset(current_seed.pos))
+                    : offset(current_seed.pos);
+                // This distance must be traversed twice (once each way)
+                new_loop_value *= 2;
+                // Finally, add in loop distance from the start of the node
                 new_loop_value += forest_state.distance_index->get_reverse_loop_value(node_handle);
             }
 
@@ -614,15 +624,25 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #endif
 
         net_handle_t node_handle = forest_state.distance_index->get_node_net_handle(id(current_seed.pos));
-        // Look up the length of this loop
-        size_t new_loop_value = current_seed.zipcode.get_is_reversed_in_parent(depth) == is_rev(current_seed.pos)
-            ? current_seed.zipcode.get_length(depth) - (1 + offset(current_seed.pos))
-            : offset(current_seed.pos);
-        new_loop_value *= 2;
-        cerr << new_loop_value << "+" << endl;
+        // Look up the length of this loop (factoring offset along the node)
+        size_t new_loop_value;
         if (rev_relative_to_index) {
+            // Distance from seed to node start (given index orientation)
+            new_loop_value = current_seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(current_seed.pos)
+                ? current_seed.zipcode.get_length(depth) - (1 + offset(current_seed.pos))
+                : offset(current_seed.pos);
+            // This distance must be traversed twice (once each way)
+            new_loop_value *= 2;
+            // Finally, add in loop distance from the start of the node
             new_loop_value += forest_state.distance_index->get_reverse_loop_value(node_handle);
         } else {
+            // Distance from seed to node end (given index orientation)
+            new_loop_value = current_seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(current_seed.pos)
+                ? offset(current_seed.pos)
+                : current_seed.zipcode.get_length(depth) - (1 + offset(current_seed.pos));
+            // This distance must be traversed twice (once each way)
+            new_loop_value *= 2;
+            // Finally, add in loop distance from the end of the node
             new_loop_value += forest_state.distance_index->get_forward_loop_value(node_handle);
         }
 

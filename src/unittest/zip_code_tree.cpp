@@ -1150,7 +1150,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Traverse 3 backwards") {
-            // [1+0 >18 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf
+            // [1+0 >16 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf
             //     2  inf  inf  8  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 1 8< 5+1]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -2081,10 +2081,10 @@ namespace unittest {
     TEST_CASE("zip tree self loops", "[zip_tree]") {
         VG graph;
 
-        Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAA");
-        Node* n2 = graph.create_node("AAAGCAAAAAA");
-        Node* n3 = graph.create_node("TT");
-        Node* n4 = graph.create_node("GACAAAAAAAAAAAAAAAAAAAA");
+        Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAA"); // length 24
+        Node* n2 = graph.create_node("AAAGCAAAAAA"); // length 11
+        Node* n3 = graph.create_node("TT"); // length 2
+        Node* n4 = graph.create_node("GACAAAAAAAAAAAAAAAAAAAA"); // length 23
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n2, n2, true, false);
