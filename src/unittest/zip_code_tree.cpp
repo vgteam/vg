@@ -1172,20 +1172,20 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 // Chain count
-                REQUIRE(zip_forest.trees[0].get_item_at_index(4).get_type() == ZipCodeTree::CHAIN_COUNT);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(5).get_type() == ZipCodeTree::CHAIN_COUNT);
                 // Chain start
-                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_type() == ZipCodeTree::CHAIN_START);
                 // Second seed (4)
-                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_type() == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_value() == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(28).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(28).get_value() == 1);
                 // Third seed (3-1)
-                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(31).get_type() == ZipCodeTree::SEED);
                 // Second chain within snarl may be reversed
-                if (zip_forest.trees[0].get_item_at_index(30).get_value() == 2) {
-                    REQUIRE(!zip_forest.trees[0].get_item_at_index(30).get_is_reversed());
+                if (zip_forest.trees[0].get_item_at_index(31).get_value() == 2) {
+                    REQUIRE(!zip_forest.trees[0].get_item_at_index(31).get_is_reversed());
                 } else {
-                    REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_is_reversed());
-                    REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_value() == 3);
+                    REQUIRE(zip_forest.trees[0].get_item_at_index(31).get_is_reversed());
+                    REQUIRE(zip_forest.trees[0].get_item_at_index(31).get_value() == 3);
                 }
             }
 
