@@ -1756,42 +1756,47 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         logger.info() << "Loading Minimizer Index" << endl;
     }
+    IndexName minimizer_indexname;
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
         if (use_path_minimizer) {
-            minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read PathMinimizers").at(0));
+            minimizer_indexname = "Long Read PathMinimizers";
             payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
             // Use the long read minimizers
-            minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));
+            minimizer_indexname = "Long Read Minimizers";
         }
     } else {
-        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Short Read Minimizers").at(0));
+        minimizer_indexname = "Short Read Minimizers";
     }
+    if (!registry.predates("Giraffe Distance Index", minimizer_indexname)) {
+        logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(minimizer_indexname).at(0) << " which depends on it" << std::endl;
+    }
+    minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_indexname).at(0));
     require_payload(*minimizer_index, payload_type);
 
     // Grab the zipcodes
     if (show_progress) {
         logger.info() << "Loading Zipcodes" << endl;
     }
+    IndexName oversized_zipcodes_indexname;
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
         if (use_path_minimizer) {
-            ifstream zip_in (registry.require("Long Read PathZipcodes").at(0));
-            oversized_zipcodes.deserialize(zip_in);
-            zip_in.close();
+            oversized_zipcodes_indexname = "Long Read PathZipcodes";
         } else {
-            ifstream zip_in (registry.require("Long Read Zipcodes").at(0));
-            oversized_zipcodes.deserialize(zip_in);
-            zip_in.close();
+            oversized_zipcodes_indexname = "Long Read Zipcodes";
         }
-        
     } else {
-        ifstream zip_in (registry.require("Short Read Zipcodes").at(0));
-        oversized_zipcodes.deserialize(zip_in);
-        zip_in.close();
+        oversized_zipcodes_indexname = "Short Read Zipcodes";
     }
+    if (!registry.predates("Giraffe Distance Index", oversized_zipcodes_indexname)) {
+        logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(oversized_zipcodes_indexname).at(0) << " which depends on it" << std::endl;
+    }
+    ifstream zip_in (registry.require(oversized_zipcodes_indexname).at(0));
+    oversized_zipcodes.deserialize(zip_in);
+    zip_in.close();
 
 
     // Grab the GBZ
@@ -1805,6 +1810,14 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         logger.info() << "Loading Distance Index" << endl;
     }
+    // TODO: Now that we enforce that the minimizer and zipcodes files are
+    // newer than the distance index, we really shouldn't modify it ourselves
+    // by fixing any indirect pointers that may still be in it. So we should be
+    // able to open the file read-only and map the file read-only here, which
+    // in turn would solve problems with writable mappings being slow on shared
+    // filesystems even when not being written. But the VPKG system doesn't
+    // really support doing that, so we'd have to get the file descriptor
+    // manually and deserialize() on it and close() it later.
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     if (show_progress) {
