@@ -57,13 +57,11 @@ find_package(OpenSSL REQUIRED)
 FetchContent_Declare(sdsl-lite
     GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
     GIT_TAG        vg-cmake-hublabel
-    SOURCE_DIR     ${VG_DEPS_DIR}/sdsl-lite
     EXCLUDE_FROM_ALL
 )
 FetchContent_Declare(libhandlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph.git
     GIT_TAG        ae42926da7743a7108db0474bfcf1a1cdac34abb
-    SOURCE_DIR     ${VG_DEPS_DIR}/libhandlegraph
     EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(
@@ -165,6 +163,16 @@ target_include_directories(vcflib INTERFACE
 )
 
 # external CMake
+FetchContent_Declare(gbwt
+    GIT_REPOSITORY https://github.com/electricEpilith/gbwt.git
+    GIT_TAG        2aaf750a0503d456b539273f5680055058009b96
+    EXCLUDE_FROM_ALL
+)
+FetchContent_Declare(gbwtgraph
+    GIT_REPOSITORY https://github.com/electricEpilith/gbwtgraph.git
+    GIT_TAG        a7f0b8f03d0d41d845617ded385bbf80444a4bd5
+    EXCLUDE_FROM_ALL
+)
 FetchContent_Declare(gcsa2
     GIT_REPOSITORY https://github.com/electricEpilith/gcsa2.git
     GIT_TAG        a8194516cc4a08ee2ac747881e48cd2e19785695
@@ -187,6 +195,8 @@ FetchContent_Declare(kff-cpp-api
 )
 
 FetchContent_MakeAvailable(
+    gbwt
+    gbwtgraph
     gcsa2
     backward-cpp
     raptor
@@ -352,70 +362,12 @@ target_link_libraries(vg_tabixpp PUBLIC vg_htslib)
 target_link_libraries(vg_sublinear PUBLIC vg_htslib)
 
 # ---------------------------------------------------------------------------
-# Unified staging prefix for the Makefile-based deps (gbwt/gbwtgraph).
-# Their hand-written Makefiles + sdsl-lite's Make.helper expect a single
-# include/ + lib/ tree containing sdsl, divsufsort{,64}, handlegraph, and
-# (for gbwtgraph) gbwt headers. We build that tree here.
+# Unified staging prefix for the Makefile-based deps.
 # ---------------------------------------------------------------------------
 set(MAKEDEPS_PREFIX     "${VG_STAGE_DIR}/makedeps")
 set(MAKEDEPS_INCLUDE    "${MAKEDEPS_PREFIX}/include")
 set(MAKEDEPS_LIB        "${MAKEDEPS_PREFIX}/lib")
 file(MAKE_DIRECTORY ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB})
-
-# Pre-stage: sdsl headers, divsufsort headers (from sdsl-lite's build tree),
-# handlegraph headers, and the static libs that gbwt link against.
-add_custom_command(
-    OUTPUT  ${MAKEDEPS_INCLUDE}/.stamp
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB}
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${sdsl-lite_SOURCE_DIR}/include ${MAKEDEPS_INCLUDE}
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${libhandlegraph_SOURCE_DIR}/src/include ${MAKEDEPS_INCLUDE}
-    COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:sdsl> ${MAKEDEPS_LIB}/libsdsl.a
-    COMMAND ${CMAKE_COMMAND} -E touch ${MAKEDEPS_INCLUDE}/.stamp
-    DEPENDS sdsl handlegraph_static
-    COMMENT "Staging sdsl + handlegraph for Makefile-based deps")
-add_custom_target(makedeps_stage DEPENDS ${MAKEDEPS_INCLUDE}/.stamp)
-
-# Build a Makefile-based dep against MAKEDEPS_PREFIX, then publish its public
-# headers (and static lib) back into the same prefix so a downstream Makefile
-# dep (e.g. gbwtgraph -> gbwt) can find them.
-function(vg_makefile_dep target_name dep_name lib_relpath public_header_subdir)
-    set(lib_src  "${VG_DEPS_DIR}/${dep_name}/${lib_relpath}")
-    set(lib_dst  "${MAKEDEPS_LIB}/lib${dep_name}.a")
-    set(hdr_src  "${VG_DEPS_DIR}/${dep_name}/include/${public_header_subdir}")
-    set(hdr_dst  "${MAKEDEPS_INCLUDE}/${public_header_subdir}")
-
-    ExternalProject_Add(${dep_name}_ep
-        SOURCE_DIR        ${VG_DEPS_DIR}/${dep_name}
-        BUILD_IN_SOURCE   1
-        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E make_directory
-                              ${VG_DEPS_DIR}/${dep_name}/obj
-            COMMAND       ${CMAKE_COMMAND} -E make_directory
-                              ${VG_DEPS_DIR}/${dep_name}/lib
-        BUILD_COMMAND     $(MAKE) ${lib_relpath}
-            SDSL_DIR=${sdsl-lite_SOURCE_DIR}
-            INC_DIR=${MAKEDEPS_INCLUDE}
-            LIB_DIR=${MAKEDEPS_LIB}
-        # Publish headers + lib into the staging prefix.
-        INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy_directory ${hdr_src} ${hdr_dst}
-            COMMAND       ${CMAKE_COMMAND} -E copy ${lib_src} ${lib_dst}
-        BUILD_BYPRODUCTS  ${lib_src} ${lib_dst}
-        DEPENDS           makedeps_stage)
-
-    add_library(${target_name} STATIC IMPORTED)
-    set_target_properties(${target_name} PROPERTIES
-        IMPORTED_LOCATION             ${lib_dst}
-        INTERFACE_INCLUDE_DIRECTORIES "${MAKEDEPS_INCLUDE}")
-    add_dependencies(${target_name} ${dep_name}_ep)
-endfunction()
-
-vg_makefile_dep(vg_gbwt      gbwt      lib/libgbwt.a      gbwt)
-
-# gbwtgraph #includes <gbwt/...> — must run after gbwt's headers are staged.
-vg_makefile_dep(vg_gbwtgraph gbwtgraph lib/libgbwtgraph.a gbwtgraph)
-add_dependencies(gbwtgraph_ep gbwt_ep)
 
 # sonLib — C utility library. Headers stage into sonLib/ subdir for <sonLib/X.h> includes.
 ExternalProject_Add(sonLib_ep
@@ -458,7 +410,7 @@ ExternalProject_Add(pinchesAndCacti_ep
                            ${MAKEDEPS_INCLUDE}/sonLib
      BUILD_BYPRODUCTS  ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
                        ${MAKEDEPS_LIB}/lib3EdgeConnected.a
-     DEPENDS           sonLib_ep makedeps_stage)
+     DEPENDS           sonLib_ep)
 
  add_library(vg_pinchesAndCacti STATIC IMPORTED)
  set_target_properties(vg_pinchesAndCacti PROPERTIES
@@ -554,7 +506,7 @@ target_link_libraries(vg_core PUBLIC
     vg_xg progress_bar vcflib structures_static
     dozeu
     # additional vg stuff
-    vg_gbwt vg_gbwtgraph gcsa2
+    gbwt gbwtgraph gcsa2
     # not owned by member of vg team
     vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
     vg_headers_only backward raptor2 kff
