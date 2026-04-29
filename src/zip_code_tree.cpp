@@ -302,7 +302,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     }
     const Seed& current_seed = forest_state.seeds->at(seed_index);
     bool current_is_reversed_in_tree = (child_is_reversed != is_rev(current_seed.pos));
-    bool rev_relative_to_index = current_seed.zipcode.get_is_reversed_in_parent(depth) != current_is_reversed_in_tree;
+    bool rev_relative_to_index = current_seed.zipcode.get_is_reversed_in_parent(depth) != child_is_reversed;
     cerr << current_seed.pos << " has forward loop (" << current_seed.zipcode.get_has_forward_loop(depth)
          << ") | has reverse loop (" << current_seed.zipcode.get_has_reverse_loop(depth)
          << ") | is reversed (" << current_seed.zipcode.get_is_reversed_in_parent(depth) << ")" << endl;

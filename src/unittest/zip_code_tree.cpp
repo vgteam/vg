@@ -2166,6 +2166,29 @@ namespace unittest {
             // c1_right -> c1_right
             REQUIRE(zip_tree.get_item_at_index(11).get_value() == 20);
         }
+        SECTION("Seeds with - pos on either side of cyclic snarl") {
+            // [4-0 >48 47 24< 1-0rev]
+            vector<pos_t> positions;
+            positions.emplace_back(1, true, 0);
+            positions.emplace_back(4, true, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+
+            if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                // Loop for 4-0
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 48);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                // Loop for 1+0rev
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 24);
+                REQUIRE(zip_tree.get_item_at_index(4).get_is_reversed());
+            } else {
+                cerr << "Loop existance test didn't run because chain is forward" << endl;
+            }
+        }
         SECTION("Duplicate seed with reversed in between") {
             // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 2+0 0 2-11rev]}]
             vector<pos_t> positions;
