@@ -2130,7 +2130,7 @@ namespace unittest {
         }
         SECTION("Cyclic snarl with seeds on either side") {
             // [4+0rev >24 0 {1  inf  0  0  22  22  20  24  0  22  inf 
-            //     [2+0 0 2-11rev 1 2+1 0 2-10rev 1 2+2 0 2-9rev]} 24 24< 1+0rev]
+            //     [2+0 0 2-11rev 1 2+1 0 2-10rev 1 2+2 0 2-9rev]} 24 70< 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2152,7 +2152,7 @@ namespace unittest {
                 REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
                 // Loop for 1+0rev
                 REQUIRE(zip_tree.get_item_at_index(31).get_type() == ZipCodeTree::LOOP);
-                REQUIRE(zip_tree.get_item_at_index(31).get_value() == 48);
+                REQUIRE(zip_tree.get_item_at_index(31).get_value() == 70);
                 REQUIRE(zip_tree.get_item_at_index(31).get_is_reversed());
             } else {
                 cerr << "Loop existance test didn't run because chain is forward" << endl;
@@ -2167,7 +2167,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(11).get_value() == 20);
         }
         SECTION("Seeds with - pos on either side of cyclic snarl") {
-            // [4-0 >48 47 24< 1-0rev]
+            // [4-0 >68 47 24< 1-0]
             vector<pos_t> positions;
             positions.emplace_back(1, true, 0);
             positions.emplace_back(4, true, 0);
@@ -2176,17 +2176,17 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
-            if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+            if (!zip_tree.get_item_at_index(1).get_is_reversed()) {
                 // Loop for 4-0
                 REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
-                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 48);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 68);
                 REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
                 // Loop for 1+0rev
                 REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
                 REQUIRE(zip_tree.get_item_at_index(4).get_value() == 24);
                 REQUIRE(zip_tree.get_item_at_index(4).get_is_reversed());
             } else {
-                cerr << "Loop existance test didn't run because chain is forward" << endl;
+                cerr << "Loop existance test didn't run because chain is reversed" << endl;
             }
         }
         SECTION("Duplicate seed with reversed in between") {
