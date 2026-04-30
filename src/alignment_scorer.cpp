@@ -1,0 +1,549 @@
+#include "alignment_scorer.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdlib>
+#include <iostream>
+#include <limits>
+
+#include "alignment.hpp"
+#include "crash.hpp"
+#include "gssw.h"
+
+namespace vg {
+
+using std::function;
+using std::max;
+using std::min;
+using std::string;
+using std::vector;
+
+int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension) {
+    return gap_length ? -(gap_open + (gap_length - 1) * gap_extension) : 0;
+}
+
+// ----- AlignmentScorer log_base recovery -----
+
+double AlignmentScorer::recover_log_base(const double matrix[16], double gc_content, double tol) {
+    double nt_freqs[4];
+    nt_freqs[0] = 0.5 * (1 - gc_content);
+    nt_freqs[1] = 0.5 * gc_content;
+    nt_freqs[2] = 0.5 * gc_content;
+    nt_freqs[3] = 0.5 * (1 - gc_content);
+
+    if (!verify_valid_log_odds_score_matrix(matrix, nt_freqs)) {
+        std::cerr << "error:[AlignmentScorer] Score matrix is invalid. Must have a negative expected score against random sequence." << std::endl;
+        std::exit(1);
+    }
+
+    double lower_bound;
+    double upper_bound;
+    double lambda = 1.0;
+    double partition = alignment_score_partition_function(lambda, matrix, nt_freqs);
+    if (partition < 1.0) {
+        lower_bound = lambda;
+        while (partition <= 1.0) {
+            lower_bound = lambda;
+            lambda *= 2.0;
+            partition = alignment_score_partition_function(lambda, matrix, nt_freqs);
+        }
+        upper_bound = lambda;
+    } else {
+        upper_bound = lambda;
+        while (partition >= 1.0) {
+            upper_bound = lambda;
+            lambda /= 2.0;
+            partition = alignment_score_partition_function(lambda, matrix, nt_freqs);
+        }
+        lower_bound = lambda;
+    }
+    while (upper_bound / lower_bound - 1.0 > tol) {
+        lambda = 0.5 * (lower_bound + upper_bound);
+        if (alignment_score_partition_function(lambda, matrix, nt_freqs) < 1.0) {
+            lower_bound = lambda;
+        } else {
+            upper_bound = lambda;
+        }
+    }
+    return 0.5 * (lower_bound + upper_bound);
+}
+
+bool AlignmentScorer::verify_valid_log_odds_score_matrix(const double matrix[16], const double nt_freqs[4]) {
+    bool contains_positive_score = false;
+    for (int i = 0; i < 16; ++i) {
+        if (matrix[i] > 0) {
+            contains_positive_score = true;
+            break;
+        }
+    }
+    if (!contains_positive_score) return false;
+
+    double expected_score = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            expected_score += nt_freqs[i] * nt_freqs[j] * matrix[i * 4 + j];
+        }
+    }
+    return expected_score < 0.0;
+}
+
+double AlignmentScorer::alignment_score_partition_function(double lambda, const double matrix[16], const double nt_freqs[4]) {
+    double partition = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            partition += nt_freqs[i] * nt_freqs[j] * std::exp(lambda * matrix[i * 4 + j]);
+        }
+    }
+    if (std::isnan(partition)) {
+        std::cerr << "error:[AlignmentScorer] overflow in log-odds base recovery." << std::endl;
+        std::exit(1);
+    }
+    return partition;
+}
+
+// ----- EditAlignmentScorer non-virtual helpers -----
+
+int32_t EditAlignmentScorer::score_gap(size_t gap_length) const {
+    return vg::score_gap(gap_length, gap_open, gap_extension);
+}
+
+int32_t EditAlignmentScorer::score_alignment(const Alignment& aln) const {
+    return score_contiguous_alignment(aln, true, true);
+}
+
+int32_t EditAlignmentScorer::score_discontiguous_alignment(const Alignment& aln,
+    const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+    bool allow_left_bonus, bool allow_right_bonus) const {
+
+    int score = 0;
+    int read_offset = 0;
+    auto& path = aln.path();
+
+    bool last_was_deletion = false;
+
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+
+            if (edit_is_match(edit)) {
+                score += score_exact_match(aln, read_offset, edit.to_length());
+                last_was_deletion = false;
+            } else if (edit_is_sub(edit)) {
+                score += score_mismatch(aln.sequence().begin() + read_offset,
+                                        aln.sequence().begin() + read_offset + edit.to_length(),
+                                        aln.quality().begin() + read_offset);
+                last_was_deletion = false;
+            } else if (edit_is_deletion(edit)) {
+                if (last_was_deletion) {
+                    score -= edit.from_length() * gap_extension;
+                } else {
+                    score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
+                }
+                if (edit.from_length()) {
+                    last_was_deletion = true;
+                }
+            } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
+                                                    (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))) {
+                score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
+                last_was_deletion = false;
+            } else {
+                last_was_deletion = false;
+            }
+            read_offset += edit.to_length();
+        }
+        if (i + 1 < path.mapping_size()) {
+            Position last_pos = mapping.position();
+            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
+            Position next_pos = path.mapping(i + 1).position();
+            int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            if (dist > 0) {
+                score -= gap_open + (dist - 1) * gap_extension;
+            }
+        }
+    }
+
+    if (allow_left_bonus && !softclip_start(aln)) {
+        score += score_full_length_bonus(true, aln);
+    }
+    if (allow_right_bonus && !softclip_end(aln)) {
+        score += score_full_length_bonus(false, aln);
+    }
+
+    return score;
+}
+
+int32_t EditAlignmentScorer::score_contiguous_alignment(const Alignment& aln,
+                                                        bool allow_left_bonus,
+                                                        bool allow_right_bonus) const {
+    return score_discontiguous_alignment(aln, [](pos_t, pos_t, size_t) { return (size_t) 0; },
+                                         allow_left_bonus, allow_right_bonus);
+}
+
+int32_t EditAlignmentScorer::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {
+    int32_t score = aln.score();
+    if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
+        score -= score_full_length_bonus(true, aln);
+    }
+    if (softclip_end(aln) == 0 && !(pinned && !pin_left)) {
+        score -= score_full_length_bonus(false, aln);
+    }
+    return score;
+}
+
+size_t EditAlignmentScorer::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const {
+    return longest_detectable_gap(alignment.sequence().size(), read_pos - alignment.sequence().begin());
+}
+
+size_t EditAlignmentScorer::longest_detectable_gap(size_t read_length, size_t read_pos) const {
+    assert(read_length >= read_pos);
+    int64_t overhang_length = min(read_pos, read_length - read_pos);
+    int64_t numer = match * overhang_length + full_length_bonus;
+    int64_t gap_length = (numer - gap_open) / gap_extension + 1;
+    return gap_length >= 0 && overhang_length > 0 ? gap_length : 0;
+}
+
+size_t EditAlignmentScorer::longest_detectable_gap(const Alignment& alignment) const {
+    return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
+}
+
+size_t EditAlignmentScorer::longest_detectable_gap(size_t read_length) const {
+    return longest_detectable_gap(read_length, read_length / 2);
+}
+
+// ----- MatrixAlignmentScorer -----
+
+MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
+                                             int8_t gap_open_,
+                                             int8_t gap_extension_,
+                                             int8_t full_length_bonus_) {
+    match = score_matrix_4x4[0];
+    mismatch = -score_matrix_4x4[1];
+    gap_open = gap_open_;
+    gap_extension = gap_extension_;
+    full_length_bonus = full_length_bonus_;
+
+    nt_table = gssw_create_nt_table();
+
+    // Owned 4x4 input copy; used by fill_substitution_matrix.
+    substitution_matrix = (int8_t*) std::malloc(sizeof(int8_t) * 16);
+    crash_unless(substitution_matrix != nullptr);
+    std::copy(score_matrix_4x4, score_matrix_4x4 + 16, substitution_matrix);
+
+    // 5x5 N-padded for GSSW.
+    score_matrix = (int8_t*) std::malloc(sizeof(int8_t) * 25);
+    crash_unless(score_matrix != nullptr);
+    for (size_t i = 0, j = 0; i < 25; ++i) {
+        if (i % 5 == 4 || i / 5 == 4) {
+            score_matrix[i] = 0;
+        } else {
+            score_matrix[i] = score_matrix_4x4[j];
+            ++j;
+        }
+    }
+}
+
+MatrixAlignmentScorer::~MatrixAlignmentScorer() {
+    if (nt_table) std::free(nt_table);
+    if (score_matrix) std::free(score_matrix);
+    if (substitution_matrix) std::free(substitution_matrix);
+}
+
+int32_t MatrixAlignmentScorer::score_exact_match(const Alignment&, size_t, size_t length) const {
+    return match * length;
+}
+
+int32_t MatrixAlignmentScorer::score_exact_match(const string& sequence) const {
+    return match * sequence.length();
+}
+
+int32_t MatrixAlignmentScorer::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const {
+    return match * (seq_end - seq_begin);
+}
+
+int32_t MatrixAlignmentScorer::score_exact_match(const string& sequence, const string&) const {
+    return score_exact_match(sequence);
+}
+
+int32_t MatrixAlignmentScorer::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                                 string::const_iterator) const {
+    return score_exact_match(seq_begin, seq_end);
+}
+
+int32_t MatrixAlignmentScorer::score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                              string::const_iterator) const {
+    return -mismatch * (seq_end - seq_begin);
+}
+
+int32_t MatrixAlignmentScorer::score_mismatch(size_t length) const {
+    return -match * length;
+}
+
+int32_t MatrixAlignmentScorer::score_full_length_bonus(bool, string::const_iterator,
+                                                       string::const_iterator,
+                                                       string::const_iterator) const {
+    return full_length_bonus;
+}
+
+int32_t MatrixAlignmentScorer::score_full_length_bonus(bool, const Alignment&) const {
+    return full_length_bonus;
+}
+
+int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph,
+                                                       const path_t& path,
+                                                       string::const_iterator seq_begin,
+                                                       bool no_read_end_scoring) const {
+    int32_t score = 0;
+    string::const_iterator read_pos = seq_begin;
+    bool in_deletion = false;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        const auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() > 0) {
+                if (edit.to_length() > 0) {
+                    if (edit.sequence().empty()) {
+                        score += match * edit.from_length();
+                    } else {
+                        score -= mismatch * edit.from_length();
+                    }
+                    if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
+                        score += score_full_length_bonus(true, alignment);
+                    }
+                    if (read_pos + edit.to_length() == alignment.sequence().end() && !no_read_end_scoring) {
+                        score += score_full_length_bonus(false, alignment);
+                    }
+                    in_deletion = false;
+                } else if (in_deletion) {
+                    score -= edit.from_length() * gap_extension;
+                } else {
+                    score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                    in_deletion = true;
+                }
+            } else if (edit.to_length() > 0) {
+                if (no_read_end_scoring ||
+                    (read_pos != alignment.sequence().begin() &&
+                     read_pos + edit.to_length() != alignment.sequence().end())) {
+                    score -= gap_open + (edit.to_length() - 1) * gap_extension;
+                }
+                in_deletion = false;
+            }
+            read_pos += edit.to_length();
+        }
+    }
+    return score;
+}
+
+void MatrixAlignmentScorer::fill_substitution_matrix(double out[16]) const {
+    for (int i = 0; i < 16; ++i) {
+        out[i] = static_cast<double>(substitution_matrix[i]);
+    }
+}
+
+// ----- QualAdjAlignmentScorer -----
+
+QualAdjAlignmentScorer::QualAdjAlignmentScorer(const int8_t* score_matrix_4x4,
+                                               int8_t gap_open_,
+                                               int8_t gap_extension_,
+                                               int8_t full_length_bonus_,
+                                               double gc_content_for_qual_adj)
+    : MatrixAlignmentScorer(score_matrix_4x4, gap_open_, gap_extension_, full_length_bonus_) {
+
+    constexpr uint32_t max_base_qual = 255;
+
+    double sub_d[16];
+    for (int i = 0; i < 16; ++i) sub_d[i] = static_cast<double>(score_matrix_4x4[i]);
+    double log_base = AlignmentScorer::recover_log_base(sub_d, gc_content_for_qual_adj);
+
+    // Replace the 5x5 N-padded matrix with a quality-indexed 5x5xQ table.
+    std::free(score_matrix);
+    score_matrix = qual_adjusted_matrix(score_matrix_4x4, gc_content_for_qual_adj, log_base, max_base_qual);
+    qual_adj_full_length_bonuses = qual_adjusted_bonuses(full_length_bonus_, log_base, max_base_qual);
+}
+
+QualAdjAlignmentScorer::~QualAdjAlignmentScorer() {
+    if (qual_adj_full_length_bonuses) std::free(qual_adj_full_length_bonuses);
+}
+
+int8_t* QualAdjAlignmentScorer::qual_adjusted_matrix(const int8_t* score_matrix_4x4,
+                                                     double gc_content,
+                                                     double log_base,
+                                                     uint32_t max_qual) const {
+    double nt_freqs[4];
+    nt_freqs[0] = 0.5 * (1 - gc_content);
+    nt_freqs[1] = 0.5 * gc_content;
+    nt_freqs[2] = 0.5 * gc_content;
+    nt_freqs[3] = 0.5 * (1 - gc_content);
+
+    double align_prob[16];
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            align_prob[i * 4 + j] = std::exp(log_base * score_matrix_4x4[i * 4 + j]) * nt_freqs[i] * nt_freqs[j];
+        }
+    }
+
+    double align_complement_prob[16];
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            align_complement_prob[i * 4 + j] = 0.0;
+            for (int k = 0; k < 4; ++k) {
+                if (k != j) {
+                    align_complement_prob[i * 4 + j] += align_prob[i * 4 + k];
+                }
+            }
+        }
+    }
+
+    int lowest_meaningful_qual = std::ceil(-10.0 * std::log10(0.75));
+
+    int8_t* qual_adj_mat = (int8_t*) std::malloc(25 * (max_qual + 1) * sizeof(int8_t));
+    crash_unless(qual_adj_mat != nullptr);
+    for (uint32_t q = 0; q <= max_qual; ++q) {
+        double err = std::pow(10.0, -((double) q) / 10.0);
+        for (int i = 0; i < 5; ++i) {
+            for (int j = 0; j < 5; ++j) {
+                int8_t score;
+                if (i == 4 || j == 4 || (int) q < lowest_meaningful_qual) {
+                    score = 0;
+                } else {
+                    score = std::round(std::log(((1.0 - err) * align_prob[i * 4 + j] + (err / 3.0) * align_complement_prob[i * 4 + j])
+                                                / (nt_freqs[i] * ((1.0 - err) * nt_freqs[j] + (err / 3.0) * (1.0 - nt_freqs[j])))) / log_base);
+                }
+                qual_adj_mat[q * 25 + i * 5 + j] = std::round(score);
+            }
+        }
+    }
+    return qual_adj_mat;
+}
+
+int8_t* QualAdjAlignmentScorer::qual_adjusted_bonuses(int8_t base_full_length_bonus,
+                                                      double log_base,
+                                                      uint32_t max_qual) const {
+    double p_full_len = std::exp(log_base * base_full_length_bonus) / (1.0 + std::exp(log_base * base_full_length_bonus));
+
+    int8_t* qual_adj_bonuses = (int8_t*) std::calloc(max_qual + 1, sizeof(int8_t));
+    crash_unless(qual_adj_bonuses != nullptr);
+
+    int lowest_meaningful_qual = std::ceil(-10.0 * std::log10(0.75));
+    ++lowest_meaningful_qual;
+
+    for (uint32_t q = lowest_meaningful_qual; q <= max_qual; ++q) {
+        double err = std::pow(10.0, -((double) q) / 10.0);
+        double score = std::log(((1.0 - err * 4.0 / 3.0) * p_full_len + (err * 4.0 / 3.0) * (1.0 - p_full_len)) / (1.0 - p_full_len)) / log_base;
+        qual_adj_bonuses[q] = std::round(score);
+    }
+    return qual_adj_bonuses;
+}
+
+int32_t QualAdjAlignmentScorer::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
+    auto& sequence = aln.sequence();
+    auto& base_quality = aln.quality();
+    int32_t score = 0;
+    for (size_t i = 0; i < length; ++i) {
+        score += score_matrix[25 * (uint8_t) base_quality[read_offset + i] + 6 * nt_table[(uint8_t) sequence[read_offset + i]]];
+    }
+    return score;
+}
+
+int32_t QualAdjAlignmentScorer::score_exact_match(const string& sequence, const string& base_quality) const {
+    int32_t score = 0;
+    for (size_t i = 0; i < sequence.length(); ++i) {
+        score += score_matrix[25 * (uint8_t) base_quality[i] + 6 * nt_table[(uint8_t) sequence[i]]];
+    }
+    return score;
+}
+
+int32_t QualAdjAlignmentScorer::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                                  string::const_iterator base_qual_begin) const {
+    int32_t score = 0;
+    auto seq_iter = seq_begin;
+    auto qual_iter = base_qual_begin;
+    for (; seq_iter != seq_end; ++seq_iter, ++qual_iter) {
+        score += score_matrix[25 * (uint8_t) (*qual_iter) + 6 * nt_table[(uint8_t) (*seq_iter)]];
+    }
+    return score;
+}
+
+int32_t QualAdjAlignmentScorer::score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                               string::const_iterator base_qual_begin) const {
+    int32_t score = 0;
+    auto seq_iter = seq_begin;
+    auto qual_iter = base_qual_begin;
+    for (; seq_iter != seq_end; ++seq_iter, ++qual_iter) {
+        score += score_matrix[25 * (uint8_t) (*qual_iter) + 1];
+    }
+    return score;
+}
+
+int32_t QualAdjAlignmentScorer::score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
+                                                        string::const_iterator seq_end,
+                                                        string::const_iterator base_qual_begin) const {
+    if (seq_begin != seq_end) {
+        return qual_adj_full_length_bonuses[(uint8_t) (left_side ? *base_qual_begin
+                                                                 : *(base_qual_begin + (seq_end - seq_begin) - 1))];
+    }
+    return 0;
+}
+
+int32_t QualAdjAlignmentScorer::score_full_length_bonus(bool left_side, const Alignment& alignment) const {
+    return score_full_length_bonus(left_side, alignment.sequence().begin(), alignment.sequence().end(),
+                                   alignment.quality().begin());
+}
+
+int32_t QualAdjAlignmentScorer::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph,
+                                                        const path_t& path,
+                                                        string::const_iterator seq_begin,
+                                                        bool no_read_end_scoring) const {
+    int32_t score = 0;
+    string::const_iterator read_pos = seq_begin;
+    string::const_iterator qual_pos = alignment.quality().begin() + (seq_begin - alignment.sequence().begin());
+
+    bool in_deletion = false;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        const auto& mapping = path.mapping(i);
+
+        string node_seq = graph.get_sequence(graph.get_handle(mapping.position().node_id(),
+                                                              mapping.position().is_reverse()));
+        string::const_iterator ref_pos = node_seq.begin() + mapping.position().offset();
+
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() > 0) {
+                if (edit.to_length() > 0) {
+                    auto siter = read_pos;
+                    auto riter = ref_pos;
+                    auto qiter = qual_pos;
+                    for (; siter != read_pos + edit.to_length(); ++siter, ++qiter, ++riter) {
+                        score += score_matrix[25 * (uint8_t) (*qiter) + 5 * nt_table[(uint8_t) (*riter)] + nt_table[(uint8_t) (*siter)]];
+                    }
+                    if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
+                        score += score_full_length_bonus(true, alignment);
+                    }
+                    if (read_pos + edit.to_length() == alignment.sequence().end() && !no_read_end_scoring) {
+                        score += score_full_length_bonus(false, alignment);
+                    }
+                    in_deletion = false;
+                } else if (in_deletion) {
+                    score -= edit.from_length() * gap_extension;
+                } else {
+                    score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                    in_deletion = true;
+                }
+            } else if (edit.to_length() > 0) {
+                if (no_read_end_scoring ||
+                    (read_pos != alignment.sequence().begin() &&
+                     read_pos + edit.to_length() != alignment.sequence().end())) {
+                    score -= gap_open + (edit.to_length() - 1) * gap_extension;
+                }
+                in_deletion = false;
+            }
+            read_pos += edit.to_length();
+            qual_pos += edit.to_length();
+            ref_pos += edit.from_length();
+        }
+    }
+    return score;
+}
+
+} // namespace vg
