@@ -165,6 +165,8 @@ Functions</h2></td></tr>
 <tr class="separator:aa186cef438679cb79232d24f64be1f89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8f8f086e000ad8b8c0e5d1c0f4c7245"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab8f8f086e000ad8b8c0e5d1c0f4c7245">generate_zip_tree_transitions</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_starting, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_ending)</td></tr>
 <tr class="separator:ab8f8f086e000ad8b8c0e5d1c0f4c7245"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a60201ac1727488caca75f5089e58ab2b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a60201ac1727488caca75f5089e58ab2b">find_missing_zip_tree_transitions</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_starting, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_ending, const SnarlDistanceIndex &amp;distance_index, const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;all_transitions)</td></tr>
+<tr class="separator:a60201ac1727488caca75f5089e58ab2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:addcb04b545945336baa950dc55b7a289"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#addcb04b545945336baa950dc55b7a289">calculate_transition_read_distances</a> (const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;all_transitions, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, size_t max_read_lookback_bases)</td></tr>
 <tr class="separator:addcb04b545945336baa950dc55b7a289"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abdc2933db32d78a14a8e439f7e9643ab"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abdc2933db32d78a14a8e439f7e9643ab">score_chain_gap</a> (size_t distance_difference, size_t base_seed_length)</td></tr>
@@ -3041,6 +3043,67 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Find the GBWTGraph that is part of the given handle graph, if any exists. Works on GBWTGraphs and GBZGraphs. Returns null if no such GBWTGraph exists. </p>
+
+</div>
+</div>
+<a id="a60201ac1727488caca75f5089e58ab2b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a60201ac1727488caca75f5089e58ab2b">&#9670;&nbsp;</a></span>find_missing_zip_tree_transitions()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::algorithms::find_missing_zip_tree_transitions </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;&#160;</td>
+          <td class="paramname"><em>zip_code_tree</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_graph_lookback_bases</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_map&lt; size_t, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seed_to_starting</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_map&lt; size_t, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seed_to_ending</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>all_transitions</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Check if all possible transitions were actually found.</p>
+<p>Iterates over all pairs of seeds and uses the distance index to determine if there SHOULD have been a transition.</p>
+<p>Returns if any transitions were missing. </p>
 
 </div>
 </div>
