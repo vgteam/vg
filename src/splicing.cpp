@@ -161,7 +161,7 @@ void SpliceStats::init(const vector<tuple<string, string, double>>& motifs,
     
     motif_data.reserve(motifs.size());
     for (const auto& record : motifs) {
-        int32_t score = round(log(get<2>(record)) / scorer.log_base);
+        int32_t score = round(log(get<2>(record)) / scorer.mapq_calc->get_log_base());
         motif_data.emplace_back();
         get<0>(motif_data.back()) = get<0>(record);
         // reverse the second string because it's encountered in reverse when going into
@@ -184,7 +184,7 @@ void SpliceStats::init(const vector<tuple<string, string, double>>& motifs,
     }
 #endif
     
-    log_base = scorer.log_base;
+    log_base = scorer.mapq_calc->get_log_base();
     mixture_weights = lognormal_mixture_weights;
     component_params = lognormal_component_params;
     
@@ -743,7 +743,7 @@ multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& gr
             edit->set_sequence(string(mem.end, alignment.sequence().end()));
         }
     }
-    subpath->set_score(scorer.score_partial_alignment(alignment, graph, *path,
+    subpath->set_score(scorer.scorer->score_partial_alignment(alignment, graph, *path,
                                                       alignment.sequence().begin()));
     
     identify_start_subpaths(multipath_aln);
@@ -971,7 +971,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     }
 
     
-    get<2>(return_val) = aligner.score_partial_alignment(aln, graph, dummy_path, begin);
+    get<2>(return_val) = aligner.scorer->score_partial_alignment(aln, graph, dummy_path, begin);
     
 #ifdef debug_trimming
     cerr << "scored trimmed subpath " << debug_string(dummy_path) << " with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << ": " << get<2>(return_val) << endl;
@@ -1202,9 +1202,9 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
     
     // score the two halves (but don't take the full length bonus, since this isn't actually
     // the end of the full read)
-    return_val.first.second = scorer.score_partial_alignment(splice_segment, graph, left_path,
+    return_val.first.second = scorer.scorer->score_partial_alignment(splice_segment, graph, left_path,
                                                              splice_segment.sequence().begin() + left_leading_to_length, true);
-    return_val.second.second = scorer.score_partial_alignment(splice_segment, graph, right_path,
+    return_val.second.second = scorer.scorer->score_partial_alignment(splice_segment, graph, right_path,
                                                               splice_segment.sequence().begin() + left_to_length + left_leading_to_length,
                                                               true);
     
@@ -1257,10 +1257,10 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
             // split the total gap score between the two (can break dynamic programmability
             // a little bit, but i think it's worth it to have a good alignment across the
             // splice junction)
-            int32_t total_gap_score = scorer.score_gap(left_del_size + right_del_size);
+            int32_t total_gap_score = scorer.scorer->score_gap(left_del_size + right_del_size);
             int32_t left_gap_score = (left_del_size * total_gap_score) / (left_del_size + right_del_size);
-            return_val.first.second += (left_gap_score - scorer.score_gap(left_del_size));
-            return_val.second.second += (total_gap_score  - left_gap_score - scorer.score_gap(right_del_size));
+            return_val.first.second += (left_gap_score - scorer.scorer->score_gap(left_del_size));
+            return_val.second.second += (total_gap_score  - left_gap_score - scorer.scorer->score_gap(right_del_size));
             
 #ifdef debug_linker_split
             cerr << "re-divided deletion score, now left score " << return_val.first.second << ", right score " << return_val.second.second << endl;
@@ -1442,7 +1442,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
             auto path = left_mp_aln.mutable_subpath(i)->mutable_path();
             bool trimmed = trim_path(path, false, m, e, b);
             if (trimmed) {
-                int32_t new_score = scorer.score_partial_alignment(alignment, graph, *path,
+                int32_t new_score = scorer.scorer->score_partial_alignment(alignment, graph, *path,
                                                                    alignment.sequence().begin() + left_to_length[i]);
                 left_mp_aln.mutable_subpath(i)->set_score(new_score);
             }
@@ -1615,7 +1615,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
             bool trimmed = trim_path(path, true, m, e, b);
             if (trimmed) {
                 int64_t new_to_len = path_to_length(*path);
-                int32_t new_score = scorer.score_partial_alignment(alignment, graph, *path,
+                int32_t new_score = scorer.scorer->score_partial_alignment(alignment, graph, *path,
                                                                    (alignment.sequence().begin() + right_to_length[i]
                                                                     + to_len - new_to_len));
                 right_mp_aln.mutable_subpath(i)->set_score(new_score);

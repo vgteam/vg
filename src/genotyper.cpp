@@ -901,11 +901,11 @@ map<const Alignment*, vector<Genotyper::Affinity>>
             // Compute the unnormalized likelihood of the read given the allele graph.
             if(read->sequence().size() == read->quality().size()) {
                 // Use the quality-adjusted default scoring system
-                affinity.likelihood_ln = qa_aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+                affinity.likelihood_ln = qa_aligner.mapq_calc->score_to_unnormalized_likelihood_ln(aligned.score());
             } else {
                 // We will have aligned without quality adjustment, so interpret
                 // score in terms of the normal scoring parameters.
-                affinity.likelihood_ln = aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+                affinity.likelihood_ln = aligner.mapq_calc->score_to_unnormalized_likelihood_ln(aligned.score());
             }
 
             // Get the NodeTraversals for the winning alignment through the snarl.

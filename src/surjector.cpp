@@ -49,12 +49,12 @@ using namespace std;
         for (size_t i = 0, j = 0; i < 25; ++i) {
             if (i % 5 != 4 && i / 5 != 4) {
                 // This entry is kept
-                cut_matrix[j] = aligner->score_matrix[i];
+                cut_matrix[j] = aligner->scorer->score_matrix[i];
                 ++j;
             }
         }
         try {
-            set_dp_alignment_scores(cut_matrix, aligner->gap_open, aligner->gap_extension, aligner->full_length_bonus);
+            set_dp_alignment_scores(cut_matrix, aligner->scorer->gap_open, aligner->scorer->gap_extension, aligner->scorer->full_length_bonus);
         } catch (...) {
             free(cut_matrix);
             throw;
@@ -1361,7 +1361,7 @@ using namespace std;
                     vector<vector<Alignment>> repair_alns;
                     repair_alns.reserve(left_side.size());
                     
-                    int64_t max_aln_length = (get_aligner()->longest_detectable_gap(src_sequence.size())
+                    int64_t max_aln_length = (get_aligner()->scorer->longest_detectable_gap(src_sequence.size())
                                               + (path_chunks[*right_side.begin()].first.first
                                                  - path_chunks[*left_side.begin()].first.second));
                     for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
@@ -2267,7 +2267,7 @@ using namespace std;
             aln.set_sequence(src_sequence);
             aln.set_quality(src_quality);
             to_proto_path(surj_subpath->path(), *aln.mutable_path());
-            surj_subpath->set_score(get_aligner(!src_quality.empty())->score_contiguous_alignment(aln));
+            surj_subpath->set_score(get_aligner(!src_quality.empty())->scorer->score_contiguous_alignment(aln));
             
             surjected.front().first.add_start(0);
             
@@ -2494,7 +2494,7 @@ using namespace std;
                                 score = 0;
                             }
                             else {
-                                score = get_aligner(!src_quality.empty())->score_gap(dist);
+                                score = get_aligner(!src_quality.empty())->scorer->score_gap(dist);
                             }
                             
 #ifdef debug_spliced_surject
@@ -2745,14 +2745,14 @@ using namespace std;
                         if (read_range.first != src_sequence.begin()) {
                             if (sections[k].first.path().mapping(0).edit(0).from_length() > 0) {
                                 sections[k].first.set_score(sections[k].first.score()
-                                                            - aligner.score_full_length_bonus(true, section_source));
+                                                            - aligner.scorer->score_full_length_bonus(true, section_source));
                             }
                         }
                         if (read_range.second != src_sequence.end()) {
                             const Mapping& m = sections[k].first.path().mapping(0);
                             if (m.edit(m.edit_size() - 1).from_length() > 0) {
                                 sections[k].first.set_score(sections[k].first.score()
-                                                            - aligner.score_full_length_bonus(false, section_source));
+                                                            - aligner.scorer->score_full_length_bonus(false, section_source));
                             }
                         }
                     }
@@ -2882,7 +2882,7 @@ using namespace std;
                         
                         // TODO: this is an approximate cost, but we could probably make it more precise
                         int64_t overlap = sections[j].first.sequence().size() - softclip_end(sections[j].first) - softclip_start(sections[k].first);
-                        int32_t score_penalty = overlap > 0 ? get_aligner(!src_quality.empty())->match * overlap : 0;
+                        int32_t score_penalty = overlap > 0 ? get_aligner(!src_quality.empty())->scorer->match * overlap : 0;
                         // note: we don't enforce colinearity here, since these edges would trigger supplementary alignments
                         int32_t extended_score = score_dp[j] - score_penalty + sections[k].first.score();
 #ifdef debug_spliced_surject
@@ -3221,7 +3221,7 @@ using namespace std;
             surjected.back().first.set_sequence(source.sequence());
             surjected.back().first.set_quality(source.quality());
             to_proto_path(path_chunks.front().second, *surjected.back().first.mutable_path());
-            surjected.back().first.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(surjected.back().first));
+            surjected.back().first.set_score(get_aligner(!source.quality().empty())->scorer->score_contiguous_alignment(surjected.back().first));
             surjected.back().second = ref_chunks.front();
             if (all_path_ranges_out) {
                 all_path_ranges_out->emplace_back();
@@ -3388,7 +3388,7 @@ using namespace std;
                     cerr << "chunk constitutes full alignment of this interval, no need for multipath alignment" << endl;
 #endif
                     to_proto_path(mp_aln_path_chunks->front().second, *surjected_aln.mutable_path());
-                    surjected_aln.set_score(normal_aligner->score_contiguous_alignment(surjected_aln));
+                    surjected_aln.set_score(normal_aligner->scorer->score_contiguous_alignment(surjected_aln));
                     // TODO: it should be possible to rely on the ref chunks here rather than using the path scan later
                 }
                 else {
@@ -3540,7 +3540,7 @@ using namespace std;
                             edit->set_to_length(interval_offset);
                             edit->set_sequence(source.sequence().substr(0, interval_offset));
                             // remove a false full length bonus
-                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->full_length_bonus);
+                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->scorer->full_length_bonus);
                         }
                     }
                     if (interval_offset + mp_aln_source->sequence().size() < source.sequence().size()) {
@@ -3560,7 +3560,7 @@ using namespace std;
                             new_edit->set_to_length(clip_seq.size());
                             new_edit->set_sequence(clip_seq);
                             // remove a false full length bonus
-                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->full_length_bonus);
+                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->scorer->full_length_bonus);
                         }
                     }
 #ifdef debug_anchored_surject
@@ -3740,7 +3740,7 @@ using namespace std;
                     normalize_indel_adjustment(surj.first, true, *path_position_graph, sources_are_anchors);
                 }
 
-                surj.first.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(source));
+                surj.first.set_score(get_aligner(!source.quality().empty())->scorer->score_contiguous_alignment(source));
 
                 // pinch in the step ranges if left-aligning caused us to shift the alignment off of the first node
                 for (size_t j = 0, n = num_mappings - surj.first.path().mapping_size(); j < n; ++j) {
@@ -5158,10 +5158,10 @@ using namespace std;
             const auto& ref_chunk = ref_chunks[i];
             
             
-            size_t begin_overhang = no_left_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.first)
+            size_t begin_overhang = no_left_expansion ? 0 : (get_aligner()->scorer->longest_detectable_gap(source, path_chunk.first.first)
                                                             + (path_chunk.first.first - source.sequence().begin()));
             
-            size_t end_overhang = no_right_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
+            size_t end_overhang = no_right_expansion ? 0 : (get_aligner()->scorer->longest_detectable_gap(source, path_chunk.first.second)
                                                             + (source.sequence().end() - path_chunk.first.second));
             
             chunk_intervals.emplace_back();

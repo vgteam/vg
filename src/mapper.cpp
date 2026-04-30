@@ -2274,14 +2274,14 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         // Get the aligner so we can convert from logprob to score points
         // TODO: This should always be the same aligner!
         auto* aligner = get_aligner(!alns[i]->quality().empty());
-        assert(aligner->log_base != 0);
+        assert(aligner->mapq_calc->get_log_base() != 0);
         
         if (alns[i]->path().mapping_size() != 0) {
             // We actually did rescore this one
             
             // This is a score "penalty" because it is usually negative. But positive = more score.
             // Convert to points, raise to haplotype consistency exponent power.
-            double score_penalty = haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base);
+            double score_penalty = haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->mapq_calc->get_log_base());
             
             // Apply "penalty"
             int64_t old_score = alns[i]->score();
@@ -2438,7 +2438,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool keep_bonuses) {
 
     // the longest path we could possibly align to (full gap and a full sequence)
-    size_t target_length = aln.sequence().size() + get_aligner()->longest_detectable_gap(aln);
+    size_t target_length = aln.sequence().size() + get_aligner()->scorer->longest_detectable_gap(aln);
 
     // copy our alignment, which we'll then modify
     Alignment aligned = aln;
@@ -2862,10 +2862,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     read2.set_quality(second_mate.quality());
 
     auto aligner = get_aligner(!read1.quality().empty());
-    int8_t match = aligner->match;
-    int8_t gap_extension = aligner->gap_extension;
-    int8_t gap_open = aligner->gap_open;
-    int8_t full_length_bonus = aligner->full_length_bonus;
+    int8_t match = aligner->scorer->match;
+    int8_t gap_extension = aligner->scorer->gap_extension;
+    int8_t gap_open = aligner->scorer->gap_open;
+    int8_t full_length_bonus = aligner->scorer->full_length_bonus;
 
     int total_multimaps = max(max_multimaps, extra_multimaps/2);
     double cluster_mq = 0;
@@ -3661,9 +3661,9 @@ Mapper::align_mem_multi(const Alignment& aln,
     if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
     
     auto aligner = get_aligner(!aln.quality().empty());
-    int8_t match = aligner->match;
-    int8_t gap_extension = aligner->gap_extension;
-    int8_t gap_open = aligner->gap_open;
+    int8_t match = aligner->scorer->match;
+    int8_t gap_extension = aligner->scorer->gap_extension;
+    int8_t gap_open = aligner->scorer->gap_open;
 
     int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
@@ -3914,7 +3914,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, co
                          include_full_length_bonuses);
     if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
-        aln.set_score(get_aligner()->remove_bonuses(aln));
+        aln.set_score(get_aligner()->scorer->remove_bonuses(aln));
     }
     return aln;
 }
@@ -4209,9 +4209,9 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, int 
 vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap, bool xdrop_alignment) {
     // cerr << read.sequence() << endl;
     auto aligner = get_aligner(!read.quality().empty());
-    int8_t match = aligner->match;
-    int8_t gap_extension = aligner->gap_extension;
-    int8_t gap_open = aligner->gap_open;
+    int8_t match = aligner->scorer->match;
+    int8_t gap_extension = aligner->scorer->gap_extension;
+    int8_t gap_open = aligner->scorer->gap_open;
 
     //cerr << "top of align_banded " << pb2json(read) << endl;
     // split the alignment up into overlapping chunks of band_width size
@@ -4374,10 +4374,10 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, maybe_mq_threshold, identity_weight);
+            aligner->mapq_calc->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, maybe_mq_threshold, identity_weight);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, maybe_mq_threshold, identity_weight);
+            aligner->mapq_calc->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, maybe_mq_threshold, identity_weight);
             break;
         default: // None
             break;
@@ -4398,10 +4398,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     }
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, maybe_mq_threshold, identity_weight);
+            aligner->mapq_calc->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, maybe_mq_threshold, identity_weight);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, maybe_mq_threshold, identity_weight);
+            aligner->mapq_calc->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, maybe_mq_threshold, identity_weight);
             break;
         default: // None
             break;
@@ -4409,11 +4409,11 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
 }
 
 double Mapper::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {
-    return get_aligner()->estimate_max_possible_mapping_quality(length, min_diffs, next_min_diffs);
+    return get_aligner()->mapq_calc->estimate_max_possible_mapping_quality(length, min_diffs, next_min_diffs);
 }
 
 double Mapper::max_possible_mapping_quality(int length) {
-    return get_aligner()->max_possible_mapping_quality(length);
+    return get_aligner()->mapq_calc->max_possible_mapping_quality(length);
 }
 
 vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment) {
@@ -4938,7 +4938,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
 
 void Mapper::remove_full_length_bonuses(Alignment& aln) {
     int32_t score = aln.score();
-    int8_t bonus = get_aligner(!aln.quality().empty())->full_length_bonus;
+    int8_t bonus = get_aligner(!aln.quality().empty())->scorer->full_length_bonus;
     if (softclip_start(aln) == 0) score -= bonus;
     if (softclip_end(aln) == 0) score -= bonus;
     aln.set_score(score);
@@ -4954,12 +4954,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
     
     if (use_approx_distance) {
         // Use an approximation
-        return aligner->score_discontiguous_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->scorer->score_discontiguous_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             return approx_distance(last, next);
         }, !strip_bonuses, !strip_bonuses);
     } else {
         // Use the exact method, and if we hit the limit, fall back to the approximate method.
-        return aligner->score_discontiguous_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->scorer->score_discontiguous_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
                 return graph_mixed_distance_estimate(last, next, min(32, (int)max_search));
         }, !strip_bonuses, !strip_bonuses);
     }
