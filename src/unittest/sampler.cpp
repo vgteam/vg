@@ -9,7 +9,11 @@
 #include "../io/json2graph.hpp"
 #include <bdsg/hash_graph.hpp>
 #include "../sampler.hpp"
+<<<<<<< HEAD
 #include "xg.hpp"
+=======
+#include "../xg.hpp"
+>>>>>>> 4bdcafb27 (merge in changes from master)
 #include "catch.hpp"
 
 namespace vg {
