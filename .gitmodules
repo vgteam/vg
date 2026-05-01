@@ -19,9 +19,6 @@
 [submodule "deps/sublinear-Li-Stephens"]
 	path = deps/sublinear-Li-Stephens
 	url = https://github.com/yoheirosen/sublinear-Li-Stephens.git
-[submodule "deps/libdeflate"]
-	path = deps/libdeflate
-	url = https://github.com/ebiggers/libdeflate.git
 [submodule "deps/jemalloc"]
 	path = deps/jemalloc
 	url = https://github.com/jemalloc/jemalloc.git

@@ -193,6 +193,11 @@ FetchContent_Declare(kff-cpp-api
     GIT_TAG        cf4d866405a0afd34aebc4ac13551d3b0ff92e62
     EXCLUDE_FROM_ALL
 )
+FetchContent_Declare(libdeflate
+    GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git
+    GIT_TAG        28e88e9c6f6c197594753e7c9139e8a70c1a7b89
+    EXCLUDE_FROM_ALL
+)
 
 FetchContent_MakeAvailable(
     gbwt
@@ -201,6 +206,7 @@ FetchContent_MakeAvailable(
     backward-cpp
     raptor
     kff-cpp-api
+    libdeflate
 )
  # Expose raptor2 headers for consumers; BUILD_INTERFACE only, no install needed.
  target_include_directories(raptor2 INTERFACE
@@ -264,17 +270,6 @@ list(FILTER FERMI_LITE_SOURCES EXCLUDE REGEX "(example|fml-asm)\\.c$")
 add_library(vg_fermi_lite STATIC ${FERMI_LITE_SOURCES})
 target_include_directories(vg_fermi_lite PUBLIC ${VG_DEPS_DIR}/fermi-lite)
 target_link_libraries(vg_fermi_lite PUBLIC ZLIB::ZLIB)
-
-# libdeflate — small C library; wrap its lib/ directory rather than invoking
-# its Makefile. Header lives at top of deps/libdeflate.
-file(GLOB_RECURSE LIBDEFLATE_SOURCES CONFIGURE_DEPENDS
-    ${VG_DEPS_DIR}/libdeflate/lib/*.c)
-add_library(vg_libdeflate STATIC ${LIBDEFLATE_SOURCES})
-target_include_directories(vg_libdeflate
-    PUBLIC  ${VG_DEPS_DIR}/libdeflate
-    PRIVATE ${VG_DEPS_DIR}/libdeflate/common
-            ${VG_DEPS_DIR}/libdeflate/lib)
-target_compile_definitions(vg_libdeflate PRIVATE LIBDEFLATE_STATIC)
 
 # xg — compile xg.cpp directly. Don't use upstream xg's CMakeLists (it drags in
  # conflicting FetchContent for handlegraph/sdsl and broken macOS OpenMP).
@@ -508,7 +503,7 @@ target_link_libraries(vg_core PUBLIC
     # additional vg stuff
     gbwt gbwtgraph gcsa2
     # not owned by member of vg team
-    vg_ssw vg_sha1 vg_fermi_lite vg_libdeflate vg_tabixpp vg_libvcfh
+    vg_ssw vg_sha1 vg_fermi_lite libdeflate_static vg_tabixpp vg_libvcfh
     vg_headers_only backward raptor2 kff
     # external (ExternalProject)
     vg_htslib
