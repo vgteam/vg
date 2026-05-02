@@ -198,6 +198,16 @@ FetchContent_Declare(libdeflate
     GIT_TAG        28e88e9c6f6c197594753e7c9139e8a70c1a7b89
     EXCLUDE_FROM_ALL
 )
+FetchContent_Declare(sonLib
+    GIT_REPOSITORY https://github.com/electricEpilith/sonLib.git
+    GIT_TAG        6ea5147f19f46e3140831b54af058dcd622f885f
+    EXCLUDE_FROM_ALL
+)
+FetchContent_Declare(pinchesAndCacti
+    GIT_REPOSITORY https://github.com/electricEpilith/pinchesAndCacti.git
+    GIT_TAG        fc1e6ce753957145758f0e943c4ec3869123c552
+    EXCLUDE_FROM_ALL
+)
 
 FetchContent_MakeAvailable(
     gbwt
@@ -207,6 +217,8 @@ FetchContent_MakeAvailable(
     raptor
     kff-cpp-api
     libdeflate
+    sonLib
+    pinchesAndCacti
 )
  # Expose raptor2 headers for consumers; BUILD_INTERFACE only, no install needed.
  target_include_directories(raptor2 INTERFACE
@@ -364,60 +376,6 @@ set(MAKEDEPS_INCLUDE    "${MAKEDEPS_PREFIX}/include")
 set(MAKEDEPS_LIB        "${MAKEDEPS_PREFIX}/lib")
 file(MAKE_DIRECTORY ${MAKEDEPS_INCLUDE} ${MAKEDEPS_LIB})
 
-# sonLib — C utility library. Headers stage into sonLib/ subdir for <sonLib/X.h> includes.
-ExternalProject_Add(sonLib_ep
-    SOURCE_DIR        ${VG_DEPS_DIR}/sonLib
-    BUILD_IN_SOURCE   1
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E make_directory ${VG_DEPS_DIR}/sonLib/lib
-              COMMAND ${CMAKE_COMMAND} -E make_directory ${VG_DEPS_DIR}/sonLib/C/obj
-    BUILD_COMMAND     $(MAKE) -C C ../lib/sonLib.a
-    INSTALL_COMMAND   ${CMAKE_COMMAND} -E make_directory ${MAKEDEPS_INCLUDE}/sonLib
-              COMMAND ${CMAKE_COMMAND} -E copy_directory
-                      ${VG_DEPS_DIR}/sonLib/C/inc ${MAKEDEPS_INCLUDE}/sonLib
-              COMMAND ${CMAKE_COMMAND} -E copy_directory
-                      ${VG_DEPS_DIR}/sonLib/lib/ ${MAKEDEPS_INCLUDE}/sonLib
-              COMMAND ${CMAKE_COMMAND} -E copy
-                      ${VG_DEPS_DIR}/sonLib/lib/sonLib.a ${MAKEDEPS_LIB}/libsonLib.a
-    BUILD_BYPRODUCTS  ${VG_DEPS_DIR}/sonLib/lib/sonLib.a
-                      ${MAKEDEPS_LIB}/libsonLib.a
-)
-add_library(vg_sonlib STATIC IMPORTED)
-set_target_properties(vg_sonlib PROPERTIES
-    IMPORTED_LOCATION             ${MAKEDEPS_LIB}/libsonLib.a
-    INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
-add_dependencies(vg_sonlib sonLib_ep)
-
-ExternalProject_Add(pinchesAndCacti_ep
-     SOURCE_DIR        ${VG_DEPS_DIR}/pinchesAndCacti
-     BUILD_IN_SOURCE   1
-     CONFIGURE_COMMAND ""
-     BUILD_COMMAND     $(MAKE) -C externalTools/threeEdgeConnected
-                           ../../../sonLib/lib/3EdgeConnected.a
-             COMMAND   $(MAKE) ../sonLib/lib/stPinchesAndCacti.a
-     INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
-                           ${VG_DEPS_DIR}/sonLib/lib/stPinchesAndCacti.a
-                           ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
-             COMMAND   ${CMAKE_COMMAND} -E copy
-                           ${VG_DEPS_DIR}/sonLib/lib/3EdgeConnected.a
-                           ${MAKEDEPS_LIB}/lib3EdgeConnected.a
-             COMMAND   ${CMAKE_COMMAND} -E copy_directory
-                           ${VG_DEPS_DIR}/pinchesAndCacti/inc
-                           ${MAKEDEPS_INCLUDE}/sonLib
-     BUILD_BYPRODUCTS  ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
-                       ${MAKEDEPS_LIB}/lib3EdgeConnected.a
-     DEPENDS           sonLib_ep)
-
- add_library(vg_pinchesAndCacti STATIC IMPORTED)
- set_target_properties(vg_pinchesAndCacti PROPERTIES
-     IMPORTED_LOCATION             ${MAKEDEPS_LIB}/libstPinchesAndCacti.a
-     INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
- add_dependencies(vg_pinchesAndCacti pinchesAndCacti_ep)
-
- add_library(vg_3edge STATIC IMPORTED)
- set_target_properties(vg_3edge PROPERTIES
-     IMPORTED_LOCATION             ${MAKEDEPS_LIB}/lib3EdgeConnected.a
-     INTERFACE_INCLUDE_DIRECTORIES ${MAKEDEPS_INCLUDE})
- add_dependencies(vg_3edge pinchesAndCacti_ep)
 
 # jemalloc — only when selected. Built via its autotools.
 if(VG_USE_JEMALLOC)
@@ -507,7 +465,8 @@ target_link_libraries(vg_core PUBLIC
     vg_headers_only backward raptor2 kff
     # external (ExternalProject)
     vg_htslib
-    vg_pinchesAndCacti vg_3edge vg_sonlib
+    sonLib
+    pinchesAndCacti threeEdgeConnected
     # CMake-native locals
     sdsl
     # system

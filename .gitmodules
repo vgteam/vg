@@ -7,12 +7,6 @@
 [submodule "deps/libVCFH"]
 	path = deps/libVCFH
 	url = https://github.com/edawson/libVCFH.git
-[submodule "deps/pinchesAndCacti"]
-	path = deps/pinchesAndCacti
-	url = https://github.com/benedictpaten/pinchesAndCacti.git
-[submodule "deps/sonLib"]
-	path = deps/sonLib
-	url = https://github.com/benedictpaten/sonLib.git
 [submodule "deps/fermi-lite"]
 	path = deps/fermi-lite
     url = https://github.com/vgteam/fermi-lite.git
