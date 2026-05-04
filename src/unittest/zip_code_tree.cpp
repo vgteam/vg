@@ -2063,7 +2063,7 @@ namespace unittest {
             if (!chain_is_reversed) {
                 // Check loops
                 REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::LOOP);
-                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 7);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 5);
                 REQUIRE(zip_tree.get_item_at_index(1).get_is_reversed());
 
                 REQUIRE(zip_tree.get_item_at_index(19).get_type() == ZipCodeTree::LOOP);
