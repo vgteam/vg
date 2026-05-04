@@ -1256,6 +1256,21 @@ class ZipCodeForest {
                             const size_t& depth, const size_t& seed_index, 
                             bool child_is_reversed, bool chain_is_reversed);
 
+    /// Helper for add_child_to_chain()
+    /// Look up a net_handle_t to use to get a loop distance
+    /// For a node, use the handle directly
+    /// For a snarl, get the relevant start (forward) or end (reverse) bound
+    net_handle_t get_loop_handle(const SnarlDistanceIndex* distance_index, const Seed& seed,
+                                 size_t depth, bool forward_loop) const;
+
+    /// Helper for add_child_to_chain()
+    /// Calculate distance to where a loop distance would start
+    /// For a node, the distance from the seed to the edge of the node
+    /// For a snarl, the length of the snarl bound node
+    /// i.e. what extra offset it would have to add to a forward/reverse loop
+    size_t distance_to_loop_anchor(const SnarlDistanceIndex* distance_index, const Seed& seed,
+                                   size_t depth, bool forward_loop) const;
+
     /// Start a new snarl of the given type at the given depth
     void open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl);
 
