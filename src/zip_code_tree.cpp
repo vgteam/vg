@@ -901,6 +901,14 @@ vector<ZipCodeForest::seed_info_t> ZipCodeForest::get_edge_seeds(const forest_gr
 }
 
 size_t ZipCodeTree::get_offset_to_seed(size_t& i, bool right_to_left) const {
+    if (zip_code_tree[i].get_type() == ZipCodeTree::LOOP){
+        // Loop at the edge of a chain; shift i past it
+        if (right_to_left) {
+            i--;
+        } else {
+            i++;
+        }
+    }
     if (zip_code_tree[i].get_type() == ZipCodeTree::SEED) {
         // If we're already a seed, then no need to find an offset
         return 0;
