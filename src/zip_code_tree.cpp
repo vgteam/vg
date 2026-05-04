@@ -625,7 +625,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             }
 
             if (remove_prior) {
-                if (cur_chain.last_reverse_loop_index > cur_chain.last_forward_loop_index) {
+                if (cur_chain.has_reverse_loop()
+                    && cur_chain.last_reverse_loop_index > cur_chain.last_forward_loop_index) {
                     // Reverse loop will be shifted by one
                     cur_chain.last_reverse_loop_index--;
                 }
