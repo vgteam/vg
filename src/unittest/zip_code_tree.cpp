@@ -3360,6 +3360,56 @@ namespace unittest {
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
         }
     }
+    TEST_CASE("Regular snarl next to inversion", "[zip_tree]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("AAAAAAAAAAAAA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("CAT");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("AAAAAAAAAAAA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n5, n6);
+        Edge* e7 = graph.create_edge(n4, n5, false, true);
+        Edge* e8 = graph.create_edge(n5, n6, true, false);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed on a SNP") {
+            // [(1  0  1  1 [2+0]) >7]
+            vector<pos_t> positions;
+            positions.emplace_back(2, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 12);
+            
+            // Check loop
+            REQUIRE(zip_tree.get_item_at_index(10).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(10).get_value() == 7);
+            REQUIRE(!zip_tree.get_item_at_index(10).get_is_reversed());
+        }
+        SECTION("One seed on each node") {
+            // TODO: ziptree
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+            make_and_validate_forest(positions, distance_index);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
         for (int i = 0; i < 10; i++) {
             // For each random graph

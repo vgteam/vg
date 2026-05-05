@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code_tree.hpp"
@@ -512,14 +512,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         }
         
         if (add_loop) {
-            // Factor in offset along node
-            size_t new_loop_value = 2 * distance_to_loop_anchor(forest_state.distance_index, current_seed, 
-                                                                depth, rev_relative_to_index);
-            // Add in rest of the loop distance
-            net_handle_t loop_handle = get_loop_handle(forest_state.distance_index, current_seed, depth, false);
-            new_loop_value += rev_relative_to_index
-                ? forest_state.distance_index->get_forward_loop_value(loop_handle)
-                : forest_state.distance_index->get_reverse_loop_value(loop_handle);
+            size_t new_loop_value = get_loop_distance(forest_state.distance_index, current_seed,
+                                                      depth, rev_relative_to_index);
 
             if (cur_chain.has_reverse_loop()) {
                 // Calculate what this current loop would be if same as previous
@@ -597,14 +591,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         cerr << "\tWill create a forward loop" << endl;
 #endif
 
-        // Factor in offset along node
-        size_t new_loop_value = 2 * distance_to_loop_anchor(forest_state.distance_index, current_seed, 
-                                                            depth, !rev_relative_to_index);
-        // Add in rest of the loop distance
-        net_handle_t loop_handle = get_loop_handle(forest_state.distance_index, current_seed, depth, true);
-        new_loop_value += rev_relative_to_index
-            ? forest_state.distance_index->get_reverse_loop_value(loop_handle)
-            : forest_state.distance_index->get_forward_loop_value(loop_handle);
+        size_t new_loop_value = get_loop_distance(forest_state.distance_index, current_seed,
+                                                  depth, !rev_relative_to_index);
 
         if (cur_chain.has_forward_loop()) {
             // There is a forward loop earlier in the chain; can we merge?
@@ -646,39 +634,37 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
 }
 
-net_handle_t ZipCodeForest::get_loop_handle(const SnarlDistanceIndex* distance_index, const Seed& seed,
-                                            size_t depth, bool forward_loop) const {
-    if (seed.zipcode.get_code_type(depth) == ZipCode::NODE) {
-        // This is just a node
-        return distance_index->get_node_net_handle(id(seed.pos));
-    } else {
-        // This is a snarl so we need to look up a boundary node
-        net_handle_t snarl = seed.zipcode.get_net_handle(depth, distance_index);
-        return distance_index->get_non_sentinel_bound(snarl, forward_loop);
-    }
-}
-
-size_t ZipCodeForest::distance_to_loop_anchor(const SnarlDistanceIndex* distance_index, const Seed& seed,
-                                              size_t depth, bool forward_loop) const {
-    size_t distance_to_edge;
+size_t ZipCodeForest::get_loop_distance(const SnarlDistanceIndex* distance_index, const Seed& seed,
+                                        size_t depth, bool forward_loop) const {
+    size_t loop_distance;
+    // The thing in the distance index that stores loop distance
+    net_handle_t loop_anchor;
     if (seed.zipcode.get_code_type(depth) == ZipCode::NODE) {
         // Calculate offset within the node
         if (forward_loop) {
-            distance_to_edge = seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(seed.pos)
+            loop_distance = seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(seed.pos)
                                 ? offset(seed.pos)
                                 : seed.zipcode.get_length(depth) - offset(seed.pos);
         } else {
-            distance_to_edge = seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(seed.pos)
+            loop_distance = seed.zipcode.get_is_reversed_in_parent(depth) != is_rev(seed.pos)
                                 ? seed.zipcode.get_length(depth) - offset(seed.pos)
                                 : offset(seed.pos);
         }
+        // Must traverse this offset twice
+        loop_distance *= 2;
+        // Distance index stores loop distance from the edge of the node
+        net_handle_t loop_anchor = distance_index->get_node_net_handle(id(seed.pos));
     } else {
         // This is a snarl so we need to look up a boundary node
-        net_handle_t snarl = seed.zipcode.get_net_handle(depth, distance_index);
-        net_handle_t bound = distance_index->get_non_sentinel_bound(snarl, forward_loop);
-        distance_to_edge = distance_index->node_length(bound);
+        // Have to use slow version in case of a regular snarl
+        net_handle_t snarl = seed.zipcode.get_net_handle_slow(id(seed.pos), depth, distance_index, nullptr);
+        net_handle_t loop_anchor = distance_index->get_non_sentinel_bound(snarl, forward_loop);
+        // Offset along the edge node
+        loop_distance = 2 * distance_index->node_length(loop_anchor);
     }
-    return distance_to_edge;
+    loop_distance += forward_loop ? distance_index->get_forward_loop_value(loop_anchor)
+                                  : distance_index->get_reverse_loop_value(loop_anchor);
+    return loop_distance;
 }
 
 void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl) {
