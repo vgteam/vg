@@ -712,12 +712,12 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\t\tThe snarl is actually empty so remove it" << endl;
 #endif
-
-        // There may be a loop that we have to get rid of too
-        if (active_zip_tree.back().get_type() == ZipCodeTree::LOOP) {
             child_info_t& active_chain = depth == 1 ? forest_state.active_top_level_chain
                                                     : forest_state.sibling_indices_at_depth[depth - 2].back();
             active_chain.reset_loop_storage();
+
+        // There may be a loop that we have to get rid of too
+        if (active_zip_tree.back().get_type() == ZipCodeTree::LOOP) {
             active_zip_tree.pop_back();
         }
 
@@ -726,6 +726,11 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
 #endif
         // Pop the snarl start out
         active_zip_tree.pop_back();
+
+        // There may be a loop that we have to get rid of too
+        if (active_zip_tree.back().get_type() == ZipCodeTree::LOOP) {
+            active_zip_tree.pop_back();
+        }
 
         // If this was the first thing in the chain, then we're done.
         // Otherwise, there was an edge to remove
@@ -816,7 +821,11 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             // If this was the first thing in the chain,
             // update the previous sibling in the chain to be the chain start
 #ifdef DEBUG_ZIP_CODE_TREE
-            assert(active_zip_tree.back().get_type() == ZipCodeTree::CHAIN_START);
+            if (active_zip_tree.back().get_type() == ZipCodeTree::LOOP) {
+                assert(active_zip_tree[active_zip_tree.size() - 2].get_type() == ZipCodeTree::CHAIN_START);
+            } else {
+                assert(active_zip_tree.back().get_type() == ZipCodeTree::CHAIN_START);
+            }
 #endif
             bool prev_reversed = forest_state.open_intervals[forest_state.open_intervals.size()-2].is_reversed;
             size_t offset = prev_reversed ? last_seed.zipcode.get_length(depth-1, true) : 0;
