@@ -436,7 +436,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             // Too far from the previous thing, but inside a snarl
             if (forest_state.open_chains.back().second) {
                 bool moved_full_chain = move_slice(forest_state, chain_depth);
-                forest_state.sibling_indices_at_depth[depth-2].back().reset_loop_storage();
+                forest_state.sibling_indices_at_depth[chain_depth-1].back().reset_loop_storage();
                 // Current chain slice was also too far away from prior thing
                 if (moved_full_chain) {
                     // Since the full chain was moved, the back is a bound
@@ -468,8 +468,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                     forest_state.open_chains.pop_back();
                     forest_state.open_chains.emplace_back(
                         trees[forest_state.active_tree_index].zip_code_tree.size(), true);
-                    // Forget previous loops since they are too far away
-                    forest_state.sibling_indices_at_depth[depth-1].back().reset_loop_storage();
                 }
             } else {
 #ifdef DEBUG_ZIP_CODE_TREE
