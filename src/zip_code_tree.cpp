@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code_tree.hpp"
@@ -597,10 +597,13 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         if (cur_chain.has_forward_loop()) {
             // There is a forward loop earlier in the chain; can we merge?
             bool remove_prior = false;
-            const tree_item_t& item_before_loop = \
-                trees[forest_state.active_tree_index].zip_code_tree[cur_chain.last_forward_loop_index - 1];
             const tree_item_t& prev_loop_item = \
                 trees[forest_state.active_tree_index].zip_code_tree[cur_chain.last_forward_loop_index];
+            if (current_seed.zipcode.get_code_type(depth) != ZipCode::NODE) {
+                // A foward loop would also traverse through the snarl
+                // so we need to add that in for the offset
+                cur_chain.dist_since_forward_loop += current_seed.zipcode.get_length(depth);
+            }
             size_t dist_using_new_loop = forest_state.distance_index->sum(new_loop_value, 
                                                                           2 * cur_chain.dist_since_forward_loop);
 
@@ -620,6 +623,12 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 }
                 trees[forest_state.active_tree_index].zip_code_tree.erase(
                     trees[forest_state.active_tree_index].zip_code_tree.begin() + cur_chain.last_forward_loop_index);
+                // Update memory of indexes for things that got shifted
+                for (auto& child : forest_state.sibling_indices_at_depth[depth]) {
+                    if (child.value > cur_chain.last_forward_loop_index) {
+                        child.value--;
+                    }
+                }
             }
         }
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -653,12 +662,12 @@ size_t ZipCodeForest::get_loop_distance(const SnarlDistanceIndex* distance_index
         // Must traverse this offset twice
         loop_distance *= 2;
         // Distance index stores loop distance from the edge of the node
-        net_handle_t loop_anchor = distance_index->get_node_net_handle(id(seed.pos));
+        loop_anchor = distance_index->get_node_net_handle(id(seed.pos));
     } else {
         // This is a snarl so we need to look up a boundary node
         // Have to use slow version in case of a regular snarl
         net_handle_t snarl = seed.zipcode.get_net_handle_slow(id(seed.pos), depth, distance_index, nullptr);
-        net_handle_t loop_anchor = distance_index->get_non_sentinel_bound(snarl, forward_loop);
+        loop_anchor = distance_index->get_non_sentinel_bound(snarl, forward_loop);
         // Offset along the edge node
         loop_distance = 2 * distance_index->node_length(loop_anchor);
     }
@@ -811,6 +820,8 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
         bool is_cyclic = active_zip_tree[snarl_start_i].get_is_cyclic();
         // We might've stored a forward loop right inside the snarl
         bool move_forward_loop = active_zip_tree[snarl_start_i+1].get_type() == ZipCodeTree::LOOP;
+
+        // Set bound offsets
         for (size_t i = 1; i < chain_indices.size(); ++i) {
             size_t chain_start_i = chain_indices[i].value + matrix_size;
             size_t chain_end_i = chain_start_i + active_zip_tree[chain_start_i].get_other_bound_offset();
@@ -820,24 +831,33 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             active_zip_tree[chain_start_i].set_is_cyclic(is_cyclic);
             active_zip_tree[chain_end_i].set_is_cyclic(is_cyclic);
         }
+
         // Take out the forward loop
         tree_item_t forward_loop;
         if (move_forward_loop) {
             forward_loop = active_zip_tree[snarl_start_i+1];
             active_zip_tree.erase(active_zip_tree.begin() + snarl_start_i+1);
         }
+
         // Close the snarl itself
         trees[forest_state.active_tree_index].add_close_bound(snarl_start_i);
         active_zip_tree.back().set_value(active_zip_tree.size() - snarl_start_i - 1);
+
+        // Update loop storage
+        child_info_t& active_chain = depth == 1 ? forest_state.active_top_level_chain
+                                                : forest_state.sibling_indices_at_depth[depth - 2].back();
+
         // Move forward to outside the right end
         if (move_forward_loop) {
+            // Also move the loop itself
             active_zip_tree.emplace_back(forward_loop);
             // Update index of loop in memory
-            if (depth == 1) {
-                forest_state.active_top_level_chain.last_forward_loop_index = active_zip_tree.size() - 1;
-            } else {
-                forest_state.sibling_indices_at_depth[depth - 2].back().last_forward_loop_index = active_zip_tree.size() - 1;
-            }
+            active_chain.last_forward_loop_index = active_zip_tree.size() - 1;
+        }
+
+        // Reverse loop now has to go through the snarl
+        if (active_chain.has_reverse_loop()) {
+            active_chain.dist_since_reverse_loop += last_seed.zipcode.get_length(depth);
         }
     }
 }

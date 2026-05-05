@@ -3419,9 +3419,9 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(20).get_value() == 7);
             REQUIRE(!zip_tree.get_item_at_index(20).get_is_reversed());
 
-            REQUIRE(zip_tree.get_item_at_index(40).get_type() == ZipCodeTree::LOOP);
-            REQUIRE(zip_tree.get_item_at_index(40).get_value() == 1);
-            REQUIRE(zip_tree.get_item_at_index(40).get_is_reversed());
+            REQUIRE(zip_tree.get_item_at_index(39).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(39).get_value() == 1);
+            REQUIRE(zip_tree.get_item_at_index(39).get_is_reversed());
         }
     }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
