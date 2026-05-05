@@ -436,6 +436,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             // Too far from the previous thing, but inside a snarl
             if (forest_state.open_chains.back().second) {
                 bool moved_full_chain = move_slice(forest_state, chain_depth);
+                forest_state.sibling_indices_at_depth[depth-2].back().reset_loop_storage();
                 // Current chain slice was also too far away from prior thing
                 if (moved_full_chain) {
                     // Since the full chain was moved, the back is a bound
@@ -619,17 +620,27 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             }
 
             if (remove_prior) {
+                // Perform removal
+                trees[forest_state.active_tree_index].zip_code_tree.erase(
+                    trees[forest_state.active_tree_index].zip_code_tree.begin() + cur_chain.last_forward_loop_index);
+                // Update memory of indexes for things that got shifted
+
+                // Last reverse loop
                 if (cur_chain.has_reverse_loop()
                     && cur_chain.last_reverse_loop_index > cur_chain.last_forward_loop_index) {
                     // Reverse loop will be shifted by one
                     cur_chain.last_reverse_loop_index--;
                 }
-                trees[forest_state.active_tree_index].zip_code_tree.erase(
-                    trees[forest_state.active_tree_index].zip_code_tree.begin() + cur_chain.last_forward_loop_index);
-                // Update memory of indexes for things that got shifted
+                // Chain start indices
                 for (auto& child : forest_state.sibling_indices_at_depth[depth]) {
                     if (child.value > cur_chain.last_forward_loop_index) {
                         child.value--;
+                    }
+                }
+                // Open chain index
+                for (auto& o_chain : forest_state.open_chains) {
+                    if (o_chain.first > cur_chain.last_forward_loop_index) {
+                        o_chain.first--;
                     }
                 }
             }
