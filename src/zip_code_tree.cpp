@@ -429,6 +429,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 chain_is_reversed ? current_seed.zipcode.get_length(chain_depth, true) : 0); 
             forest_state.sibling_indices_at_depth[chain_depth].back().chain_component = 
                 !is_trivial_chain ? current_seed.zipcode.get_last_chain_component(chain_depth, true) : 0;
+            if (depth == 1) {
+                forest_state.active_top_level_chain.reset_loop_storage();
+            }
         } else if (distance_between > forest_state.distance_limit) { 
             // Too far from the previous thing, but inside a snarl
             if (forest_state.open_chains.back().second) {
