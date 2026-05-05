@@ -3399,7 +3399,8 @@ namespace unittest {
             REQUIRE(!zip_tree.get_item_at_index(10).get_is_reversed());
         }
         SECTION("One seed on each node") {
-            // TODO: ziptree
+            // [1+0 13 (2  0  0  inf  1  1  1 [2+0][3+0]) 0 4+0 >7 3 
+            //     {1  inf  0  inf  1  inf  inf  1  0  1  inf [5+0]} 0 1< 6+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -3407,7 +3408,20 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
-            make_and_validate_forest(positions, distance_index);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 42);
+
+            // Check loops
+            REQUIRE(zip_tree.get_item_at_index(20).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(20).get_value() == 7);
+            REQUIRE(!zip_tree.get_item_at_index(20).get_is_reversed());
+
+            REQUIRE(zip_tree.get_item_at_index(40).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(40).get_value() == 1);
+            REQUIRE(zip_tree.get_item_at_index(40).get_is_reversed());
         }
     }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
