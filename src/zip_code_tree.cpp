@@ -711,8 +711,19 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
         // Thus, this snarl is empty and we should remove it
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\t\tThe snarl is actually empty so remove it" << endl;
+#endif
+
+        // There may be a loop that we have to get rid of too
+        if (active_zip_tree.back().get_type() == ZipCodeTree::LOOP) {
+            child_info_t& active_chain = depth == 1 ? forest_state.active_top_level_chain
+                                                    : forest_state.sibling_indices_at_depth[depth - 2].back();
+            active_chain.reset_loop_storage();
+            active_zip_tree.pop_back();
+        }
+
+#ifdef DEBUG_ZIP_CODE_TREE
         assert(active_zip_tree.back().get_type() == ZipCodeTree::SNARL_START);
-#endif        
+#endif
         // Pop the snarl start out
         active_zip_tree.pop_back();
 

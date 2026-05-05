@@ -3364,7 +3364,7 @@ namespace unittest {
         VG graph;
 
         Node* n1 = graph.create_node("AAAAAAAAAAAAA");
-        Node* n2 = graph.create_node("T");
+        Node* n2 = graph.create_node("TATAT");
         Node* n3 = graph.create_node("A");
         Node* n4 = graph.create_node("CAT");
         Node* n5 = graph.create_node("G");
@@ -3383,8 +3383,8 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-        SECTION("One seed on a SNP") {
-            // [(1  0  1  1 [2+0]) >7]
+        SECTION("One seed in cyclic snarl") {
+            // [(1  0  1  5 [2+0]) >7]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
 
@@ -3399,7 +3399,7 @@ namespace unittest {
             REQUIRE(!zip_tree.get_item_at_index(10).get_is_reversed());
         }
         SECTION("One seed on each node") {
-            // [1+0 13 (2  0  0  inf  1  1  1 [2+0][3+0]) 0 4+0 >7 3 
+            // [1+0 13 (2  0  0  inf  1  5  1 [2+0][3+0]) 0 4+0 >7 3 
             //     {1  inf  0  inf  1  inf  inf  1  0  1  inf [5+0]} 0 1< 6+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -3422,6 +3422,23 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(39).get_type() == ZipCodeTree::LOOP);
             REQUIRE(zip_tree.get_item_at_index(39).get_value() == 1);
             REQUIRE(zip_tree.get_item_at_index(39).get_is_reversed());
+        }
+        SECTION("Snip out snarl which has a forward loop") {
+            // 0: [1+0 >35]
+            // 1: [2+2]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 2);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 1);
+            REQUIRE(zip_forest.trees.size() == 2);
+            REQUIRE(zip_forest.trees[0].get_tree_size() == 4);
+            REQUIRE(zip_forest.trees[1].get_tree_size() == 3);
+
+            // Check loop
+            REQUIRE(zip_forest.trees[0].get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(2).get_value() == 35);
+            REQUIRE(!zip_forest.trees[0].get_item_at_index(2).get_is_reversed());
         }
     }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
