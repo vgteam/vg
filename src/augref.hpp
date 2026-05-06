@@ -162,23 +162,24 @@ protected:
     bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
                                     const pair<step_handle_t, step_handle_t>& interval_b) const;
 
-    // Fast duplicate check for global fold: walks only new_steps [start, end) and
-    // checks whether any of those node IDs already belong to target_interval_idx
-    // in the given node-to-interval map.  skip_first_node should be true for
-    // overlap-by-one merges where the boundary node is shared by design.
+    // Fast duplicate check for global fold: walks [ext_start, ext_end) and
+    // checks whether any node ID in that range already belongs to
+    // target_interval_idx in nti.  The caller is responsible for pre-trimming
+    // any shared boundary step (overlap-by-one) from the walk range so that
+    // boundary nodes owned by the target are not flagged as duplicates.
     bool extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
                                         int64_t target_interval_idx,
-                                        step_handle_t start, step_handle_t end,
-                                        bool skip_first_node) const;
+                                        step_handle_t ext_start, step_handle_t ext_end) const;
 
     // Unified duplicate-node check: dispatches to extension_would_duplicate_node
     // (O(extension_length)) when global=true, or merge_would_duplicate_node
-    // (O(combined_length)) otherwise.
+    // (O(combined_length)) otherwise.  Callers must pre-trim shared boundary
+    // steps from [ext_start, ext_end); merge_would_duplicate_node handles the
+    // shared boundary naturally via its combined walk.
     bool would_duplicate_node(bool global,
                               const unordered_map<nid_t, int64_t>& nti,
                               int64_t target_idx,
                               step_handle_t ext_start, step_handle_t ext_end,
-                              bool skip_first,
                               const pair<step_handle_t, step_handle_t>& interval_a,
                               const pair<step_handle_t, step_handle_t>& interval_b) const;
 
