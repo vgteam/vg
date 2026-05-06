@@ -1066,34 +1066,18 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
         // TO chain starts means -> seed 1, -> seed 3, etc.
         size_t start_from = is_cyclic_snarl ? 0 : 1;
         for (int64_t from_i = start_from; from_i <= to_i; from_i += increment) {
-
-            if (to_i / 2 == from_i / 2) {
-                // Intra-chain distance; flank distances are untrustworthy
-                // if the true self-loop path stays within the chain
-
-                // to_pos points "out", but we need to come "in" to it
-                pos_t to_pos = edge_seeds[to_i].reverse_seed();
-
-                edge_dist = minimum_nontrivial_distance(*forest_state.distance_index,
-                    edge_seeds[from_i].seed_pos, to_pos, edge_seeds[to_i].node_length);
-                // Subtract distance from inner seed to edge of inner snarl
-                edge_dist = SnarlDistanceIndex::minus(edge_dist, edge_seeds[from_i].nested_snarl_offset);
-                edge_dist = SnarlDistanceIndex::minus(edge_dist, edge_seeds[to_i].nested_snarl_offset);
+            chain_flank_dist = SnarlDistanceIndex::sum(edge_seeds[from_i].flank_offset, 
+                                                       edge_seeds[to_i].flank_offset);
+            if (is_regular_snarl) {
+                // Distance between chains in a regular snarl is always inf
+                between_chain_dist = std::numeric_limits<size_t>::max();
             } else {
-                // Inter-chain distance; assume we pass through chain bounds
-                chain_flank_dist = SnarlDistanceIndex::sum(edge_seeds[from_i].flank_offset, 
-                                                           edge_seeds[to_i].flank_offset);
-                if (is_regular_snarl) {
-                    // Distance between chains in a regular snarl is always inf
-                    between_chain_dist = std::numeric_limits<size_t>::max();
-                } else {
-                    // Irregular/cyclic snarls have a snarl_handle we can use
-                    between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
-                            edge_seeds[from_i].rank, edge_seeds[from_i].right_side, 
-                            edge_seeds[to_i].rank, edge_seeds[to_i].right_side);
-                }
-                edge_dist = SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist);
+                // Irregular/cyclic snarls have a snarl_handle we can use
+                between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
+                        edge_seeds[from_i].rank, edge_seeds[from_i].right_side, 
+                        edge_seeds[to_i].rank, edge_seeds[to_i].right_side);
             }
+            edge_dist = SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist);
 
             dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_dist);
         }
