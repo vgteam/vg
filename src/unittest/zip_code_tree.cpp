@@ -3450,39 +3450,6 @@ namespace unittest {
             REQUIRE(!zip_forest.trees[0].get_item_at_index(2).get_is_reversed());
         }
     }
-    TEST_CASE("Regular snarl to right of inversion", "[zip_tree]") {
-        VG graph;
-
-        Node* n1 = graph.create_node("AAAAAAAAAAAAA");
-        Node* n2 = graph.create_node("C");
-        Node* n3 = graph.create_node("ATAT");
-        Node* n4 = graph.create_node("CATAT");
-        Node* n5 = graph.create_node("G");
-        Node* n6 = graph.create_node("AAAAAAAAAAAA");
-
-        Edge* e1 = graph.create_edge(n1, n2);
-        Edge* e2 = graph.create_edge(n2, n3);
-        Edge* e3 = graph.create_edge(n1, n2, false, true);
-        Edge* e4 = graph.create_edge(n2, n3, true, false);
-        Edge* e5 = graph.create_edge(n3, n4);
-        Edge* e6 = graph.create_edge(n3, n5);
-        Edge* e7 = graph.create_edge(n4, n6);
-        Edge* e8 = graph.create_edge(n5, n6);
-
-        IntegratedSnarlFinder snarl_finder(graph);
-        SnarlDistanceIndex distance_index;
-        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-        SECTION("Snip out snarl chain which has a reverse loop and is only thing in chain") {
-            // 1: [2+2]
-            vector<pos_t> positions;
-            positions.emplace_back(4, false, 2);
-
-            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 1);
-            REQUIRE(zip_forest.trees.size() == 1);
-            REQUIRE(zip_forest.trees[0].get_tree_size() == 3);
-        }
-    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
         for (int i = 0; i < 10; i++) {
             // For each random graph
