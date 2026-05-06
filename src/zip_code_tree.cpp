@@ -2094,7 +2094,9 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
 }
 
 void ZipCodeTree::distance_iterator::save_loop_traversal(size_t new_distance) {
-    size_t save_index = pos.index;
+    // Index to the side of the loop
+    size_t save_index = pos.right_to_left ? pos.index + 1
+                                          : pos.index - 1;
     if (new_distance < distance_limit) {
 #ifdef debug_parse
         std::cerr << "\tSave reversal use at index " << save_index 
