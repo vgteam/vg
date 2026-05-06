@@ -2080,7 +2080,6 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
 
 void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chain_num) {
     std::stack<size_t> save_stack = pos.stack_data;
-    std::stack<size_t> save_chain_numbers = pos.chain_numbers;
     size_t snarl_start_i = pos.index - current_item().get_value();
     
     // Exit out the bound that we're NOT pointing at
@@ -2106,22 +2105,21 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
                   << " with running distance " << save_stack.top() << std::endl;
 #endif
         pending_traversals.emplace(save_index, !pos.right_to_left, save_stack,
-                                   save_chain_numbers, S_SCAN_CHAIN);
+                                   pos.chain_numbers, S_SCAN_CHAIN);
     }
 }
 
 void ZipCodeTree::distance_iterator::save_loop_traversal(size_t new_distance) {
-    std::stack<size_t> save_stack = pos.stack_data;
-    std::stack<size_t> save_chain_numbers = pos.chain_numbers;
     size_t save_index = pos.index;
-    save_stack.top() = new_distance;
-    if (save_stack.top() < distance_limit) {
+    if (new_distance < distance_limit) {
 #ifdef debug_parse
         std::cerr << "\tSave reversal use at index " << save_index 
-                  << " with running distance " << save_stack.top() << std::endl;
+                  << " with running distance " << new_distance << std::endl;
 #endif
+        std::stack<size_t> save_stack = std::stack<size_t>();
+        save_stack.push(new_distance);
         pending_traversals.emplace(save_index, !pos.right_to_left, save_stack,
-                                   save_chain_numbers, S_SCAN_CHAIN);
+                                   pos.chain_numbers, S_SCAN_CHAIN);
     }
 }
 
