@@ -2005,8 +2005,8 @@ size_t ZipCodeTree::distance_iterator::get_cyclic_snarl_bound_distance(size_t sn
 #endif
     size_t total_dist = SnarlDistanceIndex::sum(top(), edge_dist);
 
-    auto old_dist = best_cyclic_snarl_exits.find(snarl_start_i);
-    if (old_dist == best_cyclic_snarl_exits.end()) {
+    auto old_dist = distance_memory.find(snarl_start_i);
+    if (old_dist == distance_memory.end()) {
         // Never tried to exit this snarl before; create entry
         std::pair<size_t, size_t> exit_dists;
         if (to_end) {
@@ -2014,7 +2014,7 @@ size_t ZipCodeTree::distance_iterator::get_cyclic_snarl_bound_distance(size_t sn
         } else {
             exit_dists = {total_dist, std::numeric_limits<size_t>::max()};
         }
-        best_cyclic_snarl_exits.emplace_hint(old_dist, snarl_start_i, exit_dists);
+        distance_memory.emplace_hint(old_dist, snarl_start_i, exit_dists);
     } else if (to_end && old_dist->second.second > total_dist) {
         // Update best distance to snarl end
         old_dist->second.second = total_dist;
@@ -2096,6 +2096,21 @@ void ZipCodeTree::distance_iterator::save_opposite_cyclic_snarl_exit(size_t chai
     if (save_stack.top() < distance_limit && save_index > 0 && save_index < (zip_code_tree->size() - 1)) {
 #ifdef debug_parse
         std::cerr << "\tSave exit from cyclic snarl at index " << save_index 
+                  << " with running distance " << save_stack.top() << std::endl;
+#endif
+        pending_traversals.emplace(save_index, !pos.right_to_left, save_stack,
+                                   save_chain_numbers, S_SCAN_CHAIN);
+    }
+}
+
+void ZipCodeTree::distance_iterator::save_loop_traversal(size_t new_distance) {
+    std::stack<size_t> save_stack = pos.stack_data;
+    std::stack<size_t> save_chain_numbers = pos.chain_numbers;
+    size_t save_index = pos.index;
+    save_stack.top() = new_distance;
+    if (save_stack.top() < distance_limit) {
+#ifdef debug_parse
+        std::cerr << "\tSave reversal use at index " << save_index 
                   << " with running distance " << save_stack.top() << std::endl;
 #endif
         pending_traversals.emplace(save_index, !pos.right_to_left, save_stack,
@@ -2347,7 +2362,67 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 }
             }
         } else if (current_item().get_type() == LOOP) {
-            // TODO: queue up another traversal ponging backwards
+            // Distances taking the loop or not
+            size_t loop_value = pos.right_to_left == current_item().get_is_reversed()
+                // Correct direction for this loop
+                ? SnarlDistanceIndex::sum(top(), current_item().get_value())
+                // Wrong direction (cannot take loop)
+                : std::numeric_limits<size_t>::max();
+
+            size_t rtl_dist = pos.right_to_left ? top() : loop_value;
+            size_t ltr_dist = pos.right_to_left ? loop_value : top();
+
+            auto old_dist = distance_memory.find(pos.index);
+            if (old_dist == distance_memory.end()) {
+                // Never saw this loop before; create entry
+                distance_memory.emplace_hint(old_dist, pos.index, 
+                                             std::make_pair(rtl_dist, ltr_dist));
+#ifdef debug_parse
+                std::cerr << "Remembering that distances at this loop are "
+                          << rtl_dist << " / " << ltr_dist << std::endl;
+#endif
+                // Take the loop if possible
+                if (loop_value != std::numeric_limits<size_t>::max()) {
+                    save_loop_traversal(loop_value);
+                }
+            } else {
+                // We have seen this loop before
+
+                // Should take the loop?
+                if ((pos.right_to_left && ltr_dist < old_dist->second.second)
+                    || (!pos.right_to_left && rtl_dist < old_dist->second.first)) {
+#ifdef debug_parse
+                    std::cerr << "Taking the loop because " << loop_value
+                              << " beats previous best at " << pos.index << std::endl;
+#endif
+                    // Taking this loop would improve over previous best
+                    if (pos.right_to_left) {
+                        old_dist->second.second = ltr_dist;
+                    } else {
+                        old_dist->second.first = rtl_dist;
+                    }
+                    save_loop_traversal(loop_value);
+                }
+                // Should we keep going past the loop?
+                if ((pos.right_to_left && rtl_dist >= old_dist->second.first)
+                    || (!pos.right_to_left && ltr_dist >= old_dist->second.second)) {
+#ifdef debug_parse
+                    std::cerr << "Distance was better before; skip" << std::endl;
+#endif
+                    // We've previously passed this loop with a better dist
+                    skip_chain();
+                } else {
+#ifdef debug_parse
+                    std::cerr << "Improvement over previous time we passed" << std::endl;
+#endif
+                    // Keeping going would improve over previous best
+                    if (pos.right_to_left) {
+                        old_dist->second.first = rtl_dist;
+                    } else {
+                        old_dist->second.second = ltr_dist;
+                    }
+                }
+            }
         } else {
             unimplemented_error(); 
         }

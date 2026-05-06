@@ -477,12 +477,12 @@ public:
      * the stack state and index, to be restored later. Then, when the main
      * iterator hits the end, it can restore the saved state and continue.
      * 
-     * The iterator implements simple memorization of snarl exit distances. This
-     * is done for only cyclic snarls, as they are the only ones that literarlly
-     * turn one traversal into two via the exit-in-both-directions behavior.
+     * The iterator implements simple memorization of distances at key points.
+     * This is done for cyclic snarls and loops, as they literarlly turn one
+     * traversal into two by allowing exits in both directions.
      * Each time the iterator calculates the running distance to exit a cyclic
-     * snarl, it will check if it has ever seen a better or equal distance, and
-     * if so will pretend that the distance is infinite/unreachable.
+     * snarl or loop, it will check if it has ever seen a better or equal
+     * distance, and if so will pretend that the distance is infinite.
      */
     class distance_iterator {
     public:
@@ -561,9 +561,10 @@ public:
         bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>* zip_code_tree;
-        /// Best distance for each snarl exit we've seen
-        /// Stored as {snarl start index : (start dist, end dist)}
-        std::unordered_map<size_t, std::pair<size_t, size_t>> best_cyclic_snarl_exits;
+        /// Best distance for each cyclic snarl exit or loop we've seen
+        /// For cyclic snarls: {snarl start index : (start dist, end dist)}
+        /// For loops: {loop index : (right_to_left dist, left_to_right dist)}
+        std::unordered_map<size_t, std::pair<size_t, size_t>> distance_memory;
 
         /// A specific snapshot of the iterator's position
         /// which includes necessary state information (e.g. stack)
@@ -610,6 +611,9 @@ public:
         /// Save a traversal exiting a cyclic snarl in the opposite direction
         /// as the current one, e.g. using an edge C1_R -> SNARL_START
         void save_opposite_cyclic_snarl_exit(size_t chain_num);
+
+        /// Save a traversal taking a loop (i.e. turning around)
+        void save_loop_traversal(size_t new_distance);
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.
