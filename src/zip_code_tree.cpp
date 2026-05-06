@@ -2044,6 +2044,13 @@ void ZipCodeTree::distance_iterator::stack_below_top(size_t value) {
 void ZipCodeTree::distance_iterator::skip_chain() {
     // Discard distance for this chain
     pop();
+    if (depth() == 0) {
+#ifdef debug_parse
+        std::cerr << "Nowhere to skip to, so just stop" << std::endl;
+#endif       
+        halt();
+        return;
+    }
     // Jump to other bound
     pos.index = pop();
 #ifdef debug_parse
