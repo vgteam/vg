@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.9.1"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/augref.hpp File Reference</title>
+<title>vg: src/gref.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,7 +70,7 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">augref.hpp File Reference</div>  </div>
+<div class="title">gref.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;optional&gt;</code><br />
@@ -80,9 +80,9 @@ $(function() {
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AugRefCover.html">vg::AugRefCover</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GrefCover.html">vg::GrefCover</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugRefCover_1_1RankedFragment.html">vg::AugRefCover::RankedFragment</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefCover_1_1RankedFragment.html">vg::GrefCover::RankedFragment</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -91,9 +91,9 @@ Namespaces</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Interface for computing and querying augmented reference path covers.</p>
-<p>An augref cover is a set of path fragments (stored as separate paths) in the graph. They are always relative to an existing reference sample (ie GRCh38 or CHM13). Unlike rGFA paths which use complex metadata embedding, augref paths use a simple naming scheme: {base_path_name}_{N}_alt</p>
-<p>For example, if the reference path is "CHM13#0#chr1", augref paths would be named:</p><ul>
+<div class="textblock"><p>Interface for computing and querying graph reference path covers.</p>
+<p>An gref cover is a set of path fragments (stored as separate paths) in the graph. They are always relative to an existing reference sample (ie GRCh38 or CHM13). Unlike rGFA paths which use complex metadata embedding, gref paths use a simple naming scheme: {base_path_name}_{N}_alt</p>
+<p>For example, if the reference path is "CHM13#0#chr1", gref paths would be named:</p><ul>
 <li>CHM13#0#chr1_1_alt</li>
 <li>CHM13#0#chr1_2_alt</li>
 <li>etc.</li>
