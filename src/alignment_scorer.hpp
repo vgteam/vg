@@ -14,19 +14,19 @@
 
 namespace vg {
 
-/// Defaults previously declared in aligner.hpp; duplicated here so callers can
-/// build a scorer without pulling in the GSSW machinery.
-static constexpr int8_t default_scorer_match = 1;
-static constexpr int8_t default_scorer_mismatch = 4;
-static constexpr int8_t default_scorer_score_matrix[16] = {
-     default_scorer_match,    -default_scorer_mismatch, -default_scorer_mismatch, -default_scorer_mismatch,
-    -default_scorer_mismatch,  default_scorer_match,    -default_scorer_mismatch, -default_scorer_mismatch,
-    -default_scorer_mismatch, -default_scorer_mismatch,  default_scorer_match,    -default_scorer_mismatch,
-    -default_scorer_mismatch, -default_scorer_mismatch, -default_scorer_mismatch,  default_scorer_match
+/// Default scoring parameters.
+static constexpr int8_t default_match = 1;
+static constexpr int8_t default_mismatch = 4;
+static constexpr int8_t default_score_matrix[16] = {
+     default_match,    -default_mismatch, -default_mismatch, -default_mismatch,
+    -default_mismatch,  default_match,    -default_mismatch, -default_mismatch,
+    -default_mismatch, -default_mismatch,  default_match,    -default_mismatch,
+    -default_mismatch, -default_mismatch, -default_mismatch,  default_match
 };
-static constexpr int8_t default_scorer_gap_open = 6;
-static constexpr int8_t default_scorer_gap_extension = 1;
-static constexpr int8_t default_scorer_full_length_bonus = 5;
+static constexpr int8_t default_gap_open = 6;
+static constexpr int8_t default_gap_extension = 1;
+static constexpr int8_t default_full_length_bonus = 5;
+static constexpr double default_gc_content = 0.5;
 
 /// Score a gap with the given open and extension scores. Lives here (rather
 /// than aligner.hpp) so AlignmentScorer can use it without a circular include.
@@ -139,10 +139,10 @@ class MatrixAlignmentScorer : public EditAlignmentScorer {
 public:
     /// Build from a 4x4 substitution matrix and gap parameters. Allocates
     /// owned 5x5 N-padded `score_matrix` and `nt_table`.
-    MatrixAlignmentScorer(const int8_t* score_matrix_4x4 = default_scorer_score_matrix,
-                          int8_t gap_open = default_scorer_gap_open,
-                          int8_t gap_extension = default_scorer_gap_extension,
-                          int8_t full_length_bonus = default_scorer_full_length_bonus);
+    MatrixAlignmentScorer(const int8_t* score_matrix_4x4 = default_score_matrix,
+                          int8_t gap_open = default_gap_open,
+                          int8_t gap_extension = default_gap_extension,
+                          int8_t full_length_bonus = default_full_length_bonus);
 
     ~MatrixAlignmentScorer() override;
 
@@ -197,11 +197,11 @@ public:
  */
 class QualAdjAlignmentScorer : public MatrixAlignmentScorer {
 public:
-    QualAdjAlignmentScorer(const int8_t* score_matrix_4x4 = default_scorer_score_matrix,
-                           int8_t gap_open = default_scorer_gap_open,
-                           int8_t gap_extension = default_scorer_gap_extension,
-                           int8_t full_length_bonus = default_scorer_full_length_bonus,
-                           double gc_content_for_qual_adj = 0.5);
+    QualAdjAlignmentScorer(const int8_t* score_matrix_4x4 = default_score_matrix,
+                           int8_t gap_open = default_gap_open,
+                           int8_t gap_extension = default_gap_extension,
+                           int8_t full_length_bonus = default_full_length_bonus,
+                           double gc_content_for_qual_adj = default_gc_content);
 
     ~QualAdjAlignmentScorer() override;
 

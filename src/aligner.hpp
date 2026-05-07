@@ -26,19 +26,6 @@
 
 namespace vg {
 
-    /// Default scoring parameters used at the AlignerClient layer when no
-    /// matrix is provided. The scorer-side defaults
-    /// (default_scorer_score_matrix etc.) are the canonical values; these
-    /// aliases exist so existing callers that read default_score_matrix
-    /// keep compiling.
-    static constexpr int8_t default_match = default_scorer_match;
-    static constexpr int8_t default_mismatch = default_scorer_mismatch;
-    static constexpr const int8_t (&default_score_matrix)[16] = default_scorer_score_matrix;
-    static constexpr int8_t default_gap_open = default_scorer_gap_open;
-    static constexpr int8_t default_gap_extension = default_scorer_gap_extension;
-    static constexpr int8_t default_full_length_bonus = default_scorer_full_length_bonus;
-    static constexpr double default_gc_content = 0.5;
-
     /**
      * The abstract interface that any Aligner should implement.
      */
