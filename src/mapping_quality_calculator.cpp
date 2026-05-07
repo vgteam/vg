@@ -64,6 +64,8 @@ double MappingQualityCalculator::maximum_mapping_quality_approx(const vector<dou
 
     double max_score = scaled_scores.at(0);
     size_t max_idx = 0;
+    
+    // we start with the possibility of a null score of 0.0
     double next_score = 0.0;
     double next_count = 1.0;
 
@@ -78,30 +80,41 @@ double MappingQualityCalculator::maximum_mapping_quality_approx(const vector<dou
         double score = scaled_scores.at(i);
         if (score > max_score) {
             if (multiplicities && multiplicities->at(i) > 1.0) {
+                // there are extra counts of the new highest score due to multiplicity
                 next_score = score;
                 next_count = multiplicities->at(i) - 1.0;
             } else if (next_score == max_score) {
+                // the next highest was the same score as the old max, so we can
+                // add its count back in
                 next_count += 1.0;
             } else {
+                // the old max score is now the second highest
                 next_score = max_score;
                 next_count = multiplicities ? multiplicities->at(max_idx) : 1.0;
             }
             max_score = score;
             max_idx = i;
         } else if (score > next_score) {
+            // the new score is the second highest
             next_score = score;
             next_count = multiplicities ? multiplicities->at(i) : 1.0;
         } else if (score == next_score) {
+            // the new score ties the second highest, so we combine their counts
             next_count += multiplicities ? multiplicities->at(i) : 1.0;
         }
     }
 
+    // record the index of the highest score
     if (max_idx_out) {
+        // we're either returning the mapping quality of whichever was the best, or we're
+        // returning the mapping quality of the first, which also is the best
         *max_idx_out = max_idx;
     }
     if (max_idx_out || max_idx == 0) {
         return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1.0 ? log(next_count) : 0.0)));
     } else {
+        // we're returning the mapping quality of the first, which is not the best. the approximation
+        // gets complicated here, so lets just fall back on the exact computation
         return maximum_mapping_quality_exact(scaled_scores, nullptr, multiplicities);
     }
 }
