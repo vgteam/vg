@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['a_8544',['a',['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution']]],
-  ['a_8545',['A',['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution']]],
-  ['a_8546',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution']]],
+  ['a_8545',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
+  ['a_8546',['A',['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution']]],
   ['a_5fstar_8547',['a_star',['../namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7',1,'vg::algorithms']]],
   ['absent_8548',['absent',['../namespacehaplotypes__defaults.html#a201800ce4570c0eb29f0279035dcaf48',1,'haplotypes_defaults']]],
   ['abstractreadsampler_8549',['AbstractReadSampler',['../classvg_1_1AbstractReadSampler.html#add2ef81ca4c3984e851d690c695bae2d',1,'vg::AbstractReadSampler']]],
