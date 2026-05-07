@@ -32,8 +32,8 @@ static constexpr double default_gc_content = 0.5;
 int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension);
 
 /**
- * Root contract every scorer satisfies. Just enough virtual surface for
- * MappingQualityCalculator to compute log_base from any scorer.
+ * Base interface for computing scores for alignments under some (not
+ * necessarily affine-gap) scoring scheme.
  */
 class AlignmentScorer {
 public:
