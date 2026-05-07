@@ -593,19 +593,43 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         cerr << "\tWill create a forward loop" << endl;
 #endif
 
-        size_t new_loop_value = get_loop_distance(forest_state.distance_index, current_seed,
-                                                  depth, !rev_relative_to_index);
+        size_t new_loop_value;
+        // Do we need to remove a previous forward loop?
+        bool remove_prior = false;
+        const tree_item_t& prev_loop_item = \
+            trees[forest_state.active_tree_index].zip_code_tree[cur_chain.last_forward_loop_index];
 
         if (cur_chain.has_forward_loop()) {
-            // There is a forward loop earlier in the chain; can we merge?
-            bool remove_prior = false;
-            const tree_item_t& prev_loop_item = \
-                trees[forest_state.active_tree_index].zip_code_tree[cur_chain.last_forward_loop_index];
             if (current_seed.zipcode.get_code_type(depth) != ZipCode::NODE) {
                 // A foward loop would also traverse through the snarl
                 // so we need to add that in for the offset
                 cur_chain.dist_since_forward_loop += current_seed.zipcode.get_length(depth);
             }
+
+            const tree_item_t& item_before_loop = \
+                trees[forest_state.active_tree_index].zip_code_tree[cur_chain.last_forward_loop_index - 1];
+
+            if (item_before_loop.get_type() == ZipCodeTree::SEED 
+                && id(forest_state.seeds->at(item_before_loop.get_value()).pos) == id(current_seed.pos)) {
+                // Loops for the same node ID are by default merge-able
+#ifdef DEBUG_ZIP_CODE_TREE
+                cerr << "\tRemove prior: this node ID had a forward loop before, too" << endl;
+#endif
+                remove_prior = true;
+                // Calculate new loop value just by shifting along the node
+                new_loop_value = prev_loop_item.get_value() - (2 * cur_chain.dist_since_forward_loop);
+            }
+        }
+
+        // We didn't get an easy prior loop to copy
+        if (!remove_prior) {
+            // We have to calculate the loop value from scratch
+            new_loop_value = get_loop_distance(forest_state.distance_index, current_seed,
+                                               depth, !rev_relative_to_index);
+        }
+
+        // Do another check to see if we can get rid of the previous loop
+        if (cur_chain.has_forward_loop() && !remove_prior) {
             size_t dist_using_new_loop = forest_state.distance_index->sum(new_loop_value, 
                                                                           2 * cur_chain.dist_since_forward_loop);
 
@@ -616,33 +640,34 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #endif
                 remove_prior = true;
             }
+        }
 
-            if (remove_prior) {
-                // Perform removal
-                trees[forest_state.active_tree_index].zip_code_tree.erase(
-                    trees[forest_state.active_tree_index].zip_code_tree.begin() + cur_chain.last_forward_loop_index);
-                // Update memory of indexes for things that got shifted
+        if (remove_prior) {
+            // Perform removal
+            trees[forest_state.active_tree_index].zip_code_tree.erase(
+                trees[forest_state.active_tree_index].zip_code_tree.begin() + cur_chain.last_forward_loop_index);
+            // Update memory of indexes for things that got shifted
 
-                // Last reverse loop
-                if (cur_chain.has_reverse_loop()
-                    && cur_chain.last_reverse_loop_index > cur_chain.last_forward_loop_index) {
-                    // Reverse loop will be shifted by one
-                    cur_chain.last_reverse_loop_index--;
+            // Last reverse loop
+            if (cur_chain.has_reverse_loop()
+                && cur_chain.last_reverse_loop_index > cur_chain.last_forward_loop_index) {
+                // Reverse loop will be shifted by one
+                cur_chain.last_reverse_loop_index--;
+            }
+            // Chain start indices
+            for (auto& child : forest_state.sibling_indices_at_depth[depth]) {
+                if (child.value > cur_chain.last_forward_loop_index) {
+                    child.value--;
                 }
-                // Chain start indices
-                for (auto& child : forest_state.sibling_indices_at_depth[depth]) {
-                    if (child.value > cur_chain.last_forward_loop_index) {
-                        child.value--;
-                    }
-                }
-                // Open chain index
-                for (auto& o_chain : forest_state.open_chains) {
-                    if (o_chain.first > cur_chain.last_forward_loop_index) {
-                        o_chain.first--;
-                    }
+            }
+            // Open chain index
+            for (auto& o_chain : forest_state.open_chains) {
+                if (o_chain.first > cur_chain.last_forward_loop_index) {
+                    o_chain.first--;
                 }
             }
         }
+
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\tAdding a forward loop of value " << new_loop_value << endl;
 #endif
