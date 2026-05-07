@@ -28,8 +28,7 @@ static constexpr int8_t default_gap_extension = 1;
 static constexpr int8_t default_full_length_bonus = 5;
 static constexpr double default_gc_content = 0.5;
 
-/// Score a gap with the given open and extension scores. Lives here (rather
-/// than aligner.hpp) so AlignmentScorer can use it without a circular include.
+/// Score a gap with the given open and extension scores.
 int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension);
 
 /**
