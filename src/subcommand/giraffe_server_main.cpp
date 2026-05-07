@@ -25,6 +25,11 @@ using namespace vg::subcommand;
 
 namespace {
 
+// Named option codes for long-only options (>255 to avoid clashing with short-option chars).
+// Keep these in sync with the long_options table and the switch in main_giraffe_server.
+constexpr int OPT_EMIT_HEADER   = 1000;
+constexpr int OPT_FRAMED_OUTPUT = 1001;
+
 void help_giraffe_server(char** argv) {
     cerr << "usage: " << argv[0] << " giraffe-server [options]" << endl
          << "Loads Giraffe indexes once and maps sequence batches from stdin." << endl
@@ -51,7 +56,8 @@ void help_giraffe_server(char** argv) {
          << "  NAME<TAB>SEQUENCE<TAB>QUALITY" << endl
          << "  NAME<TAB>SEQUENCE<TAB>QUALITY<TAB>SURJ_TARGET" << endl
          << "                               (QUALITY may be empty when SURJ_TARGET is set)" << endl
-         << "  FLUSH_NOW   (force immediate processing of buffered reads)" << endl
+         << "  QUALITY is FASTQ phred+33 ASCII; if non-empty, must match SEQUENCE length" << endl
+         << "  PROCESS_BATCH   (map any buffered reads now; alias: FLUSH_NOW)" << endl
          << endl;
 }
 
@@ -88,8 +94,8 @@ int main_giraffe_server(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"batch-size", required_argument, 0, 'b'},
-            {"emit-header", no_argument, 0, 1000},
-            {"framed-output", no_argument, 0, 1001},
+            {"emit-header", no_argument, 0, OPT_EMIT_HEADER},
+            {"framed-output", no_argument, 0, OPT_FRAMED_OUTPUT},
             {"surject-target", required_argument, 0, 'S'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -123,10 +129,10 @@ int main_giraffe_server(int argc, char** argv) {
             case 'b':
                 batch_size = parse<size_t>(optarg);
                 break;
-            case 1000:
+            case OPT_EMIT_HEADER:
                 emit_header = true;
                 break;
-            case 1001:
+            case OPT_FRAMED_OUTPUT:
                 framed_output = true;
                 break;
             case 'S':
@@ -180,21 +186,42 @@ int main_giraffe_server(int argc, char** argv) {
             batch.clear();
         };
 
+        // Helper: report a per-read error so framed-output clients still get a record
+        // for the read and don't hang waiting on it.
+        auto emit_read_error = [&](const string& name, const string& reason) {
+            cerr << "warning [vg giraffe-server]: skipping read"
+                 << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
+            if (framed_output) {
+                cout << "READ\t" << name << "\t0\n";
+                cout.flush();
+            }
+        };
+
+        size_t line_no = 0;
         while (getline(cin, line)) {
+            ++line_no;
             if (line.empty()) {
                 continue;
             }
-            if (line == "FLUSH_NOW") {
+            // Batch-processing command (PROCESS_BATCH; FLUSH_NOW kept as deprecated alias).
+            if (line == "PROCESS_BATCH" || line == "FLUSH_NOW") {
                 flush_batch();
                 continue;
             }
             auto fields = split_tab_fields(line);
-            GiraffeFastqRead read;
             // Field layouts (tab-separated):
             //   1: SEQ
             //   2: NAME, SEQ
             //   3: NAME, SEQ, QUAL
-            //   4+: NAME, SEQ, QUAL, SURJ_TARGET (QUAL may be empty)
+            //   4: NAME, SEQ, QUAL, SURJ_TARGET (QUAL may be empty)
+            if (fields.size() < 1 || fields.size() > 4) {
+                cerr << "warning [vg giraffe-server]: line " << line_no
+                     << ": ignored (expected 1-4 tab-separated fields or a known command, got "
+                     << fields.size() << ")" << endl;
+                continue;
+            }
+
+            GiraffeFastqRead read;
             if (fields.size() == 1) {
                 read.name = "read_" + to_string(auto_id++);
                 read.sequence = fields[0];
@@ -205,14 +232,24 @@ int main_giraffe_server(int argc, char** argv) {
                 read.name = fields[0];
                 read.sequence = fields[1];
                 read.quality = fields[2];
-            } else {
+            } else {  // fields.size() == 4
                 read.name = fields[0];
                 read.sequence = fields[1];
                 read.quality = fields[2];
                 read.surjection_target = fields[3];
             }
 
+            // Validate: empty sequence is malformed; respond rather than dropping silently.
             if (read.sequence.empty()) {
+                emit_read_error(read.name, "empty SEQUENCE");
+                continue;
+            }
+            // Validate: if QUALITY is supplied, it must match SEQUENCE length (phred+33 ASCII).
+            if (!read.quality.empty() && read.quality.size() != read.sequence.size()) {
+                emit_read_error(read.name,
+                    "QUALITY length (" + to_string(read.quality.size())
+                    + ") does not match SEQUENCE length ("
+                    + to_string(read.sequence.size()) + ")");
                 continue;
             }
             batch.emplace_back(move(read));
