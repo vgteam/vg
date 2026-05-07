@@ -12,12 +12,13 @@
 namespace vg {
 
 /**
- * Owns the log_base derived from a scorer's substitution matrix and the
- * gc_content used to recover it, and turns alignment scores into mapping
- * qualities. Construct from any AlignmentScorer-shaped object that exposes
- *   - `void fill_substitution_matrix(double[16]) const`
- *   - arithmetic `match` and `mismatch` members
- * No reference to the scorer is retained after construction.
+ * Widget for computing mapping qualities from collections of alignment scores.
+ *
+ * Constructable from any AlignmentScorer that also exposes arithmetic `match`
+ * and `mismatch` members. No reference to the scorer is retained after
+ * construction.
+ *
+ * Responsible for caching the computed log base value.
  */
 class MappingQualityCalculator {
 public:
@@ -26,7 +27,7 @@ public:
         : gc_content(gc_content),
           rep_match(static_cast<double>(scorer.match)),
           rep_mismatch(static_cast<double>(scorer.mismatch)),
-          log_base(compute_log_base(scorer, gc_content)) {}
+          log_base(scorer.recover_log_base(gc_content)) {}
 
     /// Stores -10 * log_10(P_err) in alignment mapping_quality field. P_err
     /// is the probability that the alignment is not the correct one.
@@ -102,13 +103,6 @@ public:
                                                const std::vector<double>* multiplicities = nullptr);
 
 private:
-    template<typename ScorerT>
-    static double compute_log_base(const ScorerT& scorer, double gc_content) {
-        double sub[16];
-        scorer.fill_substitution_matrix(sub);
-        return AlignmentScorer::recover_log_base(sub, gc_content);
-    }
-
     double group_mapping_quality_exact(const std::vector<double>& scaled_scores, const std::vector<size_t>& group,
                                        const std::vector<double>* multiplicities = nullptr) const;
     std::vector<double> all_mapping_qualities_exact(const std::vector<double>& scaled_scores,

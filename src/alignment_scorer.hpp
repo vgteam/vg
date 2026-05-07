@@ -42,30 +42,47 @@ public:
     /// Compute a single integer score for the alignment under this scorer's scheme.
     virtual int32_t score_alignment(const Alignment& aln) const = 0;
 
-    /// Fill a 4x4 substitution matrix in double precision. Used at MQ calc
-    /// construction time to recover log_base.
-    virtual void fill_substitution_matrix(double out[16]) const = 0;
+    /// Compute the "log base" that can be used to interpret scores
+    /// probabilistically.
+    virtual double recover_log_base(double gc_content, double tol = 1e-12) const = 0;
 
+protected:
     /// Bisects to find the log base under which the partition function over
-    /// the given 4x4 substitution matrix and inferred (gc-content-driven)
-    /// nucleotide frequencies equals 1. Static so that scorers needing
-    /// log_base internally (QualAdjAlignmentScorer, while building its
-    /// quality-adjusted tables) can reuse the same routine the
-    /// MappingQualityCalculator does.
+    /// the given 4x4 substitution matrix and nucleotide frequencies (from GC
+    /// content) equals 1.
+    ///
+    /// Useful for implementing the recover_log_base operation for a derived
+    /// class, if that class can produce a scoring matrix.
     static double recover_log_base(const double matrix[16], double gc_content, double tol = 1e-12);
 
 private:
+    /// Check a score matrix to make sure it has negative scores for random sequence.
     static bool verify_valid_log_odds_score_matrix(const double matrix[16], const double nt_freqs[4]);
+    /// Partition function used for recovering the log base for a scoring scheme.
+    /// TODO: What is a partition function exactly?
     static double alignment_score_partition_function(double lambda, const double matrix[16], const double nt_freqs[4]);
 };
 
 /**
- * Scorer surface that GSSW DP and surjection rescoring need: per-edit and
- * per-partial-path scoring functions. Matrix-style scorers implement this;
- * the logged-gap scorer does not.
+ * An AlignmentScorer that can score individual edits independently.
  */
 class EditAlignmentScorer : public AlignmentScorer {
 public:
+    
+    ////
+    // Implement AlignmentScorer
+    ////
+
+    /// Score an alignment as a contiguous alignment, including full-length bonuses.
+    int32_t score_alignment(const Alignment& aln) const override;
+    
+    /// Recover a log base from the score matrix.
+    double recover_log_base(double gc_content, double tol = 1e-12) const override;
+
+    ////
+    // Provide extra tools for working with pieces of alignments
+    ////
+
     /// Compute the score of an exact match in the given alignment, from the
     /// given offset, of the given length.
     virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const = 0;
@@ -111,17 +128,16 @@ public:
     /// Return the score with full-length bonuses removed.
     virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false) const;
 
-    /// Default scorer-level score_alignment is a contiguous-alignment score
-    /// with both bonuses included.
-    int32_t score_alignment(const Alignment& aln) const override;
-
     /// The longest gap detectable from a read position without soft-clipping.
     size_t longest_detectable_gap(const Alignment& alignment, const std::string::const_iterator& read_pos) const;
     size_t longest_detectable_gap(size_t read_length, size_t read_pos) const;
     size_t longest_detectable_gap(const Alignment& alignment) const;
     size_t longest_detectable_gap(size_t read_length) const;
 
-    // Direct-access score parameters. Concrete subclasses fill these in.
+    ////
+    // Expose individual generic operation scores.
+    ////
+
     int8_t  match = 0;
     int8_t  mismatch = 0;
     int8_t  gap_open = 0;
@@ -171,8 +187,6 @@ public:
                                     const path_t& path,
                                     std::string::const_iterator seq_begin,
                                     bool no_read_end_scoring = false) const override;
-
-    void fill_substitution_matrix(double out[16]) const override;
 
     /// 5x5 N-padded matrix in row-major order. Owned. Consumed directly by
     /// GSSW and by score_partial_alignment in the qual-adjusted subclass.

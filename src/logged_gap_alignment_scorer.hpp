@@ -34,7 +34,9 @@ public:
     /// returns the cached value without re-walking the path.
     int32_t score_alignment(const Alignment& aln) const override;
 
-    void fill_substitution_matrix(double out[16]) const override;
+    /// Compute the "log base" that can be used to interpret scores
+    /// probabilistically.
+    double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
     /// Score a precomputed set of edit counts under this scheme.
     int32_t score_from_counts(size_t matches, size_t mismatches,

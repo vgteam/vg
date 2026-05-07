@@ -40,13 +40,16 @@ int32_t LoggedGapAlignmentScorer::score_alignment(const Alignment& aln) const {
     return score_from_counts(m, mm, gaps);
 }
 
-void LoggedGapAlignmentScorer::fill_substitution_matrix(double out[16]) const {
+double LoggedGapAlignmentScorer::recover_log_base(double gc_content, double tol = 1e-12) const {
     // Synthesize a uniform substitution matrix from the marginal scores.
+    double matrix[16];
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
-            out[i * 4 + j] = (i == j) ? match : mismatch;
+            matrix[i * 4 + j] = (i == j) ? match : mismatch;
         }
     }
+    // Recover a log base from that
+    return AlignmentScorer::recover_log_base(matrix, gc_content, tol);
 }
 
 void LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln,

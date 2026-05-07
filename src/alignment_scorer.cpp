@@ -369,13 +369,16 @@ int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignmen
     return score;
 }
 
-void MatrixAlignmentScorer::fill_substitution_matrix(double out[16]) const {
+double MatrixAlignmentScorer::recover_log_base(double gc_content, double tol = 1e-12) const {
     // Extract the 4x4 portion from the 5x5 GSSW-padded score_matrix
+    double matrix[16];
     for (int i = 0; i < 16; ++i) {
         int row = i / 4;
         int col = i % 4;
-        out[i] = static_cast<double>(score_matrix[row * 5 + col]);
+        matrix[i] = static_cast<double>(score_matrix[row * 5 + col]);
     }
+    // Recover a log base from that
+    return AlignmentScorer::recover_log_base(matrix, gc_content, tol);
 }
 
 // ----- QualAdjAlignmentScorer -----
