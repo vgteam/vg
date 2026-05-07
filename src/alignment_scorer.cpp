@@ -26,6 +26,7 @@ int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension) {
 // ----- AlignmentScorer log_base recovery -----
 
 double AlignmentScorer::recover_log_base(const double matrix[16], double gc_content, double tol) {
+    // convert gc content into base-wise frequencies
     double nt_freqs[4];
     nt_freqs[0] = 0.5 * (1 - gc_content);
     nt_freqs[1] = 0.5 * gc_content;
@@ -37,9 +38,13 @@ double AlignmentScorer::recover_log_base(const double matrix[16], double gc_cont
         std::exit(1);
     }
 
+    // searching for a positive value (because it's a base of a logarithm)
     double lower_bound;
     double upper_bound;
+
+    // arbitrary starting point greater than zero
     double lambda = 1.0;
+    // exponential search for a window containing lambda where total probability is 1
     double partition = alignment_score_partition_function(lambda, matrix, nt_freqs);
     if (partition < 1.0) {
         lower_bound = lambda;
@@ -58,6 +63,8 @@ double AlignmentScorer::recover_log_base(const double matrix[16], double gc_cont
         }
         lower_bound = lambda;
     }
+
+    // bisect to find a log base where total probability is 1
     while (upper_bound / lower_bound - 1.0 > tol) {
         lambda = 0.5 * (lower_bound + upper_bound);
         if (alignment_score_partition_function(lambda, matrix, nt_freqs) < 1.0) {
@@ -120,13 +127,18 @@ int32_t EditAlignmentScorer::score_discontiguous_alignment(const Alignment& aln,
     int read_offset = 0;
     auto& path = aln.path();
 
+    // We keep track of whether the last edit was a deletion for coalescing
+    // adjacent deletions across node boundaries
     bool last_was_deletion = false;
 
     for (int i = 0; i < path.mapping_size(); ++i) {
+        // For each mapping
         auto& mapping = path.mapping(i);
         for (int j = 0; j < mapping.edit_size(); ++j) {
+            // For each edit in the mapping
             auto& edit = mapping.edit(j);
 
+            // Score the edit according to its type
             if (edit_is_match(edit)) {
                 score += score_exact_match(aln, read_offset, edit.to_length());
                 last_was_deletion = false;
@@ -137,33 +149,48 @@ int32_t EditAlignmentScorer::score_discontiguous_alignment(const Alignment& aln,
                 last_was_deletion = false;
             } else if (edit_is_deletion(edit)) {
                 if (last_was_deletion) {
+                    // No need to charge a gap open
                     score -= edit.from_length() * gap_extension;
                 } else {
+                    // We need a gap open
                     score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
                 }
+
                 if (edit.from_length()) {
+                    // We already charged a gap open
                     last_was_deletion = true;
                 }
+                // If there's a 0-length deletion, leave the last_was_deletion flag unchanged.
             } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
                                                     (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))) {
+                // todo how do we score this qual adjusted?
                 score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
                 last_was_deletion = false;
+                // No need to track if the last edit was an insertion because
+                // insertions will be all together in a single edit at a point.
             } else {
+                // Edit has no score effect. Probably a softclip.
                 last_was_deletion = false;
             }
             read_offset += edit.to_length();
         }
+        // score any intervening gaps in mappings using approximate distances
         if (i + 1 < path.mapping_size()) {
+            // what is the distance between the last position of this mapping
+            // and the first of the next
             Position last_pos = mapping.position();
             last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
             Position next_pos = path.mapping(i + 1).position();
+            // Estimate the distance
             int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist > 0) {
+                // If it's nonzero, score it as a deletion gap
                 score -= gap_open + (dist - 1) * gap_extension;
             }
         }
     }
 
+    // We should report any bonuses used in the DP in the final score
     if (allow_left_bonus && !softclip_start(aln)) {
         score += score_full_length_bonus(true, aln);
     }
@@ -184,9 +211,11 @@ int32_t EditAlignmentScorer::score_contiguous_alignment(const Alignment& aln,
 int32_t EditAlignmentScorer::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {
     int32_t score = aln.score();
     if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
+        // No softclip at the start, and a left end bonus was applied.
         score -= score_full_length_bonus(true, aln);
     }
     if (softclip_end(aln) == 0 && !(pinned && !pin_left)) {
+        // No softclip at the end, and a right end bonus was applied.
         score -= score_full_length_bonus(false, aln);
     }
     return score;
@@ -197,6 +226,7 @@ size_t EditAlignmentScorer::longest_detectable_gap(const Alignment& alignment, c
 }
 
 size_t EditAlignmentScorer::longest_detectable_gap(size_t read_length, size_t read_pos) const {
+    // algebraic solution for when score is > 0 assuming perfect match other than gap
     assert(read_length >= read_pos);
     int64_t overhang_length = min(read_pos, read_length - read_pos);
     int64_t numer = match * overhang_length + full_length_bonus;
@@ -205,6 +235,7 @@ size_t EditAlignmentScorer::longest_detectable_gap(size_t read_length, size_t re
 }
 
 size_t EditAlignmentScorer::longest_detectable_gap(const Alignment& alignment) const {
+    // longest detectable gap across entire read is in the middle
     return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
 }
 
@@ -218,6 +249,9 @@ MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
                                              int8_t gap_open_,
                                              int8_t gap_extension_,
                                              int8_t full_length_bonus_) {
+    // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
+    // misleading, but a fair amount of code depends on them.
+    // This is a 4x4 matrix, so entry 0 is on-diagonal and 1 is off-diagonal.
     match = score_matrix_4x4[0];
     mismatch = -score_matrix_4x4[1];
     gap_open = gap_open_;
@@ -231,7 +265,7 @@ MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
     crash_unless(substitution_matrix != nullptr);
     std::copy(score_matrix_4x4, score_matrix_4x4 + 16, substitution_matrix);
 
-    // 5x5 N-padded for GSSW.
+    // add in the 5th row and column of 0s for N matches like GSSW wants
     score_matrix = (int8_t*) std::malloc(sizeof(int8_t) * 25);
     crash_unless(score_matrix != nullptr);
     for (size_t i = 0, j = 0; i < 25; ++i) {
@@ -304,10 +338,13 @@ int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignmen
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
                     if (edit.sequence().empty()) {
+                        // match
                         score += match * edit.from_length();
                     } else {
+                        // mismatch
                         score -= mismatch * edit.from_length();
                     }
+                    // apply full length bonus
                     if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
                         score += score_full_length_bonus(true, alignment);
                     }
@@ -318,13 +355,16 @@ int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignmen
                 } else if (in_deletion) {
                     score -= edit.from_length() * gap_extension;
                 } else {
+                    // deletion
                     score -= gap_open + (edit.from_length() - 1) * gap_extension;
                     in_deletion = true;
                 }
             } else if (edit.to_length() > 0) {
+                // don't score soft clips if scoring read ends
                 if (no_read_end_scoring ||
                     (read_pos != alignment.sequence().begin() &&
                      read_pos + edit.to_length() != alignment.sequence().end())) {
+                    // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }
                 in_deletion = false;
@@ -350,6 +390,8 @@ QualAdjAlignmentScorer::QualAdjAlignmentScorer(const int8_t* score_matrix_4x4,
                                                double gc_content_for_qual_adj)
     : MatrixAlignmentScorer(score_matrix_4x4, gap_open_, gap_extension_, full_length_bonus_) {
 
+    // TODO: this interface could really be improved in GSSW, oh well though
+
     constexpr uint32_t max_base_qual = 255;
 
     double sub_d[16];
@@ -370,12 +412,14 @@ int8_t* QualAdjAlignmentScorer::qual_adjusted_matrix(const int8_t* score_matrix_
                                                      double gc_content,
                                                      double log_base,
                                                      uint32_t max_qual) const {
+    // TODO: duplicative with recover_log_base() in building nt_freqs
     double nt_freqs[4];
     nt_freqs[0] = 0.5 * (1 - gc_content);
     nt_freqs[1] = 0.5 * gc_content;
     nt_freqs[2] = 0.5 * gc_content;
     nt_freqs[3] = 0.5 * (1 - gc_content);
 
+    // recover the emission probabilities of the align state of the HMM
     double align_prob[16];
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
@@ -383,6 +427,7 @@ int8_t* QualAdjAlignmentScorer::qual_adjusted_matrix(const int8_t* score_matrix_
         }
     }
 
+    // compute the sum of the emission probabilities under a base error
     double align_complement_prob[16];
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
@@ -395,10 +440,12 @@ int8_t* QualAdjAlignmentScorer::qual_adjusted_matrix(const int8_t* score_matrix_
         }
     }
 
+    // quality score of random guessing
     int lowest_meaningful_qual = std::ceil(-10.0 * std::log10(0.75));
 
     int8_t* qual_adj_mat = (int8_t*) std::malloc(25 * (max_qual + 1) * sizeof(int8_t));
     crash_unless(qual_adj_mat != nullptr);
+    // compute the adjusted alignment scores for each quality level
     for (uint32_t q = 0; q <= max_qual; ++q) {
         double err = std::pow(10.0, -((double) q) / 10.0);
         for (int i = 0; i < 5; ++i) {
@@ -426,6 +473,8 @@ int8_t* QualAdjAlignmentScorer::qual_adjusted_bonuses(int8_t base_full_length_bo
     crash_unless(qual_adj_bonuses != nullptr);
 
     int lowest_meaningful_qual = std::ceil(-10.0 * std::log10(0.75));
+    // hack because i want the minimum qual value from illumina (2) to have zero score, but phred
+    // values are spaced out in a way to approximate this singularity well
     ++lowest_meaningful_qual;
 
     for (uint32_t q = lowest_meaningful_qual; q <= max_qual; ++q) {
@@ -503,6 +552,7 @@ int32_t QualAdjAlignmentScorer::score_partial_alignment(const Alignment& alignme
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         const auto& mapping = path.mapping(i);
 
+        // get the sequence of this node on the proper strand
         string node_seq = graph.get_sequence(graph.get_handle(mapping.position().node_id(),
                                                               mapping.position().is_reverse()));
         string::const_iterator ref_pos = node_seq.begin() + mapping.position().offset();
@@ -517,6 +567,8 @@ int32_t QualAdjAlignmentScorer::score_partial_alignment(const Alignment& alignme
                     for (; siter != read_pos + edit.to_length(); ++siter, ++qiter, ++riter) {
                         score += score_matrix[25 * (uint8_t) (*qiter) + 5 * nt_table[(uint8_t) (*riter)] + nt_table[(uint8_t) (*siter)]];
                     }
+
+                    // apply full length bonus
                     if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
                         score += score_full_length_bonus(true, alignment);
                     }
@@ -527,10 +579,12 @@ int32_t QualAdjAlignmentScorer::score_partial_alignment(const Alignment& alignme
                 } else if (in_deletion) {
                     score -= edit.from_length() * gap_extension;
                 } else {
+                    // deletion
                     score -= gap_open + (edit.from_length() - 1) * gap_extension;
                     in_deletion = true;
                 }
             } else if (edit.to_length() > 0) {
+                // don't score soft clips if read end scoring
                 if (no_read_end_scoring ||
                     (read_pos != alignment.sequence().begin() &&
                      read_pos + edit.to_length() != alignment.sequence().end())) {

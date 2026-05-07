@@ -26,21 +26,30 @@ static const double quality_scale_factor = 10.0 / std::log(10.0);
 double MappingQualityCalculator::maximum_mapping_quality_exact(const vector<double>& scaled_scores,
                                                                size_t* max_idx_out,
                                                                const vector<double>* multiplicities) {
+    // work in log transformed values to avoid risk of overflow
     double log_sum_exp = std::numeric_limits<double>::lowest();
     double to_score = std::numeric_limits<double>::lowest();
 
+    // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     for (int64_t i = scaled_scores.size() - 1; i >= 0; --i) {
+        // get the value of one copy of the score and check if it's the max
         double score = scaled_scores.at(i);
         if (max_idx_out && score >= to_score) {
+            // Since we are going in reverse order, make sure to break ties in favor of the earlier item.
             *max_idx_out = i;
             to_score = score;
         }
+
+        // add all copies of the score
         if (multiplicities && multiplicities->at(i) > 1.0) {
             score += log(multiplicities->at(i));
         }
+
+        // accumulate the sum of all score
         log_sum_exp = add_log(log_sum_exp, score);
     }
 
+    // if necessary, assume a null alignment of 0.0 for comparison since this is local
     if (scaled_scores.size() == 1) {
         if (multiplicities && multiplicities->at(0) <= 1.0) {
             log_sum_exp = add_log(log_sum_exp, 0.0);
@@ -62,15 +71,20 @@ double MappingQualityCalculator::maximum_mapping_quality_approx(const vector<dou
                                                                 const vector<double>* multiplicities) {
     assert(!scaled_scores.empty());
 
+    // TODO: this isn't very well-named now that it also supports computing non-maximum
+    // mapping qualities
+
+    // determine the maximum score and the count of the next highest score
     double max_score = scaled_scores.at(0);
     size_t max_idx = 0;
-    
+
     // we start with the possibility of a null score of 0.0
     double next_score = 0.0;
     double next_count = 1.0;
 
     if (multiplicities) {
         if (multiplicities->at(0) > 1.0) {
+            // there are extra copies of this one, so we'll init with those
             next_score = max_score;
             next_count = multiplicities->at(0) - 1.0;
         }
@@ -132,31 +146,43 @@ double MappingQualityCalculator::first_mapping_quality_approx(const vector<doubl
 double MappingQualityCalculator::group_mapping_quality_exact(const vector<double>& scaled_scores,
                                                              const vector<size_t>& group,
                                                              const vector<double>* multiplicities) const {
+    // work in log transformed values to avoid risk of overflow
     double total_log_sum_exp = std::numeric_limits<double>::lowest();
     double non_group_log_sum_exp = std::numeric_limits<double>::lowest();
 
+    // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     int64_t group_idx = group.size() - 1;
     for (int64_t i = scaled_scores.size() - 1; i >= 0; --i) {
+
+        // the score of one alignment
         double score = scaled_scores.at(i);
+
+        // the score all the multiples of this score combined
         double multiple_score = score;
         if (multiplicities && multiplicities->at(i) > 1.0) {
             multiple_score += log(multiplicities->at(i));
         }
+
         total_log_sum_exp = add_log(total_log_sum_exp, multiple_score);
 
         if (group_idx >= 0 && i == (int64_t) group[group_idx]) {
+            // this is the next index in the group
             group_idx--;
             if (multiplicities && multiplicities->at(i) > 1.0) {
+                // there's some remaining multiples of this score that don't get added into the group
                 non_group_log_sum_exp = add_log(non_group_log_sum_exp,
                                                 score + log(multiplicities->at(i) - 1.0));
             }
         } else {
+            // this index is not part of the group
             non_group_log_sum_exp = add_log(non_group_log_sum_exp, multiple_score);
         }
     }
 
     if (scaled_scores.size() == 1) {
         if ((multiplicities && multiplicities->at(0) <= 1.0) || !multiplicities) {
+            // assume a null alignment of 0.0 for comparison since this is local
+            // TODO: repetitive, do I need to be this careful to not deref a null?
             non_group_log_sum_exp = add_log(non_group_log_sum_exp, 0.0);
             total_log_sum_exp = add_log(total_log_sum_exp, 0.0);
         }
@@ -170,6 +196,8 @@ double MappingQualityCalculator::group_mapping_quality_exact(const vector<double
 vector<double> MappingQualityCalculator::all_mapping_qualities_exact(const vector<double>& scaled_scores,
                                                                      const vector<double>* multiplicities) const {
     vector<double> mapping_qualities(scaled_scores.size());
+
+    // iterate backwards for improved numerical performance in sorted scores
     double log_denom = 0.0;
     for (int64_t i = scaled_scores.size() - 1; i >= 0; --i) {
         double score = scaled_scores[i];
@@ -178,6 +206,7 @@ vector<double> MappingQualityCalculator::all_mapping_qualities_exact(const vecto
         }
         log_denom = add_log(log_denom, score);
     }
+    // compute the mapping qualities
     for (size_t i = 0; i < scaled_scores.size(); ++i) {
         double log_prob_error = log10(1.0 - std::exp(scaled_scores[i] - log_denom));
         if (std::isnormal(log_prob_error) || log_prob_error == 0.0) {
@@ -265,6 +294,8 @@ void MappingQualityCalculator::compute_paired_mapping_quality(pair<vector<Alignm
     vector<double> scaled_scores(size);
     for (size_t i = 0; i < size; ++i) {
         scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        // + frag_weights[i]);
+        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance in the current form
     }
 
     size_t max_idx;
@@ -345,8 +376,11 @@ int32_t MappingQualityCalculator::compute_first_mapping_quality(const vector<dou
 int32_t MappingQualityCalculator::compute_group_mapping_quality(const vector<double>& scores,
                                                                 const vector<size_t>& group,
                                                                 const vector<double>* multiplicities) const {
+    // make a non-const local version in case we need to sort it
     vector<size_t> non_const_group;
     const vector<size_t>* grp_ptr = &group;
+
+    // ensure that group is in sorted order as following function expects
     if (!std::is_sorted(group.begin(), group.end())) {
         non_const_group = group;
         std::sort(non_const_group.begin(), non_const_group.end());
@@ -379,7 +413,9 @@ double MappingQualityCalculator::mapping_quality_score_diff(double mapping_quali
 }
 
 double MappingQualityCalculator::score_to_unnormalized_likelihood_ln(double score) const {
+    // Log base needs to be set, or this can't work.
     assert(log_base != 0);
+    // Likelihood is proportional to e^(lambda * score), so ln is just the exponent.
     return log_base * score;
 }
 
