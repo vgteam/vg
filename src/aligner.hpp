@@ -41,19 +41,18 @@ namespace vg {
      * The basic GSSW-based core aligner implementation, which can then be
      * quality-adjusted or not. Owns its scorer and MAPQ calculator; all
      * scoring and MAPQ work goes through those, not through the aligner.
+     *
+     * You aren't meant to instantiate this directly; you should have an
+     * Aligner or a QualAdjAligner as the concrete class instead.
      */
     class GSSWAligner : public BaseAligner {
-
-    public:
-        /// Direct-access scorer. Public so hot paths can read
-        /// `aligner->scorer->match` without virtual dispatch. Owned.
-        std::unique_ptr<MatrixAlignmentScorer> scorer;
-
-        /// MAPQ calculator built once from the scorer at construction. Owned.
-        std::unique_ptr<MappingQualityCalculator> mapq_calc;
-
-        /// Always available as a non-virtual aligner-side helper.
-        DeletionAligner deletion_aligner;
+    
+    protected:
+        /// Build a GSSWAligner around a MatrixAlignmentScorer.
+        ///
+        /// This is the protected constructor menat to be called by subclasses.
+        GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer, double gc_content);
+        ~GSSWAligner();
 
     public:
         // Move-only: the owned scorer/MQ calc are unique_ptrs.
@@ -61,13 +60,8 @@ namespace vg {
         GSSWAligner& operator=(GSSWAligner&&) = default;
         GSSWAligner(const GSSWAligner&) = delete;
         GSSWAligner& operator=(const GSSWAligner&) = delete;
-
-    protected:
-        /// The subclass constructs its concrete scorer (MatrixAlignmentScorer
-        /// or QualAdjAlignmentScorer) and passes it up; this ctor builds the
-        /// MAPQ calculator from it.
-        GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer, double gc_content);
-        ~GSSWAligner();
+        
+    protected: 
 
         // for construction
         // needed when constructing an alignable graph from the nodes
@@ -141,6 +135,23 @@ namespace vg {
         virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
                                  const vector<MaximalExactMatch>& mems, bool reverse_complemented,
                                  uint16_t max_gap_length = default_xdrop_max_gap_length) const = 0;
+    
+   
+        /// Alignment scorer that represents the scoring scheme used for
+        /// computing alignments.
+        std::unique_ptr<MatrixAlignmentScorer> scorer;
+
+        /// Mapping quality calculator for computing mapping qualities under
+        /// the scorign scheme we use. Not used internally, but exposed so that
+        /// aligner clinets have easy access to a MAPQ calculator for free and
+        /// don't need to build their own.
+        std::unique_ptr<MappingQualityCalculator> mapq_calc;
+
+    protected:
+        /// Widget for producing alignments that we know in advance will be
+        /// complete deletions.
+        DeletionAligner deletion_aligner;
+
     };
 
     /**
