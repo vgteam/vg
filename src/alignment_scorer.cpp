@@ -369,7 +369,7 @@ int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignmen
     return score;
 }
 
-double MatrixAlignmentScorer::recover_log_base(double gc_content, double tol = 1e-12) const {
+double MatrixAlignmentScorer::recover_log_base(double gc_content, double tol) const {
     // Extract the 4x4 portion from the 5x5 GSSW-padded score_matrix
     double matrix[16];
     for (int i = 0; i < 16; ++i) {

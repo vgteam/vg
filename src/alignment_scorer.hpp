@@ -76,7 +76,7 @@ public:
     /// Score an alignment as a contiguous alignment, including full-length bonuses.
     int32_t score_alignment(const Alignment& aln) const override;
     
-    /// Recover a log base from the score matrix.
+    /// Recover a log base from the match and mismatch scores.
     double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
     ////
@@ -164,6 +164,9 @@ public:
     // Non-copyable, non-movable to keep ownership semantics simple.
     MatrixAlignmentScorer(const MatrixAlignmentScorer&) = delete;
     MatrixAlignmentScorer& operator=(const MatrixAlignmentScorer&) = delete;
+
+    /// Recover a log base from the score matrix.
+    double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
     int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const override;
     int32_t score_exact_match(const std::string& sequence, const std::string& base_quality) const override;
