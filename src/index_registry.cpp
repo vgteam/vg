@@ -551,6 +551,10 @@ construct_minimizers_impl(
         *gbz, distance_index.get(), &oversized_zipcodes, params
     );
 
+    // Close the distance index so it can't appear to be modified after the
+    // files that depend on it.
+    distance_index.reset();
+
     string output_name = plan->output_filepath(minimizer_output);
     save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
     output_name_minimizer.push_back(output_name);
@@ -5220,6 +5224,34 @@ vector<string> IndexRegistry::require(const IndexName& identifier) const {
         error(context) << "do not have and did not make index: " << identifier << endl;
     }
     return index->get_filenames();
+}
+
+bool IndexRegistry::predates(const IndexName& earlier, const IndexName& later) const {
+    // Get all the files
+    std::vector<std::string> earlier_files = require(earlier);
+    std::vector<std::string> later_files = require(later);
+
+    // Make sure they're nonempty
+    if (earlier_files.empty()) {
+        throw std::runtime_error(earlier + " index has no files");
+    }
+    if (later_files.empty()) {
+        throw std::runtime_error(later + " index has no files");
+    }
+
+    // Get all their modification times
+    std::filesystem::file_time_type (*predicate)(const std::filesystem::path&) = std::filesystem::last_write_time;
+    std::vector<std::filesystem::file_time_type> earlier_times;
+    std::transform(earlier_files.begin(), earlier_files.end(), std::back_inserter(earlier_times), predicate);
+    std::vector<std::filesystem::file_time_type> later_times;
+    std::transform(later_files.begin(), later_files.end(), std::back_inserter(later_times), predicate);
+
+    // Find where the times that shouldn't intersect are, and get them. 
+    std::filesystem::file_time_type earlier_time = *std::max_element(earlier_times.begin(), earlier_times.end());
+    std::filesystem::file_time_type later_time = *std::max_element(later_times.begin(), later_times.end());
+    
+    // Return if the earlier files are touched no later than the later files.
+    return earlier_time <= later_time; 
 }
 
 void IndexRegistry::set_target_memory_usage(int64_t bytes) {
