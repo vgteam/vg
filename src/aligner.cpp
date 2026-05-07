@@ -19,9 +19,6 @@ namespace vg {
 using namespace std;
 using namespace vg::io;
 
-// score_gap free function moved to alignment_scorer.cpp
-// quality_scale_factor moved to mapping_quality_calculator.cpp
-
 GSSWAligner::~GSSWAligner() = default;
 
 GSSWAligner::GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer, double gc_content)
