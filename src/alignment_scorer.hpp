@@ -179,11 +179,6 @@ public:
     int8_t* score_matrix = nullptr;
     /// Char->int nt translation. Owned.
     int8_t* nt_table = nullptr;
-    /// Original 4x4 substitution matrix in row-major order. Owned. Used to
-    /// compute log_base so the qual-adjusted subclass can keep a separate
-    /// (overwritten) score_matrix while still exposing the un-quality-adjusted
-    /// substitution scheme for MAPQ.
-    int8_t* substitution_matrix = nullptr;
 };
 
 /**

@@ -260,11 +260,6 @@ MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
 
     nt_table = gssw_create_nt_table();
 
-    // Owned 4x4 input copy; used by fill_substitution_matrix.
-    substitution_matrix = (int8_t*) std::malloc(sizeof(int8_t) * 16);
-    crash_unless(substitution_matrix != nullptr);
-    std::copy(score_matrix_4x4, score_matrix_4x4 + 16, substitution_matrix);
-
     // add in the 5th row and column of 0s for N matches like GSSW wants
     score_matrix = (int8_t*) std::malloc(sizeof(int8_t) * 25);
     crash_unless(score_matrix != nullptr);
@@ -281,7 +276,6 @@ MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
 MatrixAlignmentScorer::~MatrixAlignmentScorer() {
     if (nt_table) std::free(nt_table);
     if (score_matrix) std::free(score_matrix);
-    if (substitution_matrix) std::free(substitution_matrix);
 }
 
 int32_t MatrixAlignmentScorer::score_exact_match(const Alignment&, size_t, size_t length) const {
@@ -376,8 +370,11 @@ int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignmen
 }
 
 void MatrixAlignmentScorer::fill_substitution_matrix(double out[16]) const {
+    // Extract the 4x4 portion from the 5x5 GSSW-padded score_matrix
     for (int i = 0; i < 16; ++i) {
-        out[i] = static_cast<double>(substitution_matrix[i]);
+        int row = i / 4;
+        int col = i % 4;
+        out[i] = static_cast<double>(score_matrix[row * 5 + col]);
     }
 }
 
