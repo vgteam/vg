@@ -1350,7 +1350,10 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, con
 
 
 AlignerClient::AlignerClient(double gc_content_estimate) : gc_content_estimate(gc_content_estimate) {
-    
+   
+    std::cerr << "Adopting default score matrix at " << (intptr_t)&default_score_matrix[0] << " with first entry " << (int)default_score_matrix[0] << std::endl;
+    crash_unless(default_score_matrix[0] == default_match);
+
     // Adopt the default scoring parameters and make the aligners
     AlignerClient::set_alignment_scores(default_score_matrix,
                                         default_gap_open, default_gap_extension,
@@ -1401,9 +1404,11 @@ void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t g
     crash_unless(matrix != nullptr);
     for (size_t i = 0; i < 16; ++i) {
         if (i % 5 == 0) {
+            // Fill the diagonal with matches
             matrix[i] = match;
         }
         else {
+            // And everywhere else with mismatches
             matrix[i] = -mismatch;
         }
     }

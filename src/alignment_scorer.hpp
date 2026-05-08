@@ -146,14 +146,16 @@ public:
 };
 
 /**
- * Concrete scorer that holds an int8_t score matrix and ignores read base
- * qualities. Owns its score matrix and nt_table; their layout matches what
- * GSSW expects (5x5, N-padded).
+ * An alignment scorer that scores bassed on a score matrix.
+ *
+ * Takes 4x4 matrices for construction, but internally uses 5x5 N-padded,
+ * GSSW-compatible matrices.
  */
 class MatrixAlignmentScorer : public EditAlignmentScorer {
 public:
-    /// Build from a 4x4 substitution matrix and gap parameters. Allocates
-    /// owned 5x5 N-padded `score_matrix` and `nt_table`.
+    /// Build from a 4x4 substitution matrix and gap parameters.
+    /// 
+    /// Fills in the generic base match and mismatch values from the matrix.
     MatrixAlignmentScorer(const int8_t* score_matrix_4x4 = default_score_matrix,
                           int8_t gap_open = default_gap_open,
                           int8_t gap_extension = default_gap_extension,
@@ -165,20 +167,21 @@ public:
     MatrixAlignmentScorer(const MatrixAlignmentScorer&) = delete;
     MatrixAlignmentScorer& operator=(const MatrixAlignmentScorer&) = delete;
 
-    /// Recover a log base from the score matrix.
+    /// Recover a log base from the internal 5x5 score matrix.
     double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
     int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const override;
     int32_t score_exact_match(const std::string& sequence, const std::string& base_quality) const override;
     int32_t score_exact_match(std::string::const_iterator seq_begin, std::string::const_iterator seq_end,
                               std::string::const_iterator base_qual_begin) const override;
-    /// Length-only convenience for callers that lack a sequence.
+    /// Score an exact match of unspecified sequence and the given length.
     int32_t score_exact_match(const std::string& sequence) const;
     int32_t score_exact_match(std::string::const_iterator seq_begin, std::string::const_iterator seq_end) const;
 
     int32_t score_mismatch(std::string::const_iterator seq_begin, std::string::const_iterator seq_end,
                            std::string::const_iterator base_qual_begin) const override;
-    /// Length-only mismatch score (returns a signed, usually negative value).
+    /// Score a mismatch of unspecified sequence of the given length.
+    /// This usually produces a negative score.
     int32_t score_mismatch(size_t length) const;
 
     int32_t score_full_length_bonus(bool left_side, std::string::const_iterator seq_begin,
@@ -191,20 +194,20 @@ public:
                                     std::string::const_iterator seq_begin,
                                     bool no_read_end_scoring = false) const override;
 
-    /// 5x5 N-padded matrix in row-major order. Owned. Consumed directly by
-    /// GSSW and by score_partial_alignment in the qual-adjusted subclass.
+    /// 5x5 GSSW-style N-padded matrix in row-major order, possibly with multiple levels.
+    /// Owned by this class.
+    ///
+    /// This class makes this a 5x5x1 matrix, but subclasses can make this have
+    /// more dimensions.
     int8_t* score_matrix = nullptr;
-    /// Char->int nt translation. Owned.
+    /// Char->int nt translation. Owned by this class.
     int8_t* nt_table = nullptr;
 };
 
 /**
- * Quality-adjusted matrix scorer. Owns a quality-indexed score matrix and a
- * per-quality full-length bonus table, and overrides the quality-aware
- * scoring functions accordingly. The int8_t scalar fields inherited from
- * MatrixAlignmentScorer (match, mismatch, ...) keep their original
- * un-quality-adjusted values for log_base recovery and identity correction;
- * they are not consulted by this class's own scoring routines.
+ * AlignmentScorer that scores alignments using quality-adjusted scoring.
+ *
+ * Handles adjusting a 4x4 input scoring matrix for base quality.
  */
 class QualAdjAlignmentScorer : public MatrixAlignmentScorer {
 public:
@@ -215,6 +218,9 @@ public:
                            double gc_content_for_qual_adj = default_gc_content);
 
     ~QualAdjAlignmentScorer() override;
+
+    /// Recover a log base from the internal quality-adjusted score matrix.
+    double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
     int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const override;
     int32_t score_exact_match(const std::string& sequence, const std::string& base_quality) const override;
@@ -231,7 +237,7 @@ public:
                                     std::string::const_iterator seq_begin,
                                     bool no_read_end_scoring = false) const override;
 
-    /// Per-quality full-length bonus table. Owned.
+    /// Per-quality full-length bonus table. Owned by this class.
     int8_t* qual_adj_full_length_bonuses = nullptr;
 
 protected:

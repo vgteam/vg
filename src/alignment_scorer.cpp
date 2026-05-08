@@ -34,7 +34,18 @@ double AlignmentScorer::recover_log_base(const double matrix[16], double gc_cont
     nt_freqs[3] = 0.5 * (1 - gc_content);
 
     if (!verify_valid_log_odds_score_matrix(matrix, nt_freqs)) {
+        // Dump the offending matrix
+        for (size_t x = 0; x < 4; x++) {
+            std::cerr << "error:[AlignmentScorer]";
+            for (size_t y = 0; y < 4; y++) {
+                std::cerr << " " << matrix[y * 4 + x];
+            }
+            std::cerr << std::endl;
+        }
         std::cerr << "error:[AlignmentScorer] Score matrix is invalid. Must have a negative expected score against random sequence." << std::endl;
+        // TODO: Just exit and don't stack trace
+        // TODO: Use new logging stuff.
+        crash_unless(false);
         std::exit(1);
     }
 
@@ -397,6 +408,8 @@ QualAdjAlignmentScorer::QualAdjAlignmentScorer(const int8_t* score_matrix_4x4,
     double sub_d[16];
     for (int i = 0; i < 16; ++i) sub_d[i] = static_cast<double>(score_matrix_4x4[i]);
     double log_base = AlignmentScorer::recover_log_base(sub_d, gc_content_for_qual_adj);
+
+    // TODO: Eliminate recover_log_base instance method and just recover the log base on construction every time, always take a gc content for construction, and store it for later.
 
     // Replace the 5x5 N-padded matrix with a quality-indexed 5x5xQ table.
     std::free(score_matrix);
