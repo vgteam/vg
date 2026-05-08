@@ -49,6 +49,7 @@ public:
                      bool strict_conflicts,
                      bool long_ref_contig,
                      double cluster_threshold = 1.0,
+                     int64_t cluster_min_allele_len = 0,
                      gbwt::GBWT* gbwt = nullptr,
                      bool star_allele = false);
     
@@ -187,6 +188,11 @@ private:
     // currently implemented as handle jaccard coefficient.  So 1 means only
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
+
+    // only apply cluster_threshold at sites where the longest non-boundary
+    // traversal sequence is at least this many bp.  0 disables the gate
+    // (so cluster_threshold applies at every site).
+    int64_t cluster_min_allele_len = 0;
 
     // use *-alleles to represent haplotypes that span the parent site but don't
     // traverse the current nested site (e.g., a deletion that spans a nested SNP)
