@@ -23,7 +23,7 @@ int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension) {
     return gap_length ? -(gap_open + (gap_length - 1) * gap_extension) : 0;
 }
 
-// ----- AlignmentScorer log_base recovery -----
+// ----- AlignmentScorer -----
 
 double AlignmentScorer::recover_log_base(const double matrix[16], double gc_content, double tol) {
     // convert gc content into base-wise frequencies
@@ -43,9 +43,7 @@ double AlignmentScorer::recover_log_base(const double matrix[16], double gc_cont
             std::cerr << std::endl;
         }
         std::cerr << "error:[AlignmentScorer] Score matrix is invalid. Must have a negative expected score against random sequence." << std::endl;
-        // TODO: Just exit and don't stack trace
         // TODO: Use new logging stuff.
-        crash_unless(false);
         std::exit(1);
     }
 
@@ -120,7 +118,21 @@ double AlignmentScorer::alignment_score_partition_function(double lambda, const 
     return partition;
 }
 
-// ----- EditAlignmentScorer non-virtual helpers -----
+// ----- EditAlignmentScorer -----
+
+EditAlignmentScorer::EditAlignmentScorer(
+    int8_t match,
+    int8_t mismatch,
+    int8_t gap_open,
+    int8_t gap_extension,
+    int8_t full_length_bonus
+) : AlignmentScorer(),
+    match(match), mismatch(mismatch),
+    gap_open(gap_open), gap_extension(gap_extension),
+    full_length_bonus(full_length_bonus)
+{
+    // Nothing to do!
+}
 
 int32_t EditAlignmentScorer::score_gap(size_t gap_length) const {
     return vg::score_gap(gap_length, gap_open, gap_extension);
@@ -256,23 +268,18 @@ size_t EditAlignmentScorer::longest_detectable_gap(size_t read_length) const {
 
 // ----- MatrixAlignmentScorer -----
 
-MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
-                                             int8_t gap_open_,
-                                             int8_t gap_extension_,
-                                             int8_t full_length_bonus_) {
-    // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
-    // misleading, but a fair amount of code depends on them.
-    // This is a 4x4 matrix, so entry 0 is on-diagonal and 1 is off-diagonal.
-    match = score_matrix_4x4[0];
-    mismatch = -score_matrix_4x4[1];
-    gap_open = gap_open_;
-    gap_extension = gap_extension_;
-    full_length_bonus = full_length_bonus_;
-
-    nt_table = gssw_create_nt_table();
-
-    // add in the 5th row and column of 0s for N matches like GSSW wants
-    score_matrix = (int8_t*) std::malloc(sizeof(int8_t) * 25);
+MatrixAlignmentScorer::MatrixAlignmentScorer(
+    const int8_t* score_matrix_4x4,
+    int8_t gap_open,
+    int8_t gap_extension,
+    int8_t full_length_bonus,
+    double gc_content
+) : EditAlignmentScorer(score_matrix_4x4[0], -score_matrix_4x4[1], gap_open, gap_extension, full_length_bonus),
+    score_matrix((int8_t*) std::malloc(sizeof(int8_t) * 25)),
+    nt_table(gssw_create_nt_table())
+{
+    // Fill in the 5x5 score matrix, which adds in the 5th row and column of 0s
+    // for N matches like GSSW wants
     crash_unless(score_matrix != nullptr);
     for (size_t i = 0, j = 0; i < 25; ++i) {
         if (i % 5 == 4 || i / 5 == 4) {
@@ -282,6 +289,15 @@ MatrixAlignmentScorer::MatrixAlignmentScorer(const int8_t* score_matrix_4x4,
             ++j;
         }
     }
+
+    // Also make a double-type score matrix and get the log base. We can't
+    // easily do this in an initializer.
+    double double_matrix[16];
+    for (int i = 0; i < 16; ++i) {
+        double_matrix[i] = static_cast<double>(score_matrix_4x4[i]);
+    }
+    // Recover a log base from that
+    log_base = AlignmentScorer::recover_log_base(double_matrix, gc_content);
 }
 
 MatrixAlignmentScorer::~MatrixAlignmentScorer() {
@@ -380,41 +396,26 @@ int32_t MatrixAlignmentScorer::score_partial_alignment(const Alignment& alignmen
     return score;
 }
 
-double MatrixAlignmentScorer::recover_log_base(double gc_content, double tol) const {
-    // Extract the 4x4 portion from the 5x5 GSSW-padded score_matrix
-    double matrix[16];
-    for (int i = 0; i < 16; ++i) {
-        int row = i / 4;
-        int col = i % 4;
-        matrix[i] = static_cast<double>(score_matrix[row * 5 + col]);
-    }
-    // Recover a log base from that
-    return AlignmentScorer::recover_log_base(matrix, gc_content, tol);
+double MatrixAlignmentScorer::get_log_base() const {
+    // We have our log_base precomputed.
+    return log_base;
 }
 
 // ----- QualAdjAlignmentScorer -----
 
 QualAdjAlignmentScorer::QualAdjAlignmentScorer(const int8_t* score_matrix_4x4,
-                                               int8_t gap_open_,
-                                               int8_t gap_extension_,
-                                               int8_t full_length_bonus_,
-                                               double gc_content_for_qual_adj)
-    : MatrixAlignmentScorer(score_matrix_4x4, gap_open_, gap_extension_, full_length_bonus_) {
-
-    // TODO: this interface could really be improved in GSSW, oh well though
+                                               int8_t gap_open,
+                                               int8_t gap_extension,
+                                               int8_t full_length_bonus,
+                                               double gc_content)
+    : MatrixAlignmentScorer(score_matrix_4x4, gap_open, gap_extension, full_length_bonus, gc_content) {
 
     constexpr uint32_t max_base_qual = 255;
 
-    double sub_d[16];
-    for (int i = 0; i < 16; ++i) sub_d[i] = static_cast<double>(score_matrix_4x4[i]);
-    double log_base = AlignmentScorer::recover_log_base(sub_d, gc_content_for_qual_adj);
-
-    // TODO: Eliminate recover_log_base instance method and just recover the log base on construction every time, always take a gc content for construction, and store it for later.
-
     // Replace the 5x5 N-padded matrix with a quality-indexed 5x5xQ table.
     std::free(score_matrix);
-    score_matrix = qual_adjusted_matrix(score_matrix_4x4, gc_content_for_qual_adj, log_base, max_base_qual);
-    qual_adj_full_length_bonuses = qual_adjusted_bonuses(full_length_bonus_, log_base, max_base_qual);
+    score_matrix = qual_adjusted_matrix(score_matrix_4x4, gc_content, log_base, max_base_qual);
+    qual_adj_full_length_bonuses = qual_adjusted_bonuses(full_length_bonus, log_base, max_base_qual);
 }
 
 QualAdjAlignmentScorer::~QualAdjAlignmentScorer() {

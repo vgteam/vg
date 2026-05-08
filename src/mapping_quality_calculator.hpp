@@ -18,7 +18,9 @@ namespace vg {
  * and `mismatch` members. No reference to the scorer is retained after
  * construction.
  *
- * Responsible for caching the computed log base value.
+ * TODO: This independently needs the GC content, and stores the scorer's
+ * log_base instead of the whole scorer. Should we keep a reference to the
+ * scorer and get both of those from it on demand instead?
  */
 class MappingQualityCalculator {
 public:
@@ -27,7 +29,7 @@ public:
         : gc_content(gc_content),
           rep_match(static_cast<double>(scorer.match)),
           rep_mismatch(static_cast<double>(scorer.mismatch)),
-          log_base(scorer.recover_log_base(gc_content)) {}
+          log_base(scorer.get_log_base()) {}
 
     /// Stores -10 * log_10(P_err) in alignment mapping_quality field. P_err
     /// is the probability that the alignment is not the correct one.

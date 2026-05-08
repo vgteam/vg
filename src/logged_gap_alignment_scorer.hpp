@@ -35,15 +35,13 @@ public:
     /// any call to `score_alignment()` on any alignment at that address,
     /// because pointer identity is used to recognize that operations are on
     /// the standard alignment.
-    explicit LoggedGapAlignmentScorer(const Alignment& standard);
+    explicit LoggedGapAlignmentScorer(const Alignment& standard, double gc_content = default_gc_content);
 
     /// Score an alignment under this scheme. Guaranteed to be O(1) when aln is
     /// at the address of standard.
     int32_t score_alignment(const Alignment& aln) const override;
 
-    /// Compute the "log base" that can be used to interpret scores
-    /// probabilistically.
-    double recover_log_base(double gc_content, double tol = 1e-12) const override;
+    double get_log_base() const override;
 
     // Because all these fields are const, we can't just run a static member
     // that writes into each, so we need to do some backflips to fille
@@ -52,6 +50,7 @@ public:
     // We expose the precomputed statistics about the standard alignment for
     // the user of the class to read off. These are used to initialize the
     // other members and MUST appear first here.
+    // TODO: This is fiddly, maybe use accessors instead.
 
     /// Number of matches in the standard alignment
     const size_t matches;
@@ -76,8 +75,13 @@ public:
 
 private:
 
+    /// Log base for interpreting scores
+    double log_base;
+
     /// Build a LoggedGapAlignmentScorer with precomputed operation counts
-    LoggedGapAlignmentScorer(const Alignment& standard, std::tuple<size_t, size_t, std::vector<size_t>>&& operation_counts);
+    LoggedGapAlignmentScorer(const Alignment& standard, 
+                             std::tuple<size_t, size_t, std::vector<size_t>>&& operation_counts,
+                             double gc_content = default_gc_content);
 
     /// Score a precomputed set of edit counts under this scheme.
     int32_t score_from_counts(size_t matches, size_t mismatches,

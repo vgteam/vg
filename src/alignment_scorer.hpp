@@ -42,11 +42,12 @@ public:
     /// Compute a single integer score for the alignment under this scorer's scheme.
     virtual int32_t score_alignment(const Alignment& aln) const = 0;
 
-    /// Compute the "log base" that can be used to interpret scores
-    /// probabilistically.
-    virtual double recover_log_base(double gc_content, double tol = 1e-12) const = 0;
+    /// Get the log base value used to probabilistically interpret scores.
+    /// Implementations probably need to have a stores GC content to implement this.
+    virtual double get_log_base() const = 0;
 
 protected:
+
     /// Bisects to find the log base under which the partition function over
     /// the given 4x4 substitution matrix and nucleotide frequencies (from GC
     /// content) equals 1.
@@ -64,11 +65,17 @@ private:
 };
 
 /**
- * An AlignmentScorer that can score individual edits independently.
+ * An abstract AlignmentScorer that can score individual edits independently.
  */
 class EditAlignmentScorer : public AlignmentScorer {
 public:
-    
+
+    EditAlignmentScorer(int8_t match = default_match,
+                        int8_t mismatch = default_mismatch,
+                        int8_t gap_open = default_gap_open,
+                        int8_t gap_extension = default_gap_extension,
+                        int8_t full_length_bonus = default_full_length_bonus);
+   
     ////
     // Implement AlignmentScorer
     ////
@@ -76,9 +83,6 @@ public:
     /// Score an alignment as a contiguous alignment, including full-length bonuses.
     int32_t score_alignment(const Alignment& aln) const override;
     
-    /// Recover a log base from the match and mismatch scores.
-    double recover_log_base(double gc_content, double tol = 1e-12) const override;
-
     ////
     // Provide extra tools for working with pieces of alignments
     ////
@@ -138,11 +142,11 @@ public:
     // Expose individual generic operation scores.
     ////
 
-    int8_t  match = 0;
-    int8_t  mismatch = 0;
-    int8_t  gap_open = 0;
-    int8_t  gap_extension = 0;
-    int8_t  full_length_bonus = 0;
+    int8_t match;
+    int8_t mismatch;
+    int8_t gap_open;
+    int8_t gap_extension;
+    int8_t full_length_bonus;
 };
 
 /**
@@ -159,7 +163,8 @@ public:
     MatrixAlignmentScorer(const int8_t* score_matrix_4x4 = default_score_matrix,
                           int8_t gap_open = default_gap_open,
                           int8_t gap_extension = default_gap_extension,
-                          int8_t full_length_bonus = default_full_length_bonus);
+                          int8_t full_length_bonus = default_full_length_bonus,
+                          double gc_content = default_gc_content);
 
     ~MatrixAlignmentScorer() override;
 
@@ -167,8 +172,8 @@ public:
     MatrixAlignmentScorer(const MatrixAlignmentScorer&) = delete;
     MatrixAlignmentScorer& operator=(const MatrixAlignmentScorer&) = delete;
 
-    /// Recover a log base from the internal 5x5 score matrix.
-    double recover_log_base(double gc_content, double tol = 1e-12) const override;
+    /// Retriece the log base value that was computed at construction.
+    double get_log_base() const override;
 
     int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const override;
     int32_t score_exact_match(const std::string& sequence, const std::string& base_quality) const override;
@@ -199,9 +204,14 @@ public:
     ///
     /// This class makes this a 5x5x1 matrix, but subclasses can make this have
     /// more dimensions.
-    int8_t* score_matrix = nullptr;
+    int8_t* score_matrix;
     /// Char->int nt translation. Owned by this class.
-    int8_t* nt_table = nullptr;
+    int8_t* nt_table;
+
+protected:
+    /// We remember our computed log base.
+    double log_base;
+
 };
 
 /**
@@ -215,12 +225,9 @@ public:
                            int8_t gap_open = default_gap_open,
                            int8_t gap_extension = default_gap_extension,
                            int8_t full_length_bonus = default_full_length_bonus,
-                           double gc_content_for_qual_adj = default_gc_content);
+                           double gc_content = default_gc_content);
 
     ~QualAdjAlignmentScorer() override;
-
-    /// Recover a log base from the internal quality-adjusted score matrix.
-    double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
     int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const override;
     int32_t score_exact_match(const std::string& sequence, const std::string& base_quality) const override;

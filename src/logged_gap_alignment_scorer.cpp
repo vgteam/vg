@@ -5,8 +5,8 @@
 
 namespace vg {
 
-LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(const Alignment& standard)
-    : LoggedGapAlignmentScorer(standard, count_alignment_operations(standard)) {
+LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(const Alignment& standard, double gc_content)
+    : LoggedGapAlignmentScorer(standard, count_alignment_operations(standard), gc_content) {
     
     // Nothing to do!
 }
@@ -23,7 +23,27 @@ int32_t LoggedGapAlignmentScorer::score_alignment(const Alignment& aln) const {
     return score_from_counts(m, mm, gaps);
 }
 
-double LoggedGapAlignmentScorer::recover_log_base(double gc_content, double tol) const {
+double LoggedGapAlignmentScorer::get_log_base() const {
+    // TODO: This is the same approach as for the matrix-based scorer, but the
+    // members have different heritage so we can't just re-use the code...
+    return log_base;
+}
+
+LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(
+    const Alignment& standard,
+    std::tuple<size_t, size_t, std::vector<size_t>>&& operation_counts,
+    double gc_content
+) : 
+    // Very carefully initialize everything from only what preceeds it in the class definition
+    matches(std::get<0>(operation_counts)),
+    mismatches(std::get<1>(operation_counts)),
+    gap_lengths(std::move(std::get<2>(operation_counts))),
+    divergence(compute_divergence(matches, mismatches, gap_lengths)),
+    mismatch(-1.0 / (2.0 * divergence)), 
+    standard_address(&standard)
+{
+    // We have to go back and fill in log_base which is too hard to do in an initializer
+    
     // Synthesize a uniform substitution matrix from the marginal scores.
     double matrix[16];
     for (int i = 0; i < 4; ++i) {
@@ -32,22 +52,7 @@ double LoggedGapAlignmentScorer::recover_log_base(double gc_content, double tol)
         }
     }
     // Recover a log base from that
-    return AlignmentScorer::recover_log_base(matrix, gc_content, tol);
-}
-
-LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(
-    const Alignment& standard,
-    std::tuple<size_t, size_t, std::vector<size_t>>&& operation_counts
-) : 
-    // Very carefully initialize everything from only what preceeds it in the class definition
-    matches(std::get<0>(operation_counts)),
-    mismatches(std::get<1>(operation_counts)),
-    gap_lengths(std::move(std::get<2>(operation_counts))),
-    divergence(compute_divergence(matches, mismatches, gap_lengths)),
-    mismatch(-1.0 / (2.0 * divergence)),
-    standard_address(&standard)
-{
-    // Nothing to do!
+    log_base = AlignmentScorer::recover_log_base(matrix, gc_content);
 }
 
 int32_t LoggedGapAlignmentScorer::score_from_counts(size_t matches, size_t mismatches,
