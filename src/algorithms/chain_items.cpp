@@ -13,6 +13,7 @@
 
 //#define debug_chaining
 //#define debug_transition
+//#define debug_missing_transition
 //#define debug_dp
 
 namespace vg {
@@ -262,6 +263,18 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
                                           seed_to_starting, seed_to_ending);
 
+#ifdef debug_missing_transition
+        bool has_missing = \
+        find_missing_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+                                          seed_to_starting, seed_to_ending, distance_index, 
+                                          all_transitions);
+        if (has_missing) {
+            throw std::runtime_error("Zipcode tree iterator failed to output some transitions");
+        } else {
+            cerr << "No missing transitions" << endl;
+        }
+#endif
+
         std::vector<transition_info> filtered_transitions =
             calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
 
@@ -383,6 +396,103 @@ std::vector<transition_info> generate_zip_tree_transitions(
     }
 
     return all_transitions;
+}
+
+bool find_missing_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    const ZipCodeTree& zip_code_tree,
+    size_t max_graph_lookback_bases,
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending,
+    const SnarlDistanceIndex& distance_index,
+    const std::vector<transition_info>& all_transitions) {
+    
+    // {source anchor : {dest anchor : dist}}
+    std::unordered_map<size_t, std::unordered_map<size_t, size_t>> found;
+    for (const auto& transition : all_transitions) {
+        size_t dist_to_save = transition.graph_distance;
+        if (!found.count(transition.from_anchor)) {
+            found[transition.from_anchor] = std::unordered_map<size_t, size_t>();
+        }
+        if (found[transition.from_anchor].count(transition.to_anchor)) {
+            // If a transition appears multiple times, remember the min
+            dist_to_save = std::min(transition.graph_distance, 
+                                    found[transition.from_anchor][transition.to_anchor]);
+        }
+        found[transition.from_anchor][transition.to_anchor] = transition.graph_distance;
+    }
+
+    bool has_missing = false;
+
+    // Helper function to check for a distance between two seeds
+    auto check_distance = [&] (const ZipCodeTree::oriented_seed_t& from_seed, bool rev_from,
+                               const ZipCodeTree::oriented_seed_t& to_seed, bool rev_to) {
+        // XOR to get appropriate orientations
+        rev_from ^= from_seed.is_reversed;
+        rev_to ^= to_seed.is_reversed;
+        if (rev_from != rev_to) {
+            // Cannot be compared; incompatible orientations
+            return;
+        }
+
+        // Look up appropriate anchors
+        auto from_anchor_itr = rev_from ? seed_to_starting.find(from_seed.seed)
+                                        : seed_to_ending.find(from_seed.seed);
+        if ((rev_from && from_anchor_itr == seed_to_starting.end())
+            || (!rev_from && from_anchor_itr == seed_to_ending.end())) {
+            // No anchor exists
+            return;
+        }
+        auto to_anchor_itr = rev_to ? seed_to_ending.find(to_seed.seed)
+                                    : seed_to_starting.find(to_seed.seed);
+        if ((rev_to && to_anchor_itr == seed_to_ending.end())
+            || (!rev_to && to_anchor_itr == seed_to_starting.end())) {
+            // No anchor exists
+            return;
+        }
+
+        // Construct seed positions
+        pos_t from_pos = seeds.at(from_seed.seed).pos;
+        size_t from_length = distance_index.minimum_length(distance_index.get_node_net_handle(id(from_pos)));
+        from_pos = rev_from ? reverse(from_pos, from_length)
+                            : from_pos;
+        pos_t to_pos = seeds.at(to_seed.seed).pos;
+        size_t to_length = distance_index.minimum_length(distance_index.get_node_net_handle(id(to_pos)));
+        to_pos = rev_to ? reverse(to_pos, to_length)
+                        : to_pos;
+
+        // Look up true minimum distance
+        size_t true_distance = minimum_nontrivial_distance(distance_index, from_pos, to_pos);
+        if (true_distance <= max_graph_lookback_bases) {
+            // We should've found this transition
+            auto from_anchor = from_anchor_itr->second;
+            auto to_anchor = to_anchor_itr->second;
+            if (!found.count(from_anchor) 
+                || !found[from_anchor].count(to_anchor)
+                || found[from_anchor][to_anchor] != true_distance) {
+                has_missing = true;
+                cerr << "Missing transition " << from_pos << "->" 
+                     << to_pos << " dist " << true_distance << endl;
+            }
+        }
+    };
+    
+    vector<ZipCodeTree::oriented_seed_t> tree_seeds = zip_code_tree.get_all_seeds();
+    for (size_t i = 0; i < tree_seeds.size(); i++) {
+        // Check self-loops
+        check_distance(tree_seeds[i], false, tree_seeds[i], false);
+        check_distance(tree_seeds[i], false, tree_seeds[i], true);
+        check_distance(tree_seeds[i], true, tree_seeds[i], false);
+        for (size_t j = i + 1; j < tree_seeds.size(); j++) {
+            // Check all orientation pairs
+            check_distance(tree_seeds[i], false, tree_seeds[j], false);
+            check_distance(tree_seeds[i], false, tree_seeds[j], true);
+            check_distance(tree_seeds[i], true, tree_seeds[j], false);
+            check_distance(tree_seeds[i], true, tree_seeds[j], true);
+        }
+    }
+
+    return has_missing;
 }
 
 std::vector<transition_info> calculate_transition_read_distances(
@@ -547,6 +657,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
+    crash_unless(recomb_penalty >= 0);
+
     // Compute a base seed average length.
     // TODO: Weight anchors differently?
     // TODO: Will this always be the same for all anchors in practice?
@@ -557,6 +669,20 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     base_seed_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
+
+    // We want to prefer to come from seeds where the transition preserves
+    // access to matching haplotypes, because we don't want to back ourselves
+    // into a corner where we need a recombination when we don't really have
+    // to. So we cheat on the dynamic programming by adding an "evaluation
+    // bonus" to the scores of the different DP options when comparing them. We
+    // keep this bonus out of the actual recorded scores because we don't want
+    // it raising the scores we actually get the more transitions we take.
+    //
+    // We store the bonus used to select the current winning predecessor for
+    // each seed in this vector, which runs alongside the DP table.
+    //
+    // Starting from nowhere means full path conservation, so bonus = recomb_penalty.
+    std::vector<int> eval_bonuses(to_chain.size(), recomb_penalty);
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
         chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
@@ -586,8 +712,20 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], 
-                                                      {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()});
+        // This also has full path conservation (bonus = recomb_penalty).
+        {
+            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
+            int nowhere_bonus = recomb_penalty;
+            int eval_nowhere = from_nowhere.score + nowhere_bonus;
+            int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
+            if (eval_nowhere > eval_current) {
+                chain_scores[transition.to_anchor] = from_nowhere;
+                eval_bonuses[transition.to_anchor] = nowhere_bonus;
+            } else if (eval_nowhere == eval_current && from_nowhere > chain_scores[transition.to_anchor]) {
+                chain_scores[transition.to_anchor] = from_nowhere;
+                eval_bonuses[transition.to_anchor] = nowhere_bonus;
+            }
+        }
         
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
@@ -664,8 +802,34 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             TracedScore from_source_score = source_score.add_points(jump_points + item_points)
                                                         .set_shared_paths(here.anchor_paths());
             
-            // Remember that we could make this jump
-            chain_scores[transition.to_anchor] = std::max(chain_scores[transition.to_anchor], from_source_score);
+            // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
+            // Bonus = fraction of conserved paths * recomb_penalty.
+            // Bonus is 0 when recombination occurs (no shared paths).
+            int eval_bonus_from = 0;
+            if (recomb_penalty > 0) {
+                int pre_count = __builtin_popcountll(source_score.paths);
+                if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
+                    // No recombination: bonus = fraction of paths conserved * penalty
+                    int post_count = __builtin_popcountll(from_source_score.paths);
+                    eval_bonus_from = (recomb_penalty * post_count) / pre_count;
+                }
+                // Recombination case (no shared paths): bonus stays 0
+            }
+            
+            // Grab the DP table slot we are updating
+            auto& current_best = chain_scores[transition.to_anchor];
+            // Compute the evaluation value for the new candidate
+            int eval_from = from_source_score.score + eval_bonus_from;
+            // Reconstruct the evaluation value for the current winner
+            int eval_best = current_best.score + eval_bonuses[transition.to_anchor];
+
+            if (eval_from > eval_best || (eval_from == eval_best && from_source_score > current_best)) {
+                // Using the evaluation values, and then if tied the real DP
+                // scores, this new candidate beats the previous winner, so
+                // replace it.
+                current_best = from_source_score;
+                eval_bonuses[transition.to_anchor] = eval_bonus_from;
+            }
                                            
             if (show_work) {
 #ifdef debug_dp

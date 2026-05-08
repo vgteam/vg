@@ -1,7 +1,7 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
-#include "augref.hpp"
+#include "gref.hpp"
 
 //#define debug
 
@@ -1976,16 +1976,16 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 #endif
     }
 
-    // Use parent's ref path if no direct path, otherwise prefer base reference over augref paths
+    // Use parent's ref path if no direct path, otherwise prefer base reference over gref paths
     string ref_path_name;
     if (common_names.empty()) {
         ref_path_name = parent_ref_path_name;
     } else {
-        // Prefer base reference paths over derived augref paths
-        // common_names is sorted, so we iterate to find first non-augref path
+        // Prefer base reference paths over derived gref paths
+        // common_names is sorted, so we iterate to find first non-gref path
         ref_path_name = common_names.front();  // default to first (lexicographically smallest)
         for (const string& name : common_names) {
-            if (!AugRefCover::is_augref_name(name)) {
+            if (!GrefCover::is_gref_name(name)) {
                 ref_path_name = name;
                 break;
             }
@@ -2439,10 +2439,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     pair<size_t, size_t> gt_ref_interval;
     
     if (!common_names.empty()) {
-        // Prefer base reference paths over derived augref paths
+        // Prefer base reference paths over derived gref paths
         ref_path_name = common_names.front();  // default to first (lexicographically smallest)
         for (const string& name : common_names) {
-            if (!AugRefCover::is_augref_name(name)) {
+            if (!GrefCover::is_gref_name(name)) {
                 ref_path_name = name;
                 break;
             }

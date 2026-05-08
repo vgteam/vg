@@ -98,7 +98,7 @@ void help_autoindex(char** argv) {
          << "output:" << endl
          << "  -p, --prefix PREFIX    prefix to use for all output [index]" << endl
          << "  -w, --workflow NAME    workflow to produce indexes for (may repeat) [map]" << endl
-         << "                         {map, mpmap, rpvg, giraffe, sr-giraffe, lr-giraffe}" << endl
+         << "                         {map, mpmap, rpvg, sr-giraffe, lr-giraffe, sampling}" << endl
          << "input data:" << endl
          << "  -r, --ref-fasta FILE   FASTA file with the reference sequence (may repeat)" << endl
          << "  -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
@@ -227,6 +227,11 @@ int main_autoindex(int argc, char** argv) {
                 }
                 else if (optarg == string("rpvg")) {
                     for (auto& target : VGIndexes::get_default_rpvg_indexes()) {
+                        targets.emplace_back(std::move(target));
+                    }
+                }
+                else if (optarg == string("sampling")) {
+                    for (auto& target : VGIndexes::get_default_haplotype_sampling_indexes()) {
                         targets.emplace_back(std::move(target));
                     }
                 }

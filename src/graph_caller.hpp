@@ -15,7 +15,7 @@
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
-#include "augref.hpp"
+#include "gref.hpp"
 
 namespace vg {
 

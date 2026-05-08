@@ -2052,7 +2052,8 @@ cerr << "Start positon: "<< start_pos << endl;
                 super_graph->follow_edges(current_loop_handle, false, [&](const handle_t& next_handle) {
                     //If the next node is close enough and isn't exiting the snarl, then add it to stack
                     size_t new_distance = SnarlDistanceIndex::sum(current_loop_distance, super_graph->get_length(next_handle));
-                    if (new_distance < min_distance && next_handle != start_out && next_handle != end_out) {
+                    if (new_distance < min_distance && next_handle != start_out && next_handle != end_out &&
+                        seen_nodes.count(std::make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle))) == 0) {
                         loop_handles_to_check.emplace_back(next_handle, new_distance);
                     }
                 });
@@ -2283,7 +2284,8 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                             super_graph->follow_edges(current_loop_handle, false, [&](const handle_t& next_handle) {
                                 //If the next node is close enough and isn't exiting the snarl, then add it to stack
                                 size_t new_distance = SnarlDistanceIndex::sum(current_loop_distance, super_graph->get_length(next_handle));
-                                if (new_distance < min_distance && next_handle != start_out && next_handle != end_out) {
+                                if (new_distance < min_distance && next_handle != start_out && next_handle != end_out &&
+                                    seen_nodes.count(std::make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle))) == 0) {
                                     loop_handles_to_check.emplace_back(next_handle, new_distance);
                                 }
                             });
