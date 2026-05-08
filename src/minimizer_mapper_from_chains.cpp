@@ -853,28 +853,23 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Rescore each alignment under its own minimap2 logged-gap scheme.
 
         Alignment& aln = alignments[alignment_index];
-        if (aln.path().mapping_size() == 0) {
+        if (aln.path().mapping_size() == 0 || aln.sequence().size() == 0) {
+            // This alignment is unmapped or somehow empty.
             continue;
         }
+        // Otherwise it must have at least one edit
 
-        size_t matches, mismatches;
-        std::vector<size_t> gap_lengths;
-        LoggedGapAlignmentScorer::count_alignment_operations(aln, matches, mismatches, gap_lengths);
-        if (matches + mismatches + gap_lengths.size() == 0) {
-            continue;
-        }
-
+        // Make a scoring scheme based on it, and count its operations.
         LoggedGapAlignmentScorer scheme(aln);
-        // score_alignment hits the cached counts since we just constructed
-        // scheme from this same alignment.
+        // Score the alignment
         int32_t logged_gaps_score = scheme.score_alignment(aln);
         aln.set_score(logged_gaps_score);
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches
-                     << " Gap opens: " << gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
+                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
             }
         }
     }

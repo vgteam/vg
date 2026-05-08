@@ -14,62 +14,91 @@ namespace vg {
  * Scorer implementing the minimap2 long-indel rescoring formula
  * (Heng Li, Bioinformatics 2021, doi:10.1093/bioinformatics/btab705).
  *
- * Constructed from a reference alignment that defines the scoring scheme;
- * derives d at construction and exposes the marginal per-base match/mismatch
- * scores (in fractional precision) through which a MappingQualityCalculator
- * can be built. Can score the reference alignment (for free, via a cached
- * count) or any other alignment (which costs one path walk and applies the
- * formula with the reference's d).
+ * Constructed from a "standard" alignment that defines the scoring scheme.
+ * minimap2 only ever applies the scoring scheme back to that same alignment,
+ * but we allow applying it to others.
  *
- * All knowledge of the formula's coefficients lives in this class.
+ * The case of applying the scoring scheme back to the standard alignment is
+ * handled specially for speed; you MUST NOT apply the scorer to a different
+ * alignmnet at the same address as the standard alignment. (An easy way to
+ * ensure this is to ensure that the standard alignment outlives this object
+ * and is not modified.)
+ *
+ * Hides everything about the empirical minimap2 formula inside the class.
  */
 class LoggedGapAlignmentScorer : public AlignmentScorer {
 public:
-    /// Walks `reference` once, counts edits, derives d.
-    /// `reference` must outlive any call to `score_alignment(reference)`
-    /// since pointer identity is used to skip the second walk.
-    explicit LoggedGapAlignmentScorer(const Alignment& reference);
+    /// Construct a LoggedGapAlignmentScorer using the scoring scheme defined
+    /// by `standard`.
+    ///
+    /// `standard` must not be deallocated or modified between construction and
+    /// any call to `score_alignment()` on any alignment at that address,
+    /// because pointer identity is used to recognize that operations are on
+    /// the standard alignment.
+    explicit LoggedGapAlignmentScorer(const Alignment& standard);
 
-    /// Score an alignment under this scheme. If `&aln == &reference_aln`,
-    /// returns the cached value without re-walking the path.
+    /// Score an alignment under this scheme. Guaranteed to be O(1) when aln is
+    /// at the address of standard.
     int32_t score_alignment(const Alignment& aln) const override;
 
     /// Compute the "log base" that can be used to interpret scores
     /// probabilistically.
     double recover_log_base(double gc_content, double tol = 1e-12) const override;
 
+    // Because all these fields are const, we can't just run a static member
+    // that writes into each, so we need to do some backflips to fille
+    // everything in with just initializer list expressions.
+
+    // We expose the precomputed statistics about the standard alignment for
+    // the user of the class to read off. These are used to initialize the
+    // other members and MUST appear first here.
+
+    /// Number of matches in the standard alignment
+    const size_t matches;
+    /// Number of mismatches in the standard alignment
+    const size_t mismatches;
+    /// Lengths of all gaps in the standard alignment
+    const std::vector<size_t> gap_lengths;
+
+private:
+
+    /// Estimate of the divergence (what minimap2 calls "d").
+    /// This is used to initialize mismatch, and depends on the
+    /// statistics, and so MUST appear between them.
+    const double divergence;
+
+public:
+
+    /// Marginal per-base match score under this scheme. Always 1.0.
+    const double match = 1.0;
+    /// Marginal per-base mismatch (and per-gap-open) score under this scheme.
+    const double mismatch;
+
+private:
+
+    /// Build a LoggedGapAlignmentScorer with precomputed operation counts
+    LoggedGapAlignmentScorer(const Alignment& standard, std::tuple<size_t, size_t, std::vector<size_t>>&& operation_counts);
+
     /// Score a precomputed set of edit counts under this scheme.
     int32_t score_from_counts(size_t matches, size_t mismatches,
                               const std::vector<size_t>& gap_lengths) const;
 
-    /// Walk an alignment and tally matches, mismatches, and per-gap lengths.
-    /// Pure path traversal; no scheme parameter required.
+    /// Address where the standard alignment is, so we can recognize it later.
+    const Alignment* standard_address;
+
+    /// Walk an alignment and count matches, mismatches, and per-gap lengths.
     static void count_alignment_operations(const Alignment& aln,
                                            size_t& matches,
                                            size_t& mismatches,
                                            std::vector<size_t>& gap_lengths);
+    
+    /// Walk an alignment and count matches, mismatches, and per-gap lengths.
+    /// Returns the result in a format usable to construct a LoggedGapAlignmentScorer
+    static std::tuple<size_t, size_t, std::vector<size_t>> count_alignment_operations(const Alignment& aln);
 
-    /// Marginal per-base match score under this scheme. Always 1.0.
-    double match = 1.0;
-    /// Marginal per-base mismatch (and per-gap-open) score under this scheme.
-    double mismatch = 0.0;
-
-    /// Get the d parameter of the scheme (read-only). Public for diagnostics.
-    double get_d() const { return d; }
-
-private:
-    /// max(0.02, (mm + go) / (m + mm + go)). Recovered at construction.
-    double d;
-
-    /// Identity and cached counts of the reference alignment, so
-    /// `score_alignment(reference)` doesn't walk the path twice.
-    const Alignment* reference_aln;
-    size_t reference_matches;
-    size_t reference_mismatches;
-    std::vector<size_t> reference_gap_lengths;
-
-    static double recover_d(size_t matches, size_t mismatches,
-                            const std::vector<size_t>& gap_lengths);
+    /// Helper function to compute the divergence estimate from edit information.
+    static double compute_divergence(size_t matches, size_t mismatches,
+                                     const std::vector<size_t>& gap_lengths);
 };
 
 } // namespace vg

@@ -5,35 +5,18 @@
 
 namespace vg {
 
-LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(const Alignment& reference)
-    : reference_aln(&reference) {
-    count_alignment_operations(reference, reference_matches, reference_mismatches, reference_gap_lengths);
-    d = recover_d(reference_matches, reference_mismatches, reference_gap_lengths);
-    match = 1.0;
-    mismatch = -1.0 / (2.0 * d);
-}
-
-double LoggedGapAlignmentScorer::recover_d(size_t matches, size_t mismatches,
-                                           const std::vector<size_t>& gap_lengths) {
-    double total = static_cast<double>(matches + mismatches + gap_lengths.size());
-    if (total == 0.0) return 0.02;
-    return std::max(0.02, static_cast<double>(mismatches + gap_lengths.size()) / total);
-}
-
-int32_t LoggedGapAlignmentScorer::score_from_counts(size_t matches, size_t mismatches,
-                                                    const std::vector<size_t>& gap_lengths) const {
-    double non_match_penalty = static_cast<double>(mismatches + gap_lengths.size()) / (2.0 * d);
-    double indel_penalty = 0.0;
-    for (size_t gap_length : gap_lengths) {
-        indel_penalty += std::log2(1.0 + gap_length);
-    }
-    return std::round(static_cast<double>(matches) - non_match_penalty - indel_penalty);
+LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(const Alignment& standard)
+    : LoggedGapAlignmentScorer(standard, count_alignment_operations(standard)) {
+    
+    // Nothing to do!
 }
 
 int32_t LoggedGapAlignmentScorer::score_alignment(const Alignment& aln) const {
-    if (&aln == reference_aln) {
-        return score_from_counts(reference_matches, reference_mismatches, reference_gap_lengths);
+    if (&aln == standard_address) {
+        // Just score from the stored statistics
+        return score_from_counts(matches, mismatches, gap_lengths);
     }
+    // Otherwise, recompute and score from new statistics
     size_t m, mm;
     std::vector<size_t> gaps;
     count_alignment_operations(aln, m, mm, gaps);
@@ -50,6 +33,31 @@ double LoggedGapAlignmentScorer::recover_log_base(double gc_content, double tol)
     }
     // Recover a log base from that
     return AlignmentScorer::recover_log_base(matrix, gc_content, tol);
+}
+
+LoggedGapAlignmentScorer::LoggedGapAlignmentScorer(
+    const Alignment& standard,
+    std::tuple<size_t, size_t, std::vector<size_t>>&& operation_counts
+) : 
+    // Very carefully initialize everything from only what preceeds it in the class definition
+    matches(std::get<0>(operation_counts)),
+    mismatches(std::get<1>(operation_counts)),
+    gap_lengths(std::move(std::get<2>(operation_counts))),
+    divergence(compute_divergence(matches, mismatches, gap_lengths)),
+    mismatch(-1.0 / (2.0 * divergence)),
+    standard_address(&standard)
+{
+    // Nothing to do!
+}
+
+int32_t LoggedGapAlignmentScorer::score_from_counts(size_t matches, size_t mismatches,
+                                                    const std::vector<size_t>& gap_lengths) const {
+    double non_match_penalty = static_cast<double>(mismatches + gap_lengths.size()) / (2.0 * divergence);
+    double indel_penalty = 0.0;
+    for (size_t gap_length : gap_lengths) {
+        indel_penalty += std::log2(1.0 + gap_length);
+    }
+    return std::round(static_cast<double>(matches) - non_match_penalty - indel_penalty);
 }
 
 void LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln,
@@ -100,6 +108,22 @@ void LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln,
         }
     }
     finish_gap();
+}
+
+std::tuple<size_t, size_t, std::vector<size_t>> LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln) {
+    // Make the right shape of tuple
+    std::tuple<size_t, size_t, std::vector<size_t>> to_return;
+    // Fill it in
+    count_alignment_operations(aln, std::get<0>(to_return), std::get<1>(to_return), std::get<2>(to_return));
+    // Return it
+    return to_return;
+}
+
+double LoggedGapAlignmentScorer::compute_divergence(size_t matches, size_t mismatches,
+                                                    const std::vector<size_t>& gap_lengths) {
+    double total = static_cast<double>(matches + mismatches + gap_lengths.size());
+    if (total == 0.0) return 0.02;
+    return std::max(0.02, static_cast<double>(mismatches + gap_lengths.size()) / total);
 }
 
 } // namespace vg
