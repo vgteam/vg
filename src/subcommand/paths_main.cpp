@@ -19,7 +19,7 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
-#include "../augref.hpp"
+#include "../gref.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -67,20 +67,20 @@ void help_paths(char** argv) {
          << "  -R, --reference-paths     select reference paths" << endl
          << "  -H, --haplotype-paths     select haplotype paths" << endl
          << "      --exclude-sample STR  exclude paths belonging to this sample" << endl
-         << "augmented reference computation:" << endl
-         << "  -u, --compute-augref      compute augmented reference path cover" << endl
+         << "graph reference computation:" << endl
+         << "  -u, --compute-gref        compute graph reference path cover" << endl
          << "                            (use -Q to select reference paths)" << endl
-         << "  -l, --min-augref-len N    minimum augref fragment length [50]" << endl
-         << "  -N, --augref-sample STR   create augref paths under a new sample" << endl
+         << "  -l, --min-gref-len N      minimum gref fragment length [50]" << endl
+         << "  -N, --gref-sample STR     create gref paths under a new sample" << endl
          << "                            (copies base paths to new sample," << endl
-         << "                            then adds augref paths)." << endl
+         << "                            then adds gref paths)." << endl
          << "                            if unspecified, paths get added to target sample." << endl
-         << "      --augref-segs FILE    write augref segment table to FILE" << endl
+         << "      --gref-segs FILE      write gref segment table to FILE" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
-         << "                            applies to -n (snarl finding) and -u (augref)" << endl
-         << "      --progress, --verbose print progress and augref coverage summary" << endl;
+         << "                            applies to -n (snarl finding) and -u (gref)" << endl
+         << "      --progress, --verbose print progress and gref coverage summary" << endl;
 
 }
 
@@ -148,14 +148,14 @@ int main_paths(int argc, char** argv) {
     bool normalize_paths = false;
     bool overlay = false;
     bool progress = false;
-    bool compute_augref = false;
-    int64_t min_augref_length = 50;
-    string augref_sample;
-    string augref_segments_file;
+    bool compute_gref = false;
+    int64_t min_gref_length = 50;
+    string gref_sample;
+    string gref_segments_file;
     string exclude_sample;
 
     constexpr int OPT_PROGRESS = 1001;
-    constexpr int OPT_AUGREF_SEGMENTS = 1002;
+    constexpr int OPT_GREF_SEGMENTS = 1002;
     constexpr int OPT_EXCLUDE_SAMPLE = 1003;
 
     int c;
@@ -196,11 +196,11 @@ int main_paths(int argc, char** argv) {
             {"threads-old", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
 
-            // Augref options
-            {"compute-augref", no_argument, 0, 'u'},
-            {"min-augref-len", required_argument, 0, 'l'},
-            {"augref-sample", required_argument, 0, 'N'},
-            {"augref-segs", required_argument, 0, OPT_AUGREF_SEGMENTS},
+            // Gref options
+            {"compute-gref", no_argument, 0, 'u'},
+            {"min-gref-len", required_argument, 0, 'l'},
+            {"gref-sample", required_argument, 0, 'N'},
+            {"gref-segs", required_argument, 0, OPT_GREF_SEGMENTS},
             {"exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE},
 
             {0, 0, 0, 0}
@@ -341,24 +341,24 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'u':
-            compute_augref = true;
+            compute_gref = true;
             output_formats++;
             break;
 
         case 'l':
-            min_augref_length = parse<int64_t>(optarg);
+            min_gref_length = parse<int64_t>(optarg);
             break;
 
         case 'N':
-            augref_sample = optarg;
+            gref_sample = optarg;
             break;
 
         case OPT_PROGRESS:
             progress = true;
             break;
 
-        case OPT_AUGREF_SEGMENTS:
-            augref_segments_file = ensure_writable(logger, optarg);
+        case OPT_GREF_SEGMENTS:
+            gref_segments_file = ensure_writable(logger, optarg);
             break;
 
         case OPT_EXCLUDE_SAMPLE:
@@ -430,14 +430,14 @@ int main_paths(int argc, char** argv) {
     if (coverage && !gbwt_file.empty()) {
         logger.error() << "coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
     }
-    if (compute_augref && !gbwt_file.empty()) {
-        logger.error() << "augref computation only works on embedded graph paths, not GBWT threads" << std::endl;
+    if (compute_gref && !gbwt_file.empty()) {
+        logger.error() << "gref computation only works on embedded graph paths, not GBWT threads" << std::endl;
     }
-    if (compute_augref && path_prefix.empty()) {
-        logger.error() << "--compute-augref requires -Q to select reference path(s)" << std::endl;
+    if (compute_gref && path_prefix.empty()) {
+        logger.error() << "--compute-gref requires -Q to select reference path(s)" << std::endl;
     }
-    if (!augref_segments_file.empty() && !compute_augref) {
-        logger.error() << "--augref-segs requires --compute-augref" << std::endl;
+    if (!gref_segments_file.empty() && !compute_gref) {
+        logger.error() << "--gref-segs requires --compute-gref" << std::endl;
     }
     if (!exclude_sample.empty() && !sample_name.empty() && exclude_sample == sample_name) {
         logger.error() << "--exclude-sample and --sample cannot specify the same sample" << std::endl;
@@ -484,11 +484,11 @@ int main_paths(int argc, char** argv) {
     
     
     
-    // Handle augref computation before other operations
-    if (compute_augref && graph) {
+    // Handle gref computation before other operations
+    if (compute_gref && graph) {
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
         if (!mutable_graph) {
-            logger.error() << "graph cannot be modified for augref computation" << std::endl;
+            logger.error() << "graph cannot be modified for gref computation" << std::endl;
             return 1;
         }
 
@@ -496,8 +496,8 @@ int main_paths(int argc, char** argv) {
         unordered_set<path_handle_t> ref_paths;
         graph->for_each_path_handle([&](path_handle_t ph) {
             string path_name = graph->get_path_name(ph);
-            // Skip augref paths (they match prefixes but shouldn't be used as references)
-            if (AugRefCover::is_augref_name(path_name)) {
+            // Skip gref paths (they match prefixes but shouldn't be used as references)
+            if (GrefCover::is_gref_name(path_name)) {
                 return;
             }
             if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
@@ -528,23 +528,23 @@ int main_paths(int argc, char** argv) {
         IntegratedSnarlFinder finder(*graph, extra_node_weight);
         SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
 
-        // Compute and apply augref cover
-        AugRefCover cover;
-        if (!augref_sample.empty()) {
-            cover.set_augref_sample(augref_sample);
+        // Compute and apply gref cover
+        GrefCover cover;
+        if (!gref_sample.empty()) {
+            cover.set_gref_sample(gref_sample);
         }
         cover.set_verbose(progress);
         cover.clear(mutable_graph);
-        cover.compute(graph, &snarl_manager, ref_paths, min_augref_length);
+        cover.compute(graph, &snarl_manager, ref_paths, min_gref_length);
 
-        // Write augref segment table if requested
-        if (!augref_segments_file.empty()) {
-            ofstream segments_out(augref_segments_file);
+        // Write gref segment table if requested
+        if (!gref_segments_file.empty()) {
+            ofstream segments_out(gref_segments_file);
             if (!segments_out) {
-                logger.error() << "could not open augref-segs file: " << augref_segments_file << std::endl;
+                logger.error() << "could not open gref-segs file: " << gref_segments_file << std::endl;
                 return 1;
             }
-            cover.write_augref_segments(segments_out);
+            cover.write_gref_segments(segments_out);
         }
 
         cover.apply(mutable_graph);
