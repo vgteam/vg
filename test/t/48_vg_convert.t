@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 84
+plan tests 86
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -292,6 +292,13 @@ is $? 0 "GBZ to GFA conversion with paths and walks, GBWTGraph algorithm"
 cmp gbz.gfa graphs/components_paths_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
 
+# GBZ to GFA with only generic paths (needs 1 thread)
+vg convert --gbwtgraph-algorithm -f -t 1 --drop-haplotypes components.gbz | grep -v "^H.*NM:Z" > gbz-generic.gfa
+is $? 0 "GBZ to GFA conversion with only generic paths, GBWTGraph algorithm"
+grep -v "^W" graphs/components_paths_walks.gfa > generic.gfa
+cmp gbz-generic.gfa generic.gfa
+is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file with only generic paths"
+
 # Multithreaded GBZ to GFA with paths and walks
 vg convert -f components.gbz | grep -v "^H.*NM:Z" | sort > sorted.gfa
 cmp sorted.gfa correct.gfa
@@ -312,7 +319,7 @@ rm -f components.hg hg_paths.gaf hg_haplotypes.gaf gbz_hg_paths.gaf gbz_hg_haplo
 rm -f components.xg xg_paths.gaf xg_haplotypes.gaf gbz_xg_paths.gaf gbz_xg_haplotypes.gaf
 rm -f no_haplotypes.xg no_haplotypes.hg
 rm -f extracted.gfa gbz.gfa extracted.hg
-rm -f sorted.gfa correct.gfa
+rm -f gbz-generic.gfa generic.gfa sorted.gfa correct.gfa
 rm -f chopping.gbz with-translation.gfa no-translation.gfa
 
 #####

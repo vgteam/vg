@@ -85,7 +85,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
     std::shared_ptr<rgfa_cache_t> rgfa_cache = std::make_shared<rgfa_cache_t>();
     
     // We also need some shared state for making reference sample (RS) tags on the header apply to P and W lines later
-    std::shared_ptr<unordered_set<string>> reference_samples = std::make_shared<unordered_set<string>>();
+    std::shared_ptr<gbwtgraph::sample_name_set> reference_samples = std::make_shared<gbwtgraph::sample_name_set>();
     
     parser.header_listeners.push_back([&parser, reference_samples](const GFAParser::tag_list_t& tags) {
         for (const std::string& tag : tags) {

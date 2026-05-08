@@ -202,9 +202,6 @@ int main_deconstruct(int argc, char** argv) {
 
     }
 
-    if (all_snarls == true && contig_only_ref == true) {
-        logger.error() << "-C cannot be used with -a" << endl;
-    }
     if (star_allele == true && all_snarls == false) {
         logger.error() << "-R can only be used with -a" << endl;
     }
@@ -351,8 +348,31 @@ int main_deconstruct(int argc, char** argv) {
         });
     }
 
+    // Check that -C (--contig-only-ref) won't produce ambiguous contig names
+    if (contig_only_ref) {
+        unordered_map<string, string> locus_to_refpath;
+        for (const string& refpath : refpaths) {
+            string locus = PathMetadata::parse_locus_name(refpath);
+            if (locus == PathMetadata::NO_LOCUS_NAME) {
+                locus = refpath;
+            }
+            // Strip subrange so that subpaths of the same contig (e.g.
+            // chr6[0-133516] and chr6[135228-245436]) are not treated as
+            // ambiguous — they map to the same contig name by design.
+            subrange_t subrange;
+            string base_refpath = Paths::strip_subrange(refpath, &subrange);
+            auto it = locus_to_refpath.find(locus);
+            if (it != locus_to_refpath.end() && it->second != base_refpath) {
+                logger.error() << "-C (--contig-only-ref) cannot be used because reference paths \""
+                               << it->second << "\" and \"" << refpath
+                               << "\" both map to contig name \"" << locus << "\"" << endl;
+            }
+            locus_to_refpath[locus] = base_refpath;
+        }
+    }
+
     // Load or compute the snarls
-    unique_ptr<SnarlManager> snarl_manager;    
+    unique_ptr<SnarlManager> snarl_manager;
     if (!snarl_file_name.empty()) {
         ifstream snarl_file(snarl_file_name.c_str());
         if (show_progress) {

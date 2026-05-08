@@ -1498,7 +1498,7 @@ void set_tags(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     
     gbwts.use_compressed();
     gbwt::GBWT* index = gbwts.get_compressed();
-    std::unordered_set<std::string> reference_samples;
+    gbwtgraph::sample_name_set reference_samples;
     for (auto& kv : config.tags_to_set) {
         if (kv.first == gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG && graphs.in_use == GraphHandler::graph_gbz) {
             // GBZ has a proper way of setting the reference samples.

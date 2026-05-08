@@ -6,6 +6,7 @@
 #include <ctime>
 
 #include <atomic>
+#include <optional>
 #include <string>
 #include <vector>
 #include <set>
@@ -33,17 +34,18 @@ using namespace vg;
 using namespace vg::subcommand; 
 
 void help_surject(char** argv) {
-    cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.gam]" << endl
+    cerr << "usage: " << argv[0] << " surject -x graph.gbz --read-length [short|long] [options] <aln.gam> >out.gam" << endl
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
          << "  -x, --xg-name FILE        use this graph or XG index (required)" << endl
          << "  -t, --threads N           number of threads to use" << endl
+         << "  -D, --read-length TYPE    read length preset: {short, long}" << endl
          << "  -p, --into-path NAME      surject into this path or its subpaths (may repeat)" << endl
          << "                            default: reference, then non-alt generic" << endl
          << "  -F, --into-paths FILE     surject into path names listed in" << endl
          << "                            HTSlib sequence dictionary or path list FILE" << endl
-         << "  -n, --into-ref NAME       surject into this reference assembly" << endl 
+         << "  -n, --into-ref NAME       surject into this reference assembly" << endl
          << "  -i, --interleaved         GAM is interleaved paired-ended, so pair reads" << endl
          << "                            when outputting HTS formats" << endl
          << "  -M, --multimap            include secondary alignments to all" << endl
@@ -62,6 +64,8 @@ void help_surject(char** argv) {
          << "                            (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
                                          << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
          << "  -P, --prune-low-cplx      prune short/low complexity anchors in realignment" << endl
+         << "                            (on by default for long reads)" << endl
+         << "      --no-prune-low-cplx   disable anchor pruning" << endl
          << "  -I, --max-slide N         look for offset duplicates of anchors up to N bp" << endl
          << "                            away when pruning "
                                      << "(default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
@@ -70,7 +74,7 @@ void help_surject(char** argv) {
          << "                            as spliced alignments" << endl
          << "  -A, --qual-adj            adjust scoring for base qualities, if available" << endl
          << "  -E, --extra-gap-cost N    for dynamic programming, add N to the gap open cost" << endl
-         << "                            of the 10x-scaled scoring parameters" << endl 
+         << "                            of the 10x-scaled scoring parameters" << endl
          << "  -N, --sample NAME         set this sample name for all reads" << endl
          << "  -R, --read-group NAME     set this read group for all reads" << endl
          << "  -f, --max-frag-len N      reads with fragment lengths greater than N won't be" << endl
@@ -139,7 +143,9 @@ static void adjacent_but_not_paired_error(const Logger& logger, const string& na
 
 int main_surject(int argc, char** argv) {
     Logger logger("vg surject");
-    
+
+    constexpr int OPT_NO_PRUNE_LOW_CPLX = 1000;
+
     if (argc == 2) {
         help_surject(argv);
         return 1;
@@ -165,7 +171,8 @@ int main_surject(int argc, char** argv) {
     std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
     int8_t extra_gap_cost = 0;
-    bool prune_anchors = false;
+    std::optional<bool> prune_anchors;
+    string read_length;
     int64_t max_slide = Surjector::DEFAULT_MAX_SLIDE;
     size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
     bool report_supplementary = false;
@@ -199,8 +206,10 @@ int main_surject(int argc, char** argv) {
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
             {"supplementary", no_argument, 0, 'u'},
+            {"read-length", required_argument, 0, 'D'},
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
+            {"no-prune-low-cplx", no_argument, 0, OPT_NO_PRUNE_LOW_CPLX},
             {"max-slide", required_argument, 0, 'I'},
             {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
@@ -218,7 +227,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -289,12 +298,20 @@ int main_surject(int argc, char** argv) {
             report_supplementary = true;
             break;
                 
+        case 'D':
+            read_length = optarg;
+            break;
+
         case 'S':
             spliced = true;
             break;
-                
+
         case 'P':
             prune_anchors = true;
+            break;
+
+        case OPT_NO_PRUNE_LOW_CPLX: // --no-prune-low-cplx
+            prune_anchors = false;
             break;
 
         case 'I':
@@ -362,6 +379,16 @@ int main_surject(int argc, char** argv) {
         default:
             abort ();
         }
+    }
+
+    // normalize and apply read length preset
+    read_length = to_lower(read_length);
+    std::unordered_set<std::string> read_lengths{"long", "short"};
+    if (!read_length.empty() && !read_lengths.count(read_length)) {
+        logger.error() << "Unrecognized read length preset (--read-length/-D): " << read_length << endl;
+    }
+    if (!prune_anchors.has_value()) {
+        prune_anchors = (read_length == "long");
     }
 
     string file_name = get_input_file_name(optind, argc, argv);
@@ -438,7 +465,7 @@ int main_surject(int argc, char** argv) {
                                        default_gap_open, default_gap_extension,
                                        default_full_length_bonus); 
     }
-    surjector.prune_suspicious_anchors = prune_anchors;
+    surjector.prune_suspicious_anchors = *prune_anchors;
     surjector.max_slide = max_slide;
     surjector.max_anchors = max_anchors;
     if (spliced) {

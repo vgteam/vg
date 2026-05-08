@@ -1001,7 +1001,7 @@ string Deconstructor::get_vcf_header() {
         ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
     }
     if (!long_ref_contig) {
-        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1 || include_nested;
+        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
     }
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;

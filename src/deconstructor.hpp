@@ -14,6 +14,8 @@
 #include "graph_caller.hpp"
 #include "lru_cache.h"
 
+#include <gbwtgraph/utils.h>
+
 /** \file
 * Deconstruct is getting rewritten.
 * New functionality:
@@ -146,7 +148,7 @@ private:
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
     // When using the gbwt we need some precomputed information to ask about stored paths.
-    unordered_set<string> gbwt_reference_samples;
+    gbwtgraph::sample_name_set gbwt_reference_samples;
     
     // infer ploidys from gbwt when possible
     unordered_map<string, pair<int, int>> gbwt_sample_to_phase_range;

@@ -2,12 +2,25 @@
 
 # plot-qq.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 
-list.of.packages <- c("tidyverse", "ggrepel", "svglite", "binom")
+filename <- commandArgs(TRUE)[2]
+
+# Install required packages
+list.of.packages <- c("tidyverse")
+if (endsWith(tolower(filename), ".svg")) {
+    list.of.packages <- append(list.of.packages, "svglite")
+}
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
-require("ggrepel")
-require("binom")
+
+# binom is optional
+if ("binom" %in% installed.packages()[,"Package"]) {
+    require("binom")
+    have.binom <- TRUE
+} else {
+    have.binom <- FALSE
+    print("Install binom for confidence intervals!")
+}
 
 # Read in the combined toil-vg stats.tsv, listing:
 # correct, mapq, aligner (really graph name), read name, count, eligible
@@ -99,10 +112,12 @@ colors <- colors[aligner.names]
 
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 
-x <- as.data.frame(summarize(group_by(dat, bin, aligner), N=n(), mapq=mean(mq), mapprob=mean(1-10^(-mapq/10)), observed=weighted.mean(correct, count), select(binom.confint(sum(correct * count), sum(count), conf.level=0.9, methods="lrt"), c("lower", "upper"))))
-
-print(names(x))
-print(x$ci)
+# TODO: How do we just make the binom part conditional?
+if (have.binom) {
+    x <- as.data.frame(summarize(group_by(dat, bin, aligner), N=n(), mapq=mean(mq), mapprob=mean(1-10^(-mapq/10)), observed=weighted.mean(correct, count), select(binom.confint(sum(correct * count), sum(count), conf.level=0.9, methods="lrt"), c("lower", "upper"))))
+} else {
+    x <- as.data.frame(summarize(group_by(dat, bin, aligner), N=n(), mapq=mean(mq), mapprob=mean(1-10^(-mapq/10)), observed=weighted.mean(correct, count)))
+}
 
 # Now plot the points as different sizes, but the error bar line ranges as a consistent size
 dat.plot <- ggplot(x, aes(1-mapprob+1e-7, 1-observed+1e-7, color=aligner, size=N, weight=N, label=round(mapq,2))) +
@@ -112,7 +127,7 @@ dat.plot <- ggplot(x, aes(1-mapprob+1e-7, 1-observed+1e-7, color=aligner, size=N
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
     geom_point() +
     # Only aesthetics that depend on each point need to be in the aes() mapping
-    geom_linerange(aes(x=1-mapprob+1e-7, ymin=1-upper+1e-7, ymax=1-lower+1e-7), linewidth=0.2, position=position_dodge(.05)) +
+    if (have.binom) geom_linerange(aes(x=1-mapprob+1e-7, ymin=1-upper+1e-7, ymax=1-lower+1e-7), linewidth=0.2, position=position_dodge(.05)) else 0 +
     geom_smooth() +
     geom_abline(intercept=0, slope=1, linetype=2) +
     theme_bw()
@@ -122,5 +137,4 @@ if (title != '') {
     dat.plot + ggtitle(title)
 }
 
-filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)

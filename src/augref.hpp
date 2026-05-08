@@ -21,6 +21,8 @@
  * cover can be created and loaded, but they are not used beyond that.
  */
 
+#include <optional>
+
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
@@ -135,13 +137,28 @@ protected:
     // add_interval() can delete an existing interval. This requires a full update at the end.
     void defragment_intervals();
 
+    // Remove non-reference intervals shorter than minimum_length, then defragment.
+    // Called after all merging is complete so short intervals have had a chance to merge.
+    void filter_short_intervals(int64_t minimum_length);
+
+    // Walk forward from start_step on path, comparing each node ID + orientation
+    // against other_interval's steps. Returns the new end step if all match, nullopt otherwise.
+    optional<step_handle_t> try_extend_forward(step_handle_t start_step, path_handle_t path,
+                                                const pair<step_handle_t, step_handle_t>& other_interval);
+
+    // Collect other_interval's node IDs + orientations into a vector (forward walk).
+    // Then walk backward from start_step on path, comparing in reverse.
+    // Returns the first matching step if all match, nullopt otherwise.
+    optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
+                                                 const pair<step_handle_t, step_handle_t>& other_interval);
+
+    // Check if merging two adjacent/overlapping step ranges on the same path
+    // would produce a duplicate node ID.  Walks [interval_a.first, interval_b.second).
+    bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
+                                    const pair<step_handle_t, step_handle_t>& interval_b) const;
+
     // Get the total coverage of a traversal (sum of step lengths * path count).
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
-
-    // Make sure all nodes in all augref paths are in forward orientation.
-    // This is always possible because they are, by definition, disjoint.
-    // This should only be run from inside apply().
-    void forwardize_augref_paths(MutablePathMutableHandleGraph* mutable_graph);
 
     // Second pass: greedily cover any nodes not covered by snarl traversals.
     // This handles nodes that are outside of snarls or in complex regions
@@ -182,6 +199,10 @@ protected:
 
     // Whether to print verbose output (coverage summary, etc.)
     bool verbose = false;
+
+    // When true, rank traversal fragments by name only (ignore coverage).
+    // This ensures deterministic output regardless of thread count.
+    bool rank_by_name = false;
 
     // Copy base reference paths to the augref sample.
     // Creates new paths like "new_sample#0#chr1" from "CHM13#0#chr1".

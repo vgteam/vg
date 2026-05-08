@@ -109,7 +109,7 @@ struct HaplotypesConfig {
     size_t k = haplotypes_defaults::k(), w = haplotypes_defaults::w();
     HaplotypePartitioner::Parameters partitioner_parameters;
     Recombinator::Parameters recombinator_parameters;
-    std::unordered_set<std::string> reference_samples; // Overrides those specified in the graph.
+    gbwtgraph::sample_name_set reference_samples; // Overrides those specified in the graph.
 
     // For subchain statistics.
     std::string ref_sample;

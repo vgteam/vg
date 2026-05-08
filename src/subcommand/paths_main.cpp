@@ -33,53 +33,54 @@ using namespace vg::subcommand;
 
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl
-         << "  -h, --help               print this help message to stderr and exit" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl
          << "input:" << endl
-         << "  -x, --xg FILE            use the paths and haplotypes in this graph FILE" << endl
-         << "                           Supports GBZ haplotypes. (also accepts -v, --vg)" << endl
-         << "  -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
-         << "                           (graph also required for most output options;" << endl
-         << "                           -g takes priority over -x)" << endl
+         << "  -x, --xg FILE             use the paths and haplotypes in this graph FILE" << endl
+         << "                            Supports GBZ haplotypes. (also accepts -v, --vg)" << endl
+         << "  -g, --gbwt FILE           use the threads in the GBWT index in FILE" << endl
+         << "                            (graph also required for most output options;" << endl
+         << "                            -g takes priority over -x)" << endl
          << "output graph (.vg format):" << endl
-         << "  -V, --extract-vg         output a path-only graph covering the selected paths" << endl
-         << "  -d, --drop-paths         output a graph with the selected paths removed" << endl
-         << "  -r, --retain-paths       output a graph with only the selected paths retained" << endl
-         << "  -n, --normalize-paths    output a graph where equivalent paths in a site are" << endl
-         << "                           merged (using selected paths to snap to if possible)" << endl 
+         << "  -V, --extract-vg          output a path-only graph covering the selected paths" << endl
+         << "  -d, --drop-paths          output a graph with the selected paths removed" << endl
+         << "  -r, --retain-paths        output a graph with only the selected paths retained" << endl
+         << "  -n, --normalize-paths     output a graph where equivalent paths in a site are" << endl
+         << "                            merged (using selected paths to snap to if possible)" << endl
          << "output path data:" << endl
-         << "  -X, --extract-gam        print (as GAM alignments) stored paths in the graph" << endl
-         << "  -A, --extract-gaf        print (as GAF alignments) stored paths in the graph" << endl
-         << "  -L, --list               print (one per line) path (or thread) names" << endl
-         << "  -E, --lengths            print a list of path names (as with -L)" << endl
-         << "                           but paired with their lengths" << endl
-         << "  -M, --metadata           print a table of path names and their metadata" << endl
-         << "  -C, --cyclicity          print a list of path names (as with -L)" << endl
-         << "                           but paired with flag denoting the cyclicity" << endl
-         << "  -F, --extract-fasta      print the paths in FASTA format" << endl
-         << "  -c, --coverage           print the coverage stats for selected paths" << endl
-         << "                           (not including cycles)" << endl
+         << "  -X, --extract-gam         print (as GAM alignments) stored paths in the graph" << endl
+         << "  -A, --extract-gaf         print (as GAF alignments) stored paths in the graph" << endl
+         << "  -L, --list                print (one per line) path (or thread) names" << endl
+         << "  -E, --lengths             print a list of path names (as with -L)" << endl
+         << "                            but paired with their lengths" << endl
+         << "  -M, --metadata            print a table of path names and their metadata" << endl
+         << "  -C, --cyclicity           print a list of path names (as with -L)" << endl
+         << "                            but paired with flag denoting the cyclicity" << endl
+         << "  -F, --extract-fasta       print the paths in FASTA format" << endl
+         << "  -c, --coverage            print the coverage stats for selected paths" << endl
+         << "                            (not including cycles)" << endl
          << "path selection:" << endl
-         << "  -p, --paths-file FILE    select paths named in a file (one per line)" << endl
-         << "  -Q, --paths-by STR       select paths with the given name prefix" << endl
-         << "  -S, --sample STR         select haplotypes or reference paths for this sample" << endl
-         << "  -a, --variant-paths      select variant paths added by 'vg construct -a'" << endl
-         << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
-         << "  -R, --reference-paths    select reference paths" << endl
-         << "  -H, --haplotype-paths    select haplotype paths" << endl
+         << "  -p, --paths-file FILE     select paths named in a file (one per line)" << endl
+         << "  -Q, --paths-by STR        select paths with the given name prefix" << endl
+         << "  -S, --sample STR          select haplotypes or reference paths for this sample" << endl
+         << "  -a, --variant-paths       select variant paths added by 'vg construct -a'" << endl
+         << "  -G, --generic-paths       select generic, non-reference, non-haplotype paths" << endl
+         << "  -R, --reference-paths     select reference paths" << endl
+         << "  -H, --haplotype-paths     select haplotype paths" << endl
+         << "      --exclude-sample STR  exclude paths belonging to this sample" << endl
          << "augmented reference computation:" << endl
-         << "  -u, --compute-augref     compute augmented reference path cover" << endl
-         << "                           (use -Q to select reference paths)" << endl
-         << "  -l, --min-augref-len N   minimum augref fragment length [50]" << endl
-         << "  -N, --augref-sample STR  create augref paths under a new sample" << endl
-         << "                           (copies base paths to new sample," << endl
-         << "                           then adds augref paths)." << endl
-         << "                           if unspecified, paths get added to target sample." << endl
-         << "      --augref-segs FILE   write augref segment table to FILE" << endl
-         << "      --verbose            print augref progress and coverage summary" << endl
+         << "  -u, --compute-augref      compute augmented reference path cover" << endl
+         << "                            (use -Q to select reference paths)" << endl
+         << "  -l, --min-augref-len N    minimum augref fragment length [50]" << endl
+         << "  -N, --augref-sample STR   create augref paths under a new sample" << endl
+         << "                            (copies base paths to new sample," << endl
+         << "                            then adds augref paths)." << endl
+         << "                            if unspecified, paths get added to target sample." << endl
+         << "      --augref-segs FILE    write augref segment table to FILE" << endl
+         << "      --verbose             print augref progress and coverage summary" << endl
          << "configuration:" << endl
-         << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
-         << "  -t, --threads N          number of threads to use [all available]" << endl
-         << "                           applies only to snarl finding within -n" << endl;
+         << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
+         << "  -t, --threads N           number of threads to use [all available]" << endl
+         << "                            applies only to snarl finding within -n" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.
@@ -151,9 +152,11 @@ int main_paths(int argc, char** argv) {
     string augref_sample;
     bool augref_verbose = false;
     string augref_segments_file;
+    string exclude_sample;
 
     constexpr int OPT_VERBOSE = 1001;
     constexpr int OPT_AUGREF_SEGMENTS = 1002;
+    constexpr int OPT_EXCLUDE_SAMPLE = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -197,6 +200,7 @@ int main_paths(int argc, char** argv) {
             {"augref-sample", required_argument, 0, 'N'},
             {"augref-segs", required_argument, 0, OPT_AUGREF_SEGMENTS},
             {"verbose", no_argument, 0, OPT_VERBOSE},
+            {"exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE},
 
             {0, 0, 0, 0}
         };
@@ -357,6 +361,10 @@ int main_paths(int argc, char** argv) {
             augref_segments_file = ensure_writable(logger, optarg);
             break;
 
+        case OPT_EXCLUDE_SAMPLE:
+            exclude_sample = optarg;
+            break;
+
         case 'h':
         case '?':
             help_paths(argv);
@@ -432,6 +440,9 @@ int main_paths(int argc, char** argv) {
     if (!augref_segments_file.empty() && !compute_augref) {
         logger.error() << "--augref-segs requires --compute-augref" << std::endl;
     }
+    if (!exclude_sample.empty() && !sample_name.empty() && exclude_sample == sample_name) {
+        logger.error() << "--exclude-sample and --sample cannot specify the same sample" << std::endl;
+    }
 
     if (select_alt_paths) {
         // alt paths all have a specific prefix
@@ -491,6 +502,10 @@ int main_paths(int argc, char** argv) {
                 return;
             }
             if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
+                if (!exclude_sample.empty() &&
+                    graph->get_sample_name(ph) == exclude_sample) {
+                    return;
+                }
                 ref_paths.insert(ph);
             }
         });
@@ -594,11 +609,24 @@ int main_paths(int argc, char** argv) {
             }
         }
 
+        if (!exclude_sample.empty()) {
+            std::vector<gbwt::size_type> filtered_ids;
+            filtered_ids.reserve(thread_ids.size());
+            for (gbwt::size_type id : thread_ids) {
+                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, id, gbwt_reference_samples);
+                std::string sample = gbwtgraph::get_path_sample_name(*gbwt_index, id, sense);
+                if (sample != exclude_sample) {
+                    filtered_ids.push_back(id);
+                }
+            }
+            thread_ids = std::move(filtered_ids);
+        }
+
         if (thread_ids.empty()) {
             logger.warn() << "no matching paths found in GBWT index" << std::endl;
             return 0;
         }
-        
+
         // Process the threads.
         for (gbwt::size_type id : thread_ids) {
             PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, id, gbwt_reference_samples);
@@ -656,6 +684,10 @@ int main_paths(int argc, char** argv) {
                     if (graph->has_path(name)) {
                         auto path_handle = graph->get_path_handle(name);
                         if (path_senses.count(graph->get_sense(path_handle))) {
+                            if (!exclude_sample.empty() &&
+                                graph->get_sample_name(path_handle) == exclude_sample) {
+                                continue;
+                            }
                             // But only take those with senses we want.
                             iteratee(path_handle);
                         }
@@ -678,7 +710,13 @@ int main_paths(int argc, char** argv) {
                 
                 graph->for_each_path_matching(&path_senses, sample_name_filter, locus_name_filter,
                     [&](const path_handle_t& path_handle) {
-                
+
+                    // Filter out excluded sample
+                    if (!exclude_sample.empty() &&
+                        graph->get_sample_name(path_handle) == exclude_sample) {
+                        return;
+                    }
+
                     // We got a path of appropriate sense, locus, and sample.
                     if (!path_prefix.empty()) {
                         // Filter by name prefix

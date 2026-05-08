@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 52
+plan tests 60
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -27,6 +27,12 @@ is $(vg paths --list -S 1 -g x.gbwt | wc -l) 2 "thread selection by sample name 
 vg paths --list -S 2 -g x.gbwt > out.txt 2> err.txt
 is $(cat out.txt | wc -l) 0 "no threads are reported for invalid samples"
 is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 threads are matched"
+
+# Exclude sample from selection
+is $(vg paths --list -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "excluding sample removes all matching threads from GBWT listing"
+is $(vg paths --list -g x.gbwt --exclude-sample nonexistent | wc -l) 2 "excluding nonexistent sample has no effect on GBWT listing"
+is $(vg paths --list -Q "1#0#x#" -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "exclude-sample combined with -Q prefix selection works"
+is $(vg paths --list -x x.xg --exclude-sample nonexistent | wc -l) 1 "excluding nonexistent sample has no effect on graph path listing"
 
 # Extract threads as alignments
 is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
@@ -180,8 +186,26 @@ is $? 0 "augref-segs requires compute-augref option"
 vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-sample TESTSAMPLE --augref-segs augref_sample_test.segs > augref_sample_test.vg
 is $(cut -f4 augref_sample_test.segs | grep -c "TESTSAMPLE") 2 "augref-segs uses augref-sample for path names"
 
+# Test cross-path interval merging (left merge: new interval absorbs previous from different path)
+vg paths -x nesting/cross_path_merge.gfa -Q x --compute-augref --min-augref-len 1 > cross_merge_test.vg
+vg validate cross_merge_test.vg
+is $? 0 "cross-path merge: augref computation produces valid graph"
+
+# Cross-path merge should combine snarl interval [2,3,4] + dangling [9] into one path on hap3
+# Without merging: 3 augref paths. With merging: 2 augref paths.
+is $(vg paths -x cross_merge_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path left merge reduces augref path count"
+
+# Test cross-path interval merging (right merge: new interval absorbs following from different path)
+vg paths -x nesting/cross_path_merge_right.gfa -Q x --compute-augref --min-augref-len 1 > cross_merge_right_test.vg
+vg validate cross_merge_right_test.vg
+is $? 0 "cross-path right merge: augref computation produces valid graph"
+
+# Cross-path merge should combine dangling [9] + snarl interval [2,3,4] into one path on hap3
+is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path right merge reduces augref path count"
+
 rm -f augref_test.vg triple_augref.vg triple_augref_long.vg dangling_augref.vg x.pg x.gbwt x.gbz
 rm -f augref_test.segs augref_segs_test.vg augref_sample_test.segs augref_sample_test.vg
+rm -f cross_merge_test.vg cross_merge_right_test.vg
 
 
 
