@@ -25,9 +25,8 @@ namespace vg {
 class MappingQualityCalculator {
 public:
     template<typename ScorerT>
-    MappingQualityCalculator(const ScorerT& scorer, double gc_content)
-        : gc_content(gc_content),
-          rep_match(static_cast<double>(scorer.match)),
+    MappingQualityCalculator(const ScorerT& scorer)
+        : rep_match(static_cast<double>(scorer.match)),
           rep_mismatch(static_cast<double>(scorer.mismatch)),
           log_base(scorer.get_log_base()) {}
 
@@ -85,9 +84,6 @@ public:
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) const;
     double estimate_next_best_score(int length, double min_diffs) const;
 
-    double get_log_base() const { return log_base; }
-    double get_gc_content() const { return gc_content; }
-
     // Static helpers (no internal MQ state needed).
 
     /// Given a nonempty vector of nonnegative scaled alignment scores,
@@ -110,7 +106,6 @@ private:
     std::vector<double> all_mapping_qualities_exact(const std::vector<double>& scaled_scores,
                                                     const std::vector<double>* multiplicities = nullptr) const;
 
-    double gc_content;
     double rep_match;
     double rep_mismatch;
     double log_base;

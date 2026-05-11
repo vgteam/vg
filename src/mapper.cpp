@@ -2274,14 +2274,14 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         // Get the aligner so we can convert from logprob to score points
         // TODO: This should always be the same aligner!
         auto* aligner = get_aligner(!alns[i]->quality().empty());
-        assert(aligner->mapq_calc->get_log_base() != 0);
+        assert(aligner->scorer->get_log_base() != 0);
         
         if (alns[i]->path().mapping_size() != 0) {
             // We actually did rescore this one
             
             // This is a score "penalty" because it is usually negative. But positive = more score.
             // Convert to points, raise to haplotype consistency exponent power.
-            double score_penalty = haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->mapq_calc->get_log_base());
+            double score_penalty = haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->scorer->get_log_base());
             
             // Apply "penalty"
             int64_t old_score = alns[i]->score();
@@ -2292,9 +2292,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             set_annotation(alns[i], "haplotype_score", score_penalty);
 
             if (debug) {
-                cerr << "Alignment statring at " << alns[i]->path().mapping(0).position().node_id()
+                cerr << "Alignment starting at " << alns[i]->path().mapping(0).position().node_id()
                     << " got logprob " << haplotype_logprobs[i] << " vs " << haplotype_count
-                    << " haplotypes, moving score by " << score_penalty
+                    << " haplotypes, moving score by " << score_penalty << " via log base " << aligner->scorer->get_log_base()
                     << " from " << old_score << " to " << alns[i]->score() << endl;
             }
         }

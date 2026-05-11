@@ -51,7 +51,7 @@ namespace vg {
         /// Build a GSSWAligner around a MatrixAlignmentScorer.
         ///
         /// This is the protected constructor menat to be called by subclasses.
-        GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer, double gc_content);
+        GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer);
         ~GSSWAligner();
 
     public:
@@ -161,11 +161,11 @@ namespace vg {
 
     public:
 
-        Aligner(const int8_t* _score_matrix = default_score_matrix,
-                int8_t _gap_open = default_gap_open,
-                int8_t _gap_extension = default_gap_extension,
-                int8_t _full_length_bonus = default_full_length_bonus,
-                double _gc_content = default_gc_content);
+        Aligner(const int8_t* score_matrix = default_score_matrix,
+                int8_t gap_open = default_gap_open,
+                int8_t gap_extension = default_gap_extension,
+                int8_t full_length_bonus = default_full_length_bonus,
+                double gc_content = default_gc_content);
         // Move-only (owned scorer/MQ calc are unique_ptrs).
         Aligner(Aligner&&) = default;
         Aligner& operator=(Aligner&&) = default;
@@ -219,11 +219,11 @@ namespace vg {
     class QualAdjAligner : public GSSWAligner {
     public:
 
-        QualAdjAligner(const int8_t* _score_matrix = default_score_matrix,
-                       int8_t _gap_open = default_gap_open,
-                       int8_t _gap_extension = default_gap_extension,
-                       int8_t _full_length_bonus = default_full_length_bonus,
-                       double _gc_content = default_gc_content);
+        QualAdjAligner(const int8_t* score_matrix = default_score_matrix,
+                       int8_t gap_open = default_gap_open,
+                       int8_t gap_extension = default_gap_extension,
+                       int8_t full_length_bonus = default_full_length_bonus,
+                       double gc_content = default_gc_content);
         // Move-only.
         QualAdjAligner(QualAdjAligner&&) = default;
         QualAdjAligner& operator=(QualAdjAligner&&) = default;

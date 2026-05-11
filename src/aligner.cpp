@@ -21,9 +21,9 @@ using namespace vg::io;
 
 GSSWAligner::~GSSWAligner() = default;
 
-GSSWAligner::GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer, double gc_content)
+GSSWAligner::GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer)
     : scorer(std::move(owned_scorer)),
-      mapq_calc(std::make_unique<MappingQualityCalculator>(*scorer, gc_content)),
+      mapq_calc(std::make_unique<MappingQualityCalculator>(*scorer)),
       deletion_aligner(scorer->gap_open, scorer->gap_extension) {
 }
 
@@ -326,19 +326,18 @@ string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) const {
 }
 
 
-Aligner::Aligner(const int8_t* _score_matrix,
-                 int8_t _gap_open,
-                 int8_t _gap_extension,
-                 int8_t _full_length_bonus,
-                 double _gc_content)
-    : GSSWAligner(std::make_unique<MatrixAlignmentScorer>(_score_matrix, _gap_open, _gap_extension, _full_length_bonus),
-                  _gc_content)
+Aligner::Aligner(const int8_t* score_matrix,
+                 int8_t gap_open,
+                 int8_t gap_extension,
+                 int8_t full_length_bonus,
+                 double gc_content)
+    : GSSWAligner(std::make_unique<MatrixAlignmentScorer>(score_matrix, gap_open, gap_extension, full_length_bonus, gc_content))
 {
     // make an XdropAligner for each thread
     int num_threads = get_thread_count();
     xdrops.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
-        xdrops.emplace_back(_score_matrix, _gap_open, _gap_extension);
+        xdrops.emplace_back(score_matrix, gap_open, gap_extension);
     }
 }
 
@@ -857,20 +856,19 @@ void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vect
 
 
 
-QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
-                               int8_t _gap_open,
-                               int8_t _gap_extension,
-                               int8_t _full_length_bonus,
-                               double _gc_content)
-    : GSSWAligner(std::make_unique<QualAdjAlignmentScorer>(_score_matrix, _gap_open, _gap_extension,
-                                                           _full_length_bonus, _gc_content),
-                  _gc_content)
+QualAdjAligner::QualAdjAligner(const int8_t* score_matrix,
+                               int8_t gap_open,
+                               int8_t gap_extension,
+                               int8_t full_length_bonus,
+                               double gc_content)
+    : GSSWAligner(std::make_unique<QualAdjAlignmentScorer>(score_matrix, gap_open, gap_extension,
+                                                           full_length_bonus, gc_content))
 {
     // make a QualAdjXdropAligner for each thread
     int num_threads = get_thread_count();
     xdrops.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
-        xdrops.emplace_back(_score_matrix, scorer->score_matrix, _gap_open, _gap_extension);
+        xdrops.emplace_back(score_matrix, scorer->score_matrix, gap_open, gap_extension);
     }
 }
 

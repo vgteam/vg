@@ -6008,7 +6008,7 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
     //Score a pair of alignments
 
     double dev = fragment_distance - fragment_length_distr.mean();
-    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_regular_aligner()->mapq_calc->get_log_base();
+    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_regular_aligner()->scorer->get_log_base();
     double score = aln1.score() + aln2.score() +fragment_length_log_likelihood ;
 
     //Don't let the fragment length log likelihood bring score down below the score of the best alignment

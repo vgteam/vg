@@ -5235,7 +5235,7 @@ namespace vg {
         auto get_pair_approx_likelihood = [&](const pair<pair<size_t, size_t>, int64_t>& cluster_pair) {
             return ((get<2>(cluster_graphs1[cluster_pair.first.first])
                      + get<2>(cluster_graphs2[cluster_pair.first.second])) * aligner->scorer->match
-                    + fragment_length_log_likelihood(cluster_pair.second) / aligner->mapq_calc->get_log_base());
+                    + fragment_length_log_likelihood(cluster_pair.second) / aligner->scorer->get_log_base());
         };
         
         // sort the pairs descending by approximate likelihood
@@ -6420,7 +6420,7 @@ namespace vg {
         // consistent.
         bool all_multipaths_pop_consistent = true;
         
-        double log_base = get_aligner(!multipath_alns.front().quality().empty())->mapq_calc->get_log_base();
+        double log_base = get_aligner(!multipath_alns.front().quality().empty())->scorer->get_log_base();
         
         // The score of the optimal Alignment for each multipath_alignment_t, not adjusted for population
         vector<double> scores(multipath_alns.size(), 0.0);
@@ -6650,7 +6650,7 @@ namespace vg {
         bool all_multipaths_pop_consistent = true;
         
         double log_base = get_aligner(!multipath_aln_pairs.front().first.quality().empty() &&
-                                      !multipath_aln_pairs.front().second.quality().empty())->mapq_calc->get_log_base();
+                                      !multipath_aln_pairs.front().second.quality().empty())->scorer->get_log_base();
         
         // the scores of the optimal alignments and fragments, ignoring population
         vector<double> scores(multipath_aln_pairs.size(), 0.0);
@@ -7382,7 +7382,7 @@ namespace vg {
 
     void MultipathMapper::set_log_odds_against_splice(double log_odds) {
         no_splice_natural_log_odds = log_odds;
-        no_splice_log_odds = round(log_odds / get_regular_aligner()->mapq_calc->get_log_base());
+        no_splice_log_odds = round(log_odds / get_regular_aligner()->scorer->get_log_base());
     }
 
     void MultipathMapper::set_intron_length_distribution(const vector<double>& intron_mixture_weights,

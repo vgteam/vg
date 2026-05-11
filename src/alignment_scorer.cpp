@@ -11,6 +11,8 @@
 #include "crash.hpp"
 #include "gssw.h"
 
+//#define debug
+
 namespace vg {
 
 using std::function;
@@ -82,7 +84,18 @@ double AlignmentScorer::recover_log_base(const double matrix[16], double gc_cont
             upper_bound = lambda;
         }
     }
-    return 0.5 * (lower_bound + upper_bound);
+    
+    double result = 0.5 * (lower_bound + upper_bound);
+
+#ifdef debug
+    std::cerr << "Recovered log base " << result << " from matrix";
+    for (size_t i = 0; i < 16; i++) {
+        std::cerr << " " << matrix[i];
+    }
+    std::cerr << " and GC content " << gc_content << std::endl;
+#endif
+
+    return result;
 }
 
 bool AlignmentScorer::verify_valid_log_odds_score_matrix(const double matrix[16], const double nt_freqs[4]) {
