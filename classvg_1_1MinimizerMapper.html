@@ -276,6 +276,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a2b4cc838d0959b158c0c68b1e84e9123"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5dc73dddd111a8a64b5285a2e75e3ba5"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5dc73dddd111a8a64b5285a2e75e3ba5">max_min_chain_score</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#addec6b6b7907c12c4001dcecb656a6a1">default_max_min_chain_score</a></td></tr>
 <tr class="separator:a5dc73dddd111a8a64b5285a2e75e3ba5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac845d9e9d5e6332b26915e2ca652bb48"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac845d9e9d5e6332b26915e2ca652bb48">min_indel_avoid_bases</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a953782dfc3926cc7a97840fc95e492d5">default_min_indel_avoid_bases</a></td></tr>
+<tr class="separator:ac845d9e9d5e6332b26915e2ca652bb48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad72974afc9d7fadd23716fba49b7e82f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ad72974afc9d7fadd23716fba49b7e82f">max_skipped_bases</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#aef0223d05eb9dad4dcd8f6c3600dcd47">default_max_skipped_bases</a></td></tr>
 <tr class="separator:ad72974afc9d7fadd23716fba49b7e82f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab333ad05b05cdcd8d59bd0c6b2733e04"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab333ad05b05cdcd8d59bd0c6b2733e04">max_tail_dp_length</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a21cf128cd5f45135a8b9861d55eb7f7f">default_max_tail_dp_length</a></td></tr>
@@ -496,6 +498,8 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:addec6b6b7907c12c4001dcecb656a6a1"><td class="memItemLeft" align="right" valign="top">static constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#addec6b6b7907c12c4001dcecb656a6a1">default_max_min_chain_score</a> = 200</td></tr>
 <tr class="memdesc:addec6b6b7907c12c4001dcecb656a6a1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Limit the min chain score to no more than this.  <a href="classvg_1_1MinimizerMapper.html#addec6b6b7907c12c4001dcecb656a6a1">More...</a><br /></td></tr>
 <tr class="separator:addec6b6b7907c12c4001dcecb656a6a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a953782dfc3926cc7a97840fc95e492d5"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a953782dfc3926cc7a97840fc95e492d5">default_min_indel_avoid_bases</a> = 0</td></tr>
+<tr class="separator:a953782dfc3926cc7a97840fc95e492d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef0223d05eb9dad4dcd8f6c3600dcd47"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aef0223d05eb9dad4dcd8f6c3600dcd47">default_max_skipped_bases</a> = 0</td></tr>
 <tr class="separator:aef0223d05eb9dad4dcd8f6c3600dcd47"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a21cf128cd5f45135a8b9861d55eb7f7f"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a21cf128cd5f45135a8b9861d55eb7f7f">default_max_tail_dp_length</a> = 30000</td></tr>
@@ -6819,7 +6823,7 @@ template&lt;typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>When turning chains into alignments, we can skip seeds to create gaps up to this length in the graph </p>
+<p>When turning chains into alignments, we can skip seeds to link seeds of at most this distance apart in the graph </p>
 
 </div>
 </div>
@@ -7056,6 +7060,29 @@ template&lt;typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>Accept at least this many clusters for gapless extension. </p>
+
+</div>
+</div>
+<a id="a953782dfc3926cc7a97840fc95e492d5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a953782dfc3926cc7a97840fc95e492d5">&#9670;&nbsp;</a></span>default_min_indel_avoid_bases</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::MinimizerMapper::default_min_indel_avoid_bases = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>When turning chains into alignments, we can skip seeds if otherwise there would be a forced indel of at least this much </p>
 
 </div>
 </div>
@@ -8710,6 +8737,20 @@ template&lt;typename Score &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::MinimizerMapper::min_extensions = <a class="el" href="classvg_1_1MinimizerMapper.html#a6c64b28b199566f3684d272c57097962">default_min_extensions</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac845d9e9d5e6332b26915e2ca652bb48"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac845d9e9d5e6332b26915e2ca652bb48">&#9670;&nbsp;</a></span>min_indel_avoid_bases</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::min_indel_avoid_bases = <a class="el" href="classvg_1_1MinimizerMapper.html#a953782dfc3926cc7a97840fc95e492d5">default_min_indel_avoid_bases</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
