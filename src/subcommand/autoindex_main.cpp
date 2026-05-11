@@ -98,12 +98,12 @@ void help_autoindex(char** argv) {
          << "output:" << endl
          << "  -p, --prefix PREFIX    prefix to use for all output [index]" << endl
          << "  -w, --workflow NAME    workflow to produce indexes for (may repeat) [map]" << endl
-         << "                         {map, mpmap, rpvg, giraffe, sr-giraffe, lr-giraffe}" << endl
+         << "                         {map, mpmap, rpvg, sr-giraffe, lr-giraffe, sampling}" << endl
          << "input data:" << endl
          << "  -r, --ref-fasta FILE   FASTA file with the reference sequence (may repeat)" << endl
          << "  -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
          << "  -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
-         << "  -g, --gfa FILE         GFA file to make a graph from" << endl
+         << "  -g, --gfa FILE         GFA file to make a graph from (uncompressed)" << endl
          << "  -G, --gbz FILE         GBZ file to make indexes from" << endl
          << "  -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
          << "  -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations " << endl
@@ -230,6 +230,11 @@ int main_autoindex(int argc, char** argv) {
                         targets.emplace_back(std::move(target));
                     }
                 }
+                else if (optarg == string("sampling")) {
+                    for (auto& target : VGIndexes::get_default_haplotype_sampling_indexes()) {
+                        targets.emplace_back(std::move(target));
+                    }
+                }
                 else {
                     logger.error() << "Unrecognized workflow (-w) \"" << optarg << "\"" << endl;
                 }
@@ -247,6 +252,7 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'g':
                 gfa_name = require_exists(logger, optarg);
+                require_non_gzipped(logger, gfa_name);
                 break;
             case 'G':
                 gbz_name = require_exists(logger, optarg);
@@ -390,7 +396,16 @@ int main_autoindex(int argc, char** argv) {
             if (!registry.available(target)) {
                 vector<string> inferred_file_names = registry.get_possible_filenames(target);
                 for (const string& filename : inferred_file_names) {
-                    if (ifstream(filename).is_open()) {
+                    if (target == "Giraffe GBZ" && !ends_with(filename, ".giraffe.gbz")) {
+                        // TODO: Giraffe GBZ indexes can be saved as .<sample>.gbz or .giraffe.gbz.
+                        // But we can't pick up .<sample>.gbz automatically without possibly mistaking a plain GBZ for a Giraffe one.
+                        // And we don't handle haplotype samplign in autoindex yet anyway.
+                        // So only find Giraffe GBZs.
+                        // TODO: Allow the siffixes to have Snakemake-style
+                        // wildcards that populate scopes on the files.
+                        continue;
+                    }
+                    if (file_exists(filename)) {
                         logger.info() << "Guessing that " << filename << " is " << target << endl;
                         registry.provide(target, filename);
                         break;

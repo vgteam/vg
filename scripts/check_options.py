@@ -447,7 +447,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     inside_longopts = False
     
     # Track constexpr int definitions
-    const_pattern = re.compile(r'constexpr int ([A-Z_]+)\s+=\s+(\d+);')
+    const_pattern = re.compile(r'constexpr int ([A-Z_0-9]+)\s+=\s+(\d+);')
     all_caps_names = set()
     all_caps_values = set()
 

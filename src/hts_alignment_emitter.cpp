@@ -62,7 +62,8 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter),
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS,
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG,
-                flags & ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY);
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY,
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN);
         }
     
     } else {

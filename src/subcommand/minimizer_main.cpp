@@ -102,13 +102,16 @@ int main_minimizer(int argc, char** argv) {
         config.params
     );
 
-    // Serialize the index and the oversized zipcodes.
+    // Close the distance index so it can't seem to be modified after the files
+    // that depend on it.
+    distance_index.reset();
+
+    // Serialize the minimizer index and the oversized zipcodes.
     save_minimizer(index, config.output_name);
     if (!config.zipcode_name.empty()) {
         std::ofstream zip_out(config.zipcode_name);
         oversized_zipcodes.serialize(zip_out);
         zip_out.close();
-
     }
 
     if (config.progress) {

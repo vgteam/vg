@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cfloat>
 #include <unordered_set>
+#include <bitset>
 
 // Turn on debugging prints
 //#define debug
@@ -194,7 +195,8 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                          const std::vector<std::vector<size_t>>& chains,
                                          const std::vector<std::vector<bool>>& chain_rec_flags,
                                          const std::vector<size_t>& chain_source_tree,
-                                         const PathPositionHandleGraph* path_graph) {
+                                         const PathPositionHandleGraph* path_graph,
+                                         bool haplotype_positions) {
     if (!path_graph) {
         // We don't have a path positional graph for this
         return;
@@ -242,6 +244,10 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
 
         // Determine the positions of all the involved seeds.
         std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
+        std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
+        if (haplotype_positions) {
+            wanted_senses.insert(PathSense::HAPLOTYPE);
+        }
         for (auto& kv : seed_sets) {
             for (const std::vector<size_t> included_seeds : kv.second) {
                 for (auto& seed_num : included_seeds) {
@@ -251,7 +257,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                     auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
                         // If we don't know the seed's positions yet, get them
-                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100));
+                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
                         for (auto& handle_and_positions : found->second) {
                             std::string path_name = path_graph->get_path_name(handle_and_positions.first);
                             for (auto& position : handle_and_positions.second) {
@@ -267,6 +273,19 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 ss << seed_anchors.at(seed_num);
                                 seedpos.field(ss.str());
                             }
+                        }
+                        if (found->second.empty()) {
+                            // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
+                            // Report it.
+                            seedpos.line();
+                            seedpos.field(seed_anchors.at(seed_num).read_start());
+                            seedpos.field("");
+                            seedpos.field("");
+                            seedpos.field("");
+                            seedpos.field(seed_num);
+                            std::stringstream ss;
+                            ss << seed_anchors.at(seed_num);
+                            seedpos.field(ss.str());
                         }
                     }
                 }
@@ -736,7 +755,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 #endif
 
-    // Turn all the seeds into anchors. Either we'll fragment them directly or
+    // Turn all the seeds into anchors. Either we'll chain them directly or
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
@@ -757,6 +776,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> chains;
     // For each chain, mark per-seed whether it came from a recombinant anchor
     std::vector<std::vector<bool>> chain_rec_flags;
+    // For each chain, track how many recombination events were used
+    std::vector<size_t> chain_rec_counts;
     // The zip code tree it came from
     std::vector<size_t> chain_source_tree;
     // An estimated alignment score
@@ -767,7 +788,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> multiplicity_by_chain;
 
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                         chains, chain_rec_flags, chain_source_tree, chain_score_estimates,
+                         chains, chain_rec_flags, chain_rec_counts, chain_source_tree, chain_score_estimates,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
@@ -782,7 +803,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
     if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_rec_flags, chain_source_tree, this->path_graph);
+        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_rec_flags, chain_source_tree, this->path_graph, this->haplotype_positions);
     }
 
     if (alignments.size() == 0) {
@@ -825,6 +846,49 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
+    }
+    
+    for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
+        // Rescore all the alignments using minimap2 logged-gap-length, read-identity-based scoring
+
+        if (alignments[alignment_index].path().mapping_size() == 0) {
+            // Unmapped, so skip it.
+            continue;
+        }
+
+        size_t matches, mismatches;
+        std::vector<size_t> gap_lengths;
+        count_alignment_operations(alignments[alignment_index], matches, mismatches, gap_lengths);
+
+        if (matches + mismatches + gap_lengths.size() == 0) {
+            continue;
+        }
+        
+        // Compute the logged-gaps score
+        auto logged_gaps_score = score_alignment_with_logged_gaps(matches, mismatches, gap_lengths);
+        alignments[alignment_index].set_score(logged_gaps_score);
+         if (show_work) {
+            #pragma omp critical (cerr)
+            {   
+                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+            }
+        }
+    }
+    if (!chain_rec_counts.empty() && !alignments_to_source.empty()) {
+        for (size_t alignment_index = 0; alignment_index < alignments_to_source.size(); ++alignment_index) {
+            size_t chain_index = alignments_to_source[alignment_index];
+            if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
+                set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
+                if (rec_penalty_chain != 0) {
+                    // Penalize the score of alignment candidates according to the number of recombinations their chains required.
+                    // This allows alignments that required fewer recombinations in their chains to win.
+                    // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
+                    int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
+                    int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
+                    alignments[alignment_index].set_score(static_cast<int>(penalized_score));
+                }
+            }
+        }
     }
     
     
@@ -1079,7 +1143,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest,
     const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
     const vector<algorithms::Anchor>& seed_anchors,
-    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags, std::vector<size_t>& chain_source_tree,
+    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+    std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
     std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
     std::vector<double>& multiplicity_by_chain,
     std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
@@ -1527,9 +1592,13 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 indel_limit,
                 show_work
             );
+#ifdef debug_rec
+            if (true) {
+#else
             if (show_work) {
+#endif
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
+                cerr << log_name() << "\t[" << aln.name() << "] Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
@@ -1539,7 +1608,12 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 auto& entry = chain_results.chains[result];
                 auto& scored_chain = entry.scored_chain;
                 auto& chain_rec_positions = entry.rec_positions;
-                if (show_work) {
+#ifdef debug_rec
+                if (true)
+#else
+                if (show_work)
+#endif
+                {
 #ifdef debug
                     if(true)
 #else
@@ -1549,24 +1623,42 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                         if (!scored_chain.second.empty()) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "\tChain with score " << scored_chain.first
+                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << scored_chain.first
                                     << " (rec num =" << chain_rec_positions.size() << ") and length " << scored_chain.second.size()
                                     << " running " << anchor_view[scored_chain.second.front()]
-                                    << " to " << anchor_view[scored_chain.second.back()] << std::endl;
+                                    << " to " << anchor_view[scored_chain.second.back()];
                                 if (!chain_rec_positions.empty()) {
-                                    {
-                                        cerr << log_name() << "\t\tRecombination introduced at anchors: ";
-                                        for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
-                                            if (pi) cerr << ", ";
-                                            cerr << chain_rec_positions[pi];
-                                        }
-                                        cerr << std::endl;
+                                    cerr << " recombination introduced at anchors: ";
+                                    for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
+                                        if (pi) cerr << ", ";
+                                        cerr << chain_rec_positions[pi];
                                     }
                                 }
-#ifdef debug
-
-                                for (auto& anchor_number : scored_chain.second) {
-                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
+                                cerr << std::endl;
+#ifdef debug_rec
+                                algorithms::path_flags_t current_paths = 0;
+                                bool first = true;
+                                for (auto& selected_number : scored_chain.second) {
+                                    auto& anchor = anchor_view[selected_number];
+                                    auto new_paths = anchor.anchor_paths();
+                                    if (first) {
+                                        current_paths = new_paths.second;
+                                        first = false;
+                                    } else {
+                                        if (new_paths.first == new_paths.second) {
+                                            if ((current_paths & new_paths.first) == 0) {
+                                                current_paths = new_paths.first;
+                                            } else {
+                                                current_paths &= new_paths.first;
+                                            }
+                                        } else {
+                                            current_paths = new_paths.second;
+                                        }
+                                    }
+                                    
+                                    std::cerr << log_name() << "\t\t" << anchor 
+                                              << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
+                                              << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
                                 }
 #endif
 
@@ -1574,7 +1666,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                         }
                     } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t<" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
                     }
                 }
 
@@ -1610,6 +1702,8 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 }
                 // Remember the score
                 chain_score_estimates.push_back(scored_chain.first);
+                // Remember how many recombinations were in this chain
+                chain_rec_counts.push_back(chain_rec_positions.size());
 
                 // Remember how we got it
                 chain_source_tree.push_back(item_num);
@@ -1631,9 +1725,13 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                     // Add position annotations for the good-looking chains.
                     // Should be much faster than full correctness tracking from every seed.
                     crash_unless(this->path_graph);
+                    std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
+                    if (haplotype_positions) {
+                        wanted_senses.insert(PathSense::HAPLOTYPE);
+                    }
                     for (auto& boundary : {anchor_view[scored_chain.second.front()].graph_start(), anchor_view[scored_chain.second.back()].graph_end()}) {
                         // For each end of the chain
-                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100);
+                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
                         for (auto& handle_and_positions : offsets) {
                             for (auto& position : handle_and_positions.second) {
                                 // Tell the funnel all the effective positions, ignoring orientation
@@ -1752,7 +1850,7 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
             best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
             best_chain_total_jump += jump;
         }
-        best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+        best_chain_average_jump = chains.at(best_chain).size() > 1 ? (double)best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
     }
 
     // Also count anchors in the chain
@@ -2536,10 +2634,10 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (stats) {
                     start_time = std::chrono::high_resolution_clock::now();
                 }
-                auto nodes_and_bases = align_sequence_between_consistently(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                bool did_aln = align_sequence_between_consistently(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 if (stats) {
                     stop_time = std::chrono::high_resolution_clock::now();
-                    if (nodes_and_bases.first > 0) {
+                    if (did_aln) {
                         // Actually did the alignment
                         stats->bases.dozeu_tail += left_tail_length;
                         stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
@@ -2707,7 +2805,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
-                    << " separated by ~" << graph_dist << " bp and sequence \"" << linking_bases << "\"" << endl;
+                    << " separated by ~" << graph_dist << " bp";
+                if (linking_bases.size() < 200) {
+                    cerr << " and sequence \"" << linking_bases << "\"";
+                }
+                cerr << endl;
             }
         }
 #endif
@@ -2858,10 +2960,10 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            auto nodes_and_bases = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length+max_gap_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            bool did_aln = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length+max_gap_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
-                if (nodes_and_bases.first > 0) {
+                if (did_aln) {
                     // Actually did the alignment
                     stats->bases.bga_middle += link_length;
                     stats->time.bga_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
@@ -2895,7 +2997,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned and added link of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
+                cerr << log_name() << "Aligned and added link to " << *next << " of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
             }
         }
         
@@ -3045,10 +3147,10 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (stats) {
                     start_time = std::chrono::high_resolution_clock::now();
                 }
-                auto nodes_and_bases = align_sequence_between_consistently(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                bool did_aln = align_sequence_between_consistently(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 if (stats) {
                     stop_time = std::chrono::high_resolution_clock::now();
-                    if (nodes_and_bases.first > 0) {
+                    if (did_aln) {
                         // Actually did the alignment
                         stats->bases.dozeu_tail += right_tail_length;
                         stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
@@ -3439,11 +3541,9 @@ size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, co
     return aligner->longest_detectable_gap(aln, sequence_end);
 }
 
-std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
+bool MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
 
-    // This holds node count and node length aligned to.
-    std::pair<size_t, size_t> to_return;
-
+    bool did_aln = true;
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
         [&](DeletableHandleGraph& dagified_graph,
@@ -3569,10 +3669,6 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 // Clear out the alignment path to indicate that we didn't actually compute an alignment.
                 alignment.mutable_path()->clear_mapping();
             }
-            // Always report the size of what we were aligning to.
-            // TODO: Do we still need this?
-            to_return.first = dagified_graph.get_node_count();
-            to_return.second = dagified_graph.get_total_length();
         } else {
             // Do pinned alignment off the anchor we actually have.
             // Work out how big it will be.
@@ -3596,8 +3692,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 Edit* e = m->add_edit();
                 e->set_to_length(alignment.sequence().size());
                 e->set_sequence(alignment.sequence());
-                to_return.first = 0;
-                to_return.second = 0;
+                did_aln = false;
                 return;
             } else {
 #ifdef debug
@@ -3605,8 +3700,6 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
                 aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
-                to_return.first = dagified_graph.get_node_count();
-                to_return.second = dagified_graph.get_total_length();
             }
         }
 
@@ -3662,10 +3755,10 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
         // Now the alignment is filled in!
     });
 
-    return to_return;
+    return did_aln;
 }
 
-std::pair<size_t, size_t> MinimizerMapper::align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
+bool MinimizerMapper::align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
     if (left_anchor < right_anchor) {
         // Left anchor is unambiguously first, so align as-is
         return align_sequence_between(left_anchor, right_anchor, max_path_length, max_gap_length, graph, aligner, alignment, alignment_name, max_dp_cells, choose_band_padding);
@@ -3829,7 +3922,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is.
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
-    int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
+    int score = aligner->score_exact_match(aln, read_start - margin_left, margin_left + length + margin_right);
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive, paths); 
 }
 

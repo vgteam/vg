@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 80
+plan tests 82
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -124,10 +124,15 @@ is "$(grep -c 'error.*are not compatible' log.txt)" "1" "appropriate error messa
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
 
+rm -rf explanation_*
+
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr > /dev/null 2>&1
 # Check that at least some TSV files and directories were created 
 is "$(find explanation_read1 -name 'chain*-dotplot*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
 is "$(ls -d explanation_* 2>/dev/null | wc -l | tr -d ' ')" "3" "Explanation directories are created per read"
+is "$(cat explanation_read1/chain0-seeds*.tsv | wc -l | tr -d ' ')" "1" "Chain reports one seed with one position"
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr --haplotype-positions > /dev/null 2>&1
+is "$(cat explanation_read1/chain0-seeds*.tsv | wc -l | tr -d ' ')" "3" "Chain reports one seed with three positions when checking haplotypes"
 
 rm -rf explanation_*
 rm -f x.giraffe.gbz wrong.gbz
@@ -294,8 +299,8 @@ vg index -j 1mb1kgp.dist  1mb1kgp.vg
 vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraffe Distance Index:1mb1kgp.dist" -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz
 vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --track-provenance --align-from-chains --set-refpos
 # This is an 8001 bp read with 1 insert and 1 substitution
-# 7999 * 1 + 1 * -4 + -6 + 5 + 5 = 7999
-is "$(vg view -aj longread.gam | jq -r '.score')" "7999" "A long read can be correctly aligned"
+# We use minimap2-based scoring which awards that this many points.
+is "$(vg view -aj longread.gam | jq -r '.score')" "7948" "A long read can be correctly aligned"
 is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l | sed 's/^[[:space:]]*//')" "2" "A long read has the correct edits found"
 is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l | sed 's/^[[:space:]]*//')" "1" "Long read minimizer set is correctly restricted"
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"

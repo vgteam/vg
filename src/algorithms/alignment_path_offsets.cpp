@@ -35,7 +35,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
         // Find the position of this end of this mapping
         pos_t mapping_pos = make_pos_t(mapping.position());
         // Find the positions for this end of this Mapping
-        auto pos_offs = algorithms::nearest_offsets_in_paths(&graph, mapping_pos, nearby ? search_limit : -1, path_filter);
+        auto pos_offs = algorithms::nearest_offsets_in_paths(&graph, mapping_pos, nearby ? search_limit : -1, {PathSense::REFERENCE, PathSense::GENERIC}, path_filter);
         for (auto look_at_end : end) {
             // For the start and the end of the Mapping, as needed
             for (auto& p : pos_offs) {
@@ -84,7 +84,7 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
         for (size_t j = 0; j < subpath.path().mapping_size(); ++j) {
             // get the positions on paths that this mapping touches
             pos_t mapping_pos = make_pos_t(subpath.path().mapping(j).position());
-            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0, path_filter);
+            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0, {PathSense::REFERENCE, PathSense::GENERIC}, path_filter);
             // make sure that offsets are stored in increasing order
             for (pair<const path_handle_t, vector<pair<size_t, bool>>>& search_record : subpath_search_results[j]) {
                 sort(search_record.second.begin(), search_record.second.end());
