@@ -9,6 +9,8 @@
 #include <cmath>
 #include <map>
 
+//#define debug_selected_haplotypes
+
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -921,10 +923,10 @@ std::vector<std::string> generate_haplotype(
     if (curr == end) {
         return haplotype;
     }
-    gbwtgraph::view_type view = partitioner.gbz.graph.get_sequence_view(curr);
-    size_t offset = (view.second > start_max ? view.second - start_max : 0);
+    std::string_view view = partitioner.gbz.graph.get_sequence_view(curr);
+    size_t offset = (view.size() > start_max ? view.size() - start_max : 0);
     haplotype.emplace_back();
-    haplotype.back().append(view.first + offset, view.second - offset);
+    haplotype.back().append(view.data() + offset, view.size() - offset);
 
     while (true) {
         pos = partitioner.gbz.index.LF(pos);
@@ -948,10 +950,10 @@ std::vector<std::string> generate_haplotype(
         curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
         view = partitioner.gbz.graph.get_sequence_view(curr);
         if (curr == end) {
-            haplotype.back().append(view.first, std::min(view.second, end_max));
+            haplotype.back().append(view.data(), std::min(view.size(), end_max));
             break;
         } else {
-            haplotype.back().append(view.first, view.second);
+            haplotype.back().append(view.data(), view.size());
         }
     }
 
@@ -2056,6 +2058,15 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
             );
+#ifdef debug_selected_haplotypes
+            for (size_t i = 0; i < selected_haplotypes.size(); i++) {
+                gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
+                gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+                gbwt::FullPathName path_name = this->gbz.index.metadata.fullPath(path_id);
+                cerr << "Selected haplotype " << path_name.contig_name
+                     << " with score " << selected_haplotypes[i].second << endl;
+            }
+#endif
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;

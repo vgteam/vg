@@ -23,6 +23,9 @@ test/.*
 test/*.lcp
 test/*/*.lcp
 test/**/*.index/
+test/wiki-data/mock-hs37d5/graphs/
+test/wiki-data/mock-hs37d5/indexes/
+test/wiki-data/mock-hs37d5/logs/
 trash
 src/*.gch
 .vscode

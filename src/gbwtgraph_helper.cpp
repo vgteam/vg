@@ -183,6 +183,24 @@ void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_
     }
 }
 
+void save_gbz_v1(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving GBZ (version 1) to " << filename << std::endl;
+    }
+    try {
+        std::ofstream out(filename, std::ios_base::binary);
+        if (!out) {
+            throw sdsl::simple_sds::CannotOpenFile(filename, true);
+        }
+        out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+        gbz.simple_sds_serialize_v1(out);
+        out.close();
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [save_gbz_v1()] cannot save GBZ (version 1) to " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Saving GBWT and GBWTGraph to " << filename << std::endl;
@@ -440,11 +458,13 @@ void cache_payloads(
         std::cerr << "Caching payloads" << std::endl;
     }
 
+    const handlegraph::HandleGraph* graph_ptr = (const handlegraph::HandleGraph*) &gbz.graph;
+
     gbz.graph.for_each_handle([&](const handle_t& handle) {
         nid_t node_id = gbz.graph.get_id(handle);
         ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
-        zipcode.fill_in_zipcode_from_pos(distance_index, pos);
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos, true, graph_ptr);
         payload_t payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.

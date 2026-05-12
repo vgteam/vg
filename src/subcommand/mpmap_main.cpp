@@ -12,6 +12,7 @@
 #include <list>
 
 #include "subcommand.hpp"
+#include "../utility.hpp"
 
 #include <vg/io/vpkg.hpp>
 #include "../algorithms/component.hpp"
@@ -948,48 +949,10 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // normalize capitalization on preset options
-    if (read_length == "Long" || read_length == "LONG") {
-        read_length = "long";
-    }
-    else if (read_length == "Very-Short" || read_length == "Very-short" || read_length == "VERY-SHORT") {
-        read_length = "very-short";
-    }
-    else if (read_length == "Short" || read_length == "SHORT") {
-        read_length = "short";
-    }
-    
-    if (nt_type == "RNA" || nt_type == "Rna") {
-        nt_type = "rna";
-    }
-    else if (nt_type == "DNA" || nt_type == "Dna") {
-        nt_type = "dna";
-    }
-    
-    if (error_rate == "Low" || error_rate == "LOW") {
-        error_rate = "low";
-    }
-    else if (error_rate == "High" || error_rate == "HIGH") {
-        error_rate = "high";
-    }
-    
-    if (out_format == "gamp" || out_format == "Gamp") {
-        out_format = "GAMP";
-    }
-    else if (out_format == "gam" || out_format == "Gam") {
-        out_format = "GAM";
-    }
-    else if (out_format == "gaf" || out_format == "Gaf") {
-        out_format = "GAF";
-    }
-    else if (out_format == "sam" || out_format == "Sam") {
-        out_format = "SAM";
-    }
-    else if (out_format == "bam" || out_format == "Bam") {
-        out_format = "BAM";
-    }
-    else if (out_format == "cram" || out_format == "Cram") {
-        out_format = "CRAM";
-    }
+    read_length = to_lower(read_length);
+    nt_type = to_lower(nt_type);
+    error_rate = to_lower(error_rate);
+    out_format = to_upper(out_format);
     
     bool hts_output = (out_format == "SAM" || out_format == "BAM" || out_format == "CRAM");
     bool transcriptomic = (nt_type == "rna");

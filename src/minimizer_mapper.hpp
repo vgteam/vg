@@ -327,8 +327,13 @@ class MinimizerMapper : public AlignerClient {
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
 
-    /// When turning chains into alignments, we can skip seeds to create gaps up to this
-    /// length in the graph
+    /// When turning chains into alignments, we can skip seeds if otherwise
+    /// there would be a forced indel of at least this much
+    static constexpr size_t default_min_indel_avoid_bases = 0;
+    size_t min_indel_avoid_bases = default_min_indel_avoid_bases;
+
+    /// When turning chains into alignments, we can skip seeds to link
+    /// seeds of at most this distance apart in the graph
     static constexpr size_t default_max_skipped_bases = 0;
     size_t max_skipped_bases = default_max_skipped_bases;
     
@@ -427,6 +432,10 @@ class MinimizerMapper : public AlignerClient {
     /// Track linear reference position for placements in log output.
     static constexpr bool default_track_position = false;
     bool track_position = default_track_position;
+
+    /// Track positions along haplotypes
+    static constexpr bool default_haplotype_positions = false;
+    bool haplotype_positions = default_haplotype_positions;
     
     /// If set, log what the mapper is thinking in its mapping of each read.
     static constexpr bool default_show_work = false;
@@ -867,7 +876,8 @@ protected:
      */
     void do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
+                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+                              std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
                               std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
                               std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
@@ -993,7 +1003,9 @@ protected:
     array<vector<read_alignment_index_t>, 2> identify_supplementary_alignments(vector<std::array<vector<Alignment>, 2>>& alignments,
                                                                   vector<std::array<read_alignment_index_t, 2>>& paired_alignments, 
                                                                   vector<double>& paired_scores,
+                                                                  vector<int64_t>& fragment_distances,
                                                                   vector<PairType>& pair_types,
+                                                                  vector<size_t>& better_cluster_count_by_pairs,
                                                                   const vector<alignment_index_t>& unpaired_alignments,
                                                                   const vector<bool>& attempted_rescue_from,
                                                                   array<Funnel, 2>& funnels) const;
@@ -1075,11 +1087,11 @@ protected:
      *
      * For connecting alignment, restricts the alignment to use <= max_dp_cells
      * cells. If too many DP cells would be used, produces an Alignment with
-     * and empty path.
+     * an empty path.
      *
-     * Returns the number of nodes and bases in the graph aligned against.
+     * Returns whether a graph was aligned against or not.
      */
-    static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static bool align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
 
 public:
     /**
@@ -1087,7 +1099,7 @@ public:
      * same answer (modulo reverse-complementation) no matter whether the
      * sequence and anchors are reverse-complemented or not.
      */
-    static std::pair<size_t, size_t> align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static bool align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
 
 protected:
     /**
@@ -1461,9 +1473,12 @@ protected:
     static void dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
+                                   const vector<algorithms::Anchor>& seed_anchors,
                                    const std::vector<std::vector<size_t>>& chains,
+                                   const std::vector<std::vector<bool>>& chain_rec_flags,
                                    const std::vector<size_t>& chain_source_tree,
-                                   const PathPositionHandleGraph* path_graph);
+                                   const PathPositionHandleGraph* path_graph,
+                                   bool haplotype_positions);
 
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);

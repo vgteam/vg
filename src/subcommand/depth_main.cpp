@@ -222,7 +222,7 @@ int main_depth(int argc, char** argv) {
         map<pair<string, int64_t>, string> ref_paths;
         unordered_set<string> base_path_set;
         
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(path_name, &subrange);

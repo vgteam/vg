@@ -300,7 +300,7 @@ int main_clip(int argc, char** argv) {
             for (const Region& region : bed_regions) {
                 contig_set.insert(region.seq);
             }
-            graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&] (path_handle_t path_handle) {
+            graph->for_each_path_handle([&] (path_handle_t path_handle) {
                     string base_name = Paths::strip_subrange(graph->get_path_name(path_handle));
                     if (contig_set.count(base_name)) {
                         // todo: should take into account coordinate comp
@@ -329,7 +329,7 @@ int main_clip(int argc, char** argv) {
             assert(need_pp);
             assert(!ref_prefixes.empty());
             // load the BED regions from the reference path prefix
-            pp_graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+            pp_graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
                     subrange_t subrange;
                     path_name = Paths::strip_subrange(path_name, &subrange);

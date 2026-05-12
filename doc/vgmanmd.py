@@ -79,7 +79,7 @@ for line in vg_help.stderr.decode().split('\n'):
         cmd = parts[1]
 
 for cmd in cmds:
-    print('## {cmd}: {blurb}\n\n'.format(cmd=cmd, blurb=cmd_desc[cmd]))
+    print('<a id="{cmd}"/>\n\n## {cmd}: {blurb}\n\n'.format(cmd=cmd, blurb=cmd_desc[cmd]))
     try:
         # Try first with the help option to get all options described.
         # Use check=True to raise CalledProcessError on non-zero exit codes (e.g., when --help fails),

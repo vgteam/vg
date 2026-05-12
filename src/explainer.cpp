@@ -98,7 +98,10 @@ TSVExplainer::TSVExplainer(bool enabled, const std::string& name) : Explainer(en
     out.open(filename);
 }
 TSVExplainer::~TSVExplainer() {
-    // Nothing to do!
+    if (need_line) {
+        // Newline-terminate the last line before closing.
+        out << std::endl;
+    }
 }
 
 void TSVExplainer::line() {
@@ -112,30 +115,6 @@ void TSVExplainer::line() {
     need_line = true;
     // First value on the line does not need a tab.
     need_tab = false;
-}
-
-void TSVExplainer::field(const std::string& value) {
-    if (!explaining()) {
-        return;
-    }
-    if (need_tab) {
-        out << "\t";
-    }
-    out << value;
-    // Next value on the line needs a leading tab
-    need_tab = true;
-}
-
-void TSVExplainer::field(size_t value) {
-    if (!explaining()) {
-        return;
-    }
-    if (need_tab) {
-        out << "\t";
-    }
-    out << value;
-    // Next value on the line needs a leading tab
-    need_tab = true;
 }
 
 ProblemDumpExplainer::ProblemDumpExplainer(bool enabled, const std::string& name) : Explainer(enabled) {

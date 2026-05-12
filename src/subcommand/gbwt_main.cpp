@@ -55,7 +55,9 @@ struct GBWTConfig {
 
     // GBZ construction.
     bool set_pggname = false;
+    std::string supergraph_filename;
     bool unset_pggname = false;
+    bool gbz_v1 = false;
 
     // Other parameters and flags.
     bool show_progress = false;
@@ -120,10 +122,10 @@ struct GBWTConfig {
 };
 
 struct GraphHandler {
-    enum graph_type { graph_none, graph_path, graph_source, graph_gbz };
+    enum graph_type { graph_none, graph_path, graph_naive, graph_gbz };
 
     std::unique_ptr<PathHandleGraph> path_graph = nullptr;
-    std::unique_ptr<gbwtgraph::SequenceSource> sequence_source = nullptr;
+    std::unique_ptr<gbwtgraph::NaiveGraph> naive_graph = nullptr;
     std::unique_ptr<gbwtgraph::GBZ> gbz_graph = nullptr;
     graph_type in_use = graph_none;
 
@@ -135,9 +137,9 @@ struct GraphHandler {
     // No effect if the handler already contains a `PathHandleGraph`.
     void get_graph(const GBWTConfig& config);
 
-    // Take the ownership of the provided `SequenceSource` and store it in the handler.
+    // Take the ownership of the provided `NaiveGraph` and store it in the handler.
     // Releases other graphs.
-    void use(std::unique_ptr<gbwtgraph::SequenceSource>& source);
+    void use(std::unique_ptr<gbwtgraph::NaiveGraph>& source);
 
     // Load the GBZ specified in the config, store it in the handler, and tell
     // the GBWTHandler to use the stored GBWT as an external GBWT.
@@ -146,7 +148,7 @@ struct GraphHandler {
 
     void clear();
 
-    // If the handler contains a `SequenceSource`, serialize it according to the config.
+    // If the handler contains a `NaiveGraph`, serialize it according to the config.
     void serialize_segment_translation(const GBWTConfig& config) const;
 };
 
@@ -306,6 +308,7 @@ void help_gbwt(char** argv) {
     std::cerr << "      --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "  -Z, --gbz-input         use GBZ as input GBWT and input graph (one input arg)" << std::endl;
     std::cerr << "      --set-pggname       compute the pggname for the GBZ if not already present" << std::endl;
+    std::cerr << "      --subgraph-of FILE  mark the GBZ as a subgraph of the other GBZ in FILE" << std::endl;
     std::cerr << "      --unset-pggname     clear the stored pggname for the GBZ if present" << std::endl;
     std::cerr << "  -E, --index-paths       index the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "                          (requires -x, no input args)" << std::endl;
@@ -348,6 +351,7 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 5: GBWTGraph construction (requires an input graph and one input GBWT):" << std::endl;
     std::cerr << "  -g, --graph-name FILE   build GBZ graph and store it in FILE" << std::endl;
     std::cerr << "                          (makes -o unnecessary)" << std::endl;
+    std::cerr << "      --gbz-v1            write GBZ version 1" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 6: R-index construction (one input GBWT):" << std::endl;
     std::cerr << "  -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
@@ -441,8 +445,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PATH_FIELDS = 1116;
     constexpr int OPT_TRANSLATION = 1117;
     constexpr int OPT_SET_PGGNAME = 1118;
-    constexpr int OPT_UNSET_PGGNAME = 1119;
-    constexpr int OPT_GAM_FORMAT = 1120;
+    constexpr int OPT_SUBGRAPH_OF = 1119;
+    constexpr int OPT_UNSET_PGGNAME = 1120;
+    constexpr int OPT_GAM_FORMAT = 1121;
     constexpr int OPT_CHUNK_SIZE = 1200;
     constexpr int OPT_POS_BUFFER = 1201;
     constexpr int OPT_THREAD_BUFFER = 1202;
@@ -451,6 +456,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_SET_TAG = 1300;
     constexpr int OPT_SET_REFERENCE = 1301;
     constexpr int OPT_PASS_PATHS = 1400;
+    constexpr int OPT_GBZ_V1 = 1500;
     constexpr int OPT_TAGS = 1700;
 
     // Deprecated options.
@@ -509,6 +515,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // Input GBWT construction: GBZ
         { "gbz-input", no_argument, 0, 'Z' },
         { "set-pggname", no_argument, 0, OPT_SET_PGGNAME },
+        { "subgraph-of", required_argument, 0, OPT_SUBGRAPH_OF },
         { "unset-pggname", no_argument, 0, OPT_UNSET_PGGNAME },
 
         // Input GBWT construction: paths
@@ -544,6 +551,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // GBZ construction
         { "graph-name", required_argument, 0, 'g' },
         { "gbz-format", no_argument, 0, OPT_GBZ_FORMAT }, // Hidden option enabled by default.
+        { "gbz-v1", no_argument, 0, OPT_GBZ_V1 },
 
         // R-index
         { "r-index", required_argument, 0, 'r' },
@@ -720,6 +728,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_SET_PGGNAME:
             config.set_pggname = true;
             break;
+        case OPT_SUBGRAPH_OF:
+            config.supergraph_filename = require_exists(config.logger, optarg);
+            break;
         case OPT_UNSET_PGGNAME:
             config.unset_pggname = true;
             break;
@@ -854,6 +865,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case OPT_GBZ_FORMAT:
             break;
+        case OPT_GBZ_V1:
+            config.gbz_v1 = true;
+            break;
 
         // Build r-index
         case 'r':
@@ -944,7 +958,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 //----------------------------------------------------------------------------
 
 void validate_gbwt_config(GBWTConfig& config) {
-    // We can either write GBWT in SDSL format to a separate file or as part of a GBZ graph.
+    // We can either write GBWT to a separate file or as part of a GBZ graph.
     // However, `--parse-only` uses `gbwt_output` for other purposes.
     bool has_gbwt_output =
         (!config.gbwt_output.empty() || (!config.graph_output.empty() && !config.parse_only));
@@ -952,7 +966,7 @@ void validate_gbwt_config(GBWTConfig& config) {
     // We have one input GBWT after steps 1-4.
     bool one_input_gbwt = config.input_filenames.size() == 1 || config.produces_one_gbwt;
 
-    // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ or GG/GBWT.
+    // We can load a PathHandleGraph from a file, get a NaiveGraph from parsing GFA, or get a GBWTGraph from GBZ or GG/GBWT.
     bool has_graph_input = (!config.graph_name.empty() || config.build == GBWTConfig::build_gfa 
                           || config.build == GBWTConfig::build_gbz);
 
@@ -1344,7 +1358,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             config.logger.info() << "Input type: GBZ" << std::endl;
         }
         graphs.load_gbz(gbwts, config);
-        if (config.set_pggname) {
+        if (config.set_pggname || !config.supergraph_filename.empty()) {
             std::string pggname = graphs.gbz_graph->pggname();
             if (pggname.empty()) {
                 if (config.show_progress) {
@@ -1355,6 +1369,26 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             }
             if (config.show_progress) {
                 config.logger.info() << "Graph name: " << pggname << std::endl;
+            }
+            if (!config.supergraph_filename.empty()) {
+                gbwtgraph::GraphName supergraph;
+                try {
+                    gbwt::Tags tags = gbwtgraph::GBZ::simple_sds_load_tags(config.supergraph_filename);
+                    supergraph = gbwtgraph::GraphName(tags);
+                } catch (const std::runtime_error& e) {
+                    config.logger.error() << "Failed to load supergraph tags from " << config.supergraph_filename << ": " << e.what() << std::endl;
+                }
+                if (supergraph.name().empty()) {
+                    config.logger.warn() << "Supergraph " << config.supergraph_filename << " does not have a pggname" << std::endl;
+                } else {
+                    if (config.show_progress) {
+                        config.logger.info() << "Supergraph name: " << supergraph.name() << std::endl;
+                    }
+                    gbwtgraph::GraphName subgraph = graphs.gbz_graph->graph_name();
+                    subgraph.add_subgraph(subgraph.name(), supergraph.name());
+                    subgraph.add_relationships(supergraph);
+                    subgraph.set_tags(graphs.gbz_graph->tags);
+                }
             }
         }
         if (config.unset_pggname) {
@@ -1498,7 +1532,7 @@ void set_tags(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     
     gbwts.use_compressed();
     gbwt::GBWT* index = gbwts.get_compressed();
-    std::unordered_set<std::string> reference_samples;
+    gbwtgraph::sample_name_set reference_samples;
     for (auto& kv : config.tags_to_set) {
         if (kv.first == gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG && graphs.in_use == GraphHandler::graph_gbz) {
             // GBZ has a proper way of setting the reference samples.
@@ -1588,26 +1622,38 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     }
 
     gbwts.use_compressed();
-    if (graphs.in_use == GraphHandler::graph_source) {
+    if (graphs.in_use == GraphHandler::graph_naive) {
         // We avoid creating a duplicate GBWT by moving it into a std::unique_ptr.
-        // Both the GBWT and the SequenceSource get reset during construction.
+        // Both the GBWT and the NaiveGraph get reset during construction.
         std::unique_ptr<gbwt::GBWT> gbwt_ptr = std::make_unique<gbwt::GBWT>(std::move(*gbwts.get_compressed()));
-        gbwtgraph::GBZ gbz(gbwt_ptr, graphs.sequence_source);
-        graphs.clear(); // We no longer need the SequenceSource.
-        save_gbz(gbz, config.graph_output, config.show_progress);
+        gbwtgraph::GBZ gbz(gbwt_ptr, graphs.naive_graph);
+        graphs.clear(); // We no longer need the NaiveGraph.
+        if (config.gbz_v1) {
+            save_gbz_v1(gbz, config.graph_output, config.show_progress);
+        } else {
+            save_gbz(gbz, config.graph_output, config.show_progress);
+        }
         gbwts.use(gbz.index); // We may need the GBWT later.
     } else if (graphs.in_use == GraphHandler::graph_gbz) {
         if (gbwts.in_use == GBWTHandler::index_external) {
             // We can serialize the GBZ we already have.
             // Step 3 may have changed the tags, but otherwise the GBWT is unchanged.
-            save_gbz(*(graphs.gbz_graph), config.graph_output, config.show_progress);
+            if (config.gbz_v1) {
+                save_gbz_v1(*(graphs.gbz_graph), config.graph_output, config.show_progress);
+            } else {
+                save_gbz(*(graphs.gbz_graph), config.graph_output, config.show_progress);
+            }
             gbwts.use(graphs.gbz_graph->index); // We may need the GBWT later.
             graphs.clear(); // We no longer need the GBZ.
         } else {
             // We use the subgraph constructor with the new GBWT.
             gbwtgraph::GBZ gbz(std::move(*gbwts.get_compressed()), *(graphs.gbz_graph));
             graphs.clear(); // We no longer need the GBZ.
-            save_gbz(gbz, config.graph_output, config.show_progress);
+            if (config.gbz_v1) {
+                save_gbz_v1(gbz, config.graph_output, config.show_progress);
+            } else {
+                save_gbz(gbz, config.graph_output, config.show_progress);
+            }
             gbwts.use(gbz.index); // We may need the GBWT later.
         }
     } else {
@@ -1621,7 +1667,11 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         );
         graphs.clear(); // We no longer need the graph.
         gbz.compute_pggname(nullptr); // We cannot determine the pggname of a generic HandleGraph efficiently.
-        save_gbz(gbz, config.graph_output, config.show_progress);
+        if (config.gbz_v1) {
+            save_gbz_v1(gbz, config.graph_output, config.show_progress);
+        } else {
+            save_gbz(gbz, config.graph_output, config.show_progress);
+        }
         gbwts.use(gbz.index); // We may need the GBWT later.
     }
 
@@ -1787,10 +1837,10 @@ void GraphHandler::get_graph(const GBWTConfig& config) {
     }
 }
 
-void GraphHandler::use(std::unique_ptr<gbwtgraph::SequenceSource>& source) {
+void GraphHandler::use(std::unique_ptr<gbwtgraph::NaiveGraph>& source) {
     this->clear();
-    this->sequence_source = std::move(source);
-    this->in_use = graph_source;
+    this->naive_graph = std::move(source);
+    this->in_use = graph_naive;
 }
 
 void GraphHandler::load_gbz(GBWTHandler& gbwts, GBWTConfig& config) {
@@ -1807,7 +1857,7 @@ void GraphHandler::load_gbz(GBWTHandler& gbwts, GBWTConfig& config) {
 
 void GraphHandler::clear() {
     this->path_graph.reset();
-    this->sequence_source.reset();
+    this->naive_graph.reset();
     this->gbz_graph.reset();
     this->in_use = graph_none;
 }
@@ -1820,10 +1870,9 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
     }
     std::ofstream out(config.segment_translation, std::ios_base::binary);
 
-    if (this->in_use == graph_source) {
-        if (this->sequence_source->uses_translation()) {
-            auto& translation = this->sequence_source->segment_translation;
-            for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
+    if (this->in_use == graph_naive) {
+        if (this->naive_graph->uses_translation()) {
+            for (auto iter = this->naive_graph->translation_begin(); iter != this->naive_graph->translation_end(); ++iter) {
                 out << "T\t" << iter->first << "\t" << iter->second.first;
                 for (nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
                     out << "," << i;

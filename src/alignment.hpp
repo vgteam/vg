@@ -252,6 +252,10 @@ vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const P
 /// operations, and merge adjacent operations of the same type
 void simplify_cigar(vector<pair<int, char>>& cigar);
 
+/// Normalize the adjustment of indels in an alignment to left or right
+/// Optionally: don't allow the ending positions of the alignment to change
+/// even if that requires the alignment to end in a deletion
+void normalize_indel_adjustment(Alignment& aln, bool adjust_left, const HandleGraph& graph, bool preserve_end_pos = false);
 
 /// Translate the CIGAR in the given BAM record into mappings in the given
 /// Alignment against the given path in the given graph.
@@ -325,6 +329,15 @@ bool is_perfect(const Alignment& alignment);
 bool is_supplementary(const Alignment& alignment);
 // The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
 pair<int64_t, int64_t> aligned_interval(const Alignment& aln);
+
+/// Count the various types of edits in an Alignment, including individual gap lengths.
+void count_alignment_operations(const Alignment& aln, size_t& matches, size_t& mismatches, std::vector<size_t>& gaps_lengths);
+/// Compute an alignment score using minimap2 long indels penalty adjustment.
+///
+/// This scoring method penalize long continous indels less, using the formula:
+/// score = matches - (mismatches + gap_opens)/2d - sum_{i=1}^{gap_opens} (log_2(1 + gap_length_i))
+/// with d = max{0.02, (mismatches + gap_opens)/(matches + mismatches + gap_opens)}
+int score_alignment_with_logged_gaps(const size_t& matches, const size_t& mismatches, const std::vector<size_t>& gap_lengths);
 
 // create an annotation string required to properly set the SAM fields/flags of a supplementary alignment
 // the arguments all refer to properties of the primary *mate* alignment

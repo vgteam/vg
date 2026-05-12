@@ -4,12 +4,11 @@
 /** \file 
  * Tools for sorting GAF records.
  *
- * TODO: This could be an independent utility.
+ * NOTE: There is an equivalent standalone tool included with GBZ-base.
+ *
  * TODO: Asynchronous I/O.
  * TODO: Option for automatic detection of merge width to guarantee <= 2 rounds.
  * TODO: Option for giving approximate batch size in bytes.
- * TODO: Switch to std::string_view when we can.
- * TODO: Remove sorting by GBWT position as obsolete.
  */
 
 #include <algorithm>
@@ -19,7 +18,7 @@
 #include <limits>
 #include <memory>
 #include <string>
-// #include <string_view>
+#include <string_view>
 #include <vector>
 
 #include <gbwt/utils.h>
@@ -27,36 +26,6 @@
 namespace vg {
 
 //------------------------------------------------------------------------------
-
-/**
- * This should be std::string_view, but apparently we are still using C++14 in Linux.
- */
-struct str_view {
-    const char* data;
-    size_t size;
-
-    str_view() : data(nullptr), size(0) {}
-    str_view(const char* data, size_t size) : data(data), size(size) {}
-    str_view(const std::string& str) : data(str.data()), size(str.size()) {}
-
-    bool empty() const { return (this->size == 0); }
-
-    char operator[](size_t i) const { return this->data[i]; }
-
-    str_view substr(size_t start, size_t length) const {
-        return str_view(this->data + start, length);
-    }
-
-    bool operator==(const str_view& another) const {
-        return (this->size == another.size && std::equal(this->data, this->data + this->size, another.data));
-    }
-
-    bool operator==(const std::string& another) const {
-        return (this->size == another.size() && std::equal(this->data, this->data + this->size, another.begin()));
-    }
-
-    std::string to_string() const { return std::string(this->data, this->size); }
-};
 
 /**
  * A record corresponding to a single line (alignment) in a GAF file.
@@ -120,11 +89,11 @@ struct GAFSorterRecord {
     bool read_line(std::istream& in, key_type type);
 
     /// Returns a view of the given 0-based field, or an empty string if the field is missing.
-    str_view get_field(size_t field) const;
+    std::string_view get_field(size_t field) const;
 
     /// Calls the given function with a 0-based field index and the field value.
     /// Stops if the function returns false.
-    void for_each_field(const std::function<bool(size_t, str_view)>& lambda) const;
+    void for_each_field(const std::function<bool(size_t, std::string_view)>& lambda) const;
 
     /// Returns the path as a GBWT path in forward orientation.
     /// If an ok flag is given, sets it to false and prints an error message

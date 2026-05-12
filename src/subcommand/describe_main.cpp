@@ -39,16 +39,16 @@ using namespace vg;
 // Functions that attempt to describe an already identified file.
 // Exceptions have been set on the input stream, and the caller will handle them.
 
-void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostream& out);
-void describe_r_index(std::ifstream& in, const std::string& index_type, std::ostream& out);
-void describe_gbwtgraph(std::ifstream& in, const std::string& index_type, std::ostream& out);
-void describe_gbz(std::ifstream& in, const std::string& index_type, std::ostream& out);
-void describe_minimizer_index(std::ifstream& in, const std::string& index_type, std::ostream& out);
+void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
+void describe_r_index(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
+void describe_gbwtgraph(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
+void describe_gbz(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
+void describe_minimizer_index(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
 
-void describe_gcsa(std::ifstream& in, const std::string& index_type, std::ostream& out);
-void describe_lcp(std::ifstream& in, const std::string& index_type, std::ostream& out);
+void describe_gcsa(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
+void describe_lcp(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
 
-void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::ostream& out);
+void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger);
 
 //----------------------------------------------------------------------------
 
@@ -58,13 +58,13 @@ void load_value(std::ifstream& in, T& value) {
 }
 
 template<typename T>
-T load_and_validate_header(std::ifstream& in) {
+T load_and_validate_header(std::ifstream& in, Logger& logger) {
     T header;
     load_value(in, header);
     try {
         header.check();
     } catch (const sdsl::simple_sds::InvalidData& e) {
-        throw std::runtime_error("Cannot validate header: " + std::string(e.what()));
+        logger.warn() << "cannot validate header: " << e.what() << std::endl;
     }
     return header;
 }
@@ -126,7 +126,7 @@ int main_describe(int argc, char** argv) {
 
 
     // Map from 32-bit magic numbers to (index type, description function) pairs.
-    const std::unordered_map<std::uint32_t, std::pair<std::string, void(*)(std::ifstream&, const std::string&, std::ostream&)>> magic_map = {
+    const std::unordered_map<std::uint32_t, std::pair<std::string, void(*)(std::ifstream&, const std::string&, std::ostream&, Logger&)>> magic_map = {
         { gbwt::GBWTHeader::TAG, { "GBWT", describe_gbwt } },
         { gbwt::FastLocate::Header::TAG, { "R-index", describe_r_index } },
         { gbwtgraph::GBWTGraph::Header::TAG, { "GBWTGraph", describe_gbwtgraph } },
@@ -163,7 +163,7 @@ int main_describe(int argc, char** argv) {
                 if (iter->second.second != nullptr) {
                     // Now that we have identified the file, unexpected EOF is also an error.
                     in.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
-                    iter->second.second(in, iter->second.first, std::cout);
+                    iter->second.second(in, iter->second.first, std::cout, logger);
                 }
                 continue;
             }
@@ -201,9 +201,9 @@ void list_tags(std::ifstream& in, bool simple_sds, const std::string& index_type
 
 //----------------------------------------------------------------------------
 
-void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gbwt::GBWTHeader header = load_and_validate_header<gbwt::GBWTHeader>(in);
+    gbwt::GBWTHeader header = load_and_validate_header<gbwt::GBWTHeader>(in, logger);
     bool simple_sds = header.get(gbwt::GBWTHeader::FLAG_SIMPLE_SDS);
     out << "  Version " << header.version << " in " << (simple_sds ? "Simple-SDS" : "SDSL") << " format" << std::endl;
     out << "  VG node ids in [" << ((header.offset + 1) / 2) << ", " << (header.alphabet_size / 2) << ")" << std::endl;
@@ -218,12 +218,14 @@ void describe_gbwt(std::ifstream& in, const std::string& index_type, std::ostrea
     out << "  " << (metadata ? "Contains" : "Does not contain") << " path metadata" << std::endl;
     out << std::endl;
 
-    list_tags(in, simple_sds, index_type, out);
+    if (header.version >= gbwt::GBWTHeader::TAGS_VERSION) {
+        list_tags(in, simple_sds, index_type, out);
+    }
 }
 
-void describe_r_index(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_r_index(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gbwt::FastLocate::Header header = load_and_validate_header<gbwt::FastLocate::Header>(in);
+    gbwt::FastLocate::Header header = load_and_validate_header<gbwt::FastLocate::Header>(in, logger);
     out << "  Version " << header.version << std::endl;
     out << "  Maximum sequence length: " << header.max_length << std::endl;
     out << std::endl;
@@ -231,29 +233,28 @@ void describe_r_index(std::ifstream& in, const std::string& index_type, std::ost
 
 //----------------------------------------------------------------------------
 
-void describe_gbwtgraph(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_gbwtgraph(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gbwtgraph::GBWTGraph::Header header = load_and_validate_header<gbwtgraph::GBWTGraph::Header>(in);
+    gbwtgraph::GBWTGraph::Header header = load_and_validate_header<gbwtgraph::GBWTGraph::Header>(in, logger);
     out << "  Version " << header.version << " in " << (header.get(gbwtgraph::GBWTGraph::Header::FLAG_SIMPLE_SDS) ? "Simple-SDS" : "SDSL") << " format" << std::endl;
     out << "  " << header.nodes << " nodes" << std::endl;
     out << "  " << (header.get(gbwtgraph::GBWTGraph::Header::FLAG_TRANSLATION) ? "Contains" : "Does not contain") << " segment to node translation" << std::endl;
     out << std::endl;
 }
 
-void describe_gbz(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_gbz(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gbwtgraph::GBZ::Header header = load_and_validate_header<gbwtgraph::GBZ::Header>(in);
+    gbwtgraph::GBZ::Header header = load_and_validate_header<gbwtgraph::GBZ::Header>(in, logger);
     out << "  Version " << header.version << std::endl;
     out << std::endl;
 
     list_tags(in, true, index_type, out);
-
-    describe_gbwt(in, "GBWT", out);
+    describe_gbwt(in, "GBWT", out, logger);
 }
 
-void describe_minimizer_index(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_minimizer_index(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gbwtgraph::MinimizerHeader header = load_and_validate_header<gbwtgraph::MinimizerHeader>(in);
+    gbwtgraph::MinimizerHeader header = load_and_validate_header<gbwtgraph::MinimizerHeader>(in, logger);
     out << "  Version " << header.version << std::endl;
     if (header.flags & gbwtgraph::MinimizerHeader::FLAG_SYNCMERS) {
         out << "  Syncmers with k = " << header.k << ", s = " << header.w_or_s << std::endl;
@@ -271,23 +272,25 @@ void describe_minimizer_index(std::ifstream& in, const std::string& index_type, 
     out << "  " << key_bits << "-bit keys and " << payload_words << "-word payloads" << std::endl;
     out << std::endl;
 
-    list_tags(in, false, index_type, out);
+    if (header.version >= gbwtgraph::MinimizerHeader::TAGS_VERSION) {
+        list_tags(in, false, index_type, out);
+    }
 }
 
 //----------------------------------------------------------------------------
 
-void describe_gcsa(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_gcsa(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gcsa::GCSAHeader header = load_and_validate_header<gcsa::GCSAHeader>(in);
+    gcsa::GCSAHeader header = load_and_validate_header<gcsa::GCSAHeader>(in, logger);
     out << "  Version " << header.version << std::endl;
     out << "  " << header.path_nodes << " path nodes of max length " << header.order << std::endl;
     out << "  " << header.edges << " edges" << std::endl;
     out << std::endl;
 }
 
-void describe_lcp(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_lcp(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger& logger) {
     out << index_type << " header:" << std::endl;
-    gcsa::LCPHeader header = load_and_validate_header<gcsa::LCPHeader>(in);
+    gcsa::LCPHeader header = load_and_validate_header<gcsa::LCPHeader>(in, logger);
     out << "  Version " << header.version << std::endl;
     out << "  Size " << header.size << " with branching factor " << header.branching << std::endl;
     out << std::endl;
@@ -295,7 +298,7 @@ void describe_lcp(std::ifstream& in, const std::string& index_type, std::ostream
 
 //----------------------------------------------------------------------------
 
-void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::ostream& out) {
+void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::ostream& out, Logger&) {
     out << index_type << " header:" << std::endl;
     Haplotypes::Header header;
     load_value(in, header);

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 37
+plan tests 42
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -141,5 +141,15 @@ is "$(vg stats -l part.vg)" "$(vg stats -l subpart.vg)" "chunking the same base 
 
 rm -f graph.gbz part.vg subpart.vg log.txt
 
+# GBZ chunking
+vg gbwt --graph-name graph.gbz --set-reference sample --gfa-input graphs/components_walks.gfa
+vg chunk -x graph.gbz --gbz
+is "$?" "0" "chunking a GBZ with option --gbz works"
+is "$(ls -l chunk_*.gbz | wc -l)" "2" "GBZ chunking produces correct number of chunks"
+vg chunk -x graph.gbz --gbz --contig A --prefix single
+is "$?" "0" "chunking a GBZ with options --gbz and --contig works"
+is "$(ls -l single_*.gbz | wc -l)" "1" "GBZ chunking with --contig produces correct number of chunks"
+cmp chunk_0_A.gbz single_0_A.gbz
+is "$?" "0" "GBZ chunking with --contig produces the expected chunk"
 
-
+rm -f graph.gbz chunk_*.gbz single_*.gbz

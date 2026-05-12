@@ -91,7 +91,7 @@ On other distros, or if you do not have root access, you will need to perform th
                          automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
                          npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
-                         libzstd-dev pybind11-dev python3-pybind11 libssl-dev
+                         libzstd-dev pybind11-dev python3-pybind11 libssl-dev kmc
                          
 At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 
