@@ -939,8 +939,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // convert into gssw graph
     gssw_graph* graph = create_gssw_graph(*align_graph);
     
-    int8_t front_full_length_bonus = qa_scorer()->qual_adj_full_length_bonuses[align_quality->front()];
-    int8_t back_full_length_bonus = qa_scorer()->qual_adj_full_length_bonuses[align_quality->back()];
+    int8_t front_full_length_bonus = scorer->score_full_length_bonus(true, align_sequence->begin(), align_sequence->end(), align_quality->begin());
+    int8_t back_full_length_bonus = scorer->score_full_length_bonus(false, align_sequence->begin(), align_sequence->end(), align_quality->begin());
     
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.
@@ -1162,7 +1162,7 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
             xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
             
             // get the quality adjusted bonus
-            int8_t bonus = qa_scorer()->qual_adj_full_length_bonuses[pin_left ? alignment.quality().back() : alignment.quality().front()];
+            int8_t bonus = scorer->score_full_length_bonus(!pin_left, alignment);
             
             xdrop.align_pinned(alignment, overlay, pin_left, bonus, xdrop_max_gap_length);
             
@@ -1334,7 +1334,7 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, con
     QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
     
     // get the quality adjusted bonus
-    int8_t bonus = qa_scorer()->qual_adj_full_length_bonuses[reverse_complemented ? alignment.quality().front() : alignment.quality().back()];
+    int8_t bonus = scorer->score_full_length_bonus(reverse_complemented, alignment);
     
     xdrop.align(alignment, g, order, mems, reverse_complemented, bonus, max_gap_length);
     if (!alignment.has_path() && mems.empty()) {

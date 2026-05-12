@@ -20,7 +20,7 @@ namespace vg {
  *
  * The case of applying the scoring scheme back to the standard alignment is
  * handled specially for speed; you MUST NOT apply the scorer to a different
- * alignmnet at the same address as the standard alignment. (An easy way to
+ * alignment at the same address as the standard alignment. (An easy way to
  * ensure this is to ensure that the standard alignment outlives this object
  * and is not modified.)
  *

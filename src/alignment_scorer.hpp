@@ -98,27 +98,39 @@ public:
     virtual int32_t score_exact_match(std::string::const_iterator seq_begin, std::string::const_iterator seq_end,
                                       std::string::const_iterator base_qual_begin) const = 0;
     /// Compute the score of a mismatch of the given range of sequence with the given qualities.
-    /// Return is signed and almost certainly negative.
+    /// Qualities may be ignored by some implementations.
+    /// Note that the return value is SIGNED, and almost certainly NEGATIVE, because mismatches are bad.
     virtual int32_t score_mismatch(std::string::const_iterator seq_begin, std::string::const_iterator seq_end,
                                    std::string::const_iterator base_qual_begin) const = 0;
 
+    /// Compute the score bonus that would be achieved by a full-length
+    /// alignment of the given end of the given read.
     virtual int32_t score_full_length_bonus(bool left_side, std::string::const_iterator seq_begin,
                                             std::string::const_iterator seq_end,
                                             std::string::const_iterator base_qual_begin) const = 0;
+    /// Compute the score bonus that would be achieved by a full-length
+    /// alignment of the given end of the given read. Does not check whether
+    /// that end actually has a full-lenght alignment.
     virtual int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const = 0;
 
     /// Compute the score of a path against the given range of subsequence with the given qualities.
+    /// The Alignment is just to find the sequence begin and end to compare to seq_begin.
+    /// seq_begin is the first read base involved in the provided path to be scored.
     virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph,
                                             const path_t& path,
                                             std::string::const_iterator seq_begin,
                                             bool no_read_end_scoring = false) const = 0;
 
-    /// Score a gap with this scorer's gap_open / gap_extension parameters.
+    /// Returns the score of an insert or deletion of the given length.
     virtual int32_t score_gap(size_t gap_length) const;
 
     /// Use the score values in the scorer to score the given alignment,
     /// scoring gaps caused by jumping between nodes using a custom gap length
-    /// estimation function.
+    /// estimation function (which takes the from position, the
+    /// to position, and a search limit in bp that happens to be the read
+    /// length).
+    ///
+    /// May include full length bonus or not. TODO: bool flags are bad..
     virtual int32_t score_discontiguous_alignment(const Alignment& aln,
         const std::function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
         bool allow_left_bonus = true,
@@ -129,13 +141,19 @@ public:
                                                bool allow_left_bonus = true,
                                                bool allow_right_bonus = true) const;
 
-    /// Return the score with full-length bonuses removed.
+    /// Without necessarily rescoring the entire alignment, return the score
+    /// of the given alignment with bonuses removed. Assumes that bonuses
+    /// are actually included in the score.
+    /// Needs to know if the alignment was pinned-end or not, and, if so, which end was pinned.
     virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false) const;
 
     /// The longest gap detectable from a read position without soft-clipping.
     size_t longest_detectable_gap(const Alignment& alignment, const std::string::const_iterator& read_pos) const;
+    /// The longest gap detectable from a read position without soft-clipping, for a generic read.
     size_t longest_detectable_gap(size_t read_length, size_t read_pos) const;
+    /// The longest gap detectable from any read position without soft-clipping.
     size_t longest_detectable_gap(const Alignment& alignment) const;
+    /// The longest gap detectable from any read position without soft-clipping, for a generic read.
     size_t longest_detectable_gap(size_t read_length) const;
 
     ////
@@ -172,7 +190,7 @@ public:
     MatrixAlignmentScorer(const MatrixAlignmentScorer&) = delete;
     MatrixAlignmentScorer& operator=(const MatrixAlignmentScorer&) = delete;
 
-    /// Retriece the log base value that was computed at construction.
+    /// Retrieve the log base value that was computed at construction.
     double get_log_base() const override;
 
     int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const override;
@@ -185,6 +203,7 @@ public:
 
     int32_t score_mismatch(std::string::const_iterator seq_begin, std::string::const_iterator seq_end,
                            std::string::const_iterator base_qual_begin) const override;
+    
     /// Score a mismatch of unspecified sequence of the given length.
     /// This usually produces a negative score.
     int32_t score_mismatch(size_t length) const;
@@ -244,10 +263,11 @@ public:
                                     std::string::const_iterator seq_begin,
                                     bool no_read_end_scoring = false) const override;
 
+protected:
+
     /// Per-quality full-length bonus table. Owned by this class.
     int8_t* qual_adj_full_length_bonuses = nullptr;
 
-protected:
     int8_t* qual_adjusted_matrix(const int8_t* score_matrix_4x4, double gc_content,
                                  double log_base, uint32_t max_qual) const;
     int8_t* qual_adjusted_bonuses(int8_t base_full_length_bonus, double log_base,

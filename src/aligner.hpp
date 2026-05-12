@@ -50,7 +50,7 @@ namespace vg {
     protected:
         /// Build a GSSWAligner around a MatrixAlignmentScorer.
         ///
-        /// This is the protected constructor menat to be called by subclasses.
+        /// This is the protected constructor meant to be called by subclasses.
         GSSWAligner(std::unique_ptr<MatrixAlignmentScorer> owned_scorer);
         ~GSSWAligner();
 
@@ -142,8 +142,8 @@ namespace vg {
         std::unique_ptr<MatrixAlignmentScorer> scorer;
 
         /// Mapping quality calculator for computing mapping qualities under
-        /// the scorign scheme we use. Not used internally, but exposed so that
-        /// aligner clinets have easy access to a MAPQ calculator for free and
+        /// the scoring scheme we use. Not used internally, but exposed so that
+        /// aligner clients have easy access to a MAPQ calculator for free and
         /// don't need to build their own.
         std::unique_ptr<MappingQualityCalculator> mapq_calc;
 
@@ -166,13 +166,12 @@ namespace vg {
                 int8_t gap_extension = default_gap_extension,
                 int8_t full_length_bonus = default_full_length_bonus,
                 double gc_content = default_gc_content);
-        // Move-only (owned scorer/MQ calc are unique_ptrs).
+        
+        // An Aligner is movable but not copyable 
         Aligner(Aligner&&) = default;
         Aligner& operator=(Aligner&&) = default;
 
-        /// Store optimal local alignment against a graph in the Alignment object.
-        /// Gives the full length bonus separately on each end of the alignment.
-        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const;
+        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const override;
 
         /// Align against a subgraph induced by a subset of nodes. The topological
         /// order of the handles in the subgraph must be provided.
@@ -182,34 +181,34 @@ namespace vg {
                    const std::vector<handle_t>& topological_order) const;
 
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
-                          uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
+                          uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const override;
 
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                bool pin_left, int32_t max_alt_alns) const;
+                                bool pin_left, int32_t max_alt_alns) const override;
 
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true,
-                                 uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
+                                 uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const override;
 
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true,
-                                       uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
+                                       uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const override;
 
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
-                         bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
+                         bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const override;
 
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
                          const vector<MaximalExactMatch>& mems, bool reverse_complemented,
-                         uint16_t max_gap_length = default_xdrop_max_gap_length) const;
+                         uint16_t max_gap_length = default_xdrop_max_gap_length) const override;
 
     private:
 
-        // internal function interacting with gssw for pinned and local alignment
+        /// Internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln) const;
 
-        // members
+        // Per-thread xdrop aligners
         vector<XdropAligner> xdrops;
     };
 
@@ -228,39 +227,33 @@ namespace vg {
         QualAdjAligner(QualAdjAligner&&) = default;
         QualAdjAligner& operator=(QualAdjAligner&&) = default;
 
-        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const;
+        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const override;
+
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true,
-                                 uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
+                                 uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const override;
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
-                          uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
+                          uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const override;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true,
-                                       uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
+                                       uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const override;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                bool pin_left, int32_t max_alt_alns) const;
+                                bool pin_left, int32_t max_alt_alns) const override;
 
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
-                         bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
+                         bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const override;
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
                          const vector<MaximalExactMatch>& mems, bool reverse_complemented,
-                         uint16_t max_gap_length = default_xdrop_max_gap_length) const;
+                         uint16_t max_gap_length = default_xdrop_max_gap_length) const override;
 
     protected:
 
-        // internal function interacting with gssw for pinned and local alignment
+        /// Internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln) const;
 
-        /// Convenience accessor: scorer downcast to its concrete type so we
-        /// can reach the qual-adjusted full-length bonus table without going
-        /// through a virtual.
-        const QualAdjAlignmentScorer* qa_scorer() const {
-            return static_cast<const QualAdjAlignmentScorer*>(scorer.get());
-        }
-
-        // members
+        // Per-thread xdrop aligners
         vector<QualAdjXdropAligner> xdrops;
     };
 

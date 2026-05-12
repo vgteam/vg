@@ -18,9 +18,9 @@ namespace vg {
  * and `mismatch` members. No reference to the scorer is retained after
  * construction.
  *
- * TODO: This independently needs the GC content, and stores the scorer's
- * log_base instead of the whole scorer. Should we keep a reference to the
- * scorer and get both of those from it on demand instead?
+ * TODO: This stores (a forgery of) the scorer's log_base instead of the whole
+ * scorer. Should we keep a reference to the scorer and get the log base from
+ * it on demand instead?
  */
 class MappingQualityCalculator {
 public:
@@ -30,8 +30,9 @@ public:
           rep_mismatch(static_cast<double>(scorer.mismatch)),
           log_base(scorer.get_log_base()) {}
 
-    /// Stores -10 * log_10(P_err) in alignment mapping_quality field. P_err
-    /// is the probability that the alignment is not the correct one.
+    /// Stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
+    /// probability that the alignment is not the correct one (assuming that one of the alignments
+    /// in the vector is correct).
     void compute_mapping_quality(std::vector<Alignment>& alignments,
                                  int max_mapping_quality,
                                  bool fast_approximation,
@@ -42,7 +43,8 @@ public:
                                  double maybe_mq_threshold,
                                  double identity_weight) const;
 
-    /// Same for paired reads. Mapping qualities are stored in both alignments.
+    /// Stores mapoping qualities in paired reads' mapping quality fields.
+    /// Mapping qualities are stored in both alignments.
     void compute_paired_mapping_quality(std::pair<std::vector<Alignment>, std::vector<Alignment>>& alignment_pairs,
                                         const std::vector<double>& frag_weights,
                                         int max_mapping_quality1,
@@ -58,23 +60,31 @@ public:
                                         double identity_weight) const;
 
     /// Computes mapping quality for the optimal score in a vector of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// only 1 count can apply toward the mapping quality.
     int32_t compute_max_mapping_quality(const std::vector<double>& scores, bool fast_approximation,
                                         const std::vector<double>* multiplicities = nullptr) const;
 
     /// Computes mapping quality for the first score in a vector of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// only 1 count can apply toward the mapping quality.
     int32_t compute_first_mapping_quality(const std::vector<double>& scores, bool fast_approximation,
                                           const std::vector<double>* multiplicities = nullptr) const;
 
     /// Computes mapping quality for a group of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the score, but the mapping quality is always
+    /// calculated as if each member of the group has a count of 1.
     int32_t compute_group_mapping_quality(const std::vector<double>& scores, const std::vector<size_t>& group,
                                           const std::vector<double>* multiplicities = nullptr) const;
 
     /// Computes mapping quality for all of a vector of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// only 1 count can apply toward the mapping quality.
     std::vector<int32_t> compute_all_mapping_qualities(const std::vector<double>& scores,
                                                        const std::vector<double>* multiplicities = nullptr) const;
 
-    /// Difference between optimal and second-best alignment scores that would
-    /// produce the given mapping quality under the fast approximation.
+    /// Returns the  difference between an optimal and second-best alignment scores that would
+    /// result in this mapping quality using the fast mapping quality approximation
     double mapping_quality_score_diff(double mapping_quality) const;
 
     /// Convert a score to an unnormalized log likelihood for the sequence.
@@ -84,19 +94,30 @@ public:
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) const;
     double estimate_next_best_score(int length, double min_diffs) const;
 
-    // Static helpers (no internal MQ state needed).
+    // Static helpers
 
     /// Given a nonempty vector of nonnegative scaled alignment scores,
-    /// compute the mapping quality of the maximal score. Sets *max_idx_out
-    /// (if non-null) to the index of that score.
+    /// compute the mapping quality of the maximal score in the vector.
+    /// Sets max_idx_out to the index of that score in the vector.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// the mapping quality is always calculated as if its multiplicity is 1.
     static double maximum_mapping_quality_exact(const std::vector<double>& scaled_scores,
                                                 size_t* max_idx_out,
                                                 const std::vector<double>* multiplicities = nullptr);
+    /// Given a nonempty vector of nonnegative scaled alignment scores,
+    /// approximate the mapping quality of the maximal score in the vector.
+    /// Sets max_idx_out to the index of that score in the vector.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// the mapping quality is always calculated as if its multiplicity is 1.
     static double maximum_mapping_quality_approx(const std::vector<double>& scaled_scores,
                                                  size_t* max_idx_out,
                                                  const std::vector<double>* multiplicities = nullptr);
+    /// Same as maximum_mapping_quality_exact except always computes mapping
+    /// quality for the first score
     static double first_mapping_quality_exact(const std::vector<double>& scaled_scores,
                                               const std::vector<double>* multiplicities = nullptr);
+    /// Same as maximum_mapping_quality_approx except alway s computes mapping
+    /// quality for the first score
     static double first_mapping_quality_approx(const std::vector<double>& scaled_scores,
                                                const std::vector<double>* multiplicities = nullptr);
 

@@ -20,7 +20,7 @@ using std::round;
 using std::sqrt;
 using std::vector;
 
-// Phred scale conversion factor.
+/// Phred scale conversion factor.
 static const double quality_scale_factor = 10.0 / std::log(10.0);
 
 double MappingQualityCalculator::maximum_mapping_quality_exact(const vector<double>& scaled_scores,
