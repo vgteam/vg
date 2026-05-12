@@ -882,7 +882,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // Penalize the score of alignment candidates according to the number of recombinations their chains required.
                     // This allows alignments that required fewer recombinations in their chains to win.
                     // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
-                    int64_t penalty = static_cast<int64_t>(rec_penalty) * static_cast<int64_t>(chain_rec_counts[chain_index]);
+                    int64_t penalty = static_cast<int64_t>(rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
                     alignments[alignment_index].set_score(static_cast<int>(penalized_score));
                 }
@@ -1582,7 +1582,9 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 this->item_scale,
                 this->gap_scale,
                 this->points_per_possible_match,
-                this->rec_penalty_chain
+                this->rec_penalty,
+                // TODO: Do this once at setup?
+                this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
             };
             chain_results = algorithms::find_best_chains(
                 anchor_view,

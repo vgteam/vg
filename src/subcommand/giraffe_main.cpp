@@ -450,10 +450,24 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
-        "rec-penalty-chain",
-        &MinimizerMapper::rec_penalty_chain,
-        MinimizerMapper::default_rec_penalty_chain,
-        "penalty for a recombination when chaining, requires -E (ALPHA)",
+        "rec-penalty",
+        &MinimizerMapper::rec_penalty,
+        MinimizerMapper::default_rec_penalty,
+        "penalty for a recombination, requires -E (ALPHA)",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "rec-penalty-aln",
+        &MinimizerMapper::rec_penalty_aln,
+        MinimizerMapper::default_rec_penalty_aln,
+        "penalty for a recombination for final alignment scoring, -1 for --rec-penalty, requires -E (ALPHA)",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "rec-consistency-bonus",
+        &MinimizerMapper::rec_consistency_bonus,
+        MinimizerMapper::default_rec_consistency_bonus,
+        "untracked bonus for chains staying consistent with haplotypes to avoid recombinations, -1 for --rec-penalty, requires -E (ALPHA)",
         int_is_nonnegative
     );
     chaining_opts.add_range(

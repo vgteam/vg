@@ -409,8 +409,14 @@ struct ChainScoringScheme {
     double item_scale = 1.0;
     /// Scale to apply to the scores of gaps
     double gap_scale = 1.0;
+    /// Add this many points per potential match between two seeds
     double points_per_possible_match = 0;
+    /// Penalize this many points per recombination
     int recombination_penalty = 0;
+    /// Apply a bonus during alternative selection (but not to actual DP
+    /// scores) of this many points when matching haplotype paths are
+    /// preserved, scaled by fraction of haplotypes preserved.
+    int consistency_bonus = 0;
 };
 
 /// A single chain result: scored chain plus the recombination count observed

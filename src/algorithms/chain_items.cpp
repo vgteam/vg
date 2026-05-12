@@ -654,6 +654,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     }
 
     crash_unless(scheme.recombination_penalty >= 0);
+    crash_unless(scheme.consistency_bonus >= 0);
+
 
     // Compute a base seed average length.
     // TODO: Weight anchors differently?
@@ -677,8 +679,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // We store the bonus used to select the current winning predecessor for
     // each seed in this vector, which runs alongside the DP table.
     //
-    // Starting from nowhere means full path conservation, so bonus = scheme.recombination_penalty.
-    std::vector<int> eval_bonuses(to_chain.size(), scheme.recombination_penalty);
+    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
+    std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
         chain_scores[i] = {(int)(to_chain[i].score() * scheme.item_scale + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
@@ -708,10 +710,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        // This also has full path conservation (bonus = scheme.recombination_penalty).
+        // This also has full path conservation (bonus = scheme.consistency_bonus).
         {
             TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
-            int nowhere_bonus = scheme.recombination_penalty;
+            int nowhere_bonus = scheme.consistency_bonus;
             int eval_nowhere = from_nowhere.score + nowhere_bonus;
             int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
             if (eval_nowhere > eval_current) {
@@ -799,15 +801,15 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                                                         .set_shared_paths(here.anchor_paths());
             
             // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
-            // Bonus = fraction of conserved paths * scheme.recombination_penalty.
+            // Bonus = fraction of conserved paths * scheme.consistency_bonus.
             // Bonus is 0 when recombination occurs (no shared paths).
             int eval_bonus_from = 0;
-            if (scheme.recombination_penalty > 0) {
+            if (scheme.consistency_bonus > 0) {
                 int pre_count = __builtin_popcountll(source_score.paths);
                 if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
                     // No recombination: bonus = fraction of paths conserved * penalty
                     int post_count = __builtin_popcountll(from_source_score.paths);
-                    eval_bonus_from = (scheme.recombination_penalty * post_count) / pre_count;
+                    eval_bonus_from = (scheme.consistency_bonus * post_count) / pre_count;
                 }
                 // Recombination case (no shared paths): bonus stays 0
             }

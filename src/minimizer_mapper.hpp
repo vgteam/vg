@@ -291,9 +291,15 @@ class MinimizerMapper : public AlignerClient {
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
-    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared haplotypes.
-    static constexpr int default_rec_penalty_chain = 0;
-    int rec_penalty_chain = default_rec_penalty_chain;
+    /// Recombination penalty. This is added to the cost of a transition if there are no shared haplotypes.
+    static constexpr int default_rec_penalty = 0;
+    int rec_penalty = default_rec_penalty;
+    /// Recombination penalty for alignment scoring. This is deducted from the score of an alignment for each required recombination. -1 means use rec_penalty.
+    static constexpr int default_rec_penalty_aln = -1;
+    int rec_penalty_aln = default_rec_penalty_aln;
+    /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score. -1 means use rec_penalty.
+    static constexpr int default_rec_consistency_bonus = -1;
+    int rec_consistency_bonus = default_rec_consistency_bonus;
     // How many points should we treat a non-gap connection base as producing, at chaining?
     static constexpr double default_points_per_possible_match = 0;
     double points_per_possible_match = default_points_per_possible_match;
