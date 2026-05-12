@@ -14,6 +14,8 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/vg.pb.h>
 
+#include <limits>
+
 #include "alignment.hpp"
 #include "annotation.hpp"
 #include "gbwtgraph_helper.hpp"
@@ -53,6 +55,84 @@ bool HaplotypeSurjector::path_is_indexed(const string& path_name) const {
 }
 
 namespace {
+
+/// Apply the "blat" preset to a MinimizerMapper.
+///
+/// Mirrors the "blat" entry in giraffe_main.cpp's `presets` map (defined
+/// next to "hifi"). Inherits all of "hifi"'s long-read code-path values and
+/// then applies the BLAT overrides flagged below. Keep this in sync with
+/// the preset definition in giraffe_main.cpp — the engine does not use the
+/// CLI parser, so the values are duplicated here for direct field
+/// assignment.
+void apply_blat_preset(MinimizerMapper& m) {
+    // ---- inherited from "hifi" (long-read code path) ----
+    m.align_from_chains = true;
+    m.use_explored_cap = false;
+    m.max_unique_min = 79;
+    m.num_bp_per_min = 152;
+    m.minimizer_downsampling_window_count = 15;
+    m.minimizer_downsampling_max_window_length = 227;
+    m.hit_cap = 0;
+    m.minimizer_score_fraction = 1.0;
+    m.hard_hit_cap = 13614;
+    m.gapless_extension_limit = 0;
+    m.zipcode_tree_score_threshold = 100.0;
+    m.pad_zipcode_tree_score_threshold = 50.0;
+    m.zipcode_tree_coverage_threshold = 0.5;
+    m.zipcode_tree_scale = 2.0;
+    m.min_chaining_problems = 6;
+    m.max_chaining_problems = std::numeric_limits<int>::max();
+    m.max_graph_lookback_bases = 20000;
+    m.max_graph_lookback_bases_per_base = 0.10501002120802233;
+    m.max_indel_bases = 5000;
+    m.max_indel_bases_per_base = 2.45;
+    m.item_bonus = 20;
+    m.item_scale = 1.0;
+    m.gap_scale = 0.2;
+    m.max_min_chain_score = 100;
+    m.max_skipped_bases = 1000;
+    m.max_chain_connection = 233;
+    m.max_tail_length = 68;
+    m.max_tail_gap = 150;
+    m.max_middle_gap = 500;
+    m.max_dp_cells = 8000000000ULL;
+    m.wfa_distance = 33;
+    m.wfa_distance_per_base = 0.195722;
+    m.wfa_max_distance = 240;
+    m.wfa_max_mismatches = 2;
+    m.wfa_max_mismatches_per_base = 0.05;
+    m.wfa_max_max_mismatches = 15;
+    // watchdog-timeout / batch-size / prune-low-cplx live on
+    // GiraffeMainOptions in vg, not on MinimizerMapper; they're
+    // program-level concerns we don't need in the engine.
+
+    // ---- BLAT-specific overrides ----
+    // BLAT: keep mapq off (hifi sets 0.001; explicit here so future
+    // hifi changes don't silently flip it).
+    m.mapq_score_scale = 0.001;
+    // BLAT: report many hits per read instead of one best.
+    // hifi: max_alignments=3, max_multimaps not set (=1).
+    // blat: 100 each so we surface every haplotype/paralog hit.
+    // max_alignments must be >= max_multimaps or it caps reporting.
+    m.max_multimaps = 100;
+    m.max_alignments = 100;
+    // BLAT: loosen chain filtering so secondary hits aren't pruned.
+    // hifi: chain_score_threshold=200 (chains within 200 of best).
+    // blat: 1000 — admit much weaker chains relative to the best.
+    m.chain_score_threshold = 1000.0;
+    // BLAT: drop the per-base chain score floor.
+    // hifi: 0.1 (chain must score >= 0.1 per read base).
+    // blat: 0.05 — let noisy/partial matches survive.
+    m.min_chain_score_per_base = 0.05;
+    // BLAT: always try many chains, even when one dominates.
+    // hifi: min_chains=2. blat: 50, so paralog/cross-haplotype hits
+    // surface even when one chain has a clear best score.
+    m.min_chains = 50;
+    // BLAT: allow many chains per zipcode-tree cluster.
+    // hifi: max_chains_per_tree=3. blat: 20 — tandem repeats and
+    // high-copy gene families need more than 3 to produce all hits.
+    m.max_chains_per_tree = 20;
+}
 
 /// Convert a SAM-style cigar vector into a string like "55M". Returns "*"
 /// for the empty CIGAR so the tag is unambiguous in framed output.
@@ -217,9 +297,8 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     if (config.threads == 0) {
         throw runtime_error("Thread count must be >= 1");
     }
-    if (config.max_multimaps == 0) {
-        throw runtime_error("max_multimaps must be >= 1");
-    }
+    // max_multimaps == 0 is allowed and means "use the preset / mapper
+    // default". A positive value is an explicit override (see below).
     if (!file_exists(paths.gbz_path) || !file_exists(paths.minimizer_path)
         || !file_exists(paths.distance_path) || !file_exists(paths.zipcode_path)) {
         throw runtime_error("One or more required index files do not exist");
@@ -245,7 +324,15 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     }
 
     auto mapper = make_unique<MinimizerMapper>(gbz->graph, *minimizer_index, distance_index.get(), zipcodes.get());
-    mapper->max_multimaps = config.max_multimaps;
+
+    // The engine always uses the long-read/BLAT mapping configuration — per
+    // Benedict, the long-read code path is intended to replace the
+    // short-read path and works well enough for short reads too. Applied
+    // before explicit overrides so config.max_multimaps (if > 0) wins.
+    apply_blat_preset(*mapper);
+    if (config.max_multimaps > 0) {
+        mapper->max_multimaps = config.max_multimaps;
+    }
 
     auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
 

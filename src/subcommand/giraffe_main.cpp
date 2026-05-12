@@ -948,6 +948,81 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-max-mismatches", 15)
         .add_entry<bool>("prune-low-cplx", true);
 
+    // "blat" preset: long-read code path tuned BLAT-style — emit many hits
+    // per query instead of one best mapping. Inherits all of "hifi" verbatim
+    // and then overrides the entries flagged "BLAT:" below. Per Benedict, we
+    // run the long-read path even for short reads (the long-read pipeline
+    // works well enough on short reads and is intended to subsume the
+    // short-read path), so "blat" pairs with long-read minimizer/zipcode
+    // indexes regardless of read length.
+    presets["blat"]
+        // ---- inherited from "hifi" (long-read code path) ----
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        .add_entry<size_t>("watchdog-timeout", 30)
+        .add_entry<size_t>("batch-size", 10)
+        .add_entry<size_t>("max-min", 79)
+        .add_entry<size_t>("num-bp-per-min", 152)
+        .add_entry<size_t>("downsample-window-count", 15)
+        .add_entry<size_t>("downsample-window-length", 227)
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        .add_entry<size_t>("hard-hit-cap", 13614)
+        .add_entry<size_t>("gapless-extension-limit", 0)
+        .add_entry<double>("zipcode-tree-score-threshold", 100.0)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
+        .add_entry<double>("zipcode-tree-scale", 2.0)
+        .add_entry<int>("min-chaining-problems", 6)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-graph-lookback-bases", 20000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
+        .add_entry<size_t>("max-indel-bases", 5000)
+        .add_entry<double>("max-indel-bases-per-base", 2.45)
+        .add_entry<int>("item-bonus", 20)
+        .add_entry<double>("item-scale", 1.0)
+        .add_entry<double>("gap-scale", 0.2)
+        .add_entry<int>("max-min-chain-score", 100)
+        .add_entry<size_t>("max-skipped-bases", 1000)
+        .add_entry<size_t>("max-chain-connection", 233)
+        .add_entry<size_t>("max-tail-length", 68)
+        .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
+        .add_entry<size_t>("max-dp-cells", 8000000000)
+        .add_entry<int>("wfa-distance", 33)
+        .add_entry<double>("wfa-distance-per-base", 0.195722)
+        .add_entry<int>("wfa-max-distance", 240)
+        .add_entry<int>("wfa-max-mismatches", 2)
+        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<bool>("prune-low-cplx", true)
+        // BLAT: keep mapq off (hifi sets 0.001; explicit here so future
+        // hifi changes don't silently flip it). BLAT doesn't compute a
+        // meaningful mapping quality.
+        .add_entry<double>("mapq-score-scale", 0.001)
+        // BLAT: report many hits per read instead of one best.
+        // hifi: max-alignments=3, max-multimaps not set (=1).
+        // blat: 100 each so we surface every haplotype/paralog hit.
+        // max-alignments must be >= max-multimaps or it caps reporting.
+        .add_entry<size_t>("max-multimaps", 100)
+        .add_entry<size_t>("max-alignments", 100)
+        // BLAT: loosen chain filtering so secondary hits aren't pruned.
+        // hifi: chain-score-threshold=200 (keep chains within 200 of best).
+        // blat: 1000 — admit much weaker chains relative to the best.
+        .add_entry<double>("chain-score-threshold", 1000.0)
+        // BLAT: drop the per-base chain score floor.
+        // hifi: 0.1 (chain must score >= 0.1 per read base).
+        // blat: 0.05 — let noisy/partial matches survive.
+        .add_entry<double>("min-chain-score-per-base", 0.05)
+        // BLAT: always try many chains, even when one dominates.
+        // hifi: min-chains=2. blat: 50, so paralog/cross-haplotype hits
+        // surface even when one chain has a clear best score.
+        .add_entry<int>("min-chains", 50)
+        // BLAT: allow many chains per zipcode-tree cluster.
+        // hifi: max-chains-per-tree=3. blat: 20 — tandem repeats and
+        // high-copy gene families need more than 3 to produce all hits.
+        .add_entry<size_t>("max-chains-per-tree", 20);
+
     Preset r10_base;
 
     r10_base

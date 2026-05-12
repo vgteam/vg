@@ -98,7 +98,13 @@ private:
 
 struct GiraffeEngineConfig {
     size_t threads = 1;
-    size_t max_multimaps = 1;
+
+    /// Override for MinimizerMapper::max_multimaps. `0` means "use the
+    /// engine's built-in BLAT preset value (100)". Any value > 0 overrides
+    /// the preset value — useful when a caller wants fewer hits per read
+    /// than the BLAT default of 100.
+    size_t max_multimaps = 0;
+
     bool preload_distance_index = true;
 
     /// Names of haplotype paths in the GBZ to pre-index for surjection.

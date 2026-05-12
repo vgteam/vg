@@ -42,7 +42,7 @@ void help_giraffe_server(char** argv) {
          << endl
          << "optional:" << endl
          << "  -t, --threads N              mapping threads [1]" << endl
-         << "  -M, --max-multimaps N        max mappings per read [1]" << endl
+         << "  -M, --max-multimaps N        max mappings per read (overrides BLAT default of 100)" << endl
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
          << "      --framed-output          emit read-grouped framed output for middleware" << endl
