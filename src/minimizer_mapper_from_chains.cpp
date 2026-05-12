@@ -878,11 +878,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             size_t chain_index = alignments_to_source[alignment_index];
             if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
                 set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
-                if (rec_penalty_chain != 0) {
+                if (rec_penalty != 0) {
                     // Penalize the score of alignment candidates according to the number of recombinations their chains required.
                     // This allows alignments that required fewer recombinations in their chains to win.
                     // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
-                    int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
+                    int64_t penalty = static_cast<int64_t>(rec_penalty) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
                     alignments[alignment_index].set_score(static_cast<int>(penalized_score));
                 }
@@ -1575,19 +1575,24 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 graph_lookback_limit,
                 read_lookback_limit
             );
+            // TODO: Should we just inherit from ChainScoringScheme? Or should
+            // we set one up as a member?
+            algorithms::ChainScoringScheme scheme {
+                this->item_bonus,
+                this->item_scale,
+                this->gap_scale,
+                this->points_per_possible_match,
+                this->rec_penalty_chain
+            };
             chain_results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
                 get_regular_aligner()->scorer->gap_open,
                 get_regular_aligner()->scorer->gap_extension,
-                this->rec_penalty_chain,
+                scheme,
                 this->max_alignments,
                 for_each_transition,
-                this->item_bonus,
-                this->item_scale,
-                this->gap_scale,
-                this->points_per_possible_match,
                 indel_limit,
                 show_work
             );
