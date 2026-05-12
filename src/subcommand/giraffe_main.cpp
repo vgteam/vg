@@ -2074,6 +2074,7 @@ int main_giraffe(int argc, char** argv) {
                                           << "unambiguously-paired reads to learn fragment length distribution. "
                                           << "Are you sure your reads are paired "
                                           << "and your graph is not a hairball?" << std::endl;
+                            require_distribution_finalized();
                         }
                         
                         if (watchdog) {
