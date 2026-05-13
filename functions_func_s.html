@@ -114,7 +114,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Constructor.html#a1d90ed36989b851bb3c072f4d67b52dd">vg::Constructor</a>
 </li>
 <li>save()
-: <a class="el" href="classvg_1_1io_1_1VPKG.html#a0472c51ab91f4b8663a56a150e0e0f12">vg::io::VPKG</a>
+: <a class="el" href="classvg_1_1io_1_1VPKG.html#a80551b46351f1e8d47e8b3ebaf028847">vg::io::VPKG</a>
 , <a class="el" href="classvg_1_1StreamIndexBase.html#a99761d4d917dc5ba1db1e08a36ceb312">vg::StreamIndexBase</a>
 </li>
 <li>save_bed()
@@ -188,7 +188,10 @@ $(function() {
 , <a class="el" href="classvg_1_1subpath__t.html#a9e59579440b9a90f5b0c606dc3cf400a">vg::subpath_t</a>
 </li>
 <li>score_alignment()
-: <a class="el" href="classvg_1_1Mapper.html#aa541cae3a3598e10a7baf7d5ed78f644">vg::Mapper</a>
+: <a class="el" href="classvg_1_1AlignmentScorer.html#a2895fb7201400c773bb5be36a9963221">vg::AlignmentScorer</a>
+, <a class="el" href="classvg_1_1EditAlignmentScorer.html#a25722be4f1f29bebb1d76b7d3fe69e3b">vg::EditAlignmentScorer</a>
+, <a class="el" href="classvg_1_1LoggedGapAlignmentScorer.html#a700fcef2331cf8ecd16d8f98610f4969">vg::LoggedGapAlignmentScorer</a>
+, <a class="el" href="classvg_1_1Mapper.html#aa541cae3a3598e10a7baf7d5ed78f644">vg::Mapper</a>
 </li>
 <li>score_alignment_pair()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a99ce46a1525f7be9fa393163ca1eac40">vg::MinimizerMapper</a>
@@ -197,18 +200,18 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a12e67c2dfdb80db4080d3675ed6a18d4">vg::MinimizerMapper</a>
 </li>
 <li>score_contiguous_alignment()
-: <a class="el" href="classvg_1_1GSSWAligner.html#ac61c025e427b0593a95d27feff6b89c3">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#a5f7ad3f02f7ec690c6f5afe5dbbb2dfd">vg::EditAlignmentScorer</a>
 </li>
 <li>score_discontiguous_alignment()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a52f906dfce2d0798e0fe0c39d04c0105">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#abde227483ca798e58e611b543925bf91">vg::EditAlignmentScorer</a>
 </li>
 <li>score_error()
 : <a class="el" href="structvg_1_1BenchmarkResult.html#a880a443c67063f66623006cd82b5ec9d">vg::BenchmarkResult</a>
 </li>
 <li>score_exact_match()
-: <a class="el" href="classvg_1_1Aligner.html#a2acc9c763d0b7c16ad69472a148ce75b">vg::Aligner</a>
-, <a class="el" href="classvg_1_1GSSWAligner.html#ac8e1b97332df85221c6a2be61cbd1b3d">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#adf03ac873ae9a9cfbc21e589775111be">vg::QualAdjAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#af316fc8147c809667f6ce5cf7de5e26d">vg::EditAlignmentScorer</a>
+, <a class="el" href="classvg_1_1MatrixAlignmentScorer.html#a8426c13564a248741e6cd9ab028f2e04">vg::MatrixAlignmentScorer</a>
+, <a class="el" href="classvg_1_1QualAdjAlignmentScorer.html#abc902e1b1c28be2fe5e73d6284810ff8">vg::QualAdjAlignmentScorer</a>
 </li>
 <li>score_extension_group()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">vg::MinimizerMapper</a>
@@ -219,29 +222,32 @@ $(function() {
 <li>score_from()
 : <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html#a999c0829c8c11a2d7478630612b60b74">vg::algorithms::TracedScore</a>
 </li>
+<li>score_from_counts()
+: <a class="el" href="classvg_1_1LoggedGapAlignmentScorer.html#a866ed1d96bdc0207252f7a6541802b29">vg::LoggedGapAlignmentScorer</a>
+</li>
 <li>score_full_length_bonus()
-: <a class="el" href="classvg_1_1Aligner.html#aaf87ac123c806ef49c509c494b431c9c">vg::Aligner</a>
-, <a class="el" href="classvg_1_1GSSWAligner.html#ad6bac86acf59cc8edd4969bd671fcf5d">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#ac4505d206516b2ad51bdc2387309ae9e">vg::QualAdjAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#ad5014f42d23081ec5206603904934ffd">vg::EditAlignmentScorer</a>
+, <a class="el" href="classvg_1_1MatrixAlignmentScorer.html#a3084343f4b87922bc21de1549eb44c32">vg::MatrixAlignmentScorer</a>
+, <a class="el" href="classvg_1_1QualAdjAlignmentScorer.html#ad36a56e65b27da385b67f0dd74335964">vg::QualAdjAlignmentScorer</a>
 </li>
 <li>score_gap()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a4071f79659899761586807411d5ab767">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#afab160cb73cf4786af236e70169370cb">vg::EditAlignmentScorer</a>
 </li>
 <li>score_mismatch()
-: <a class="el" href="classvg_1_1Aligner.html#a7e359a8a6af31e1fba84a681c751ec23">vg::Aligner</a>
-, <a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#ada69f388d291f6c3693812d91c84231a">vg::QualAdjAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#a2e6aa239245fc37a47290297db043d15">vg::EditAlignmentScorer</a>
+, <a class="el" href="classvg_1_1MatrixAlignmentScorer.html#a7eaa127980462cdac9d5918a25d87adb">vg::MatrixAlignmentScorer</a>
+, <a class="el" href="classvg_1_1QualAdjAlignmentScorer.html#a7b195e788d28c531a4406c9b1e8cbcd5">vg::QualAdjAlignmentScorer</a>
 </li>
 <li>score_partial_alignment()
-: <a class="el" href="classvg_1_1Aligner.html#a4537844a4aa7783f6a41c7cefd758602">vg::Aligner</a>
-, <a class="el" href="classvg_1_1GSSWAligner.html#adc950708e8d5ff812a838116c6b50910">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#aee20bae08e744224825723a878d57bef">vg::QualAdjAligner</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#a7e364a65e953329ecce51c1052e6058c">vg::EditAlignmentScorer</a>
+, <a class="el" href="classvg_1_1MatrixAlignmentScorer.html#a3a8a24fc85bb165c929a7c71f09b8943">vg::MatrixAlignmentScorer</a>
+, <a class="el" href="classvg_1_1QualAdjAlignmentScorer.html#ad3d6f9339bb611d2e8ca47669ca6386e">vg::QualAdjAlignmentScorer</a>
 </li>
 <li>score_sort_and_deduplicate_alignments()
 : <a class="el" href="classvg_1_1Mapper.html#ae820fb3edeac9da2ef475cb6b0e0f0e9">vg::Mapper</a>
 </li>
 <li>score_to_unnormalized_likelihood_ln()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a59623587d4dfb1e0310fb608e9def2f0">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1MappingQualityCalculator.html#a27db714ca9a5bf6d6863cf89888d59e6">vg::MappingQualityCalculator</a>
 </li>
 <li>score_tree()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#ad4b6267b5e93d0fb618de0584cf2b213">vg::MinimizerMapper</a>
@@ -253,7 +259,7 @@ $(function() {
 : <a class="el" href="classvg_1_1NestedTraversalFinder.html#a2b020fead8b7c40b06f9c0e1041b2cb5">vg::NestedTraversalFinder</a>
 </li>
 <li>Seed()
-: <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html#a7859f190024d96f7182de94f197df881">vg::SnarlDistanceIndexClusterer::Seed</a>
+: <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html#adf405ffb00189f3c469f3fc7e79fde01">vg::SnarlDistanceIndexClusterer::Seed</a>
 </li>
 <li>seed_end()
 : <a class="el" href="classvg_1_1algorithms_1_1Anchor.html#a2db67aba40631bb9e462e2ae744a2ddd">vg::algorithms::Anchor</a>
@@ -296,8 +302,8 @@ $(function() {
 : <a class="el" href="classvg_1_1BaseMapper.html#a1fc5077e5ea4a236ddf8edcf93288eb9">vg::BaseMapper</a>
 </li>
 <li>serialize()
-: <a class="el" href="classhandlegraph_1_1Serializable.html#aa97699c9b50235d5f2439eb57c5df653">handlegraph::Serializable</a>
-, <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#ab04c99b94217a13ce598e8fd484b09c1">handlegraph::TriviallySerializable</a>
+: <a class="el" href="classhandlegraph_1_1Serializable.html#adae323cce9552f03774ab71dd5fb07d0">handlegraph::Serializable</a>
+, <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a89624195e0d24768774e98c61d17c779">handlegraph::TriviallySerializable</a>
 , <a class="el" href="structvg_1_1GAFSorterRecord.html#ae80275ee26417e5a978d0646f6de3019">vg::GAFSorterRecord</a>
 , <a class="el" href="structvg_1_1GBWTHandler.html#aa855690c481cca126734e20f5d126d04">vg::GBWTHandler</a>
 , <a class="el" href="classvg_1_1Packer.html#a833e1fa21ac3f5f5f6a001c5c5ee0f4c">vg::Packer</a>
@@ -346,7 +352,7 @@ $(function() {
 : <a class="el" href="classvg_1_1AlignerClient.html#a1fde3e4537147030d153d403fd04ec77">vg::AlignerClient</a>
 , <a class="el" href="classvg_1_1BaseMapper.html#addc9b0af15050357598c372e135d6a0e">vg::BaseMapper</a>
 , <a class="el" href="classvg_1_1MinimizerMapper.html#a98a602ac6b9f20d9da825d8a542ceebd">vg::MinimizerMapper</a>
-, <a class="el" href="classvg_1_1MultipathMapper.html#adbdd2fabd7a36353526663aede3cb555">vg::MultipathMapper</a>
+, <a class="el" href="classvg_1_1MultipathMapper.html#ad897513b9554b2dabebea47cc3f3da9f">vg::MultipathMapper</a>
 , <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">vg::Surjector</a>
 </li>
 <li>set_allele()
@@ -772,7 +778,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SmallBitset.html#a8e787b217e48311220e91f7fd191fe14">vg::SmallBitset</a>
 </li>
 <li>SmallBitset()
-: <a class="el" href="classvg_1_1SmallBitset.html#a59da25f6a4ae99cc7ff12936930ad5e3">vg::SmallBitset</a>
+: <a class="el" href="classvg_1_1SmallBitset.html#afcefdbe6a3f708ded8d874537ba0616f">vg::SmallBitset</a>
 </li>
 <li>SmallSnarlSimplifier()
 : <a class="el" href="classvg_1_1SmallSnarlSimplifier.html#ae19c2fcf37820ed9112671fbc7e64033">vg::SmallSnarlSimplifier</a>
@@ -805,13 +811,13 @@ $(function() {
 : <a class="el" href="classvg_1_1SnarlManager.html#a10a771b6ada139c76e1b435ee301fdb8">vg::SnarlManager</a>
 </li>
 <li>SnarlDistanceIndexClusterer()
-: <a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a0333d80b03665df71c7d448b7cfb0b06">vg::SnarlDistanceIndexClusterer</a>
+: <a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#ae2d9080f0e9ddf775de34ae3aaab7019">vg::SnarlDistanceIndexClusterer</a>
 </li>
 <li>SnarlGraph()
 : <a class="el" href="classvg_1_1SnarlGraph.html#a0a6e447620c3a37ca37345854330ffd3">vg::SnarlGraph</a>
 </li>
 <li>SnarlManager()
-: <a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">vg::SnarlManager</a>
+: <a class="el" href="classvg_1_1SnarlManager.html#a7549f1ed7e0e02ae36f172ab5f1d3dbd">vg::SnarlManager</a>
 </li>
 <li>SnarlMinDistance()
 : <a class="el" href="classvg_1_1SnarlMinDistance.html#adc8c303e683b90d923c522790355abad">vg::SnarlMinDistance</a>
@@ -829,7 +835,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1Registry.html#aea2d7b2c4852a48417eeac861974b9c1">vg::io::Registry</a>
 </li>
 <li>sniff_tag()
-: <a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac9b3fff8dbbff744fe1ff60805af1c20">vg::io::MessageIterator</a>
+: <a class="el" href="classvg_1_1io_1_1MessageIterator.html#aabd024a7358bae988de897aebff39645">vg::io::MessageIterator</a>
 </li>
 <li>SNVs()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#acde3b4cb1fc9eae479ee626bb0916992">haplo::linear_haplo_structure</a>
@@ -875,10 +881,10 @@ $(function() {
 : <a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html#a74ec4437b69dbe247f28d0017e035b47">vg::SplicedHTSAlignmentEmitter</a>
 </li>
 <li>SpliceRegion()
-: <a class="el" href="classvg_1_1SpliceRegion.html#a3ca49fd7bedbe0b97117f87f7a5edba4">vg::SpliceRegion</a>
+: <a class="el" href="classvg_1_1SpliceRegion.html#a5935bbc5e17cceae08ee9ef0b91b9abe">vg::SpliceRegion</a>
 </li>
 <li>SpliceStats()
-: <a class="el" href="classvg_1_1SpliceStats.html#a1808c3a4e73d0be56de7caca04142b01">vg::SpliceStats</a>
+: <a class="el" href="classvg_1_1SpliceStats.html#a14b80a4573bebade4aaa31be660656c1">vg::SpliceStats</a>
 </li>
 <li>split()
 : <a class="el" href="classvg_1_1BitString.html#af826e3c7bce1aeada3f989b1b7d1bcc5">vg::BitString</a>
@@ -993,7 +999,7 @@ $(function() {
 : <a class="el" href="classvg_1_1StreamIndex.html#a3508617dbf1b8e8d1df051f4a214fa5e">vg::StreamIndex&lt; Message &gt;</a>
 </li>
 <li>StreamIndexBase()
-: <a class="el" href="classvg_1_1StreamIndexBase.html#a85207efd00788e14df4df717d88233b7">vg::StreamIndexBase</a>
+: <a class="el" href="classvg_1_1StreamIndexBase.html#a2df03d2ee53e9f171e4aa519a079901e">vg::StreamIndexBase</a>
 </li>
 <li>streaming_merge()
 : <a class="el" href="classvg_1_1StreamSorter.html#a1c19cdfb158ff9771e471fbbc2b4ac74">vg::StreamSorter&lt; Message &gt;</a>
