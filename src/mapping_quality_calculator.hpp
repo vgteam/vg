@@ -1,0 +1,137 @@
+#ifndef VG_MAPPING_QUALITY_CALCULATOR_HPP_INCLUDED
+#define VG_MAPPING_QUALITY_CALCULATOR_HPP_INCLUDED
+
+#include <cstdint>
+#include <utility>
+#include <vector>
+
+#include <vg/vg.pb.h>
+
+#include "alignment_scorer.hpp"
+
+namespace vg {
+
+/**
+ * Widget for computing mapping qualities from collections of alignment scores.
+ *
+ * Constructable from any AlignmentScorer that also exposes arithmetic `match`
+ * and `mismatch` members. No reference to the scorer is retained after
+ * construction.
+ *
+ * TODO: This stores (a forgery of) the scorer's log_base instead of the whole
+ * scorer. Should we keep a reference to the scorer and get the log base from
+ * it on demand instead?
+ */
+class MappingQualityCalculator {
+public:
+    template<typename ScorerT>
+    MappingQualityCalculator(const ScorerT& scorer)
+        : rep_match(static_cast<double>(scorer.match)),
+          rep_mismatch(static_cast<double>(scorer.mismatch)),
+          log_base(scorer.get_log_base()) {}
+
+    /// Stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
+    /// probability that the alignment is not the correct one (assuming that one of the alignments
+    /// in the vector is correct).
+    void compute_mapping_quality(std::vector<Alignment>& alignments,
+                                 int max_mapping_quality,
+                                 bool fast_approximation,
+                                 double cluster_mq,
+                                 bool use_cluster_mq,
+                                 int overlap_count,
+                                 double mq_estimate,
+                                 double maybe_mq_threshold,
+                                 double identity_weight) const;
+
+    /// Stores mapoping qualities in paired reads' mapping quality fields.
+    /// Mapping qualities are stored in both alignments.
+    void compute_paired_mapping_quality(std::pair<std::vector<Alignment>, std::vector<Alignment>>& alignment_pairs,
+                                        const std::vector<double>& frag_weights,
+                                        int max_mapping_quality1,
+                                        int max_mapping_quality2,
+                                        bool fast_approximation,
+                                        double cluster_mq,
+                                        bool use_cluster_mq,
+                                        int overlap_count1,
+                                        int overlap_count2,
+                                        double mq_estimate1,
+                                        double mq_estimate2,
+                                        double maybe_mq_threshold,
+                                        double identity_weight) const;
+
+    /// Computes mapping quality for the optimal score in a vector of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// only 1 count can apply toward the mapping quality.
+    int32_t compute_max_mapping_quality(const std::vector<double>& scores, bool fast_approximation,
+                                        const std::vector<double>* multiplicities = nullptr) const;
+
+    /// Computes mapping quality for the first score in a vector of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// only 1 count can apply toward the mapping quality.
+    int32_t compute_first_mapping_quality(const std::vector<double>& scores, bool fast_approximation,
+                                          const std::vector<double>* multiplicities = nullptr) const;
+
+    /// Computes mapping quality for a group of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the score, but the mapping quality is always
+    /// calculated as if each member of the group has a count of 1.
+    int32_t compute_group_mapping_quality(const std::vector<double>& scores, const std::vector<size_t>& group,
+                                          const std::vector<double>* multiplicities = nullptr) const;
+
+    /// Computes mapping quality for all of a vector of scores.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// only 1 count can apply toward the mapping quality.
+    std::vector<int32_t> compute_all_mapping_qualities(const std::vector<double>& scores,
+                                                       const std::vector<double>* multiplicities = nullptr) const;
+
+    /// Returns the  difference between an optimal and second-best alignment scores that would
+    /// result in this mapping quality using the fast mapping quality approximation
+    double mapping_quality_score_diff(double mapping_quality) const;
+
+    /// Convert a score to an unnormalized log likelihood for the sequence.
+    double score_to_unnormalized_likelihood_ln(double score) const;
+
+    double max_possible_mapping_quality(int length) const;
+    double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) const;
+    double estimate_next_best_score(int length, double min_diffs) const;
+
+    // Static helpers
+
+    /// Given a nonempty vector of nonnegative scaled alignment scores,
+    /// compute the mapping quality of the maximal score in the vector.
+    /// Sets max_idx_out to the index of that score in the vector.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// the mapping quality is always calculated as if its multiplicity is 1.
+    static double maximum_mapping_quality_exact(const std::vector<double>& scaled_scores,
+                                                size_t* max_idx_out,
+                                                const std::vector<double>* multiplicities = nullptr);
+    /// Given a nonempty vector of nonnegative scaled alignment scores,
+    /// approximate the mapping quality of the maximal score in the vector.
+    /// Sets max_idx_out to the index of that score in the vector.
+    /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+    /// the mapping quality is always calculated as if its multiplicity is 1.
+    static double maximum_mapping_quality_approx(const std::vector<double>& scaled_scores,
+                                                 size_t* max_idx_out,
+                                                 const std::vector<double>* multiplicities = nullptr);
+    /// Same as maximum_mapping_quality_exact except always computes mapping
+    /// quality for the first score
+    static double first_mapping_quality_exact(const std::vector<double>& scaled_scores,
+                                              const std::vector<double>* multiplicities = nullptr);
+    /// Same as maximum_mapping_quality_approx except alway s computes mapping
+    /// quality for the first score
+    static double first_mapping_quality_approx(const std::vector<double>& scaled_scores,
+                                               const std::vector<double>* multiplicities = nullptr);
+
+private:
+    double group_mapping_quality_exact(const std::vector<double>& scaled_scores, const std::vector<size_t>& group,
+                                       const std::vector<double>* multiplicities = nullptr) const;
+    std::vector<double> all_mapping_qualities_exact(const std::vector<double>& scaled_scores,
+                                                    const std::vector<double>* multiplicities = nullptr) const;
+
+    double rep_match;
+    double rep_mismatch;
+    double log_base;
+};
+
+} // namespace vg
+
+#endif
