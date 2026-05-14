@@ -60,6 +60,9 @@ struct MinimizerConfig {
     // Construction parameters.
     MinimizerIndexParameters params;
     bool require_distance_index = true;
+    /// Should we enforce that the resulting minimizer index has path
+    /// payloads, for recombination-aware mapping?
+    bool require_path_payloads = false;
 
     // Other options.
     // Note that params also has a 'progress' field.
@@ -99,7 +102,8 @@ int main_minimizer(int argc, char** argv) {
         gbz,
         distance_index.get(),
         &oversized_zipcodes,
-        config.params
+        config.params,
+        config.require_path_payloads
     );
 
     // Close the distance index so it can't seem to be modified after the files
@@ -165,6 +169,7 @@ void help_minimizer(char** argv) {
     std::cerr << "                             (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
     std::cerr << "      --no-dist              build the index without distance index annotations" << std::endl;
     std::cerr << "                             (not recommended)" << std::endl;
+    std::cerr << "  -E, --rec-mode             assert MinimizerIndex will support recombination-aware mapping" << std::endl;
     std::cerr << "  -h, --help                 print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
 }
@@ -203,12 +208,13 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const L
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { "no-dist", no_argument, 0, OPT_NO_DIST },
+            { "rec-mode", no_argument, 0, 'E' },
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "d:o:k:w:cs:Wz:pt:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "d:o:k:w:cs:Wz:pt:Eh?", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -264,6 +270,9 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const L
             break;
         case OPT_NO_DIST:
             this->require_distance_index = false;
+            break;
+        case 'E':
+            this->require_path_payloads = true;
             break;
 
         case 'h':

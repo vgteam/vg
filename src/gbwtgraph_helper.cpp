@@ -487,16 +487,18 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex* distance_index,
     ZipCodeCollection* oversized_zipcodes,
-    const MinimizerIndexParameters& params
+    const MinimizerIndexParameters& params,
+    bool require_path_payloads
 ) {
     double start = gbwt::readTimer();
+
+    Logger logger("build_minimizer_index");
 
     // Minimal validation to avoid inconsistent parameters that would
     // otherwise require manual handling.
     std::string err = params.validate();
     if (!err.empty()) {
-        std::cerr << "error: [build_minimizer_index()] " << err << std::endl;
-        std::exit(EXIT_FAILURE);
+        logger.error() << err << std::endl;
     }
 
     // Count the distinct samples that we might use for the payload.
@@ -518,6 +520,11 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
             payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
         }
     }
+    if (require_path_payloads && payload_type != MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) {
+        // We want to bail out before doing all the indexing if we aren't going to have path info.
+        logger.error() << "Cannot build minimizer index supporting recombination-aware mapping (GBZ contains "
+            << sample_count << "/" << MinimizerIndexParameters::MAX_PAYLOAD_PATHS << " samples)" << std::endl;
+    }
     std::string payload_str = MinimizerIndexParameters::payload_str(payload_type);
 
     // Create an empty minimizer index.
@@ -530,13 +537,13 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
 
     // Build the index.
     if (params.progress) {
-        std::cerr << "Building MinimizerIndex with k = " << index.k();
+        auto s = logger.info() << "Building MinimizerIndex with k = " << index.k();
         if (index.uses_syncmers()) {
-            std::cerr << ", s = " << index.s();
+            s << ", s = " << index.s();
         } else {
-            std::cerr << ", w = " << index.w();
+            s << ", w = " << index.w();
         }
-        std::cerr << ", payload = " << payload_str << std::endl;
+        s << ", payload = " << payload_str << std::endl;
     }
 
     if (distance_index == nullptr) {
@@ -565,11 +572,11 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
 
     // Index statistics.
     if (params.progress) {
-        std::cerr << index.size() << " keys (" << index.unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index.number_of_values() << std::endl;
-        std::cerr << "Load factor: " << index.load_factor() << std::endl;
+        logger.info() << index.size() << " keys (" << index.unique_keys() << " unique)" << std::endl;
+        logger.info() << "Minimizer occurrences: " << index.number_of_values() << std::endl;
+        logger.info() << "Load factor: " << index.load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
-        std::cerr << "Construction time: " << seconds << " seconds" << std::endl;
+        logger.info() << "Construction time: " << seconds << " seconds" << std::endl;
     }
 
     return index;

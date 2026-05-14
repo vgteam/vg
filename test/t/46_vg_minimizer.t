@@ -45,7 +45,7 @@ is $? 0 "construction with zipcode payload"
 # Store zipcode payload and path information in the index
 # Construction will not be deterministic because the snarls are not deterministic
 vg minimizer -t 1 -o x.mi -z x.zipcodes --rec-mode -d x.dist x.gbz
-is $? 0 "construction with zipcode payload and path information"
+is $? 0 "construction with zipcode payload and mandatory path information"
 
 
 rm -f x.vg x.dist x.mi x.zipcodes x.gbz

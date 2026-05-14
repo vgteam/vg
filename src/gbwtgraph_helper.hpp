@@ -250,7 +250,8 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex* distance_index,
     ZipCodeCollection* oversized_zipcodes,
-    const MinimizerIndexParameters& params
+    const MinimizerIndexParameters& params,
+    bool require_path_payloads = false
 );
 
 /// Checks that the minimizer index has the expected payload type.
