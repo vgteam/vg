@@ -26,6 +26,8 @@ namespace vg {
 
 using namespace std;
 
+const std::string GZIP_EXT = ".gz";
+
 char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
 void reverse_complement_in_place(string& seq);

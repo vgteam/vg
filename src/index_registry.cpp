@@ -5519,10 +5519,8 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
         info(context) << "Checking for haplotype lines in GFA." << endl;
     }
-    ifstream strm(filepath);
-    if (!strm) {
-        error(context) << "Could not open GFA file " << filepath << endl;
-    }
+    char * buf;
+    gzFile fp = gzopen(filepath.c_str(), "r");
     
     unordered_set<string> ref_samples;
     
@@ -5531,12 +5529,15 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
     // to split the value into samples along whitespace
     regex sample_regex("([^\\s]+)(\\s+([^\\s]+))*");
     
-    while (strm.good()) {
-        char line_type = strm.get();
-        if (line_type == 'H') {
+    while (gzgets(fp, buf, 100) != 0) {
+        string line(buf);
+        if (strlen(buf) < 2) {
+            // No more file
+            break;
+        }
+        cerr << line << endl;
+        if (buf[0] == 'H') {
             // look for reference sense path names
-            string line;
-            getline(strm, line);
             smatch tag_sub;
             bool found_match = regex_search(line, tag_sub, ref_tag_regex);
             if (!found_match) {
@@ -5568,52 +5569,45 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
             if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
                 info(context) << "GFA has " << ref_samples.size() << " reference samples" << endl;
             }
-        }
-        else {
-            if (line_type == 'P') {
-                if (strm.get() != '\t') {
-                    error(context) << "P-line does not have tab following line type" << endl;
-                }
-                
-                string path_name;
-                getline(strm, path_name, '\t');
-
-                // A P-line path should be a haplotype if it looks like a
-                // reference path but its sample is not in the reference sample
-                // list. This reflects how the GFA parser actually interprets
-                // the GFA when we read it. A reference sample might still have
-                // fragmentary paths stored, with start offsets or something.
-                string sample = PathMetadata::parse_sample_name(path_name);
-                if (sample != PathMetadata::NO_SAMPLE_NAME) {
-                    // We have a sample so we may be a haplotype.
-                    if (!ref_samples.count(sample)) {
-                        // Anything with a non-reference sample is a haplotype
-                         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                            info(context) << "GFA path " << path_name << " for non-reference sample " 
-                                          << sample << " is a haplotype." << endl;
-                        }
-                        return true;
-                    }
-                } else {
-                    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                        info(context) << "GFA path " << path_name 
-                                      << " has no sample and so cannot be a haplotype." << endl;
-                    }
-                }
+        } else if (buf[0] == 'P') {
+            if (buf[1] != '\t') {
+                error(context) << "P-line does not have tab following line type" << endl;
             }
-            else if (line_type == 'W' || line_type == 'Z') {
-                // Ordinary or grammar-compressed walk line.
-                if (strm.get() != '\t') {
-                    error(context) << "W-line does not have tab following line type" << endl;
-                }
-                
-                string sample;
-                getline(strm, sample, '\t');
+
+            string path_name = line.substr(2, line.find("\t") - 2);
+
+            // A P-line path should be a haplotype if it looks like a
+            // reference path but its sample is not in the reference sample
+            // list. This reflects how the GFA parser actually interprets
+            // the GFA when we read it. A reference sample might still have
+            // fragmentary paths stored, with start offsets or something.
+            string sample = PathMetadata::parse_sample_name(path_name);
+            if (sample != PathMetadata::NO_SAMPLE_NAME) {
+                // We have a sample so we may be a haplotype.
                 if (!ref_samples.count(sample)) {
+                    // Anything with a non-reference sample is a haplotype
+                        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                        info(context) << "GFA path " << path_name << " for non-reference sample " 
+                                        << sample << " is a haplotype." << endl;
+                    }
                     return true;
                 }
+            } else {
+                if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                    info(context) << "GFA path " << path_name 
+                                    << " has no sample and so cannot be a haplotype." << endl;
+                }
             }
-            strm.ignore(numeric_limits<streamsize>::max(), '\n');
+        } else if (buf[0] == 'W' || buf[0] == 'Z') {
+            // Ordinary or grammar-compressed walk line.
+            if (buf[1] != '\t') {
+                error(context) << "W-line does not have tab following line type" << endl;
+            }
+            
+            string sample = line.substr(2, line.find("\t") - 2);
+            if (!ref_samples.count(sample)) {
+                return true;
+            }
         }
     }
     return false;

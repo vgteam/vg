@@ -770,7 +770,7 @@ string require_exists(const Logger& logger, const string& filename) {
 }
 
 string require_non_gzipped(const Logger& logger, const string& filename) {
-    if (ends_with(filename, ".gz")) {
+    if (ends_with(filename, GZIP_EXT)) {
         logger.error() << "file \"" << filename << "\" appears to be gzipped; "
                        << "please decompress it before use" << endl;
     }

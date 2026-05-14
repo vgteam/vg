@@ -252,7 +252,6 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'g':
                 gfa_name = require_exists(logger, optarg);
-                require_non_gzipped(logger, gfa_name);
                 break;
             case 'G':
                 gbz_name = require_exists(logger, optarg);
