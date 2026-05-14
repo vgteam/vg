@@ -449,7 +449,8 @@ std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const Minim
 void cache_payloads(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex& distance_index,
-    hash_map<nid_t, payload_t>& node_id_to_payload,
+    std::vector<payload_t>& node_id_to_payload,
+    nid_t min_node_id,
     ZipCodeCollection* oversized_zipcodes,
     bool progress
 ) {
@@ -470,12 +471,16 @@ void cache_payloads(
             // The zipcode is too large for the payload field.
             // Add it to the oversized zipcode list.
             zipcode.fill_in_full_decoder();
-            size_t offset = oversized_zipcodes->size();
-            oversized_zipcodes->emplace_back(zipcode);
+            size_t offset;
+            #pragma omp critical (oversized_zipcodes)
+            {
+                offset = oversized_zipcodes->size();
+                oversized_zipcodes->emplace_back(zipcode);
+            }
             payload = { 0, offset };
         }
-        node_id_to_payload.emplace(node_id, payload);
-    });
+        node_id_to_payload[node_id - min_node_id] = payload;
+    }, true);
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
@@ -536,18 +541,20 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         gbwtgraph::index_haplotypes(gbz, index, [](const pos_t&) { return nullptr; });
     } else {
         // Cache payloads before building the index.
-        // A zipcode only depends on the node id.
-        hash_map<nid_t, payload_t> node_id_to_payload;
-        node_id_to_payload.reserve(gbz.graph.max_node_id() - gbz.graph.min_node_id());
-        cache_payloads(gbz, *distance_index, node_id_to_payload, oversized_zipcodes, params.progress);
+        // A zipcode only depends on the node id. The map is indexed by
+        // (node_id - min_node_id) so we can fill it in parallel without
+        // synchronisation: every node writes to a disjoint slot.
+        nid_t min_node_id = gbz.graph.min_node_id();
+        nid_t max_node_id = gbz.graph.max_node_id();
+        std::vector<payload_t> node_id_to_payload(max_node_id - min_node_id + 1, MIPayload::NO_CODE);
+        cache_payloads(gbz, *distance_index, node_id_to_payload, min_node_id, oversized_zipcodes, params.progress);
 
         auto get_payload = [&](const pos_t& pos) -> const code_type* {
-            auto iter = node_id_to_payload.find(id(pos));
-            if (iter != node_id_to_payload.end()) {
-                return reinterpret_cast<const code_type*>(&iter->second);
-            } else {
+            nid_t nid = id(pos);
+            if (nid < min_node_id || nid - min_node_id >= node_id_to_payload.size()) {
                 return reinterpret_cast<const code_type*>(&MIPayload::NO_CODE);
             }
+            return reinterpret_cast<const code_type*>(&node_id_to_payload[nid - min_node_id]);
         };
         if (params.paths_in_payload) {
             gbwtgraph::index_haplotypes_with_paths(gbz, index, get_payload);
