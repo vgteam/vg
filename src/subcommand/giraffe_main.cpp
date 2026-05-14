@@ -1985,6 +1985,14 @@ int main_giraffe(int argc, char** argv) {
                 }
             }
         };
+        auto report_paired_flag = [&](const std::string& name, bool value) {
+            if (value) {
+                params_json << ",\"" << name << "\":" << (value ? "true" : "false");
+                if (show_progress) {
+                    cerr << "--" << (value ? "" : "no-") << name << endl;
+                }
+            }
+        };
         auto report_number = [&](const std::string& name, size_t value) {
             params_json << ",\"" << name << "\":" << value;
             if (show_progress) {
@@ -2023,6 +2031,9 @@ int main_giraffe(int argc, char** argv) {
             report_string("rescue-algorithm", algorithm_names[rescue_algorithm]);
         }
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
+        report_paired_flag("rec-mode", rec_mode.value_or(default_rec_mode));
+        minimizer_mapper.use_payload_paths &= rec_mode.value_or(default_rec_mode);
+        
 
         params_json << "}" << std::endl;
 

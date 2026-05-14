@@ -514,6 +514,11 @@ class MinimizerMapper : public AlignerClient {
     string sample_name;
     /// Apply this read group name
     string read_group;
+
+    /// Should we use path information from the minimizer index payloads?
+    /// By default we fill this in based on availability in the index, but you
+    /// can clear this if it is set to turn off recombination-aware mapping.
+    bool use_payload_paths;
     
     /// Have we complained about hitting the size limit for rescue?
     atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
@@ -653,9 +658,8 @@ protected:
     // caching common information about the minimizer index
     int32_t k;
     int32_t w;
-    bool payload_with_paths; // Does the payload for minimizer hits include path information in addition to a zipcode?
     bool uses_syncmers; // TODO: We could discard the syncmer support.
-    
+                        
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
     /// This is our primary graph.
