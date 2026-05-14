@@ -159,7 +159,6 @@ void help_minimizer(char** argv) {
     std::cerr << "Other options:" << std::endl;
     std::cerr << "  -z, --zipcode-name FILE    store the distances that are too big in a file" << std::endl;
     std::cerr << "                             if no -z, some distances may be discarded" << std::endl;
-    std::cerr << "  -E, --rec-mode             build recombination-aware MinimizerIndex" << std::endl;
     std::cerr << "  -p, --progress             show progress information" << std::endl;
     std::cerr << "  -t, --threads N            use N threads for index construction "
                                            << "[" << get_default_threads() << "]" << std::endl;
@@ -188,7 +187,6 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const L
     while (true) {
         static struct option long_options[] =
         {
-            { "rec-mode", no_argument, 0, 'E' },
             { "distance-index", required_argument, 0, 'd' },
             { "output-name", required_argument, 0, 'o' },
             { "kmer-length", required_argument, 0, 'k' },
@@ -210,15 +208,11 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const L
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "Ed:o:k:w:cs:Wz:pt:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "d:o:k:w:cs:Wz:pt:h?", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
         {
-        case 'E':
-            this->params.paths_in_payload = true;
-            logger.warn() << "--rec-mode is still under development" << std::endl;
-            break;
         case 'd':
             this->distance_name = optarg;
             break;

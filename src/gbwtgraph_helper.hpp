@@ -171,10 +171,6 @@ struct MinimizerIndexParameters {
     /// Whether to use syncmers instead of minimizers.
     bool use_syncmers = false;
 
-    /// Whether to include path information in the payload (for recombination-aware mapping).
-    /// Ignored if there is no zipcode payload.
-    bool paths_in_payload = false;
-
     /// Whether to use weighted minimizers (cannot be used with syncmers).
     bool use_weighted_minimizers = false;
 
@@ -206,12 +202,6 @@ struct MinimizerIndexParameters {
         this->k = k;
         this->w_or_s = s;
         this->use_syncmers = true;
-        return *this;
-    }
-
-    /// Includes path information in the payload.
-    MinimizerIndexParameters& with_paths(bool paths_in_payload = true) {
-        this->paths_in_payload = paths_in_payload;
         return *this;
     }
 

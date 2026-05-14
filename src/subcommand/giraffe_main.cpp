@@ -899,10 +899,7 @@ int main_giraffe(int argc, char** argv) {
     // If true, use a minimizer index with paths in the payloads, and do
     // recombination-aware chaining. If false, use minimizer-only payloads and
     // don't do recombination-aware chaining.
-    std::optional<bool> rec_mode = false;
-    // Whether to use recombination-aware mapping if the user did not set the option.
-    // Can't be a constant because it has to depend on the haplotype count in the index.
-    bool default_rec_mode = false;
+    std::optional<bool> rec_mode;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -1226,13 +1223,11 @@ int main_giraffe(int argc, char** argv) {
             case 'm':
                 provided_indexes.emplace("Long Read Minimizers", optarg);
                 provided_indexes.emplace("Short Read Minimizers", optarg);
-                provided_indexes.emplace("Long Read PathMinimizers", optarg);
                 break;
                 
             case 'z':
                 provided_indexes.emplace("Long Read Zipcodes", optarg);
                 provided_indexes.emplace("Short Read Zipcodes", optarg);
-                provided_indexes.emplace("Long Read PathZipcodes", optarg);
                 break;
             case 'd':
                 provided_indexes.emplace("Giraffe Distance Index", optarg);
@@ -1550,6 +1545,11 @@ int main_giraffe(int argc, char** argv) {
         logger.error() << "Paired-end alignment is not yet implemented "
                        << "for --align-from-chains or chaining-based presets" << std::endl;
     }
+    if (rec_mode.has_value() && rec_mode.value() && !map_long_reads) {
+        // The user has specifically asked fro recombination-aware mapping on short reads, which isn't available.
+        // TODO: Get a better idea of if reads are long.
+        logger.error() << "Recombination-aware mode cannot be used with short reads yet." << endl;
+    }
     
     // Use all the provided indexes
     for (auto& index : provided_indexes) {
@@ -1561,42 +1561,6 @@ int main_giraffe(int argc, char** argv) {
     // Otherwise we'd always sample when we had reads available.
     bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || !kff_filename.empty();
 
-    if (map_long_reads) {
-        // We might want to default recombination-awareness to on.
-        if (haplotype_sampling) {
-            // Figure out how many samples we need in the haplotype-sampled graph.
-            // TODO: This assumes all reference samples are haploid.
-            int hap_count = reference_samples.size() + IndexingParameters::haplotype_sampling_diploid ? 2 : IndexingParameters::haplotype_sampling_num_haplotypes;
-            if (hap_count > MAX_PAYLOAD_PATHS) {
-                // We won't be able to store our sampled haplotypes in the index payload.
-                // We want to default recombination-awareness off.
-                default_rec_mode = false;
-
-
-                if (rec_mode.value_or(default_rec_mode)) {
-                    // The user asked for recombination-aware chaining anyway.
-                    logger.error() << "Cannot store " << hap_count << " distinct haplotypes in minimizer index payloads for --rec-mode" << std::endl;
-                }
-            } else {
-                // Our samples haplotypes fit in the recombination-aware chaining payload.
-                // We want to default recombination-awarenss on.
-                default_rec_mode = true;
-            }
-        } else {
-            // We can't count the samples we're going to downsample to, so we'd
-            // like to count the haplotypes we will have available in the GBZ.
-            // But the GBZ won't be available to look at until later; we might
-            // be coming from a VCF or a graph that needs a path cover or
-            // something. TODO: Figure this out.
-            
-        }
-    }
-
-    if (rec_mode.value_or(default_rec_mode) && !map_long_reads) {
-        // We don't have file paths to load defined for recombination-aware short-read minimizers.
-        logger.error() << "Recombination-aware mode cannot be used with short reads because no short read path-payload minimizer index type has been invented." << endl;
-    }
-    
     string sample_scope;
     if (haplotype_sampling) {
 
@@ -1701,13 +1665,8 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe Distance Index", {"dist"}}
     };
     if (map_long_reads) {
-        if (rec_mode.value_or(default_rec_mode)) {
-            indexes_and_extensions.emplace(std::string("Long Read PathMinimizers"), std::vector<std::string>({"longread.path.min","path.min", "min"}));
-            indexes_and_extensions.emplace(std::string("Long Read PathZipcodes"), std::vector<std::string>({"longread.path.zipcodes", "path.zipcodes", "zipcodes"}));
-        } else {
-            indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.withzip.min","withzip.min", "min"}));
-            indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
-        }
+        indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.path.min", "longread.withzip.min", "path.min", "withzip.min", "min"}));
+        indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.path.zipcodes", "longread.zipcodes", "path.zipcodes", "zipcodes"}));
     } else {
         indexes_and_extensions.emplace(std::string("Short Read Minimizers"), std::vector<std::string>({"shortread.withzip.min","withzip.min", "min"}));
         indexes_and_extensions.emplace(std::string("Short Read Zipcodes"), std::vector<std::string>({"shortread.zipcodes", "zipcodes"}));
@@ -1765,14 +1724,12 @@ int main_giraffe(int argc, char** argv) {
     }
 
     //If we're making new zipcodes, we should rebuild the minimizers too
-    if (!(indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+    if (!indexes_and_extensions.count(std::string("Long Read Minimizers")) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         logger.info() << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Long Read Minimizers"));
-        registry.reset(std::string("Long Read PathMinimizers"));
-    } else if ((indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+    } else if (indexes_and_extensions.count(std::string("Long Read Minimizers")) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         logger.info() << "Rebuilding zipcodes index to match new minimizers" << endl;
         registry.reset(std::string("Long Read Zipcodes"));
-        registry.reset(std::string("Long Read PathZipcodes"));
     } else if (!indexes_and_extensions.count(std::string("Short Read Minimizers")) && indexes_and_extensions.count(std::string("Short Read Zipcodes"))) {
         logger.info() << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Short Read Minimizers"));
@@ -1791,11 +1748,7 @@ int main_giraffe(int argc, char** argv) {
     if (!map_long_reads) {
         index_targets = VGIndexes::get_default_short_giraffe_indexes();
     } else {
-        if (rec_mode.value_or(default_rec_mode)) {
-            index_targets = VGIndexes::get_default_long_path_giraffe_indexes();
-        } else {
-            index_targets = VGIndexes::get_default_long_giraffe_indexes();
-        }
+        index_targets = VGIndexes::get_default_long_giraffe_indexes();
     }
 #ifdef debug
     for (auto& needed : index_targets) {
@@ -1828,15 +1781,9 @@ int main_giraffe(int argc, char** argv) {
     }
     IndexName minimizer_indexname;
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
-    MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
-        if (rec_mode.value_or(default_rec_mode)) {
-            minimizer_indexname = "Long Read PathMinimizers";
-            payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
-        } else {
-            // Use the long read minimizers
-            minimizer_indexname = "Long Read Minimizers";
-        }
+        // Use the long read minimizers
+        minimizer_indexname = "Long Read Minimizers";
     } else {
         minimizer_indexname = "Short Read Minimizers";
     }
@@ -1844,8 +1791,23 @@ int main_giraffe(int argc, char** argv) {
         logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(minimizer_indexname).at(0) << " which depends on it" << std::endl;
     }
     minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_indexname).at(0));
-    require_payload(*minimizer_index, payload_type);
 
+    // Decide if we want to do recombination-aware mapping by default, based on whether we can.
+    
+    // Whether to use recombination-aware mapping if the user did not set the option.
+    // Can't be a constant because it has to depend on the haplotype count in the index.
+    bool default_rec_mode = has_payload(*minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) && map_long_reads;
+
+    std::vector<MinimizerIndexParameters::PayloadType> allowed_payloads;
+    allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
+    if (!rec_mode.value_or(default_rec_mode)) {
+        // If we're not doing recombination-aware mapping, we can also accept a
+        // payload without path info, as long as it still has zipcodes.
+        allowed_payloads.puch_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
+    }
+    // Make sure we have a usable minimizer index payload.
+    require_payload(*minimizer_index, allowed_payloads);
+    
     // Grab the zipcodes
     if (show_progress) {
         logger.info() << "Loading Zipcodes" << endl;
@@ -1853,11 +1815,7 @@ int main_giraffe(int argc, char** argv) {
     IndexName oversized_zipcodes_indexname;
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
-        if (rec_mode.value_or(default_rec_mode)) {
-            oversized_zipcodes_indexname = "Long Read PathZipcodes";
-        } else {
-            oversized_zipcodes_indexname = "Long Read Zipcodes";
-        }
+        oversized_zipcodes_indexname = "Long Read Zipcodes";
     } else {
         oversized_zipcodes_indexname = "Short Read Zipcodes";
     }

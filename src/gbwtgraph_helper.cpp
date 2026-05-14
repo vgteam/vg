@@ -499,12 +499,21 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         std::exit(EXIT_FAILURE);
     }
 
-    // Determine payload size and type.
+    // Count the distinct samples that we might use for the payload.
+    // TODO: We assume generic paths don't count for payloads.
+    std::unordered_set<std::string> samples;
+    gbz.for_each_path_matching({PathSense::REFERENCE, PathSense::HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
+        samples.insert(gbz.get_sample_name(path));   
+    });
+    // Put the paths in if we think they will fit.
+    bool paths_in_payload = samples.size() <= MAX_PAYLOAD_PATHS;
+
+    // Determine payload size and type code.
     size_t payload_size = 0;
     MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_NONE;
     if (distance_index != nullptr) {
         payload_size = MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE;
-        if (params.paths_in_payload) {
+        if (paths_in_payload) {
             payload_size++;
             payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
@@ -549,7 +558,7 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
                 return reinterpret_cast<const code_type*>(&MIPayload::NO_CODE);
             }
         };
-        if (params.paths_in_payload) {
+        if (paths_in_payload) {
             gbwtgraph::index_haplotypes_with_paths(gbz, index, get_payload);
         } else {
             gbwtgraph::index_haplotypes(gbz, index, get_payload);
