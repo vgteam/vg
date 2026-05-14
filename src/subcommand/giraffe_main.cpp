@@ -893,7 +893,7 @@ int main_giraffe(int argc, char** argv) {
     bool map_long_reads = false;
     
     // If recombination mode is set, we are using PathMinimizer, else standard Giraffe.
-    bool use_path_minimizer = false;
+    bool rec_mode = false;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -1356,7 +1356,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
             case 'E':
-                use_path_minimizer = true;
+                rec_mode = true;
                 break;
             case 'A':
                 {
@@ -1534,7 +1534,7 @@ int main_giraffe(int argc, char** argv) {
         logger.error() << "Paired-end alignment is not yet implemented "
                        << "for --align-from-chains or chaining-based presets" << std::endl;
     }
-    if (use_path_minimizer && !map_long_reads) {
+    if (rec_mode && !map_long_reads) {
         // We don't have file paths to load defined for recombination-aware short-read minimizers.
         logger.error() << "Path minimizers cannot be used with short reads." << endl;
     }
@@ -1558,7 +1558,7 @@ int main_giraffe(int argc, char** argv) {
             // We want to default recombination-awareness off.
 
 
-            if (main_options.rec_mode) {
+            if (rec_mode) {
                 // The user asked for recombination-aware chaining anyway.
                 logger.error() << "Cannot store " << hap_count << " distinct haplotypes in minimizer index payloads for --rec-mode" << std::endl;
             }
@@ -1672,7 +1672,7 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe Distance Index", {"dist"}}
     };
     if (map_long_reads) {
-        if (use_path_minimizer) {
+        if (rec_mode) {
             indexes_and_extensions.emplace(std::string("Long Read PathMinimizers"), std::vector<std::string>({"longread.path.min","path.min", "min"}));
             indexes_and_extensions.emplace(std::string("Long Read PathZipcodes"), std::vector<std::string>({"longread.path.zipcodes", "path.zipcodes", "zipcodes"}));
         } else {
@@ -1762,7 +1762,7 @@ int main_giraffe(int argc, char** argv) {
     if (!map_long_reads) {
         index_targets = VGIndexes::get_default_short_giraffe_indexes();
     } else {
-        if (use_path_minimizer) {
+        if (rec_mode) {
             index_targets = VGIndexes::get_default_long_path_giraffe_indexes();
         } else {
             index_targets = VGIndexes::get_default_long_giraffe_indexes();
@@ -1801,7 +1801,7 @@ int main_giraffe(int argc, char** argv) {
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
-        if (use_path_minimizer) {
+        if (rec_mode) {
             minimizer_indexname = "Long Read PathMinimizers";
             payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
@@ -1824,7 +1824,7 @@ int main_giraffe(int argc, char** argv) {
     IndexName oversized_zipcodes_indexname;
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
-        if (use_path_minimizer) {
+        if (rec_mode) {
             oversized_zipcodes_indexname = "Long Read PathZipcodes";
         } else {
             oversized_zipcodes_indexname = "Long Read Zipcodes";
