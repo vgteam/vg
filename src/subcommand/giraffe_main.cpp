@@ -453,21 +453,14 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "rec-penalty",
         &MinimizerMapper::rec_penalty,
         MinimizerMapper::default_rec_penalty,
-        "penalty for a recombination, requires -E (ALPHA)",
-        int_is_nonnegative
-    );
-    chaining_opts.add_range(
-        "rec-penalty-aln",
-        &MinimizerMapper::rec_penalty_aln,
-        MinimizerMapper::default_rec_penalty_aln,
-        "penalty for a recombination for final alignment scoring, -1 for --rec-penalty, requires -E (ALPHA)",
+        "penalty for a recombination in recombination-aware mode",
         int_is_nonnegative
     );
     chaining_opts.add_range(
         "rec-consistency-bonus",
         &MinimizerMapper::rec_consistency_bonus,
         MinimizerMapper::default_rec_consistency_bonus,
-        "untracked bonus for chains staying consistent with haplotypes to avoid recombinations, -1 for --rec-penalty, requires -E (ALPHA)",
+        "untracked bonus for chains staying consistent with haplotypes to avoid recombinations in recombination-aware mode",
         int_is_nonnegative
     );
     chaining_opts.add_range(
@@ -603,6 +596,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::wfa_max_distance,
         MinimizerMapper::default_wfa_max_distance,
         "band distance to allow in the longest WFA connection or tail"
+    );
+    chaining_opts.add_range(
+        "rec-penalty-aln",
+        &MinimizerMapper::rec_penalty_aln,
+        MinimizerMapper::default_rec_penalty_aln,
+        "penalty per recombination for final alignment scoring in recombination-aware mode",
+        int_is_nonnegative
     );
     chaining_opts.add_range(
         "softclip-penalty",
@@ -964,6 +964,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("item-bonus", 2)
         .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.27579)
+        .add_entry<int>("rec-penalty", 2)
+        .add_entry<int>("rec-consistency-bonus", 12)
         .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
@@ -983,6 +985,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<int>("rec-penalty-aln", 28)
         .add_entry<bool>("prune-low-cplx", true);
 
     Preset r10_base;
@@ -1020,6 +1023,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("item-bonus", 20)
         .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.06759721757973396)
+        .add_entry<int>("rec-penalty", 2)
+        .add_entry<int>("rec-consistency-bonus", 12)
         .add_entry<double>("chain-score-threshold", 160.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<size_t>("max-chains-per-tree", 3)
@@ -1039,6 +1044,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<int>("rec-penalty-aln", 28)
         .add_entry<bool>("prune-low-cplx", true);
 
     presets.emplace("r10", r10_base);

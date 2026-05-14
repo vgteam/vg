@@ -291,14 +291,11 @@ class MinimizerMapper : public AlignerClient {
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
-    /// Recombination penalty. This is added to the cost of a transition if there are no shared haplotypes.
+    /// Recombination penalty for chaining. This is added to the cost of a transition if there are no shared haplotypes.
     static constexpr int default_rec_penalty = 0;
     int rec_penalty = default_rec_penalty;
-    /// Recombination penalty for alignment scoring. This is deducted from the score of an alignment for each required recombination. -1 means use rec_penalty.
-    static constexpr int default_rec_penalty_aln = -1;
-    int rec_penalty_aln = default_rec_penalty_aln;
-    /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score. -1 means use rec_penalty.
-    static constexpr int default_rec_consistency_bonus = -1;
+    /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score.
+    static constexpr int default_rec_consistency_bonus = 0;
     int rec_consistency_bonus = default_rec_consistency_bonus;
     // How many points should we treat a non-gap connection base as producing, at chaining?
     static constexpr double default_points_per_possible_match = 0;
@@ -384,6 +381,9 @@ class MinimizerMapper : public AlignerClient {
     static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
     int wfa_max_distance = default_wfa_max_distance;
 
+    /// Recombination penalty for alignment scoring. This is deducted from the score of an alignment for each required recombination.
+    static constexpr int default_rec_penalty_aln = 0;
+    int rec_penalty_aln = default_rec_penalty_aln;
     /// How much should candidate alignment scores be penalized for softclipped bases?
     static constexpr double default_softclip_penalty = 0.0;
     double softclip_penalty = default_softclip_penalty;
