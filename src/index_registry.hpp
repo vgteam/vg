@@ -145,6 +145,10 @@ struct IndexingParameters {
     static int haplotype_sampling_minimizer_w;
 };
 
+/// How many hapolotypoes should we expect to be able to store on a minimizer index path payload?
+/// TODO: Move this to the minimizer index.
+static constexpr int MAX_PAYLOAD_PATHS = 60;
+
 /**
  * A struct namespace for standard inputs
  */

@@ -1551,6 +1551,25 @@ int main_giraffe(int argc, char** argv) {
     // or when either --haplotype-name or --kff-name is given.
     // Otherwise we'd always sample when we had reads available.
     bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || !kff_filename.empty();
+
+    if (haplotype_sampling) {
+        // Figure out how many samples we need in the haplotype-sampled graph.
+        // TODO: This assumes all reference samples are haploid.
+        int hap_count = reference_samples.size() + IndexingParameters::haplotype_sampling_diploid ? 2 : IndexingParameters::haplotype_sampling_num_haplotypes;
+        if (hap_count > MAX_PAYLOAD_PATHS) {
+            // We won't be able to store our sampled haplotypes in the index payload.
+            // We want to default recombination-awareness off.
+
+
+            if (main_options.rec_mode) {
+                // The user asked for recombination-aware chaining anyway.
+                logger.error() << "Cannot store " << hap_count << " distinct haplotypes in minimizer index payloads for --rec-mode" << std::endl;
+            }
+        } else {
+            // Our samples haplotypes fit in the recombination-aware chaining payload.
+            // We want to default recombination-awarenss on.
+        }
+    }
     
     string sample_scope;
     if (haplotype_sampling) {
