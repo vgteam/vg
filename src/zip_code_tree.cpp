@@ -361,15 +361,15 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         forest_state.open_chains.back().second = flank_distances.at(seed_index) > forest_state.distance_limit;
     } else if (first_type != ZipCodeTree::CHAIN_START) {
         // For all except the first thing in a node/chain, we need to add an edge
-        size_t distance_between = std::numeric_limits<size_t>::max();
-        if (is_trivial_chain || current_type == ZipCode::ROOT_NODE || 
+        size_t distance_between;
+        if (!is_trivial_chain && current_type != ZipCode::ROOT_NODE && 
             forest_state.sibling_indices_at_depth[chain_depth][0].chain_component 
-              == current_seed.zipcode.get_chain_component(depth)) {
-            if (previous_offset != std::numeric_limits<size_t>::max()) {
-                // In same & reachable chain component, so can find distance from last thing
-                distance_between = (std::max(current_offset, previous_offset) 
-                                    - std::min(current_offset, previous_offset));
-            }
+            != current_seed.zipcode.get_chain_component(depth)) {
+            // In different componenets, so no edge is possible
+            distance_between = std::numeric_limits<size_t>::max();
+        } else {
+            // In same & reachable chain component, so can find distance from last thing
+            distance_between = std::max(current_offset, previous_offset) - std::min(current_offset, previous_offset);
         }
 
         if (chain_depth == 0 && distance_between > forest_state.distance_limit) {
