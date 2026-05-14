@@ -6,6 +6,8 @@
 
 #include "minimizer_mapper.hpp"
 
+#include "logged_gap_alignment_scorer.hpp"
+
 #include "annotation.hpp"
 #include "banded_global_aligner.hpp"
 #include "crash.hpp"
@@ -848,28 +850,26 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
-        // Rescore all the alignments using minimap2 logged-gap-length, read-identity-based scoring
+        // Rescore each alignment under its own minimap2 logged-gap scheme.
 
-        if (alignments[alignment_index].path().mapping_size() == 0) {
-            // Unmapped, so skip it.
+        Alignment& aln = alignments[alignment_index];
+        if (aln.path().mapping_size() == 0 || aln.sequence().size() == 0) {
+            // This alignment is unmapped or somehow empty.
             continue;
         }
+        // Otherwise it must have at least one edit
 
-        size_t matches, mismatches;
-        std::vector<size_t> gap_lengths;
-        count_alignment_operations(alignments[alignment_index], matches, mismatches, gap_lengths);
+        // Make a scoring scheme based on it, and count its operations.
+        LoggedGapAlignmentScorer scheme(aln);
+        // Score the alignment
+        int32_t logged_gaps_score = scheme.score_alignment(aln);
+        aln.set_score(logged_gaps_score);
 
-        if (matches + mismatches + gap_lengths.size() == 0) {
-            continue;
-        }
-        
-        // Compute the logged-gaps score
-        auto logged_gaps_score = score_alignment_with_logged_gaps(matches, mismatches, gap_lengths);
-        alignments[alignment_index].set_score(logged_gaps_score);
-         if (show_work) {
+        if (show_work) {
             #pragma omp critical (cerr)
-            {   
-                cerr << log_name() << "Matches: " << matches << " Mismatches: " << mismatches << " Gap opens: " << gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+            {
+                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
+                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
             }
         }
     }
@@ -962,7 +962,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // maximum score, we need to use compute_first_mapping_quality and not
     // compute_max_mapping_quality.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
+        get_regular_aligner()->mapq_calc->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
 
 #ifdef debug_write_minimizers
 #pragma omp critical
@@ -1579,8 +1579,8 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
-                get_regular_aligner()->gap_open,
-                get_regular_aligner()->gap_extension,
+                get_regular_aligner()->scorer->gap_open,
+                get_regular_aligner()->scorer->gap_extension,
                 this->rec_penalty_chain,
                 this->max_alignments,
                 for_each_transition,
@@ -2700,52 +2700,86 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
 
-        //Next, we want to skip seeds that are in repetitive regions of the read
-        //Since skipping all repetitive seeds would leave too many gaps in the chain, only skip seeds if they are involved in gaps,
-        //i.e. the distances in the read and graph are different
+        // Next, we want to skip seeds that are in repetitive regions of the read
+        // Since skipping all repetitive seeds would leave too many gaps in the chain,
+        // only skip seeds if they are involved in gaps,
+        // i.e. the distances in the read and graph are different
 
-        //Keep track of the total distance from the previous seed to the next one we choose in the graph
+        // Keep track of the total distance from the previous seed to the next one we choose in the graph
         size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
         size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
 
-        //The sum of the differences between read and graph lengths
-        size_t gap_lengths=std::max(total_graph_distance, prev_read_distance) - std::min(total_graph_distance, prev_read_distance);
+        // The sum of the differences between read and graph lengths
+        size_t gap_lengths = (std::max(total_graph_distance, prev_read_distance) 
+                            - std::min(total_graph_distance, prev_read_distance));
 
-        auto next_skippable_it = next_it;
+        auto skip_to_it = next_it;
 
-        while (next_skippable_it != chain.end()) {
-            const algorithms::Anchor* next_skippable = &to_chain[*next_skippable_it];
+        while (skip_to_it != chain.end()) {
+            const algorithms::Anchor* skip_to = &to_chain[*skip_to_it];
             // Try and find a next thing to connect to
             
-           //TODO: Getting the graph distance is probably slow, might want to save it from chaining
-           size_t graph_distance = next_skippable_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                               : algorithms::get_graph_distance(*next_skippable, to_chain[*(next_skippable_it+1)], *distance_index, gbwt_graph);
+            //TODO: Getting the graph distance is probably slow, might want to save it from chaining
+            size_t cur_graph_distance;
+            if (skip_to_it+1 == chain.end()) {
+                // We can't skip any further
+                cur_graph_distance = std::numeric_limits<size_t>::max();
+            } else {
+                // Distance from end of this anchor to start of next anchor
+                cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[*(skip_to_it+1)], 
+                                                                    *distance_index, gbwt_graph);
+                // Also add in distance from start of this anchor to end of this anchor
+                cur_graph_distance += skip_to->length();
+                // Combined those are graph start -> start dist we are trying to skip past
+            }
 
-            if (next_skippable->is_skippable() && next_skippable_it+1 != chain.end() && 
-                total_graph_distance+graph_distance < this->max_skipped_bases) {
+            if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
+                total_graph_distance+cur_graph_distance < this->max_skipped_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_skippable_it << " because it is repetitive" << endl;
+                        cerr << log_name() << "Try to avoid connecting " << *here_it 
+                             << " to " << *skip_to_it << " because it is repetitive" << endl;
                     }
                 }
 #endif
-                size_t read_distance = next_skippable_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                                       : algorithms::get_read_distance(*next_skippable, to_chain[*(next_skippable_it+1)]);
-                total_graph_distance += graph_distance;
-                gap_lengths += (std::max(read_distance, graph_distance) - std::min(read_distance, graph_distance));
+                // Read start -> start distance for what we're skipping
+                size_t cur_read_distance = algorithms::get_read_distance(*skip_to, to_chain[*(skip_to_it+1)]);
+                cur_read_distance += skip_to->length();
+                // Total gap so far
+                gap_lengths += (std::max(cur_read_distance, cur_graph_distance) 
+                              - std::min(cur_read_distance, cur_graph_distance));
+                total_graph_distance += cur_graph_distance;
             
-                ++next_skippable_it;
+                ++skip_to_it;
             } else {
-                //The next_skippable_it is either not skippable or too far away so stop
-                if (gap_lengths > 50) {
-                    //If there was a big gap
-                    next_it = next_skippable_it;
-                    next = &to_chain[*next_skippable_it];
+                // skip_to is either not skippable or too far away so stop
+                if (gap_lengths > this->min_indel_avoid_bases) {
+#ifdef debug_chain_alignment
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Skipping to " << *skip_to_it 
+                                 << " to avoid gap of " << gap_lengths << " in repetitive region" << endl;
+                        }
+                    }
+#endif
+                    // If there was a big gap
+                    next_it = skip_to_it;
+                    next = skip_to;
                 }
-                //If there wasn't a gap then don't skip anything
+#ifdef debug_chain_alignment
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Not bothering to skip to " << *skip_to_it 
+                                 << " because total gaps are only " << gap_lengths << endl;
+                        }
+                    }
+#endif
+                // If there wasn't a gap then don't skip anything
                 break;
             }
         }
@@ -2872,7 +2906,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
-                    link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner.score_gap(link_length));
+                    link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner.scorer->score_gap(link_length));
                     link_alignment_source = "unlocalized_insertion";
                 }
             } else if (link_alignment.length != linking_bases.size()) {
@@ -3526,18 +3560,18 @@ size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, co
     size_t begin_index = sequence_begin - aln.sequence().begin();
     size_t end_index = sequence_end - aln.sequence().begin();
     if (end_index > middle_index && begin_index <= middle_index) {
-        return aligner->longest_detectable_gap(aln, aln.sequence().begin() + middle_index);
+        return aligner->scorer->longest_detectable_gap(aln, aln.sequence().begin() + middle_index);
     }
     
     // Otherwise it is the length from the boundary nearest to the middle.
     // And we know the while range is on one side or the other of the middle.
     if (begin_index > middle_index) {
         // Beginning is on the inside
-        return aligner->longest_detectable_gap(aln, sequence_begin);
+        return aligner->scorer->longest_detectable_gap(aln, sequence_begin);
     }
 
     // Otherwise the end is on the inside
-    return aligner->longest_detectable_gap(aln, sequence_end);
+    return aligner->scorer->longest_detectable_gap(aln, sequence_end);
 }
 
 bool MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
@@ -3921,7 +3955,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is.
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
-    int score = aligner->score_exact_match(aln, read_start - margin_left, margin_left + length + margin_right);
+    int score = aligner->scorer->score_exact_match(aln, read_start - margin_left, margin_left + length + margin_right);
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start, source.is_repetitive, paths); 
 }
 
@@ -3937,15 +3971,15 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     auto mismatch_it = mismatch_begin;
     while(mismatch_it != mismatch_end) {
         // Score the perfect match up to mismatch_it, and the mismatch at mismatch_it.
-        score += aligner->score_exact_match(aln, scored_until, *mismatch_it - scored_until);
-        score += aligner->score_mismatch(aln.sequence().begin() + *mismatch_it,
+        score += aligner->scorer->score_exact_match(aln, scored_until, *mismatch_it - scored_until);
+        score += aligner->scorer->score_mismatch(aln.sequence().begin() + *mismatch_it,
                                          aln.sequence().begin() + *mismatch_it + 1,
                                          aln.quality().begin() + *mismatch_it); 
         scored_until = *mismatch_it + 1;
         ++mismatch_it;
     }
     // Score the perfect match from where we are to the end.
-    score += aligner->score_exact_match(aln, scored_until, read_end - scored_until);
+    score += aligner->scorer->score_exact_match(aln, scored_until, read_end - scored_until);
     
     // Get the anchors we are going to weld together. These may be the same one.
     const algorithms::Anchor& left_anchor = seed_anchors.at(sorted_seeds.front());
@@ -3970,14 +4004,14 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
     // Get the score without full length bonuses
-    auto score = aligner->score_exact_match(aln, anchor.read_start(), anchor.length());
+    auto score = aligner->scorer->score_exact_match(aln, anchor.read_start(), anchor.length());
     if (anchor.read_start() == 0) {
         // Apply full elngth bonus on the left if we abut the left end of the read.
-        score += aligner->score_full_length_bonus(true, aln);
+        score += aligner->scorer->score_full_length_bonus(true, aln);
     }
     if (anchor.read_end() == aln.sequence().length()) {
         // Apply full lenght bonus on the right if we abut the riht end of the read.
-        score += aligner->score_full_length_bonus(false, aln);
+        score += aligner->scorer->score_full_length_bonus(false, aln);
     }
 
     return {
