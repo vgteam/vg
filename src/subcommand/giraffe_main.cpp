@@ -80,6 +80,9 @@ struct GiraffeMainOptions {
     /// Should we prune low-complexity anchors when surjecting?
     static constexpr bool default_prune_low_cplx = false;
     bool prune_low_cplx = default_prune_low_cplx;
+    /// Should we use recombination-aware mapping?
+    static constexpr bool default_rec_mode = false;
+    bool rec_mode = default_rec_mode;
 };
 
 /// Options struct for scoring-related parameters. Defaults are in aligner.hpp.
@@ -119,6 +122,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &GiraffeMainOptions::prune_low_cplx,
         GiraffeMainOptions::default_prune_low_cplx,
         "prune short and low complexity anchors during linear format realignment (on by default for long reads)"
+    );
+    main_opts.add_flag(
+        "rec-mode", 'E',
+        &GiraffeMainOptions::rec_mode,
+        GiraffeMainOptions::default_rec_mode,
+        "activate giraffe recombination-aware mode"
     );
 
     // Configure scoring
@@ -729,7 +738,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 
     if (full_help) {
         cerr << "Giraffe parameters:" << endl
-             << "  -E, --rec-mode                activate giraffe recombination-aware mode" << endl
              << "  -A, --rescue-algorithm NAME   use this rescue algorithm [dozeu]" << endl
              << "                                {none / dozeu / gssw}" << endl
              << "      --fragment-mean FLOAT     force fragment length distribution to have this" << endl
@@ -817,7 +825,6 @@ int main_giraffe(int argc, char** argv) {
     bool show_progress = false;
     
     // Main Giraffe program options struct
-    // Not really initialized until after we load all the indexes though...
     GiraffeMainOptions main_options;
     // Scoring options struct
     ScoringOptions scoring_options;
@@ -892,9 +899,6 @@ int main_giraffe(int argc, char** argv) {
     // Are we mapping long reads or short reads? According to the parameter preset
     bool map_long_reads = false;
     
-    // If recombination mode is set, we are using PathMinimizer, else standard Giraffe.
-    bool use_path_minimizer = false;
-
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
         { "none", MinimizerMapper::rescue_none },
@@ -1138,7 +1142,6 @@ int main_giraffe(int argc, char** argv) {
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
         {"parameter-preset", required_argument, 0, 'b'},
-        {"rec-mode", no_argument, 0, 'E'},
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
@@ -1153,7 +1156,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:nb:t:A:E";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:nb:t:A:";
     parser->make_short_options(short_options);
 
     if (argc == 2) {
@@ -1355,9 +1358,6 @@ int main_giraffe(int argc, char** argv) {
                     map_long_reads = true;
                 }
                 break;
-            case 'E':
-                use_path_minimizer = true;
-                break;
             case 'A':
                 {
                     std::string algo_name = optarg;
@@ -1423,6 +1423,9 @@ int main_giraffe(int argc, char** argv) {
         }
     }
 
+    // Fill in the optiopn values for the first values of all the ranges.
+    parser->reset_chain();
+    // Now we can use main_options.
    
     // Get positional arguments before validating user intent
     if (have_input_file(optind, argc, argv)) {
@@ -1534,7 +1537,7 @@ int main_giraffe(int argc, char** argv) {
         logger.error() << "Paired-end alignment is not yet implemented "
                        << "for --align-from-chains or chaining-based presets" << std::endl;
     }
-    if (use_path_minimizer && !map_long_reads) {
+    if (main_options.rec_mode && !map_long_reads) {
         // We don't have file paths to load defined for recombination-aware short-read minimizers.
         logger.error() << "Path minimizers cannot be used with short reads." << endl;
     }
@@ -1653,7 +1656,7 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe Distance Index", {"dist"}}
     };
     if (map_long_reads) {
-        if (use_path_minimizer) {
+        if (main_options.rec_mode) {
             indexes_and_extensions.emplace(std::string("Long Read PathMinimizers"), std::vector<std::string>({"longread.path.min","path.min", "min"}));
             indexes_and_extensions.emplace(std::string("Long Read PathZipcodes"), std::vector<std::string>({"longread.path.zipcodes", "path.zipcodes", "zipcodes"}));
         } else {
@@ -1743,7 +1746,7 @@ int main_giraffe(int argc, char** argv) {
     if (!map_long_reads) {
         index_targets = VGIndexes::get_default_short_giraffe_indexes();
     } else {
-        if (use_path_minimizer) {
+        if (main_options.rec_mode) {
             index_targets = VGIndexes::get_default_long_path_giraffe_indexes();
         } else {
             index_targets = VGIndexes::get_default_long_giraffe_indexes();
@@ -1782,7 +1785,7 @@ int main_giraffe(int argc, char** argv) {
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
-        if (use_path_minimizer) {
+        if (main_options.rec_mode) {
             minimizer_indexname = "Long Read PathMinimizers";
             payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
@@ -1805,7 +1808,7 @@ int main_giraffe(int argc, char** argv) {
     IndexName oversized_zipcodes_indexname;
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
-        if (use_path_minimizer) {
+        if (main_options.rec_mode) {
             oversized_zipcodes_indexname = "Long Read PathZipcodes";
         } else {
             oversized_zipcodes_indexname = "Long Read Zipcodes";

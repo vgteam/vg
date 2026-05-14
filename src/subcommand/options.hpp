@@ -150,7 +150,7 @@ protected:
     /// May not delegate to a different item.
     virtual bool tick_along_chain();
 
-    /// Reset along the chain, makign this item and all parents take on their
+    /// Reset along the chain, making this item and all parents take on their
     /// initial values.
     virtual void reset_along_chain();
 };
