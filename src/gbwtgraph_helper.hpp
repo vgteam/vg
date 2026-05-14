@@ -148,7 +148,11 @@ struct MinimizerIndexParameters {
     constexpr static size_t HASH_TABLE_MAX_WIDTH = 36;
 
     /// Number of words used for a zipcode payload.
-    constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type); 
+    constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type);
+
+    /// How many hapolotypoes should we expect to be able to store on a minimizer index path payload?
+    /// TODO: Move this to the minimizer index.
+    static constexpr int MAX_PAYLOAD_PATHS = 60;
 
     enum PayloadType {
         /// No payload.

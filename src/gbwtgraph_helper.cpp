@@ -500,13 +500,11 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
 
     // Count the distinct samples that we might use for the payload.
-    // TODO: We assume generic paths don't count for payloads.
-    std::unordered_set<std::string> samples;
-    gbz.for_each_path_matching({PathSense::REFERENCE, PathSense::HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
-        samples.insert(gbz.get_sample_name(path));   
-    });
+    // TODO: We're counting the magic generic samples here.
+    size_t sample_count = gbz.graph.index->metadata.sample_names.size();
+
     // Put the paths in if we think they will fit.
-    bool paths_in_payload = samples.size() <= MAX_PAYLOAD_PATHS;
+    bool paths_in_payload = sample_count <= MinimizerIndexParameters::MAX_PAYLOAD_PATHS;
 
     // Determine payload size and type code.
     size_t payload_size = 0;

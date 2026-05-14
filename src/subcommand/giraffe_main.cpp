@@ -1809,7 +1809,7 @@ int main_giraffe(int argc, char** argv) {
     if (!rec_mode.value_or(default_rec_mode)) {
         // If we're not doing recombination-aware mapping, we can also accept a
         // payload without path info, as long as it still has zipcodes.
-        allowed_payloads.puch_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
+        allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
     }
     // Make sure we have a usable minimizer index payload.
     require_payload(*minimizer_index, allowed_payloads);
