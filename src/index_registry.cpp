@@ -5535,7 +5535,6 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
             // No more file
             break;
         }
-        cerr << line << endl;
         if (buf[0] == 'H') {
             // look for reference sense path names
             smatch tag_sub;
