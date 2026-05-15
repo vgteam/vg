@@ -445,11 +445,18 @@ std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const Minim
     return frequent_kmers;
 }
 
-// TODO: Should we multithread this?
+// Fills `payload_by_offset` with the zipcode payload for every node in `gbz`.
+// The vector is dense-indexed by `(node_id - min_node_id)`, not by the node id
+// itself; it must be pre-sized so that the largest offset fits, and slots for
+// node ids that do not exist in the graph stay at `MIPayload::NO_CODE`.
+// Oversized zipcodes (those that do not fit in the payload field) are appended
+// to `oversized_zipcodes` if non-null, and the payload stores their offset
+// inside that collection. Filling runs in parallel: every node writes to a
+// disjoint slot, and access to `oversized_zipcodes` is serialised.
 void cache_payloads(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex& distance_index,
-    std::vector<payload_t>& node_id_to_payload,
+    std::vector<payload_t>& payload_by_offset,
     nid_t min_node_id,
     ZipCodeCollection* oversized_zipcodes,
     bool progress
@@ -479,7 +486,7 @@ void cache_payloads(
             }
             payload = { 0, offset };
         }
-        node_id_to_payload[node_id - min_node_id] = payload;
+        payload_by_offset[node_id - min_node_id] = payload;
     }, true);
 
     if (progress) {
@@ -541,20 +548,22 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         gbwtgraph::index_haplotypes(gbz, index, [](const pos_t&) { return nullptr; });
     } else {
         // Cache payloads before building the index.
-        // A zipcode only depends on the node id. The map is indexed by
-        // (node_id - min_node_id) so we can fill it in parallel without
-        // synchronisation: every node writes to a disjoint slot.
+        // A zipcode only depends on the node id, so we precompute one payload
+        // per node and look it up later. The cache is a dense vector indexed
+        // by (node_id - min_node_id), not by the node id itself: this lets us
+        // fill it in parallel without synchronisation, since every node writes
+        // to a disjoint slot.
         nid_t min_node_id = gbz.graph.min_node_id();
         nid_t max_node_id = gbz.graph.max_node_id();
-        std::vector<payload_t> node_id_to_payload(max_node_id - min_node_id + 1, MIPayload::NO_CODE);
-        cache_payloads(gbz, *distance_index, node_id_to_payload, min_node_id, oversized_zipcodes, params.progress);
+        std::vector<payload_t> payload_by_offset(max_node_id - min_node_id + 1, MIPayload::NO_CODE);
+        cache_payloads(gbz, *distance_index, payload_by_offset, min_node_id, oversized_zipcodes, params.progress);
 
         auto get_payload = [&](const pos_t& pos) -> const code_type* {
             nid_t nid = id(pos);
-            if (nid < min_node_id || nid - min_node_id >= node_id_to_payload.size()) {
+            if (nid < min_node_id || nid - min_node_id >= payload_by_offset.size()) {
                 return reinterpret_cast<const code_type*>(&MIPayload::NO_CODE);
             }
-            return reinterpret_cast<const code_type*>(&node_id_to_payload[nid - min_node_id]);
+            return reinterpret_cast<const code_type*>(&payload_by_offset[nid - min_node_id]);
         };
         if (params.paths_in_payload) {
             gbwtgraph::index_haplotypes_with_paths(gbz, index, get_payload);
