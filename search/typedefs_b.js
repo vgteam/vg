@@ -1,16 +1,16 @@
 var searchData=
 [
-  ['map_5fentry_5ftype_14874',['map_entry_type',['../structvg_1_1WFAPoint.html#ac125c09256ece943d40cf65152a9837a',1,'vg::WFAPoint']]],
-  ['mapping_5ftype_14875',['mapping_type',['../structvg_1_1RebuildJob.html#afdbb259fb3fc369a7824f6420b2043c0',1,'vg::RebuildJob']]],
-  ['match_5ffanouts_5ft_14876',['match_fanouts_t',['../classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480',1,'vg::MEMClusterer::match_fanouts_t()'],['../classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd',1,'vg::MultipathMapper::match_fanouts_t()']]],
-  ['memcluster_5ft_14877',['memcluster_t',['../classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd',1,'vg::MultipathMapper']]],
-  ['message_5fconsumer_5ffunction_5ft_14878',['message_consumer_function_t',['../namespacevg_1_1io.html#a618e8c9e44f63328bb2c0742ab0e69c2',1,'vg::io']]],
-  ['message_5flistener_5ft_14879',['message_listener_t',['../classvg_1_1io_1_1ProtobufEmitter.html#a735167dc9e644a83d0e9fd206b241ce1',1,'vg::io::ProtobufEmitter']]],
-  ['message_5fsender_5ffunction_5ft_14880',['message_sender_function_t',['../namespacevg_1_1io.html#a26ea41d1ec4cf44b436a345f1eefccf1',1,'vg::io']]],
-  ['minimizer_5findex_5ftype_14881',['minimizer_index_type',['../classvg_1_1HaplotypePartitioner.html#a9c0dfd5c716bfc4ae5427b96a658b349',1,'vg::HaplotypePartitioner']]],
-  ['minimizerindex_14882',['MinimizerIndex',['../classvg_1_1MinimizerMapper.html#a0174cc12ebbe75f66eb8631c3c836b33',1,'vg::MinimizerMapper']]],
-  ['mutablehandlegraph_14883',['MutableHandleGraph',['../namespacevg.html#a293aa7465cc63a2581914d6a85a0e4b8',1,'vg']]],
-  ['mutablepathdeletablehandlegraph_14884',['MutablePathDeletableHandleGraph',['../namespacevg.html#a2f0cc7bac7a4f92b2b523357f8940aa5',1,'vg']]],
-  ['mutablepathhandlegraph_14885',['MutablePathHandleGraph',['../namespacevg.html#a24350c08e6d69244e6930f41fee00e1f',1,'vg']]],
-  ['mutablepathmutablehandlegraph_14886',['MutablePathMutableHandleGraph',['../namespacevg.html#aa2f83c48d4ecdcfd8f2604f10e863aea',1,'vg']]]
+  ['map_5fentry_5ftype_14871',['map_entry_type',['../structvg_1_1WFAPoint.html#ac125c09256ece943d40cf65152a9837a',1,'vg::WFAPoint']]],
+  ['mapping_5ftype_14872',['mapping_type',['../structvg_1_1RebuildJob.html#afdbb259fb3fc369a7824f6420b2043c0',1,'vg::RebuildJob']]],
+  ['match_5ffanouts_5ft_14873',['match_fanouts_t',['../classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480',1,'vg::MEMClusterer::match_fanouts_t()'],['../classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd',1,'vg::MultipathMapper::match_fanouts_t()']]],
+  ['memcluster_5ft_14874',['memcluster_t',['../classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd',1,'vg::MultipathMapper']]],
+  ['message_5fconsumer_5ffunction_5ft_14875',['message_consumer_function_t',['../namespacevg_1_1io.html#a618e8c9e44f63328bb2c0742ab0e69c2',1,'vg::io']]],
+  ['message_5flistener_5ft_14876',['message_listener_t',['../classvg_1_1io_1_1ProtobufEmitter.html#a735167dc9e644a83d0e9fd206b241ce1',1,'vg::io::ProtobufEmitter']]],
+  ['message_5fsender_5ffunction_5ft_14877',['message_sender_function_t',['../namespacevg_1_1io.html#a26ea41d1ec4cf44b436a345f1eefccf1',1,'vg::io']]],
+  ['minimizer_5findex_5ftype_14878',['minimizer_index_type',['../classvg_1_1HaplotypePartitioner.html#a9c0dfd5c716bfc4ae5427b96a658b349',1,'vg::HaplotypePartitioner']]],
+  ['minimizerindex_14879',['MinimizerIndex',['../classvg_1_1MinimizerMapper.html#a0174cc12ebbe75f66eb8631c3c836b33',1,'vg::MinimizerMapper']]],
+  ['mutablehandlegraph_14880',['MutableHandleGraph',['../namespacevg.html#a293aa7465cc63a2581914d6a85a0e4b8',1,'vg']]],
+  ['mutablepathdeletablehandlegraph_14881',['MutablePathDeletableHandleGraph',['../namespacevg.html#a2f0cc7bac7a4f92b2b523357f8940aa5',1,'vg']]],
+  ['mutablepathhandlegraph_14882',['MutablePathHandleGraph',['../namespacevg.html#a24350c08e6d69244e6930f41fee00e1f',1,'vg']]],
+  ['mutablepathmutablehandlegraph_14883',['MutablePathMutableHandleGraph',['../namespacevg.html#aa2f83c48d4ecdcfd8f2604f10e863aea',1,'vg']]]
 ];

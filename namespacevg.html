@@ -1573,8 +1573,8 @@ Functions</h2></td></tr>
 <tr class="separator:abf196d86b9aa6fa87dcedd65caf2bb00"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a20330937bc196160411bc3b935fd2fef"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="namespacevg.html#a14bb99a367d188bb86fcfec1fd3c9999">key_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a20330937bc196160411bc3b935fd2fef">find_frequent_kmers</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="structvg_1_1MinimizerIndexParameters.html">MinimizerIndexParameters</a> &amp;params)</td></tr>
 <tr class="separator:a20330937bc196160411bc3b935fd2fef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a19809a3b9330acd3095fb23ca749809b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a19809a3b9330acd3095fb23ca749809b">cache_payloads</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex &amp;distance_index, <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, <a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">payload_t</a> &gt; &amp;node_id_to_payload, <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, bool progress)</td></tr>
-<tr class="separator:a19809a3b9330acd3095fb23ca749809b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f6fef69c4a015353973902055297b5f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9f6fef69c4a015353973902055297b5f">cache_payloads</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex &amp;distance_index, std::vector&lt; <a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">payload_t</a> &gt; &amp;payload_by_offset, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> min_node_id, <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, bool progress)</td></tr>
+<tr class="separator:a9f6fef69c4a015353973902055297b5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a129b727ee45c9c55491653888fbe7417"><td class="memItemLeft" align="right" valign="top">gbwtgraph::DefaultMinimizerIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a129b727ee45c9c55491653888fbe7417">build_minimizer_index</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex *distance_index, <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, const <a class="el" href="structvg_1_1MinimizerIndexParameters.html">MinimizerIndexParameters</a> &amp;params)</td></tr>
 <tr class="separator:a129b727ee45c9c55491653888fbe7417"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadc0e3f2c2a95cff87a70fa1fcd46f65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aadc0e3f2c2a95cff87a70fa1fcd46f65">require_payload</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, <a class="el" href="structvg_1_1MinimizerIndexParameters.html#a21cc917a589512f60d762bda527ba878">MinimizerIndexParameters::PayloadType</a> expected_payload)</td></tr>
@@ -6311,8 +6311,8 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
-<a id="a19809a3b9330acd3095fb23ca749809b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19809a3b9330acd3095fb23ca749809b">&#9670;&nbsp;</a></span>cache_payloads()</h2>
+<a id="a9f6fef69c4a015353973902055297b5f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f6fef69c4a015353973902055297b5f">&#9670;&nbsp;</a></span>cache_payloads()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -6332,8 +6332,14 @@ template&lt;typename ProbIn &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, <a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">payload_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_id_to_payload</em>, </td>
+          <td class="paramtype">std::vector&lt; <a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">payload_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>payload_by_offset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
+          <td class="paramname"><em>min_node_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
