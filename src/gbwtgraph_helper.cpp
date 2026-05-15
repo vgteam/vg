@@ -445,13 +445,13 @@ std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const Minim
     return frequent_kmers;
 }
 
-// Fills `payload_by_offset` with the zipcode payload for every node in `gbz`.
+// Fills `payload_by_offset` with the zipcode payload for every node.
 // The vector is dense-indexed by `(node_id - min_node_id)`, not by the node id
 // itself; it must be pre-sized so that the largest offset fits, and slots for
 // node ids that do not exist in the graph stay at `MIPayload::NO_CODE`.
-// Oversized zipcodes (those that do not fit in the payload field) are appended
-// to `oversized_zipcodes` if non-null, and the payload stores their offset
-// inside that collection. Filling runs in parallel: every node writes to a
+// Oversized zipcodes are appended to `oversized_zipcodes` if non-null, and the 
+// payload stores their offset inside that collection. 
+// Filling runs in parallel: every node writes to a
 // disjoint slot, and access to `oversized_zipcodes` is serialised.
 void cache_payloads(
     const gbwtgraph::GBZ& gbz,
@@ -548,8 +548,7 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         gbwtgraph::index_haplotypes(gbz, index, [](const pos_t&) { return nullptr; });
     } else {
         // Cache payloads before building the index.
-        // A zipcode only depends on the node id, so we precompute one payload
-        // per node and look it up later. The cache is a dense vector indexed
+        // A zipcode only depends on the node id. The cache is a dense vector indexed
         // by (node_id - min_node_id), not by the node id itself: this lets us
         // fill it in parallel without synchronisation, since every node writes
         // to a disjoint slot.
