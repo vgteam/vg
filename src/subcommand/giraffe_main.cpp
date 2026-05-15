@@ -1024,7 +1024,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<int>("rec-penalty", 2)
-        .add_entry<int>("rec-consistency-bonus", 12)
+        .add_entry<int>("rec-consistency-bonus", 13)
         .add_entry<double>("chain-score-threshold", 160.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<size_t>("max-chains-per-tree", 3)
@@ -1044,7 +1044,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15)
-        .add_entry<int>("rec-penalty-aln", 28)
+        .add_entry<int>("rec-penalty-aln", 32)
         .add_entry<bool>("prune-low-cplx", true);
 
     presets.emplace("r10", r10_base);
