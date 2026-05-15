@@ -354,8 +354,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     ///////////////////// Record distance from the previous thing in chain/node
     //       Or add a new tree if the distance is too far
     auto first_type = forest_state.sibling_indices_at_depth[chain_depth][0].type;
-    // Memory in case we look it up, to avoid looking it up again
-    size_t chain_comp = std::numeric_limits<size_t>::max();
+    size_t chain_comp = forest_state.sort_values_by_seed.at(seed_index).get_chain_component();
     if (chain_depth > 0 && first_type == ZipCodeTree::CHAIN_START) {
         // If this is the first thing in a non-root chain or node,
         // check whether it is connected to the front of the snarl
@@ -364,10 +363,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     } else if (first_type != ZipCodeTree::CHAIN_START) {
         // For all except the first thing in a node/chain, we need to add an edge
         size_t distance_between;
-        if (!is_trivial_chain && current_type != ZipCode::ROOT_NODE) {
-            // This will be needed
-            chain_comp = current_seed.zipcode.get_chain_component(depth);
-        }
         if (!is_trivial_chain && current_type != ZipCode::ROOT_NODE &&
             forest_state.sibling_indices_at_depth[chain_depth][0].chain_component != chain_comp) {
             // In different componenets, so no edge is possible
@@ -502,9 +497,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
     if (!is_trivial_chain && current_type != ZipCode::ROOT_NODE) {
         // If needed, remember the chain component
-        if (chain_comp == std::numeric_limits<size_t>::max()) {
-            chain_comp = current_seed.zipcode.get_chain_component(depth);
-        }
         forest_state.sibling_indices_at_depth[chain_depth].back().chain_component = chain_comp;
     }
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -2246,7 +2238,7 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
             cerr << "\t\tThis is the root snarl so sort by connected component: " 
                     << seed.zipcode.get_distance_index_address(0) << endl;
 #endif
-            sort_values_by_seed[zipcode_sort_order[i]].set_sort_value( seed.zipcode.get_distance_index_address(0));
+            sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(seed.zipcode.get_distance_index_address(0));
             sort_values_by_seed[zipcode_sort_order[i]].set_code_type(seed.zipcode.get_code_type(0));
         } else if (interval.code_type == ZipCode::NODE || interval.code_type == ZipCode::ROOT_NODE 
                     || seed.zipcode.max_depth() == interval.depth) {
@@ -2257,7 +2249,7 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
 #endif
             sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(
                        is_rev(seed.pos) ? seed.zipcode.get_length(interval.depth) - offset(seed.pos)
-                                                             : offset(seed.pos));
+                                        : offset(seed.pos));
             sort_values_by_seed[zipcode_sort_order[i]].set_code_type(ZipCode::NODE);
         } else if (interval.code_type == ZipCode::CHAIN || interval.code_type == ZipCode::ROOT_CHAIN) {
 #ifdef DEBUG_ZIP_CODE_SORTING
