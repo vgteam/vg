@@ -299,6 +299,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const std::unordered_map<size_t, size_t>& seed_to_ending) {
 
     std::vector<transition_info> all_transitions;
+    // Pre-guess that we'll need at least as many transitions
+    // as elements of ziptree (probably an undercount)
+    all_transitions.reserve(zip_code_tree.get_tree_size());
 
     for (auto seed_itr = zip_code_tree.begin(); seed_itr != zip_code_tree.end(); ++seed_itr) {
         // For each destination seed left to right
@@ -501,6 +504,7 @@ std::vector<transition_info> calculate_transition_read_distances(
     size_t max_read_lookback_bases) {
 
     std::vector<transition_info> filtered_transitions;
+    filtered_transitions.reserve(all_transitions.size());
 
     for (auto transition : all_transitions) {
         // Emit a transition between a source and destination anchor, or skip if actually unreachable.
