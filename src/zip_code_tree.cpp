@@ -2262,36 +2262,40 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
             // with offset in node of 0 (node 3 if chain is traversed forward)
             // See sort_value_t for more details
 
-            size_t prefix_sum = seed.zipcode.get_offset_in_chain(interval.depth+1);
+            ZipCode::code_type_t code_type;
+            size_t offset_in_chain;
+            size_t length;
+            size_t chain_component;
+            bool is_reversed;
+            std::tie(code_type, offset_in_chain, length, chain_component, is_reversed) \
+                = seed.zipcode.get_chain_child_sort_info(interval.depth+1);
 
-            ZipCode::code_type_t child_type = seed.zipcode.get_code_type(interval.depth+1);
-            sort_values_by_seed[zipcode_sort_order[i]].set_code_type(child_type);
-            size_t chain_component = seed.zipcode.get_chain_component(interval.depth+1);
+            sort_values_by_seed[zipcode_sort_order[i]].set_code_type(code_type);
             sort_values_by_seed[zipcode_sort_order[i]].set_chain_component(chain_component);
             min_component = std::min(min_component, chain_component);
             max_component = std::max(max_component, chain_component);
 
-            if (child_type == ZipCode::REGULAR_SNARL 
-                || child_type == ZipCode::IRREGULAR_SNARL
-                || child_type == ZipCode::CYCLIC_SNARL) { 
+            if (code_type == ZipCode::REGULAR_SNARL 
+                || code_type == ZipCode::IRREGULAR_SNARL
+                || code_type == ZipCode::CYCLIC_SNARL) { 
 
                 // For a snarl, the order is prefix_sum*3+1
-                sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(prefix_sum);
+                sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(offset_in_chain);
                 sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(1);
             } else {
                 // Order depends on where the position falls in the node
-                bool node_is_rev = seed.zipcode.get_is_reversed_in_parent(interval.depth+1) != is_rev(seed.pos);
-                size_t node_offset = node_is_rev ? seed.zipcode.get_length(interval.depth+1) - offset(seed.pos)
+                bool node_is_rev = is_reversed != is_rev(seed.pos);
+                size_t node_offset = node_is_rev ? length - offset(seed.pos)
                                                  : offset(seed.pos);
 
                 sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(
-                    SnarlDistanceIndex::sum(prefix_sum, node_offset));
+                    SnarlDistanceIndex::sum(offset_in_chain, node_offset));
                 sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(node_offset == 0 ? 2 : 0);
             }
 #ifdef DEBUG_ZIP_CODE_SORTING
             cerr << "Prefix sum " << sort_values_by_seed[zipcode_sort_order[i]].get_distance_value()
                  << " and sort value " << sort_values_by_seed[zipcode_sort_order[i]].get_sort_value()
-                 << " and type " << child_type << endl;
+                 << " and type " << code_type << endl;
 #endif
         } else {
 #ifdef DEBUG_ZIP_CODE_SORTING
