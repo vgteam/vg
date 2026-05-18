@@ -393,7 +393,7 @@ struct transition_info {
     size_t read_distance;
     
     // Constructor; read_distance defaults to max if not given
-    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
+    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist)
         : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
 };
 
@@ -467,44 +467,24 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
  * 
  * Calls ZipCodeTree.find_distances() as the core of the algorithm.
  * Used as a helper by zip_tree_transition_iterator().
- * 
- * Transitions have no read distance set.
  */
 std::vector<transition_info> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
+    size_t max_read_lookback_bases,
+    const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending);
-
 /**
- * Check if all possible transitions were actually found.
+ * Add a new transition_info to the end of "transitions"
+ * if said transition is legal (i.e. reachable in the read).
  * 
- * Iterates over all pairs of seeds and uses the distance index
- * to determine if there SHOULD have been a transition.
- * 
- * Returns if any transitions were missing.
+ * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
-bool find_missing_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-    const ZipCodeTree& zip_code_tree,
-    size_t max_graph_lookback_bases,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending,
-    const SnarlDistanceIndex& distance_index,
-    const std::vector<transition_info>& all_transitions);
-
-/**
- * Calculate read distances for each of the zip tree's transitions.
- * Also filters out transitions that can't be used,
- * e.g. not reachable in the read.
- * 
- * Used as a helper by zip_tree_transition_iterator().
- */
-std::vector<transition_info> calculate_transition_read_distances(
-    const std::vector<transition_info>& all_transitions,
-    const VectorView<Anchor>& to_chain,
-    size_t max_read_lookback_bases);
+void add_transition_if_legal(vector<transition_info>& transitions, 
+                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+                             size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each

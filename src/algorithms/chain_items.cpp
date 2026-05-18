@@ -13,7 +13,6 @@
 
 //#define debug_chaining
 //#define debug_transition
-//#define debug_missing_transition
 //#define debug_dp
 
 namespace vg {
@@ -261,31 +260,17 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+                                          max_read_lookback_bases, to_chain,
                                           seed_to_starting, seed_to_ending);
 
-#ifdef debug_missing_transition
-        bool has_missing = \
-        find_missing_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
-                                          seed_to_starting, seed_to_ending, distance_index, 
-                                          all_transitions);
-        if (has_missing) {
-            throw std::runtime_error("Zipcode tree iterator failed to output some transitions");
-        } else {
-            cerr << "No missing transitions" << endl;
-        }
-#endif
-
-        std::vector<transition_info> filtered_transitions =
-            calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
-
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
-        std::sort(filtered_transitions.begin(), filtered_transitions.end(), 
+        std::sort(all_transitions.begin(), all_transitions.end(), 
             [&](const transition_info& a, const transition_info& b) {
             // Return true if a's destination seed is before b's in the read, and false otherwise.
             return to_chain[a.to_anchor].read_start() < to_chain[b.to_anchor].read_start();
         });
 
-        for (auto& transition : filtered_transitions) {
+        for (auto& transition : all_transitions) {
             callback(transition); 
         }
     };
@@ -295,12 +280,13 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
+    size_t max_read_lookback_bases,
+    const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending) {
 
     std::vector<transition_info> all_transitions;
-    // Pre-guess that we'll need at least as many transitions
-    // as elements of ziptree (probably an undercount)
+    // Save hopefully enough space for the transitions
     all_transitions.reserve(zip_code_tree.get_tree_size());
 
     for (auto seed_itr = zip_code_tree.begin(); seed_itr != zip_code_tree.end(); ++seed_itr) {
@@ -361,8 +347,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
                         std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
                                   << " to #" << cur_dest_anchor.second << std::endl;
 #endif
-                        all_transitions.emplace_back(found_source_anchor->second, cur_dest_anchor.second,
-                                                     source_seed.distance);
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
+                                                found_source_anchor->second, cur_dest_anchor.second, 
+                                                source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -382,8 +369,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
                         std::cerr << "\t\tFound backward transition from #" << cur_dest_anchor.second << " to #"
                                   << found_source_anchor->second << std::endl;
 #endif
-                        all_transitions.emplace_back(cur_dest_anchor.second, found_source_anchor->second,
-                                                     source_seed.distance);
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
+                                                cur_dest_anchor.second, found_source_anchor->second,
+                                                source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -401,212 +389,79 @@ std::vector<transition_info> generate_zip_tree_transitions(
     return all_transitions;
 }
 
-bool find_missing_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-    const ZipCodeTree& zip_code_tree,
-    size_t max_graph_lookback_bases,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending,
-    const SnarlDistanceIndex& distance_index,
-    const std::vector<transition_info>& all_transitions) {
+void add_transition_if_legal(vector<transition_info>& transitions, 
+                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+                             size_t from_anchor, size_t to_anchor, size_t graph_distance) {
+    auto& source_anchor = to_chain[from_anchor];
+    auto& dest_anchor = to_chain[to_anchor];
+
+#ifdef debug_transition
+    std::cerr << "Handle transition #" << from_anchor << " " << source_anchor
+              << " to #" << to_anchor << " " << dest_anchor << std::endl;
+    assert(graph_distance != std::numeric_limits<size_t>::max());
+#endif
+
+    size_t read_distance = get_read_distance(source_anchor, dest_anchor);
+    if (read_distance == std::numeric_limits<size_t>::max()) {
+        // Not reachable in read
+#ifdef debug_transition
+        std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+        return;
+    }
+
+    if (read_distance > max_read_lookback_bases) {
+        // Too far in read to consider
+#ifdef debug_transition
+        std::cerr << "\tToo far apart in read (" << read_distance
+                  << "/" << max_read_lookback_bases << ")." << std::endl;
+#endif
+        return;
+    }
+
+    if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
+        // The actual core anchor part is reachable in the read,
+        // but we cut these down from overlapping minimizers.
+#ifdef debug_transition
+        std::cerr << "\tOriginally overlapped in read." << std::endl;
+#endif
+        return;
+    }
+
+    // The zipcode tree is about point positions,
+    // but we need distances between whole anchors.
+    // The stored zipcode positions will be at distances
+    // from the start/end of the associated anchor.
     
-    // {source anchor : {dest anchor : dist}}
-    std::unordered_map<size_t, std::unordered_map<size_t, size_t>> found;
-    for (const auto& transition : all_transitions) {
-        size_t dist_to_save = transition.graph_distance;
-        if (!found.count(transition.from_anchor)) {
-            found[transition.from_anchor] = std::unordered_map<size_t, size_t>();
-        }
-        if (found[transition.from_anchor].count(transition.to_anchor)) {
-            // If a transition appears multiple times, remember the min
-            dist_to_save = std::min(transition.graph_distance, 
-                                    found[transition.from_anchor][transition.to_anchor]);
-        }
-        found[transition.from_anchor][transition.to_anchor] = transition.graph_distance;
+    // If the offset between the zip code point
+    // and the start of the destination is 0,
+    // and between the zip code point and the end of the source is 0,
+    // we subtract 0 from the measured distance.
+    // Otherwise we need to subtract something.
+    size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
+
+#ifdef debug_transition
+    std::cerr << "\tZip code tree sees " << graph_distance
+              << " but we should back out " << distance_to_remove << std::endl;
+#endif
+
+    if (distance_to_remove > graph_distance) {
+        // We actually end further along the graph path to the next
+        // thing than where the next thing starts, so we can't actually
+        // get there.
+#ifdef debug_transition
+        std::cerr << "\tBacked out too much" << std::endl;
+#endif
+        return;
     }
-
-    bool has_missing = false;
-
-    // Helper function to check for a distance between two seeds
-    auto check_distance = [&] (const ZipCodeTree::oriented_seed_t& from_seed, bool rev_from,
-                               const ZipCodeTree::oriented_seed_t& to_seed, bool rev_to) {
-        // XOR to get appropriate orientations
-        rev_from ^= from_seed.is_reversed;
-        rev_to ^= to_seed.is_reversed;
-        if (rev_from != rev_to) {
-            // Cannot be compared; incompatible orientations
-            return;
-        }
-
-        // Look up appropriate anchors
-        auto from_anchor_itr = rev_from ? seed_to_starting.find(from_seed.seed)
-                                        : seed_to_ending.find(from_seed.seed);
-        if ((rev_from && from_anchor_itr == seed_to_starting.end())
-            || (!rev_from && from_anchor_itr == seed_to_ending.end())) {
-            // No anchor exists
-            return;
-        }
-        auto to_anchor_itr = rev_to ? seed_to_ending.find(to_seed.seed)
-                                    : seed_to_starting.find(to_seed.seed);
-        if ((rev_to && to_anchor_itr == seed_to_ending.end())
-            || (!rev_to && to_anchor_itr == seed_to_starting.end())) {
-            // No anchor exists
-            return;
-        }
-
-        // Construct seed positions
-        pos_t from_pos = seeds.at(from_seed.seed).pos;
-        size_t from_length = distance_index.minimum_length(distance_index.get_node_net_handle(id(from_pos)));
-        from_pos = rev_from ? reverse(from_pos, from_length)
-                            : from_pos;
-        pos_t to_pos = seeds.at(to_seed.seed).pos;
-        size_t to_length = distance_index.minimum_length(distance_index.get_node_net_handle(id(to_pos)));
-        to_pos = rev_to ? reverse(to_pos, to_length)
-                        : to_pos;
-
-        // Look up true minimum distance
-        size_t true_distance = minimum_nontrivial_distance(distance_index, from_pos, to_pos);
-        if (true_distance <= max_graph_lookback_bases) {
-            // We should've found this transition
-            auto from_anchor = from_anchor_itr->second;
-            auto to_anchor = to_anchor_itr->second;
-            if (!found.count(from_anchor) 
-                || !found[from_anchor].count(to_anchor)
-                || found[from_anchor][to_anchor] != true_distance) {
-                has_missing = true;
-                cerr << "Missing transition " << from_pos << "->" 
-                     << to_pos << " dist " << true_distance << endl;
-            }
-        }
-    };
-    
-    vector<ZipCodeTree::oriented_seed_t> tree_seeds = zip_code_tree.get_all_seeds();
-    for (size_t i = 0; i < tree_seeds.size(); i++) {
-        // Check self-loops
-        check_distance(tree_seeds[i], false, tree_seeds[i], false);
-        check_distance(tree_seeds[i], false, tree_seeds[i], true);
-        check_distance(tree_seeds[i], true, tree_seeds[i], false);
-        for (size_t j = i + 1; j < tree_seeds.size(); j++) {
-            // Check all orientation pairs
-            check_distance(tree_seeds[i], false, tree_seeds[j], false);
-            check_distance(tree_seeds[i], false, tree_seeds[j], true);
-            check_distance(tree_seeds[i], true, tree_seeds[j], false);
-            check_distance(tree_seeds[i], true, tree_seeds[j], true);
-        }
-    }
-
-    return has_missing;
-}
-
-std::vector<transition_info> calculate_transition_read_distances(
-    const std::vector<transition_info>& all_transitions,
-    const VectorView<Anchor>& to_chain,
-    size_t max_read_lookback_bases) {
-
-    std::vector<transition_info> filtered_transitions;
-    filtered_transitions.reserve(all_transitions.size());
-
-    for (auto transition : all_transitions) {
-        // Emit a transition between a source and destination anchor, or skip if actually unreachable.
-        auto& source_anchor = to_chain[transition.from_anchor];
-        auto& dest_anchor = to_chain[transition.to_anchor];
+    // Consume the length. 
+    graph_distance -= distance_to_remove;
 
 #ifdef debug_transition
-        std::cerr << "Handle transition #" << transition.from_anchor << " " << source_anchor
-                  << " to #" << transition.to_anchor << " " << dest_anchor << std::endl;
+    std::cerr << "\tZip code tree sees " << source_anchor << " and "
+              << dest_anchor << " as " << graph_distance << " apart" << std::endl;
 #endif
-
-        if (transition.graph_distance == std::numeric_limits<size_t>::max()) {
-            // Not reachable in graph (somehow)
-            // TODO: Should never happen!
-#ifdef debug_transition
-            std::cerr << "\tNot reachable in graph!" << std::endl;
-#endif
-            continue;
-        }
-
-        size_t read_distance = get_read_distance(source_anchor, dest_anchor);
-        if (read_distance == std::numeric_limits<size_t>::max()) {
-            // Not reachable in read
-#ifdef debug_transition
-            std::cerr << "\tNot reachable in read." << std::endl;
-#endif
-            continue;
-        }
-
-        if (read_distance > max_read_lookback_bases) {
-            // Too far in read to consider
-#ifdef debug_transition
-            std::cerr << "\tToo far apart in read (" << read_distance 
-                      << "/" << max_read_lookback_bases << ")." << std::endl;
-#endif
-            continue;
-        }
-
-        if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
-            // The actual core anchor part is reachable in the read,
-            // but we cut these down from overlapping minimizers.
-#ifdef debug_transition
-            std::cerr << "\tOriginally overlapped in read." << std::endl;
-#endif
-            continue;
-        }
-
-        // The zipcode tree is about point positions,
-        // but we need distances between whole anchors.
-        // The stored zipcode positions will be at distances
-        // from the start/end of the associated anchor.
-        
-        // If the offset between the zip code point
-        // and the start of the destination is 0,
-        // and between the zip code point and the end of the source is 0,
-        // we subtract 0 from the measured distance.
-        // Otherwise we need to subtract something.
-        size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
-
-#ifdef debug_transition
-        std::cerr << "\tZip code tree sees " << transition.graph_distance
-                  << " but we should back out " << distance_to_remove << std::endl;
-#endif
-
-        if (distance_to_remove > transition.graph_distance) {
-            // We actually end further along the graph path to the next
-            // thing than where the next thing starts, so we can't actually
-            // get there.
-            continue;
-        }
-        // Consume the length. 
-        transition.graph_distance -= distance_to_remove;
-
-#ifdef debug_transition
-        std::cerr << "\tZip code tree sees " << source_anchor << " and "
-                  << dest_anchor << " as " << transition.graph_distance << " apart" << std::endl;
-#endif
-
-#ifdef double_check_distances
-
-        auto from_pos = source_anchor.graph_end();
-        auto to_pos = dest_anchor.graph_start();
-        size_t check_distance = distance_index.minimum_distance(
-            id(from_pos), is_rev(from_pos), offset(from_pos),
-            id(to_pos), is_rev(to_pos), offset(to_pos),
-            false, &graph);
-        if (check_distance != transition.graph_distance) {
-            #pragma omp critical (cerr)
-            std::cerr << "\tZip code tree sees " << source_anchor << " and " 
-                      << dest_anchor << " as " << transition.graph_distance 
-                      << " apart but they are actually " << check_distance << " apart" << std::endl;
-            crash_unless(check_distance == transition.graph_distance);
-        }
-
-#endif
-
-        // Send it along.
-        transition.read_distance = read_distance;
-        filtered_transitions.emplace_back(transition);
-    }
-
-    return filtered_transitions;
+    transitions.emplace_back(from_anchor, to_anchor, graph_distance, read_distance);
 }
 
 /// Compute a gap score like minimap2.
