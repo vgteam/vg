@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 12
 
 
 # Indexing a single graph
@@ -42,10 +42,13 @@ is $(md5sum x.mi | cut -f 1 -d\ ) 2cf6a0fdf9d4fe6ee9b42ae2f093971b "setting -k -
 vg minimizer -t 1 -o x.mi -z x.zipcodes -d x.dist x.gbz
 is $? 0 "construction with zipcode payload"
 
+# Make sure the default is to include path information; we know this graph has
+# few enough paths
+is "$(vg describe x.mi | grep 'payload =' | cut -f2 -d'=' | sed 's/^ *//')" "zipcodes with paths" "zipcodes include paths by default"
+
 # Store zipcode payload and path information in the index
 # Construction will not be deterministic because the snarls are not deterministic
 vg minimizer -t 1 -o x.mi -z x.zipcodes --rec-mode -d x.dist x.gbz
 is $? 0 "construction with zipcode payload and mandatory path information"
-
 
 rm -f x.vg x.dist x.mi x.zipcodes x.gbz
