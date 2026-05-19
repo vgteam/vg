@@ -169,7 +169,8 @@ void help_minimizer(char** argv) {
     std::cerr << "                             (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
     std::cerr << "      --no-dist              build the index without distance index annotations" << std::endl;
     std::cerr << "                             (not recommended)" << std::endl;
-    std::cerr << "  -E, --rec-mode             assert MinimizerIndex will support recombination-aware mapping" << std::endl;
+    std::cerr << "  -E, --rec-mode             assert MinimizerIndex will support" << std::endl;
+    std::cerr << "                             recombination-aware mapping" << std::endl;
     std::cerr << "  -h, --help                 print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
 }
