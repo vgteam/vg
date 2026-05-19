@@ -11,6 +11,7 @@
 #include <cstring>
 #include <ctime>
 #include <map>
+#include <optional>
 #include <vector>
 #include <unordered_set>
 #include <chrono>
