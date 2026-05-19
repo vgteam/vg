@@ -430,6 +430,14 @@ struct ChainWithRec {
     // reset supported paths because the previous path set did not overlap
     // with the next anchor's start paths.
     std::vector<size_t> rec_positions;
+    // For each recombination event, an interval [left, right] of anchor
+    // indices bounding where the event must lie. `right` is the same anchor
+    // recorded in `rec_positions` (forward pass: first anchor incompatible
+    // with the prefix). `left` comes from a symmetric backward pass: the
+    // last anchor (going right-to-left) incompatible with the suffix.
+    // May be empty when forward and backward counts disagree, e.g. when
+    // internally recombinant anchors break the symmetry.
+    std::vector<std::pair<size_t, size_t>> rec_intervals;
 };
 
 /// Result of finding best chains: a list of chains each paired with the
