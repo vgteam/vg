@@ -782,7 +782,7 @@ inline double ReadFilter<Alignment>::get_score(const Alignment& aln) const {
         const static Aligner unadjusted;
         GSSWAligner* aligner = (GSSWAligner*)&unadjusted;
         // Also use the score
-        score = aligner->score_contiguous_alignment(aln);
+        score = aligner->scorer->score_contiguous_alignment(aln);
     }
     
     // toggle absolute or fractional score
@@ -814,7 +814,7 @@ inline double ReadFilter<MultipathAlignment>::get_score(const MultipathAlignment
         else {
             const static Aligner unadjusted;
             GSSWAligner* aligner = (GSSWAligner*)&unadjusted;
-            score = aligner->score_contiguous_alignment(aln);
+            score = aligner->scorer->score_contiguous_alignment(aln);
         }
     }
     
@@ -1589,6 +1589,8 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << softclip_start(read);
         } else if (field == "softclip_end") {
             out << softclip_end(read);
+        } else if (field == "softclip_total") {
+            out << (softclip_start(read) + softclip_end(read));
         } else if (field == "identity") {
             out << read.identity();
         } else if (field == "is_perfect") {
