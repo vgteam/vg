@@ -11,6 +11,8 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
+#include <algorithm>
+
 //#define debug_chaining
 //#define debug_transition
 //#define debug_dp
@@ -901,6 +903,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         ChainWithRec empty_entry;
         empty_entry.scored_chain = {0, vector<size_t>()};
         empty_entry.rec_positions = {};
+        empty_entry.rec_intervals = {};
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
@@ -920,7 +923,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                              points_per_possible_match,
                                                              max_indel_bases,
                                                              recomb_penalty,
-                                                             show_work);
+                                                             show_work);                                                             
 #ifdef debug_chaining
     std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
 #endif
@@ -933,6 +936,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         ChainWithRec empty_entry;
         empty_entry.scored_chain = {0, vector<size_t>()};
         empty_entry.rec_positions = {};
+        empty_entry.rec_intervals = {};
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
@@ -982,9 +986,50 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
             }
         }
 
+        // Symmetric backward pass: walk the chain right-to-left to find the
+        // left boundary of each recombination event. An anchor is a left
+        // boundary when, intersecting suffix path supports, its end_paths do
+        // not overlap with the supports accumulated from anchors to its right.
+        std::vector<size_t> left_rec_positions;
+        if (chain_indexes.size() > 1) {
+            size_t last_idx = chain_indexes.back();
+            path_flags_t current_paths = to_chain[last_idx].anchor_start_paths();
+
+            for (size_t k = chain_indexes.size() - 1; k > 0; --k) {
+                size_t anchor_idx = chain_indexes[k - 1];
+                auto new_paths = to_chain[anchor_idx].anchor_paths();
+                if (new_paths.first == new_paths.second) {
+                    if ((current_paths & new_paths.second) == 0) {
+                        left_rec_positions.push_back(anchor_idx);
+                        current_paths = new_paths.second;
+                    } else {
+                        current_paths &= new_paths.second;
+                    }
+                } else {
+                    // Internally recombinant anchor: mirror the forward
+                    // logic by resetting to the "far side" (start_paths here).
+                    current_paths = new_paths.first;
+                }
+            }
+            std::reverse(left_rec_positions.begin(), left_rec_positions.end());
+        }
+
+        // Pair forward (right) and backward (left) boundaries into intervals.
+        // When counts disagree (e.g. internally recombinant anchors break
+        // the symmetry) leave rec_intervals empty so consumers fall back
+        // to rec_positions.
+        std::vector<std::pair<size_t, size_t>> rec_intervals;
+        if (left_rec_positions.size() == rec_positions.size()) {
+            rec_intervals.reserve(rec_positions.size());
+            for (size_t i = 0; i < rec_positions.size(); ++i) {
+                rec_intervals.emplace_back(left_rec_positions[i], rec_positions[i]);
+            }
+        }
+
         ChainWithRec entry;
         entry.scored_chain = {score, std::move(chain_indexes)};
         entry.rec_positions = std::move(rec_positions);
+        entry.rec_intervals = std::move(rec_intervals);
         result.chains.emplace_back(std::move(entry));
     }
     return result;
