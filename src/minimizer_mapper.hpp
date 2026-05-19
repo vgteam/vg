@@ -916,14 +916,21 @@ protected:
                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                                vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                vector<size_t>& alignments_to_source,
-                               SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                               SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
 
+    /**
+     * Select the max_multimaps best alignments from alignments into mappings.
+     *
+     * Skips alignments that overlap too much with previous alignments.
+     *
+     * If no alignments have a positive score, responsible for creating an unmapped mapping.
+     */
     void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
                                        const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
                                        const std::vector<int>& chain_score_estimates,
                                        std::vector<Alignment>& mappings,
                                        std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
-                                       bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                                       LazyRNG& rng, Funnel& funnel) const;
 
     
 
