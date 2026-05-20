@@ -19,6 +19,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
 #include "algorithms/component.hpp"
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -423,13 +424,25 @@ using namespace std;
         // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
         if (aln_surjections.empty() && mp_aln_surjections.empty()) {
             // this surjection didn't get aligned
-
+            
             positions_out.emplace_back("", -1, false);
+
             if (source_mp_aln) {
-                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality()));
+                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality(),
+                                                                 source_mp_aln->mapping_quality()));
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
+                if (annotate_off_reference_pos && source_mp_aln->subpath_size() != 0) {
+                    // annotate with the closest ref pos
+                    auto nearest = nearest_ref_pos(*source_mp_aln, &memoizing_graph, paths);
+                    if (!get<0>(nearest).empty()) {
+                        stringstream strm;
+                        // note: we assign to the base before the insertion by not adding 1 to make 1-based
+                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest);
+                        mp_alns_out->back().set_annotation("nearest_ref_pos", strm.str());
+                    }
+                }
             }
             else {
                 // We already constrained source_aln and alns_out to both be set if source_mp_aln is unset.
@@ -451,6 +464,17 @@ using namespace std;
 #endif
                 
                 alns_out->emplace_back(make_null_alignment(*source_aln));
+                if (annotate_off_reference_pos && source_aln->path().mapping_size() != 0) {
+                    // annotate with the closest ref pos
+                    // TODO: repetitive
+                    auto nearest = nearest_ref_pos(*source_aln, &memoizing_graph, paths);
+                    if (!get<0>(nearest).empty()) {
+                        stringstream strm;
+                        // note: we assign to the base before the insertion by not adding 1 to make 1-based
+                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest);
+                        set_annotation<string>(alns_out->back(), "nearest_ref_pos", strm.str());
+                    }
+                }
             }
             return;
         }
@@ -3021,7 +3045,7 @@ using namespace std;
                     if (copy_path.mapping_size() == 0) {
                         // the DP chose a segment that was unsurjectable
                         surj.second.first = surj.second.second = graph->path_end(path_handle);
-                        surj.first = make_null_mp_alignment(src_sequence, src_quality);
+                        surj.first = make_null_mp_alignment(src_sequence, src_quality, src_mapping_quality);
                         break;
                     }
                     
@@ -3116,7 +3140,7 @@ using namespace std;
             cerr << "traceback is empty" << endl;
 #endif
             // sentinel for unmapped
-            surjected.emplace_back(make_null_mp_alignment(src_sequence, src_quality),
+            surjected.emplace_back(make_null_mp_alignment(src_sequence, src_quality, src_mapping_quality),
                                    make_pair(graph->path_end(path_handle), graph->path_end(path_handle)));
         }
         
@@ -5296,6 +5320,7 @@ using namespace std;
         null.set_read_group(source.read_group());
         null.set_sample_name(source.sample_name());
         null.set_is_secondary(source.is_secondary());
+        null.set_mapping_quality(source.mapping_quality()); // SAM does not prohibit MAPQ > 0 on unmapped reads
         if (source.has_fragment_next()) {
             *null.mutable_fragment_next() = source.fragment_next();
         }
@@ -5307,10 +5332,12 @@ using namespace std;
     }
 
     multipath_alignment_t Surjector::make_null_mp_alignment(const string& src_sequence,
-                                                            const string& src_quality) {
+                                                            const string& src_quality,
+                                                            int32_t src_mapping_quality) {
         multipath_alignment_t null;
         null.set_sequence(src_sequence);
         null.set_quality(src_quality);
+        null.set_mapping_quality(src_mapping_quality); // SAM does not prohibit MAPQ > 0 on unmapped reads
         return null;
     }
 
@@ -5428,7 +5455,7 @@ using namespace std;
             suppl_intervals.emplace_back(interval.first, interval.second, i);
         }
         auto primary_interval = aligned_interval(source);
-        suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, -1);
+        suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, numeric_limits<size_t>::max());
         sort(suppl_intervals.begin(), suppl_intervals.end());
         
         // make hard-clipped Alignments
@@ -5626,6 +5653,168 @@ using namespace std;
                 return_val = strm.str();
             }
         }
+        return return_val;
+    }
+    tuple<string, int64_t, bool, size_t, bool> Surjector::nearest_ref_pos(const multipath_alignment_t& source, const PathPositionHandleGraph* graph,
+                                                                          const unordered_set<path_handle_t>& paths) const {
+        Alignment opt;
+        optimal_alignment(source, opt);
+        return nearest_ref_pos(opt, graph, paths);
+    }
+
+    tuple<string, int64_t, bool, size_t, bool> Surjector::nearest_ref_pos(const Alignment& source, const PathPositionHandleGraph* graph,
+                                                                          const unordered_set<path_handle_t>& paths) const {
+
+        assert(source.path().mapping_size() != 0);
+
+#ifdef debug_anchored_surject
+        cerr << "identifying nearest reference position for a failed surjection" << endl;
+#endif
+
+        tuple<string, int64_t, bool, size_t, bool> return_val("", -1, false, 0, false);
+
+        
+
+        // traverse to the nearest reference path from both the start and end of the alignment
+        std::function<bool(const path_handle_t&)> path_filter = [&](const path_handle_t& path) -> bool {
+            return paths.count(path);
+        };
+
+        // find the first and last mappings that have aligned bases
+        size_t initial_idx = 0;
+        {
+            size_t edit_idx = 0;
+            while (source.path().mapping(initial_idx).edit(edit_idx).from_length() == 0) {
+                ++edit_idx;
+                if (edit_idx == source.path().mapping(initial_idx).edit_size()) {
+                    ++initial_idx;
+                    edit_idx = 0;
+                }
+            }
+        }
+        size_t final_idx = source.path().mapping_size() - 1;
+        {
+            size_t edit_idx = source.path().mapping(final_idx).edit_size() - 1;
+            while (source.path().mapping(final_idx).edit(edit_idx).from_length() == 0) {
+                if (edit_idx == 0) {
+                    --final_idx;
+                    edit_idx = source.path().mapping(final_idx).edit_size() - 1;
+                }
+                else {
+                    --edit_idx;
+                }
+            }
+        }
+        pos_t initial_pos = make_pos_t(source.path().mapping(initial_idx).position());
+        pos_t final_pos = make_pos_t(source.path().mapping(final_idx).position());
+        get_offset(final_pos) += mapping_from_length(source.path().mapping(final_idx));
+
+        pair<size_t, bool> initial_search_trav, final_search_trav;
+        auto initial_offset_collection = algorithms::nearest_offsets_in_paths(graph, initial_pos, 
+            off_reference_pos_search_limit, {PathSense::REFERENCE, PathSense::GENERIC}, &path_filter, false, &initial_search_trav);
+        auto final_offset_collection = algorithms::nearest_offsets_in_paths(graph, final_pos, 
+            off_reference_pos_search_limit, {PathSense::REFERENCE, PathSense::GENERIC}, &path_filter, false, &final_search_trav);
+        
+#ifdef debug_anchored_surject
+        cerr << "initial traversal from " << initial_pos << " found path(s) at dist " <<  initial_search_trav.first << ", leftward? " << initial_search_trav.second << endl;
+        for (const auto& rec : initial_offset_collection) {
+            cerr << '\t' << graph->get_path_name(rec.first) << ':';
+            for (const auto& path_pos : rec.second) {
+                cerr << ' ' << path_pos.first << (path_pos.second ? '-' : '+');
+            }
+            cerr << endl;
+        }
+        cerr << "final traversal from " << final_pos << " found path(s) at dist " <<  final_search_trav.first << ", leftward? " << final_search_trav.second << endl;
+        for (const auto& rec : final_offset_collection) {
+            cerr << '\t' << graph->get_path_name(rec.first) << ':';
+            for (const auto& path_pos : rec.second) {
+                cerr << ' ' << path_pos.first << (path_pos.second ? '-' : '+');
+            }
+            cerr << endl;
+        }
+#endif
+        
+        // choose the nearest position that gives us the most consistent traversal distance
+        bool chose_initial = true;
+        auto choice = initial_offset_collection.end();
+        size_t which_pos = -1;
+        for (bool initial : {true, false}) {
+            auto& offset_collection = initial ? initial_offset_collection : final_offset_collection;
+            const auto& trav = initial ? initial_search_trav : final_search_trav;
+            for (auto it = offset_collection.begin(); it != offset_collection.end(); ++it) {
+                for (size_t i = 0; i < it->second.size(); ++i) {
+                    if (choice == initial_offset_collection.end()) {
+                        // first option we've considered
+                        choice = it;
+                        chose_initial = initial;
+                        which_pos = i;
+                    }
+                    else {
+                        const auto& choice_path_pos = choice->second[which_pos];
+                        const auto& choice_trav = chose_initial ? initial_search_trav : final_search_trav;
+                        const auto& path_pos = it->second[i];
+                        if (initial != path_pos.second && chose_initial == choice_path_pos.second) {
+                            // choose the read end that is in the direction of the upstream orientation of the reference
+                            choice = it;
+                            chose_initial = initial;
+                            which_pos = i;
+                        }
+                        else if (!(chose_initial != choice_path_pos.second && initial == path_pos.second) &&
+                                 make_tuple(trav, graph->get_path_name(it->first), path_pos) 
+                                  < make_tuple(choice_trav, graph->get_path_name(choice->first), choice_path_pos)) {
+                            // make an arbitrary but consistent choice among the remaining options  
+                            choice = it;
+                            chose_initial = initial;
+                            which_pos = i;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (choice != initial_offset_collection.end()) {
+            // construct the return value
+
+#ifdef debug_anchored_surject
+            cerr << "chose pos from " << (chose_initial ? "initial" : "final" ) << " pos traversal " << graph->get_path_name(choice->first) << ":" << choice->second[which_pos].first << (choice->second[which_pos].second ? '-' : '+') << endl;
+#endif
+
+            // construct the NR position
+            get<1>(return_val) = choice->second[which_pos].first;
+            get<2>(return_val) = choice->second[which_pos].second;
+            auto range = graph->get_subrange(choice->first);
+            if (range != PathMetadata::NO_SUBRANGE) {
+                // apply the offset of this sub-interval of the full path
+                get<1>(return_val) += range.first;
+                // strip the range out of the path name
+                get<0>(return_val) = graph->create_path_name(graph->get_sense(choice->first),
+                                                             graph->get_sample_name(choice->first),
+                                                             graph->get_locus_name(choice->first),
+                                                             graph->get_haplotype(choice->first),
+                                                             graph->get_phase_block(choice->first),
+                                                             PathMetadata::NO_SUBRANGE);
+
+            }
+            else {
+                // no sub-range to deal with, just get the path name as is
+                get<0>(return_val) = graph->get_path_name(choice->first);
+            }
+
+            // record the traversal to the NR position
+            const auto& trav = chose_initial ? initial_search_trav : final_search_trav;
+            get<3>(return_val) = trav.first;
+            // left is toward low coordinates for forward, right for reverse
+            get<4>(return_val) = (trav.second != get<2>(return_val));
+            if (get<2>(return_val) == chose_initial) {
+                // we chose the traversal that is more downstream on this path strand, so we adjust
+                // the traversal length by the path length of the alignment
+                get<3>(return_val) += alignment_from_length(source);
+            }
+#ifdef debug_anchored_surject
+            cerr << "constructed return value: " << get<0>(return_val) << ", " << get<1>(return_val) << ", " << get<2>(return_val) << ", " << get<3>(return_val) << ", " << get<4>(return_val) << endl;
+#endif
+        }
+
         return return_val;
     }
 }

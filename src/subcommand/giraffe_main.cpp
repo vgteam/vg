@@ -701,6 +701,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "      --left-align              attempt to left-align indels in linear formats" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
+             << "      --off-ref-position        annotate off-reference alignments in linear formats" << endl
+             << "                                with the nearest reference position in the NR tag" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination. Setting values for" << endl
@@ -763,7 +765,8 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
     constexpr int OPT_COMMENTS_AS_TAGS = 1013;
-    constexpr int OPT_LEFT_ALIGN = 1014;
+    constexpr int OPT_OFF_REF_POSITION = 1014;
+    constexpr int OPT_LEFT_ALIGN = 1015;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -872,6 +875,9 @@ int main_giraffe(int argc, char** argv) {
     // When surjecting, should we attempt to left-align relative to the reference?
     bool left_align = false;
     
+    // When surjecting, should we annotate the off-reference reads with the nearest reference position?
+    bool annotate_off_ref_position = false;
+
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
 
@@ -1118,6 +1124,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
+        {"off-ref-position", no_argument, 0, OPT_OFF_REF_POSITION},
         {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
@@ -1305,6 +1312,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
                 add_graph_alignment = true;
+                break;
+                
+            case OPT_OFF_REF_POSITION:
+                annotate_off_ref_position = true;
                 break;
                 
             case OPT_LEFT_ALIGN:
@@ -1980,6 +1991,7 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("add-graph-aln", add_graph_alignment);
+        report_flag("off-ref-position", annotate_off_ref_position);
         report_flag("left-align", left_align);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
@@ -2113,6 +2125,10 @@ int main_giraffe(int argc, char** argv) {
                 if (minimizer_mapper.find_supplementaries) {
                     // When surjecting, also report supplementary alignments
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY;
+                }
+                if (annotate_off_ref_position) {
+                    // When surjecting, annotate the position of off-reference reads
+                    flags |= ALIGNMENT_EMITTER_FLAG_OFF_REF_POSITION;
                 }
                 if (left_align) {
                     // When surjecting, attempt to left align
