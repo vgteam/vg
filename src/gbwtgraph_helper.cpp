@@ -553,15 +553,16 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
     if (require_path_payloads && payload_type != MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) {
         // We want to bail out before doing all the indexing if we aren't going to have path info.
-        auto s = logger.error() << "Cannot build minimizer index supporting recombination-aware mapping";
+        std::stringstream ss;
+        ss << "Cannot build minimizer index supporting recombination-aware mapping";
         if (too_many_samples) {
-            s << " because GBZ contains " << sample_count << " samples, more than the limit of " << gbwtgraph::MAX_PATH_IDS << std::endl;
+            ss << " because GBZ contains " << sample_count << " samples, more than the limit of " << gbwtgraph::MAX_PATH_IDS;
         } else if (has_path_cover) {
-            s << " because GBZ contains path cover samples starting with \""
-                << gbwtgraph::COVER_PATH_SAMPLE_PREFIX << "\"" << std::endl;
-        } else {
-            s << std::endl;
+            ss << " because GBZ contains path cover samples starting with \""
+                << gbwtgraph::COVER_PATH_SAMPLE_PREFIX << "\"";
         }
+        ss << std::endl;
+        logger.error() << ss.str();
     }
     std::string payload_str = MinimizerIndexParameters::payload_str(payload_type);
 
