@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22...4.2)
 
 project(vg
     LANGUAGES CXX C
@@ -76,7 +76,7 @@ FetchContent_Declare(libvgio
 )
 FetchContent_Declare(libbdsg
     GIT_REPOSITORY https://github.com/vgteam/libbdsg.git
-    GIT_TAG        789ad6daf74192b477fa49fb066a8cf0df76a16d
+    GIT_TAG        4ec0f66f8c60a524d10de07561f87ec6b3825330
     EXCLUDE_FROM_ALL
 )
 FetchContent_Declare(cssw_lib
@@ -91,7 +91,7 @@ FetchContent_Declare(gssw
 )
 FetchContent_Declare(xg
     GIT_REPOSITORY https://github.com/vgteam/xg.git
-    GIT_TAG        vg-cmake-hublabel
+    GIT_TAG        916a471f6c931c7f5dd8c238863ec2745eefae7a
     EXCLUDE_FROM_ALL
 )
 
@@ -127,6 +127,7 @@ FetchContent_MakeAvailable(
     libbdsg
     cssw_lib
     gssw
+    xg
     cpp_progress_bar
     dozeu_
     vcflib
@@ -141,12 +142,6 @@ if(TARGET vgio_static)
         set_target_properties(vgio_static PROPERTIES
             INTERFACE_LINK_LIBRARIES "${_vgio_iface}")
     endif()
-endif()
-
-add_compile_options(-Wno-missing-template-arg-list-after-template-kw)
-FetchContent_GetProperties(xg)
-if(NOT xg_POPULATED)
-    FetchContent_Populate(xg)   # downloads sources, does NOT add_subdirectory
 endif()
 
 # Patch upstream gssw which doesn't expose its include dir.
@@ -283,28 +278,7 @@ add_library(vg_fermi_lite STATIC ${FERMI_LITE_SOURCES})
 target_include_directories(vg_fermi_lite PUBLIC ${VG_DEPS_DIR}/fermi-lite)
 target_link_libraries(vg_fermi_lite PUBLIC ZLIB::ZLIB)
 
-# xg — compile xg.cpp directly. Don't use upstream xg's CMakeLists (it drags in
- # conflicting FetchContent for handlegraph/sdsl and broken macOS OpenMP).
- add_library(vg_xg STATIC ${xg_SOURCE_DIR}/src/xg.cpp)
- target_include_directories(vg_xg PUBLIC
-     ${xg_SOURCE_DIR}/src
-     ${xg_SOURCE_DIR}/deps/ips4o
-     ${xg_SOURCE_DIR}/deps/atomic_queue/include/atomic_queue   
-     ${xg_SOURCE_DIR}/deps/mmmulti/src
-     ${xg_SOURCE_DIR}/deps/gfakluge/src
-     ${xg_SOURCE_DIR}/deps/gfakluge/src/tinyFA)
- target_include_directories(vg_xg PRIVATE
-     ${sdsl-lite_SOURCE_DIR}/include
-     ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include
-     ${sdsl-lite_BINARY_DIR}/external/libdivsufsort/include/64
-     ${libhandlegraph_SOURCE_DIR}/src/include)
- target_link_libraries(vg_xg PUBLIC
-     mio handlegraph_static sdsl divsufsort divsufsort64
-     OpenMP::OpenMP_CXX Threads::Threads ZLIB::ZLIB)
- target_compile_definitions(vg_xg PRIVATE
-     _LIBCPP_ENABLE_CXX17_REMOVED_RESULT_OF=1
-     _LIBCPP_ENABLE_CXX20_REMOVED_TYPE_TRAITS=1)
- target_compile_options(vg_xg PRIVATE -Wno-missing-template-arg-list-after-template-kw)
+
 
 # tabixpp — thin C++ wrapper over htslib (htslib comes from ExternalProject)
 add_library(vg_tabixpp STATIC ${VG_DEPS_DIR}/tabixpp/tabix.cpp)
@@ -456,7 +430,7 @@ target_include_directories(vg_core PUBLIC
 target_link_libraries(vg_core PUBLIC
     # vgteam (FetchContent)
     handlegraph_shared vgio_static libbdsg libgssw
-    vg_xg progress_bar vcflib structures_static
+    xg progress_bar vcflib structures_static
     dozeu
     # additional vg stuff
     gbwt gbwtgraph gcsa2
