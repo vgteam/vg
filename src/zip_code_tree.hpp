@@ -1173,6 +1173,12 @@ class ZipCodeForest {
     void sort_one_interval(forest_growing_state_t& forest_state, 
                            const interval_state_t& interval) const;
 
+    /// Helper for sort_one_interval() to set up sort_value_t for a chain child
+    /// Takes the seed and what depth to look at
+    /// This avoids paging through the same information multiple times
+    /// node_offset is only needed for nodes
+    void get_chain_child_sort_info(sort_value_t& chain_child, const Seed& seed, const size_t& depth) const;
+
     /// Helper function for sort_one_interval() to sort seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order,
     /// a vector of indices into seeds. Reverse order if reverse_order.

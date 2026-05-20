@@ -2262,40 +2262,13 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
             // with offset in node of 0 (node 3 if chain is traversed forward)
             // See sort_value_t for more details
 
-            ZipCode::code_type_t code_type;
-            size_t offset_in_chain;
-            size_t length;
-            size_t chain_component;
-            bool is_reversed;
-            std::tie(code_type, offset_in_chain, length, chain_component, is_reversed) \
-                = seed.zipcode.get_chain_child_sort_info(interval.depth+1);
-
-            sort_values_by_seed[zipcode_sort_order[i]].set_code_type(code_type);
-            sort_values_by_seed[zipcode_sort_order[i]].set_chain_component(chain_component);
-            min_component = std::min(min_component, chain_component);
-            max_component = std::max(max_component, chain_component);
-
-            if (code_type == ZipCode::REGULAR_SNARL 
-                || code_type == ZipCode::IRREGULAR_SNARL
-                || code_type == ZipCode::CYCLIC_SNARL) { 
-
-                // For a snarl, the order is prefix_sum*3+1
-                sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(offset_in_chain);
-                sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(1);
-            } else {
-                // Order depends on where the position falls in the node
-                bool node_is_rev = is_reversed != is_rev(seed.pos);
-                size_t node_offset = node_is_rev ? length - offset(seed.pos)
-                                                 : offset(seed.pos);
-
-                sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(
-                    SnarlDistanceIndex::sum(offset_in_chain, node_offset));
-                sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(node_offset == 0 ? 2 : 0);
-            }
+            get_chain_child_sort_info(sort_values_by_seed[zipcode_sort_order[i]], seed, interval.depth+1);
+            min_component = std::min(min_component, sort_values_by_seed[zipcode_sort_order[i]].get_chain_component());
+            max_component = std::max(max_component, sort_values_by_seed[zipcode_sort_order[i]].get_chain_component());
 #ifdef DEBUG_ZIP_CODE_SORTING
             cerr << "Prefix sum " << sort_values_by_seed[zipcode_sort_order[i]].get_distance_value()
                  << " and sort value " << sort_values_by_seed[zipcode_sort_order[i]].get_sort_value()
-                 << " and type " << code_type << endl;
+                 << " and type " << sort_values_by_seed[zipcode_sort_order[i]].get_code_type() << endl;
 #endif
         } else {
 #ifdef DEBUG_ZIP_CODE_SORTING
@@ -2375,6 +2348,64 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, cons
         }
     }
     return;
+}
+
+void ZipCodeForest::get_chain_child_sort_info(sort_value_t& chain_child, const Seed& seed, const size_t& depth) const {
+    if (depth == 0) {
+        throw std::runtime_error("Depth 0 is not a child. Do your zipcode, minimizer, and graph files match?");
+    }
+
+    if (seed.zipcode.decoder[depth].is_chain) {
+        // is_chain so could be a chain or a node
+        if (seed.zipcode.decoder[depth-1].is_chain) {
+            // If the thing before this was also a chain, then it is a node
+            chain_child.set_code_type(ZipCode::NODE);
+            size_t zip_value;
+            size_t zip_index = seed.zipcode.decoder[depth].offset;
+            // First is the offset
+            std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+            size_t offset_in_chain = zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+            // Next is the length
+            std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+            size_t length = 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+            // Next is the reversedness
+            std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+            bool is_reversed = zip_value;
+            // Finally is the chain component
+            std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+            chain_child.set_chain_component(zip_value);
+
+            // Order depends on where the position falls in the node
+            size_t node_offset = is_reversed != is_rev(seed.pos) ? length - offset(seed.pos)
+                                                                 : offset(seed.pos);
+            chain_child.set_sort_value(SnarlDistanceIndex::sum(offset_in_chain, node_offset));
+            chain_child.set_chain_order(node_offset == 0 ? 2 : 0);
+        } else {
+            throw std::runtime_error("A chain is not a child of a chain. Do your zipcode, minimizer, and graph files match?");
+        }
+    } else {
+        // Definitely a snarl
+        chain_child.set_chain_order(1);
+        size_t zip_value;
+        size_t zip_index = seed.zipcode.decoder[depth].offset;
+        std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+        // First is the snarl type
+        if (zip_value == 0) {
+            chain_child.set_code_type(ZipCode::IRREGULAR_SNARL);
+        } else if (zip_value == 1) {
+            chain_child.set_code_type(ZipCode::REGULAR_SNARL);
+        } else {
+            chain_child.set_code_type(ZipCode::CYCLIC_SNARL);
+        }
+        // Next is the offset
+        std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+        chain_child.set_sort_value(zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1);
+        // Three from now is the chain component
+        std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+        std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+        std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
+        chain_child.set_chain_component(zip_value);
+    }
 }
 
 void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, const interval_state_t& interval,

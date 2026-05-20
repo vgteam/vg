@@ -317,11 +317,6 @@ class ZipCode {
         ///For snarls, this will be the component of the start node
         size_t get_chain_component(const size_t& depth) const ;
 
-        /// Get all info needed to sort a child of a chain
-        /// This avoids paging through the same information multiple times
-        /// Order is type, offset, length, chain component, and reversedness
-        tuple<ZipCode::code_type_t, size_t, size_t, size_t, bool> get_chain_child_sort_info(const size_t& depth) const;
-
         ///Get the chain component of the last node in the chain
         /// This behaves like the distance index get_chain_component- 
         /// for looping chains it returns the last component if get_end is true,
