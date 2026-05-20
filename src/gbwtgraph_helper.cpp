@@ -517,15 +517,34 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     // TODO: We're counting the magic generic samples here.
     size_t sample_count = gbz.graph.index->metadata.sample_names.size();
 
-    // Put the paths in if we think they will fit.
-    bool paths_in_payload = sample_count <= MinimizerIndexParameters::MAX_PAYLOAD_PATHS;
+    // Consider reasons we can't index paths.
+    // Don't put the paths in if we think they won't fit.
+    bool too_many_samples = sample_count > gbwtgraph::MAX_PATH_IDS;
+    // Don't put the paths in if they would fit but were generated as a path
+    // cover.
+    bool has_path_cover = false;
+    if (!too_many_samples) {
+        // Check if any samples in the GBZ are path cover samples
+        for (size_t i = 0; i < sample_count; i++) {
+            // Look at the name of each sample
+            std::string sample_name = gbz.graph.index->metadata.sample(i);
+            // See if it starts with the path cover prefix.
+            // TODO: Use C++20 starts_with when available
+            // See <https://stackoverflow.com/a/40441240>
+            if (sample_name.rfind(gbwtgraph::COVER_PATH_SAMPLE_PREFIX, 0) == 0) {
+                has_path_cover = true;
+                break;
+            }
+        }
+    }
 
     // Determine payload size and type code.
     size_t payload_size = 0;
     MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_NONE;
     if (distance_index != nullptr) {
         payload_size = MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE;
-        if (paths_in_payload) {
+        if (!too_many_samples && !has_path_cover) {
+            // We can track the paths for recombination-aware mapping
             payload_size++;
             payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
         } else {
@@ -534,8 +553,15 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
     if (require_path_payloads && payload_type != MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) {
         // We want to bail out before doing all the indexing if we aren't going to have path info.
-        logger.error() << "Cannot build minimizer index supporting recombination-aware mapping (GBZ contains "
-            << sample_count << "/" << MinimizerIndexParameters::MAX_PAYLOAD_PATHS << " samples)" << std::endl;
+        auto s = logger.error() << "Cannot build minimizer index supporting recombination-aware mapping";
+        if (too_many_samples) {
+            s << " because GBZ contains " << sample_count << " samples, more than the limit of " << gbwtgraph::MAX_PATH_IDS << std::endl;
+        } else if (has_path_cover) {
+            s << " because GBZ contains path cover samples starting with \""
+                << gbwtgraph::COVER_PATH_SAMPLE_PREFIX << "\"" << std::endl;
+        } else {
+            s << std::endl;
+        }
     }
     std::string payload_str = MinimizerIndexParameters::payload_str(payload_type);
 
@@ -578,7 +604,7 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
             }
             return reinterpret_cast<const code_type*>(&payload_by_offset[nid - min_node_id]);
         };
-        if (paths_in_payload) {
+        if (payload_type == MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) {
             gbwtgraph::index_haplotypes_with_paths(gbz, index, get_payload);
         } else {
             gbwtgraph::index_haplotypes(gbz, index, get_payload);
