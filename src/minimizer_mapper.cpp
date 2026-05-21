@@ -61,8 +61,8 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     path_graph(path_graph),
     minimizer_index(minimizer_index),
     k(minimizer_index.k()), w(minimizer_index.w()),
-    payload_with_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
     uses_syncmers(minimizer_index.uses_syncmers()),
+    use_payload_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
@@ -4461,7 +4461,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
                 // Handle the payload.
                 seeds.back().zipcode.fill_in_zipcode(occ.second, this->zipcodes, *(this->distance_index), hit);
-                if (this->payload_with_paths) {
+                if (this->use_payload_paths) {
                     seeds.back().paths = occ.second[MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE];
                 }
             }

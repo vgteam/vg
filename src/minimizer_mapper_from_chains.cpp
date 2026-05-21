@@ -836,8 +836,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
     aligner_stats_t stats; 
 
-    bool funnel_depleted = false;
-
     // This maps from alignment index back to chain index, for
     // tracing back to minimizers for MAPQ. Can hold
     // numeric_limits<size_t>::max() for an unaligned alignment.
@@ -847,7 +845,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (alignments.size() == 0) {
         do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
-                               alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
+                               alignments_to_source, minimizer_explored, stats, rng, funnel);
     }
     
     for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
@@ -879,11 +877,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             size_t chain_index = alignments_to_source[alignment_index];
             if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
                 set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
-                if (rec_penalty_chain != 0) {
+                if (rec_penalty != 0) {
                     // Penalize the score of alignment candidates according to the number of recombinations their chains required.
                     // This allows alignments that required fewer recombinations in their chains to win.
                     // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
-                    int64_t penalty = static_cast<int64_t>(rec_penalty_chain) * static_cast<int64_t>(chain_rec_counts[chain_index]);
+                    int64_t penalty = static_cast<int64_t>(rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * static_cast<int64_t>(chain_rec_counts[chain_index]);
                     int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
                     alignments[alignment_index].set_score(static_cast<int>(penalized_score));
                 }
@@ -904,9 +902,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<double> scores;
     //The multiplicities of mappings
     vector<double> multiplicity_by_mapping;
-    
+   
+    // Collect the chosen mappings, or create the unmapped-read mapping.
     pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source, chain_score_estimates, 
-                                  mappings, scores, multiplicity_by_mapping, funnel_depleted, rng, funnel);
+                                  mappings, scores, multiplicity_by_mapping, rng, funnel);
     
     if (track_provenance) {
         funnel.substage("mapq");
@@ -1576,19 +1575,26 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
                 graph_lookback_limit,
                 read_lookback_limit
             );
+            // TODO: Should we just inherit from ChainScoringScheme? Or should
+            // we set one up as a member?
+            algorithms::ChainScoringScheme scheme {
+                this->item_bonus,
+                this->item_scale,
+                this->gap_scale,
+                this->points_per_possible_match,
+                this->rec_penalty,
+                // TODO: Do this once at setup?
+                this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
+            };
             chain_results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
                 get_regular_aligner()->scorer->gap_open,
                 get_regular_aligner()->scorer->gap_extension,
-                this->rec_penalty_chain,
+                scheme,
                 this->max_alignments,
                 for_each_transition,
-                this->item_bonus,
-                this->item_scale,
-                this->gap_scale,
-                this->points_per_possible_match,
                 indel_limit,
                 show_work
             );
@@ -1878,7 +1884,6 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                                             vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                             vector<size_t>& alignments_to_source,
                                             SmallBitset& minimizer_explored, aligner_stats_t& stats,
-                                            bool& funnel_depleted,
                                             LazyRNG& rng, Funnel& funnel) const {
   
     if (track_provenance) {
@@ -2198,41 +2203,27 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
             }
         }, discard_chain_by_score);
 
-    // We want to be able to feed in an unaligned alignment on the normal
-    // codepath, but we don't want it to really participate in the funnel
-    // filters anymore. So we set this flag if the funnel is really empty of
-    // items so we stop talking about filters.
-
-    if (alignments.size() == 0) {
-        // Produce an unaligned Alignment
-        alignments.emplace_back(aln);
-        alignments_to_source.push_back(numeric_limits<size_t>::max());
-        multiplicity_by_alignment.emplace_back(0);
-        // Stop telling the funnel about filters and items.
-        funnel_depleted = true;
-    } else {
-        //chain_count_by_alignment is currently the number of better or equal chains that were used
-        // We really want the number of chains not including the ones that represent the same mapping
-        // TODO: This isn't very efficient
-        for (size_t i = 0 ; i < chain_count_by_alignment.size() ; ++i) {
-            size_t chain_i = alignments_to_source[i];
-            for (size_t j = 0 ; j < chain_count_by_alignment.size() ; ++j) {
-                size_t chain_j = alignments_to_source[j];
-                if (i != j &&
-                    chain_score_estimates[chain_i] >= chain_score_estimates[chain_j] &&
-                    chain_ranges_are_equivalent(seeds[chains[chain_i].front()],
-                                         seeds[chains[chain_i].back()],
-                                         seeds[chains[chain_j].front()],
-                                         seeds[chains[chain_j].back()])) {
-                    --chain_count_by_alignment[i];
-                }
+    //chain_count_by_alignment is currently the number of better or equal chains that were used
+    // We really want the number of chains not including the ones that represent the same mapping
+    // TODO: This isn't very efficient
+    for (size_t i = 0 ; i < chain_count_by_alignment.size() ; ++i) {
+        size_t chain_i = alignments_to_source[i];
+        for (size_t j = 0 ; j < chain_count_by_alignment.size() ; ++j) {
+            size_t chain_j = alignments_to_source[j];
+            if (i != j &&
+                chain_score_estimates[chain_i] >= chain_score_estimates[chain_j] &&
+                chain_ranges_are_equivalent(seeds[chains[chain_i].front()],
+                                     seeds[chains[chain_i].back()],
+                                     seeds[chains[chain_j].front()],
+                                     seeds[chains[chain_j].back()])) {
+                --chain_count_by_alignment[i];
             }
         }
-        for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
-            multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
-                                          ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
-                                          : 0.0);
-        }
+    }
+    for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
+        multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
+                                      ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
+                                      : 0.0);
     }
 }
 
@@ -2243,7 +2234,7 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
                                                     std::vector<Alignment>& mappings,
                                                     std::vector<double>& scores,
                                                     std::vector<double>& multiplicity_by_mapping,
-                                                    bool& funnel_depleted, LazyRNG& rng,
+                                                    LazyRNG& rng,
                                                     Funnel& funnel) const {
 
     // Look for duplicate alignments by using this collection of node IDs and orientations
@@ -2288,14 +2279,13 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
         if (this->sort_by_chain_score) {
             // Use the chain's score to rank the alignments
             size_t chain_number = alignments_to_source.at(alignment_number);
-            if (chain_number == std::numeric_limits<size_t>::max()) {
-                // This is an unaligned alignment, score 0.
-                return 0;
-            }
+            // Unaligned alignments from no chain are no longer allowed in;
+            // this function is supposed to make them. So all alignments
+            // reference into chain_score_estimates.
             return chain_score_estimates.at(chain_number);
         } else {
             // Use base-level alignment score to rank alignments
-            // Tiebreak by identity (always > 0 and <= 1)
+            // Tiebreak by identity (which is always 0 to 1)
             return alignments.at(alignment_number).score() + identity(alignments.at(alignment_number).path());
         }
     };
@@ -2310,39 +2300,51 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
         // This alignment makes it
         // Called in score order
         
+        // Filter to alignments with strictly positive scores
+        if (alignments[alignment_num].score() <= 0) {
+            if (track_provenance) {
+                funnel.fail("nonzero-score", alignment_num);
+            }
+            return false;
+        } else {
+            if (track_provenance) {
+                funnel.pass("nonzero-score", alignment_num);
+            }
+        }
+        
         // Do the unique node fraction filter
         double unique_node_fraction = get_fraction_unique(alignment_num);
         if (unique_node_fraction < min_unique_node_fraction) {
             // If not enough of the alignment is from unique nodes, drop it.
-            if (track_provenance && !funnel_depleted) {
+            if (track_provenance) {
                 funnel.fail("min-unique-node-fraction", alignment_num, unique_node_fraction);
             }
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "alignment " << alignment_num << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
-                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
                 }
             }
             return false;
         } else {
-            if (track_provenance && !funnel_depleted) {
+            if (track_provenance) {
                 funnel.pass("min-unique-node-fraction", alignment_num, unique_node_fraction);
             }
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "alignment " << alignment_num << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
-                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
                 }
             }
         }
 
-        if (track_provenance && !funnel_depleted) {
+        if (track_provenance) {
             // Tell the funnel
             funnel.pass("max-multimaps", alignment_num);
         }
@@ -2358,7 +2360,7 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
         // Remember the multiplicity
         multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
-        if (track_provenance && !funnel_depleted) {
+        if (track_provenance) {
             // Tell the funnel
             funnel.project(alignment_num);
             funnel.score(funnel.latest(), scores.back());
@@ -2373,14 +2375,14 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
         double unique_node_fraction = get_fraction_unique(alignment_num);
         if (unique_node_fraction < min_unique_node_fraction) {
             // If not enough of the alignment is from unique nodes, drop it.
-            if (track_provenance && !funnel_depleted) {
+            if (track_provenance) {
                 funnel.fail("min-unique-node-fraction", alignment_num, unique_node_fraction);
             }
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "alignment " << alignment_num << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
-                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
                 }
@@ -2388,14 +2390,14 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
             // If we fail the unique node fraction filter, we won't count as a secondary for MAPQ
             return;
         } else {
-            if (track_provenance && !funnel_depleted) {
+            if (track_provenance) {
                 funnel.pass("min-unique-node-fraction", alignment_num, unique_node_fraction);
             }
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "alignment " << alignment_num << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
-                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
                 }
@@ -2406,14 +2408,36 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
         scores.emplace_back(alignments[alignment_num].score());
         multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
-        if (track_provenance && !funnel_depleted) {
+        if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
         }
     }, [&](size_t alignment_num) {
-        // This alignment does not have a sufficiently good score
-        // Score threshold is 0; this should never happen
-        crash_unless(false);
+        // This alignment does not have a sufficiently good score.
+        // It may have been penalized into negative score.
+        
+        if (track_provenance) {
+            // Call this a fail of the nonzero score filter, even though that
+            // really filters on alignment score and not sorting score, which
+            // can be different.
+            //
+            // TODO: Remove feature to sort by chain score?
+            funnel.fail("nonzero-score", alignment_num);
+        }
     });
+
+    if (mappings.empty()) {
+        // We didn't find any mappings, so make an unmapped one.
+
+        scores.emplace_back(0);
+        mappings.emplace_back(aln);
+        multiplicity_by_mapping.emplace_back(0);
+        
+        if (track_provenance) {
+            // Tell the funnel
+            funnel.introduce();
+            funnel.score(funnel.latest(), scores.back());
+        }
+    }
 }
 
 double MinimizerMapper::get_read_coverage(
