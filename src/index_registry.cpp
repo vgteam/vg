@@ -519,8 +519,7 @@ construct_minimizers_impl(
     if (IndexingParameters::verbosity != IndexingParameters::None) {
         info(context) << "Constructing minimizer index and associated zipcodes." << endl;
         info(context) << "    using parameters -k " << params.k << " -w " << params.w_or_s 
-                      << (params.use_weighted_minimizers ? " -W " : "")
-                      << (params.paths_in_payload ? " with paths" : "") << endl;
+                      << (params.use_weighted_minimizers ? " -W " : "") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -4574,24 +4573,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // TODO: We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
     registry.register_recipe(
-        {"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
-            MinimizerIndexParameters params;
-            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
-                .with_paths(true)
-                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
-                .kmer_counting(IndexingParameters::space_efficient_counting)
-                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
-            return construct_minimizers_impl(inputs, plan, constructing, params);
-        }
-    );
-
-    registry.register_recipe(
         {"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
             params.minimizers(IndexingParameters::short_read_minimizer_k, IndexingParameters::short_read_minimizer_w)
-                .with_paths(false)
                 .weighted(IndexingParameters::short_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
                 .kmer_counting(IndexingParameters::space_efficient_counting)
                 .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
@@ -4603,7 +4588,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
             params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
-                .with_paths(false)
                 .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
                 .kmer_counting(IndexingParameters::space_efficient_counting)
                 .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
@@ -4658,16 +4642,6 @@ vector<IndexName> VGIndexes::get_default_long_giraffe_indexes() {
         "Giraffe GBZ",
         "Long Read Minimizers",
         "Long Read Zipcodes"
-    };
-    return indexes;
-}
-
-vector<IndexName> VGIndexes::get_default_long_path_giraffe_indexes() {
-    vector<IndexName> indexes{
-        "Giraffe Distance Index",
-        "Giraffe GBZ",
-        "Long Read PathMinimizers",
-        "Long Read PathZipcodes",
     };
     return indexes;
 }
