@@ -291,9 +291,12 @@ class MinimizerMapper : public AlignerClient {
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
-    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared haplotypes.
-    static constexpr int default_rec_penalty_chain = 0;
-    int rec_penalty_chain = default_rec_penalty_chain;
+    /// Recombination penalty for chaining. This is added to the cost of a transition if there are no shared haplotypes.
+    static constexpr int default_rec_penalty = 0;
+    int rec_penalty = default_rec_penalty;
+    /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score.
+    static constexpr int default_rec_consistency_bonus = 0;
+    int rec_consistency_bonus = default_rec_consistency_bonus;
     // How many points should we treat a non-gap connection base as producing, at chaining?
     static constexpr double default_points_per_possible_match = 0;
     double points_per_possible_match = default_points_per_possible_match;
@@ -378,6 +381,9 @@ class MinimizerMapper : public AlignerClient {
     static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
     int wfa_max_distance = default_wfa_max_distance;
 
+    /// Recombination penalty for alignment scoring. This is deducted from the score of an alignment for each required recombination.
+    static constexpr int default_rec_penalty_aln = 0;
+    int rec_penalty_aln = default_rec_penalty_aln;
     /// How much should candidate alignment scores be penalized for softclipped bases?
     static constexpr double default_softclip_penalty = 0.0;
     double softclip_penalty = default_softclip_penalty;
@@ -508,6 +514,11 @@ class MinimizerMapper : public AlignerClient {
     string sample_name;
     /// Apply this read group name
     string read_group;
+
+    /// Should we use path information from the minimizer index payloads?
+    /// By default we fill this in based on availability in the index, but you
+    /// can clear this if it is set to turn off recombination-aware mapping.
+    bool use_payload_paths;
     
     /// Have we complained about hitting the size limit for rescue?
     atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
@@ -647,9 +658,8 @@ protected:
     // caching common information about the minimizer index
     int32_t k;
     int32_t w;
-    bool payload_with_paths; // Does the payload for minimizer hits include path information in addition to a zipcode?
     bool uses_syncmers; // TODO: We could discard the syncmer support.
-    
+                        
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
     /// This is our primary graph.
@@ -906,14 +916,21 @@ protected:
                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                                vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                vector<size_t>& alignments_to_source,
-                               SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                               SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
 
+    /**
+     * Select the max_multimaps best alignments from alignments into mappings.
+     *
+     * Skips alignments that overlap too much with previous alignments.
+     *
+     * If no alignments have a positive score, responsible for creating an unmapped mapping.
+     */
     void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
                                        const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
                                        const std::vector<int>& chain_score_estimates,
                                        std::vector<Alignment>& mappings,
                                        std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
-                                       bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                                       LazyRNG& rng, Funnel& funnel) const;
 
     
 
