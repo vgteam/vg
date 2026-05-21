@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 85
+plan tests 87
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -118,6 +118,7 @@ vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes 
 
 vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1_chaining.bam
 vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAM > t1_chaining.gam
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1_chaining.gaf
 
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
@@ -127,8 +128,15 @@ is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | 
 is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved on read 1"
 is "$(samtools view t1_chaining.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved in chaining mode"
 is "$(vg view -aj t1_chaining.gam | jq -r '.annotation.tags' | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are present in GAM in chaining mode"
+is "$(cat t1_chaining.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved in chaining mode"
 
-rm t1.bam t2.bam t3.bam t1_chaining.bam t1_chaining.gam t1.gaf tagged1.fq tagged2.fq
+# a uniform random sequence
+printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f x.fq --comments-as-tags -o GAF >x.gaf
+is "$(cat x.gaf | grep 'TG:Z' | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved in chaining mode for unmapped reads"
+
+
+rm t1.bam t2.bam t3.bam t1_chaining.bam t1_chaining.gam t1_chaining.gaf t1.gaf tagged1.fq tagged2.fq x.fq
 rm -f read.fq read.gam
 
 # Attempts to use mismatched files fail
