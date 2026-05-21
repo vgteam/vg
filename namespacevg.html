@@ -1575,8 +1575,8 @@ Functions</h2></td></tr>
 <tr class="separator:a20330937bc196160411bc3b935fd2fef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9f6fef69c4a015353973902055297b5f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9f6fef69c4a015353973902055297b5f">cache_payloads</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex &amp;distance_index, std::vector&lt; <a class="el" href="namespacevg.html#a724c5d2a0f18eb0c88c59c8719e80323">payload_t</a> &gt; &amp;payload_by_offset, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> min_node_id, <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, bool progress)</td></tr>
 <tr class="separator:a9f6fef69c4a015353973902055297b5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a129b727ee45c9c55491653888fbe7417"><td class="memItemLeft" align="right" valign="top">gbwtgraph::DefaultMinimizerIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a129b727ee45c9c55491653888fbe7417">build_minimizer_index</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex *distance_index, <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, const <a class="el" href="structvg_1_1MinimizerIndexParameters.html">MinimizerIndexParameters</a> &amp;params)</td></tr>
-<tr class="separator:a129b727ee45c9c55491653888fbe7417"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acabbdcc177388df81b763fcec8733139"><td class="memItemLeft" align="right" valign="top">gbwtgraph::DefaultMinimizerIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acabbdcc177388df81b763fcec8733139">build_minimizer_index</a> (const gbwtgraph::GBZ &amp;gbz, const SnarlDistanceIndex *distance_index, <a class="el" href="classvg_1_1ZipCodeCollection.html">ZipCodeCollection</a> *oversized_zipcodes, const <a class="el" href="structvg_1_1MinimizerIndexParameters.html">MinimizerIndexParameters</a> &amp;params, bool require_path_payloads)</td></tr>
+<tr class="separator:acabbdcc177388df81b763fcec8733139"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadc0e3f2c2a95cff87a70fa1fcd46f65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aadc0e3f2c2a95cff87a70fa1fcd46f65">require_payload</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, <a class="el" href="structvg_1_1MinimizerIndexParameters.html#a21cc917a589512f60d762bda527ba878">MinimizerIndexParameters::PayloadType</a> expected_payload)</td></tr>
 <tr class="separator:aadc0e3f2c2a95cff87a70fa1fcd46f65"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a931572b05bc100ab1a23fde4e3059376"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a931572b05bc100ab1a23fde4e3059376">require_payload</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerIndexParameters.html#a21cc917a589512f60d762bda527ba878">MinimizerIndexParameters::PayloadType</a> &gt; &amp;expected_payloads)</td></tr>
@@ -6269,8 +6269,8 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
-<a id="a129b727ee45c9c55491653888fbe7417"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a129b727ee45c9c55491653888fbe7417">&#9670;&nbsp;</a></span>build_minimizer_index()</h2>
+<a id="acabbdcc177388df81b763fcec8733139"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acabbdcc177388df81b763fcec8733139">&#9670;&nbsp;</a></span>build_minimizer_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -6297,7 +6297,13 @@ template&lt;typename ProbIn &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1MinimizerIndexParameters.html">MinimizerIndexParameters</a> &amp;&#160;</td>
-          <td class="paramname"><em>params</em>&#160;</td>
+          <td class="paramname"><em>params</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>require_path_payloads</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
