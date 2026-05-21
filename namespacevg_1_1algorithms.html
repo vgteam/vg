@@ -166,12 +166,10 @@ Functions</h2></td></tr>
 <tr class="separator:ac8e2917f0a06c55852e4ef044548f2bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa186cef438679cb79232d24f64be1f89"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa186cef438679cb79232d24f64be1f89">zip_tree_transition_iterator</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, size_t max_read_lookback_bases)</td></tr>
 <tr class="separator:aa186cef438679cb79232d24f64be1f89"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab8f8f086e000ad8b8c0e5d1c0f4c7245"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab8f8f086e000ad8b8c0e5d1c0f4c7245">generate_zip_tree_transitions</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_starting, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_ending)</td></tr>
-<tr class="separator:ab8f8f086e000ad8b8c0e5d1c0f4c7245"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a60201ac1727488caca75f5089e58ab2b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a60201ac1727488caca75f5089e58ab2b">find_missing_zip_tree_transitions</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_starting, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_ending, const SnarlDistanceIndex &amp;distance_index, const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;all_transitions)</td></tr>
-<tr class="separator:a60201ac1727488caca75f5089e58ab2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:addcb04b545945336baa950dc55b7a289"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#addcb04b545945336baa950dc55b7a289">calculate_transition_read_distances</a> (const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;all_transitions, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, size_t max_read_lookback_bases)</td></tr>
-<tr class="separator:addcb04b545945336baa950dc55b7a289"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1e5161e892d90cc8d4e2953e16f49e34"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1e5161e892d90cc8d4e2953e16f49e34">generate_zip_tree_transitions</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, size_t max_read_lookback_bases, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_starting, const std::unordered_map&lt; size_t, size_t &gt; &amp;seed_to_ending)</td></tr>
+<tr class="separator:a1e5161e892d90cc8d4e2953e16f49e34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad63b0652f6ef8db5243d4f2aa2b3bd93"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad63b0652f6ef8db5243d4f2aa2b3bd93">add_transition_if_legal</a> (vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;transitions, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, size_t max_read_lookback_bases, size_t from_anchor, size_t to_anchor, size_t graph_distance)</td></tr>
+<tr class="separator:ad63b0652f6ef8db5243d4f2aa2b3bd93"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abdc2933db32d78a14a8e439f7e9643ab"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abdc2933db32d78a14a8e439f7e9643ab">score_chain_gap</a> (size_t distance_difference, size_t base_seed_length)</td></tr>
 <tr class="separator:abdc2933db32d78a14a8e439f7e9643ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a637146784fca44edf89adb238715396e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a637146784fca44edf89adb238715396e">check_recombination</a> (const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;from, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;to)</td></tr>
@@ -643,6 +641,60 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 <p>Add subpaths to the subgraph for all paths visiting its nodes in the source graph.</p>
 <p>Always generates correct path metadata, and a path for each contiguous fragment of any base path. Assumes the source graph does not contain any overlapping path fragments on a given base path, and that the subgraph does not already contain any paths on a base path also present in the source graph. </p>
+
+</div>
+</div>
+<a id="ad63b0652f6ef8db5243d4f2aa2b3bd93"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad63b0652f6ef8db5243d4f2aa2b3bd93">&#9670;&nbsp;</a></span>add_transition_if_legal()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::add_transition_if_legal </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>transitions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>to_chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_read_lookback_bases</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>from_anchor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>to_anchor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>graph_distance</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Add a new <a class="el" href="structvg_1_1algorithms_1_1transition__info.html" title="Represents a possible transition between anchors.">transition_info</a> to the end of "transitions" if said transition is legal (i.e. reachable in the read).</p>
+<p>Helper for <a class="el" href="namespacevg_1_1algorithms.html#a1e5161e892d90cc8d4e2953e16f49e34">generate_zip_tree_transitions()</a> to avoid saving useless stuff. </p>
 
 </div>
 </div>
@@ -1238,42 +1290,6 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="addcb04b545945336baa950dc55b7a289"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#addcb04b545945336baa950dc55b7a289">&#9670;&nbsp;</a></span>calculate_transition_read_distances()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; vg::algorithms::calculate_transition_read_distances </td>
-          <td>(</td>
-          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>all_transitions</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>to_chain</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_read_lookback_bases</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Calculate read distances for each of the zip tree's transitions. Also filters out transitions that can't be used, e.g. not reachable in the read.</p>
-<p>Used as a helper by <a class="el" href="namespacevg_1_1algorithms.html#aa186cef438679cb79232d24f64be1f89">zip_tree_transition_iterator()</a>. </p>
 
 </div>
 </div>
@@ -2971,67 +2987,6 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a60201ac1727488caca75f5089e58ab2b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a60201ac1727488caca75f5089e58ab2b">&#9670;&nbsp;</a></span>find_missing_zip_tree_transitions()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::algorithms::find_missing_zip_tree_transitions </td>
-          <td>(</td>
-          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>seeds</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;&#160;</td>
-          <td class="paramname"><em>zip_code_tree</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_graph_lookback_bases</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::unordered_map&lt; size_t, size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>seed_to_starting</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::unordered_map&lt; size_t, size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>seed_to_ending</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
-          <td class="paramname"><em>distance_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1transition__info.html">transition_info</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>all_transitions</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Check if all possible transitions were actually found.</p>
-<p>Iterates over all pairs of seeds and uses the distance index to determine if there SHOULD have been a transition.</p>
-<p>Returns if any transitions were missing. </p>
-
-</div>
-</div>
 <a id="af38c05b9c1e56c79faccfbbf6b3ade95"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af38c05b9c1e56c79faccfbbf6b3ade95">&#9670;&nbsp;</a></span>find_translation()</h2>
 
@@ -3135,8 +3090,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="ab8f8f086e000ad8b8c0e5d1c0f4c7245"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab8f8f086e000ad8b8c0e5d1c0f4c7245">&#9670;&nbsp;</a></span>generate_zip_tree_transitions()</h2>
+<a id="a1e5161e892d90cc8d4e2953e16f49e34"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e5161e892d90cc8d4e2953e16f49e34">&#9670;&nbsp;</a></span>generate_zip_tree_transitions()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3162,6 +3117,18 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_read_lookback_bases</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>to_chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const std::unordered_map&lt; size_t, size_t &gt; &amp;&#160;</td>
           <td class="paramname"><em>seed_to_starting</em>, </td>
         </tr>
@@ -3179,8 +3146,7 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Walk through the ziptree from left to right to find all seeds, then generate all possible transitions from each given seed.</p>
-<p>Calls <a class="el" href="classvg_1_1ZipCodeTree.html#a3c22cae9d82e5d05e1e5592bc0692273" title="Get a iterator starting from where a forward iterator is, up to a distance limit.">ZipCodeTree.find_distances()</a> as the core of the algorithm. Used as a helper by <a class="el" href="namespacevg_1_1algorithms.html#aa186cef438679cb79232d24f64be1f89">zip_tree_transition_iterator()</a>.</p>
-<p>Transitions have no read distance set. </p>
+<p>Calls <a class="el" href="classvg_1_1ZipCodeTree.html#a3c22cae9d82e5d05e1e5592bc0692273" title="Get a iterator starting from where a forward iterator is, up to a distance limit.">ZipCodeTree.find_distances()</a> as the core of the algorithm. Used as a helper by <a class="el" href="namespacevg_1_1algorithms.html#aa186cef438679cb79232d24f64be1f89">zip_tree_transition_iterator()</a>. </p>
 
 </div>
 </div>

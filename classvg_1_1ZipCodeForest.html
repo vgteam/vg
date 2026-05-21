@@ -125,6 +125,8 @@ Private Types</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a499f52fbb75374e2dc06ce7998ad8fd6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a499f52fbb75374e2dc06ce7998ad8fd6">sort_one_interval</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;interval) const</td></tr>
 <tr class="separator:a499f52fbb75374e2dc06ce7998ad8fd6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af57785dd00a77792170062509b53a9d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#af57785dd00a77792170062509b53a9d9">get_chain_child_sort_info</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html">sort_value_t</a> &amp;chain_child, const <a class="el" href="classvg_1_1ZipCodeForest.html#a93f9eaa38dd8024a73a2aeca456e5156">Seed</a> &amp;seed, const size_t &amp;depth) const</td></tr>
+<tr class="separator:af57785dd00a77792170062509b53a9d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aade4c028524fd9e0c4a6267335584171"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#aade4c028524fd9e0c4a6267335584171">radix_sort_zipcodes</a> (vector&lt; size_t &gt; &amp;zipcode_sort_order, const vector&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html">sort_value_t</a> &gt; &amp;sort_values_by_seed, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;interval, bool reverse_order, size_t min_value, size_t max_value, bool sort_by_chain_component=false) const</td></tr>
 <tr class="separator:aade4c028524fd9e0c4a6267335584171"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5eed49e06827ec7883f8abe8da3d548e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a5eed49e06827ec7883f8abe8da3d548e">default_sort_zipcodes</a> (vector&lt; size_t &gt; &amp;zipcode_sort_order, const vector&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html">sort_value_t</a> &gt; &amp;sort_values_by_seed, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;interval, bool reverse_order) const</td></tr>
@@ -648,6 +650,49 @@ Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Populate the zip forest If a distance limit is given, then partition into subtrees that are farther than distance_limit from each other Otherwise, the forest will just be connected components </p>
+
+</div>
+</div>
+<a id="af57785dd00a77792170062509b53a9d9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af57785dd00a77792170062509b53a9d9">&#9670;&nbsp;</a></span>get_chain_child_sort_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::ZipCodeForest::get_chain_child_sort_info </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html">sort_value_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>chain_child</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeForest.html#a93f9eaa38dd8024a73a2aeca456e5156">Seed</a> &amp;&#160;</td>
+          <td class="paramname"><em>seed</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>depth</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Helper for <a class="el" href="classvg_1_1ZipCodeForest.html#a499f52fbb75374e2dc06ce7998ad8fd6">sort_one_interval()</a> to set up <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html">sort_value_t</a> for a chain child Takes the seed and what depth to look at This avoids paging through the same information multiple times node_offset is only needed for nodes </p>
 
 </div>
 </div>
