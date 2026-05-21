@@ -125,7 +125,8 @@ is "$(cat surjected.sam | grep '@RG' | grep 'RG1' | grep 'Sample1' | wc -l)" "1"
 
 # a uniform random sequence
 printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
-is $(vg map -d x -t 1 -f x.fq -5 bam --comments-as-tags | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
+vg map -d x -t 1 -f x.fq --comments-as-tags >x.gam
+is $(vg surject -p x -x x.xg --bam-output x.gam |  samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
 
 rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
 
