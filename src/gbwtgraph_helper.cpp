@@ -5,8 +5,6 @@
 #include <gbwtgraph/index.h>
 #include <vg/io/alignment_io.hpp>
 
-//#define COUNT_REVERSALS
-
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -447,11 +445,19 @@ std::vector<key_type> find_frequent_kmers(const gbwtgraph::GBZ& gbz, const Minim
     return frequent_kmers;
 }
 
-// TODO: Should we multithread this?
+// Fills `payload_by_offset` with the zipcode payload for every node.
+// The vector is dense-indexed by `(node_id - min_node_id)`, not by the node id
+// itself; it must be pre-sized so that the largest offset fits, and slots for
+// node ids that do not exist in the graph stay at `MIPayload::NO_CODE`.
+// Oversized zipcodes are appended to `oversized_zipcodes` if non-null, and the 
+// payload stores their offset inside that collection. 
+// Filling runs in parallel: every node writes to a
+// disjoint slot, and access to `oversized_zipcodes` is serialised.
 void cache_payloads(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex& distance_index,
-    hash_map<nid_t, payload_t>& node_id_to_payload,
+    std::vector<payload_t>& payload_by_offset,
+    nid_t min_node_id,
     ZipCodeCollection* oversized_zipcodes,
     bool progress
 ) {
@@ -462,62 +468,27 @@ void cache_payloads(
 
     const handlegraph::HandleGraph* graph_ptr = (const handlegraph::HandleGraph*) &gbz.graph;
 
-#ifdef COUNT_REVERSALS
-    size_t num_snarl_reversals = 0;
-    size_t num_snarl_non_reversals = 0;
-    size_t num_node_reversals = 0;
-    size_t num_node_non_reversals = 0;
-#endif
-
     gbz.graph.for_each_handle([&](const handle_t& handle) {
         nid_t node_id = gbz.graph.get_id(handle);
         ZipCode zipcode;
         pos_t pos = make_pos_t(node_id, false, 0);
         zipcode.fill_in_zipcode_from_pos(distance_index, pos, true, graph_ptr);
-#ifdef COUNT_REVERSALS
-        for (size_t depth = 0; depth <= zipcode.max_depth(); depth++) {
-            if (zipcode.get_code_type(depth) == ZipCode::NODE) {
-                if (zipcode.get_has_forward_loop(depth)) {
-                    ++num_node_reversals;
-                } else {
-                    ++num_node_non_reversals;
-                }
-                if (zipcode.get_has_reverse_loop(depth)) {
-                    ++num_node_reversals;
-                } else {
-                    ++num_node_non_reversals;
-                }
-            } else if ((zipcode.get_code_type(depth) == ZipCode::REGULAR_SNARL)
-                       || (zipcode.get_code_type(depth) == ZipCode::IRREGULAR_SNARL)
-                       || (zipcode.get_code_type(depth) == ZipCode::CYCLIC_SNARL)) {
-                if (zipcode.get_has_forward_loop(depth)) {
-                    ++num_snarl_reversals;
-                } else {
-                    ++num_snarl_non_reversals;
-                }
-                if (zipcode.get_has_reverse_loop(depth)) {
-                    ++num_snarl_reversals;
-                } else {
-                    ++num_snarl_non_reversals;
-                }
-            }
-        }
-#endif
         payload_t payload = zipcode.get_payload_from_zip();
         if (payload == MIPayload::NO_CODE && oversized_zipcodes != nullptr) {
             // The zipcode is too large for the payload field.
             // Add it to the oversized zipcode list.
             zipcode.fill_in_full_decoder();
-            size_t offset = oversized_zipcodes->size();
-            oversized_zipcodes->emplace_back(zipcode);
+            size_t offset;
+            #pragma omp critical (oversized_zipcodes)
+            {
+                offset = oversized_zipcodes->size();
+                oversized_zipcodes->emplace_back(zipcode);
+            }
             payload = { 0, offset };
         }
-        node_id_to_payload.emplace(node_id, payload);
-    });
-#ifdef COUNT_REVERSALS
-    cerr << "Node reversals: " << num_node_reversals << " (" << num_node_non_reversals << " non reversals)" << endl;
-    cerr << "Snarl reversals: " << num_snarl_reversals << " (" << num_snarl_non_reversals << " non reversals)" << endl;
-#endif
+        payload_by_offset[node_id - min_node_id] = payload;
+    }, true);
+
     if (progress) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Cached payloads in " << seconds << " seconds" << std::endl;
@@ -577,18 +548,21 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
         gbwtgraph::index_haplotypes(gbz, index, [](const pos_t&) { return nullptr; });
     } else {
         // Cache payloads before building the index.
-        // A zipcode only depends on the node id.
-        hash_map<nid_t, payload_t> node_id_to_payload;
-        node_id_to_payload.reserve(gbz.graph.max_node_id() - gbz.graph.min_node_id());
-        cache_payloads(gbz, *distance_index, node_id_to_payload, oversized_zipcodes, params.progress);
+        // A zipcode only depends on the node id. The cache is a dense vector indexed
+        // by (node_id - min_node_id), not by the node id itself: this lets us
+        // fill it in parallel without synchronisation, since every node writes
+        // to a disjoint slot.
+        nid_t min_node_id = gbz.graph.min_node_id();
+        nid_t max_node_id = gbz.graph.max_node_id();
+        std::vector<payload_t> payload_by_offset(max_node_id - min_node_id + 1, MIPayload::NO_CODE);
+        cache_payloads(gbz, *distance_index, payload_by_offset, min_node_id, oversized_zipcodes, params.progress);
 
         auto get_payload = [&](const pos_t& pos) -> const code_type* {
-            auto iter = node_id_to_payload.find(id(pos));
-            if (iter != node_id_to_payload.end()) {
-                return reinterpret_cast<const code_type*>(&iter->second);
-            } else {
+            nid_t nid = id(pos);
+            if (nid < min_node_id || nid - min_node_id >= payload_by_offset.size()) {
                 return reinterpret_cast<const code_type*>(&MIPayload::NO_CODE);
             }
+            return reinterpret_cast<const code_type*>(&payload_by_offset[nid - min_node_id]);
         };
         if (params.paths_in_payload) {
             gbwtgraph::index_haplotypes_with_paths(gbz, index, get_payload);

@@ -26,8 +26,7 @@ ENV VG_GIT_VERSION=${VG_GIT_VERSION:-unknown}
 RUN echo packages > /stage.txt
 
 RUN apt-get -qq -y update && \
-    apt-get -qq -y upgrade && \
-    apt-get -qq -y install sudo
+    apt-get -qq -y install --no-upgrade sudo
 
 # Install all vg's dependencies.
 # The Makefile will come parse the Dockerfile to get the correct dependencies;
@@ -38,7 +37,7 @@ RUN apt-get -qq -y update && \
 # that starts with RUN, or comments. And we pull out line continuation slashes.
 # TODO: can we read them here and in the Makefile from the README instead?
 ###DEPS_BEGIN###
-RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -y install \
+RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
     make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
     libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
     samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
@@ -112,7 +111,6 @@ RUN echo run > /stage.txt
 # Make sure to clean so we don't ship old apt package indexes in our Docker.
 RUN ls -lah /vg && \
     apt-get -qq -y update && \
-    apt-get -qq -y upgrade && \
     apt-get -qq -y install --no-upgrade \
     curl \
     wget \

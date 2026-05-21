@@ -284,7 +284,7 @@ int main_chain(int argc, char** argv) {
 #endif
 
     // Do the chaining. We assume items is already sorted right.
-    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.gap_open, scorer.gap_extension, recomb_penalty);
+    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.scorer->gap_open, scorer.scorer->gap_extension, recomb_penalty);
     
     logger.info() << "Best chain gets score " << score_and_chain.first << std::endl;
     

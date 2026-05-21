@@ -142,7 +142,7 @@ int main_inject(int argc, char** argv) {
         }
         if (rescore) {
             // Rescore the alignment
-            aln.set_score(aligner.score_contiguous_alignment(aln));
+            aln.set_score(aligner.scorer->score_contiguous_alignment(aln));
         }
 
         alignment_emitter->emit_mapped_single({std::move(aln)});
