@@ -133,7 +133,7 @@ is $(vg surject -p x -x x.xg --bam-output --gaf-input x.gaf | samtools view -f 4
 # A sequence that should map
 printf "@read TG:Z:val\nACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x2.fq
 vg map -d x -t 1 -f x2.fq --comments-as-tags --gaf >x2.gaf
-is $(vg surject -p x -x x.xg --bam-output --gaf-input x2.gaf | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on mapped reads in GAF"
+is $(vg surject -p x -x x.xg --bam-output --gaf-input x2.gaf | samtools view | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on mapped reads in GAF"
 
 rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
 
