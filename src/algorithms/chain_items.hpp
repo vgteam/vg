@@ -382,6 +382,7 @@ ostream& operator<<(ostream& out, const TracedScore& value);
  */
 void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
 
+/// Represents a possible transition between anchors
 struct transition_info {
     // Index of the source anchor within the list of anchors
     size_t from_anchor;
@@ -392,14 +393,37 @@ struct transition_info {
     // Distance between anchors in the read
     size_t read_distance;
     
-    // Constructor; read_distance defaults to max if not given
+    /// Build transition info from loose values
     inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
         : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
 };
 
+
+/// Represents the scoring scheme for chains, to determine which are best.
+/// Doesn't cover the parameters that really belong to an alignment scoring
+/// scheme (like gap open and extend).
+struct ChainScoringScheme {
+    /// Score bonus for each item collected
+    int item_bonus = 0;
+    /// Scale to apply to each item's own score
+    double item_scale = 1.0;
+    /// Scale to apply to the scores of gaps
+    double gap_scale = 1.0;
+    /// Add this many points per potential match between two seeds
+    double points_per_possible_match = 0;
+    /// Penalize this many points per recombination
+    int recombination_penalty = 0;
+    /// Apply a bonus during alternative selection (but not to actual DP
+    /// scores) of this many points when matching haplotype paths are
+    /// preserved, scaled by fraction of haplotypes preserved.
+    int consistency_bonus = 0;
+};
+
 /// A single chain result: scored chain plus the recombination count observed
 /// on its endpoint.
+/// TODO: Is there a better name for the abstraction this is getting at?
 struct ChainWithRec {
+    // TODO: Shouldn't we split this into 2 fields?
     std::pair<int, std::vector<size_t>> scored_chain;
     // Positions (anchor indices) in the chain that introduce a recombination
     // event between anchors. These correspond to anchors where we had to
@@ -418,6 +442,8 @@ struct ChainWithRec {
 
 /// Result of finding best chains: a list of chains each paired with the
 /// recombination count observed at that chain's endpoint.
+/// TODO: Can we get rid of this once we're sure it won't need more fields?
+/// TODO: Is there a better name for this?
 struct ChainsResult {
     std::vector<ChainWithRec> chains;
 };
@@ -475,44 +501,24 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
  * 
  * Calls ZipCodeTree.find_distances() as the core of the algorithm.
  * Used as a helper by zip_tree_transition_iterator().
- * 
- * Transitions have no read distance set.
  */
 std::vector<transition_info> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
+    size_t max_read_lookback_bases,
+    const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending);
-
 /**
- * Check if all possible transitions were actually found.
+ * Add a new transition_info to the end of "transitions"
+ * if said transition is legal (i.e. reachable in the read).
  * 
- * Iterates over all pairs of seeds and uses the distance index
- * to determine if there SHOULD have been a transition.
- * 
- * Returns if any transitions were missing.
+ * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
-bool find_missing_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-    const ZipCodeTree& zip_code_tree,
-    size_t max_graph_lookback_bases,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending,
-    const SnarlDistanceIndex& distance_index,
-    const std::vector<transition_info>& all_transitions);
-
-/**
- * Calculate read distances for each of the zip tree's transitions.
- * Also filters out transitions that can't be used,
- * e.g. not reachable in the read.
- * 
- * Used as a helper by zip_tree_transition_iterator().
- */
-std::vector<transition_info> calculate_transition_read_distances(
-    const std::vector<transition_info>& all_transitions,
-    const VectorView<Anchor>& to_chain,
-    size_t max_read_lookback_bases);
+void add_transition_if_legal(vector<transition_info>& transitions, 
+                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+                             size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
@@ -525,8 +531,7 @@ std::vector<transition_info> calculate_transition_read_distances(
  *
  * Input items must be sorted by start position in the read.
  *
- * Takes the given per-item bonus for each item collected, and scales item
- * scores by the given scale.
+ * Uses the given scoring scheme to score chains.
  *
  * Uses a transition iterator to enumerate where we can come from to reach an
  * item. 
@@ -538,15 +543,12 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
+                           // TODO: We should maybe just take an EditAlignmentScorer here.
                            int gap_open,
                            int gap_extension,
+                           const ChainScoringScheme& scheme = ChainScoringScheme(),
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                           int item_bonus = 0,
-                           double item_scale = 1.0,
-                           double gap_scale = 1.0,
-                           double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
-                           int recomb_penalty = 0,
                            bool show_work = false
                         );
 
@@ -567,8 +569,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
-                                                        int item_bonus = 0,
-                                                        double item_scale = 1.0,
+                                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
                                                         size_t max_tracebacks = 1);
 
 
@@ -586,13 +587,9 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                    const HandleGraph& graph,
                                                    int gap_open,
                                                    int gap_extension,
-                                                   int recomb_penalty = 0,
+                                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
                                                    size_t max_chains = 1,
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                                   int item_bonus = 0,
-                                                   double item_scale = 1.0,
-                                                   double gap_scale = 1.0,
-                                                   double points_per_possible_match = 0,
                                                    size_t max_indel_bases = 100,
                                                    bool show_work = false);
 
@@ -610,12 +607,8 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
-                                          int recomb_penalty = 0,
+                                          const ChainScoringScheme& scheme = ChainScoringScheme(),
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                                          int item_bonus = 0,
-                                          double item_scale = 1.0,
-                                          double gap_scale = 1.0,
-                                          double points_per_possible_match = 0,
                                           size_t max_indel_bases = 100);
                                           
 /**

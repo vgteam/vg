@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 82
+plan tests 83
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -26,11 +26,6 @@ rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
 vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + zips + dist specified without crashing"
-
-vg minimizer -d x.dist --rec-mode -o wrong.min -z wrong.zipcodes xx.gbz
-vg giraffe -Z x.giraffe.gbz -m wrong.min -z wrong.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "1" "a minimizer index with the wrong payload type is rejected"
-rm -f wrong.min wrong.zipcodes
 
 rm -f x.shortread.withzip.min
 rm -f x.shortread.zipcodes
@@ -68,6 +63,19 @@ rm -f log.txt
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
+
+rm -f x.longread.withzip.min
+rm -f x.longread.zipcodes
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi >mapped.gam
+is "$(vg view -aj mapped.gam | jq '.annotation.chain.rec_count')" "1" "recombinations are counted by default when mapping with the hifi preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --rec-penalty-aln 9999 >mapped.gam
+is "$(vg view -aj mapped.gam | jq '.score // 0')" "0" "recombination alignment score penalty is used by default and can unmap a read"
+
+rm -f mapped.gam
+rm -f x.longread.withzip.min
+rm -f x.longread.zipcodes
 
 rm -Rf grid-out
 mkdir grid-out
