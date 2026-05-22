@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 75
+plan tests 77
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -125,9 +125,17 @@ is "$(cat surjected.sam | grep '@RG' | grep 'RG1' | grep 'Sample1' | wc -l)" "1"
 
 # a uniform random sequence
 printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
-is $(vg map -d x -t 1 -f x.fq -5 bam --comments-as-tags | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
+vg map -d x -t 1 -f x.fq --comments-as-tags >x.gam
+is $(vg surject -p x -x x.xg --bam-output x.gam | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
+vg map -d x -t 1 -f x.fq --comments-as-tags --gaf >x.gaf
+is $(vg surject -p x -x x.xg --bam-output --gaf-input x.gaf | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads in GAF"
 
-rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
+# A sequence that should map
+printf "@read TG:Z:val\nACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x2.fq
+vg map -d x -t 1 -f x2.fq --comments-as-tags --gaf >x2.gaf
+is $(vg surject -p x -x x.xg --bam-output --gaf-input x2.gaf | samtools view | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on mapped reads in GAF"
+
+rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
 
 vg mod -c graphs/fail.vg >f.vg
 vg index -k 11 -g f.gcsa -x f.xg f.vg
