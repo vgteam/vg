@@ -255,10 +255,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a711294fa859b37aba71867a0dd9a035a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a711294fa859b37aba71867a0dd9a035a">alignment_to_gaf</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
 <tr class="separator:a711294fa859b37aba71867a0dd9a035a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44a872a40072dc128fa898a795eeff79"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a44a872a40072dc128fa898a795eeff79">gaf_to_alignment</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
-<tr class="memdesc:a44a872a40072dc128fa898a795eeff79"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space.  <a href="namespacevg_1_1io.html#a44a872a40072dc128fa898a795eeff79">More...</a><br /></td></tr>
 <tr class="separator:a44a872a40072dc128fa898a795eeff79"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a363656cc5c1a09f178e3c83785488bad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a363656cc5c1a09f178e3c83785488bad">gaf_to_alignment</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
-<tr class="memdesc:a363656cc5c1a09f178e3c83785488bad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space.  <a href="namespacevg_1_1io.html#a363656cc5c1a09f178e3c83785488bad">More...</a><br /></td></tr>
 <tr class="separator:a363656cc5c1a09f178e3c83785488bad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64f819396b817978940de263c04713f9"><td class="memItemLeft" align="right" valign="top">short&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a64f819396b817978940de263c04713f9">quality_char_to_short</a> (char c)</td></tr>
 <tr class="separator:a64f819396b817978940de263c04713f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1515,8 +1513,8 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space. </p>
+<p>Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space.</p>
+<p>All tags are preserved in the "tags" annotation, except those interpreted to construct the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. If the "cg" tag was used to construct the alignment, it will be annotated with "from_cg" true. </p>
 
 </div>
 </div>
@@ -1557,8 +1555,8 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space. </p>
+<p>Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space.</p>
+<p>All tags are preserved in the "tags" annotation, except those interpreted to construct the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. If the "cg" tag was used to construct the alignment, it will be annotated with "from_cg" true. </p>
 
 </div>
 </div>

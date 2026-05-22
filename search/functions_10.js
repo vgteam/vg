@@ -158,7 +158,7 @@ var searchData=
   ['phred_5fsum_11259',['phred_sum',['../namespacevg.html#ad78072e330ae86c9ef80aeeb84f89e8f',1,'vg::phred_sum(const Collection &amp;collection)'],['../namespacevg.html#aaeddefa307b95defd68c8a2022db732c',1,'vg::phred_sum(const Iterator &amp;begin_it, const Iterator &amp;end_it)']]],
   ['phred_5fto_5flogprob_11260',['phred_to_logprob',['../namespacevg.html#a35b531c82b765cd54702665668a98448',1,'vg']]],
   ['phred_5fto_5fprob_11261',['phred_to_prob',['../namespacevg.html#afba77c5a550d5dd72f8cf7438f600676',1,'vg::phred_to_prob(double phred)'],['../namespacevg.html#ab713ebc6e2988cc2c959be14bfa01200',1,'vg::phred_to_prob(uint8_t phred)']]],
-  ['pick_5fmappings_5ffrom_5falignments_11262',['pick_mappings_from_alignments',['../classvg_1_1MinimizerMapper.html#a1ee3dd383a4ff629285ff103e46fe20d',1,'vg::MinimizerMapper']]],
+  ['pick_5fmappings_5ffrom_5falignments_11262',['pick_mappings_from_alignments',['../classvg_1_1MinimizerMapper.html#acfc088cc27b7bd6639eb61b523252987',1,'vg::MinimizerMapper']]],
   ['pictographs_11263',['Pictographs',['../classvg_1_1Pictographs.html#a997d5ba6f6e9c5cbdb039ed9c51625e9',1,'vg::Pictographs::Pictographs(int seed_val)'],['../classvg_1_1Pictographs.html#a9784714a3a94bd173fecdd31655a770b',1,'vg::Pictographs::Pictographs(void)']]],
   ['pin_5foffset_11264',['pin_offset',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#aff4877147fc6b731179a8e89dfb99757',1,'vg::MinimizerMapper::Minimizer']]],
   ['plan_11265',['Plan',['../structvg_1_1VG_1_1Plan.html#aa757327a3bf40e1828d8aacc5cf5dec5',1,'vg::VG::Plan']]],

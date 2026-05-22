@@ -312,7 +312,7 @@ var searchData=
   ['phred_5fto_5flogprob_4952',['phred_to_logprob',['../namespacevg.html#a35b531c82b765cd54702665668a98448',1,'vg']]],
   ['phred_5fto_5fprob_4953',['phred_to_prob',['../namespacevg.html#afba77c5a550d5dd72f8cf7438f600676',1,'vg::phred_to_prob(double phred)'],['../namespacevg.html#ab713ebc6e2988cc2c959be14bfa01200',1,'vg::phred_to_prob(uint8_t phred)']]],
   ['pi_5fiv_4954',['pi_iv',['../classxg_1_1XG.html#a31024f79e1a2564e990e1e4445fed0ce',1,'xg::XG']]],
-  ['pick_5fmappings_5ffrom_5falignments_4955',['pick_mappings_from_alignments',['../classvg_1_1MinimizerMapper.html#a1ee3dd383a4ff629285ff103e46fe20d',1,'vg::MinimizerMapper']]],
+  ['pick_5fmappings_5ffrom_5falignments_4955',['pick_mappings_from_alignments',['../classvg_1_1MinimizerMapper.html#acfc088cc27b7bd6639eb61b523252987',1,'vg::MinimizerMapper']]],
   ['pictographs_4956',['Pictographs',['../classvg_1_1Pictographs.html#a9784714a3a94bd173fecdd31655a770b',1,'vg::Pictographs::Pictographs(void)'],['../classvg_1_1Pictographs.html#a997d5ba6f6e9c5cbdb039ed9c51625e9',1,'vg::Pictographs::Pictographs(int seed_val)'],['../classvg_1_1Pictographs.html',1,'vg::Pictographs']]],
   ['pictographs_2ehpp_4957',['pictographs.hpp',['../pictographs_8hpp.html',1,'']]],
   ['pileup_4958',['Pileup',['../structvg_1_1Pileup.html',1,'vg']]],
