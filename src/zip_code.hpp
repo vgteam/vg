@@ -231,12 +231,6 @@ class ZipCode {
         const static size_t NODE_METADATA_OFFSET = 2;
         const static size_t NODE_CHAIN_COMPONENT_OFFSET = 3;
 
-        /// Check for a particular bit being set
-        /// Used for the bitpacked SNARL/NODE_METADATA_OFFSET values
-        inline bool bit_is_set(size_t value, size_t bit_position) const {
-            return (value & (1 << bit_position)) != 0;
-        }
-
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
          */
@@ -268,6 +262,12 @@ class ZipCode {
         chain_code_t unpack_chain_code(size_t zipcode_level) const;
         //Return a vector of size_ts that will represent the snarl in the zip code
         snarl_code_t unpack_snarl_code(size_t zipcode_level) const;
+
+        /// Check for a particular bit being set
+        /// Used for the bitpacked SNARL/NODE_METADATA_OFFSET values
+        inline bool bit_is_set(size_t value, size_t bit_position) const {
+            return (value & (1 << bit_position)) != 0;
+        }
 
 
     //////////////////////////////// Stuff for decoding the zipcode

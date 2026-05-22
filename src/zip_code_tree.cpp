@@ -2703,7 +2703,7 @@ void ZipCodeForest::get_chain_child_sort_info(sort_value_t& chain_child, const S
             size_t length = 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
             // Next is the reversedness
             std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
-            bool is_reversed = zip_value;
+            bool is_reversed = seed.zipcode.bit_is_set(zip_value, 0);
             // Finally is the chain component
             std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
             chain_child.set_chain_component(zip_value);
@@ -2723,12 +2723,12 @@ void ZipCodeForest::get_chain_child_sort_info(sort_value_t& chain_child, const S
         size_t zip_index = seed.zipcode.decoder[depth].offset;
         std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
         // First is the snarl type
-        if (zip_value == 0) {
-            chain_child.set_code_type(ZipCode::IRREGULAR_SNARL);
-        } else if (zip_value == 1) {
+        if (seed.zipcode.bit_is_set(zip_value, 0)) {
             chain_child.set_code_type(ZipCode::REGULAR_SNARL);
-        } else {
+        } else if (seed.zipcode.bit_is_set(zip_value, 1)) {
             chain_child.set_code_type(ZipCode::CYCLIC_SNARL);
+        } else {
+            chain_child.set_code_type(ZipCode::IRREGULAR_SNARL);
         }
         // Next is the offset
         std::tie(zip_value, zip_index) = seed.zipcode.zipcode.get_value_and_next_index(zip_index);
