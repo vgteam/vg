@@ -7865,9 +7865,179 @@ namespace vg {
                 */
                     
             }
-        
-            
-        } 
+
+
+        }
+
+        TEST_CASE( "Distance index hub labeling matches Dijkstra on random graphs",
+                  "[snarl_distance][snarl_distance_random_hub_labels]" ) {
+
+            // Force hub labeling on essentially every snarl by pinning size_limit
+            // to 1, and bias graphs toward snarlier topologies so the hub-label
+            // path actually has interior nodes to label.
+
+            std::default_random_engine generator(test_seed_source());
+
+            for (size_t repeat = 0; repeat < 1000; repeat++) {
+
+                std::uniform_int_distribution<size_t> bases_dist(200, 1500);
+                size_t bases = bases_dist(generator);
+                std::uniform_int_distribution<size_t> variant_bases_dist(1, bases/15);
+                size_t variant_bases = variant_bases_dist(generator);
+                std::uniform_int_distribution<size_t> variant_count_dist(bases/15, bases/8);
+                size_t variant_count = variant_count_dist(generator);
+
+                std::uniform_real_distribution<double> flip_dist(0.0, 1.0);
+                double node_flip_fraction = flip_dist(generator);
+                double chain_flip_fraction = flip_dist(generator);
+
+                // Anything > 1 trips the populate_hub_labeling branch.
+                const size_t size_limit = 1;
+
+#ifdef debug
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events with " << node_flip_fraction << " nodes flipped and " << chain_flip_fraction << " of chains flipped, with size limit " << size_limit << endl;
+#endif
+
+                // Generate a base graph
+                VG base_graph;
+                random_graph(bases, variant_bases, variant_count, &base_graph);
+
+                // Flip some fraction of the nodes to their local reverse orientation
+                bdsg::HashGraph graph = randomly_flipped_nodes(base_graph, node_flip_fraction, generator);
+
+                // Find snarls
+                IntegratedSnarlFinder base_finder(graph);
+
+                // Flip some fraction of the chains to their opposite orientation.
+                SnarlDecompositionFuzzer finder(&graph, &base_finder, chain_flip_fraction, generator);
+
+                // Build the index
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
+
+                //Make sure that the distance index found all the nodes
+                for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
+                    if (graph.has_node(id)) {
+                        handle_t handle = graph.get_handle(id);
+                        REQUIRE(graph.get_length(handle) ==
+                                distance_index.node_length(distance_index.get_net(handle, &graph)));
+                    }
+                }
+
+                for (size_t repeat_positions = 0 ; repeat_positions < 500 ; repeat_positions++) {
+                    //Pick random pairs of positions and find the distance between them
+                    id_t node_id1 = 0;
+                    id_t node_id2 = 0;
+                    uniform_int_distribution<int> random_node_ids(graph.min_node_id(),graph.max_node_id());
+                    default_random_engine generator(test_seed_source());
+                    while (node_id1 == 0) {
+                        id_t new_id = random_node_ids(generator);
+                        if (graph.has_node(new_id)) {
+                            node_id1 = new_id;
+                        }
+                    }
+                    while (node_id2 == 0) {
+                        id_t new_id = random_node_ids(generator);
+                        if (graph.has_node(new_id)) {
+                            node_id2 = new_id;
+                        }
+                    }
+
+                    REQUIRE(graph.has_node(node_id1));
+                    REQUIRE(graph.has_node(node_id2));
+
+
+                    offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
+                    offset_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
+                    bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
+                    bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
+
+
+                    handle_t handle1 = graph.get_handle(node_id1, rev1);
+                    handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+
+                    //Find actual distance
+                    size_t dijkstra_distance = std::numeric_limits<size_t>::max();
+                    if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
+                        dijkstra_distance = offset2 - offset1;
+
+                        pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
+                        size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph, &traceback);
+                        size_t max_distance = distance_index.maximum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2);
+                        if (snarl_distance != dijkstra_distance){
+                            cerr << "Failed random hub-label test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
+                            cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
+                            cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
+                            cerr << "serializing graph to test_graph.vg" << endl;
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
+                            REQUIRE(false);
+                        }
+                        if (max_distance < snarl_distance){
+                            cerr << "Failed random hub-label test" << endl;
+                            cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
+                            cerr << "minimum: " << snarl_distance << " maximum: " << max_distance << endl;
+                            cerr << "serializing graph to test_graph.vg" << endl;
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
+                            REQUIRE(false);
+                        }
+                        REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
+                        if (!traceback.first.empty() && ! traceback.second.empty()) {
+                            size_t traceback_distance = 0;
+                            for (auto x : traceback.first){
+                                if (std::get<1>(x) != std::numeric_limits<int32_t>::max() && std::get<1>(x) != std::numeric_limits<int32_t>::min()) {
+                                    traceback_distance += std::abs(std::get<1>(x));
+                                } else if (std::get<2>(x) != std::numeric_limits<int32_t>::max() && std::get<2>(x) != std::numeric_limits<int32_t>::min()){
+                                    traceback_distance += std::abs(std::get<2>(x));
+                                }
+                            }
+                            for (size_t i = 0 ; i < traceback.second.size()-1 ; i++) {
+                                auto x = traceback.second[i];
+
+                                if (std::get<1>(x) != std::numeric_limits<int32_t>::max() && std::get<1>(x) != std::numeric_limits<int32_t>::min()) {
+                                    traceback_distance += std::abs(std::get<1>(x));
+                                } else if (std::get<2>(x) != std::numeric_limits<int32_t>::max() && std::get<2>(x) != std::numeric_limits<int32_t>::min()){
+                                    traceback_distance += std::abs(std::get<2>(x));
+                                }
+                            }
+                            REQUIRE(snarl_distance == traceback_distance);
+                        } else {
+                            REQUIRE(snarl_distance == std::numeric_limits<size_t>::max());
+                        }
+
+                    } else if (node_id1 == node_id2 ) {
+                        //TOOD: The dijkstra algorithm won't visit the start node twice
+                    } else {
+                        bool first = true;
+                        handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                            if (reached == handle2 && ! first) {
+                                dijkstra_distance = distance;
+                                dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                                dijkstra_distance += offset2;
+                                return false;
+                            }
+                            first = false;
+                            return true;
+                        }
+                        , false);
+
+                        size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
+                        if (snarl_distance != dijkstra_distance){
+                            cerr << "Failed random hub-label test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
+                            cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
+                            cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
+                            cerr << "serializing graph to test_graph.vg" << endl;
+                            vg::io::save_handle_graph(&graph, "test_graph.vg");
+                            REQUIRE(false);
+                        }
+                        REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
+                    }
+                }
+            }
+        }
+
         //TEST_CASE("Failed unit test", "[failed]") {
         //    //Load failed random graph
         //    ifstream vg_stream("test_graph.hg");
