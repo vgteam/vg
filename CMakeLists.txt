@@ -76,7 +76,7 @@ FetchContent_Declare(libvgio
 )
 FetchContent_Declare(libbdsg
     GIT_REPOSITORY https://github.com/vgteam/libbdsg.git
-    GIT_TAG        4ec0f66f8c60a524d10de07561f87ec6b3825330
+    GIT_TAG        01080f236de7d032755a12c831bd6b74b004382a
     EXCLUDE_FROM_ALL
 )
 FetchContent_Declare(cssw_lib
@@ -430,7 +430,7 @@ target_include_directories(vg_core PUBLIC
 target_link_libraries(vg_core PUBLIC
     # vgteam (FetchContent)
     handlegraph_shared vgio_static libbdsg libgssw
-    xg progress_bar vcflib structures_static
+    libxg_static progress_bar vcflib structures_static
     dozeu
     # additional vg stuff
     gbwt gbwtgraph gcsa2
