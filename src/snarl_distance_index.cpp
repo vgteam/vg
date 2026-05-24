@@ -1109,19 +1109,24 @@ void populate_snarl_index(
       temp_index.use_oversized_snarls = true;
       temp_snarl_record.is_simple = false;
       populate_hub_labeling(temp_index, snarl_index, temp_snarl_record, all_children, graph);
-      
-      // We need to query the hub labeling to fill in min_length,
-      // distance_start_start, and distance_start_end with the connectivity
-      // distances through the snarl, not including boundary nodes.
-      //
-      // Luckily we know the start is always child rank 0 forward, and the end
-      // is always child rank 1 forward.
-      //
-      // To exclude the boundary lengths we go from source port to non-source
-      // port.
-      temp_snarl_record.min_length = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(0, false, true), bgid(1, false, false)));
-      temp_snarl_record.distance_start_start = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(0, false, true), bgid(0, true, false)));
-      temp_snarl_record.distance_end_end = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(1, true, true), bgid(1, false, false)));
+
+      if (!temp_snarl_record.is_root_snarl) {
+        // We need to query the hub labeling to fill in min_length,
+        // distance_start_start, and distance_start_end with the connectivity
+        // distances through the snarl, not including boundary nodes.
+        //
+        // Luckily we know the start is always child rank 0 forward, and the end
+        // is always child rank 1 forward.
+        //
+        // To exclude the boundary lengths we go from source port to non-source
+        // port.
+        //
+        // Root snarls have no boundary nodes (no rank 0/1), so these queries
+        // are meaningless for them. The root read path ignores these fields too.
+        temp_snarl_record.min_length = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(0, false, true), bgid(1, false, false)));
+        temp_snarl_record.distance_start_start = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(0, false, true), bgid(0, true, false)));
+        temp_snarl_record.distance_end_end = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(1, true, true), bgid(1, false, false)));
+      }
       // TODO: Should this be here or should it be part of populate_hub_labeling()? Or its own function?
     } else {
       if (size_limit == 0 || only_top_level_chain_distances) { 
