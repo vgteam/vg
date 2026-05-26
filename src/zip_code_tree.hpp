@@ -161,7 +161,9 @@ class ZipCodeTree {
 
         /// For a bound, how long the internal section is
         /// e.g. a chain with one seed would be "1"
-        size_t section_length : 59;
+        /// For a seed, how far its FORWARD loop is
+        /// i.e. how long the path is to leave forward and return backward
+        size_t extra_length : 59;
 
         /// For a seed, if we're walking through the tree from right to left
         /// (the default), will we traverse this position backwards?
@@ -187,7 +189,7 @@ class ZipCodeTree {
             : type(type), is_reversed_or_cyclic(is_reversed_or_cyclic) {
             set_value(raw_value);
             // Always default to max
-            section_length = internal_max();
+            extra_length = internal_max();
         }
         /// Constructor to set a "false" for is_reversed_or_cyclic
         tree_item_t (tree_item_type_t type, size_t raw_value) 
@@ -204,8 +206,12 @@ class ZipCodeTree {
                                                                       : new_value;
         }
         inline void set_section_length(size_t new_length) {
-            section_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
-                                                                                : new_length;
+            extra_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
+                                                                              : new_length;
+        }
+        inline void set_forward_loop_length(size_t new_length) {
+            extra_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
+                                                                              : new_length;
         }
         // Getters
         inline tree_item_type_t get_type() const { return type; }
@@ -232,21 +238,25 @@ class ZipCodeTree {
             return is_reversed_or_cyclic;
         }
         inline size_t get_section_length() const { 
-            return section_length == internal_max() ? std::numeric_limits<size_t>::max()
-                                                    : section_length;
+            return extra_length == internal_max() ? std::numeric_limits<size_t>::max()
+                                                  : extra_length;
+        }
+        inline size_t get_forward_loop_length() const { 
+            return extra_length == internal_max() ? std::numeric_limits<size_t>::max()
+                                                  : extra_length;
         }
         /// What to add or subtract to this thing's index
         /// to get index of other bound
         inline int64_t get_other_bound_offset() const {
-            if (section_length == internal_max()) {
+            if (extra_length == internal_max()) {
                 throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
             }
             if (this->type == ZipCodeTree::SNARL_START
                 || this->type == ZipCodeTree::CHAIN_START) {
-                return section_length + 1;
+                return extra_length + 1;
             } else if (this->type == ZipCodeTree::SNARL_END
                        || this->type == ZipCodeTree::CHAIN_END) {
-                return -(section_length + 1);
+                return -(extra_length + 1);
             } else {
                 throw std::runtime_error("Can't get other bound offset of a tree item that isn't a bound");
             }
@@ -421,6 +431,16 @@ public:
         inline size_t get_index() const { return index; }
         inline bool get_right_to_left() const { return right_to_left; }
         inline stack<size_t> get_chain_numbers() const { return chain_numbers; }
+        /// The reversal loop distance that we take to start, or 0 otherwise
+        inline size_t get_extra_distance() const {
+            // Are we going backwards but not in a cyclic snarl?
+            if (cyclic_snarl_nestedness == 0 && !right_to_left) {
+                // We must've taken a reversal
+                return current_item().get_forward_loop_length();
+            } else {
+                return 0;
+            }
+        }
 
     private:
         /// A pointer to the ziptree vector to let us look up distance matrices.
@@ -490,7 +510,9 @@ public:
         /// going in the given direction, and with an optional distance limit
         distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
-                          std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
+                          size_t start_distance,
+                          std::stack<size_t> chain_numbers = std::stack<size_t>(),
+                          bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
         /// Make a reverse iterator from the given seed iterator
@@ -544,7 +566,6 @@ public:
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
         enum State {
-            S_START,
             S_SCAN_CHAIN,
             S_SCAN_DAG_SNARL,
             S_SCAN_CYCLIC_SNARL

@@ -670,7 +670,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\tAdding a forward loop of value " << new_loop_value << endl;
 #endif
-        // This looks like an actually different loop
+        trees[forest_state.active_tree_index].zip_code_tree.back().set_forward_loop_length(new_loop_value);
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::LOOP, new_loop_value, false);
         // Update memory
         cur_chain.last_forward_loop_index = trees[forest_state.active_tree_index].get_tree_size() - 1;
@@ -1692,10 +1692,13 @@ ZipCodeTree::seed_iterator::seed_iterator(size_t start_index, const ZipCodeTree&
 
 auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
     // Last time, we were at a seed in a cyclic snarl
+    // or this is a seed with a possible reversal
     // Should we advance the iterator or just flip direction?
-    if (cyclic_snarl_nestedness > 0) {
+    if (cyclic_snarl_nestedness > 0 || 
+        (current_item().get_type() == SEED &&
+         current_item().get_forward_loop_length() != std::numeric_limits<size_t>::max())) {
 #ifdef debug_parse
-        std::cerr << "Reversing direction in cyclic snarl at seed "
+        std::cerr << "Reversing direction at seed "
                   << current_item().get_value() << std::endl;
 #endif
         // We're currently going right to left, which means we just finished
@@ -1767,26 +1770,31 @@ auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
 
 ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
                                                   const vector<tree_item_t>& zip_code_tree,
+                                                  size_t start_distance,
                                                   std::stack<size_t> chain_numbers,
                                                   bool right_to_left,
                                                   size_t distance_limit) :
     original_index(start_index), end_index(right_to_left ? 0 : (zip_code_tree.size() - 1)),
     zip_code_tree(&zip_code_tree), original_right_to_left(right_to_left), distance_limit(distance_limit),
-    pos(start_index, right_to_left, std::stack<size_t>(), chain_numbers, S_START),
+    pos(start_index, right_to_left, std::stack<size_t>(), chain_numbers, S_SCAN_CHAIN),
     current_item(zip_code_tree.begin() + start_index) {
     if (done()) {
         // We are an end iterator. Nothing else to do.
         return;
     }
+    // If we're taking a reversal (indicated by start_distance)
+    // then we need to turn around
+    if (start_distance != 0) {
+#ifdef debug_parse
+        std::cerr << "Turning around since we used an inversion." << std::endl;
+#endif
+        pos.right_to_left = !right_to_left;
+    }
 #ifdef debug_parse
     std::cerr << "Able to do first initial tick." << std::endl;
 #endif
-    tick();
-#ifdef debug_parse
-    if (!done()) {
-        std::cerr << "Able to do another initial tick." << std::endl;
-    }
-#endif
+    // Add the initial distance to the stack
+    push(start_distance);
     // Skip to the first seed we actually want to yield, or to the end
     ++(*this);
     // As the end of the constructor, the iterator points to
@@ -1799,7 +1807,12 @@ ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(const seed_iterator& from, size_t distance_limit) : 
-    distance_iterator(from.get_index(), *from.zip_code_tree, from.get_chain_numbers(), from.get_right_to_left(), distance_limit) {
+    distance_iterator(from.get_index(), 
+                      *from.zip_code_tree, 
+                      from.get_extra_distance(),
+                      from.get_chain_numbers(),
+                      from.get_right_to_left(),
+                      distance_limit) {
 
     // Nothing to do!
 }
@@ -2274,20 +2287,6 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
     std::cerr << std::endl;
 #endif
     switch (pos.state) {
-    case S_START:
-        // Initial state.
-        //
-        // Stack is empty and we must be at a seed to start at.
-        if ((*current_item).get_type() == SEED) {
-#ifdef debug_parse
-            std::cerr << "Skip over seed " << (*current_item).get_value() << std::endl;
-#endif
-            push(0);
-            pos.state = S_SCAN_CHAIN;
-        } else {
-            unimplemented_error(); 
-        }
-        break;
     case S_SCAN_CHAIN:
         // State where we are scanning through a chain
         //
@@ -3211,8 +3210,6 @@ std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type) {
 
 std::string to_string(const vg::ZipCodeTree::distance_iterator::State& state) {
     switch (state) {
-    case vg::ZipCodeTree::distance_iterator::S_START:
-        return "S_START";
     case vg::ZipCodeTree::distance_iterator::S_SCAN_CHAIN:
         return "S_SCAN_CHAIN";
     case vg::ZipCodeTree::distance_iterator::S_SCAN_DAG_SNARL:
