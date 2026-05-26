@@ -884,7 +884,7 @@ protected:
      * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
      * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
-    void do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+    void do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
                               std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
                               std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
@@ -896,7 +896,7 @@ protected:
     /**
      * Collect stats about the best chains for annotating the final alignment
      */
-    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
+    void get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                const std::vector<std::vector<size_t>>& chains,
                                const std::vector<size_t>& chain_source_tree,
@@ -906,7 +906,7 @@ protected:
                                double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
                                Funnel& funnel) const ;
 
-    void do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
+    void do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                const vector<algorithms::Anchor>& seed_anchors,
                                const std::vector<std::vector<size_t>>& chains, 
@@ -925,7 +925,7 @@ protected:
      *
      * If no alignments have a positive score, responsible for creating an unmapped mapping.
      */
-    void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
+    void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
                                        const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
                                        const std::vector<int>& chain_score_estimates,
                                        std::vector<Alignment>& mappings,

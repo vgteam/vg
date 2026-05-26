@@ -718,6 +718,28 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         return aln.sequence();
     });
 
+    // Create a new alignment object to get rid of old annotations.
+    {
+      Alignment temp;
+      temp.set_sequence(aln.sequence());
+      temp.set_name(aln.name());
+      temp.set_quality(aln.quality());
+      if (has_annotation(aln, "tags")) {
+        // Preserve any BAM tags, which might really have come in as FASTQ
+        // comments and which we want to keep.
+        // TODO: What if these came from a previous Giraffe run though???
+        set_annotation(temp, "tags", get_annotation<string>(aln, "tags"));
+      }
+      aln = std::move(temp);
+    }
+
+    // Annotate the read with metadata
+    if (!sample_name.empty()) {
+        aln.set_sample_name(sample_name);
+    }
+    if (!read_group.empty()) {
+        aln.set_read_group(read_group);
+    }
 
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
@@ -1139,7 +1161,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     return mappings;
 }
 
-void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest,
+void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest,
     const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
     const vector<algorithms::Anchor>& seed_anchors,
     std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
@@ -1812,7 +1834,7 @@ void MinimizerMapper::do_chaining_on_trees(Alignment& aln, const ZipCodeForest& 
 
 
 
-void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
+void MinimizerMapper::get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                            const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                            const std::vector<std::vector<size_t>>& chains,
                                            const std::vector<size_t>& chain_source_tree,
@@ -1873,7 +1895,7 @@ void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& 
 
 }
 
-void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
+void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                             const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                             const vector<algorithms::Anchor>& seed_anchors,
                                             const std::vector<std::vector<size_t>>& chains, 
@@ -1898,23 +1920,6 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     vector<size_t> minimizer_kept_count(minimizers.size(), 0);
 #endif
 
-    // Create a new alignment object to get rid of old annotations.
-    {
-      Alignment temp;
-      temp.set_sequence(aln.sequence());
-      temp.set_name(aln.name());
-      temp.set_quality(aln.quality());
-      aln = std::move(temp);
-    }
-
-    // Annotate the read with metadata
-    if (!sample_name.empty()) {
-        aln.set_sample_name(sample_name);
-    }
-    if (!read_group.empty()) {
-        aln.set_read_group(read_group);
-    }
-    
     // Compute lower limit on chain score to actually investigate
     int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
     // Apply the max in chain score limit
@@ -2227,7 +2232,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     }
 }
 
-void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
+void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
                                                     const std::vector<double>& multiplicity_by_alignment,
                                                     const std::vector<size_t>& alignments_to_source,
                                                     const std::vector<int>& chain_score_estimates,
