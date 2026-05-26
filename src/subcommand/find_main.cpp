@@ -400,6 +400,28 @@ int main_find(int argc, char** argv) {
         }
     }
 
+    // Parse any targets
+    // handle targets from BED
+    if (!bed_targets_file.empty()) {
+        parse_bed_regions(bed_targets_file, targets);
+    }
+    // those given on the command line
+    for (auto& target : targets_str) {
+        Region region;
+        parse_region(target, region);
+        targets.push_back(region);
+    }
+
+    // Find out paths we will need to make position queries on, in case they
+    // aren't already the right sense.
+    std::unordered_set<std::string> required_position_paths;
+    for (const Region& r : targets) {
+        required_position_paths.insert(r.seq);
+    }
+    if (!path_name.empty()) {
+        required_position_paths.insert(path_name);
+    }
+    
     PathPositionHandleGraph* xindex = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -407,7 +429,7 @@ int main_find(int argc, char** argv) {
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         input_gfa = dynamic_cast<GFAHandleGraph*>(path_handle_graph.get()) != nullptr;
-        xindex = overlay_helper.apply(path_handle_graph.get());
+        xindex = overlay_helper.apply(path_handle_graph.get(), required_position_paths);
 
         // Remove node ids that do not exist in the graph.
         std::vector<nid_t> final_ids;
@@ -616,16 +638,6 @@ int main_find(int argc, char** argv) {
             xindex->for_each_path_handle([&](path_handle_t path_handle) {
                     cout << xindex->get_path_name(path_handle) << endl;
                 });
-        }
-        // handle targets from BED
-        if (!bed_targets_file.empty()) {
-            parse_bed_regions(bed_targets_file, targets);
-        }
-        // those given on the command line
-        for (auto& target : targets_str) {
-            Region region;
-            parse_region(target, region);
-            targets.push_back(region);
         }
         if (!targets.empty()) {
             auto output_graph = get_output_graph();
