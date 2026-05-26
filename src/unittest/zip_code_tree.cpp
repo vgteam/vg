@@ -1234,8 +1234,8 @@ namespace unittest {
                 // For each seed, what seeds and distances do we see in reverse from it?
                 auto reverse_views = get_reverse_views(zip_forest);
                 // All five seeds go R->L,
-                // and the three in the cyclic snarl also go L->R
-                REQUIRE(reverse_views.size() == 8);
+                // and the three in the cyclic snarl & 1+0 also go L->R
+                REQUIRE(reverse_views.size() == 9);
                 if (!chain_is_reversed) {
                     // 4+0 R->L can only leave the snarl; it skips all chains
                     REQUIRE(reverse_views.count({1, false}));
@@ -1906,8 +1906,8 @@ namespace unittest {
                 // For each seed, what seeds and distances do we see in reverse from it?
                 auto reverse_views = get_reverse_views(zip_forest);
                 // All six seeds go R->L,
-                // and the four in the cyclic snarl also go L->R
-                REQUIRE(reverse_views.size() == 10);
+                // and the four in the cyclic snarl & 1+0 also go L->R
+                REQUIRE(reverse_views.size() == 11);
                 // 3+0 R->L can see 2+0 inside & 1+0 outside
                 REQUIRE(reverse_views.count({2, false}));
                 REQUIRE(reverse_views[{2, false}].size() == 2);
@@ -2025,8 +2025,8 @@ namespace unittest {
                 // For each seed, what seeds and distances do we see in reverse from it?
                 auto reverse_views = get_reverse_views(zip_forest);
                 // All five seeds go R->L,
-                // and the two in the inversions also go L->R
-                REQUIRE(reverse_views.size() == 7);
+                // and the two in the inversions & 1+0 & 3+0 also go L->R
+                REQUIRE(reverse_views.size() == 9);
                 // Bounce back and forth to see 3+0 from itself
                 REQUIRE(reverse_views.count({2, false}));
                 REQUIRE(reverse_views[{2, false}].size() == 1);
@@ -2167,9 +2167,9 @@ namespace unittest {
                 REQUIRE(reverse_views[{2, true}][0].distance == 11);
                 REQUIRE(reverse_views[{2, true}][0].is_reversed == true);
                 // And since the loop is worse, we'll find the seed again
-                REQUIRE(reverse_views[{2, true}][0].seed == 1);
-                REQUIRE(reverse_views[{2, true}][0].distance == 1);
-                REQUIRE(reverse_views[{2, true}][0].is_reversed == true);
+                REQUIRE(reverse_views[{2, true}][1].seed == 1);
+                REQUIRE(reverse_views[{2, true}][1].distance == 1);
+                REQUIRE(reverse_views[{2, true}][1].is_reversed == true);
             }
         }
     }
