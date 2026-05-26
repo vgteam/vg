@@ -2114,28 +2114,62 @@ namespace unittest {
             REQUIRE(zip_forest.trees[0].get_tree_size() == 3);
         }
         SECTION("Second inversion missing") {
-            // [1+0 >7 3 {1  inf  0  9  1  10  11  1  0  1  inf [2+0]} >9]
+            // [1+0 3 1-0rev >1 0 {1  inf  0  inf  1  inf  inf  1  0  1  inf [2+0]} >9]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
+            positions.emplace_back(1, true, 0);
             positions.emplace_back(2, false, 0);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            REQUIRE(zip_tree.get_tree_size() == 22);
+            REQUIRE(zip_tree.get_tree_size() == 24);
 
             bool chain_is_reversed = zip_tree.get_item_at_index(1).get_is_reversed();
             if (!chain_is_reversed) {
                 // Check loops
-                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
-                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 7);
-                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 1);
+                REQUIRE(!zip_tree.get_item_at_index(4).get_is_reversed());
 
-                REQUIRE(zip_tree.get_item_at_index(20).get_type() == ZipCodeTree::LOOP);
-                REQUIRE(zip_tree.get_item_at_index(20).get_value() == 9);
-                REQUIRE(!zip_tree.get_item_at_index(20).get_is_reversed());
+                REQUIRE(zip_tree.get_item_at_index(22).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(22).get_value() == 9);
+                REQUIRE(!zip_tree.get_item_at_index(22).get_is_reversed());
             } else {
                 cerr << "Part of 'zip tree neighboring inversions' not run" << endl;
+            }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                // All seeds can see in both directions
+                REQUIRE(reverse_views.size() == 6);
+                // 1-0rev can take the loop to see 1+0
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].size() == 1);
+                REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                REQUIRE(reverse_views[{1, false}][0].distance == 4);
+                REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].size() == 1);
+                // 2+0 can simply exit the snarl's left side to see 1+0...
+                REQUIRE(reverse_views[{2, false}][0].seed == 0);
+                REQUIRE(reverse_views[{2, false}][0].distance == 3);
+                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+                // ... or exit the right side, take the loop, and go back to 1+0
+                // Except it won't do that becuase the distance is worse
+
+                REQUIRE(reverse_views.count({2, true}));
+                REQUIRE(reverse_views[{2, true}].size() == 2);
+                // 2+0rev can do similarly, but with the loop option first
+                REQUIRE(reverse_views[{2, true}][0].seed == 1);
+                REQUIRE(reverse_views[{2, true}][0].distance == 11);
+                REQUIRE(reverse_views[{2, true}][0].is_reversed == true);
+                // And since the loop is worse, we'll find the seed again
+                REQUIRE(reverse_views[{2, true}][0].seed == 1);
+                REQUIRE(reverse_views[{2, true}][0].distance == 1);
+                REQUIRE(reverse_views[{2, true}][0].is_reversed == true);
             }
         }
     }
