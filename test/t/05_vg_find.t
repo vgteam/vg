@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 31
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -142,3 +142,9 @@ is $? 0 "find nodes that map to the provided node ids"
 
 rm -f x.vg x.gbwt x.mapping x.unfolded.vg
 rm -f expected.gfa found.gfa
+
+# We wish we could test specifically for which paths are indexed, but we can't.
+# So we test to make sure at least paths that shouldn't normally be indexed are
+# indexed when asked about.
+is "$(vg find -n 5 -P sample1#1#chr1#0 -x graphs/gfa_with_reference.gfa | cut -f2)" "4" "vg find can find positions along non-reference paths asked about specifically"
+

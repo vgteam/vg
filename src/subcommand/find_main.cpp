@@ -820,7 +820,7 @@ int main_find(int argc, char** argv) {
             vg::io::save_handle_graph(&graph, cout);
         }
         if (extract_paths) {
-            logger.warn() << "vg paths -Q/--paths-named is deprecated due to the partial Protobuf graph output format. Consider vg paths --extract-fasta instead." << std::end;
+            logger.warn() << "vg paths -Q/--paths-named is deprecated due to the partial Protobuf graph output format. Consider vg paths --extract-fasta instead." << std::endl;
             for (auto& pattern : extract_path_patterns) {
             
                 // We want to write uncompressed protobuf Graph objects containing our paths.
