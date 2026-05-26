@@ -79,7 +79,8 @@ void help_find(char** argv) {
          << "  -Z, --min-mem N             minimum length of the MEM [1]" << endl
          << "  -D, --distance              return distance on path between pair of nodes (-n)" << endl
          << "                              if -P not used, best path chosen heurstically" << endl
-         << "  -Q, --paths-named STR       return all paths with name prefix STR (may repeat)" << endl;
+         << "  -Q, --paths-named STR       return all paths with name prefix STR (may repeat)" << endl
+         << "                              (deprecated)" << endl;
 
 }
 
@@ -819,6 +820,7 @@ int main_find(int argc, char** argv) {
             vg::io::save_handle_graph(&graph, cout);
         }
         if (extract_paths) {
+            logger.warn() << "vg paths -Q/--paths-named is deprecated due to the partial Protobuf graph output format. Consider vg paths --extract-fasta instead." << std::end;
             for (auto& pattern : extract_path_patterns) {
             
                 // We want to write uncompressed protobuf Graph objects containing our paths.
