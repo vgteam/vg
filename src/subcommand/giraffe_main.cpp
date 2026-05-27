@@ -343,7 +343,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "min-mapq0-score",
         &MinimizerMapper::min_mapq0_score,
         MinimizerMapper::default_min_mapq0_score,
-        "scale scores for mapping quality"
+        "refuse to align lower scoring MQ 60 reads"
     );
     
     // Configure chaining
