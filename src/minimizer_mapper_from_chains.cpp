@@ -2391,8 +2391,25 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
         return true;
     }, [&](size_t alignment_num) {
         // We already have enough alignments, although this one has a good score
-       
-        // Go back and do the unique node fraction filter first.
+
+        // TODO: We end up having to duplicate a bunch of filters here so the
+        // filters are always in order.
+        
+        // Go back and do the nonzero score filter first.
+        // Filter to alignments with strictly positive scores
+        if (alignments[alignment_num].score() <= 0) {
+            if (track_provenance) {
+                funnel.fail("nonzero-score", alignment_num);
+            }
+            // If we fail the nonzero score filter, we won't count as a secondary for MAPQ
+            return;
+        } else {
+            if (track_provenance) {
+                funnel.pass("nonzero-score", alignment_num);
+            }
+        }
+
+        // Go back and do the unique node fraction filter next.
         // TODO: Deduplicate logging code
         double unique_node_fraction = get_fraction_unique(alignment_num);
         if (unique_node_fraction < min_unique_node_fraction) {
