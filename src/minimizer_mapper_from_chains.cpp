@@ -1059,10 +1059,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     if (mapq == 0 && !scores.empty() && scores.front() < min_mapq0_score) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Failing MAPQ 0 alignment for having score "
-                 << scores.front() << " which is below " << min_mapq0_score << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Failing MAPQ 0 alignment for having score "
+                    << scores.front() << " which is below " << min_mapq0_score << endl;
+            }
         }
         if (track_provenance) {
             // Fail all remaining mappings
