@@ -1065,7 +1065,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                  << scores.front() << " which is below " << min_mapq0_score << endl;
         }
         if (track_provenance) {
-            funnel.fail("mapq0-score", 0, scores.front());
+            // Fail all remaining mappings
+            for (size_t i = 0; i < alignments.size(); i++) {
+                funnel.fail_if_needed("mapq0-score", i, scores.front());
+            }
         }
 
         // Reset scores / mappings
@@ -1074,6 +1077,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
         scores.emplace_back(0);
         mappings.emplace_back(aln);
+    } else if (track_provenance) {
+        // Pass all remaining mappings
+        for (size_t i = 0; i < mappings.size(); i++) {
+            funnel.pass_if_needed("mapq0-score", i);
+        }
     }
 
     // Remember the scores

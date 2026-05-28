@@ -301,6 +301,15 @@ void Funnel::fail(const char* filter, size_t prev_stage_item, double statistic) 
     prev_stage.items[prev_stage_item].failed_statistic = statistic;
 }
 
+void Funnel::fail_if_needed(const char* filter, size_t prev_stage_item, double statistic) {
+    // There must be a prev stage to project from
+    assert(stages.size() > 1);
+    // Check if this thing still needs to be failed
+    if (stages[stages.size() - 2].items[prev_stage_item].failed_filter == nullptr) {
+        fail(filter, prev_stage_item, statistic);
+    }
+}
+
 void Funnel::pass(const char* filter, size_t prev_stage_item, double statistic) {
     // There must be a prev stage to project from
     assert(stages.size() > 1);
@@ -314,6 +323,15 @@ void Funnel::pass(const char* filter, size_t prev_stage_item, double statistic) 
     }
     prev_stage.items[prev_stage_item].passed_filters.emplace_back(filter);
     prev_stage.items[prev_stage_item].passed_statistics.emplace_back(statistic);
+}
+
+void Funnel::pass_if_needed(const char* filter, size_t prev_stage_item, double statistic) {
+    // There must be a prev stage to project from
+    assert(stages.size() > 1);
+    // Check if this thing still needs to be failed
+    if (stages[stages.size() - 2].items[prev_stage_item].failed_filter == nullptr) {
+        pass(filter, prev_stage_item, statistic);
+    }
 }
 
 void Funnel::score(size_t item, double score) {
