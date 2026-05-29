@@ -1059,7 +1059,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     if (track_provenance) {
-        funnel.substage("demapping");
+        funnel.stage("demapping");
+        for (size_t i = 0; i < mappings.size(); i++) {
+            funnel.project(i);
+        }
     }
 
     if (mapq == 0 && !scores.empty() && scores.front() < min_mapq0_score) {
@@ -1086,7 +1089,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     } else if (track_provenance) {
         // Pass all remaining mappings
         for (size_t i = 0; i < mappings.size(); i++) {
-            funnel.pass("mapq0-score", i, scores.front());
+            funnel.pass("mapq0-score", i);
         }
     }
 
