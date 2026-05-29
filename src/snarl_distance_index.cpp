@@ -1300,7 +1300,6 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
             //TODO: Why do we care about tips specifically?
             continue;
         }
-        //getting here means snarl is not oversized
         //fill in all distances for a row
         populate_distance_matrix_row(temp_index, snarl_index, temp_snarl_record, start_index, graph, start_rank, is_internal_node, size_limit);   
     }                                                                                                                    
