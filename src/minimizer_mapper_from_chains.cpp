@@ -1058,18 +1058,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
+    if (track_provenance) {
+        funnel.substage("demapping");
+    }
+
     if (mapq == 0 && !scores.empty() && scores.front() < min_mapq0_score) {
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Failing MAPQ 0 alignment for having score "
-                    << scores.front() << " which is below " << min_mapq0_score << endl;
+                cerr << log_name() << "Failing MAPQ 0 alignment for having top score "
+                     << scores.front() << " which is below " << min_mapq0_score << endl;
             }
         }
         if (track_provenance) {
             // Fail all remaining mappings
-            for (size_t i = 0; i < alignments.size(); i++) {
-                funnel.fail_if_needed("mapq0-score", i, scores.front());
+            for (size_t i = 0; i < mappings.size(); i++) {
+                funnel.fail("mapq0-score", i, scores.front());
             }
         }
 
@@ -1082,7 +1086,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     } else if (track_provenance) {
         // Pass all remaining mappings
         for (size_t i = 0; i < mappings.size(); i++) {
-            funnel.pass_if_needed("mapq0-score", i);
+            funnel.pass("mapq0-score", i, scores.front());
         }
     }
 

@@ -142,22 +142,12 @@ public:
     /// Allows a statistic for the filtered-on value for the failing item to be recorded.
     void fail(const char* filter, size_t prev_stage_item, double statistic = nan(""));
 
-    /// Fail the given item from the previous stage on the given filter
-    /// if it hasn't already failed a different filter
-    /// This makes it easy to safely fail everything that hasn't failed yet.
-    void fail_if_needed(const char* filter, size_t prev_stage_item, double statistic = nan(""));
-    
     /// Pass the given item from the previous stage through the given filter at this stage.
     /// Items which do not pass a filter must fail it.
     /// All items which pass filters must do so in the same order.
     /// The filter name must survive the funnel, because a pointer to it will be stored.
     /// Allows a statistic for the filtered-on value for the passing item to be recorded.
     void pass(const char* filter, size_t prev_stage_item, double statistic = nan(""));
-
-    /// Pass the given item from the previous stage on the given filter
-    /// if it hasn't already failed a different filter
-    /// This makes it easy to safely pass everything that hasn't failed yet.
-    void pass_if_needed(const char* filter, size_t prev_stage_item, double statistic = nan(""));
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
