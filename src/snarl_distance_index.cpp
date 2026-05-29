@@ -799,7 +799,7 @@ static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIn
  * - Normal snarl: all rows
  * - Oversized snarl: boundaries and tips
  * - size_limit == 0: no distances in index, so no rows
- * - Top-level chain distances only: ??? 
+ * - Top-level chain distances only: boundaries and tips only (same as oversized snarl)
  */
 static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
 
