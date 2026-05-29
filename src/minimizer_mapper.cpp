@@ -61,8 +61,8 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     path_graph(path_graph),
     minimizer_index(minimizer_index),
     k(minimizer_index.k()), w(minimizer_index.w()),
-    payload_with_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
     uses_syncmers(minimizer_index.uses_syncmers()),
+    use_payload_paths(has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS)),
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
@@ -1138,7 +1138,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
+        get_regular_aligner()->mapq_calc->compute_max_mapping_quality(scores, false) ;
 
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
@@ -1187,7 +1187,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         for (auto& supp : supplementaries) {
             double score_diff = mappings.front().score() - supp.score();
             scores[0] -= score_diff;
-            double supp_mapq = get_regular_aligner()->compute_first_mapping_quality(scores, false);
+            double supp_mapq = get_regular_aligner()->mapq_calc->compute_first_mapping_quality(scores, false);
             supp.set_mapping_quality(max(min<int>(supp_mapq, mappings.front().mapping_quality()), 0));
             scores[0] += score_diff;
         }
@@ -1311,7 +1311,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             //If we don't know the fragment length distribution, map the reads single ended
             single[r] = std::move(map(*alns[r]));
             // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
-            max_score_aln[r] = get_regular_aligner()->score_exact_match(*alns[r], 0, alns[r]->sequence().size());
+            max_score_aln[r] = get_regular_aligner()->scorer->score_exact_match(*alns[r], 0, alns[r]->sequence().size());
             both_perfect_unique = both_perfect_unique && !single[r].empty() && single[r].front().mapping_quality() == 60 && single[r].front().score() >= max_score_aln[r] * 0.85;
         }
         
@@ -2681,7 +2681,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
         // Use exact mapping quality
         uncapped_mapq = scores[0] == 0 ? 0 : 
-            get_regular_aligner()->compute_max_mapping_quality(scores, false, multiplicities);
+            get_regular_aligner()->mapq_calc->compute_max_mapping_quality(scores, false, multiplicities);
 
         //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, including self
         if (better_cluster_count_by_mappings.front() > 1) {
@@ -2695,7 +2695,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         
             //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
             //of the group of duplicated alignments. Always compute this even if not quite sensible.
-            mapq_score_groups[r] = get_regular_aligner()->compute_max_mapping_quality(scores_group[r], false);
+            mapq_score_groups[r] = get_regular_aligner()->mapq_calc->compute_max_mapping_quality(scores_group[r], false);
         
             vector<size_t> explored_minimizers;
             for (size_t i = 0; i < minimizers_by_read[r].size(); i++) {
@@ -2729,7 +2729,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             if (types.front() == unpaired) {
                 //If this pair came from two different fragment cluster, then cap mapq at the mapq
                 //from only unpaired alignments of this read
-                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_max_mapping_quality(unpaired_scores[r], false));
+                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->mapq_calc->compute_max_mapping_quality(unpaired_scores[r], false));
             }
             
             // Find the MAPQ to cap
@@ -2786,7 +2786,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 for (auto& supp : suppl_alignments) {
                     double score_diff = mappings[r].front().score() - supp.score();
                     scores[0] -= score_diff;
-                    double supp_mapq = get_regular_aligner()->compute_first_mapping_quality(scores, false, multiplicities);
+                    double supp_mapq = get_regular_aligner()->mapq_calc->compute_first_mapping_quality(scores, false, multiplicities);
                     supp.set_mapping_quality(max(min<int>(supp_mapq, mappings[r].front().mapping_quality()), 0));
                     scores[0] += score_diff;
                 }
@@ -3375,7 +3375,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         }
     
         if (rescue_algorithm == rescue_dozeu) {
-            size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
+            size_t gap_limit = this->get_regular_aligner()->scorer->longest_detectable_gap(rescued_alignment);
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
                                                dozeu_seed, false, gap_limit);
             this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
@@ -3416,7 +3416,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         // Align to the subgraph.
         // TODO: Map the seed to the dagified subgraph.
         if (this->rescue_algorithm == rescue_dozeu) {
-            size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
+            size_t gap_limit = this->get_regular_aligner()->scorer->longest_detectable_gap(rescued_alignment);
             get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
             this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
             this->fix_dozeu_end_deletions(rescued_alignment);
@@ -3443,7 +3443,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     }
 
     // Work out how many matches of score the alignment is
-    int effective_matches = rescued_alignment.score() / this->get_regular_aligner()->match;
+    int effective_matches = rescued_alignment.score() / this->get_regular_aligner()->scorer->match;
     if (effective_matches <= rescued_alignment.sequence().size() && effective_matches <= subgraph_size) {
         // We haven't hit any weird full-length bonuses
 
@@ -3497,7 +3497,7 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
                                       const std::vector<handle_t>& topological_order) const {
 
     const Aligner* aligner = this->get_regular_aligner();
-    int32_t score = aligner->score_contiguous_alignment(rescued_alignment);
+    int32_t score = aligner->scorer->score_contiguous_alignment(rescued_alignment);
     if (score > 0) {
         rescued_alignment.set_score(score);
     } else {
@@ -4461,7 +4461,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
                 // Handle the payload.
                 seeds.back().zipcode.fill_in_zipcode(occ.second, this->zipcodes, *(this->distance_index), hit);
-                if (this->payload_with_paths) {
+                if (this->use_payload_paths) {
                     seeds.back().paths = occ.second[MinimizerIndexParameters::ZIPCODE_PAYLOAD_SIZE];
                 }
             }
@@ -5209,7 +5209,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::vector
             funnel.producing_output(i);
         }
         
-        result[i] = score_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
+        result[i] = score_extension_group(aln, extensions[i], get_regular_aligner()->scorer->gap_open, get_regular_aligner()->scorer->gap_extension);
         
         // Record the score with the funnel.
         if (this->track_provenance) {
@@ -5236,7 +5236,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
             funnel.producing_output(i);
         }
         
-        result[i] = score_extension_group(aln, extensions[i].first, get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
+        result[i] = score_extension_group(aln, extensions[i].first, get_regular_aligner()->scorer->gap_open, get_regular_aligner()->scorer->gap_extension);
         
         // Record the score with the funnel.
         if (this->track_provenance) {
@@ -5274,17 +5274,17 @@ static void find_pareto_frontier(std::vector<pareto_point>& v) {
 
 // Positive gap penalty if there is a gap.
 static int32_t gap_penalty(size_t length, const Aligner* aligner) {
-    return (length == 0 ? 0 : aligner->gap_open + (length - 1) * aligner->gap_extension);
+    return (length == 0 ? 0 : aligner->scorer->gap_open + (length - 1) * aligner->scorer->gap_extension);
 }
 
 // Positive penalty for a number of mismatches.
 static int32_t mismatch_penalty(size_t n, const Aligner* aligner) {
-    return n * (aligner->match + aligner->mismatch);
+    return n * (aligner->scorer->match + aligner->scorer->mismatch);
 }
 
 // Positive gap penalty, assuming that there is always a gap.
 static int32_t gap_penalty(size_t start, size_t limit, const Aligner* aligner) {
-    return (start >= limit ? aligner->gap_open : aligner->gap_open + (limit - start - 1) * aligner->gap_extension);
+    return (start >= limit ? aligner->scorer->gap_open : aligner->scorer->gap_open + (limit - start - 1) * aligner->scorer->gap_extension);
 }
 
 // Positive flank penalty based on taking a gap to the end or to the Pareto frontier.
@@ -5452,7 +5452,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             // extension on the Pareto frontier, for both ends.
             if (!extension.full()) {
                 if (partial_extension_aligned && extension.score <= threshold) {
-                    int32_t score_estimate = aln.sequence().length() * aligner->match + 2 * aligner->full_length_bonus -
+                    int32_t score_estimate = aln.sequence().length() * aligner->scorer->match + 2 * aligner->scorer->full_length_bonus -
                         mismatch_penalty(extension.mismatches(), aligner);
                     if (!extension.left_full) {
                         score_estimate -= flank_penalty(extension.read_interval.first, left_frontier, aligner);
@@ -5796,7 +5796,7 @@ vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& ex
     }
     
     // Work it out because we need it for the limit of our search distance
-    *longest_detectable_gap = get_regular_aligner()->longest_detectable_gap(read_length, tail_length);
+    *longest_detectable_gap = get_regular_aligner()->scorer->longest_detectable_gap(read_length, tail_length);
 
 #ifdef debug
     cerr << "Tail length: " << tail_length << " Read length: " << read_length << " Longest detectable gap: " << *longest_detectable_gap << endl;
@@ -6008,7 +6008,7 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
     //Score a pair of alignments
 
     double dev = fragment_distance - fragment_length_distr.mean();
-    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_regular_aligner()->log_base;
+    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_regular_aligner()->scorer->get_log_base();
     double score = aln1.score() + aln2.score() +fragment_length_log_likelihood ;
 
     //Don't let the fragment length log likelihood bring score down below the score of the best alignment

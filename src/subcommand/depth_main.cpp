@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 
 #include "subcommand.hpp"
 
@@ -222,7 +223,7 @@ int main_depth(int argc, char** argv) {
         map<pair<string, int64_t>, string> ref_paths;
         unordered_set<string> base_path_set;
         
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        auto select_path = [&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(path_name, &subrange);
@@ -234,7 +235,7 @@ int main_depth(int argc, char** argv) {
                 if (!use_it && ref_paths_input_set.count(base_name)) {
                     use_it = true;
                 }
-                
+
                 // then look in the prefixes
                 for (size_t i = 0; i < path_prefixes.size() && !use_it; ++i) {
                     if (path_name.substr(0, path_prefixes[i].length()) == path_prefixes[i]) {
@@ -246,7 +247,21 @@ int main_depth(int argc, char** argv) {
                     assert(!ref_paths.count(coord));
                     ref_paths[coord] = path_name;
                 }
-            });
+        };
+
+        if (pack_filename.empty()) {
+            // Path coverage: include HAPLOTYPE sense so haplotype paths stored
+            // in GBZ/GBWT contribute.  On non-GBZ graphs this is equivalent to
+            // the default for_each_path_handle iteration.
+            static const std::unordered_set<PathSense> path_senses{
+                PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE
+            };
+            graph->for_each_path_of_sense(path_senses, select_path);
+        } else {
+            // Pack coverage (-k): preserve prior behavior and skip haplotype
+            // paths, which the packed supports don't index by default.
+            graph->for_each_path_handle(select_path);
+        }
         
         for (const auto& ref_name : ref_paths_input_set) {
             if (!base_path_set.count(ref_name)) {
@@ -254,11 +269,43 @@ int main_depth(int argc, char** argv) {
             }
         }
 
+        // Flatten ref_paths into a vector so we can OpenMP over indices.  The
+        // map already orders entries by (base_name, subpath_offset); preserve
+        // that ordering for deterministic output.
+        vector<tuple<string, string, size_t>> ordered_paths;
+        ordered_paths.reserve(ref_paths.size());
         for (const auto& ref_coord_path : ref_paths) {
-            const string& ref_path = ref_coord_path.second;
-            const string& base_path = ref_coord_path.first.first;
-            const size_t subpath_offset = ref_coord_path.first.second;
-            
+            ordered_paths.emplace_back(ref_coord_path.first.first,
+                                       ref_coord_path.second,
+                                       ref_coord_path.first.second);
+        }
+
+        // Outer parallelism is across paths.  The binned depth helpers have
+        // their own inner `#pragma omp parallel for`; when we're running the
+        // outer region cap active levels so those don't nest and over-subscribe
+        // the CPU.  With a single path we skip the outer region entirely so the
+        // inner parallelism still runs -- binning remains useful.
+        int saved_max_levels = omp_get_max_active_levels();
+        const bool parallel_outer = ordered_paths.size() > 1;
+        if (parallel_outer) {
+            omp_set_max_active_levels(1);
+        }
+
+        // Collect each path's output into its own slot so threads never block
+        // on emission.  Avoids the `#pragma omp ordered` pitfall where a thread
+        // that finishes a short iteration has to wait for earlier (potentially
+        // much longer) iterations to emit before it can pick up new work.
+        // Emitting serially after the parallel region preserves path order.
+        vector<string> path_output(ordered_paths.size());
+
+#pragma omp parallel for schedule(dynamic, 1) if(parallel_outer)
+        for (size_t i = 0; i < ordered_paths.size(); ++i) {
+            const string& base_path = get<0>(ordered_paths[i]);
+            const string& ref_path = get<1>(ordered_paths[i]);
+            const size_t subpath_offset = get<2>(ordered_paths[i]);
+
+            ostringstream buf;
+
             if (bin_size > 1) {
                 vector<tuple<size_t, size_t, double, double>> binned_depth;
                 if (!pack_filename.empty()) {
@@ -269,17 +316,27 @@ int main_depth(int argc, char** argv) {
                 for (auto& bin_cov : binned_depth) {
                     // bins can be nan if min_coverage filters everything out.  just skip
                     if (!isnan(get<3>(bin_cov))) {
-                        cout << base_path << "\t" << (get<0>(bin_cov) + 1 + subpath_offset)<< "\t" << (get<1>(bin_cov) + 1 + subpath_offset) << "\t" << get<2>(bin_cov)
-                             << "\t" << sqrt(get<3>(bin_cov)) << endl;
+                        buf << base_path << "\t" << (get<0>(bin_cov) + 1 + subpath_offset)<< "\t" << (get<1>(bin_cov) + 1 + subpath_offset) << "\t" << get<2>(bin_cov)
+                            << "\t" << sqrt(get<3>(bin_cov)) << "\n";
                     }
                 }
             } else {
                 if (!pack_filename.empty()) {
-                    algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
+                    algorithms::packed_depths(*packer, ref_path, min_coverage, buf);
                 } else {
-                    algorithms::path_depths(*graph, ref_path, min_coverage, count_cycles, cout);
+                    algorithms::path_depths(*graph, ref_path, min_coverage, count_cycles, buf);
                 }
             }
+
+            path_output[i] = buf.str();
+        }
+
+        if (parallel_outer) {
+            omp_set_max_active_levels(saved_max_levels);
+        }
+
+        for (const string& s : path_output) {
+            cout << s;
         }
     }
 

@@ -363,9 +363,9 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     REQUIRE(!softclip_end(aln));
 
     // Normal score would be 129
-    REQUIRE(aligner2.score_contiguous_alignment(aln) == 129);
+    REQUIRE(aligner2.scorer->score_contiguous_alignment(aln) == 129);
     // And with a full length bonus at each end it's 139.
-    REQUIRE(aligner1.score_contiguous_alignment(aln) == 139);
+    REQUIRE(aligner1.scorer->score_contiguous_alignment(aln) == 139);
 }
 
 TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignment][mapping][mapq]") {
@@ -379,25 +379,25 @@ TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignme
         
         SECTION("a 1-element positive vector has its element chosen") {
             scaled_scores = {10};
-            GSSWAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element zero vector has its element chosen") {
             scaled_scores = {0};
-            GSSWAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element negative vector has its element chosen") {
             scaled_scores = {-10};
-            GSSWAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a multi-element vector has a maximal element chosen") {
             scaled_scores = {1, 5, 2, 5, 4};
-            GSSWAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx >= 1);
             REQUIRE(max_idx != 2);
             REQUIRE(max_idx <= 3);
@@ -410,25 +410,25 @@ TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignme
 
         SECTION("a 1-element positive vector has its element chosen") {
             scaled_scores = {10};
-            GSSWAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element zero vector has its element chosen") {
             scaled_scores = {0};
-            GSSWAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element negative vector has its element chosen") {
             scaled_scores = {-10};
-            GSSWAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a multi-element vector has a maximal element chosen") {
             scaled_scores = {1, 5, 2, 5, 4};
-            GSSWAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            MappingQualityCalculator::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx >= 1);
             REQUIRE(max_idx != 2);
             REQUIRE(max_idx <= 3);

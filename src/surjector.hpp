@@ -582,7 +582,7 @@ using namespace std;
             }
             // approximate the score from overlapping alignments
             // TODO: it would be possible to make this exact
-            total_score -= total_overlap(strand_surjections.second) * get_aligner()->match;
+            total_score -= total_overlap(strand_surjections.second) * get_aligner()->scorer->match;
             
             if (total_score >= score) {
 #ifdef debug_anchored_surject

@@ -200,12 +200,12 @@ void in_place_subvector(std::vector<Element>& vec, size_t head, size_t tail) {
 // Compute the score based on read_interval, internal_score, left_full, and right_full.
 void set_score(GaplessExtension& extension, const Aligner* aligner) {
     // Assume that everything matches.
-    extension.score = static_cast<int32_t>((extension.read_interval.second - extension.read_interval.first) * aligner->match);
+    extension.score = static_cast<int32_t>((extension.read_interval.second - extension.read_interval.first) * aligner->scorer->match);
     // Handle the mismatches.
-    extension.score -= static_cast<int32_t>(extension.internal_score * (aligner->match + aligner->mismatch));
+    extension.score -= static_cast<int32_t>(extension.internal_score * (aligner->scorer->match + aligner->scorer->mismatch));
     // Handle full-length bonuses.
-    extension.score += static_cast<int32_t>(extension.left_full * aligner->full_length_bonus);
-    extension.score += static_cast<int32_t>(extension.right_full * aligner->full_length_bonus);
+    extension.score += static_cast<int32_t>(extension.left_full * aligner->scorer->full_length_bonus);
+    extension.score += static_cast<int32_t>(extension.right_full * aligner->scorer->full_length_bonus);
 }
 
 // Match the initial node, assuming that read_offset or node_offset is 0.
@@ -427,9 +427,9 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
     // Start with the initial run of matches.
     auto mismatch = extension.mismatch_positions.begin();
     std::pair<size_t, size_t> current_interval(extension.read_interval.first, *mismatch);
-    int32_t current_score = interval_length(current_interval) * aligner.match;
+    int32_t current_score = interval_length(current_interval) * aligner.scorer->match;
     if (extension.left_full) {
-        current_score += aligner.full_length_bonus;
+        current_score += aligner.scorer->full_length_bonus;
     }
 
     // Process the alignment and keep track of the best interval we have seen so far.
@@ -437,9 +437,9 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
     int32_t best_score = current_score;
     while (mismatch != extension.mismatch_positions.end()) {
         // See if we should start a new interval after the mismatch.
-        if (current_score >= aligner.mismatch) {
+        if (current_score >= aligner.scorer->mismatch) {
             current_interval.second++;
-            current_score -= aligner.mismatch;
+            current_score -= aligner.scorer->mismatch;
         } else {
             current_interval.first = current_interval.second = *mismatch + 1;
             current_score = 0;
@@ -450,14 +450,14 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
         if (mismatch == extension.mismatch_positions.end()) {
             size_t length = extension.read_interval.second - current_interval.second;
             current_interval.second = extension.read_interval.second;
-            current_score += length * aligner.match;
+            current_score += length * aligner.scorer->match;
             if (extension.right_full) {
-                current_score += aligner.full_length_bonus;
+                current_score += aligner.scorer->full_length_bonus;
             }
         } else {
             size_t length = *mismatch - current_interval.second;
             current_interval.second = *mismatch;
-            current_score += length * aligner.match;
+            current_score += length * aligner.scorer->match;
         }
 
         // Update the best interval.
@@ -1253,10 +1253,10 @@ WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& align
     graph(&graph), mask("ACGT"), aligner(&aligner), error_model(&error_model)
 {
     // Check that the scoring parameters are reasonable.
-    assert(this->aligner->match >= 0);
-    assert(this->aligner->mismatch > 0);
-    assert(this->aligner->gap_open >= this->aligner->gap_extension);
-    assert(this->aligner->gap_extension > 0);
+    assert(this->aligner->scorer->match >= 0);
+    assert(this->aligner->scorer->mismatch > 0);
+    assert(this->aligner->scorer->gap_open >= this->aligner->scorer->gap_extension);
+    assert(this->aligner->scorer->gap_extension > 0);
 
     // Check that the error model makes sense.
     for (auto& event : {
@@ -1378,12 +1378,12 @@ struct WFAPoint {
 
     // Returns the four-parameter alignment score.
     int32_t alignment_score(const Aligner& aligner) const {
-        return (static_cast<int32_t>(aligner.match) * (static_cast<int32_t>(this->seq_offset) + this->target_offset()) - this->score) / 2;
+        return (static_cast<int32_t>(aligner.scorer->match) * (static_cast<int32_t>(this->seq_offset) + this->target_offset()) - this->score) / 2;
     }
 
     // Returns the four-parameter alignment score with an implicit final insertion.
     int32_t alignment_score(const Aligner& aligner, uint32_t final_insertion) const {
-        return (static_cast<int32_t>(aligner.match) * (static_cast<int32_t>(this->seq_offset + final_insertion) + this->target_offset()) - this->score) / 2;
+        return (static_cast<int32_t>(aligner.scorer->match) * (static_cast<int32_t>(this->seq_offset + final_insertion) + this->target_offset()) - this->score) / 2;
     }
 
     // Converts the point to an alignment position with the given path.
@@ -1613,9 +1613,9 @@ public:
         graph(graph), sequence(sequence), from(from), to(to),
         nodes(),
         candidate_point({ std::numeric_limits<std::int32_t>::max(), 0, 0, 0 }), candidate_node(0),
-        mismatch(2 * (aligner.match + aligner.mismatch)),
-        gap_open(2 * (aligner.gap_open - aligner.gap_extension)),
-        gap_extend(2 * aligner.gap_extension + aligner.match),
+        mismatch(2 * (aligner.scorer->match + aligner.scorer->mismatch)),
+        gap_open(2 * (aligner.scorer->gap_open - aligner.scorer->gap_extension)),
+        gap_extend(2 * aligner.scorer->gap_extension + aligner.scorer->match),
         score_bound(0), max_distance(0), min_distance(0),
         possible_scores()
     {
@@ -2239,7 +2239,7 @@ WFAAlignment WFAExtender::suffix(const std::string& sequence, pos_t from) const 
 
     if (!result.edits.empty() && result.length == sequence.length() && (result.edits.back().first == WFAAlignment::match || result.edits.back().first == WFAAlignment::mismatch)) {
         // The alignment used all of the sequence and has a match/mismatch at the appropriate end
-        result.score += this->aligner->full_length_bonus; 
+        result.score += this->aligner->scorer->full_length_bonus; 
     }
 
     return result;
@@ -2256,7 +2256,7 @@ WFAAlignment WFAExtender::prefix(const std::string& sequence, pos_t to) const {
     result.flip(*(this->graph), sequence);
 
     if (!result.edits.empty() && result.length == sequence.length() && (result.edits.front().first == WFAAlignment::match || result.edits.front().first == WFAAlignment::mismatch)) {
-        result.score += this->aligner->full_length_bonus; 
+        result.score += this->aligner->scorer->full_length_bonus; 
     }
 
     return result;
