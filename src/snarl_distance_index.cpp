@@ -794,12 +794,13 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
  */
 static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const SnarlDistanceIndex::temp_record_ref_t& start_index, const HandleGraph* graph, size_t start_rank, bool is_internal_node, size_t size_limit); 
 
-/** 
- * Fills in required distance matrix rows for each child
+/**
+ * Fills in required distance matrix rows for each child.
+ * Only called for non-oversized snarls (size_limit == 0 || node_count <= size_limit);
+ * oversized snarls go through populate_hub_labeling instead.
  * - Normal snarl: all rows
- * - Oversized snarl: boundaries and tips
  * - size_limit == 0: no distances in index, so no rows
- * - Top-level chain distances only: boundaries and tips only (same as oversized snarl)
+ * - Top-level chain distances only: boundaries and tips only
  */
 static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
 
@@ -1220,12 +1221,15 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
 }
 
 void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances) {
-    if (size_limit != 0 && !only_top_level_chain_distances) { 
+    // This is only called for non-oversized snarls; oversized snarls go through populate_hub_labeling instead.
+#ifdef debug_distance_indexing
+    assert(size_limit == 0 || temp_snarl_record.node_count <= size_limit);
+#endif
+    if (size_limit != 0 && !only_top_level_chain_distances) {
       //If we are saving distances
-      //Reserve enough space to store all possible distances
-      temp_snarl_record.distances.reserve( temp_snarl_record.node_count > size_limit
-              ? temp_snarl_record.node_count * 2
-              : temp_snarl_record.node_count * temp_snarl_record.node_count);
+      //Reserve enough space to store all possible distances. Since we are not oversized, node_count <= size_limit,
+      //so we always need the full node_count * node_count matrix.
+      temp_snarl_record.distances.reserve(temp_snarl_record.node_count * temp_snarl_record.node_count);
     } else {
       temp_snarl_record.include_distances = false;
     }
@@ -1291,8 +1295,8 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
         //traversal start is not a tip or a boundary node
         bool start_normal_child = (!start_is_tip && start_rank != 0 && start_rank != 1);
  
-        if ( (temp_snarl_record.node_count > size_limit || size_limit == 0 || only_top_level_chain_distances) && (temp_snarl_record.is_root_snarl || start_normal_child)) {
-            //If we don't care about internal distances, and we also are not at a boundary or tip
+        if ( (size_limit == 0 || only_top_level_chain_distances) && (temp_snarl_record.is_root_snarl || start_normal_child)) {
+            //We don't care about internal distances, and this child is a root child or a normal (non-boundary, non-tip) child
             //TODO: Why do we care about tips specifically?
             continue;
         }
