@@ -339,6 +339,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_mapq_score_scale,
         "scale scores for mapping quality"
     );
+    comp_opts.add_range(
+        "min-mapq0-score",
+        &MinimizerMapper::min_mapq0_score,
+        MinimizerMapper::default_min_mapq0_score,
+        "discard MAPQ 0 alignments with scores lower than threshold"
+    );
     
     // Configure chaining
     auto& chaining_opts = parser->add_group<MinimizerMapper>("long-read/chaining parameters");
@@ -1007,6 +1013,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hard-hit-cap", 13614)
         .add_entry<double>("mapq-score-scale", 1)
         .add_entry<size_t>("mapq-score-window", 150)
+        .add_entry<size_t>("min-mapq0-score", 67)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)

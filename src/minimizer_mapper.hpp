@@ -406,6 +406,9 @@ class MinimizerMapper : public AlignerClient {
     /// How should we scale scores before mapq, for calibration
     static constexpr double default_mapq_score_scale = 1.0;
     double mapq_score_scale = default_mapq_score_scale;
+    /// What's the minimum score we'll accept from an MQ 0 read
+    static constexpr size_t default_min_mapq0_score = 0;
+    size_t min_mapq0_score = default_min_mapq0_score;
 
     /////////////////
     // More shared parameters:
