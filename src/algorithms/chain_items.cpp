@@ -473,7 +473,7 @@ void add_transition_if_legal(vector<transition_info>& transitions,
 /// that you are chaining get longer, and cost more at chaining than at
 /// fragmenting.
 ///
-/// Returns a negative value (gap score).
+/// Returns a positive value (gap score).
 int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
         // Do nothing and score 0
@@ -484,8 +484,9 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     }
 }
 
-/// If the current anchor shares paths with the chain, pay a penalty.
-int check_recombination(const TracedScore& from, const Anchor& to) {
+/// If the current anchor does not share paths with the chain, pay a penalty.
+/// Returns a positive value (recombination penalty)
+int score_recombination(const TracedScore& from, const Anchor& to) {
     if ((from.paths & to.anchor_start_paths()) == 0) {
         return 1;
     } else {
@@ -646,8 +647,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // here.
             jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
 
-            // add recombination penalty if necessary
-            jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * scheme.recombination_penalty;
+            // Add recombination penalty if necessary
+            jump_points -= score_recombination(chain_scores[transition.from_anchor], here) * scheme.recombination_penalty;
 
             // We can also account for the non-indel material, which we assume will have some identity in it.
             jump_points += possible_match_length * scheme.points_per_possible_match;

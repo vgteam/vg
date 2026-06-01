@@ -628,7 +628,7 @@ int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
 /// Determine if adding the new anchor would cause a recombination event
 /// with respect to the old anchor, given their supported paths.
 /// Returns 0 if no recombination, or 1 if there is a recombination.
-int check_recombination(const Anchor& from, const Anchor& to);
+int score_recombination(const Anchor& from, const Anchor& to);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
