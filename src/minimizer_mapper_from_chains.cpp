@@ -1060,9 +1060,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     if (track_provenance) {
         funnel.stage("demapping");
-        for (size_t i = 0; i < mappings.size(); i++) {
-            funnel.project(i);
-        }
     }
 
     if (mapq == 0 && !scores.empty() && scores.front() < min_mapq0_score) {
@@ -1090,6 +1087,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Pass all remaining mappings
         for (size_t i = 0; i < mappings.size(); i++) {
             funnel.pass("mapq0-score", i);
+            funnel.project(i);
         }
     }
 
