@@ -47,6 +47,7 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
 ###DEPS_END###
 
 FROM packages AS build
+ARG THREADS=8
 
 RUN echo build > /stage.txt
 
