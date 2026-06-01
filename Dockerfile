@@ -61,17 +61,18 @@ RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/m
 RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
 COPY Makefile /vg/Makefile
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+RUN echo make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) ))
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) deps
 
 # Bring in the sources, which we need in order to build.
 COPY src /vg/src
 
 # Build all the object files for vg, but don't link.
 # Also pass the arch here
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) objs
 
 # Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) static && strip -d bin/vg
 
 # Ship the scripts
 COPY scripts /vg/scripts
@@ -97,7 +98,7 @@ COPY README.md /vg/
 
 # Run tests in the middle so the final container that gets tagged is the run container.
 # Tests may not actually be run by smart builders like buildkit.
-RUN /bin/bash -e -c "export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))); make test"
+RUN /bin/bash -e -c "export OMP_NUM_THREADS=$(( $THREADS < $(nproc) ? $THREADS : $(nproc) )); make test"
 
 
 ############################################################################################
