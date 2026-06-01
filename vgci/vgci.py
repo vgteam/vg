@@ -324,7 +324,7 @@ class VGCITest(TestCase):
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
 
-        workflow_spec = "https://raw.githubusercontent.com/vgteam/vg_wdl/a2a9864ee36841dbe7499ae627ad3552b39a895c/workflows/giraffe_and_deepvariant.wdl"
+        workflow_spec = "https://raw.githubusercontent.com/vgteam/vg_wdl/09739c8eb160777073a95ceea2f36347a8d79df3/workflows/giraffe_and_deepvariant.wdl"
 
         output_json = os.path.join(out_store, "output.json")
         input_json = "input.json"
