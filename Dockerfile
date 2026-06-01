@@ -47,6 +47,8 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
 ###DEPS_END###
 
 FROM packages AS build
+# TODO: We're *supposed* to inherit ARGs from our base stage according to the
+# Docker documentation, but we don't.
 ARG THREADS=8
 
 RUN echo build > /stage.txt
@@ -62,7 +64,8 @@ RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/m
 RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
 COPY Makefile /vg/Makefile
-RUN echo make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) ))
+# Remember that THREADS is an ARG and not a Bash variable, and it gets
+# substituted in using Bash-ish syntax *before* the command gets to Bash.
 RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) deps
 
 # Bring in the sources, which we need in order to build.
