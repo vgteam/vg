@@ -2848,7 +2848,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     // If there was a big gap
                     next_it = skip_to_it;
                     next = skip_to;
-                }
+                } else {
 #ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
@@ -2858,6 +2858,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
+                }
                 // If there wasn't a gap then don't skip anything
                 break;
             }
