@@ -125,6 +125,24 @@ struct GiraffeFastqRead {
     std::string surjection_target;
 };
 
+/// Wire-format payload for one pre-computed anchor sent over the
+/// giraffe-server stdin protocol. Mirrors panindexer::PrecomputedAnchor
+/// fields that we serialize; step_handle_t is reconstructed locally from
+/// the (node, offset_in_record) pair using gbwtgraph's documented
+/// step encoding (as_integers(step)[0]=node, [1]=offset).
+struct WireAnchor {
+    uint64_t step_begin_node = 0;
+    uint64_t step_begin_offset = 0;
+    uint64_t step_end_node = 0;
+    uint64_t step_end_offset = 0;
+    size_t path_offset_step_begin = 0;
+    size_t path_offset_step_end = 0;
+    size_t read_begin_offset = 0;
+    size_t read_end_offset = 0;
+    size_t source_mapping_begin = 0;
+    size_t source_mapping_end = 0;
+};
+
 class GiraffeEngine {
 public:
     GiraffeEngine() = default;
@@ -147,6 +165,25 @@ public:
     // Returns one vector per input read, preserving order.
     // Each inner vector contains one or more GAF lines (multimaps).
     std::vector<std::vector<std::string>> map_reads(const std::vector<GiraffeFastqRead>& reads);
+
+    /// Surject a graph alignment (`gaf_line`) onto `target_haplotype` using
+    /// pre-computed anchors instead of a built-in ReferencePathOverlay.
+    /// Returns one GAF line containing the original alignment with appended
+    /// surjection tags (sj:, sn:, sp:, sr:, ss:, sm:, sc:), mirroring the
+    /// per-read surjection-tag schema emitted by map_reads.
+    ///
+    /// `target_path_length` is the caller-precomputed total length in bases
+    /// of the target path; it's what AnchorBackedPositionGraph reports for
+    /// `get_path_length`. Pass 0 to fall back to walking the path here.
+    ///
+    /// Throws if the engine wasn't loaded, if the GAF can't be parsed, or
+    /// if `target_haplotype` is not a known path in the GBZ.
+    std::vector<std::string> surject_with_anchors(
+        const std::string& read_name,
+        const std::string& gaf_line,
+        const std::vector<WireAnchor>& anchors,
+        const std::string& target_haplotype,
+        size_t target_path_length);
 
 private:
     void require_loaded() const;

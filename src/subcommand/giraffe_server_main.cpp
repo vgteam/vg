@@ -58,6 +58,15 @@ void help_giraffe_server(char** argv) {
          << "                               (QUALITY may be empty when SURJ_TARGET is set)" << endl
          << "  QUALITY is FASTQ phred+33 ASCII; if non-empty, must match SEQUENCE length" << endl
          << "  PROCESS_BATCH   (map any buffered reads now; alias: FLUSH_NOW)" << endl
+         << endl
+         << "  SURJECT_WITH_ANCHORS<TAB>NAME<TAB>TARGET<TAB>PATH_LEN<TAB>N_ANCHORS" << endl
+         << "    followed by N_ANCHORS tab-separated anchor lines (10 fields each):" << endl
+         << "      step_begin_node<TAB>step_begin_offset<TAB>step_end_node<TAB>step_end_offset<TAB>" << endl
+         << "      path_off_begin<TAB>path_off_end<TAB>read_begin<TAB>read_end<TAB>" << endl
+         << "      src_mapping_begin<TAB>src_mapping_end" << endl
+         << "    followed by ONE graph-alignment GAF line." << endl
+         << "    Response is framed: READ<TAB>NAME<TAB>1 then one GAF line" << endl
+         << "    carrying the surjection tags (sj:Z:..., sn:Z:..., etc.)." << endl
          << endl;
 }
 
@@ -206,6 +215,102 @@ int main_giraffe_server(int argc, char** argv) {
             // Batch-processing command (PROCESS_BATCH; FLUSH_NOW kept as deprecated alias).
             if (line == "PROCESS_BATCH" || line == "FLUSH_NOW") {
                 flush_batch();
+                continue;
+            }
+            // Anchored-surjection command. Multi-line: header + N anchor lines + 1 GAF line.
+            // Flushes any pending batch first so framed output stays in order.
+            if (line.compare(0, sizeof("SURJECT_WITH_ANCHORS\t") - 1,
+                             "SURJECT_WITH_ANCHORS\t") == 0) {
+                flush_batch();
+                auto header_fields = split_tab_fields(line);
+                // Expected: ["SURJECT_WITH_ANCHORS", name, target, path_len, n_anchors]
+                if (header_fields.size() != 5) {
+                    cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
+                            "(need 5 tab fields, got " << header_fields.size() << ")" << endl;
+                    if (framed_output && header_fields.size() >= 2) {
+                        cout << "READ\t" << header_fields[1] << "\t0\n";
+                        cout.flush();
+                    }
+                    continue;
+                }
+                const string& sa_name = header_fields[1];
+                const string& sa_target = header_fields[2];
+                size_t sa_path_len = parse<size_t>(header_fields[3]);
+                size_t sa_n_anchors = parse<size_t>(header_fields[4]);
+
+                vector<WireAnchor> sa_anchors;
+                sa_anchors.reserve(sa_n_anchors);
+                bool sa_read_ok = true;
+                for (size_t ai = 0; ai < sa_n_anchors; ++ai) {
+                    string anchor_line;
+                    if (!getline(cin, anchor_line)) {
+                        cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
+                             << "while reading anchor " << ai << "/" << sa_n_anchors << endl;
+                        sa_read_ok = false;
+                        break;
+                    }
+                    ++line_no;
+                    auto af = split_tab_fields(anchor_line);
+                    if (af.size() != 10) {
+                        cerr << "error [vg giraffe-server]: malformed anchor line " << line_no
+                             << " (need 10 tab fields, got " << af.size() << ")" << endl;
+                        sa_read_ok = false;
+                        break;
+                    }
+                    WireAnchor wa;
+                    wa.step_begin_node       = parse<uint64_t>(af[0]);
+                    wa.step_begin_offset     = parse<uint64_t>(af[1]);
+                    wa.step_end_node         = parse<uint64_t>(af[2]);
+                    wa.step_end_offset       = parse<uint64_t>(af[3]);
+                    wa.path_offset_step_begin = parse<size_t>(af[4]);
+                    wa.path_offset_step_end   = parse<size_t>(af[5]);
+                    wa.read_begin_offset      = parse<size_t>(af[6]);
+                    wa.read_end_offset        = parse<size_t>(af[7]);
+                    wa.source_mapping_begin   = parse<size_t>(af[8]);
+                    wa.source_mapping_end     = parse<size_t>(af[9]);
+                    sa_anchors.push_back(wa);
+                }
+                if (!sa_read_ok) {
+                    if (framed_output) {
+                        cout << "READ\t" << sa_name << "\t0\n";
+                        cout.flush();
+                    }
+                    continue;
+                }
+
+                string sa_gaf_line;
+                if (!getline(cin, sa_gaf_line)) {
+                    cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
+                         << "while reading the GAF line" << endl;
+                    if (framed_output) {
+                        cout << "READ\t" << sa_name << "\t0\n";
+                        cout.flush();
+                    }
+                    continue;
+                }
+                ++line_no;
+
+                vector<string> out_lines;
+                try {
+                    out_lines = engine.surject_with_anchors(
+                        sa_name, sa_gaf_line, sa_anchors, sa_target, sa_path_len);
+                } catch (const exception& e) {
+                    cerr << "error [vg giraffe-server]: surject_with_anchors failed for "
+                         << "read '" << sa_name << "': " << e.what() << endl;
+                    if (framed_output) {
+                        cout << "READ\t" << sa_name << "\t0\n";
+                        cout.flush();
+                    }
+                    continue;
+                }
+
+                if (framed_output) {
+                    cout << "READ\t" << sa_name << "\t" << out_lines.size() << "\n";
+                }
+                for (const auto& gl : out_lines) {
+                    cout << gl << "\n";
+                }
+                cout.flush();
                 continue;
             }
             auto fields = split_tab_fields(line);

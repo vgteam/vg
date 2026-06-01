@@ -25,9 +25,15 @@
 
 #include "catch.hpp"
 #include "../anchor_backed_position_graph.hpp"
+#include "../surjector.hpp"
 
 #include <bdsg/hash_graph.hpp>
+#include <bdsg/overlays/reference_path_overlay.hpp>
+#include <vg/vg.pb.h>
 
+#include <google/protobuf/util/message_differencer.h>
+
+#include <unordered_set>
 #include <vector>
 
 namespace vg {
@@ -302,6 +308,117 @@ TEST_CASE("AnchorBackedPositionGraph: out-of-scope queries throw",
     }
     SECTION("get_step_at_position on a non-target path throws") {
         REQUIRE_THROWS(adapter.get_step_at_position(x, 0));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Differential test: Surjector through the overlay vs through the adapter.
+// The strongest possible test — runs the full surject pipeline twice and
+// asserts identical output. Passing this proves the adapter is fully
+// interchangeable with bdsg::ReferencePathOverlay for surject's purposes.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// Append a "perfect match" Mapping covering `len` bases of node `h` to a Path.
+void append_match_mapping(::vg::Path* path, const bdsg::HashGraph& g,
+                          handle_t h, size_t len) {
+    ::vg::Mapping* m = path->add_mapping();
+    ::vg::Position* pos = m->mutable_position();
+    pos->set_node_id(g.get_id(h));
+    pos->set_is_reverse(g.get_is_reverse(h));
+    pos->set_offset(0);
+    ::vg::Edit* e = m->add_edit();
+    e->set_from_length(len);
+    e->set_to_length(len);
+}
+
+/// Build a simple source Alignment that walks n1 → n3 → n4 on the graph
+/// (= first 3 steps of path y, sequence ATCGGTTC).
+::vg::Alignment make_test_alignment(const TestGraph& t) {
+    ::vg::Alignment aln;
+    aln.set_name("read1");
+    aln.set_sequence("ATCGGTTC");
+    aln.set_quality(std::string(8, 'I'));
+    ::vg::Path* p = aln.mutable_path();
+    append_match_mapping(p, t.graph, t.n1, 4);
+    append_match_mapping(p, t.graph, t.n3, 1);
+    append_match_mapping(p, t.graph, t.n4, 3);
+    return aln;
+}
+
+}  // namespace
+
+TEST_CASE("Surject(adapter) == Surject(overlay) on the same alignment",
+          "[surject][anchors][anchor_backed_graph][differential]") {
+
+    TestGraph t = build_test_graph();
+
+    // Ground truth: real reference-path overlay over y.
+    bdsg::ReferencePathOverlay overlay(&t.graph,
+                                      std::unordered_set<std::string>{ "y" },
+                                      /*all_paths=*/false);
+
+    // Adapter: AnchorBackedPositionGraph with dense anchors covering y.
+    std::vector<PrecomputedAnchor> anchors;
+    for (size_t i = 0; i < t.y_steps.size(); ++i) {
+        anchors.push_back(anchor_for_step(t.y_steps[i], t.y_positions[i]));
+    }
+    AnchorBackedPositionGraph adapter(&t.graph, anchors, t.y, t.y_total_length);
+
+    // Source alignment: 8-base read walking the first 3 nodes of y.
+    ::vg::Alignment source = make_test_alignment(t);
+
+    // Surject through both.
+    Surjector surjector_overlay(&overlay);
+    Surjector surjector_adapter(&adapter);
+
+    std::vector<std::tuple<std::string, int64_t, bool>> positions_overlay;
+    std::vector<std::tuple<std::string, int64_t, bool>> positions_adapter;
+
+    auto results_overlay = surjector_overlay.surject(
+        source, std::unordered_set<path_handle_t>{ t.y },
+        positions_overlay, /*allow_negative_scores=*/false,
+        /*preserve_deletions=*/false);
+
+    auto results_adapter = surjector_adapter.surject(
+        source, std::unordered_set<path_handle_t>{ t.y },
+        positions_adapter, /*allow_negative_scores=*/false,
+        /*preserve_deletions=*/false);
+
+    SECTION("Both paths return the same number of surjected alignments") {
+        REQUIRE(results_overlay.size() == results_adapter.size());
+        REQUIRE(positions_overlay.size() == positions_adapter.size());
+    }
+
+    SECTION("Both paths return the same positions_out tuples") {
+        REQUIRE(positions_overlay == positions_adapter);
+    }
+
+    SECTION("Surjected alignments have identical scores") {
+        REQUIRE(results_overlay.size() == results_adapter.size());
+        for (size_t i = 0; i < results_overlay.size(); ++i) {
+            INFO("alignment " << i);
+            REQUIRE(results_overlay[i].score() == results_adapter[i].score());
+        }
+    }
+
+    SECTION("Surjected alignments have identical sequences") {
+        REQUIRE(results_overlay.size() == results_adapter.size());
+        for (size_t i = 0; i < results_overlay.size(); ++i) {
+            INFO("alignment " << i);
+            REQUIRE(results_overlay[i].sequence() == results_adapter[i].sequence());
+        }
+    }
+
+    SECTION("Surjected Path proto messages are byte-equal") {
+        REQUIRE(results_overlay.size() == results_adapter.size());
+        for (size_t i = 0; i < results_overlay.size(); ++i) {
+            INFO("alignment " << i << " — overlay path: " << results_overlay[i].path().DebugString()
+                 << "\nadapter path: " << results_adapter[i].path().DebugString());
+            REQUIRE(google::protobuf::util::MessageDifferencer::Equals(
+                results_overlay[i].path(), results_adapter[i].path()));
+        }
     }
 }
 

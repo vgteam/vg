@@ -18,8 +18,13 @@
 
 #include "alignment.hpp"
 #include "annotation.hpp"
+#include "anchor_backed_position_graph.hpp"
 #include "gbwtgraph_helper.hpp"
+#include "surjector.hpp"
 #include "utility.hpp"
+
+#include <vg/io/gafkluge.hpp>
+#include <handlegraph/util.hpp>
 
 namespace vg {
 
@@ -492,6 +497,174 @@ void GiraffeEngine::require_loaded() const {
     if (!mapper_) {
         throw runtime_error("GiraffeEngine is not loaded");
     }
+}
+
+namespace {
+
+/// Construct a libhandlegraph step_handle_t from a (node, offset_in_record)
+/// pair using gbwtgraph's documented step encoding (gbwtgraph.cpp:911-1024:
+/// as_integers(step)[0] = node, [1] = offset).
+handlegraph::step_handle_t make_step_handle(uint64_t node, uint64_t offset) {
+    handlegraph::step_handle_t step;
+    handlegraph::as_integers(step)[0] = node;
+    handlegraph::as_integers(step)[1] = offset;
+    return step;
+}
+
+/// Walk the target's GBWT path summing node lengths. Used as a fallback when
+/// the caller doesn't pass a precomputed target_path_length.
+size_t walk_target_path_length(const gbwtgraph::GBZ& gbz, size_t target_gbwt_path_id) {
+    gbwt::vector_type nodes = gbz.index.extract(
+        gbwt::Path::encode(target_gbwt_path_id, false));
+    size_t total = 0;
+    for (gbwt::node_type node : nodes) {
+        if (node == gbwt::ENDMARKER) break;
+        total += gbz.graph.get_length(
+            gbz.graph.get_handle(gbwt::Node::id(node), gbwt::Node::is_reverse(node)));
+    }
+    return total;
+}
+
+} // anonymous namespace
+
+std::vector<std::string> GiraffeEngine::surject_with_anchors(
+    const std::string& read_name,
+    const std::string& gaf_line,
+    const std::vector<WireAnchor>& anchors,
+    const std::string& target_haplotype,
+    size_t target_path_length)
+{
+    require_loaded();
+    using S = HaplotypeSurjectionResult::Status;
+
+    if (gaf_line.empty()) {
+        throw runtime_error("surject_with_anchors: empty GAF input");
+    }
+
+    // 1. Parse GAF → vg::Alignment using the GBZ's graph for node lengths.
+    gafkluge::GafRecord gaf_record;
+    gafkluge::parse_gaf_record(gaf_line, gaf_record);
+    Alignment aln;
+    vg::io::gaf_to_alignment(gbz_->graph, gaf_record, aln);
+    // Preserve the caller-supplied read name on the resulting Alignment.
+    if (!read_name.empty()) {
+        aln.set_name(read_name);
+    } else if (aln.name().empty()) {
+        aln.set_name(gaf_record.query_name);
+    }
+
+    // 2. Validate target haplotype.
+    HaplotypeSurjectionResult surj_result;
+    if (aln.path().mapping_size() == 0) {
+        surj_result.status = S::EMPTY_INPUT;
+    } else if (!gbz_->graph.has_path(target_haplotype)) {
+        surj_result.status = S::UNKNOWN_PATH;
+    }
+
+    if (surj_result.status != S::OK) {
+        stringstream ss;
+        ss << gaf_line;
+        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
+        return {ss.str()};
+    }
+
+    // 3. Build the path-handle + path-length pair for the AnchorBackedPositionGraph.
+    path_handle_t target_path = gbz_->graph.get_path_handle(target_haplotype);
+    size_t path_length = target_path_length;
+    if (path_length == 0) {
+        gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(target_path);
+        path_length = walk_target_path_length(*gbz_, gbwt_path_id);
+    }
+
+    // 4. Translate wire anchors → vg::PrecomputedAnchor records. The
+    //    anchor-backed position graph only needs step_handles + base offsets.
+    std::vector<PrecomputedAnchor> vg_anchors;
+    vg_anchors.reserve(anchors.size());
+    for (const auto& a : anchors) {
+        PrecomputedAnchor pa;
+        pa.step_begin = make_step_handle(a.step_begin_node, a.step_begin_offset);
+        pa.step_end   = make_step_handle(a.step_end_node, a.step_end_offset);
+        pa.path_offset_step_begin = a.path_offset_step_begin;
+        pa.path_offset_step_end   = a.path_offset_step_end;
+        vg_anchors.push_back(pa);
+    }
+
+    // 5. Build the anchor-backed position graph and a Surjector over it.
+    AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
+                                           target_path, path_length);
+    Surjector anchor_surjector(&anchor_graph);
+
+    unordered_set<path_handle_t> paths;
+    paths.insert(target_path);
+    vector<tuple<string, int64_t, bool>> positions_out;
+    vector<Alignment> surjected;
+    try {
+        surjected = anchor_surjector.surject(aln, paths, positions_out,
+                                             /*allow_negative_scores=*/false,
+                                             /*preserve_deletions=*/false);
+    } catch (const std::exception& e) {
+        surj_result.status = S::SURJECTION_FAILED;
+        stringstream ss;
+        ss << gaf_line;
+        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
+        ss << "\tse:Z:" << e.what();
+        return {ss.str()};
+    }
+
+    if (surjected.empty() || positions_out.empty()) {
+        surj_result.status = S::SURJECTION_FAILED;
+        stringstream ss;
+        ss << gaf_line;
+        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
+        return {ss.str()};
+    }
+
+    // 6. Pick best (highest-scoring) surjected alignment, mirroring HaplotypeSurjector::surject.
+    size_t best = 0;
+    for (size_t i = 1; i < surjected.size(); ++i) {
+        if (surjected[i].score() > surjected[best].score()) {
+            best = i;
+        }
+    }
+    const Alignment& chosen = surjected[best];
+    const auto& chosen_pos = positions_out[best];
+
+    if (chosen.path().mapping_size() == 0 || std::get<0>(chosen_pos).empty()) {
+        surj_result.status = S::SURJECTION_FAILED;
+        stringstream ss;
+        ss << gaf_line;
+        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
+        return {ss.str()};
+    }
+
+    surj_result.status = S::OK;
+    surj_result.path_name = std::get<0>(chosen_pos);
+    surj_result.path_position = std::get<1>(chosen_pos);
+    surj_result.path_reverse = std::get<2>(chosen_pos);
+    surj_result.score = chosen.score();
+    surj_result.mapping_quality = chosen.mapping_quality();
+
+    int64_t pos_adj = surj_result.path_position;
+    size_t plen = anchor_graph.get_path_length(target_path);
+    auto cigar_ops = cigar_against_path(chosen, surj_result.path_reverse, pos_adj,
+                                        plen, /*softclip_suppress=*/0);
+    surj_result.cigar = cigar_to_string(cigar_ops);
+
+    // 7. Append surjection tags to the original GAF line and return one line.
+    //    Matches the schema map_reads + HaplotypeSurjector::surject emits so
+    //    callers don't have to special-case the anchor path.
+    stringstream ss;
+    ss << gaf_line;
+    ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status)
+       << "\tsn:Z:" << surj_result.path_name
+       << "\tsp:i:" << surj_result.path_position
+       << "\tsr:i:" << (surj_result.path_reverse ? 1 : 0)
+       << "\tss:i:" << surj_result.score
+       << "\tsm:i:" << surj_result.mapping_quality
+       << "\tsc:Z:" << (surj_result.cigar.empty() ? string("*") : surj_result.cigar)
+       << "\tan:i:" << anchors.size()
+       << "\tap:Z:" << target_haplotype;
+    return {ss.str()};
 }
 
 } // namespace vg
