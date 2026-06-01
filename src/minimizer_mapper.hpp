@@ -287,10 +287,14 @@ class MinimizerMapper : public AlignerClient {
     /// in chaining?
     static constexpr double default_item_scale = 1.0;
     double item_scale = default_item_scale;
-    /// How much of a multiple should we apply to each transition's gap penalty
-    /// at chaining?
-    static constexpr double default_gap_scale = 1.0;
-    double gap_scale = default_gap_scale;
+    /// How much of a multiple should we apply to each transition's
+    /// INSERTION gap penalty at chaining? 
+    static constexpr double default_insertion_scale = 1.0;
+    double insertion_scale = default_insertion_scale;
+    /// How much of a multiple should we apply to each transition's
+    /// DELETION gap penalty at chaining? 
+    static constexpr double default_deletion_scale = 1.0;
+    double deletion_scale = default_deletion_scale;
     /// Recombination penalty for chaining. This is added to the cost of a transition if there are no shared haplotypes.
     static constexpr int default_rec_penalty = 0;
     int rec_penalty = default_rec_penalty;

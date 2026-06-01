@@ -1634,7 +1634,8 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             algorithms::ChainScoringScheme scheme {
                 this->item_bonus,
                 this->item_scale,
-                this->gap_scale,
+                this->insertion_scale,
+                this->deletion_scale,
                 this->points_per_possible_match,
                 this->rec_penalty,
                 // TODO: Do this once at setup?
