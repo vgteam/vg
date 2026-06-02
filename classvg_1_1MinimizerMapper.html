@@ -318,6 +318,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ace4a8ce19de89dd8f42f807b71c66dd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0e13799b9b7e3f64d06d10bde825924c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0e13799b9b7e3f64d06d10bde825924c">mapq_score_scale</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a950b83222eb55cd956eb604006d5a3d6">default_mapq_score_scale</a></td></tr>
 <tr class="separator:a0e13799b9b7e3f64d06d10bde825924c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adba73788965cfa3f047db55cc3613a22"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#adba73788965cfa3f047db55cc3613a22">min_mapq0_score</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#ae5c545340a73477e03418547a6f1bc37">default_min_mapq0_score</a></td></tr>
+<tr class="separator:adba73788965cfa3f047db55cc3613a22"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aede601962425752ec75ea1d890505357"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aede601962425752ec75ea1d890505357">max_multimaps</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#acef30cb743117b4bab6062caabaa4bcc">default_max_multimaps</a></td></tr>
 <tr class="separator:aede601962425752ec75ea1d890505357"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2fa22653d0c63a1d7bf41946f6f62a55"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2fa22653d0c63a1d7bf41946f6f62a55">distance_limit</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a65b0d0ad12d3891423022138797fbb8c">default_distance_limit</a></td></tr>
@@ -562,6 +564,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a950b83222eb55cd956eb604006d5a3d6"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a950b83222eb55cd956eb604006d5a3d6">default_mapq_score_scale</a> = 1.0</td></tr>
 <tr class="memdesc:a950b83222eb55cd956eb604006d5a3d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">How should we scale scores before mapq, for calibration.  <a href="classvg_1_1MinimizerMapper.html#a950b83222eb55cd956eb604006d5a3d6">More...</a><br /></td></tr>
 <tr class="separator:a950b83222eb55cd956eb604006d5a3d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae5c545340a73477e03418547a6f1bc37"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae5c545340a73477e03418547a6f1bc37">default_min_mapq0_score</a> = 0</td></tr>
+<tr class="memdesc:ae5c545340a73477e03418547a6f1bc37"><td class="mdescLeft">&#160;</td><td class="mdescRight">What's the minimum score we'll accept from an MQ 0 read.  <a href="classvg_1_1MinimizerMapper.html#ae5c545340a73477e03418547a6f1bc37">More...</a><br /></td></tr>
+<tr class="separator:ae5c545340a73477e03418547a6f1bc37"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acef30cb743117b4bab6062caabaa4bcc"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#acef30cb743117b4bab6062caabaa4bcc">default_max_multimaps</a> = 1</td></tr>
 <tr class="separator:acef30cb743117b4bab6062caabaa4bcc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65b0d0ad12d3891423022138797fbb8c"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a65b0d0ad12d3891423022138797fbb8c">default_distance_limit</a> = 200</td></tr>
@@ -7087,6 +7092,30 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
+<a id="ae5c545340a73477e03418547a6f1bc37"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae5c545340a73477e03418547a6f1bc37">&#9670;&nbsp;</a></span>default_min_mapq0_score</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::MinimizerMapper::default_min_mapq0_score = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>What's the minimum score we'll accept from an MQ 0 read. </p>
+
+</div>
+</div>
 <a id="a1965d957ff69b559b0975710c492efc1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1965d957ff69b559b0975710c492efc1">&#9670;&nbsp;</a></span>default_min_supplementary_read_coverage</h2>
 
@@ -8800,6 +8829,20 @@ template&lt;typename Score &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::MinimizerMapper::min_indel_avoid_bases = <a class="el" href="classvg_1_1MinimizerMapper.html#a953782dfc3926cc7a97840fc95e492d5">default_min_indel_avoid_bases</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="adba73788965cfa3f047db55cc3613a22"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adba73788965cfa3f047db55cc3613a22">&#9670;&nbsp;</a></span>min_mapq0_score</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::min_mapq0_score = <a class="el" href="classvg_1_1MinimizerMapper.html#ae5c545340a73477e03418547a6f1bc37">default_min_mapq0_score</a></td>
         </tr>
       </table>
 </div><div class="memdoc">

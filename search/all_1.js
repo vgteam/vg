@@ -1,12 +1,12 @@
 var searchData=
 [
-  ['a_35',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
-  ['a_36',['A',['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution']]],
+  ['a_35',['A',['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution']]],
+  ['a_36',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
   ['a_5fstar_37',['a_star',['../namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7',1,'vg::algorithms']]],
   ['a_5fstar_2ehpp_38',['a_star.hpp',['../a__star_8hpp.html',1,'']]],
   ['absent_39',['absent',['../namespacehaplotypes__defaults.html#a201800ce4570c0eb29f0279035dcaf48',1,'haplotypes_defaults::absent()'],['../classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa38113783fd68477aac0ec616b4ed4fb9',1,'vg::Recombinator::absent()']]],
-  ['absent_5fscore_40',['absent_score',['../structvg_1_1Recombinator_1_1Parameters.html#a3c21dd67f19f0646632968d3068a677a',1,'vg::Recombinator::Parameters']]],
-  ['absent_5fscore_41',['ABSENT_SCORE',['../classvg_1_1Recombinator.html#a872b059f8fdd67afccec2767ff6ce058',1,'vg::Recombinator']]],
+  ['absent_5fscore_40',['ABSENT_SCORE',['../classvg_1_1Recombinator.html#a872b059f8fdd67afccec2767ff6ce058',1,'vg::Recombinator']]],
+  ['absent_5fscore_41',['absent_score',['../structvg_1_1Recombinator_1_1Parameters.html#a3c21dd67f19f0646632968d3068a677a',1,'vg::Recombinator::Parameters']]],
   ['abstractreadsampler_42',['AbstractReadSampler',['../classvg_1_1AbstractReadSampler.html#add2ef81ca4c3984e851d690c695bae2d',1,'vg::AbstractReadSampler::AbstractReadSampler()'],['../classvg_1_1AbstractReadSampler.html',1,'vg::AbstractReadSampler']]],
   ['accelerate_5fmem_5fquery_43',['accelerate_mem_query',['../classvg_1_1BaseMapper.html#a3cf076ec413d3a3bb029c46880a17759',1,'vg::BaseMapper']]],
   ['accelerator_44',['accelerator',['../classvg_1_1BaseMapper.html#ad78381b0ec8c523f52df44fa62759ac1',1,'vg::BaseMapper']]],
