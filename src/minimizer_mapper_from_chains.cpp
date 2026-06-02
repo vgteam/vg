@@ -1058,6 +1058,39 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
+    if (track_provenance) {
+        funnel.stage("demapping");
+    }
+
+    if (mapq == 0 && !scores.empty() && scores.front() < min_mapq0_score) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Failing MAPQ 0 alignment for having top score "
+                     << scores.front() << " which is below " << min_mapq0_score << endl;
+            }
+        }
+        if (track_provenance) {
+            // Fail all remaining mappings
+            for (size_t i = 0; i < mappings.size(); i++) {
+                funnel.fail("mapq0-score", i, scores.front());
+            }
+        }
+
+        // Reset scores / mappings
+        scores.clear();
+        mappings.clear();
+
+        scores.emplace_back(0);
+        mappings.emplace_back(aln);
+    } else if (track_provenance) {
+        // Pass all remaining mappings
+        for (size_t i = 0; i < mappings.size(); i++) {
+            funnel.pass("mapq0-score", i);
+            funnel.project(i);
+        }
+    }
+
     // Remember the scores
     set_compressed_annotation(mappings.front(),"secondary_scores", scores);
 

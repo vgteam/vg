@@ -141,7 +141,7 @@ public:
     /// The filter name must survive the funnel, because a pointer to it will be stored.
     /// Allows a statistic for the filtered-on value for the failing item to be recorded.
     void fail(const char* filter, size_t prev_stage_item, double statistic = nan(""));
-    
+
     /// Pass the given item from the previous stage through the given filter at this stage.
     /// Items which do not pass a filter must fail it.
     /// All items which pass filters must do so in the same order.
