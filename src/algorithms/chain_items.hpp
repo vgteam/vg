@@ -407,12 +407,8 @@ struct ChainScoringScheme {
     int item_bonus = 0;
     /// Scale to apply to each item's own score
     double item_scale = 1.0;
-    /// Scale to apply to the scores of insertions
-    double insertion_scale = 1.0;
-    /// Scale to apply to the scores of deletions
-    double deletion_scale = 1.0;
-    /// Add this many points per potential match between two seeds
-    double points_per_possible_match = 0;
+    /// Scale to apply to the scores of gaps
+    double gap_scale = 1.0;
     /// Penalize this many points per recombination
     int recombination_penalty = 0;
     /// Apply a bonus during alternative selection (but not to actual DP

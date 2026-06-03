@@ -287,23 +287,16 @@ class MinimizerMapper : public AlignerClient {
     /// in chaining?
     static constexpr double default_item_scale = 1.0;
     double item_scale = default_item_scale;
-    /// How much of a multiple should we apply to each transition's
-    /// INSERTION gap penalty at chaining? 
-    static constexpr double default_insertion_scale = 1.0;
-    double insertion_scale = default_insertion_scale;
-    /// How much of a multiple should we apply to each transition's
-    /// DELETION gap penalty at chaining? 
-    static constexpr double default_deletion_scale = 1.0;
-    double deletion_scale = default_deletion_scale;
+    /// How much of a multiple should we apply to each transition's gap penalty
+    /// at chaining?
+    static constexpr double default_gap_scale = 1.0;
+    double gap_scale = default_gap_scale;
     /// Recombination penalty for chaining. This is added to the cost of a transition if there are no shared haplotypes.
     static constexpr int default_rec_penalty = 0;
     int rec_penalty = default_rec_penalty;
     /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score.
     static constexpr int default_rec_consistency_bonus = 0;
     int rec_consistency_bonus = default_rec_consistency_bonus;
-    // How many points should we treat a non-gap connection base as producing, at chaining?
-    static constexpr double default_points_per_possible_match = 0;
-    double points_per_possible_match = default_points_per_possible_match;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;

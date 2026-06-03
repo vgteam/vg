@@ -606,9 +606,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // Decide how much length changed
         size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
                                                                                      : transition.graph_distance - transition.read_distance;
-        // TODO: remove this!
-        // How much could be matches/mismatches, double-counting with bases in the exclusion zones?
-        size_t possible_match_length = std::min(transition.read_distance, transition.graph_distance);
         
         if (show_work) {
 #ifdef debug_dp
@@ -645,19 +642,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = -score_chain_gap(indel_length, base_seed_length);
-
-            if (transition.read_distance > transition.graph_distance) {
-                jump_points *= scheme.insertion_scale;
-            } else {
-                jump_points *= scheme.deletion_scale;
-            }
+            jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
 
             // add recombination penalty if necessary
             jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * scheme.recombination_penalty;
-
-            // We can also account for the non-indel material, which we assume will have some identity in it.
-            jump_points += possible_match_length * scheme.points_per_possible_match;
         }
             
         if (jump_points != numeric_limits<int>::min()) {

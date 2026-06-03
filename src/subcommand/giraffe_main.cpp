@@ -450,17 +450,10 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "scale for items' scores when chaining"
     );
     chaining_opts.add_range(
-        "insertion-scale",
-        &MinimizerMapper::insertion_scale,
-        MinimizerMapper::default_insertion_scale,
-        "scale for insertion gap scores when chaining",
-        double_is_nonnegative
-    );
-    chaining_opts.add_range(
-        "deletion-scale",
-        &MinimizerMapper::deletion_scale,
-        MinimizerMapper::default_deletion_scale,
-        "scale for deletion gap scores when chaining",
+        "gap-scale",
+        &MinimizerMapper::gap_scale,
+        MinimizerMapper::default_gap_scale,
+        "scale for gap scores when chaining",
         double_is_nonnegative
     );
     chaining_opts.add_range(
@@ -476,13 +469,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_rec_consistency_bonus,
         "untracked bonus for chains staying consistent with haplotypes to avoid recombinations in recombination-aware mode",
         int_is_nonnegative
-    );
-    chaining_opts.add_range(
-        "points-per-possible-match",
-        &MinimizerMapper::points_per_possible_match,
-        MinimizerMapper::default_points_per_possible_match,
-        "points to award non-indel connecting bases when chaining",
-        double_is_nonnegative
     );
     
     chaining_opts.add_range(
@@ -977,8 +963,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 2)
         .add_entry<double>("item-scale", 1.0)
-        .add_entry<double>("insertion-scale", 0.27579)
-        .add_entry<double>("deletion-scale", 0.27579)
+        .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
         .add_entry<double>("chain-score-threshold", 234.0)
@@ -1038,8 +1023,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
         .add_entry<double>("item-scale", 1.0)
-        .add_entry<double>("insertion-scale", 0.06759721757973396)
-        .add_entry<double>("deletion-scale", 0.06759721757973396)
+        .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 13)
         .add_entry<double>("chain-score-threshold", 160.0)
@@ -1094,8 +1078,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 15)
-        .add_entry<double>("insertion-scale", 2.2)
-        .add_entry<double>("deletion-scale", 2.2)
+        .add_entry<double>("gap-scale", 2.2)
         // And take those to chains
         .add_entry<int>("min-chaining-problems", 7)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
