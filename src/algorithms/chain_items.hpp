@@ -405,8 +405,6 @@ struct transition_info {
 struct ChainScoringScheme {
     /// Score bonus for each item collected
     int item_bonus = 0;
-    /// Scale to apply to each item's own score
-    double item_scale = 1.0;
     /// Scale to apply to the scores of gaps
     double gap_scale = 1.0;
     /// Penalize this many points per recombination

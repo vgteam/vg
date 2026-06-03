@@ -444,12 +444,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "bonus for taking each item when chaining"
     );
     chaining_opts.add_range(
-        "item-scale",
-        &MinimizerMapper::item_scale,
-        MinimizerMapper::default_item_scale,
-        "scale for items' scores when chaining"
-    );
-    chaining_opts.add_range(
         "gap-scale",
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
@@ -962,7 +956,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 2)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
@@ -1022,7 +1015,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 13)
@@ -1090,7 +1082,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.01)
         .add_entry<int>("max-min-chain-score", 200.0)
         .add_entry<int>("item-bonus", 0)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<int>("min-chains", 3)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 4)

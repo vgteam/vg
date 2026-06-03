@@ -544,8 +544,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
     std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
     for (size_t i = 0; i < to_chain.size(); i++) {
-        // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() * scheme.item_scale + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
+        // Set up DP table so we can start anywhere with that item's score, with bonus applied.
+        chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -564,7 +564,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() * scheme.item_scale + scheme.item_bonus;
+        auto item_points = here.score() + scheme.item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
@@ -747,7 +747,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         
         if (diagram) {
             // Draw the item in the diagram
-            auto item_points = here.score() * scheme.item_scale + scheme.item_bonus;
+            auto item_points = here.score() + scheme.item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
             label_stream << "#" << to_anchor << " " << here << " = " << item_points
@@ -841,7 +841,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     // Take away all the points we got for coming from there and being ourselves.
                     penalty += chain_scores[here].score;
                     // But then re-add our score for just us
-                    penalty -= (to_chain[here].score() * scheme.item_scale + scheme.item_bonus);
+                    penalty -= (to_chain[here].score() + scheme.item_bonus);
                     // TODO: Score this more simply.
                     // TODO: find the edge to nowhere???
                     break;
