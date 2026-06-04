@@ -200,8 +200,8 @@ int main_bench_dist_query(int argc, char** argv) {
         distance_index.deserialize(dist_path);
         cerr << "Loaded distance index from " << dist_path << endl;
 
-        // Pull the whole index into the OS page cache so timings reflect query
-        // cost, not first-touch I/O for indexes that exceed free RAM.
+        // Pull the whole index into the OS page cache so timings reflect
+        // unavoidable query cost, not avoidable first-touch I/O
         distance_index.preload(true);
 
         // Time all queries
