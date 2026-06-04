@@ -2183,17 +2183,12 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
             };
             
-            if (!best_alignments.empty() && best_alignments[0].score() <= 0) {
-                if (show_work) {
-                    // Alignment won't be observed but log it anyway.
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Produced terrible best alignment from chain " << processed_num << ": " << log_alignment(best_alignments[0]) << endl;
-                    }
-                }
-            }
-            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+            for(auto aln_it = best_alignments.begin() ; 
+                aln_it != best_alignments.end() && aln_it->score() != 0 
+                    && (aln_it->score() >= best_alignments[0].score() * 0.8 || aln_it->score() == best_alignments[0].score()) ;
+                ++aln_it) {
                 //For each additional alignment with score at least 0.8 of the best score
+                //Guarantee that all alignments with top score (even if negative) are used
                 observe_alignment(*aln_it);
             }
            
