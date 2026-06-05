@@ -1119,13 +1119,13 @@ int main_stats(int argc, char** argv) {
         }
         cout << "Matches: " << combined.total_matched_bases << " bp";
         if (combined.total_alignments > 0) {
-            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_aligned) << " bp/alignment)";
+            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_aligned) << " bp/aligned)";
         }
         cout << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp";
         if (combined.total_alignments > 0) {
             cout << " (" << 100 * combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
-                 << combined.total_softclipped_bases / static_cast<double>(combined.total_aligned) << " bp/alignment)";
+                 << combined.total_softclipped_bases / static_cast<double>(combined.total_aligned) << " bp/aligned)";
         } 
         cout << " in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
