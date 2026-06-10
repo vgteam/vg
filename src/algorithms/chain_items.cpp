@@ -473,7 +473,7 @@ void add_transition_if_legal(vector<transition_info>& transitions,
 /// that you are chaining get longer, and cost more at chaining than at
 /// fragmenting.
 ///
-/// Returns a negative value (gap score).
+/// Returns a positive value (gap penalty).
 int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
         // Do nothing and score 0
@@ -484,7 +484,8 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     }
 }
 
-/// If the current anchor shares paths with the chain, pay a penalty.
+/// If the current anchor does not share paths with the chain, pay a penalty.
+/// Returns a positive value (gap penalty)
 int check_recombination(const TracedScore& from, const Anchor& to) {
     if ((from.paths & to.anchor_start_paths()) == 0) {
         return 1;
@@ -543,8 +544,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
     std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
     for (size_t i = 0; i < to_chain.size(); i++) {
-        // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() * scheme.item_scale + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
+        // Set up DP table so we can start anywhere with that item's score, with bonus applied.
+        chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -563,7 +564,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() * scheme.item_scale + scheme.item_bonus;
+        auto item_points = here.score() + scheme.item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
@@ -605,9 +606,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // Decide how much length changed
         size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
                                                                                      : transition.graph_distance - transition.read_distance;
-        // TODO: remove this!
-        // How much could be matches/mismatches, double-counting with bases in the exclusion zones?
-        size_t possible_match_length = std::min(transition.read_distance, transition.graph_distance);
         
         if (show_work) {
 #ifdef debug_dp
@@ -648,9 +646,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 
             // add recombination penalty if necessary
             jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * scheme.recombination_penalty;
-
-            // We can also account for the non-indel material, which we assume will have some identity in it.
-            jump_points += possible_match_length * scheme.points_per_possible_match;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
@@ -752,7 +747,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         
         if (diagram) {
             // Draw the item in the diagram
-            auto item_points = here.score() * scheme.item_scale + scheme.item_bonus;
+            auto item_points = here.score() + scheme.item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
             label_stream << "#" << to_anchor << " " << here << " = " << item_points
@@ -846,7 +841,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     // Take away all the points we got for coming from there and being ourselves.
                     penalty += chain_scores[here].score;
                     // But then re-add our score for just us
-                    penalty -= (to_chain[here].score() * scheme.item_scale + scheme.item_bonus);
+                    penalty -= (to_chain[here].score() + scheme.item_bonus);
                     // TODO: Score this more simply.
                     // TODO: find the edge to nowhere???
                     break;

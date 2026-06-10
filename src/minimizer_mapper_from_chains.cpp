@@ -1633,9 +1633,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             // we set one up as a member?
             algorithms::ChainScoringScheme scheme {
                 this->item_bonus,
-                this->item_scale,
                 this->gap_scale,
-                this->points_per_possible_match,
                 this->rec_penalty,
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
@@ -2848,7 +2846,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     // If there was a big gap
                     next_it = skip_to_it;
                     next = skip_to;
-                }
+                } else {
 #ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
@@ -2858,6 +2856,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
+                }
                 // If there wasn't a gap then don't skip anything
                 break;
             }
