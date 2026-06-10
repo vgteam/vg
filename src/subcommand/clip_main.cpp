@@ -278,23 +278,59 @@ int main_clip(int argc, char** argv) {
     // need snarls if input regions are provided, or doing snarl based clipping
     bool need_snarls = snarl_option || !bed_path.empty();
 
-    // TodO: FIX!!  shouldn't need pp without BED coordinates
+    // TODO: FIX!!  shouldn't need pp without BED coordinates
     need_pp = need_pp || need_snarls;
 
+    if (!bed_path.empty()) {
+        // load the BED file
+        parse_bed_regions(bed_path, bed_regions);
+        if (verbose) {
+            logger.info() << "Loaded " << bed_regions.size() << " BED regions" << endl;
+        }
+    }
+    
+    // It's going to be a little expensive to find the paths with basenames
+    // matching the prefixes (algorithmically, if not in practice), so we fill
+    // them in once and then re-use them.
+    std::vector<std::string> graph_paths_matched;
     if (need_pp) {
-        pp_graph = overlay_helper.apply(graph.get());
+        // Figure out the paths we're going to need regions on.
+        std::unordered_set<std::string> position_path_names;
+        
+        for (const Region& region : bed_regions) {
+            // For each region already defined (from the BED), we need its sequence indexed
+            position_path_names.insert(region.seq);
+        }
+        
+        if (!ref_prefixes.empty()) {
+            // If we want all paths matching some prefixes
+            graph->for_each_path_handle([&](path_handle_t path_handle) {
+                // Look at all ther paths
+                std::string path_name = pp_graph->get_path_name(path_handle);
+                subrange_t subrange;
+                // And get their base path names
+                path_name = Paths::strip_subrange(path_name, &subrange);
+                for (const string& ref_prefix : ref_prefixes) {
+                    if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                        // And make sure they're indexed if they match the prefix.
+                        position_path_names.insert(path_name);
+                        // And remember them to then index all of
+                        graph_paths_matched.emplace_back(std::move(path_name));
+                        break;
+                    }
+                }
+            });
+        }
+
+        // Get the overlay, indexing all the paths we will need to care about 
+        pp_graph = overlay_helper.apply(graph.get(), position_path_names);
         if (verbose) {
             logger.info() << "Computed path position overlay of input graph" << endl;
         }
     }
 
     if (need_snarls) {        
-        // load the BED file
         if (!bed_path.empty()) {
-            parse_bed_regions(bed_path, bed_regions);
-            if (verbose) {
-                logger.info() << "Loaded " << bed_regions.size() << " BED regions" << endl;
-            }
             // contig names left in this set are *not* in the graph
             unordered_set<string> contig_set;
             for (const Region& region : bed_regions) {
@@ -328,20 +364,17 @@ int main_clip(int argc, char** argv) {
         } else {
             assert(need_pp);
             assert(!ref_prefixes.empty());
-            // load the BED regions from the reference path prefix
-            pp_graph->for_each_path_handle([&](path_handle_t path_handle) {
-                    string path_name = pp_graph->get_path_name(path_handle);
-                    subrange_t subrange;
-                    path_name = Paths::strip_subrange(path_name, &subrange);
-                    int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-                    for (const string& ref_prefix : ref_prefixes) {
-                        if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
-                            Region region = {path_name, offset, offset + (int64_t)pp_graph->get_path_length(path_handle) - 1};
-                            bed_regions.push_back(region);
-                            break;
-                        }
-                    }
-                });
+            
+            for (auto& path_name : graph_paths_matched) {
+                path_handle_t path_handle = pp_graph->get_path_handle(path_name);
+                // Fill in the BED regions from the paths matching the
+                // prefixes, now that we can get the lengths.
+                std::string base_name = get_path_base_name(*pp_graph, path_handle);
+                int64_t offset = get_path_base_offset(*pp_graph, path_handle);
+                Region region = {base_name, offset, offset + (int64_t)pp_graph->get_path_length(path_handle) - 1};
+                bed_regions.push_back(region);
+            }
+
             if (verbose) {
                 logger.info() << "Inferred " << bed_regions.size() 
                               << " BED regions from paths in the graph" << endl;
