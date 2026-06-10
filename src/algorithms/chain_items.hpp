@@ -405,12 +405,8 @@ struct transition_info {
 struct ChainScoringScheme {
     /// Score bonus for each item collected
     int item_bonus = 0;
-    /// Scale to apply to each item's own score
-    double item_scale = 1.0;
     /// Scale to apply to the scores of gaps
     double gap_scale = 1.0;
-    /// Add this many points per potential match between two seeds
-    double points_per_possible_match = 0;
     /// Penalize this many points per recombination
     int recombination_penalty = 0;
     /// Apply a bonus during alternative selection (but not to actual DP
