@@ -306,7 +306,7 @@ int main_clip(int argc, char** argv) {
             // If we want all paths matching some prefixes
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                 // Look at all ther paths
-                std::string path_name = pp_graph->get_path_name(path_handle);
+                std::string path_name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 // And get their base path names
                 path_name = Paths::strip_subrange(path_name, &subrange);
