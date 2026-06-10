@@ -165,17 +165,13 @@ int main_mcmc(int argc, char** argv) {
     if(vg_graph == nullptr || vg_graph == 0) {
         logger.error() << "Graph is NULL" << endl;
     }
-    PathPositionHandleGraph* graph = nullptr;
-    graph = overlay_helper.apply(vg_graph);
-    
      
     // Check our paths
     for (const string& ref_path : ref_paths) {
-        if (!graph->has_path(ref_path)) {
+        if (!vg_graph->has_path(ref_path)) {
             logger.error() << "Reference path \"" << ref_path << "\" not found in graph" << endl;
         }
     }
-    
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
         logger.error() << "when using -o, the same number paths must be given with -p" << endl;
@@ -185,7 +181,18 @@ int main_mcmc(int argc, char** argv) {
         logger.error() << "when using -l, the same number paths must be given with -p" << endl;
     }
 
-    // No paths specified: use them all
+    PathPositionHandleGraph* graph = nullptr;
+    {
+        // Path-position index all the extra paths we need to work on, plus the
+        // reference and generic paths.
+        std::unordered_set<std::string> target_paths;
+        for (auto& name : ref_paths) {
+            target_paths.insert(name);
+        }
+        graph = overlay_helper.apply(vg_graph, target_paths);
+    }
+
+    // No paths specified: use all the reference and generic paths
     if (ref_paths.empty()) {
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
@@ -195,7 +202,7 @@ int main_mcmc(int argc, char** argv) {
             });
    
     }
-    
+
     // Check if VCF output file is specified 
     ofstream vcf_file_out;
     if(!vcf_out.empty()){
