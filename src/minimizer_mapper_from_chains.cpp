@@ -1058,6 +1058,39 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
+    if (track_provenance) {
+        funnel.stage("demapping");
+    }
+
+    if (mapq == 0 && !scores.empty() && scores.front() < min_mapq0_score) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Failing MAPQ 0 alignment for having top score "
+                     << scores.front() << " which is below " << min_mapq0_score << endl;
+            }
+        }
+        if (track_provenance) {
+            // Fail all remaining mappings
+            for (size_t i = 0; i < mappings.size(); i++) {
+                funnel.fail("mapq0-score", i, scores.front());
+            }
+        }
+
+        // Reset scores / mappings
+        scores.clear();
+        mappings.clear();
+
+        scores.emplace_back(0);
+        mappings.emplace_back(aln);
+    } else if (track_provenance) {
+        // Pass all remaining mappings
+        for (size_t i = 0; i < mappings.size(); i++) {
+            funnel.pass("mapq0-score", i);
+            funnel.project(i);
+        }
+    }
+
     // Remember the scores
     set_compressed_annotation(mappings.front(),"secondary_scores", scores);
 
@@ -1600,9 +1633,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             // we set one up as a member?
             algorithms::ChainScoringScheme scheme {
                 this->item_bonus,
-                this->item_scale,
                 this->gap_scale,
-                this->points_per_possible_match,
                 this->rec_penalty,
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
@@ -2150,17 +2181,12 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
             };
             
-            if (!best_alignments.empty() && best_alignments[0].score() <= 0) {
-                if (show_work) {
-                    // Alignment won't be observed but log it anyway.
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Produced terrible best alignment from chain " << processed_num << ": " << log_alignment(best_alignments[0]) << endl;
-                    }
-                }
-            }
-            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+            for(auto aln_it = best_alignments.begin() ; 
+                aln_it != best_alignments.end() && aln_it->score() != 0 
+                    && (aln_it->score() >= best_alignments[0].score() * 0.8 || aln_it->score() == best_alignments[0].score()) ;
+                ++aln_it) {
                 //For each additional alignment with score at least 0.8 of the best score
+                //Guarantee that all alignments with top score (even if negative) are used
                 observe_alignment(*aln_it);
             }
            
@@ -2373,8 +2399,25 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
         return true;
     }, [&](size_t alignment_num) {
         // We already have enough alignments, although this one has a good score
-       
-        // Go back and do the unique node fraction filter first.
+
+        // TODO: We end up having to duplicate a bunch of filters here so the
+        // filters are always in order.
+        
+        // Go back and do the nonzero score filter first.
+        // Filter to alignments with strictly positive scores
+        if (alignments[alignment_num].score() <= 0) {
+            if (track_provenance) {
+                funnel.fail("nonzero-score", alignment_num);
+            }
+            // If we fail the nonzero score filter, we won't count as a secondary for MAPQ
+            return;
+        } else {
+            if (track_provenance) {
+                funnel.pass("nonzero-score", alignment_num);
+            }
+        }
+
+        // Go back and do the unique node fraction filter next.
         // TODO: Deduplicate logging code
         double unique_node_fraction = get_fraction_unique(alignment_num);
         if (unique_node_fraction < min_unique_node_fraction) {
@@ -2798,7 +2841,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     // If there was a big gap
                     next_it = skip_to_it;
                     next = skip_to;
-                }
+                } else {
 #ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
@@ -2808,6 +2851,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
+                }
                 // If there wasn't a gap then don't skip anything
                 break;
             }

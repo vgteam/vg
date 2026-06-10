@@ -339,6 +339,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_mapq_score_scale,
         "scale scores for mapping quality"
     );
+    comp_opts.add_range(
+        "min-mapq0-score",
+        &MinimizerMapper::min_mapq0_score,
+        MinimizerMapper::default_min_mapq0_score,
+        "discard MAPQ 0 alignments with scores lower than threshold"
+    );
     
     // Configure chaining
     auto& chaining_opts = parser->add_group<MinimizerMapper>("long-read/chaining parameters");
@@ -438,12 +444,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "bonus for taking each item when chaining"
     );
     chaining_opts.add_range(
-        "item-scale",
-        &MinimizerMapper::item_scale,
-        MinimizerMapper::default_item_scale,
-        "scale for items' scores when chaining"
-    );
-    chaining_opts.add_range(
         "gap-scale",
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
@@ -463,13 +463,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_rec_consistency_bonus,
         "untracked bonus for chains staying consistent with haplotypes to avoid recombinations in recombination-aware mode",
         int_is_nonnegative
-    );
-    chaining_opts.add_range(
-        "points-per-possible-match",
-        &MinimizerMapper::points_per_possible_match,
-        MinimizerMapper::default_points_per_possible_match,
-        "points to award non-indel connecting bases when chaining",
-        double_is_nonnegative
     );
     
     chaining_opts.add_range(
@@ -963,7 +956,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 2)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
@@ -1007,6 +999,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hard-hit-cap", 13614)
         .add_entry<double>("mapq-score-scale", 1)
         .add_entry<size_t>("mapq-score-window", 150)
+        .add_entry<size_t>("min-mapq0-score", 67)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
@@ -1022,7 +1015,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 13)
@@ -1090,7 +1082,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.01)
         .add_entry<int>("max-min-chain-score", 200.0)
         .add_entry<int>("item-bonus", 0)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<int>("min-chains", 3)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 4)
