@@ -13,9 +13,9 @@ if [ -e include/vg/vg.pb.h ] ; then \
     echo 'syntax = "proto3";' > ${TESTDIR}/empty.proto; \
     protoc ${TESTDIR}/empty.proto --proto_path=${TESTDIR} --cpp_out=${TESTDIR}; \
     PROTOC_VER=$(cat ${TESTDIR}/empty.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-    if [ "$${HEADER_VER}" != "$${PROTOC_VER}" ] ; then \
+    if [ "${HEADER_VER}" != "${PROTOC_VER}" ] ; then \
         echo "Protobuf version has changed!"; \
-        echo "Headers are for $${HEADER_VER} but we make headers for $${PROTOC_VER}"; \
+        echo "Headers are for ${HEADER_VER} but we make headers for ${PROTOC_VER}"; \
         echo "Need to rebuild libvgio"; \
         rm -f lib/libvgio.a; \
         rm -f include/vg/vg.pb.h; \
