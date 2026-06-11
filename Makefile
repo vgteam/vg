@@ -1055,56 +1055,35 @@ test/%.d: ;
 ## VG source code compilation ends here
 ####################################
 
+# Make all the directories we need.
+# If these don't exist, they can become files (somehow) when we run the rest of
+# the build.
+# We used to run a target to do this but since GNU Make 4.4 we can't easily run
+# a target at startup by `-include`-ing a .PHONY target so we need to do it at
+# top-level with shell calls. See <https://stackoverflow.com/a/76870264>
+$(shell bash -c "if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi")
+$(shell bash -c "if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi")
+$(shell bash -c "if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi")
+$(shell bash -c "if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(SHARED_OBJ_DIR) ]; then mkdir -p $(SHARED_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(ALGORITHMS_SHARED_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_SHARED_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi")
+$(shell bash -c "if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi")
 
-# Make directories before quitting target due to missing protoc.
-# If we run the rest of the build without these, lib and include can become files.
-# TODO: quitting if no protoc doesn't reliably stop the build.
-.pre-build:
-	@if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
-	@if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi
-	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
-	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
-	@if [ ! -d $(SHARED_OBJ_DIR) ]; then mkdir -p $(SHARED_OBJ_DIR); fi
-	@if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
-	@if [ ! -d $(ALGORITHMS_SHARED_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_SHARED_OBJ_DIR); fi
-	@if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi
-	@if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi
-	@if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi
-	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
-	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
-	@if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi
-	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
-	@protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
-	@if [ -e $(INC_DIR)/vg/vg.pb.h ] ; then \
-		HEADER_VER=$$(cat $(INC_DIR)/vg/vg.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-		WORKDIR=$$(pwd); \
-		TESTDIR=$$(mktemp -d); \
-		echo 'syntax = "proto3";' > $${TESTDIR}/empty.proto; \
-		protoc $${TESTDIR}/empty.proto --proto_path=$${TESTDIR} --cpp_out=$${TESTDIR}; \
-		PROTOC_VER=$$(cat $${TESTDIR}/empty.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-		if [ "$${HEADER_VER}" != "$${PROTOC_VER}" ] ; then \
-			echo "Protobuf version has changed!"; \
-			echo "Headers are for $${HEADER_VER} but we make headers for $${PROTOC_VER}"; \
-			echo "Need to rebuild libvgio"; \
-			rm -f $(LIB_DIR)/libvgio.a; \
-			rm -f $(INC_DIR)/vg/vg.pb.h; \
-		fi; \
-		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
-		rmdir $${TESTDIR}; \
-	fi;
-	echo '$$(info Ran pre-build previously)' > .pre-build
-	echo "Did pre-build"
-
-# A note about Protobuf:
-# We have a lot of logic here to make sure that the protoc we have henerates headers with exactly the same
-# version requirements as the headers we already have.
-# If not, we regenerate them.
-# Doesn't handle Protobuf 3.12.3 weirdness; just make clean if you change flavors of Protobuf 3.12.3.
-	
-	
-	
-# run .pre-build before we make anything at all.
-include .pre-build
+# run pre-build.sh before we make anything at all.
+# Make really doesn't want to depend on this succeeding, but we need it to.
+# See <https://stackoverflow.com/a/225626>.
+PREBUILD_RESULT=$(shell ./pre-build.sh >pre-build.log 2>&1 ; echo $$?)
+$(info $(shell cat pre-build.log))
+ifneq ($(PREBUILD_RESULT), 0)
+    $(error Pre-build script failed)
+endif
 
 # for rebuilding just vg
 clean-vg:
