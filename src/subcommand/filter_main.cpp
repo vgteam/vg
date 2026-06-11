@@ -558,7 +558,7 @@ int main_filter(int argc, char** argv) {
         if (input_gam && !ends_with(gam_file, ".gam")) {
             logger.error() << "Input alignment file " << gam_file 
                            << " does not appear to be a GAM" << std::endl;
-        } else if (!ends_with(gam_file, ".gamp")) {
+        } else if (!input_gam && !ends_with(gam_file, ".gamp")) {
             logger.error() << "Input alignment file " << gam_file 
                            << " does not appear to be a GAMP" << std::endl;
         }
