@@ -1079,7 +1079,8 @@ $(shell bash -c "if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi")
 # run pre-build.sh before we make anything at all.
 # Make really doesn't want to depend on this succeeding, but we need it to.
 # See <https://stackoverflow.com/a/225626>.
-PREBUILD_RESULT=$(shell ./pre-build.sh >pre-build.log 2>&1 ; echo $$?)
+# Make sure to run right now.
+PREBUILD_RESULT:=$(shell ./pre-build.sh >pre-build.log 2>&1 ; echo $$?)
 $(info $(shell cat pre-build.log))
 ifneq ($(PREBUILD_RESULT), 0)
     $(error Pre-build script failed)
