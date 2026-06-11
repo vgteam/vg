@@ -4,9 +4,10 @@
 # If this script fails, the build will fail.
 set -e
 
-# TODO: quitting if no protoc doesn't reliably stop the build.
-protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
-if [ -e include/vg/vg.pb.h ] ; then
+# We don't want to put dependency checks here because we run before `make
+# get-deps` can do any dep-getting.
+
+if which protoc >/dev/null 2>&1 && [ -e include/vg/vg.pb.h ] ; then
     HEADER_VER=$(cat include/vg/vg.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
     WORKDIR=$(pwd); \
     TESTDIR=$(mktemp -d); \
