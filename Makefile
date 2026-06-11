@@ -1092,6 +1092,8 @@ test/%.d: ;
 		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
 		rmdir $${TESTDIR}; \
 	fi;
+	echo "" > .pre-build
+	echo "Did pre-build"
 
 # A note about Protobuf:
 # We have a lot of logic here to make sure that the protoc we have henerates headers with exactly the same
@@ -1102,7 +1104,7 @@ test/%.d: ;
 	
 	
 # run .pre-build before we make anything at all.
--include .pre-build
+include .pre-build
 
 # for rebuilding just vg
 clean-vg:
