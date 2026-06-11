@@ -519,7 +519,7 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man .pre-build version
+.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man version
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -1092,7 +1092,7 @@ test/%.d: ;
 		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
 		rmdir $${TESTDIR}; \
 	fi;
-	echo "" > .pre-build
+	echo '$$(info Ran pre-build previously)' > .pre-build
 	echo "Did pre-build"
 
 # A note about Protobuf:
