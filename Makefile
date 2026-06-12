@@ -1065,20 +1065,20 @@ test/%.d: ;
 # We used to run a target to do this but since GNU Make 4.4 we can't easily run
 # a target at startup by `-include`-ing a .PHONY target so we need to do it at
 # top-level with shell calls. See <https://stackoverflow.com/a/76870264>
-$(shell bash -c "if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi")
-$(shell bash -c "if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi")
-$(shell bash -c "if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi")
-$(shell bash -c "if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(SHARED_OBJ_DIR) ]; then mkdir -p $(SHARED_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(ALGORITHMS_SHARED_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_SHARED_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi")
-$(shell bash -c "if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi")
+$(shell if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi)
+$(shell if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi)
+$(shell if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi)
+$(shell if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi)
+$(shell if [ ! -d $(SHARED_OBJ_DIR) ]; then mkdir -p $(SHARED_OBJ_DIR); fi)
+$(shell if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi)
+$(shell if [ ! -d $(ALGORITHMS_SHARED_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_SHARED_OBJ_DIR); fi)
+$(shell if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi)
+$(shell if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi)
+$(shell if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi)
+$(shell if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi)
+$(shell if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi)
+$(shell if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi)
+$(shell if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi)
 
 # run pre-build.sh before we make anything at all.
 # Make really doesn't want to depend on this succeeding, but we need it to.
