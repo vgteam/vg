@@ -1086,7 +1086,8 @@ $(shell bash -c "if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi")
 # Make sure to run right now.
 PREBUILD_RESULT:=$(shell ./pre-build.sh >pre-build.log 2>&1 ; echo $$?)
 ifneq ($(PREBUILD_RESULT), 0)
-    $(error Pre-build script failed; see pre-build.log)
+	$(info $(shell cat pre-build.log))
+    $(error Pre-build script failed)
 endif
 
 # for rebuilding just vg
