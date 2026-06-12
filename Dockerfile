@@ -3,7 +3,10 @@
 # Use Google's non-rate-limited mirror of Docker Hub to get our base image.
 # This helps automated Quay builds because Quay hasn't built a caching system
 # and exposes pull rate limits to users.
-FROM mirror.gcr.io/library/ubuntu:26.04 AS base
+# We need to use Ubuntu 22.04 because 24.04 and later suffer from
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1104888 and don't package a
+# libcairo.a at all.
+FROM mirror.gcr.io/library/ubuntu:22.04 AS base
 MAINTAINER vgteam
 
 RUN echo base > /stage.txt
