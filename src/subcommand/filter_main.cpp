@@ -425,6 +425,10 @@ int main_filter(int argc, char** argv) {
         logger.error() << "-W/--overwrite-score cannot be used with multipath alignments "
                        << "(-M/--input-mp-aln), which do not directly store a score." << std::endl;
     }
+    if (!input_gam && !output_fields.empty()) {
+        logger.error() << "-T/--tsv-out cannot be used with multipath alignments "
+                       << "(-M/--input-mp-aln), which are set up differently than GAMs." << std::endl;
+    }
     if (rescore && sub_score) {
         logger.error() << "you asked to rescore reads (-O/--rescore), but also to use "
                        << "the substitution count as the score (-u/--substitutions). "
@@ -548,11 +552,16 @@ int main_filter(int argc, char** argv) {
         filter.graph = xindex;
     };
     
-    // Make sure that this is a GAM (or the parser gets confused)
+    // Make sure that this is the right file type
     std::string gam_file = get_input_file_name(optind, argc, argv);
-    if (gam_file != "-" && !ends_with(gam_file, ".gam")) {
-        logger.error() << "Input alignment file " << gam_file 
-                       << " does not appear to be a GAM" << std::endl;
+    if (gam_file != "-") {
+        if (input_gam && !ends_with(gam_file, ".gam")) {
+            logger.error() << "Input alignment file " << gam_file 
+                           << " does not appear to be a GAM" << std::endl;
+        } else if (!input_gam && !ends_with(gam_file, ".gamp")) {
+            logger.error() << "Input alignment file " << gam_file 
+                           << " does not appear to be a GAMP" << std::endl;
+        }
     }
 
     // Read in the alignments and filter them.
