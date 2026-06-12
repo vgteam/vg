@@ -60,6 +60,7 @@ RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/m
 # Clear any CMake caches in case we are building from someone's checkout
 RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
+COPY pre-build.sh /vg/pre-build.sh
 COPY Makefile /vg/Makefile
 RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
