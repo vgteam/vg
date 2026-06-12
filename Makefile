@@ -936,7 +936,7 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 	+ar rs $@ $(XG_DIR)/xg.o
 
 # All this version header generation stuff needs to work even if SRC_DIR hasn't been copied into the container yet.
-$(shell mkdir -p $(SRC_DIR)
+$(shell mkdir -p $(SRC_DIR))
 
 # Auto-git-versioning
 
