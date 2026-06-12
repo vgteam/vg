@@ -569,7 +569,7 @@ get-deps:
 	sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr '\n' ' ' | tr -d '\\')
 
 # And we have submodule deps to build
-deps: $(DEPS)
+deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/check_options.py 1>&2
@@ -828,7 +828,7 @@ $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 
 #$(INC_DIR)/Variant.h
 $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
-	+cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
+	+cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && ranlib libvcfh.a && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
 	+cd $(DEP_DIR)/sonLib && $(MAKE) clean && kyotoTycoonLib="" CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
