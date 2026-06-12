@@ -124,7 +124,7 @@ RUN ls -lah /vg && \
     fontconfig-config \
     awscli \
     binutils \
-    libpython2.7 \
+    python3 \
     libperl-dev \
     libelf1 \
     libdw1 \
