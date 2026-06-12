@@ -62,17 +62,18 @@ RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
 COPY pre-build.sh /vg/pre-build.sh
 COPY Makefile /vg/Makefile
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+# Turn off user-defined conversion warning until https://github.com/greg7mdp/sparsepp/issues/98 can be fixed
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi) -Wno-cast-user-defined" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
 # Bring in the sources, which we need in order to build.
 COPY src /vg/src
 
 # Build all the object files for vg, but don't link.
 # Also pass the arch here
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi) -Wno-cast-user-defined" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
 
 # Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi) -Wno-cast-user-defined" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
 
 # Ship the scripts
 COPY scripts /vg/scripts
