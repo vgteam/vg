@@ -33,5 +33,5 @@ is $? 1 "Not allowed to have only a head ID"
 vg circularize -z 2 linear.vg
 is $? 1 "Not allowed to have only a tail ID"
 
-rm -f circular.vg circular.xg extracted.vg
+rm -f circular.vg circular.xg extracted.vg linear.vg paths.txt
 
