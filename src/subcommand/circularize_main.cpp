@@ -98,7 +98,6 @@ int main_circularize(int argc, char** argv) {
         }
     }
 
-    vector<string> paths_to_circularize;
     if ((head == DEFAULT_ID) != (tail == DEFAULT_ID)) {
         help_circularize(argv);
         logger.error() << "Both a head and tail node must be provided" << endl;
