@@ -99,7 +99,6 @@ int main_circularize(int argc, char** argv) {
     }
 
     if ((head == DEFAULT_ID) != (tail == DEFAULT_ID)) {
-        help_circularize(argv);
         logger.error() << "Both a head and tail node must be provided" << endl;
     } else if (tail < head) {
         logger.error() << "Tail " << tail << " is smaller than head " << head << endl;
