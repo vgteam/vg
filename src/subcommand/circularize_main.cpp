@@ -31,7 +31,6 @@ void help_circularize(char** argv) {
          << "  -P, --pathfile FILE     circularize all paths in the provided file" << endl
          << "  -a, --head ID           circularize a head and tail node (must provide a tail)" << endl
          << "  -z, --tail ID           circularize a head and tail node (must provide a head)" << endl
-         << "  -d, --describe          list all the paths in the graph"   << endl
          << "  -h, --help              print this help message to stderr and exit" << endl;
     exit(1);
 }
@@ -45,7 +44,6 @@ int main_circularize(int argc, char** argv) {
 
     string path = "";
     string pathfile = "";
-    bool describe = false;
     vg::id_t head = -1;
     vg::id_t tail = -1;
 
@@ -86,7 +84,8 @@ int main_circularize(int argc, char** argv) {
                 pathfile = require_exists(logger, optarg);
                 break;
             case 'd':
-                describe = true;
+                logger.error() << "vg circularize --describe has been removed."
+                               << " Use vg paths --list" << std::endl;
                 break;
             case 'h':
             case '?':
@@ -132,13 +131,6 @@ int main_circularize(int argc, char** argv) {
         if (!graph->has_path(p)) {
             logger.error() << "Path not in graph \"" << p << "\"" << endl;
         }
-    }
-
-    if (describe){
-        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-            cout << graph->get_path_name(path_handle) << endl;
-        });
-       exit(0);
     }
 
     if (head > 0 && tail > head){
