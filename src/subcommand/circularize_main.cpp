@@ -44,8 +44,9 @@ int main_circularize(int argc, char** argv) {
 
     vector<string> paths_to_circularize;
     string pathfile = "";
-    vg::id_t head = -1;
-    vg::id_t tail = -1;
+    const vg::id_t DEFAULT_ID = std::numeric_limits<nid_t>::max();
+    vg::id_t head = DEFAULT_ID;
+    vg::id_t tail = DEFAULT_ID;
 
 
     int c;
@@ -98,23 +99,25 @@ int main_circularize(int argc, char** argv) {
     }
 
     vector<string> paths_to_circularize;
-    if (!((head * tail) > 0)) {
+    if ((head == DEFAULT_ID) != (tail == DEFAULT_ID)) {
         help_circularize(argv);
         logger.error() << "Both a head and tail node must be provided" << endl;
+    } else if (tail < head) {
+        logger.error() << "Tail " << tail << " is smaller than head " << head << endl;
     }
-    if  (pathfile != "") {
+
+    if (pathfile != "") {
         string line;
         ifstream pfi;
         pfi.open(pathfile);
-        if (!pfi.good()){
+        if (!pfi.good()) {
             help_circularize(argv);
             logger.error() << "There is an error with the input file." << endl;
         }
-        while (getline(pfi, line)){
+        while (getline(pfi, line)) {
             paths_to_circularize.push_back(line);
         }
         pfi.close();
-
     }
 
     // TODO: if we settle on a uniform serialzation method that covers the VG class, the code is ready to be switched
@@ -123,25 +126,21 @@ int main_circularize(int argc, char** argv) {
         graph = new VG(in);
     });
 
-    // Check if paths are in graph:
-    for (const string& p : paths_to_circularize) {
-        if (!graph->has_path(p)) {
-            logger.error() << "Path not in graph \"" << p << "\"" << endl;
-        }
-    }
-
-    if (head > 0 && tail > head){
+    if (head != DEFAULT_ID) {
         graph->create_edge(graph->get_handle(tail), graph->get_handle(head));
     }
-    else{
-        for (const auto& path_name : paths_to_circularize) {
-            path_handle_t path = graph->get_path_handle(path_name);
-            if (graph->get_step_count(path) > 0) {
-                graph->create_edge(graph->get_handle_of_step(graph->path_back(path)),
-                                   graph->get_handle_of_step(graph->path_begin(path)));
-            }
-            graph->set_circularity(path, true);
+
+    for (const auto& path_name : paths_to_circularize) {
+        if (!graph->has_path(path_name)) {
+            logger.error() << "Path not in graph \"" << path_name << "\"" << endl;
         }
+
+        path_handle_t path = graph->get_path_handle(path_name);
+        if (graph->get_step_count(path) > 0) {
+            graph->create_edge(graph->get_handle_of_step(graph->path_back(path)),
+                                graph->get_handle_of_step(graph->path_begin(path)));
+        }
+        graph->set_circularity(path, true);
     }
     
     graph->serialize_to_ostream(cout);
