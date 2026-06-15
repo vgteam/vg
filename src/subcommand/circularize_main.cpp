@@ -24,10 +24,10 @@ using namespace vg::subcommand;
 
 void help_circularize(char** argv) {
     cerr << "usage: " << argv[0] << " circularize [options] <graph.vg> > [circularized.vg]" << endl
-         << "Makes specific paths or nodes in a graph circular." << endl
+         << "Make specific paths or nodes in a graph circular by connecting head/tail." << endl
          << endl
          << "options:" << endl
-         << "  -p, --path NAME         circularize the path by connecting its head/tail node" << endl
+         << "  -p, --path NAME         circularize the path [may repeat]" << endl
          << "  -P, --pathfile FILE     circularize all paths in the provided file" << endl
          << "  -a, --head ID           circularize a head and tail node (must provide a tail)" << endl
          << "  -z, --tail ID           circularize a head and tail node (must provide a head)" << endl
@@ -42,7 +42,7 @@ int main_circularize(int argc, char** argv) {
         exit(1);
     }
 
-    string path = "";
+    vector<string> paths_to_circularize;
     string pathfile = "";
     vg::id_t head = -1;
     vg::id_t tail = -1;
@@ -78,7 +78,7 @@ int main_circularize(int argc, char** argv) {
                 tail = parse<int>(optarg);
                 break;
             case 'p':
-                path = optarg;
+                paths_to_circularize.emplace_back(optarg);
                 break;
             case 'P':
                 pathfile = require_exists(logger, optarg);
@@ -115,9 +115,6 @@ int main_circularize(int argc, char** argv) {
         }
         pfi.close();
 
-    }
-    else if (path != "") {
-        paths_to_circularize.push_back(path);
     }
 
     // TODO: if we settle on a uniform serialzation method that covers the VG class, the code is ready to be switched
