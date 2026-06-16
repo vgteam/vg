@@ -22,9 +22,6 @@
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
     url = https://github.com/vgteam/sdsl-lite.git
-[submodule "deps/libVCFH"]
-	path = deps/libVCFH
-	url = https://github.com/edawson/libVCFH.git
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
