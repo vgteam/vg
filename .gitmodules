@@ -43,9 +43,6 @@
 [submodule "deps/sonLib"]
 	path = deps/sonLib
 	url = https://github.com/benedictpaten/sonLib.git
-[submodule "deps/fermi-lite"]
-	path = deps/fermi-lite
-    url = https://github.com/vgteam/fermi-lite.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git

@@ -74,7 +74,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph -lcrypto
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph -lcrypto
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -346,7 +346,6 @@ GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
 KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
-FERMI_DIR:=deps/fermi-lite
 VCFLIB_DIR:=deps/vcflib
 TABIXPP_DIR:=deps/tabixpp
 HTSLIB_DIR:=deps/htslib
@@ -398,7 +397,6 @@ LIB_DEPS += $(LIB_DIR)/libvcfh.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
-LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
@@ -891,9 +889,6 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
 $(SHARED_OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
-
-$(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
-	cd $(FERMI_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
 # But we do need to hack out the return type error to work around https://github.com/yoheirosen/sublinear-Li-Stephens/issues/6
