@@ -703,7 +703,7 @@ size_t ZipCodeForest::get_loop_distance(const SnarlDistanceIndex* distance_index
         // This is a snarl so we need to look up a boundary node
         // Have to use slow version in case of a regular snarl
         net_handle_t snarl = seed.zipcode.get_net_handle_slow(id(seed.pos), depth, distance_index, nullptr);
-        loop_anchor = distance_index->get_non_sentinel_bound(snarl, forward_loop);
+        loop_anchor = distance_index->get_node_from_sentinel(distance_index->get_bound(snarl, forward_loop, false));
         // Offset along the edge node
         loop_distance = 2 * distance_index->node_length(loop_anchor);
     }

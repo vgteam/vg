@@ -1131,8 +1131,8 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
     //Tag to say that it's a regular snarl
     snarl_code.set_code_type(1);
     //Grab the nodes on either side of the snarl
-    net_handle_t snarl_end = distance_index.get_non_sentinel_bound(snarl, true);
-    net_handle_t snarl_start = distance_index.get_non_sentinel_bound(snarl, false);
+    net_handle_t snarl_end = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, true, false));
+    net_handle_t snarl_start = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     //Calculate loop values
     size_t forward_loop = distance_index.get_forward_loop_value(snarl_end);
     size_t reverse_loop = distance_index.get_reverse_loop_value(snarl_start);
@@ -1177,8 +1177,8 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
     //Tag to say that it's an irregular snarl
     snarl_code.set_code_type(distance_index.is_dag(snarl) ? 0 : 2);
     //Grab the nodes on either side of the snarl
-    net_handle_t snarl_end = distance_index.get_non_sentinel_bound(snarl, true);
-    net_handle_t snarl_start = distance_index.get_non_sentinel_bound(snarl, false);
+    net_handle_t snarl_end = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, true, false));
+    net_handle_t snarl_start = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     //Calculate loop values
     size_t forward_loop = distance_index.get_forward_loop_value(snarl_end);
     size_t reverse_loop = distance_index.get_reverse_loop_value(snarl_start);
