@@ -13,7 +13,6 @@
 #include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
-#include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../algorithms/find_translation.hpp"
@@ -31,7 +30,6 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "  -A, --algorithm NAME      snarl algorithm {cactus/integrated} [integrated]" << endl
          << "  -p, --pathnames           output variant paths as SnarlTraversals to stdout" << endl
          << "  -r, --traversals FILE     output SnarlTraversals for ultrabubbles" << endl
          << "  -e, --path-traversals     only consider traversals that correspond to paths in" << endl
@@ -69,7 +67,6 @@ int main_snarl(int argc, char** argv) {
 
     static const int buffer_size = 100;
     
-    string algorithm = "integrated";
     string traversal_file;
     bool leaf_only = false;
     bool top_level_only = false;
@@ -129,7 +126,7 @@ int main_snarl(int argc, char** argv) {
         {
         
         case 'A':
-            algorithm = optarg;
+            logger.warn() << "--algorithm is now always \"integrated\"; cactus is not supported" << endl;
             break;
 
         case 'r':
@@ -233,34 +230,23 @@ int main_snarl(int argc, char** argv) {
         }
     }
     
-    // TODO: Everything but Cactus and the path-related options can work with a
+    // TODO: Everything but the path-related options can work with a
     // non-path HandleGraph, but we don't really have any of those implemented
     // anymore, so we don't bother supporting them.
-        
-    // Pick a SnalrFinder
+
+    if (!ref_prefix.empty()) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {
+                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
+                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
+            }
+        });
+    }
+    
     unique_ptr<SnarlFinder> snarl_finder;
+    snarl_finder.reset(new IntegratedSnarlFinder(*graph, extra_node_weight));
 
-    if ((!extra_node_weight.empty() || !ref_prefix.empty()) && algorithm != "integrated") {
-        logger.error() << "-w/-P can only be used with -A integrated (not cactus algorithm)" << endl;
-    }
-
-    if (algorithm == "cactus") {
-        snarl_finder.reset(new CactusSnarlFinder(*graph));
-    } else if (algorithm == "integrated") {
-        if (!ref_prefix.empty()) {
-            graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
-                string path_name = graph->get_path_name(path_handle);
-                if (path_name.compare(0, ref_prefix.size(), ref_prefix) == 0 && !graph->is_empty(path_handle)) {
-                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
-                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
-                }
-            });
-        }
-        snarl_finder.reset(new IntegratedSnarlFinder(*graph, extra_node_weight));
-    } else {
-        logger.error() << "Algorithm must be 'cactus' or 'integrated', not '"
-                       << algorithm << "'" << endl;
-    }
     if (!vcf_filename.empty() && path_traversals) {
         logger.error() << "-v cannot be used with -e" << endl;
     }
