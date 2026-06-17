@@ -14,7 +14,6 @@
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
 #include "../snarls.hpp"
-#include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "../traversal_finder.hpp"
@@ -1201,7 +1200,7 @@ namespace vg {
                 graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
             }
@@ -1230,7 +1229,7 @@ namespace vg {
                 Edge* e9 = graph.create_edge(n6, n7);
                 Edge* e10 = graph.create_edge(n7, n8);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -1303,7 +1302,7 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
                 Edge* e11 = graph.create_edge(n8, n9);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -1360,7 +1359,7 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
                 Edge* e11 = graph.create_edge(n8, n9);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -1927,7 +1926,7 @@ namespace vg {
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2049,7 +2048,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
 
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2136,7 +2135,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2255,7 +2254,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2366,7 +2365,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2424,7 +2423,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2502,7 +2501,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2564,7 +2563,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2776,7 +2775,7 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            SnarlManager snarl_manager = IntegratedSnarlFinder(graph).find_snarls();
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
@@ -3068,7 +3067,7 @@ namespace vg {
             Edge* e12 = graph.create_edge(n7, n8);
             
             // Work out its snarls
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             
 #ifdef debug
@@ -3250,7 +3249,7 @@ namespace vg {
             
             // Define the snarls for the top level
            
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
 
             const Snarl* snarl = snarl_manager.into_which_snarl(3, true); 
@@ -3355,7 +3354,7 @@ namespace vg {
             Edge* e2 = graph.create_edge(n1, n1, true, false);
             Edge* e3 = graph.create_edge(n2, n2, false, true);
             
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             
             // There must be something in the top level snarls
@@ -3397,7 +3396,7 @@ namespace vg {
             Edge* e6 = graph.create_edge(n4, n5);
             Edge* e7 = graph.create_edge(n5, n3, false, true);
             
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             
             // There must be something in the top level snarls
@@ -3931,7 +3930,7 @@ namespace vg {
             
             SECTION( "PathTraversalFinder can find simple forward traversals") {
 
-                CactusSnarlFinder snarl_finder(graph);
+                IntegratedSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
                 PathTraversalFinder trav_finder(graph);
 
@@ -3970,7 +3969,7 @@ namespace vg {
 
             SECTION( "PathTraversalFinder can find simple traversals when snarl is backward") {
 
-                CactusSnarlFinder snarl_finder(graph);
+                IntegratedSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
                 PathTraversalFinder trav_finder(graph);
 
@@ -4011,7 +4010,7 @@ namespace vg {
 
             SECTION( "PathTraversalFinder can find forward traversals in snarl with inversion") {
 
-                CactusSnarlFinder snarl_finder(graph);
+                IntegratedSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
                 PathTraversalFinder trav_finder(graph);
 
@@ -4051,7 +4050,7 @@ namespace vg {
 
             SECTION( "PathTraversalFinder can find traversals in backward snarl with inversion") {
 
-                CactusSnarlFinder snarl_finder(graph);
+                IntegratedSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
                 PathTraversalFinder trav_finder(graph);
 

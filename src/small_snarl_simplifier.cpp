@@ -1,6 +1,6 @@
 #include "small_snarl_simplifier.hpp"
 
-#include "cactus_snarl_finder.hpp"
+#include "integrated_snarl_finder.hpp"
 
 namespace vg {
 
@@ -8,8 +8,8 @@ using namespace std;
 
 SmallSnarlSimplifier::SmallSnarlSimplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
     
-    // create a SnarlManager using Cactus
-    CactusSnarlFinder site_finder(graph);
+    // create a SnarlManager
+    IntegratedSnarlFinder site_finder(graph);
     site_manager = site_finder.find_snarls();
 }
 

@@ -16,7 +16,7 @@
 #include "../nodetraversal.hpp"
 #include "../vg.hpp"
 #include "../genotypekit.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 
 namespace vg {
     namespace unittest {
@@ -38,7 +38,7 @@ namespace vg {
                 graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -68,7 +68,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -118,7 +118,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -202,7 +202,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -254,7 +254,7 @@ namespace vg {
                 graph.create_edge(n4, n5);
                 graph.create_edge(n5, n6);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -305,7 +305,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -395,7 +395,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -473,7 +473,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -587,7 +587,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -678,7 +678,7 @@ namespace vg {
                 graph.create_edge(n4, n5, false, true);
                 graph.create_edge(n5, n6, true, false);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -761,7 +761,7 @@ namespace vg {
                 graph.create_edge(n4, n5);
                 graph.create_edge(n5, n6);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -846,7 +846,7 @@ namespace vg {
                 graph.create_edge(n4, n5);
                 graph.create_edge(n5, n6);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -977,7 +977,7 @@ namespace vg {
                 
                 // construct phased genome
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -1104,7 +1104,7 @@ namespace vg {
                 graph.create_edge(n4, n5);
                 graph.create_edge(n5, n6);
                 
-                CactusSnarlFinder bubble_finder(graph);
+                IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 PhasedGenome genome(snarl_manager);
@@ -1222,7 +1222,7 @@ namespace vg {
             graph.create_edge(n3, n4);
             graph.create_edge(n4, n5);
             
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             
             PhasedGenome genome(snarl_manager);

@@ -5,7 +5,7 @@
 #include "catch.hpp"
 #include "../genotyper.hpp"
 #include "../snarls.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../traversal_finder.hpp"
 
 namespace vg {
@@ -62,7 +62,7 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
     graph.merge(chunk);
     
     // Find the snarls
-    SnarlManager manager = CactusSnarlFinder(graph).find_snarls();
+    SnarlManager manager = IntegratedSnarlFinder(graph).find_snarls();
     
     // Pull out the 1 to 6 one and the 6 to 9 one.
     auto snarls = manager.top_level_snarls();

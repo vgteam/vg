@@ -1,6 +1,6 @@
 #include <cstdint>
 #include "variant_recall.hpp"
-#include "cactus_snarl_finder.hpp"
+#include "integrated_snarl_finder.hpp"
 #include "traversal_finder.hpp"
 #include "augment.hpp"
 #include "translator.hpp"
@@ -80,7 +80,7 @@ void genotype_svs(VG* graph,
         XG xg_index;
         xg_index.from_path_handle_graph(*graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
-        CactusSnarlFinder finder(xg_index);
+        IntegratedSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();
         decon.deconstruct({refpath}, &xg_index, &snarl_manager, false, 10000, false, false, false, false);
     }
@@ -170,7 +170,7 @@ void variant_recall(VG* graph,
     map<string, vector<SnarlTraversal> > snarl_name_to_traversals;
 
     if (use_snarls){
-        SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
+        SnarlFinder* snarl_finder = new IntegratedSnarlFinder(*graph);
         SnarlManager snarl_manager = snarl_finder->find_snarls();
         vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
         SimpleConsistencyCalculator scc;

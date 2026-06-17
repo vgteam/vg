@@ -7,7 +7,6 @@
 #include "bdsg/hash_graph.hpp"
 #include "catch.hpp"
 #include "../snarls.hpp"
-#include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "support/random_graph.hpp"

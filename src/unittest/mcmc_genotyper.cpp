@@ -20,7 +20,6 @@
 #include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "algorithms/min_cut_graph.hpp"
-#include "../cactus_snarl_finder.hpp"
 
 #include "catch.hpp"
 
@@ -360,11 +359,8 @@ namespace vg {
                 graph.create_edge(n7, n8);
                 graph.create_edge(n8, n6);
 				
-                // IntegratedSnarlFinder bubble_finder(graph);
-                // SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
-
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                 // Make GCSA quiet
                 gcsa::Verbosity::set(gcsa::Verbosity::SILENT);

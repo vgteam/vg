@@ -10,7 +10,7 @@
 #include "catch.hpp"
 #include "vg/io/json2pb.h"
 #include "../genotypekit.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../genome_state.hpp"
 
 namespace vg {
@@ -46,7 +46,7 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
     Edge* e10 = graph.create_edge(n7, n8);
     
     // Work out its snarls
-    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder bubble_finder(graph);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
     
     // Get the top snarl
@@ -390,7 +390,7 @@ TEST_CASE("SnarlState works on snarls with nontrivial child chains", "[snarlstat
     Edge* e10 = graph.create_edge(n7, n8);
     
     // Work out its snarls
-    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder bubble_finder(graph);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
     
 #ifdef debug
@@ -515,7 +515,7 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
     Edge* e10 = graph.create_edge(n7, n8);
     
     // Work out its snarls
-    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder bubble_finder(graph);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
 
     // Get the top snarl
@@ -921,7 +921,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[genomesta
     Edge* e10 = graph.create_edge(n7, n8);
     
     // Work out its snarls
-    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder bubble_finder(graph);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
     
     // Get the top snarl
@@ -1093,7 +1093,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     Edge* e12 = graph.create_edge(n7, n8);
     
     // Work out its snarls
-    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder bubble_finder(graph);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
     
     // Get the top snarl
@@ -1394,7 +1394,7 @@ TEST_CASE("GenomeState can have haplotypes appended", "[genomestate]") {
     Edge* e10 = graph.create_edge(n7, n8);
     
     // Work out its snarls
-    CactusSnarlFinder bubble_finder(graph);
+    IntegratedSnarlFinder bubble_finder(graph);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
 
     // Get the top snarl

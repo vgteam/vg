@@ -8,7 +8,6 @@
 #include "../xg.hpp"
 #include "catch.hpp"
 #include "../snarls.hpp"
-#include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../cluster.hpp"
 #include "../snarl_distance_index.hpp"
@@ -48,15 +47,14 @@ namespace unittest {
         Edge* e9 = graph.create_edge(n6, n7);
         Edge* e10 = graph.create_edge(n7, n8);
 
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlManager snarl_manager = snarl_finder.find_snarls(); 
 
         const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
         SnarlDistanceIndex di;
-        IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index (&di, &graph, &snarl_finder);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
@@ -132,15 +130,14 @@ namespace unittest {
         Edge* e17 = graph.create_edge(n9, n9, false, true);
         Edge* e18 = graph.create_edge(n2, n2, true, false);
 
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlManager snarl_manager = snarl_finder.find_snarls(); 
 
         const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
         SnarlDistanceIndex di;
-        IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index (&di, &graph, &snarl_finder);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
@@ -196,11 +193,10 @@ namespace unittest {
         Edge* e8 = graph.create_edge(n6, n7);
         Edge* e9 = graph.create_edge(n1, n1, true, false);
 
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlManager snarl_manager = snarl_finder.find_snarls(); 
 
         SnarlDistanceIndex di;
-        IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index (&di, &graph, &snarl_finder);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
@@ -234,11 +230,10 @@ namespace unittest {
         for (int i = 0; i  < 0; i++) {
             VG graph;
             random_graph(1000, 20, 100, &graph);
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlManager snarl_manager = snarl_finder.find_snarls();
          
             SnarlDistanceIndex di;
-            IntegratedSnarlFinder snarl_finder(graph);
             fill_in_distance_index (&di, &graph, &snarl_finder);
             TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di));    

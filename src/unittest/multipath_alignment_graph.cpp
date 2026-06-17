@@ -5,7 +5,6 @@
 #include <iostream>
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
-#include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../multipath_alignment_graph.hpp"
 #include "../snarl_distance_index.hpp"
@@ -55,9 +54,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     vg.extend(proto_graph);
     
     // Make snarls on it
-    CactusSnarlFinder bubble_finder(vg);
     IntegratedSnarlFinder snarl_finder(vg);
-    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    SnarlManager snarl_manager = snarl_finder.find_snarls();
     SnarlDistanceIndex dist_index;
     fill_in_distance_index(&dist_index, &vg, &snarl_finder);
     

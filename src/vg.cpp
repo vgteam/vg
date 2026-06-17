@@ -5,7 +5,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/id_sort.hpp"
 #include "algorithms/simplify_siblings.hpp"
-#include "cactus_snarl_finder.hpp"
+#include "integrated_snarl_finder.hpp"
 #include "augment.hpp"
 #include "algorithms/prune.hpp"
 #include <raptor2/raptor2.h>
@@ -4332,7 +4332,7 @@ void VG::to_dot(ostream& out,
         Colors colors(random_seed);
         
         // Go get the snarls.
-        SnarlManager snarl_manager = CactusSnarlFinder(*this).find_snarls();
+        SnarlManager snarl_manager = IntegratedSnarlFinder(*this).find_snarls();
 
         snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // For every snarl

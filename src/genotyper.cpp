@@ -1,7 +1,7 @@
 #include <cstdint>
 #include "genotyper.hpp"
 #include "traversal_finder.hpp"
-#include "cactus_snarl_finder.hpp"
+#include "integrated_snarl_finder.hpp"
 #include "path_index.hpp"
 #include "utility.hpp"
 #include "translator.hpp"
@@ -83,26 +83,7 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
 
     // Find all the snarls in either the main graph or the subset, and put them
     // in this SnarlManager
-    SnarlManager manager = CactusSnarlFinder(graph, ref_path_name).find_snarls();
-
-    // TODO: I've removed this option because it has the chance to create incorrect Snarls from the subset
-    // graph that are not actually snarls in the full graph. If we are going to retain this feature, we need
-    // to use the subset graph throughout the genotyping process, but that's currently not possible because
-    // the rest of the code uses an AugmentedGraph instead of a VG.
-    
-//    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
-//    // We make the subset a local out here so it will stick around as long as we
-//    // use the SnarlManager.
-//    VG subset;
-//    if (subset_graph) {
-//        subset = make_subset_graph(graph, ref_path_name, reads_by_name); 
-//        manager = subset.paths.has_path(ref_path_name) ?
-//            CactusSnarlFinder(subset, ref_path_name).find_snarls()
-//            : CactusSnarlFinder(subset).find_snarls();
-//    } else {
-//        algorithms::sort(&graph);
-//        manager = CactusSnarlFinder(graph, ref_path_name).find_snarls();
-//    }
+    SnarlManager manager = IntegratedSnarlFinder(graph).find_snarls();
 
     if(show_progress) {
         // Count up the ultrabubbles
