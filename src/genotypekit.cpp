@@ -1,5 +1,4 @@
 #include "genotypekit.hpp"
-#include "cactus.hpp"
 #include "traversal_finder.hpp"
 
 //#define debug
