@@ -3343,6 +3343,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     // We need to get the graph to align to.
     bdsg::HashGraph local_graph;
     unordered_map<id_t, id_t> local_to_base;
+    nid_t local_left_anchor_id = 0;
+    nid_t local_right_anchor_id = 0;
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
         // We want a graph actually between two positions.
         // Enforce strict max length to avoid extra tips.
@@ -3368,6 +3370,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             ss << " with max path length of " << max_path_length;
             throw ChainAlignmentFailedError(ss.str());
         }
+        
+        local_left_anchor_id = local_to_base.at(-std::numeric_limits<id_t>::max());
+        local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3378,6 +3383,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             false,
             false
         );
+        local_left_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
     } else {
         // We only have the right anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3388,6 +3394,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             true,
             false
         );
+        local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
     }
 
 #ifdef debug
@@ -3395,91 +3402,6 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     dump_debug_graph(local_graph);
 #endif
     
-    // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
-    nid_t local_left_anchor_id = 0;
-    nid_t local_right_anchor_id = 0;
-    for (auto& kv : local_to_base) {
-        auto& local_id = kv.first;
-        auto& base_id = kv.second;
-        if (base_id == id(left_anchor) && base_id == id(right_anchor)) {
-            // The left and right anchors are on the same node, and this is a copy of it.
-            // It could be that the anchors face each other, and we extracted one intervening piece of node.
-            // In which case we go through this section once.
-            if (local_left_anchor_id == 0 && local_right_anchor_id == 0) {
-                // First time through, say we probably cut out the middle piece of a node
-                local_left_anchor_id = local_id;
-                local_right_anchor_id = local_id;
-#ifdef debug
-                std::cerr << "Assume left and right anchors are both node " << local_id << " representing " << base_id << std::endl;
-#endif
-            } else {
-                // Or it could be that we have two pieces of the original
-                // shared node represented as separate nodes, because the
-                // connecting path has to come back to the other end of this
-                // shared node.
-                //
-                // In that case, we assume that extract_connecting_graph
-                // assigns IDs so the start copy has a lower ID than the end
-                // copy.
-                if (local_left_anchor_id != local_right_anchor_id) {
-                    // We thought we already figured out the start and end
-                    // nodes; there are too many copies of our shared node to
-                    // work out which is which.
-                    std::stringstream ss;
-                    ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
-                    ss << " from " << left_anchor << " to " << right_anchor;
-                    ss << " with max path length of " << max_path_length;
-                    ss << " but shared node appeared more than twice in the resulting translation.";
-                    ss << " Graph dumped as crashdump.vg.";
-                    local_graph.serialize("crashdump.vg");
-                    throw std::runtime_error(ss.str());
-                }
-                // Whichever copy has the lower ID is the left one and
-                // whichever copy has the higher ID is the right one.
-                local_left_anchor_id = std::min(local_left_anchor_id, local_id);
-                local_right_anchor_id = std::max(local_right_anchor_id, local_id);
-#ifdef debug
-                std::cerr << "Second shared anchor copy as " << local_id << " representing " << base_id << "; left is now " << local_left_anchor_id << " and right is " << local_right_anchor_id << std::endl;
-#endif
-            }
-        } else if (base_id == id(left_anchor)) {
-            if (local_left_anchor_id != 0) {
-                // We thought we already figured out the start node; there are
-                // too many copies of our start node to find it. 
-                std::stringstream ss;
-                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
-                ss << " from " << left_anchor << " to " << right_anchor;
-                ss << " with max path length of " << max_path_length;
-                ss << " but start node appeared twice in the resulting translation.";
-                ss << " Graph dumped as crashdump.vg.";
-                local_graph.serialize("crashdump.vg");
-                throw std::runtime_error(ss.str());
-            }
-            local_left_anchor_id = local_id;
-#ifdef debug
-            std::cerr << "Left anchor is " << local_left_anchor_id << std::endl;
-#endif
-        } else if (base_id == id(right_anchor)) {
-            if (local_right_anchor_id != 0) {
-                // We thought we already figured out the end node; there are
-                // too many copies of our end node to find it. 
-                std::stringstream ss;
-                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
-                ss << " from " << left_anchor << " to " << right_anchor;
-                ss << " with max path length of " << max_path_length;
-                ss << " but end node appeared twice in the resulting translation.";
-                ss << " Graph dumped as crashdump.vg.";
-                local_graph.serialize("crashdump.vg");
-                throw std::runtime_error(ss.str());
-            }
-            local_right_anchor_id = local_id;
-#ifdef debug
-            std::cerr << "Right anchor is " << local_right_anchor_id << std::endl;
-#endif
-        }
-        // TODO: Stop early when we found them all.
-    }
-
     if (!is_empty(left_anchor) && local_left_anchor_id == 0) {
         // Somehow the left anchor didn't come through. Complain.
         std::stringstream ss;

@@ -291,26 +291,24 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                 // make a new node which will preserve edges on right
                 handle_t dup_node = duplicate_node(into_handle_1, false, true);
                 cut_handle_1 = into->truncate_handle(dup_node, true, offset(pos_1));
-                id_trans[into->get_id(cut_handle_1)] = id(pos_1);
             } else {
                 // split the node, update the IDs, and clean up the other side
                 cut_handle_1 = into->truncate_handle(into_handle_1, true, offset(pos_1));
                 id_trans.erase(id(pos_1));
-                id_trans[into->get_id(cut_handle_1)] = id(pos_1);
             }
+            id_trans[into->get_id(cut_handle_1)] = id(pos_1);
             
             // repeat for the second position
             if (seen_pos_2_both_ways) {
                 // make a new node which will preserve edges on left
                 handle_t dup_node = duplicate_node(into_handle_2, true, false);
                 cut_handle_2 = into->truncate_handle(dup_node, false, offset(pos_2));
-                id_trans[into->get_id(cut_handle_2)] = id(pos_2);
             } else {
                 // split the node, update the IDs, and clean up the other side
                 cut_handle_2 = into->truncate_handle(into_handle_2, false, offset(pos_2));
                 id_trans.erase(id(pos_2));
-                id_trans[into->get_id(cut_handle_2)] = id(pos_2);
             }
+            id_trans[into->get_id(cut_handle_2)] = id(pos_2);
             
             break;
         }
@@ -542,6 +540,9 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // on the first node being offset (however this information is fully contained in the arguments of
     // the function, which are obviously available in the environment that calls it)
     crash_unless(id_trans.size() == into->get_node_count());
+    // Add memory for where the edge nodes ended up
+    id_trans[-std::numeric_limits<id_t>::max()] = into->get_id(cut_handle_1);
+    id_trans[std::numeric_limits<id_t>::max()] = into->get_id(cut_handle_2);
     return id_trans;
 }
 
