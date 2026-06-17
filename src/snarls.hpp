@@ -21,7 +21,11 @@
 #include "handle.hpp"
 #include <vg/vg.pb.h>
 #include "hash_map.hpp"
-#include "cactus.hpp"
+
+extern "C" {
+#include <sonLib/sonLib.h>
+#include <sonLib/stCactusGraphs.h>
+}
 
 using namespace std;
 
