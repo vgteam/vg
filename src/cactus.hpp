@@ -39,15 +39,6 @@ struct CactusSide {
 pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths,
                                                      bool single_component = false);
 
-// Convert back from Cactus to VG
-// (to, for example, display using vg view)
-// todo: also provide mapping info to get nodes embedded in cactus components
-VG cactus_to_vg(stCactusGraph* cactus_graph);
-
-// Convert vg into vg formatted cactus representation
-// Input graph must be sorted!
-VG cactusify(VG& graph);
-
 }
 
 

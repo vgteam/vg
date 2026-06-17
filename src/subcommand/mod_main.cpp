@@ -11,7 +11,6 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../cactus.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
@@ -76,7 +75,6 @@ void help_mod(char** argv) {
          << "  -m, --markers            join all head and tails nodes to marker nodes" << endl
          << "                           (### starts and $$$ ends) of --length, for debugging" << endl
          << "  -y, --destroy-node ID    remove node with given id" << endl
-         << "  -a, --cactus             convert to cactus graph representation" << endl
          << "  -v, --sample-vcf FILE    for a graph with allele paths," << endl
          << "                           compute the sample graph from the given VCF" << endl
          << "  -G, --sample-graph FILE  subset augmented graph to sample graph via Locus file" << endl
@@ -119,7 +117,6 @@ int main_mod(int argc, char** argv) {
     nid_t destroy_node_id = 0;
     int until_normal_iter = 0;
     bool flip_doubly_reversed_edges = false;
-    bool cactus = false;
     string vcf_filename;
     string loci_filename;
     int max_degree = 0;
@@ -166,7 +163,6 @@ int main_mod(int argc, char** argv) {
             {"destroy-node", required_argument, 0, 'y'},
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", no_argument, 0, 'E'},
-            {"cactus", no_argument, 0, 'a'},
             {"sample-vcf", required_argument, 0, 'v'},
             {"sample-graph", required_argument, 0, 'G'},
             {"max-degree", required_argument, 0, 'M'},
@@ -177,7 +173,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?k:Voi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Eav:G:M:Dr:I",
+        c = getopt_long (argc, argv, "h?k:Voi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Ev:G:M:Dr:I",
                          long_options, &option_index);
 
 
@@ -336,10 +332,6 @@ int main_mod(int argc, char** argv) {
 
         case 'y':
             destroy_node_id = parse<int>(optarg);
-            break;
-
-        case 'a':
-            cactus = true;
             break;
 
         case 'v':
@@ -770,16 +762,6 @@ int main_mod(int argc, char** argv) {
 
     if (destroy_node_id > 0) {
         graph->destroy_handle(graph->get_handle(destroy_node_id));
-    }
-
-    if (cactus) {
-        // TODO: turn into an algorithm
-        ensure_vg();
-        // ensure we're sorted
-        vg_graph->sort();
-        *vg_graph = cactusify(*vg_graph);
-        // no paths survive, make sure they are erased
-        vg_graph->paths = Paths();
     }
 
     // Save the modified graph
