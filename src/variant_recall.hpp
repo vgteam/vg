@@ -30,9 +30,6 @@ void variant_recall(VG* graph,
                     FastaReference* ref_genome,
                     vector<FastaReference*> insertions,
                     string gamfile);
-// Genotype new SVs from a GAM
-void genotype_svs(VG* graph, 
-                  string gamfile, string refpath);
 
 }
 
