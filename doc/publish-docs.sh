@@ -29,14 +29,21 @@ git submodule foreach --recursive git clean -xfd
 # Find all the submodules that Doxygen wants to look at and make sure we have them, freshly.
 #
 # The CI workspace can carry these submodules with stale origin URLs (left pointing at a local mirror
-# that is not a valid repo on this runner), which makes an in-place `git submodule update` fail
-# ("'origin' does not appear to be a git repository" / "transport 'file' not allowed"). Deinit them so
-# they are re-cloned fresh from the canonical https URLs in .gitmodules. Every pinned commit is a branch
-# tip on github and the runner has https access, so no local ("file") transport is ever needed;
-# protocol.file.allow=never enforces that as defense-in-depth (CVE-2022-39253). We only recurse where
-# Doxygen needs a nested tree: deps/libvgio/deps (whose only nested submodule is vgteam/libhandlegraph).
+# that is not a valid repo on this runner). `git submodule deinit` clears the working tree and the
+# superproject config entry, but it leaves the cached git directory under .git/modules/<path> in place,
+# and `git submodule update --init` then reuses that stale gitdir (stale file:// origin + stale refs)
+# instead of cloning fresh -- so the pinned commit isn't found and git falls back to a file-transport
+# fetch that is (correctly) blocked. So we remove both the working tree AND the cached gitdir, forcing a
+# clean clone from the canonical https URL in .gitmodules. Every pinned commit is a branch tip on github
+# and the runner has https access, so no local ("file") transport is ever needed; protocol.file.allow=never
+# enforces that as defense-in-depth (CVE-2022-39253). We only recurse where Doxygen needs a nested tree:
+# deps/libvgio/deps (whose only nested submodule is vgteam/libhandlegraph).
+GITDIR=$(git rev-parse --git-dir)
 DOXYGEN_DEPS=$(cat Doxyfile | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq)
-echo "${DOXYGEN_DEPS}" | xargs -n 1 git submodule deinit -f -- || true
+for dep in ${DOXYGEN_DEPS}; do
+    git submodule deinit -f -- "${dep}" || true
+    rm -rf "${dep}" "${GITDIR}/modules/${dep}"
+done
 echo "${DOXYGEN_DEPS}" | xargs -n 1 git -c protocol.file.allow=never submodule update --init
 git -c protocol.file.allow=never submodule update --init --recursive deps/libvgio
 
