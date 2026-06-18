@@ -26,21 +26,16 @@ COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 # See <https://gist.github.com/nicktoumpelis/11214362#file-repo-rinse-sh-L2>
 git submodule foreach --recursive git clean -xfd
 
-# Find all the submodules that Doxygen wants to look at and make sure we have
-# those.
+# Find all the submodules that Doxygen wants to look at and make sure we have those.
 #
-# The CI runner injects a local git mirror via a global/system
-# `url.<local-path>.insteadOf https://github.com/` rewrite (a clone cache),
-# which turns these https submodules into local-path fetches that git blocks
-# for security (CVE-2022-39253). Rather than re-enabling the file:// transport
-# (protocol.file.allow=always), which would also trust file URLs in any nested
-# third-party .gitmodules pulled by --recursive, we disable the runner's
-# global/system git config for just this fetch so the canonical https URLs from
-# .gitmodules are used directly. All of these submodules and their nested
-# submodules use https URLs, so no local transport is ever required, and we set
-# protocol.file.allow=never as defense-in-depth so a compromised nested
-# .gitmodules cannot sneak in a local-path fetch.
-cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null xargs -n 1 git -c protocol.file.allow=never submodule update --init --recursive
+# These are pinned to commits on our development branch, which the GitLab CI runner serves from a
+# local git object mirror it wires into the repo config. Git blocks that local ("file") transport by
+# default (CVE-2022-39253), so we re-enable it per-invocation with protocol.file.allow=always. To keep
+# that grant from extending file-transport trust to the many third-party nested submodules under these
+# deps, we only recurse where Doxygen actually needs a nested tree: deps/libvgio/deps (whose only nested
+# submodule is vgteam/libhandlegraph). The other deps need just their own top-level source.
+cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | xargs -n 1 git -c protocol.file.allow=always submodule update --init
+git -c protocol.file.allow=always submodule update --init --recursive deps/libvgio
 
 # Build the documentation.
 # Assumes we are running in the repo root.
