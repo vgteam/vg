@@ -28,7 +28,19 @@ git submodule foreach --recursive git clean -xfd
 
 # Find all the submodules that Doxygen wants to look at and make sure we have
 # those.
-cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | xargs -n 1 git -c protocol.file.allow=always submodule update --init --recursive
+#
+# The CI runner injects a local git mirror via a global/system
+# `url.<local-path>.insteadOf https://github.com/` rewrite (a clone cache),
+# which turns these https submodules into local-path fetches that git blocks
+# for security (CVE-2022-39253). Rather than re-enabling the file:// transport
+# (protocol.file.allow=always), which would also trust file URLs in any nested
+# third-party .gitmodules pulled by --recursive, we disable the runner's
+# global/system git config for just this fetch so the canonical https URLs from
+# .gitmodules are used directly. All of these submodules and their nested
+# submodules use https URLs, so no local transport is ever required, and we set
+# protocol.file.allow=never as defense-in-depth so a compromised nested
+# .gitmodules cannot sneak in a local-path fetch.
+cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null xargs -n 1 git -c protocol.file.allow=never submodule update --init --recursive
 
 # Build the documentation.
 # Assumes we are running in the repo root.
