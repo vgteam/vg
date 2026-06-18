@@ -1,11 +1,5 @@
 #include "three_edge_connected_components.hpp"
 
-extern "C" {
-#include "sonLib/sonLibList.h"
-#include "sonLib/sonLibTuples.h"
-#include "sonLib/3_Absorb3edge2x.h"
-}
-
 #include <structures/union_find.hpp>
 
 #include <limits>
@@ -717,87 +711,6 @@ void three_edge_connected_components_dense(size_t node_count, size_t first_root,
             }
         });
     }
-}
-
-void three_edge_connected_components_dense_cactus(size_t node_count, 
-    const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
-    const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback) {
-    
-    // Use the known good pinchesAndCacti algorithm
-    
-    // Make the stList of all the vertices, where each vertex is an stList of single element stIntTuple items that point to the ranks of connected nodes.
-    // When an item is removed, use the list destructor on it.
-    stList* vertices = stList_construct3(0, (void(*)(void *)) stList_destruct);
-    
-    // TODO: No way to hint final size to the list, and we need the individual member lists to know their destructors for their elements.
-    
-#ifdef debug
-    cerr << "Running Cactus 3ecc on " << node_count << " nodes" << endl;
-#endif
-    
-    for (size_t rank = 0; rank < node_count; rank++) {
-        while (rank >= stList_length(vertices)) {
-            // Make sure we have an adjacency list allocated for the node
-            // When an item in the node's adjacency list is destroyed, run the int tuple destructor.
-            stList_append(vertices, stList_construct3(0, (void(*)(void *)) stIntTuple_destruct));
-        }
-        
-        for_each_connected_node(rank, [&](size_t other_rank) {
-#ifdef debug
-            cerr << "Connect node " << rank << " to node " << other_rank << endl;
-#endif
-        
-            // For each edge on the node, represent it as a 1-tuple in the node's list.
-            stList_append((stList*) stList_get(vertices, rank), stIntTuple_construct1((int64_t) other_rank));
-            // We don't have to do the back-edge now; we will do it when we visit the other node.
-        });
-    }
-    
-
-#ifdef debug
-    for (size_t i = 0; i < stList_length(vertices); i++) {
-        cerr << "Vertex " << i << " adjacent to:";
-        stList* adjacencies = (stList*) stList_get(vertices, i);
-        for (size_t j = 0; j < stList_length(adjacencies); j++) {
-            stIntTuple* adj = (stIntTuple*) stList_get(adjacencies, j);
-            cerr << " " << stIntTuple_get(adj, 0);
-        }
-        cerr << endl;
-    }
-#endif
-
-    // Now we have the graph in the format Tsin's Algorithm wants, so run it.
-    // The components come out as a list of lists, one for each component, with
-    // the entries in each component's list being 1-element stIntTuples with
-    // ranks in them.
-    stList* components = computeThreeEdgeConnectedComponents(vertices);
-    
-#ifdef debug
-    cerr << "Got back " << stList_length(components) << " components" << endl;
-#endif
-    
-    for(size_t i = 0; i < stList_length(components); i++) {
-        // For each component
-        stList* component = (stList*) stList_get(components, i);
-        // Announce the component
-        component_callback([&](const function<void(size_t)>& visit_member) {
-            // And when we get the function to feed the members to
-            for (size_t j = 0; j < stList_length(component); j++) {
-#ifdef debug
-                cerr << "Component " << i << " contains node " << stIntTuple_get((stIntTuple*) stList_get(component, j), 0) << endl;
-#endif
-            
-                // Call it with each member
-                visit_member(stIntTuple_get((stIntTuple*) stList_get(component, j), 0));
-            }
-        });
-    }
-
-    // Clean up the component result
-    stList_destruct(components);
-
-    // Clean up the vertex data
-    stList_destruct(vertices);
 }
 
 }

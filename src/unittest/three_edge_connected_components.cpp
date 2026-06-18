@@ -141,15 +141,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         adjacencies = {{1, 2}, {0, 2, 2}, {0, 1, 1}};
         components = structures::UnionFind(adjacencies.size(), true);
         
-        SECTION("Works with Cactus") {
-            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-            
-            REQUIRE(components.all_groups().size() == 2);
-            REQUIRE(components.group_size(0) == 1);
-            REQUIRE(components.group_size(1) == 2);
-            REQUIRE(components.group_size(2) == 2);
-        }
-        
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
@@ -164,10 +155,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         adjacencies = {};
         components = structures::UnionFind(adjacencies.size(), true);
     
-        SECTION("Works with Cactus") {
-            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-            REQUIRE(components.size() == 0);
-        }
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             REQUIRE(components.size() == 0);
@@ -177,16 +164,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     SECTION("A 4-node connected graph is one component") {
         adjacencies = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
         components = structures::UnionFind(adjacencies.size(), true);
-        
-        SECTION("Works with Cactus") {
-            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-            
-            REQUIRE(components.all_groups().size() == 1);
-            REQUIRE(components.group_size(0) == 4);
-            REQUIRE(components.group_size(1) == 4);
-            REQUIRE(components.group_size(2) == 4);
-            REQUIRE(components.group_size(3) == 4);
-        }
         
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
@@ -204,21 +181,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         adjacencies = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2, 7},
                        {5, 6, 7}, {4, 6, 7}, {4, 5, 7}, {4, 5, 6, 3}};
         components = structures::UnionFind(adjacencies.size(), true);
-        
-        SECTION("Works with Cactus") {
-            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-            
-            REQUIRE(components.all_groups().size() == 2);
-            REQUIRE(components.group_size(0) == 4);
-            REQUIRE(components.group_size(1) == 4);
-            REQUIRE(components.group_size(2) == 4);
-            REQUIRE(components.group_size(3) == 4);
-            
-            REQUIRE(components.group_size(4) == 4);
-            REQUIRE(components.group_size(5) == 4);
-            REQUIRE(components.group_size(6) == 4);
-            REQUIRE(components.group_size(7) == 4);
-        }
         
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
@@ -304,13 +266,6 @@ TEST_CASE("3ECC algorithms do not over-collapse an extra-edge triangle", "[3ecc]
     
     adjacencies = {{2, 2, 1}, {2, 0}, {1, 0, 0}};
     components = structures::UnionFind(adjacencies.size(), true);
-    
-    SECTION("Works with Cactus") {
-        algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-    
-        // Only two things should merge.
-        REQUIRE(components.all_groups().size() == 2);
-    }
     
     SECTION("Works with Tsin 2014") {
         algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
