@@ -3373,6 +3373,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         
         local_left_anchor_id = local_to_base.at(-std::numeric_limits<id_t>::max());
         local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
+        local_to_base.erase(-std::numeric_limits<id_t>::max());
+        local_to_base.erase(std::numeric_limits<id_t>::max());
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3384,6 +3386,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             false
         );
         local_left_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
+        local_to_base.erase(std::numeric_limits<id_t>::max());
     } else {
         // We only have the right anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3395,6 +3398,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             false
         );
         local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
+        local_to_base.erase(std::numeric_limits<id_t>::max());
     }
 
 #ifdef debug
@@ -3667,10 +3671,8 @@ bool MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 if (alignment_name) {
                     std::cerr << " for read " << *alignment_name;
                 }
-#ifdef debug_dump_tips
                 std::cerr << " to make post-trim.vg";
                 dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
-#endif
                 std::cerr << std::endl;
             }
         }
