@@ -92,7 +92,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
     REQUIRE(result.first == (9 + 9));
     for (size_t i = 0; i < 4; i++) {
-        REQUIRE(result.second.at(i).anchor_index == i);
+        REQUIRE(result.second.at(i).index == i);
     }
 }
 
@@ -113,7 +113,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     for (size_t i = 0; i < 4; i++) {
-        REQUIRE(result.second.at(i).anchor_index == i);
+        REQUIRE(result.second.at(i).index == i);
     }
 }
 
@@ -134,7 +134,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     for (size_t i = 0; i < 2; i++) {
-        REQUIRE(result.second.at(i).anchor_index == i);
+        REQUIRE(result.second.at(i).index == i);
     }
 }
 
@@ -158,7 +158,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
     // We should take all of the items in order and not be scared off by the indels.
     for (size_t i = 0; i < 4; i++) {
-        REQUIRE(result.second.at(i).anchor_index == i);
+        REQUIRE(result.second.at(i).index == i);
     }
 }
 
