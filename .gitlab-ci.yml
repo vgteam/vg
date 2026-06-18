@@ -319,6 +319,9 @@ report-job:
 docs-job:
     interruptible: true
     stage: build
+    before_script:
+      - sudo apt-get -q -y update
+      - sudo apt-get -q -y install --no-upgrade doxygen graphviz rsync git
     script:
       - doc/publish-docs.sh
    
