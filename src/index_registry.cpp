@@ -4526,6 +4526,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     dup2(devnull, STDERR_FILENO);
                     close(devnull);
                 }
+            } else {
+                // KMC prints statistics to stdout, which conflicts with many vg subcommands
+                // that write their output to stdout. So we redirect them to stderr.
+                dup2(STDERR_FILENO, STDOUT_FILENO);
             }
             
             // Allow enough open files for kmc to work; see
