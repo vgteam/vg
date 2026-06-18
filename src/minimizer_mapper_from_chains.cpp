@@ -2819,7 +2819,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Distance from end of this anchor to start of next anchor
                 cur_graph_distance = (*(skip_to_it+1)).graph_distance;
                 if (cur_graph_distance == std::numeric_limits<size_t>::max()) {
-                    cur_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+                    cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[(*(skip_to_it+1)).index], *distance_index, gbwt_graph);
                 }
                 // Also add in distance from start of this anchor to end of this anchor
                 cur_graph_distance += skip_to->length();
@@ -2872,6 +2872,10 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
+                    total_graph_distance = (*next_it).graph_distance;
+                    if (total_graph_distance == std::numeric_limits<size_t>::max()) {
+                        total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+                    }
                 }
                 // If there wasn't a gap then don't skip anything
                 break;
@@ -2925,10 +2929,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         size_t link_start = (*here).read_end();
         size_t link_length = (*next).read_start() - link_start;
         string linking_bases = aln.sequence().substr(link_start, link_length);
-        size_t graph_dist = (*next_it).graph_distance;
-        if (graph_dist == std::numeric_limits<size_t>::max()) {
-            graph_dist = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
-        }
+        size_t graph_dist = total_graph_distance;
         
 #ifdef debug_chain_alignment
         if (show_work) {
@@ -2990,7 +2991,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (!link_alignment) {
                 // We couldn't align.
-                if (graph_dist == 0) {
+                if (total_graph_distance == 0) {
                     // We had read sequence but no graph sequence.
                     // Try falling back to a pure insertion.
                     // TODO: We can be leaving the GBWT's space here!
