@@ -3063,6 +3063,8 @@ Alignment MinimizerMapper::find_chain_alignment(
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t max_gap_length = std::min(this->max_middle_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner()));
             size_t path_length = std::max(graph_dist, link_length);
+            // Double-guess the distance (in case the zipcode min dist function is being buggy)
+            path_length = std::min(path_length, link_length + std::max(this->max_indel_bases, (size_t)(this->max_indel_bases_per_base * aln.sequence().size())));
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
@@ -3671,8 +3673,10 @@ bool MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 if (alignment_name) {
                     std::cerr << " for read " << *alignment_name;
                 }
+#ifdef debug_dump_tips
                 std::cerr << " to make post-trim.vg";
                 dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
+#endif
                 std::cerr << std::endl;
             }
         }
