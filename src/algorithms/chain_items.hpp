@@ -307,7 +307,7 @@ public:
     /// What's the default value for an empty table cell?
     /// Use a function instead of a constant because that's easier when we're just a header.
     inline static TracedScore unset() {
-        return {0, nowhere(), 0};
+        return {0, nowhere(), numeric_limits<size_t>::max(), 0};
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.

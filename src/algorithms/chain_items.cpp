@@ -51,7 +51,6 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
         // This is the new winner.
         this->score = option.score;
         this->source = option_number;
-        this->graph_distance = option.graph_distance;
         this->paths = option.paths;
         this->rec_num = option.rec_num;
     }
@@ -60,7 +59,6 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
 TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
     TracedScore got = options[option_number];
     got.source = option_number;
-    got.graph_distance = options[option_number].graph_distance;
     got.paths = options[option_number].paths;
     got.rec_num = options[option_number].rec_num;
     return got;
@@ -548,7 +546,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
+        chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus),
+                           TracedScore::nowhere(),
+                           std::numeric_limits<size_t>::max(), // No graph distance to thing before
+                           to_chain[i].anchor_end_paths()}; // No paths
     }
 
     // We will run this over every transition in a good DP order.
@@ -577,7 +578,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // If we come from nowhere, we get those points.
         // This also has full path conservation (bonus = scheme.consistency_bonus).
         {
-            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
+            TracedScore from_nowhere = {(int)item_points,
+                                        TracedScore::nowhere(),
+                                        std::numeric_limits<size_t>::max(), // No graph distance to thing before
+                                        here.anchor_end_paths()}; // No paths
             int nowhere_bonus = scheme.consistency_bonus;
             int eval_nowhere = from_nowhere.score + nowhere_bonus;
             int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
