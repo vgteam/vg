@@ -22,11 +22,6 @@
 #include <vg/vg.pb.h>
 #include "hash_map.hpp"
 
-extern "C" {
-#include <sonLib/sonLib.h>
-#include <sonLib/stCactusGraphs.h>
-}
-
 using namespace std;
 
 namespace vg {
