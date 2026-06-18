@@ -41,7 +41,7 @@ ostream& operator<<(ostream& out, const TracedScore& value) {
     if (value.source == TracedScore::nowhere()) {
         return out << value.score << " from nowhere";
     }
-    return out << value.score << " from #" << value.source << " (graph distance" << value.graph_distance << ")";
+    return out << value.score << " from #" << value.source << " (graph distance " << value.graph_distance << ")";
 }
 
 
