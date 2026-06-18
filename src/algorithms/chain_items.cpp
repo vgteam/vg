@@ -41,7 +41,7 @@ ostream& operator<<(ostream& out, const TracedScore& value) {
     if (value.source == TracedScore::nowhere()) {
         return out << value.score << " from nowhere";
     }
-    return out << value.score << " from #" << value.source << " (graph distance" << value.graph_dist << ")";
+    return out << value.score << " from #" << value.source << " (graph distance" << value.graph_distance << ")";
 }
 
 
@@ -51,7 +51,7 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
         // This is the new winner.
         this->score = option.score;
         this->source = option_number;
-        this->graph_dist = option.graph_dist;
+        this->graph_distance = option.graph_distance;
         this->paths = option.paths;
         this->rec_num = option.rec_num;
     }
@@ -60,7 +60,7 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
 TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
     TracedScore got = options[option_number];
     got.source = option_number;
-    got.graph_dist = options[option_number].graph_dist;
+    got.graph_distance = options[option_number].graph_distance;
     got.paths = options[option_number].paths;
     got.rec_num = options[option_number].rec_num;
     return got;
@@ -657,7 +657,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // And the score with the transition and the points from the item
             TracedScore from_source_score = source_score.add_points(jump_points + item_points)
                                                         .set_shared_paths(here.anchor_paths());
-            from_source_score.graph_dist = transition.graph_distance;
+            from_source_score.graph_distance = transition.graph_distance;
             
             // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
             // Bonus = fraction of conserved paths * scheme.consistency_bonus.
@@ -793,14 +793,14 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     return best_score;
 }
 
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
-                                                        const VectorView<Anchor>& to_chain,
-                                                        const TracedScore& best_past_ending_score_ever,
-                                                        const ChainScoringScheme& scheme,
-                                                        size_t max_tracebacks) {
+vector<pair<vector<TracedAnchor>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
+                                                              const VectorView<Anchor>& to_chain,
+                                                              const TracedScore& best_past_ending_score_ever,
+                                                              const ChainScoringScheme& scheme,
+                                                              size_t max_tracebacks) {
     
     // We will fill this in with all the tracebacks, and then sort and truncate.
-    vector<pair<vector<size_t>, int>> tracebacks;
+    vector<pair<vector<TracedAnchor>, int>> tracebacks;
     tracebacks.reserve(chain_scores.size());
     
     // Get all of the places to start tracebacks, in score order.
@@ -822,8 +822,8 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
             continue;
         }
         // For each unused item in score order, start a traceback stack (in reverse order)
-        std::vector<size_t> traceback;
-        traceback.push_back(trace_from);
+        std::vector<TracedAnchor> traceback;
+        traceback.emplace_back(trace_from, std::numeric_limits<size_t>::max());
         // Track the penalty we are off optimal for this traceback
         int penalty = best_past_ending_score_ever - chain_scores[trace_from];
         size_t here = trace_from;
@@ -850,7 +850,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     break;
                 } else {
                     // Add to the traceback
-                    traceback.push_back(next);
+                    traceback.emplace_back(next, chain_scores[here].graph_distance);
                 }
             }
             here = next;
@@ -865,7 +865,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
     
     // Sort the tracebacks by penalty, ascending
     std::sort(tracebacks.begin(), tracebacks.end(), 
-    [](const std::pair<std::vector<size_t>, int>& a, const std::pair<std::vector<size_t>, int>& b) {
+    [](const std::pair<std::vector<TracedAnchor>, int>& a, const std::pair<std::vector<TracedAnchor>, int>& b) {
         // Return true if a has the smaller penalty and belongs first
         return a.second < b.second;
     });
@@ -878,25 +878,25 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
     return tracebacks;
 }
 
-ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                                                   const SnarlDistanceIndex& distance_index,
-                                                   const HandleGraph& graph,
-                                                   int gap_open,
-                                                   int gap_extension,
-                                                   const ChainScoringScheme& scheme,
-                                                   size_t max_chains,
-                                                   const transition_iterator& for_each_transition,
-                                                   size_t max_indel_bases,
-                                                   bool show_work) {
+std::vector<ChainWithRec> find_best_chains(const VectorView<Anchor>& to_chain,
+                                           const SnarlDistanceIndex& distance_index,
+                                           const HandleGraph& graph,
+                                           int gap_open,
+                                           int gap_extension,
+                                           const ChainScoringScheme& scheme,
+                                           size_t max_chains,
+                                           const transition_iterator& for_each_transition,
+                                           size_t max_indel_bases,
+                                           bool show_work) {
 
-    ChainsResult result;
+    std::vector<ChainWithRec> result;
     if (to_chain.empty()) {
         ChainWithRec empty_entry;
         empty_entry.score = 0;
-        empty_entry.anchors = vector<size_t>();
+        empty_entry.anchors = vector<TracedAnchor>();
         empty_entry.rec_positions = {};
         empty_entry.rec_intervals = {};
-        result.chains.emplace_back(std::move(empty_entry));
+        result.emplace_back(std::move(empty_entry));
         return result;
     }
         
@@ -916,42 +916,42 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
 #endif
     // Then do the tracebacks
-    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(
+    vector<pair<vector<TracedAnchor>, int>> tracebacks = chain_items_traceback(
         chain_scores, to_chain, best_past_ending_score_ever, scheme, max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
         ChainWithRec empty_entry;
         empty_entry.score = 0;
-        empty_entry.anchors = vector<size_t>();
+        empty_entry.anchors = vector<TracedAnchor>();
         empty_entry.rec_positions = {};
         empty_entry.rec_intervals = {};
-        result.chains.emplace_back(std::move(empty_entry));
+        result.emplace_back(std::move(empty_entry));
         return result;
     }
         
     // Convert from traceback and penalty to score and traceback.
     // Everything is already sorted.
-    result.chains.reserve(tracebacks.size());
+    result.reserve(tracebacks.size());
     for (auto& traceback : tracebacks) {
         // Move over the list of items and convert penalty to score
         int score = best_past_ending_score_ever.score - traceback.second;
-        std::vector<size_t> chain_indexes = std::move(traceback.first);
+        std::vector<TracedAnchor> chain_items = std::move(traceback.first);
 
         // Compute the anchor indices in this chain that introduce an
         // inter-anchor recombination event. We simulate the path-bit
         // propagation along the chain using the same logic as
         // TracedScore::set_shared_paths (but without modifying the state).
         std::vector<size_t> rec_positions;
-        if (!chain_indexes.empty()) {
+        if (!chain_items.empty()) {
             // Start with the endpoint paths of the first anchor.
-            size_t first_idx = chain_indexes.front();
+            size_t first_idx = chain_items.front().anchor_index;
             path_flags_t current_paths = to_chain[first_idx].anchor_end_paths();
 
             // Walk the chain from the second anchor onward and apply the
             // same recombination-detection rules used in set_shared_paths.
-            for (size_t k = 1; k < chain_indexes.size(); ++k) {
-                size_t anchor_idx = chain_indexes[k];
+            for (size_t k = 1; k < chain_items.size(); ++k) {
+                size_t anchor_idx = chain_items[k].anchor_index;
                 auto new_paths = to_chain[anchor_idx].anchor_paths();
                 // If the anchor's start and end paths are equal, it's not an
                 // internally recombinant anchor; check inter-anchor overlap.
@@ -980,12 +980,12 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         // boundary when, intersecting suffix path supports, its end_paths do
         // not overlap with the supports accumulated from anchors to its right.
         std::vector<size_t> left_rec_positions;
-        if (chain_indexes.size() > 1) {
-            size_t last_idx = chain_indexes.back();
+        if (chain_items.size() > 1) {
+            size_t last_idx = chain_items.back().anchor_index;
             path_flags_t current_paths = to_chain[last_idx].anchor_start_paths();
 
-            for (size_t k = chain_indexes.size() - 1; k > 0; --k) {
-                size_t anchor_idx = chain_indexes[k - 1];
+            for (size_t k = chain_items.size() - 1; k > 0; --k) {
+                size_t anchor_idx = chain_items[k - 1].anchor_index;
                 auto new_paths = to_chain[anchor_idx].anchor_paths();
                 if (new_paths.first == new_paths.second) {
                     if ((current_paths & new_paths.second) == 0) {
@@ -1017,24 +1017,24 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
 
         ChainWithRec entry;
         entry.score = score;
-        entry.anchors = std::move(chain_indexes);
+        entry.anchors = std::move(chain_items);
         entry.rec_positions = std::move(rec_positions);
         entry.rec_intervals = std::move(rec_intervals);
-        result.chains.emplace_back(std::move(entry));
+        result.emplace_back(std::move(entry));
     }
     return result;
 }
 
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          int gap_open,
-                                          int gap_extension,
-                                          const ChainScoringScheme& scheme,
-                                          const transition_iterator& for_each_transition,
-                                          size_t max_indel_bases) {
+pair<int, vector<TracedAnchor>> find_best_chain(const VectorView<Anchor>& to_chain,
+                                                const SnarlDistanceIndex& distance_index,
+                                                const HandleGraph& graph,
+                                                int gap_open,
+                                                int gap_extension,
+                                                const ChainScoringScheme& scheme,
+                                                const transition_iterator& for_each_transition,
+                                                size_t max_indel_bases) {
                                                                  
-    ChainsResult cr = find_best_chains(
+    std::vector<ChainWithRec> cr = find_best_chains(
         to_chain,
         distance_index,
         graph,
@@ -1045,7 +1045,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         for_each_transition,
         max_indel_bases
     );
-    return std::make_pair(cr.chains.front().score, cr.chains.front().anchors);
+    return std::make_pair(cr.front().score, cr.front().anchors);
 }
 
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, 

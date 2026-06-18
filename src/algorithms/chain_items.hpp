@@ -352,7 +352,7 @@ public:
     // Index of source score among possibilities/traceback pointer
     size_t source;
     // Graph distance from source (not considered in equality/comparison)
-    size_t graph_dist;
+    size_t graph_distance;
     /// Supported paths
     path_flags_t paths;
     size_t rec_num=0;
@@ -420,6 +420,18 @@ struct ChainScoringScheme {
     int consistency_bonus = 0;
 };
 
+/// A single thing in a traced chain
+/// We need to remember its index and how far it was from the previous thing
+struct TracedAnchor {
+    // The index in to_chain
+    size_t anchor_index;
+    // The graph distance from the previous thing
+    // std::numeric_limits<size_t>::max() if the first thing
+    size_t graph_distance;
+
+    TracedAnchor (size_t anchor_idx, size_t graph_dist) : anchor_index(anchor_idx), graph_distance(graph_dist) {}
+};
+
 /// A single chain result: scored chain plus the recombination count observed
 /// on its endpoint.
 /// TODO: Is there a better name for the abstraction this is getting at?
@@ -427,7 +439,7 @@ struct ChainWithRec {
     // The chain score
     size_t score;
     // The anchors in the chain
-    std::vector<size_t> anchors;
+    std::vector<TracedAnchor> anchors;
     // Positions (anchor indices) in the chain that introduce a recombination
     // event between anchors. These correspond to anchors where we had to
     // reset supported paths because the previous path set did not overlap
@@ -441,14 +453,6 @@ struct ChainWithRec {
     // May be empty when forward and backward counts disagree, e.g. when
     // internally recombinant anchors break the symmetry.
     std::vector<std::pair<size_t, size_t>> rec_intervals;
-};
-
-/// Result of finding best chains: a list of chains each paired with the
-/// recombination count observed at that chain's endpoint.
-/// TODO: Can we get rid of this once we're sure it won't need more fields?
-/// TODO: Is there a better name for this?
-struct ChainsResult {
-    std::vector<ChainWithRec> chains;
 };
 
 /**
@@ -569,11 +573,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
  *  won't be possible to recombine two tracebacks to get a higher score; no
  *  edges followed between items will ever need to be cut.
  */
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
-                                                        const VectorView<Anchor>& to_chain,
-                                                        const TracedScore& best_past_ending_score_ever,
-                                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                        size_t max_tracebacks = 1);
+vector<pair<vector<TracedAnchor>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
+                                                              const VectorView<Anchor>& to_chain,
+                                                              const TracedScore& best_past_ending_score_ever,
+                                                              const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                                              size_t max_tracebacks = 1);
 
 
 /**
@@ -585,16 +589,16 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
  * Returns the scores and the list of indexes of items visited to achieve
  * that score, in order, with multiple tracebacks in descending score order.
  */
-ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                                                   const SnarlDistanceIndex& distance_index,
-                                                   const HandleGraph& graph,
-                                                   int gap_open,
-                                                   int gap_extension,
-                                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                   size_t max_chains = 1,
-                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                                   size_t max_indel_bases = 100,
-                                                   bool show_work = false);
+std::vector<ChainWithRec> find_best_chains(const VectorView<Anchor>& to_chain,
+                                           const SnarlDistanceIndex& distance_index,
+                                           const HandleGraph& graph,
+                                           int gap_open,
+                                           int gap_extension,
+                                           const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                           size_t max_chains = 1,
+                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                                           size_t max_indel_bases = 100,
+                                           bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -605,14 +609,14 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
  */
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          int gap_open,
-                                          int gap_extension,
-                                          const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                                          size_t max_indel_bases = 100);
+pair<int, vector<TracedAnchor>> find_best_chain(const VectorView<Anchor>& to_chain,
+                                                const SnarlDistanceIndex& distance_index,
+                                                const HandleGraph& graph,
+                                                int gap_open,
+                                                int gap_extension,
+                                                const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                                const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
+                                                size_t max_indel_bases = 100);
                                           
 /**
  * Score the given group of items. Determines the best score that can be
