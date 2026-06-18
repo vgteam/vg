@@ -35,7 +35,7 @@ void help_bench_dist_query(char** argv) {
     std::cerr << "usage: " << argv[0] << " bench-dist-query -g <graph.gbz> -d <index1.dist> [-d <index2.dist> ...] [options] >report.tsv" << endl
          << "options:" << endl
          << "  -g, --graph FILE         path to input GBZ graph file" << endl
-         << "  -d, --dist FILE          path to distance index file (can be specified multiple times)" << endl
+         << "  -d, --dist FILE          path to distance index file (repeatable)" << endl
          << "  -q, --numQueries N       number of queries to run (default: 10000)" << endl
          << "  -s, --save-queries FILE  save generated queries to FILE for reproducibility" << endl
          << "  -Q, --load-queries FILE  load queries from FILE instead of generating new ones" << endl
