@@ -41,7 +41,7 @@ ostream& operator<<(ostream& out, const TracedScore& value) {
     if (value.source == TracedScore::nowhere()) {
         return out << value.score << " from nowhere";
     }
-    return out << value.score << " from #" << value.source;
+    return out << value.score << " from #" << value.source << " (graph distance" << value.graph_dist << ")";
 }
 
 
@@ -51,6 +51,7 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
         // This is the new winner.
         this->score = option.score;
         this->source = option_number;
+        this->graph_dist = option.graph_dist;
         this->paths = option.paths;
         this->rec_num = option.rec_num;
     }
@@ -59,6 +60,7 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
 TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
     TracedScore got = options[option_number];
     got.source = option_number;
+    got.graph_dist = options[option_number].graph_dist;
     got.paths = options[option_number].paths;
     got.rec_num = options[option_number].rec_num;
     return got;
@@ -655,6 +657,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // And the score with the transition and the points from the item
             TracedScore from_source_score = source_score.add_points(jump_points + item_points)
                                                         .set_shared_paths(here.anchor_paths());
+            from_source_score.graph_dist = transition.graph_distance;
             
             // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
             // Bonus = fraction of conserved paths * scheme.consistency_bonus.

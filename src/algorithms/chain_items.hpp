@@ -291,8 +291,11 @@ protected:
 /// Explain an Anchor to the given stream
 ostream& operator<<(ostream& out, const Anchor& anchor);
 
-// For doing scores with backtracing, we use this type, which is a
-// score and a number for the place we came from to get it.
+// For doing scores with backtracing, we use this type, which is
+// - a score
+// - a number for the place we came from to get it
+// - the graph distance from that point (ignored for comparison purposes
+//   as it's just an annotation for later lookup, not part of the tracing)
 class TracedScore {
 public:
     /// What is the sentinel for an empty provenance?
@@ -348,6 +351,8 @@ public:
     int score;
     // Index of source score among possibilities/traceback pointer
     size_t source;
+    // Graph distance from source (not considered in equality/comparison)
+    size_t graph_dist;
     /// Supported paths
     path_flags_t paths;
     size_t rec_num=0;
