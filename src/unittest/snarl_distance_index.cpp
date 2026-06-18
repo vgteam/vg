@@ -7379,7 +7379,7 @@ namespace vg {
 //            ifstream vg_stream("testGraph");
 //            VG vg(vg_stream);
 //            vg_stream.close();
-//            CactusSnarlFinder bubble_finder(vg);
+//            IntegratedSnarlFinder bubble_finder(vg);
 //            SnarlManager snarl_manager = bubble_finder.find_snarls();
 //
 //            MinimumDistanceIndex di (&vg, &snarl_manager);
