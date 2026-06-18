@@ -92,7 +92,7 @@ int main_snarl(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"algorithm", required_argument, 0, 'A'},
+                {"algorithm", no_argument, 0, 'A'},
                 {"traversals", required_argument, 0, 'r'},
                 {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
@@ -115,7 +115,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:ew:P:h?t:",
+        c = getopt_long (argc, argv, "Asr:laTopm:nv:f:i:ew:P:h?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
