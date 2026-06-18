@@ -163,6 +163,7 @@ int main_mod(int argc, char** argv) {
             {"destroy-node", required_argument, 0, 'y'},
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", no_argument, 0, 'E'},
+            {"cactus", no_argument, 0, 'a'},
             {"sample-vcf", required_argument, 0, 'v'},
             {"sample-graph", required_argument, 0, 'G'},
             {"max-degree", required_argument, 0, 'M'},
@@ -173,7 +174,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?k:Voi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Ev:G:M:Dr:I",
+        c = getopt_long (argc, argv, "h?k:Voi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Eav:G:M:Dr:I",
                          long_options, &option_index);
 
 
@@ -332,6 +333,10 @@ int main_mod(int argc, char** argv) {
 
         case 'y':
             destroy_node_id = parse<int>(optarg);
+            break;
+
+        case 'a':
+            logger.error() << "vg snarls --cactus has been removed" << endl;
             break;
 
         case 'v':
