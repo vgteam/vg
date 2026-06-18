@@ -889,7 +889,8 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     ChainsResult result;
     if (to_chain.empty()) {
         ChainWithRec empty_entry;
-        empty_entry.scored_chain = {0, vector<size_t>()};
+        empty_entry.score = 0;
+        empty_entry.anchors = vector<size_t>();
         empty_entry.rec_positions = {};
         empty_entry.rec_intervals = {};
         result.chains.emplace_back(std::move(empty_entry));
@@ -918,7 +919,8 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     if (tracebacks.empty()) {
         // Somehow we got nothing
         ChainWithRec empty_entry;
-        empty_entry.scored_chain = {0, vector<size_t>()};
+        empty_entry.score = 0;
+        empty_entry.anchors = vector<size_t>();
         empty_entry.rec_positions = {};
         empty_entry.rec_intervals = {};
         result.chains.emplace_back(std::move(empty_entry));
@@ -1011,7 +1013,8 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         }
 
         ChainWithRec entry;
-        entry.scored_chain = {score, std::move(chain_indexes)};
+        entry.score = score;
+        entry.anchors = std::move(chain_indexes);
         entry.rec_positions = std::move(rec_positions);
         entry.rec_intervals = std::move(rec_intervals);
         result.chains.emplace_back(std::move(entry));
@@ -1039,7 +1042,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         for_each_transition,
         max_indel_bases
     );
-    return cr.chains.front().scored_chain;
+    return std::make_pair(cr.chains.front().score, cr.chains.front().anchors);
 }
 
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, 

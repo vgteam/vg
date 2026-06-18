@@ -1444,7 +1444,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         //So to get the funnel to track the gapless extensions properly, we need to make a fake chaining
                         //stage for these too
                         // Tell the funnel
-                        //TODO: idk what score to give it funnel.score(funnel.latest(), scored_chain.first);!
+                        //TODO: idk what score to give it funnel.score(funnel.latest(), chain_score);!
 
                         funnel.project(item_num);
 
@@ -1664,7 +1664,8 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             for (size_t result = 0; result < chain_results.chains.size(); result++) {
                 // For each result
                 auto& entry = chain_results.chains[result];
-                auto& scored_chain = entry.scored_chain;
+                auto& chain_score = entry.score;
+                auto& chain_anchors = entry.anchors;
                 auto& chain_rec_positions = entry.rec_positions;
 #ifdef debug_rec
                 if (true)
@@ -1678,13 +1679,13 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     if (result < MANY_LIMIT)
 #endif
                     {
-                        if (!scored_chain.second.empty()) {
+                        if (!chain_anchors.empty()) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << scored_chain.first
-                                    << " (rec num =" << chain_rec_positions.size() << ") and length " << scored_chain.second.size()
-                                    << " running " << anchor_view[scored_chain.second.front()]
-                                    << " to " << anchor_view[scored_chain.second.back()];
+                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << chain_score
+                                    << " (rec num =" << chain_rec_positions.size() << ") and length " << chain_anchors.size()
+                                    << " running " << anchor_view[chain_anchors.front()]
+                                    << " to " << anchor_view[chain_anchors.back()];
                                 if (!chain_rec_positions.empty()) {
                                     cerr << " recombination introduced at anchors: ";
                                     for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
@@ -1696,7 +1697,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 #ifdef debug_rec
                                 algorithms::path_flags_t current_paths = 0;
                                 bool first = true;
-                                for (auto& selected_number : scored_chain.second) {
+                                for (auto& selected_number : chain_anchors) {
                                     auto& anchor = anchor_view[selected_number];
                                     auto new_paths = anchor.anchor_paths();
                                     if (first) {
@@ -1736,13 +1737,13 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // Also make a parallel vector that marks whether each seed in the chain
                 // comes from an anchor that introduced recombination.
                 chain_rec_flags.emplace_back();
-                chains.back().reserve(scored_chain.second.size() * 2);
-                chain_rec_flags.back().reserve(scored_chain.second.size() * 2);
+                chains.back().reserve(chain_anchors.size() * 2);
+                chain_rec_flags.back().reserve(chain_anchors.size() * 2);
 
-                // Build a set of the anchor indices inside scored_chain that are recombinant
+                // Build a set of the anchor indices inside chain_anchors that are recombinant
                 std::unordered_set<size_t> rec_anchor_set(chain_rec_positions.begin(), chain_rec_positions.end());
 
-                for (auto& selected_number : scored_chain.second) {
+                for (auto& selected_number : chain_anchors) {
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     bool anchor_is_recomb = rec_anchor_set.count(selected_number) > 0;
@@ -1759,7 +1760,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     }
                 }
                 // Remember the score
-                chain_score_estimates.push_back(scored_chain.first);
+                chain_score_estimates.push_back(chain_score);
                 // Remember how many recombinations were in this chain
                 chain_rec_counts.push_back(chain_rec_positions.size());
 
@@ -1771,7 +1772,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.introduce();
-                    funnel.score(funnel.latest(), scored_chain.first);
+                    funnel.score(funnel.latest(), chain_score);
                     // We come from all the seeds directly
                     // TODO: Include all the middle seeds when gapless extending!
                     funnel.also_merge_group(2, chains.back().begin(), chains.back().end());
@@ -1787,7 +1788,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     if (haplotype_positions) {
                         wanted_senses.insert(PathSense::HAPLOTYPE);
                     }
-                    for (auto& boundary : {anchor_view[scored_chain.second.front()].graph_start(), anchor_view[scored_chain.second.back()].graph_end()}) {
+                    for (auto& boundary : {anchor_view[chain_anchors.front()].graph_start(), anchor_view[chain_anchors.back()].graph_end()}) {
                         // For each end of the chain
                         auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
                         for (auto& handle_and_positions : offsets) {

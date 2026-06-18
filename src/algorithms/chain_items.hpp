@@ -419,8 +419,10 @@ struct ChainScoringScheme {
 /// on its endpoint.
 /// TODO: Is there a better name for the abstraction this is getting at?
 struct ChainWithRec {
-    // TODO: Shouldn't we split this into 2 fields?
-    std::pair<int, std::vector<size_t>> scored_chain;
+    // The chain score
+    size_t score;
+    // The anchors in the chain
+    std::vector<size_t> anchors;
     // Positions (anchor indices) in the chain that introduce a recombination
     // event between anchors. These correspond to anchors where we had to
     // reset supported paths because the previous path set did not overlap
