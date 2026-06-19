@@ -133,3 +133,6 @@
 [submodule "deps/mimalloc"]
 	path = deps/mimalloc
 	url = https://github.com/microsoft/mimalloc.git
+[submodule "deps/GFAz"]
+	path = deps/GFAz
+	url = https://github.com/babyplutokurt/GFAz.git

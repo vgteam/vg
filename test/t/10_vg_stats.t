@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 23
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -63,6 +63,8 @@ vg index graphs/atgc.vg -x atgc.xg
 is "$(vg stats -F atgc.xg)" "format: XG" "vg stats -F detects format of xg graph"
 vg convert graphs/atgc.vg -f > atgc.gfa
 is "$(vg stats -F atgc.gfa)" "format: GFA" "vg stats -F detects format of GFA graph"
+is "$(vg stats -F tiny/tiny.gfaz)" "format: GFA" "vg stats -F classifies GFAZ input on the GFA graph path"
+is "$(vg stats -z tiny/tiny.gfaz)" "$(vg stats -z tiny/tiny.gfa)" "basic stats agree between GFA and GFAZ"
 rm -f  atgc.vg atgc.hg atgc.pg atgc.xg atgc.gfa
 vg autoindex -v tiny/tiny.vcf.gz -r tiny/tiny.fa -w giraffe -p tiny
 is "$(vg stats -F tiny.giraffe.gbz)" "format: GBZ" "vg stats -F detects format of GBZ graph"

@@ -1,10 +1,35 @@
 #include "gfa_to_handle.hpp"
 #include "../path.hpp"
+#include "../utility.hpp"
 
 #include <gbwtgraph/utils.h>
 
 namespace vg {
 namespace algorithms {
+
+static std::string_view as_view(const GFAParser::chars_t& range) {
+    // chars_t is a pair of string::const_iterator into a contiguous buffer.
+    size_t len = range.second - range.first;
+    return len == 0 ? std::string_view() : std::string_view(&*range.first, len);
+}
+
+static GFAParser::visit_iteratee_t make_p_visit_iteratee(const GFAParser::chars_t& visits) {
+    // Adapt the legacy P-line scan helpers to the parser's iterator interface.
+    return [visits](const GFAParser::visit_step_t& visit_step) {
+        GFAParser::scan_p_visits(visits, [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
+            return visit_step(rank, 0, as_view(node_name), is_reverse);
+        });
+    };
+}
+
+static GFAParser::visit_iteratee_t make_w_visit_iteratee(const GFAParser::chars_t& visits) {
+    // Adapt the legacy W-line scan helpers to the parser's iterator interface.
+    return [visits](const GFAParser::visit_step_t& visit_step) {
+        GFAParser::scan_w_visits(visits, [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
+            return visit_step(rank, 0, as_view(node_name), is_reverse);
+        });
+    };
+}
 
 void GFAIDMapInfo::invert_translation() {
     if (!numeric_mode) {
@@ -43,6 +68,22 @@ static void write_gfa_translation(const GFAIDMapInfo& id_map_info, const string&
         for (const auto& mapping : *id_map_info.name_to_id) {
             trans_file << "T\t" << mapping.first << "\t" << mapping.second << "\n";
         }
+    }
+}
+
+// Temporary filename-based parser dispatch for old command paths that have not
+// yet moved fully onto the registry/VPKG loading path.
+static unique_ptr<GFAParser> make_gfa_family_parser_for_file(const string& filename) {
+    if (filename != "-" && GFAzParser::looks_like_gfaz(filename)) {
+        return make_unique<GFAzParser>();
+    }
+    return make_unique<GFATextParser>();
+}
+
+static void attach_translation(GFAParser& parser, GFAIDMapInfo* translation) {
+    if (translation) {
+        // Use the given external translation so the caller can keep it around.
+        parser.external_id_map = translation;
     }
 }
 
@@ -103,8 +144,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
     });
 
     parser.path_listeners.push_back([&parser, graph, reference_samples, ignore_sense](const string& name,
-                                                                                      const GFAParser::chars_t& visits,
-                                                                                      const GFAParser::chars_t& overlaps,
+                                                                                      const GFAParser::visit_iteratee_t& visits,
                                                                                       const GFAParser::tag_list_t& tags) {
         // For P lines, we add the path.
         
@@ -168,29 +208,24 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                               phase_block,
                                               subrange);
         
-        // Overlaps are pre-checked in scan_p
-        // TODO: Do it in a better place.
-        
-        GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
-                                             const GFAParser::chars_t& step_name,
-                                             bool step_is_reverse) {
+        visits([&](int64_t step_rank, nid_t step_node_id, std::string_view step_name, bool step_is_reverse) {
             if (step_rank >= 0) {
                 // Not an empty path sentinel.
-                // Find the node ID to visit.
-                nid_t n = GFAParser::find_existing_sequence_id(GFAParser::extract(step_name), parser.id_map());
-                // And add the step.
+                // Use the pre-resolved ID if the parser supplied one; otherwise look it up by name.
+                nid_t n = step_node_id != 0 ? step_node_id
+                                            : GFAParser::find_existing_sequence_id(step_name, parser.id_map());
                 graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
             }
             // Don't stop.
             return true;
         });
     });
-    
+
     parser.walk_listeners.push_back([&parser, graph, reference_samples](const string& sample_name,
                                                                         int64_t haplotype,
                                                                         const string& contig_name,
                                                                         const subrange_t& subrange,
-                                                                        const GFAParser::chars_t& visits,
+                                                                        const GFAParser::visit_iteratee_t& visits,
                                                                         const GFAParser::tag_list_t& tags) {
         // For W lines, we add the path with a bit more metadata.
         
@@ -260,23 +295,18 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                               phase_block,
                                               assigned_subrange);
         
-        GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
-                                             const GFAParser::chars_t& step_name,
-                                             bool step_is_reverse) {
+        visits([&](int64_t step_rank, nid_t step_node_id, std::string_view step_name, bool step_is_reverse) {
             if (step_rank >= 0) {
                 // Not an empty path sentinel.
-                // Find the node ID to visit.
-                nid_t n = GFAParser::find_existing_sequence_id(GFAParser::extract(step_name), parser.id_map());
-                // And add the step.
+                nid_t n = step_node_id != 0 ? step_node_id
+                                            : GFAParser::find_existing_sequence_id(step_name, parser.id_map());
                 graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
             }
             // Don't stop.
             return true;
         });
     });
-    
-    
-    
+
     parser.rgfa_listeners.push_back([&parser, graph, rgfa_cache](nid_t id,
                                                                  int64_t offset,
                                                                  size_t length,
@@ -326,10 +356,10 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
 
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
                          GFAIDMapInfo* translation) {
-                         
-    get_input_file(filename, [&](istream& in) {
-       gfa_to_handle_graph(in, graph, translation);
-    });
+    GFATextParser parser;
+    attach_translation(parser, translation);
+    parser_to_handle_graph(parser, graph);
+    parser.parse(filename);
 }
 
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
@@ -344,24 +374,37 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
 void gfa_to_handle_graph(istream& in, MutableHandleGraph* graph,
                          GFAIDMapInfo* translation) {
                          
-    GFAParser parser;
-    if (translation) {
-        // Use the given external translation so the caller can keep it around.
-        parser.external_id_map = translation;
-    }
-    add_graph_listeners(parser, graph);
-    
+    GFATextParser parser;
+    attach_translation(parser, translation);
+    parser_to_handle_graph(parser, graph);
     parser.parse(in);
 }
 
+// Temporary IO wrappers for old command paths that still want filename-based
+// "GFA or GFAZ" loading without going through the registry.
+void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                                      GFAIDMapInfo* translation) {
+    auto parser = make_gfa_family_parser_for_file(filename);
+    attach_translation(*parser, translation);
+    parser_to_handle_graph(*parser, graph);
+    parser->parse(filename);
+}
+
+void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                                      const string& translation_filename) {
+
+    GFAIDMapInfo id_map_info;
+    load_gfa_or_gfaz_to_handle_graph(filename, graph, &id_map_info);
+    write_gfa_translation(id_map_info, translation_filename);
+}
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation, int64_t max_rgfa_rank,
                               unordered_set<PathSense>* ignore_sense) {
-    
-    get_input_file(filename, [&](istream& in) {
-        gfa_to_path_handle_graph(in, graph, translation, max_rgfa_rank);
-    });
+    GFATextParser parser;
+    attach_translation(parser, translation);
+    parser_to_path_handle_graph(parser, graph, max_rgfa_rank, ignore_sense);
+    parser.parse(filename);
 }
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
@@ -369,7 +412,7 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
                               unordered_set<PathSense>* ignore_sense) {
 
     GFAIDMapInfo id_map_info;
-    gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank);
+    gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank, ignore_sense);
     write_gfa_translation(id_map_info, translation_filename);
 
 }
@@ -380,19 +423,41 @@ void gfa_to_path_handle_graph(istream& in,
                               int64_t max_rgfa_rank,
                               unordered_set<PathSense>* ignore_sense) {
     
-    // TODO: Deduplicate this setup code with gfa_to_handle_graph more.
-    GFAParser parser;
-    if (translation) {
-        // Use the given external translation so the caller can keep it around.
-        parser.external_id_map = translation;
-    }
+    GFATextParser parser;
+    attach_translation(parser, translation);
+    parser_to_path_handle_graph(parser, graph, max_rgfa_rank, ignore_sense);
+    parser.parse(in);
+}
+
+void load_gfa_or_gfaz_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                                           GFAIDMapInfo* translation, int64_t max_rgfa_rank,
+                                           unordered_set<PathSense>* ignore_sense) {
+    auto parser = make_gfa_family_parser_for_file(filename);
+    attach_translation(*parser, translation);
+    parser_to_path_handle_graph(*parser, graph, max_rgfa_rank, ignore_sense);
+    parser->parse(filename);
+}
+
+void load_gfa_or_gfaz_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                                           int64_t max_rgfa_rank, const string& translation_filename,
+                                           unordered_set<PathSense>* ignore_sense) {
+
+    GFAIDMapInfo id_map_info;
+    load_gfa_or_gfaz_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank, ignore_sense);
+    write_gfa_translation(id_map_info, translation_filename);
+}
+
+void parser_to_handle_graph(GFAParser& parser, MutableHandleGraph* graph) {
     add_graph_listeners(parser, graph);
-    
-    // Set up for path input
+}
+
+void parser_to_path_handle_graph(GFAParser& parser,
+                                 MutablePathMutableHandleGraph* graph,
+                                 int64_t max_rgfa_rank,
+                                 unordered_set<PathSense>* ignore_sense) {
+    add_graph_listeners(parser, graph);
     parser.max_rgfa_rank = max_rgfa_rank;
     add_path_listeners(parser, graph, ignore_sense);
-    
-    parser.parse(in);
 }
 
 /// Read a range, stopping before any end character in the given null-terminated string,
@@ -843,8 +908,28 @@ nid_t GFAParser::assign_new_sequence_id(const string& str, GFAIDMapInfo& id_map_
     return node_id;
 }
 
-nid_t GFAParser::find_existing_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
-    auto found = id_map_info.name_to_id->find(str);
+nid_t GFAParser::find_existing_sequence_id(std::string_view str, GFAIDMapInfo& id_map_info) {
+    if (id_map_info.numeric_mode && id_map_info.direct_numeric_lookup) {
+        // GFAz fast path: IDs are dense 1-based integers, no map needed.
+        if (str.empty()) {
+            return 0;
+        }
+        nid_t parsed_id = 0;
+        for (char c : str) {
+            if (!isdigit(static_cast<unsigned char>(c))) {
+                return 0;
+            }
+            parsed_id *= 10;
+            parsed_id += (c - '0');
+        }
+        if (parsed_id > 0 && parsed_id <= id_map_info.max_id) {
+            return parsed_id;
+        }
+        return 0;
+    }
+    // unordered_map<string, nid_t>::find does not support heterogeneous lookup
+    // before C++20, so we allocate only here on the slow path.
+    auto found = id_map_info.name_to_id->find(string(str));
     if (found != id_map_info.name_to_id->end()) {
         // already in map, just return
         return found->second;
@@ -853,7 +938,17 @@ nid_t GFAParser::find_existing_sequence_id(const string& str, GFAIDMapInfo& id_m
     return 0;
 }
 
-void GFAParser::parse(istream& in) {
+void GFAParser::parse(const string& filename) {
+    get_input_file(filename, [&](istream& in) {
+        parse(in);
+    });
+}
+
+void GFATextParser::parse(const string& filename) {
+    GFAParser::parse(filename);
+}
+
+void GFATextParser::parse(istream& in) {
     if (!in) {
         throw std::ios_base::failure("error:[GFAParser] Couldn't open input stream");
     }
@@ -1120,7 +1215,7 @@ void GFAParser::parse(istream& in) {
                     auto& visits = get<1>(p_parse);
                     auto& overlaps = get<2>(p_parse);
                     auto& tags = get<3>(p_parse);
-                    
+
                     for(auto it = overlaps.first; it != overlaps.second; ++it) {
                         if (*it != '*' && *it != ',' && *it != 'M' && (*it < '0' || *it > '9')) {
                             // This overlap isn't just * or a list of * or a list of matches with numbers.
@@ -1137,13 +1232,13 @@ void GFAParser::parse(istream& in) {
                             // Nothing to do for empty paths
                             return true;
                         }
-                         
+
                          if (step_rank >= 0) {
-                            string step_string = GFAParser::extract(step_id);
-                            nid_t n = GFAParser::find_existing_sequence_id(step_string, this->id_map());
+                            std::string_view step_view = as_view(step_id);
+                            nid_t n = GFAParser::find_existing_sequence_id(step_view, this->id_map());
                             if (!n) {
                                 missing = true;
-                                missing_name = std::move(step_string);
+                                missing_name.assign(step_view);
                                 return false;
                             }
                          }
@@ -1156,7 +1251,7 @@ void GFAParser::parse(istream& in) {
                     
                     for (auto& listener : this->path_listeners) {
                         // Tell all the listener functions
-                        listener(path_name, visits, overlaps, tags);
+                        listener(path_name, make_p_visit_iteratee(visits), tags);
                     }
                 }
                 break;
@@ -1187,13 +1282,13 @@ void GFAParser::parse(istream& in) {
                             // Nothing to do for empty paths
                             return true;
                         }
-                        
+
                         // For every node the walk visits, make sure we have seen it.
-                        string step_string = GFAParser::extract(step_id);
-                        nid_t n = GFAParser::find_existing_sequence_id(step_string, this->id_map());
+                        std::string_view step_view = as_view(step_id);
+                        nid_t n = GFAParser::find_existing_sequence_id(step_view, this->id_map());
                         if (!n) {
                             missing = true;
-                            missing_name = std::move(step_string);
+                            missing_name.assign(step_view);
                             return false;
                         }
                         return true;
@@ -1204,9 +1299,10 @@ void GFAParser::parse(istream& in) {
                         return false;
                     }
                     
+                    auto visit_iteratee = make_w_visit_iteratee(visits);
                     for (auto& listener : this->walk_listeners) {
                         // Tell all the listener functions
-                        listener(sample_name, haplotype, contig_name, subrange, visits, tags);
+                        listener(sample_name, haplotype, contig_name, subrange, visit_iteratee, tags);
                     }
                 }
                 break;

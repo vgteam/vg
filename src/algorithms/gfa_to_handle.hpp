@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <cctype>
+#include <string_view>
 #include <vector>
 
 #include "../handle.hpp"
@@ -25,6 +26,10 @@ using namespace std;
 struct GFAIDMapInfo : public NamedNodeBackTranslation {
     /// If true, GFA string IDs are just graph numerical IDs.
     bool numeric_mode = true;
+    /// If true, existing node lookups may resolve numeric IDs directly
+    /// by range check (1..max_id) without requiring an entry in name_to_id.
+    /// Only safe when all IDs in [1, max_id] are guaranteed to exist (e.g. GFAz).
+    bool direct_numeric_lookup = false;
     /// This holds the max node ID yet used.
     nid_t max_id = 0;
     /// This maps from GFA string ID to graph numerical ID.
@@ -54,11 +59,11 @@ struct GFAIDMapInfo : public NamedNodeBackTranslation {
 
 };
 
-/// Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.
+/// Read a text GFA file for a blunt-ended graph into a HandleGraph.
+/// Give "-" as a filename for stdin.
 ///
-/// Throws GFAFormatError if the GFA file is not acceptable, and
-/// std::ios_base::failure if an IO operation fails. Throws invalid_argument if
-/// otherwise misused.
+/// Throws GFAFormatError if the file is not acceptable, and
+/// std::ios_base::failure if an IO operation fails.
 /// Does not give max ID hints, and so might be very slow when loading into an ODGI graph.
 void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
@@ -74,7 +79,18 @@ void gfa_to_handle_graph(istream& in,
                          MutableHandleGraph* graph,
                          GFAIDMapInfo* translation = nullptr);
 
-/// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.
+/// Temporary IO helper for old command paths that still need to load either a
+/// text GFA or a GFAZ file by filename.
+void load_gfa_or_gfaz_to_handle_graph(const string& filename,
+                                      MutableHandleGraph* graph,
+                                      GFAIDMapInfo* translation = nullptr);
+
+/// Overload which serializes its translation to a file internally.
+void load_gfa_or_gfaz_to_handle_graph(const string& filename,
+                                      MutableHandleGraph* graph,
+                                      const string& translation_filename);
+
+/// Same as gfa_to_handle_graph but also adds path elements from the text GFA to the graph.
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
@@ -94,6 +110,21 @@ void gfa_to_path_handle_graph(istream& in,
                               GFAIDMapInfo* translation = nullptr,
                               int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
                               unordered_set<PathSense>* ignore_sense = nullptr);
+
+/// Temporary IO helper for old command paths that still need to load either a
+/// text GFA or a GFAZ file by filename.
+void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
+                                           MutablePathMutableHandleGraph* graph,
+                                           GFAIDMapInfo* translation = nullptr,
+                                           int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                                           unordered_set<PathSense>* ignore_sense = nullptr);
+
+/// Overload which serializes its translation to a file internally.
+void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
+                                           MutablePathMutableHandleGraph* graph,
+                                           int64_t max_rgfa_rank,
+                                           const string& translation_filename,
+                                           unordered_set<PathSense>* ignore_sense = nullptr);
 
 /**
  * Lower-level tools for parsing GFA elements.
@@ -133,6 +164,13 @@ public:
     // And a type for a collection of GFA tags.
     // This could become a range or list of ranges if we wanted to copy less.
     using tag_list_t = vector<string>;
+    // And a callback shape for iterating path/walk visits without exposing
+    // the source encoding. The node_name is a view into a buffer owned by the
+    // caller and is valid only for the duration of the call. If node_id is
+    // nonzero, it is the pre-resolved graph node ID and the listener should
+    // use it directly instead of looking up node_name; text parsers pass 0.
+    using visit_step_t = function<bool(int64_t rank, nid_t node_id, std::string_view node_name, bool is_reverse)>;
+    using visit_iteratee_t = function<void(const visit_step_t&)>;
     
     /**
      * Parse tags out from a possibly empty range to a vector of tag strings.
@@ -174,7 +212,7 @@ public:
      */
     static void scan_p_visits(const chars_t& visit_range,
                               function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
-                              
+
     /**
      * Scan visits extracted from a W line.
      * Calls a callback with all the steps.
@@ -228,7 +266,7 @@ public:
     /**
      * Find the existing sequence ID for the given node name, or 0 if it has not been seen yet.
      */
-    static nid_t find_existing_sequence_id(const string& str, GFAIDMapInfo& id_map_info);
+    static nid_t find_existing_sequence_id(std::string_view str, GFAIDMapInfo& id_map_info);
     
     // To actually parse GFA, we stick event listeners on here and then we go
     // through the GFA. It is the parser's job to make sure events aren't fired
@@ -241,7 +279,7 @@ public:
     GFAIDMapInfo* external_id_map = nullptr;
     
     /// Get the ID map we should be using for parsing.
-    inline GFAIDMapInfo& id_map();
+    GFAIDMapInfo& id_map();
     
     /// These listeners are called for the header line(s), if any.
     vector<std::function<void(const tag_list_t& tags)>> header_listeners;
@@ -255,11 +293,11 @@ public:
     /// These listeners will be called with information for all P line paths,
     /// after the listeners for all involved nodes, and for the first header if any.
     /// Listeners are not protected from duplicate path names.
-    vector<std::function<void(const string& name, const chars_t& visits, const chars_t& overlaps, const tag_list_t& tags)>> path_listeners;
+    vector<std::function<void(const string& name, const visit_iteratee_t& visits, const tag_list_t& tags)>> path_listeners;
     /// These listeners will be called with information for all W line paths,
     /// after the listeners for all involved nodes, and for the first header if any.
     /// Listeners are not protected from duplicate path metadata.
-    vector<std::function<void(const string& sample_name, int64_t haplotype, const string& contig_name, const pair<int64_t, int64_t>& subrange, const chars_t& visits, const tag_list_t& tags)>> walk_listeners;
+    vector<std::function<void(const string& sample_name, int64_t haplotype, const string& contig_name, const pair<int64_t, int64_t>& subrange, const visit_iteratee_t& visits, const tag_list_t& tags)>> walk_listeners;
     /// These listeners will be called with each visit of an rGFA path to a
     /// node, after the node listeners for the involved node, but in an
     /// unspecified order with respect to listeners for headers. They will be
@@ -281,8 +319,51 @@ public:
     /**
      * Parse GFA from the given stream.
      */
-    void parse(istream& in);
+    virtual void parse(istream& in) = 0;
     
+    /**
+     * Parse GFA from the given filename.
+     * The default implementation opens the file as a text GFA stream and calls
+     * the stream parser.
+     */
+    virtual void parse(const string& filename);
+    
+    virtual ~GFAParser() = default;
+    
+};
+
+/// Drive the shared node/edge import logic from an already-configured parser.
+void parser_to_handle_graph(GFAParser& parser,
+                            MutableHandleGraph* graph);
+
+/// Drive the shared node/edge/path import logic from an already-configured parser.
+void parser_to_path_handle_graph(GFAParser& parser,
+                                 MutablePathMutableHandleGraph* graph,
+                                 int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                                 unordered_set<PathSense>* ignore_sense = nullptr);
+
+/// Text GFA parser implementation that emits listener events from the legacy
+/// line-oriented parser.
+class GFATextParser : public GFAParser {
+public:
+    void parse(istream& in) override;
+    void parse(const string& filename) override;
+};
+
+/// GFAZ parser implementation that emits the same listener events from
+/// decompressed GFAZ data.
+class GFAzParser : public GFAParser {
+public:
+    void parse(istream& in) override;
+    void parse(const string& filename) override;
+
+    /// Return true if the named file begins with the GFAz magic number.
+    /// Returns false for stdin ("-") or empty filenames.
+    static bool looks_like_gfaz(const string& filename);
+
+    /// Return true if the first sizeof(uint32_t) bytes of the buffer encode the
+    /// GFAz magic number.
+    static bool has_magic(const char* buffer, size_t length);
 };
 
 /// This exception will be thrown if the GFA data is not acceptable.

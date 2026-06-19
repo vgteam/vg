@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "xg.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
+
 #include "../io/save_handle_graph.hpp"
 #include "../gfa.hpp"
 #include "../gbzgraph.hpp"
@@ -314,8 +315,9 @@ int main_convert(int argc, char** argv) {
             bdsg::HashGraph intermediate;
             logger.warn() << "currently cannot convert GFA directly to XG; "
                           << "converting through another format" << endl;
-            vg::algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
-                                                 input_rgfa_rank, gfa_trans_path);
+            vg::algorithms::load_gfa_or_gfaz_to_path_handle_graph(input_stream_name, &intermediate,
+                                                                  input_rgfa_rank, gfa_trans_path,
+                                                                  nullptr);
             graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples, hap_locus, new_sample, drop_haplotypes);
         }
         else {
@@ -327,14 +329,15 @@ int main_convert(int argc, char** argv) {
                     MutablePathMutableHandleGraph* mutable_output_graph \
                         = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
                     assert(mutable_output_graph != nullptr);
-                    vg::algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
-                                                         input_rgfa_rank, gfa_trans_path);
+                    vg::algorithms::load_gfa_or_gfaz_to_path_handle_graph(input_stream_name, mutable_output_graph,
+                                                                          input_rgfa_rank, gfa_trans_path,
+                                                                          nullptr);
                 }
                 else {
                     MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
                     assert(mutable_output_graph != nullptr);
-                    vg::algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
-                                                    gfa_trans_path);
+                    vg::algorithms::load_gfa_or_gfaz_to_handle_graph(input_stream_name, mutable_output_graph,
+                                                                     gfa_trans_path);
                 }
             } catch (vg::algorithms::GFAFormatError& e) {
                 logger.error() << "Input GFA is not acceptable.\n" << e.what() << endl;
@@ -467,7 +470,7 @@ int main_convert(int argc, char** argv) {
 void help_convert(char** argv) {
     cerr << "usage: " << argv[0] << " convert [options] <input-graph>" << endl
          << "input options:" << endl
-         << "  -g, --gfa-in               input in GFA format" << endl
+         << "  -g, --gfa-in               input in GFA or GFAZ format" << endl
          << "  -r, --in-rgfa-rank N       import rgfa tags with rank <= N as paths [0]" << endl
          << "      --ref-sample STR       change haplotypes for this sample to" << endl
          << "                             reference paths (may repeat)" << endl
@@ -514,7 +517,7 @@ void help_convert(char** argv) {
 
 void no_multiple_inputs(const Logger& logger, input_type input) {
     if (input != INPUT_DEFAULT) {
-        logger.error() << "cannot combine input types (GFA, GAM, GAF)" << endl;
+        logger.error() << "cannot combine input types (GFA/GFAZ, GAM, GAF)" << endl;
     }
 }
 

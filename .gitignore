@@ -51,3 +51,4 @@ debug_main.cpp
 /*.fa
 /*.gfa
 .vscode/*
+.cache/*
