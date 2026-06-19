@@ -2825,6 +2825,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 cur_graph_distance += skip_to->length();
                 // Combined those are graph start -> start dist we are trying to skip past
             }
+            total_graph_distance += cur_graph_distance;
 
             if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
                 total_graph_distance+cur_graph_distance < this->max_skipped_bases) {
@@ -2844,7 +2845,6 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Total gap so far
                 gap_lengths += (std::max(cur_read_distance, cur_graph_distance) 
                               - std::min(cur_read_distance, cur_graph_distance));
-                total_graph_distance += cur_graph_distance;
             
                 ++skip_to_it;
             } else {

@@ -855,7 +855,8 @@ vector<pair<vector<TracedItem>, int>> chain_items_traceback(const vector<TracedS
                     break;
                 } else {
                     // Add to the traceback
-                    traceback.emplace_back(next, chain_scores[here].graph_distance);
+                    traceback.back().graph_distance = chain_scores[here].graph_distance;
+                    traceback.emplace_back(next);
                 }
             }
             here = next;
