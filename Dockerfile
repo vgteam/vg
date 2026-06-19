@@ -47,6 +47,9 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
 ###DEPS_END###
 
 FROM packages AS build
+# TODO: We're *supposed* to inherit ARGs from our base stage according to the
+# Docker documentation, but we don't.
+ARG THREADS=8
 
 RUN echo build > /stage.txt
 
@@ -61,17 +64,19 @@ RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/m
 RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
 COPY Makefile /vg/Makefile
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+# Remember that THREADS is an ARG and not a Bash variable, and it gets
+# substituted in using Bash-ish syntax *before* the command gets to Bash.
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) deps
 
 # Bring in the sources, which we need in order to build.
 COPY src /vg/src
 
 # Build all the object files for vg, but don't link.
 # Also pass the arch here
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) objs
 
 # Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $(( $THREADS < $(nproc) ? $THREADS : $(nproc) )) static && strip -d bin/vg
 
 # Ship the scripts
 COPY scripts /vg/scripts
@@ -84,7 +89,7 @@ ARG THREADS=8
 
 RUN echo test > /stage.txt
 
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && apt-get -qq -y install nodejs && npm install -g txm@7.4.5
+RUN apt-get -qq -y remove libnode-dev libnode72 && curl -sL https://deb.nodesource.com/setup_20.x | bash - && apt-get -qq -y install nodejs && npm install -g txm@7.4.5
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
@@ -97,7 +102,7 @@ COPY README.md /vg/
 
 # Run tests in the middle so the final container that gets tagged is the run container.
 # Tests may not actually be run by smart builders like buildkit.
-RUN /bin/bash -e -c "export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))); make test"
+RUN /bin/bash -e -c "export OMP_NUM_THREADS=$(( $THREADS < $(nproc) ? $THREADS : $(nproc) )); make test"
 
 
 ############################################################################################
