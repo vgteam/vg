@@ -48,11 +48,14 @@ include $(wildcard test/*.d)
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
-PKG_CONFIG_DEPS := cairo libzstd 
+PKG_CONFIG_DEPS := libzstd
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
 # Note that we then must *always* link anything *else* that uses them statically.
 # Jansson has to be in here because it has to come after libvgio, which is in the static deps.
 PKG_CONFIG_STATIC_DEPS := protobuf jansson
+# What pkg-config-controlled system dependencies should we only use compiler and not linker flags from?
+# We manually load these librarioes at runtime.
+PKG_CONFIG_HEADER_DEPS := cairo
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 # We don't ask for automatic Make dependency file (*.d) generation here because
@@ -67,7 +70,7 @@ DEPGEN_FLAGS := -MMD -MP
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) $(PKG_CONFIG_HEADER_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
 
@@ -124,7 +127,6 @@ ifeq ($(shell uname -s),Darwin)
             # pkg-config is not always smart enough to find Cairo's include path for us.
             # We make sure to grab its directory manually if we see it.
             INCLUDE_FLAGS += -isystem /usr/local/include/cairo
-            LD_LIB_FLAGS += -lcairo
         endif
     endif
 

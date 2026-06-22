@@ -1,7 +1,89 @@
 #include "viz.hpp"
 #include <regex>
+#include <utility>
+
+#include <dlfcn.h>
+
+// To make Cairo an optional dependency, we include its headers but we wrap all
+// its functions with wrappers that grab the functions from the runtime dynamic
+// linker if possible and error otherwise. We need to do backflips to let the
+// code be written as if this is not happening when we actually go to *use*
+// Cairo.
+
+#ifdef __APPLE__
+#define LIBRARY_EXT "dylib"
+#else
+#define LIBRARY_EXT "so"
+#endif
 
 namespace vg {
+
+/**
+ * Try to load Cairo if available and return the dlopen() handle to it. If not
+ * possible, return nullptr.
+ */
+static void* load_cairo() {
+    return dlopen("libcairo." LIBRARY_EXT, RTLD_NOW);
+}
+
+// Load Cairo once at startup, before main.
+void* cairo_handle = load_cairo();
+
+// We wrap each function symbol in Cairo that we use with an instantiation of
+// this function for it.
+#define MAKE_WRAPPER(fn_name) \
+template<typename... Args> \
+typename std::invoke_result<decltype(::fn_name), Args...>::type WRAPPED_ ## fn_name(Args... args) { \
+    if (cairo_handle == nullptr) { throw std::runtime_error("Cairo not available"); } \
+    decltype(&::fn_name) resolved = (decltype(&::fn_name)) dlsym(cairo_handle, #fn_name); \
+    if (resolved == nullptr) { throw std::runtime_error(#fn_name " not available"); } \
+    return (*resolved)(std::forward<Args>(args)...); \
+}
+
+// If any Cairo symbols are undefined at link time, add wrapping for them here.
+// TODO: Figure out a way to avoid needing to redefine the function name for
+// later code; defining a function of the same name in the vg namespace isn't
+// it.
+MAKE_WRAPPER(cairo_create)
+#define cairo_create WRAPPED_cairo_create
+MAKE_WRAPPER(cairo_curve_to)
+#define cairo_curve_to WRAPPED_cairo_curve_to
+MAKE_WRAPPER(cairo_destroy)
+#define cairo_destroy WRAPPED_cairo_destroy
+MAKE_WRAPPER(cairo_image_surface_create)
+#define cairo_image_surface_create WRAPPED_cairo_image_surface_create
+MAKE_WRAPPER(cairo_line_to)
+#define cairo_line_to WRAPPED_cairo_line_to
+MAKE_WRAPPER(cairo_move_to)
+#define cairo_move_to WRAPPED_cairo_move_to
+MAKE_WRAPPER(cairo_paint)
+#define cairo_paint WRAPPED_cairo_paint
+MAKE_WRAPPER(cairo_select_font_face)
+#define cairo_select_font_face WRAPPED_cairo_select_font_face
+MAKE_WRAPPER(cairo_set_font_size)
+#define cairo_set_font_size WRAPPED_cairo_set_font_size
+MAKE_WRAPPER(cairo_set_line_width)
+#define cairo_set_line_width WRAPPED_cairo_set_line_width
+MAKE_WRAPPER(cairo_set_source_rgb)
+#define cairo_set_source_rgb WRAPPED_cairo_set_source_rgb
+MAKE_WRAPPER(cairo_show_text)
+#define cairo_show_text WRAPPED_cairo_show_text
+MAKE_WRAPPER(cairo_status_to_string)
+#define cairo_status_to_string WRAPPED_cairo_status_to_string
+MAKE_WRAPPER(cairo_stroke)
+#define cairo_stroke WRAPPED_cairo_stroke
+MAKE_WRAPPER(cairo_surface_destroy)
+#define cairo_surface_destroy WRAPPED_cairo_surface_destroy
+MAKE_WRAPPER(cairo_surface_status)
+#define cairo_surface_status WRAPPED_cairo_surface_status
+MAKE_WRAPPER(cairo_surface_write_to_png)
+#define cairo_surface_write_to_png WRAPPED_cairo_surface_write_to_png
+MAKE_WRAPPER(cairo_svg_surface_create)
+#define cairo_svg_surface_create WRAPPED_cairo_svg_surface_create
+MAKE_WRAPPER(cairo_text_extents)
+#define cairo_text_extents WRAPPED_cairo_text_extents
+
+// Now Cairo code should work as normal.
 
 Viz::Viz(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     init(x, p, n, o, w, h, c, d, t);
