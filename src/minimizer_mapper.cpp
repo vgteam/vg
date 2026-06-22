@@ -3689,9 +3689,11 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
                 }
             }
             else {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Did not identify any supplementary alignments for read " << r << endl;
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Did not identify any supplementary alignments for read " << r << endl;
+                    }
                 }
             }
         }
