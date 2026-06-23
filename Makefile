@@ -54,8 +54,8 @@ PKG_CONFIG_DEPS := libzstd libcrypto
 # Jansson has to be in here because it has to come after libvgio, which is in the static deps.
 PKG_CONFIG_STATIC_DEPS := protobuf jansson
 # What pkg-config-controlled system dependencies should we only use compiler and not linker flags from?
-# We manually load these librarioes at runtime.
-PKG_CONFIG_HEADER_DEPS := cairo
+# We manually load these libraries at runtime.
+PKG_CONFIG_HEADER_DEPS :=
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 # We don't ask for automatic Make dependency file (*.d) generation here because
@@ -63,6 +63,14 @@ PKG_CONFIG_HEADER_DEPS := cairo
 CXXFLAGS := -O3 -Werror=return-type -ggdb -g $(CXXFLAGS)
 # Keep dependency generation flags for just our own sources
 DEPGEN_FLAGS := -MMD -MP
+
+cairo = on
+ifeq ($(cairo),on)
+    PKG_CONFIG_DEPS += cairo
+else
+    PKG_CONFIG_HEADER_DEPS += cairo
+    CXXFLAGS += -DCAIRO_IS_OPTIONAL
+endif
 
 # Set include flags. All -I options need to go in here, so the first directory
 # listed is genuinely searched first.
@@ -302,10 +310,7 @@ else
     FILTER=
 endif
 
-# When building statically, we need to tell the linker not to bail if it sees multiple definitions.
-# libc on e.g. our Jenkins host does not define malloc as weak, so other mallocs can't override it in a static build.
-# TODO: Why did this problem only begin to happen when libvw was added?
-STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-definition
+STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg. Grab everything except main
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
@@ -540,7 +545,7 @@ $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(LIB_DIR)/libvg.a $(EXE_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(STATIC_FLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.

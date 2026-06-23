@@ -18,24 +18,39 @@
 
 namespace vg {
 
+
+#ifdef CAIRO_IS_OPTIONAL
+
+std::atomic<void*> Viz::libcairo_handle = nullptr;
+
 /**
  * Try to load Cairo if available and return the dlopen() handle to it. If not
  * possible, return nullptr.
  */
 static void* load_cairo() {
-    return dlopen("libcairo." LIBRARY_EXT, RTLD_NOW);
+    return dlopen("libcairo." LIBRARY_EXT, RTLD_NOW | RTLD_GLOBAL);
 }
 
-// Load Cairo once at startup, before main.
-void* cairo_handle = load_cairo();
+/**
+ * Must be called before any Cairo functions are called.
+ */
+static void ensure_cairo_loaded() {
+    if (Viz::libcairo_handle == nullptr) {
+        void* cairo_handle = load_cairo();
+        void* expected = nullptr;
+        if (!Viz::libcairo_handle.compare_exchange_strong(expected, cairo_handle)) {
+            dlclose(cairo_handle);
+        }
+    }
+}
 
 // We wrap each function symbol in Cairo that we use with an instantiation of
 // this function for it.
 #define MAKE_WRAPPER(fn_name) \
 template<typename... Args> \
 typename std::invoke_result<decltype(::fn_name), Args...>::type WRAPPED_ ## fn_name(Args... args) { \
-    if (cairo_handle == nullptr) { throw std::runtime_error("Cairo not available"); } \
-    decltype(&::fn_name) resolved = (decltype(&::fn_name)) dlsym(cairo_handle, #fn_name); \
+    if (Viz::libcairo_handle == nullptr) { throw std::runtime_error("Cairo not available"); } \
+    decltype(&::fn_name) resolved = (decltype(&::fn_name)) dlsym(Viz::libcairo_handle, #fn_name); \
     if (resolved == nullptr) { throw std::runtime_error(#fn_name " not available"); } \
     return (*resolved)(std::forward<Args>(args)...); \
 }
@@ -85,7 +100,12 @@ MAKE_WRAPPER(cairo_text_extents)
 
 // Now Cairo code should work as normal.
 
+#endif
+
 Viz::Viz(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+#ifdef CAIRO_IS_OPTIONAL
+    ensure_cairo_loaded();    
+#endif
     init(x, p, n, o, w, h, c, d, t);
 }
 

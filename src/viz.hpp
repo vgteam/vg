@@ -1,6 +1,7 @@
 #ifndef VG_VIZ_HPP_INCLUDED
 #define VG_VIZ_HPP_INCLUDED
 
+#include <atomic>
 #include <vector>
 #include <cairo.h>
 #include <cairo-svg.h>
@@ -28,6 +29,11 @@ public:
     void draw(void);
     void draw_graph(void);
     void close(void);
+
+#ifdef CAIRO_IS_OPTIONAL
+    static std::atomic<void*> libcairo_handle;
+#endif
+
 private:
     double node_offset(id_t id);
     double nodes_before_offset(size_t pos);
