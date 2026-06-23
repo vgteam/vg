@@ -7869,6 +7869,50 @@ namespace vg {
 
         }
 
+        TEST_CASE( "Distance index hub labeling does not over-report unreachable distances",
+                  "[snarl_distance][snarl_distance_hub_label_overreport]" ) {
+            // Regression repro captured from the random hub-label fuzzer. In the dumped
+            // graph, 103fd0 -> 154rev3 is unreachable (confirmed by bidirected BFS /
+            // Dijkstra) but the reverse 154rev3 -> 103fd0 IS reachable. The hub-label
+            // query was returning the reverse direction's finite distance (264) for the
+            // unreachable forward query.
+            unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("test/hublabel_overreport.vg");
+            REQUIRE(graph->has_node(103));
+            REQUIRE(graph->has_node(154));
+
+            IntegratedSnarlFinder snarl_finder(*graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, 1);
+
+            size_t fwd = distance_index.minimum_distance(103, false, 0, 154, true, 3, false, graph.get());
+            size_t rev = distance_index.minimum_distance(154, true, 3, 103, false, 0, false, graph.get());
+            cerr << "[overreport] fwd(103fd0->154rev3) = " << fwd
+                 << "   rev(154rev3->103fd0) = " << rev << endl;
+
+            // Forward direction is genuinely unreachable.
+            REQUIRE(fwd == std::numeric_limits<size_t>::max());
+        }
+
+        TEST_CASE( "Distance index hub labeling does not under-report reachable distances across multi-component chains",
+                  "[snarl_distance][snarl_distance_hub_label_underreport]" ) {
+            // Regression repro captured from the random hub-label fuzzer. In the dumped
+            // graph, the oversized root snarl contains a multi-component (disconnected)
+            // sibling chain. The hub-label self-distance must not fabricate a traversal
+            // across that disconnected chain (which would over-report), nor over-suppress
+            // a genuinely reachable self-distance (which would under-report). 145fd9 ->
+            // 51rev0 is reachable at distance 174 (confirmed by Dijkstra).
+            unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("test/underreport_145_51.vg");
+            REQUIRE(graph->has_node(145));
+            REQUIRE(graph->has_node(51));
+
+            IntegratedSnarlFinder snarl_finder(*graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, 1);
+
+            size_t d = distance_index.minimum_distance(145, false, 9, 51, true, 0, false, graph.get());
+            REQUIRE(d == 174);
+        }
+
         TEST_CASE( "Distance index hub labeling matches Dijkstra on random graphs",
                   "[snarl_distance][snarl_distance_random_hub_labels]" ) {
 
