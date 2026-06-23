@@ -86,12 +86,13 @@ If you get a bunch of errors like `E: Unable to locate package build-essential`,
     
 On other distros, or if you do not have root access, you will need to perform the equivalent of:
 
-    sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
-                         protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
-                         npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
-                         liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
-                         libzstd-dev pybind11-dev python3-pybind11 libssl-dev kmc
+    sudo apt-get install \
+    make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
+    libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
+    samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
+    raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
+    libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
+    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev kmc libdw-dev
                          
 At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 

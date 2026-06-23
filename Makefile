@@ -242,7 +242,7 @@ else
     LD_LIB_FLAGS += -rdynamic
 
     # We want to link against the elfutils libraries
-    LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
+    LD_LIB_FLAGS += -ldw -lelf
 
     # We want to link against libatomic which the GNU C++ standard library needs.
     # See <https://github.com/nodejs/node/issues/30093> and <https://stackoverflow.com/q/30591313>
@@ -363,7 +363,6 @@ LINLS_DIR:=deps/sublinear-Li-Stephens
 STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 DOZEU_DIR:=deps/dozeu
-ELFUTILS_DIR:=deps/elfutils
 LIBDEFLATE_DIR:=deps/libdeflate
 LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
@@ -409,15 +408,6 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
-ifneq ($(shell uname -s),Darwin)
-    # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
-    # backward-cpp will use.
-    LIB_DEPS += $(LIB_DIR)/libdw.a
-    LIB_DEPS += $(LIB_DIR)/libdwfl.a
-    LIB_DEPS += $(LIB_DIR)/libdwelf.a
-    LIB_DEPS += $(LIB_DIR)/libebl.a
-    LIB_DEPS += $(LIB_DIR)/libelf.a
-endif
 
 # Control variable for address sanitizer
 # Like valgrind but fast!
@@ -519,6 +509,7 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
+DEPS += $(LIB_DIR)/cleaned_old_elfutils_v002
 
 .PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man version
 
@@ -711,11 +702,10 @@ $(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC
 	+rm -Rf $(INC_DIR)/boost
 	+touch $(LIB_DIR)/cleaned_old_boost
 
-# We used to build elfutils with libdebuginfod, but we now need to build
-# without it.
-$(LIB_DIR)/cleaned_old_elfutils:
+# We used to build elfutils, but now we need to use the system one
+$(LIB_DIR)/cleaned_old_elfutils_v002:
 	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a
-	+touch $(LIB_DIR)/cleaned_old_elfutils
+	+touch $(LIB_DIR)/cleaned_old_elfutils_v002
 
 # We used to accidentally bring vcflib's intervaltree's copy of catch.hpp into the global include
 $(LIB_DIR)/cleaned_old_catch:
@@ -864,33 +854,6 @@ $(INC_DIR)/simde/x86/sse4.1.h: $(DOZEU_DIR)/simde/*.h $(DOZEU_DIR)/simde/x86/*.h
 
 $(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h $(INC_DIR)/simde/x86/sse4.1.h
 	+mkdir -p $(CWD)/$(INC_DIR)/dozeu && cp $(DOZEU_DIR)/*.h $(CWD)/$(INC_DIR)/dozeu/
-
-$(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
-
-$(LIB_DIR)/libdw.a: $(LIB_DIR)/libelf.a
-
-$(LIB_DIR)/libdwelf.a: $(LIB_DIR)/libelf.a
-
-$(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
-
-# We can't build elfutils from Git without "maintainer mode".
-# There are some release-only headers or something that it complains it can't find otherwise.
-# We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
-# We need to disable libdebuginfod or the static binary will try and load it at
-# runtime and pull in incompatible libs it depends on on whatever system it's
-# running on.
-$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h $(LIB_DIR)/cleaned_old_elfutils
-	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
-	+cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
-	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libelf.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libebl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwelf.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/lib && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libeu.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libcpu && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libcpu.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/backends && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libebl_backends.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libdw.a known-dwarf.h $(FILTER)
-	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)

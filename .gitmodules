@@ -55,9 +55,6 @@
 [submodule "deps/backward-cpp"]
 	path = deps/backward-cpp
 	url = https://github.com/adamnovak/backward-cpp.git
-[submodule "deps/elfutils"]
-	path = deps/elfutils
-	url = https://sourceware.org/git/elfutils.git
 [submodule "deps/structures"]
 	path = deps/structures
 	url = https://github.com/vgteam/structures.git

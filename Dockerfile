@@ -43,7 +43,7 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
     samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
     raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
-    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev kmc
+    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev kmc libdw-dev
 ###DEPS_END###
 
 FROM packages AS build
