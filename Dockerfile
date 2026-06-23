@@ -47,7 +47,7 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
     python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc libdw-dev meson
 ###DEPS_END###
 # TODO: libjitterentropy3-dev ought to be a dependency of libssl-dev, since the
-# static libcrypto.a library in libssl-dev needs it, but as of # 3.5.5-1ubuntu3.2
+# static libcrypto.a library in libssl-dev needs it, but as of 3.5.5-1ubuntu3.2
 # it isn't, and we need to pull it in manually.
 
 FROM packages AS build
