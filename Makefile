@@ -64,21 +64,13 @@ CXXFLAGS := -O3 -Werror=return-type -ggdb -g $(CXXFLAGS)
 # Keep dependency generation flags for just our own sources
 DEPGEN_FLAGS := -MMD -MP
 
-cairo = on
-ifeq ($(cairo),on)
-    PKG_CONFIG_DEPS += cairo
-else
-    PKG_CONFIG_HEADER_DEPS += cairo
-    CXXFLAGS += -DCAIRO_IS_OPTIONAL
-endif
-
 # Set include flags. All -I options need to go in here, so the first directory
 # listed is genuinely searched first.
 # Also, Protobuf produces an absurd number of pkg-config flags now, so we deduplicate them
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) $(PKG_CONFIG_HEADER_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/cairo $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) $(PKG_CONFIG_HEADER_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
 
@@ -86,6 +78,8 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
 LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
+# We omit Cairo for now because its transitive dependencies can't be determined until after it's built. Set them lazily
+LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) pkg-config --libs --static cairo)
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -130,12 +124,6 @@ ifeq ($(shell uname -s),Darwin)
         # Use /usr/local/include to the end of the include search path.
         # Make sure it is system level only so it comes after other -I paths.
         INCLUDE_FLAGS += -isystem /usr/local/include
-
-        ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
-            # pkg-config is not always smart enough to find Cairo's include path for us.
-            # We make sure to grab its directory manually if we see it.
-            INCLUDE_FLAGS += -isystem /usr/local/include/cairo
-        endif
     endif
 
     ifndef HOMEBREW_PREFIX
@@ -378,6 +366,8 @@ IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
+CAIRO_DIR=deps/cairo
+PIXMAN_DIR=deps/pixman
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -413,6 +403,8 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libcairo.a
+LIB_DEPS += $(LIB_DIR)/libpixman-1.a
 
 # Control variable for address sanitizer
 # Like valgrind but fast!
@@ -541,11 +533,11 @@ $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPO
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS) $(LD_CAIRO_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(LIB_DIR)/libvg.a $(EXE_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(STATIC_FLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(STATIC_FLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS) $(LD_CAIRO_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -899,6 +891,15 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 	+cp -r $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -DNO_GFAKLUGE -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
 	+ar rs $@ $(XG_DIR)/xg.o
+
+# TODO: When https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1104888 is fixed
+# and Debian/Ubuntu ship the static libraries again, stop using submodules and
+# go back to system Cairo and pixman.
+$(LIB_DIR)/libpixman-1.a: $(PIXMAN_DIR)/pixman/*
+	+cd $(PIXMAN_DIR) && rm -Rf build && meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib build/ && ninja -C build && ninja -C build install
+
+$(LIB_DIR)/libcairo.a: $(LIB_DIR)/libpixman-1.a $(CAIRO_DIR)/src/*
+	+cd $(CAIRO_DIR) && rm -Rf build && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib build/ && ninja -C build && ninja -C build install
 
 # All this version header generation stuff needs to work even if SRC_DIR hasn't been copied into the container yet.
 $(shell mkdir -p $(SRC_DIR))

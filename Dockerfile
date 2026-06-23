@@ -42,9 +42,9 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
     libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
     samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
     raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
-    libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
-    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev \
-    libjitterentropy3-dev kmc libdw-dev
+    libffi-dev libfontconfig-dev libfreetype-dev libglib2.0-dev libpcre2-dev libpng-dev \
+    libprotobuf-dev libboost-all-dev tabix bcftools libzstd-dev pybind11-dev \
+    python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc libdw-dev meson
 ###DEPS_END###
 # TODO: libjitterentropy3-dev ought to be a dependency of libssl-dev, since the
 # static libcrypto.a library in libssl-dev needs it, but as of # 3.5.5-1ubuntu3.2
