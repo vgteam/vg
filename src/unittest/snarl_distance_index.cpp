@@ -7876,7 +7876,7 @@ namespace vg {
             // Dijkstra) but the reverse 154rev3 -> 103fd0 IS reachable. The hub-label
             // query was returning the reverse direction's finite distance (264) for the
             // unreachable forward query.
-            unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("test/hublabel_overreport.vg");
+            unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("hublabel_overreport.vg");
             REQUIRE(graph->has_node(103));
             REQUIRE(graph->has_node(154));
 
@@ -7901,7 +7901,7 @@ namespace vg {
             // across that disconnected chain (which would over-report), nor over-suppress
             // a genuinely reachable self-distance (which would under-report). 145fd9 ->
             // 51rev0 is reachable at distance 174 (confirmed by Dijkstra).
-            unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("test/underreport_145_51.vg");
+            unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("underreport_145_51.vg");
             REQUIRE(graph->has_node(145));
             REQUIRE(graph->has_node(51));
 
