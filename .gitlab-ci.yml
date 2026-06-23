@@ -321,5 +321,12 @@ docs-job:
     stage: build
     script:
       - doc/publish-docs.sh
+    variables:
+      # The docs script is responsible for setting up just the submodules that
+      # Doxygen will run over. Having them set up already can cause trouble;
+      # see
+      # <https://github.com/vgteam/vg/pull/4870/changes/fa25ae2ac249e9ba160ef535541196951c661283>
+      # and <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>
+      GIT_SUBMODULE_STRATEGY: none
    
   
