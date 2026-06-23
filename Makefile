@@ -554,8 +554,12 @@ static-docker: static scripts/*
 
 # We have system-level deps to install
 # We want the One True Place for them to be in the Dockerfile.
+# TODO: when libssl-dev on modern Ubuntu no longer needs libjitterentropy3-dev
+# (not available for older Ubuntu) manually installed, we can stop polling for
+# it and filtering it here. See
+# <https://bugs.launchpad.net/ubuntu/+source/openssl/+bug/2158026>
 get-deps:
-	sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr '\n' ' ' | tr -d '\\')
+	sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr ' ' '\n' | (if ! apt-cache show libjitterentropy3-dev >/dev/null 2>&1 ; then grep -v libjitterentropy3-dev ; else cat ; fi) | tr '\n' ' ' | tr -d '\\')
 
 # And we have submodule deps to build
 deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
