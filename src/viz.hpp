@@ -1,7 +1,6 @@
 #ifndef VG_VIZ_HPP_INCLUDED
 #define VG_VIZ_HPP_INCLUDED
 
-#include <atomic>
 #include <vector>
 #include <cairo.h>
 #include <cairo-svg.h>
