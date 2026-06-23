@@ -28,4 +28,4 @@ brew "pybind11"
 brew "pandoc"
 brew "openssl"
 tap "brewsci/bio"
-brew "brewsci/bio/kmc"
+brew "brewsci/bio/kmc", trusted: true
