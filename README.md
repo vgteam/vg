@@ -92,7 +92,8 @@ On other distros, or if you do not have root access, you will need to perform th
     samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
     raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
-    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev kmc libdw-dev
+    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev \
+    libjitterentropy3-dev kmc libdw-dev
                          
 At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 
