@@ -562,9 +562,9 @@ static-docker: static scripts/*
 # Ubuntu, by getting it from pip.
 get-deps:
 	sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr ' ' '\n' | (if ! apt-cache show libjitterentropy3-dev >/dev/null 2>&1 ; then grep -v libjitterentropy3-dev ; else cat ; fi) | tr '\n' ' ' | tr -d '\\')
-	MESON_MAJOR=$$(meson --version | cut -f1 -d'.') ; \
-		MESON_MINOR=$$(meson --version | cut -f2 -d'.') ; \
-		if [[ $${MESON_MAJOR} -lt 1 || ( $${MESON_MAJOR} -eq 1 && $${MESON_MINOR} -lt 3 ) ]] ; then \
+	MESON_MAJOR="$$(meson --version | cut -f1 -d'.')" ; \
+		MESON_MINOR="$$(meson --version | cut -f2 -d'.')" ; \
+		if [ "$${MESON_MAJOR}" -lt 1 ] || ( [ "$${MESON_MAJOR}" -eq 1 ] && [ "$${MESON_MINOR}" -lt 3 ] ) ; then \
 			sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade pipx && \
 			pipx install meson ; \
 		fi
