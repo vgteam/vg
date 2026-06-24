@@ -566,15 +566,7 @@ get-deps:
 		MESON_MINOR="$$(meson --version | cut -f2 -d'.')" ; \
 		if [ "$${MESON_MAJOR}" -lt 1 ] || ( [ "$${MESON_MAJOR}" -eq 1 ] && [ "$${MESON_MINOR}" -lt 3 ] ) ; then \
 			sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade pipx && \
-			pipx install pipx && \
-			~/.local/bin/pipx ensurepath --prepend && \
-			~/.local/bin/pipx install meson ; \
-		fi
-	MESON_MAJOR="$$(meson --version | cut -f1 -d'.')" ; \
-		MESON_MINOR="$$(meson --version | cut -f2 -d'.')" ; \
-		if [ "$${MESON_MAJOR}" -lt 1 ] || ( [ "$${MESON_MAJOR}" -eq 1 ] && [ "$${MESON_MINOR}" -lt 3 ] ) ; then \
-			echo "Could not install Meson 1.3 or newer" >&2 ; \
-			exit 1 ; \
+			pipx install meson ; \
 		fi
 
 # And we have submodule deps to build
@@ -915,11 +907,14 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 # TODO: When https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1104888 is fixed
 # and Debian/Ubuntu ship the static libraries again, stop using submodules and
 # go back to system Cairo and pixman.
+#
+# We need to make sure ~/.local/bin is on the PATH first because we might have
+# installed an updated meson in there.
 $(LIB_DIR)/libpixman-1.a: $(PIXMAN_DIR)/pixman/*
-	+cd $(PIXMAN_DIR) && rm -Rf build && meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib build/ && ninja -C build && ninja -C build install
+	+export PATH="$${HOME}/.local/bin:$${PATH}" && cd $(PIXMAN_DIR) && rm -Rf build && meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib build/ && ninja -C build && ninja -C build install
 
 $(LIB_DIR)/libcairo.a: $(LIB_DIR)/libpixman-1.a $(CAIRO_DIR)/src/*
-	+cd $(CAIRO_DIR) && rm -Rf build && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib --auto-features=disabled -Dpng=enabled -Dfontconfig=enabled -Dfreetype=enabled build/ && ninja -C build && ninja -C build install
+	+export PATH="$${HOME}/.local/bin:$${PATH}" && cd $(CAIRO_DIR) && rm -Rf build && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib --auto-features=disabled -Dpng=enabled -Dfontconfig=enabled -Dfreetype=enabled build/ && ninja -C build && ninja -C build install
 
 # All this version header generation stuff needs to work even if SRC_DIR hasn't been copied into the container yet.
 $(shell mkdir -p $(SRC_DIR))
