@@ -568,7 +568,8 @@ public:
         enum State {
             S_SCAN_CHAIN,
             S_SCAN_DAG_SNARL,
-            S_SCAN_CYCLIC_SNARL
+            S_SCAN_CYCLIC_SNARL,
+            S_TAKE_LOOP
         };
 
     private:
@@ -636,7 +637,7 @@ public:
         void save_opposite_cyclic_snarl_exit(size_t chain_num);
 
         /// Save a traversal taking a loop (i.e. turning around)
-        void save_loop_traversal(size_t new_distance);
+        void save_loop_traversal();
         
         /// Shift the current index & item
         inline void shift_index_by(int shift) {
