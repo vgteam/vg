@@ -566,7 +566,15 @@ get-deps:
 		MESON_MINOR="$$(meson --version | cut -f2 -d'.')" ; \
 		if [ "$${MESON_MAJOR}" -lt 1 ] || ( [ "$${MESON_MAJOR}" -eq 1 ] && [ "$${MESON_MINOR}" -lt 3 ] ) ; then \
 			sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade pipx && \
-			pipx install meson ; \
+			pipx install pipx && \
+			~/.local/bin/pipx ensurepath --prepend && \
+			~/.local/bin/pipx install meson ; \
+		fi
+	MESON_MAJOR="$$(meson --version | cut -f1 -d'.')" ; \
+		MESON_MINOR="$$(meson --version | cut -f2 -d'.')" ; \
+		if [ "$${MESON_MAJOR}" -lt 1 ] || ( [ "$${MESON_MAJOR}" -eq 1 ] && [ "$${MESON_MINOR}" -lt 3 ] ) ; then \
+			echo "Could not install Meson 1.3 or newer" >&2 ; \
+			exit 1 ; \
 		fi
 
 # And we have submodule deps to build
