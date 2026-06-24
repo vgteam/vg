@@ -321,5 +321,7 @@ docs-job:
     stage: build
     script:
       - doc/publish-docs.sh
+    variables:
+      GIT_SUBMODULE_STRATEGY: recursive
    
   
