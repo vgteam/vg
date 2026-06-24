@@ -49,9 +49,6 @@
 [submodule "deps/backward-cpp"]
 	path = deps/backward-cpp
 	url = https://github.com/adamnovak/backward-cpp.git
-[submodule "deps/elfutils"]
-	path = deps/elfutils
-	url = https://sourceware.org/git/elfutils.git
 [submodule "deps/structures"]
 	path = deps/structures
 	url = https://github.com/vgteam/structures.git
@@ -124,3 +121,9 @@
 [submodule "deps/mimalloc"]
 	path = deps/mimalloc
 	url = https://github.com/microsoft/mimalloc.git
+[submodule "deps/cairo"]
+	path = deps/cairo
+	url = git://anongit.freedesktop.org/git/cairo
+[submodule "deps/pixman"]
+	path = deps/pixman
+	url = git://anongit.freedesktop.org/git/pixman
