@@ -71,7 +71,7 @@ Then, install VG's dependencies. You'll need the Protobuf and Jansson developmen
 * `hexdump` and `column` from `bsdmainutils`
 * [`npm` for testing documentation examples](https://github.com/anko/txm).
 
-On Ubuntu 22.04, you should be able to do:
+On Ubuntu 22.04 or 26.04, you should be able to do:
 
     make get-deps
 
@@ -95,6 +95,11 @@ On other distros, or if you do not have root access, you will need to perform th
     libprotobuf-dev libboost-all-dev tabix bcftools libzstd-dev pybind11-dev \
     python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc libdw-dev meson
                          
+To build vg's bundled Cairo and pixman (currently 1.3.0 or newer is required), so you may also need to do the equivalent of:
+
+    sudo apt-get install pipx
+    pipx install meson
+
 At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
