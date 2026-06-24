@@ -26,10 +26,6 @@ COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 # See <https://gist.github.com/nicktoumpelis/11214362#file-repo-rinse-sh-L2>
 git submodule foreach --recursive git clean -xfd
 
-# Find all the submodules that Doxygen wants to look at and make sure we have
-# those.
-cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | xargs -n 1 git submodule update --init --recursive
-
 # Build the documentation.
 # Assumes we are running in the repo root.
 make docs

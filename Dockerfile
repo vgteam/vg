@@ -3,7 +3,7 @@
 # Use Google's non-rate-limited mirror of Docker Hub to get our base image.
 # This helps automated Quay builds because Quay hasn't built a caching system
 # and exposes pull rate limits to users.
-FROM mirror.gcr.io/library/ubuntu:22.04 AS base
+FROM mirror.gcr.io/library/ubuntu:26.04 AS base
 MAINTAINER vgteam
 
 RUN echo base > /stage.txt
@@ -42,9 +42,13 @@ RUN apt-get -qq -y update && apt-get -y install --no-upgrade \
     libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
     samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
     raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
-    libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
-    tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc libssl-dev kmc
+    libffi-dev libfontconfig-dev libfreetype-dev libglib2.0-dev libpcre2-dev libpng-dev \
+    libprotobuf-dev libboost-all-dev tabix bcftools libzstd-dev pybind11-dev \
+    python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc libdw-dev meson
 ###DEPS_END###
+# TODO: libjitterentropy3-dev ought to be a dependency of libssl-dev, since the
+# static libcrypto.a library in libssl-dev needs it, but as of 3.5.5-1ubuntu3.2
+# it isn't, and we need to pull it in manually.
 
 FROM packages AS build
 
@@ -60,18 +64,20 @@ RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/m
 # Clear any CMake caches in case we are building from someone's checkout
 RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
+COPY pre-build.sh /vg/pre-build.sh
 COPY Makefile /vg/Makefile
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+# Turn off user-defined conversion warning until https://github.com/greg7mdp/sparsepp/issues/98 can be fixed
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi) -Wno-cast-user-defined" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
 # Bring in the sources, which we need in order to build.
 COPY src /vg/src
 
 # Build all the object files for vg, but don't link.
 # Also pass the arch here
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi) -Wno-cast-user-defined" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
 
 # Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
-RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi) -Wno-cast-user-defined" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
 
 # Ship the scripts
 COPY scripts /vg/scripts
@@ -124,7 +130,7 @@ RUN ls -lah /vg && \
     fontconfig-config \
     awscli \
     binutils \
-    libpython2.7 \
+    python3 \
     libperl-dev \
     libelf1 \
     libdw1 \
