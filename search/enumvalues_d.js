@@ -1,10 +1,11 @@
 var searchData=
 [
-  ['node_14933',['NODE',['../classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3a2995e7f61da600fe7b67e5fd40d4b319',1,'vg::ZipCode']]],
-  ['node_5fmissing_14934',['NODE_MISSING',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9a0fc049aba7e02c479f48dd02c5facab1',1,'vg::AlignmentValidity']]],
-  ['node_5ftoo_5fshort_14935',['NODE_TOO_SHORT',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9ae6b4882026edf127e7a8d7a120636586',1,'vg::AlignmentValidity']]],
-  ['none_14936',['NONE',['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693',1,'vg::Funnel']]],
-  ['none_14937',['None',['../structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3a7ec02cb6759bbdcec376638fb9e76d4e',1,'vg::IndexingParameters::None()'],['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39aa676d6ce23c4076e354ffb65936c03d1',1,'vg::None()']]],
-  ['normal_14938',['normal',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea867c09ce684d19db107c790ac73e29c2',1,'vg::Haplotypes::Subchain']]],
-  ['null_14939',['Null',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095ea4da67a14c941c99eb8e041314fa98640',1,'vg::multipath_alignment_t']]]
+  ['node_14921',['NODE',['../classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3a2995e7f61da600fe7b67e5fd40d4b319',1,'vg::ZipCode']]],
+  ['node_5fmissing_14922',['NODE_MISSING',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9a0fc049aba7e02c479f48dd02c5facab1',1,'vg::AlignmentValidity']]],
+  ['node_5ftoo_5fshort_14923',['NODE_TOO_SHORT',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9ae6b4882026edf127e7a8d7a120636586',1,'vg::AlignmentValidity']]],
+  ['none_14924',['None',['../structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3a7ec02cb6759bbdcec376638fb9e76d4e',1,'vg::IndexingParameters']]],
+  ['none_14925',['NONE',['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693',1,'vg::Funnel']]],
+  ['none_14926',['None',['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39aa676d6ce23c4076e354ffb65936c03d1',1,'vg']]],
+  ['normal_14927',['normal',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea867c09ce684d19db107c790ac73e29c2',1,'vg::Haplotypes::Subchain']]],
+  ['null_14928',['Null',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095ea4da67a14c941c99eb8e041314fa98640',1,'vg::multipath_alignment_t']]]
 ];
