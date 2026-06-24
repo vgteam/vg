@@ -207,10 +207,6 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FeatureSet.html">FeatureSet</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1BREAKPOINT.html">BREAKPOINT</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Filter.html">Filter</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlatFileBackTranslation.html">FlatFileBackTranslation</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowSort.html">FlowSort</a></td></tr>
@@ -2952,8 +2948,6 @@ Functions</h2></td></tr>
 <tr class="memitem:a3f381468578c541e436adb0e537629fb"><td class="memTemplParams" colspan="2">template&lt;typename T1  = std::string, typename T2  = std::string&gt; </td></tr>
 <tr class="memitem:a3f381468578c541e436adb0e537629fb"><td class="memTemplItemLeft" align="right" valign="top">std::pair&lt; T1, T2 &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3f381468578c541e436adb0e537629fb">parse_pair</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;arg, const char &amp;delimiter, const string &amp;option_name)</td></tr>
 <tr class="separator:a3f381468578c541e436adb0e537629fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7d3374c888c7c37f1de8370e151af7f9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7d3374c888c7c37f1de8370e151af7f9">genotype_svs</a> (<a class="el" href="classvg_1_1VG.html">VG</a> *graph, string gamfile, string refpath)</td></tr>
-<tr class="separator:a7d3374c888c7c37f1de8370e151af7f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96096594534e59d12b7a2cff3c400ef0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a96096594534e59d12b7a2cff3c400ef0">variant_recall</a> (<a class="el" href="classvg_1_1VG.html">VG</a> *graph, vcflib::VariantCallFile *vars, FastaReference *ref_genome, vector&lt; FastaReference * &gt; insertions, string gamfile)</td></tr>
 <tr class="separator:a96096594534e59d12b7a2cff3c400ef0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8bc1d89bbcee041956e59895ed605ca3"><td class="memItemLeft" align="right" valign="top">tuple&lt; double, double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8bc1d89bbcee041956e59895ed605ca3">hash_to_rgb</a> (const string &amp;str, double min_sum)</td></tr>
@@ -12162,42 +12156,6 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7d3374c888c7c37f1de8370e151af7f9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7d3374c888c7c37f1de8370e151af7f9">&#9670;&nbsp;</a></span>genotype_svs()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::genotype_svs </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">string&#160;</td>
-          <td class="paramname"><em>gamfile</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">string&#160;</td>
-          <td class="paramname"><em>refpath</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Takes a graph and two GAMs, one tumor and one normal Locates existing variation supported by the tumor and annotate it with a path Then overlay the normal sample Use a depthmap of snarltraversal transforms, one for tumor, one for normal which we can use to count the normal and tumor alleles void somatic_genotyper(VG* graph, string tumorgam, string normalgam);</p>
-<p>Do smart augment, maintaining a depth map for tumor/normal perfect matches and then editing in all of the SV reads (after normalization) with a T/N_ prefix Then, get our Snarls count reads supporting each and genotype void somatic_caller_genotyper(VG* graph, string tumorgam, string normalgam); </p>
 
 </div>
 </div>
