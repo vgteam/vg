@@ -2139,7 +2139,7 @@ void ZipCodeTree::distance_iterator::save_loop_traversal() {
     std::stack<size_t> save_stack = std::stack<size_t>();
     save_stack.push(top());
     pending_traversals.emplace(pos.index, pos.right_to_left, save_stack,
-                               pos.chain_numbers, S_TAKE_LOOP);
+                               std::stack<size_t>(), S_TAKE_LOOP);
 }
 
 void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
