@@ -575,7 +575,7 @@ deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/check_options.py 1>&2
 
-test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(VCFLIB_DIR)/contrib/fastahack/fastahack $(BIN_DIR)/rapper
+test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/contrib/fastahack/fastahack $(BIN_DIR)/rapper
 	cd test && prove -v t
 	# Hide the compiler configuration from the doc tests, so that the ones that
 	# build code can't pick up libraries out of the vg build itself.
@@ -787,7 +787,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # has headers.
 $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h $(LIB_DIR)/cleaned_old_catch
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib vcf2tsv wfa2_static
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -796,10 +796,6 @@ $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libt
 	+cp $(VCFLIB_DIR)/src/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/build/libvcflib.a $(LIB_DIR)
 	+cp $(VCFLIB_DIR)/build/contrib/WFA2-lib/libwfa2.a $(LIB_DIR)
-
-# vcflib binaries are all automatically built. We need this one.
-$(BIN_DIR)/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
-	+cp $(VCFLIB_DIR)/build/vcf2tsv $(BIN_DIR)
 
 # We need the fastahack binary for testing
 $(VCFLIB_DIR)/contrib/fastahack/fastahack: $(VCFLIB_DIR)/contrib/fastahack/*.c $(VCFLIB_DIR)/contrib/fastahack/*.h $(VCFLIB_DIR)/contrib/fastahack/*.cpp
