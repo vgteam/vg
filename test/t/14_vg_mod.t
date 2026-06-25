@@ -60,7 +60,7 @@ vg mod -u s2.vg >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
 rm -f s2.vg
 
-vg msga -f msgas/l.fa -b a1 -w 16 | vg mod -X 8 - | vg validate -
+vg mod -X 8 msgas/l.vg | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
 
 vg mod -U 3 graphs/atgclinv2.vg | vg validate -
