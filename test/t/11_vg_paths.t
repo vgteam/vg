@@ -64,9 +64,9 @@ vg paths --list -x empty.vg 2> err.txt
 is $? 1 "vg paths exits with error when no paths are found"
 is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in vg"
 
-is $(vg msga -w 20 -f msgas/s.fa | vg paths -v - -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
+is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
-is $(vg msga -w 20 -f msgas/s.fa  | vg paths -v - -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
+is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg view msgas/s.vg | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
 
 is $(vg construct -a -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg paths -d -a -v - | vg paths -L -v - | wc -l) 1 "alt allele paths can be dropped"
 

@@ -47,7 +47,7 @@ vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate -
 is "$?" "0" "chopping a graph works correctly with reverse mappings"
 set +o pipefail
 
-is $(vg msga -w 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -w 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -v - -X | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
+is $(vg mod -X 5 msgas/s.vg | vg mod -u - | vg validate - && vg mod -X 5 msgas/s.vg | vg mod -u - | vg paths -v - -X | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
 is "$(vg view -Jv graphs/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv graphs/inv-mess.json | vg mod -u - | vg view - | sort | diff - correct/14_vg_mod/inv-mess-unchopped.gfa)" "" "unchop correctly handles a graph with an inversion"
 
@@ -55,11 +55,10 @@ is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - 
 
 is "$(vg view -Jv graphs/inv-mess.json | vg mod -U 10 - | vg validate - && vg view -Jv graphs/inv-mess.json | vg mod -U 10 - | vg view - | sort | diff - correct/14_vg_mod/inv-mess-normalized.gfa)" "" "normalization works on a graph with an inversion"
 
-vg msga -w 20 -f msgas/s.fa > s.vg
-vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N > s2.vg
+vg msga -g msgas/s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N > s2.vg
 vg mod -u s2.vg >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
-rm -f s.vg s2.vg
+rm -f s2.vg
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg mod -X 8 - | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
