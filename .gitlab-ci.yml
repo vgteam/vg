@@ -15,7 +15,7 @@ before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # And the CI report upload needs uuidgen from uuid-runtime
-  - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev-is-python3 npm nodejs node-gyp uuid-runtime libgnutls28-dev doxygen libzstd-dev bcftools bwa graphviz
+  - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev-is-python3 npm nodejs node-gyp uuid-runtime libgnutls28-dev libzstd-dev bcftools bwa graphviz
   - which junit-merge || sudo npm install -g junit-merge
   # Configure Docker to use a mirror for Docker Hub and restart the daemon
   - |
@@ -317,6 +317,10 @@ docs-job:
     interruptible: true
     stage: build
     before_script:
+      # Install a minimal set of dependencies for building the docs.
+      # We throw in rsync and git because we do need them, even if they're
+      # already definitely in the base image we use, because we don't want our
+      # dependency list weirdly split between here and the base image.
       - sudo apt-get -q -y update
       - sudo apt-get -q -y install --no-upgrade doxygen graphviz rsync git
     script:
