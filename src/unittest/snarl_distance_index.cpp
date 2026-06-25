@@ -7873,9 +7873,10 @@ namespace vg {
                   "[snarl_distance][snarl_distance_hub_label_overreport]" ) {
             // Regression repro captured from the random hub-label fuzzer. In the dumped
             // graph, 103fd0 -> 154rev3 is unreachable (confirmed by bidirected BFS /
-            // Dijkstra) but the reverse 154rev3 -> 103fd0 IS reachable. The hub-label
-            // query was returning the reverse direction's finite distance (264) for the
-            // unreachable forward query.
+            // Dijkstra) but the reverse (NOT reverse complement) 154rev3 ->
+            // 103fd0 IS reachable. The hub-label query was returning the
+            // reverse direction's finite distance (264) for the unreachable
+            // forward query.
             unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("hublabel_overreport.vg");
             REQUIRE(graph->has_node(103));
             REQUIRE(graph->has_node(154));
@@ -7886,11 +7887,11 @@ namespace vg {
 
             size_t fwd = distance_index.minimum_distance(103, false, 0, 154, true, 3, false, graph.get());
             size_t rev = distance_index.minimum_distance(154, true, 3, 103, false, 0, false, graph.get());
-            cerr << "[overreport] fwd(103fd0->154rev3) = " << fwd
-                 << "   rev(154rev3->103fd0) = " << rev << endl;
 
             // Forward direction is genuinely unreachable.
             REQUIRE(fwd == std::numeric_limits<size_t>::max());
+            // Reverse direction is reachable
+            REQUIRE(rev != std::numeric_limits<size_t>::max());
         }
 
         TEST_CASE( "Distance index hub labeling does not under-report reachable distances across multi-component chains",
