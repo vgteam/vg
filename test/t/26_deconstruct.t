@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 59
 
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
+vg mod -U 10 msgas/hla.vg | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
 
 vg deconstruct hla.xg -p "gi|157734152:29563108-29564082" > hla_decon.vcf

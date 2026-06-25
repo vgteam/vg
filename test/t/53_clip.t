@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 21
 
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
+vg mod -U 10 msgas/hla.vg | vg mod -c - > hla.vg
 
 #flatten it to one path
 printf "gi|568815551:1054737-1055734\t0\t1000\n" > region.bed
