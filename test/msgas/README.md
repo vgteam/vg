@@ -5,6 +5,8 @@ To update these graphs you'd need to get an old enough version of vg. You would
 also need the input `.fa` files which used to be in here. The following commands
 were used to create the graphs which exist here now:
 
+- `vg msga -f cyclic/cycle.fa -b s1 -w 64 -t 1 > msgas/c1.vg`
+- `vg msga -g <(vg msga -f cyclic/cycle.fa -b s1 -w 19 -O 18 -k 4 -t 1 | vg paths -d -v - | vg mod -U 10 -) -f cyclic/cycle.fa -t 1 > msgas/c2.vg`
 - `vg msga -f msgas/l.fa -b a1 -w 16 > msgas/l.vg`
 - `vg msga -w 20 -f msgas/q.fa > msgas/q.vg`
 - `vg msga -w 20 -f msgas/s.fa > msgas/s.vg`
