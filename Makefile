@@ -575,7 +575,7 @@ deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/check_options.py 1>&2
 
-test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/contrib/fastahack/fastahack $(BIN_DIR)/rapper
+test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/rapper
 	cd test && prove -v t
 	# Hide the compiler configuration from the doc tests, so that the ones that
 	# build code can't pick up libraries out of the vg build itself.
@@ -796,10 +796,6 @@ $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libt
 	+cp $(VCFLIB_DIR)/src/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/build/libvcflib.a $(LIB_DIR)
 	+cp $(VCFLIB_DIR)/build/contrib/WFA2-lib/libwfa2.a $(LIB_DIR)
-
-# We need the fastahack binary for testing
-$(VCFLIB_DIR)/contrib/fastahack/fastahack: $(VCFLIB_DIR)/contrib/fastahack/*.c $(VCFLIB_DIR)/contrib/fastahack/*.h $(VCFLIB_DIR)/contrib/fastahack/*.cpp
-	+cd $(VCFLIB_DIR)/contrib/fastahack && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/

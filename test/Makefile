@@ -7,11 +7,8 @@ vg:=../bin/vg
 
 all: test clean
 
-test: build_graph $(vg) fastahack
+test: build_graph $(vg)
 	prove -v t
-
-fastahack:
-	cd ../deps/vcflib/contrib/fastahack && $(MAKE)
 
 $(vg):
 	cd .. && $(MAKE) bin/vg
