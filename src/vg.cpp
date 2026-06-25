@@ -4880,51 +4880,6 @@ void VG::connect_nodes_to_node(vector<NodeTraversal>& nodes, NodeTraversal node)
     }
 }
 
-// join all subgraphs together to a "null" head node
-Node* VG::join_heads(void) {
-    // Find the head nodes
-    vector<Node*> heads;
-    head_nodes(heads);
-
-    // Then create the new node (so it isn't picked up as a head)
-    current_id = max_node_id()+1;
-    Node* root = create_node("N");
-
-    // Wire it to all the heads and return
-    connect_node_to_nodes(root, heads);
-    return root;
-}
-
-void VG::join_heads(Node* node, bool from_start) {
-    vector<Node*> heads;
-    head_nodes(heads);
-
-    // If the node we have been given shows up as a head, remove it.
-    for(auto i = heads.begin(); i != heads.end(); ++i) {
-        if(*i == node) {
-            heads.erase(i);
-            break;
-        }
-    }
-
-    connect_node_to_nodes(node, heads, from_start);
-}
-
-void VG::join_tails(Node* node, bool to_end) {
-    vector<Node*> tails;
-    tail_nodes(tails);
-
-    // If the node we have been given shows up as a tail, remove it.
-    for(auto i = tails.begin(); i != tails.end(); ++i) {
-        if(*i == node) {
-            tails.erase(i);
-            break;
-        }
-    }
-
-    connect_nodes_to_node(tails, node, to_end);
-}
-
 void VG::add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,

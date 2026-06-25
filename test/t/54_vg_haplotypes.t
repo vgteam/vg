@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 44
+plan tests 45
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -111,9 +111,14 @@ is "$(vg gbwt -H -Z auto_hapl.HG003.gbz)" 4 "auto-built hapl produces 2 diploid 
 rm -f auto_kff.HG003.* auto_kff.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl \
     --index-basename auto_kff -N HG003 \
-    -f haplotype-sampling/HG003.fq.gz > auto_kff.gam 2> /dev/null
+    -f haplotype-sampling/HG003.fq.gz -o gaf > auto_kff.gaf 2> /dev/null
 is $? 0 "Giraffe counts kmers from reads automatically"
 is "$(vg gbwt -H -Z auto_kff.HG003.gbz)" 4 "auto kmer counting produces 2 diploid + 2 reference haplotypes"
+
+# KMC prints statistics to stdout.
+# Check that the stats are not included in the alignment output.
+is "$(head -n 1 auto_kff.gaf | cut -f 1)" "@HD" "auto kmer counting does not output KMC stats"
+rm -f auto_kff.gaf
 
 # Giraffe integration, fully automatic: both hapl and kff are built by the
 # IndexRegistry. Triggered by --haplotype-sampling without either input file.
