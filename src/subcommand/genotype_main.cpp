@@ -92,7 +92,6 @@ int main_genotype(int argc, char** argv) {
     // At least how many reads must be unique support for a called allele per strand for a call?
     size_t min_unique_per_strand = 2;
 
-    bool just_call = false;
     int c;
     optind = 2; // force optind past command positional arguments
     while (true) {
@@ -116,14 +115,13 @@ int main_genotype(int argc, char** argv) {
                 {"recall-vcf", required_argument, 0, 'V'},
                 {"fasta", required_argument, 0, 'F'},
                 {"insertions", required_argument, 0, 'I'},
-                {"call", no_argument, 0, 'z'},
                 {"no-embed", no_argument, 0, 'E'},
                 {"traversal", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?jvr:c:s:o:l:a:QAd:P:pt:V:I:F:zET:",
+        c = getopt_long (argc, argv, "h?jvr:c:s:o:l:a:QAd:P:pt:V:I:F:ET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -165,9 +163,6 @@ int main_genotype(int argc, char** argv) {
         case 'Q':
             // Ignore mapping qualities
             use_mapq = false;
-            break;
-        case 'z':
-            just_call = true;
             break;
         case 'A':
             // Don't do indel realignment
@@ -232,13 +227,6 @@ int main_genotype(int argc, char** argv) {
         gam_file = get_input_file_name(optind, argc, argv);
     } else {
         logger.error() << "GAM file must be specified as positional argument" << endl;
-    }
-
-    if (just_call){
-        string gamfi(gam_file);
-        string rstr(ref_path_name);
-        genotype_svs(graph, gamfi, rstr);
-        exit(0);
     }
 
     // Build the set of all the node IDs to operate on
