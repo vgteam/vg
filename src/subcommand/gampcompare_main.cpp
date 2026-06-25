@@ -124,10 +124,7 @@ int main_gampcompare(int argc, char** argv) {
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
     }
-    
-    bdsg::PathPositionOverlayHelper overlay_helper;
-    PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
-    
+     
     // We will collect all the truth positions
     string_hash_map<string, map<string ,vector<pair<size_t, bool> > > > true_positions;
     function<void(Alignment&)> record_truth = [&true_positions](Alignment& aln) {
@@ -152,6 +149,20 @@ int main_gampcompare(int argc, char** argv) {
         }
         vg::io::for_each_parallel(truth_file_in, record_truth);
     }
+
+    // Once we know the truth positions we know the paths we need to index
+    std::unordered_set<std::string> truth_paths;
+    for (auto& aln_positions : true_positions) {
+        for (auto& path_and_positions : aln_positions.second) {
+            truth_paths.insert(path_and_positions.first);
+        }
+    }
+
+
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    // Index the reference and generic paths, plus any paths that positions are on, for position queries.
+    // TODO: Can we actually end up using any non-reference/non-generic paths in the comparison?
+    PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get(), truth_paths);
     
     // A buffer we use for the TSV output
     vector<vector<tuple<int64_t, bool, int64_t, int64_t, string>>> buffers(get_thread_count());

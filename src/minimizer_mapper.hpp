@@ -283,10 +283,6 @@ class MinimizerMapper : public AlignerClient {
     /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
-    /// How much of a multiple should we apply to each item's non-bonus score
-    /// in chaining?
-    static constexpr double default_item_scale = 1.0;
-    double item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
@@ -297,9 +293,6 @@ class MinimizerMapper : public AlignerClient {
     /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score.
     static constexpr int default_rec_consistency_bonus = 0;
     int rec_consistency_bonus = default_rec_consistency_bonus;
-    // How many points should we treat a non-gap connection base as producing, at chaining?
-    static constexpr double default_points_per_possible_match = 0;
-    double points_per_possible_match = default_points_per_possible_match;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
@@ -406,6 +399,9 @@ class MinimizerMapper : public AlignerClient {
     /// How should we scale scores before mapq, for calibration
     static constexpr double default_mapq_score_scale = 1.0;
     double mapq_score_scale = default_mapq_score_scale;
+    /// What's the minimum score we'll accept from an MQ 0 read
+    static constexpr size_t default_min_mapq0_score = 0;
+    size_t min_mapq0_score = default_min_mapq0_score;
 
     /////////////////
     // More shared parameters:

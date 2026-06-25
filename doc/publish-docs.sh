@@ -26,26 +26,73 @@ COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 # See <https://gist.github.com/nicktoumpelis/11214362#file-repo-rinse-sh-L2>
 git submodule foreach --recursive git clean -xfd
 
-# Find all the submodules that Doxygen wants to look at and make sure we have them, freshly.
+# Find all the submodules that Doxygen wants to look at and make sure we have
+# them.
 #
-# The CI workspace can carry these submodules with stale origin URLs (left pointing at a local mirror
-# that is not a valid repo on this runner). `git submodule deinit` clears the working tree and the
-# superproject config entry, but it leaves the cached git directory under .git/modules/<path> in place,
-# and `git submodule update --init` then reuses that stale gitdir (stale file:// origin + stale refs)
-# instead of cloning fresh -- so the pinned commit isn't found and git falls back to a file-transport
-# fetch that is (correctly) blocked. So we remove both the working tree AND the cached gitdir, forcing a
-# clean clone from the canonical https URL in .gitmodules. Every pinned commit is a branch tip on github
-# and the runner has https access, so no local ("file") transport is ever needed; protocol.file.allow=never
-# enforces that as defense-in-depth (CVE-2022-39253). We only recurse where Doxygen needs a nested tree:
-# deps/libvgio/deps (whose only nested submodule is vgteam/libhandlegraph).
+# Gitlab does some exciting reconfiguration of our Git repository (see
+# <https://docs.gitlab.com/ci/runners/git_submodules/#check-out-nested-submodules>
+# and the part about "externalizing" the Git configuration). It's probably
+# something with `url.<local-path>.insteadOf`, but I can't find a source to
+# back that up.
+#
+# This (along with Git refusing to let you work with local path source
+# repositories because it can't figure out how to do it securely) is probably
+# the reason that attempts to update to some commits in submodules fail with:
+# 
+#     fatal: transport 'file' not allowed
+#
+# (See <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>.) It's
+# not clear exactly why Git thinks we need to fetch the commits, or why this
+# happens for some commits and not others.
+#
+# The security concern here is CVE-2022-39253 in Git, where, when you clone
+# from a local path, Git makes a copy of all the `.git/objects` files, and so
+# if those files are symlinks to your secret files, then you can end up making
+# copies of those files with more permissive permissions in your clone, which
+# other users on the same system could then read. That's not a big concern in
+# our CI environment, because there aren't any lower-permission users inside
+# the CI container and so anyone who could read those files could read the
+# secrets anyway, but it's still nice to not flag off security things.
+#
+# We could just set the Gitlab job to recursively clone, and not touch the
+# submodules here, which works, but that's slow.
+#
+# We could use GIT_SUBMODULE_PATHS to tell the job which submodules to populate
+# (see
+# <https://docs.gitlab.com/ci/runners/configure_runners/#sync-or-exclude-specific-submodules-from-ci-jobs>),
+# but then that would need to always match the Doxygen config.
+#
+# So instead we do some rocket surgery on the Git repo. THIS WILL DESTROY LOCAL
+# SUBMODULE WORKING COPIES AND THEIR GIT HISTORY, so DO NOT run this script if
+# you have any commits that aren't pushed elsewhere!
+#
+# This ritual was devised by Anthropic Claude, and it works, but we're not
+# actually fully able to explain why.
 GITDIR=$(git rev-parse --git-dir)
 DOXYGEN_DEPS=$(cat Doxyfile | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq)
 for dep in ${DOXYGEN_DEPS}; do
+    # Tell Git to stop maintaining the work tree for the submodule, if it is.
     git submodule deinit -f -- "${dep}" || true
+    # Remove the work tree and the Git repository information for the
+    # submodule. This is where we think the file:// origins might be hiding.
     rm -rf "${dep}" "${GITDIR}/modules/${dep}"
 done
-echo "${DOXYGEN_DEPS}" | xargs -n 1 git -c protocol.file.allow=never submodule update --init
-git -c protocol.file.allow=never submodule update --init --recursive deps/libvgio
+# Now we re-clone those submodules, which should use the URLs they usually use
+# instead of whatever Gitlab did.
+#
+# Explicitly refusing to use file protocols here (instead of the default "user"
+# mode of using them when asked by the user, as documented at
+# <https://git-scm.com/docs/git-config#Documentation/git-config.txt-protocolallow>)
+# *might* protect us from the case that a submodule in vg directly references a
+# specially prepared Git repo that has been smuggled into CI, alongside some
+# kind of cache misconfiguration that would let the cloned repo smuggle a
+# secret into the cache, where it could be read by other malicious code
+# smuggled in that can only read the cache and not secrets, all orchestrated by
+# someone who can make exactly this limited set of malicious commits. This is
+# obviously absurd, and it's not clear that the "user" mode allows "file" for
+# root submodules anyway, but I'm not about to let Anthropic Claude do more
+# security theater than me, so it stays.
+echo "${DOXYGEN_DEPS}" | xargs -n 1 git -c protocol.file.allow=never submodule update --init --recursive
 
 # Build the documentation.
 # Assumes we are running in the repo root.

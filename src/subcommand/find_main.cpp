@@ -79,7 +79,8 @@ void help_find(char** argv) {
          << "  -Z, --min-mem N             minimum length of the MEM [1]" << endl
          << "  -D, --distance              return distance on path between pair of nodes (-n)" << endl
          << "                              if -P not used, best path chosen heurstically" << endl
-         << "  -Q, --paths-named STR       return all paths with name prefix STR (may repeat)" << endl;
+         << "  -Q, --paths-named STR       return all paths with name prefix STR (may repeat)" << endl
+         << "                              (deprecated)" << endl;
 
 }
 
@@ -400,6 +401,28 @@ int main_find(int argc, char** argv) {
         }
     }
 
+    // Parse any targets
+    // handle targets from BED
+    if (!bed_targets_file.empty()) {
+        parse_bed_regions(bed_targets_file, targets);
+    }
+    // those given on the command line
+    for (auto& target : targets_str) {
+        Region region;
+        parse_region(target, region);
+        targets.push_back(region);
+    }
+
+    // Find out paths we will need to make position queries on, in case they
+    // aren't already the right sense.
+    std::unordered_set<std::string> required_position_paths;
+    for (const Region& r : targets) {
+        required_position_paths.insert(r.seq);
+    }
+    if (!path_name.empty()) {
+        required_position_paths.insert(path_name);
+    }
+    
     PathPositionHandleGraph* xindex = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -407,7 +430,7 @@ int main_find(int argc, char** argv) {
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         input_gfa = dynamic_cast<GFAHandleGraph*>(path_handle_graph.get()) != nullptr;
-        xindex = overlay_helper.apply(path_handle_graph.get());
+        xindex = overlay_helper.apply(path_handle_graph.get(), required_position_paths);
 
         // Remove node ids that do not exist in the graph.
         std::vector<nid_t> final_ids;
@@ -617,16 +640,6 @@ int main_find(int argc, char** argv) {
                     cout << xindex->get_path_name(path_handle) << endl;
                 });
         }
-        // handle targets from BED
-        if (!bed_targets_file.empty()) {
-            parse_bed_regions(bed_targets_file, targets);
-        }
-        // those given on the command line
-        for (auto& target : targets_str) {
-            Region region;
-            parse_region(target, region);
-            targets.push_back(region);
-        }
         if (!targets.empty()) {
             auto output_graph = get_output_graph();
             auto& graph = *output_graph;
@@ -807,6 +820,7 @@ int main_find(int argc, char** argv) {
             vg::io::save_handle_graph(&graph, cout);
         }
         if (extract_paths) {
+            logger.warn() << "vg paths -Q/--paths-named is deprecated due to the partial Protobuf graph output format. Consider vg paths --extract-fasta instead." << std::endl;
             for (auto& pattern : extract_path_patterns) {
             
                 // We want to write uncompressed protobuf Graph objects containing our paths.
