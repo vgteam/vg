@@ -72,10 +72,12 @@ GITDIR=$(git rev-parse --git-dir)
 DOXYGEN_DEPS=$(cat Doxyfile | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq)
 for dep in ${DOXYGEN_DEPS}; do
     # Tell Git to stop maintaining the work tree for the submodule, if it is.
+    # This also removes any files in the submodule directory, but not the
+    # directory itself.
     git submodule deinit -f -- "${dep}" || true
-    # Remove the work tree and the Git repository information for the
-    # submodule. This is where we think the file:// origins might be hiding.
-    rm -rf "${dep}" "${GITDIR}/modules/${dep}"
+    # Remove the Git repository information for the submodule. This is where we
+    # think the file:// origins might be hiding.
+    rm -rf "${GITDIR}/modules/${dep}"
 done
 # Now we re-clone those submodules, which should use the URLs they usually use
 # instead of whatever Gitlab did.
