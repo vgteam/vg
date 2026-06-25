@@ -2138,8 +2138,12 @@ void ZipCodeTree::distance_iterator::save_loop_traversal() {
 #endif
     std::stack<size_t> save_stack = std::stack<size_t>();
     save_stack.push(top());
+    // The current chain_nubmers are only valid
+    // if we aren't in the middle of a snarl traversal
+    std::stack<size_t> save_chain_numbers = depth() == 1 ? pos.chain_numbers
+                                                         : std::stack<size_t>();
     pending_traversals.emplace(pos.index, pos.right_to_left, save_stack,
-                               std::stack<size_t>(), S_TAKE_LOOP);
+                               save_chain_numbers, S_TAKE_LOOP);
 }
 
 void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
