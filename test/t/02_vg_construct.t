@@ -86,7 +86,6 @@ variantbp=$(zcat < small/x.vcf.gz | grep -v "#" | cut -f 5,4 \
 
 graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 2)
 
-echo "$graphbp = $refbp + $variantbp"
 is "$graphbp" $(echo "$refbp + $variantbp" | bc) "the graph contains all the sequence in the reference and VCF"
 
 is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i | vg stats -l - | cut -f 2; done | sort | uniq | wc -l) 1 "varying the max node size does not affect graph length"
