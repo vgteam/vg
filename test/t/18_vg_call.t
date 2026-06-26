@@ -127,7 +127,7 @@ is "$?" 0 "call output same on vg as xg"
 
 rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx x.xg.vcf x.vg.vcf x.xg.gt.vcf x.vg.gt.vcf x.snarls
 
-vg index -x c.xg -g c.gcsa mgsas/c1.vg
+vg index -x c.xg -g c.gcsa msgas/c1.vg
 # True alignment has 3 variants:
 # TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC
 # TCCCTCCTCAAAGGCTTCTCACTACTCCA-ATCAAAGCTACCCAGGCCATTTTAAGTTTC
@@ -137,7 +137,7 @@ vg construct -r m.fa >m.vg
 vg index -x m.xg m.vg
 vg sim -n 200 -s 23823 -l 50 -x m.xg -a >m.sim
 vg map -x c.xg -g c.gcsa -G m.sim >m.gam
-vg augment c.vg m.gam -A m.aug.gam >c.aug.vg
+vg augment msgas/c1.vg m.gam -A m.aug.gam >c.aug.vg
 vg index -x c.aug.xg c.aug.vg
 vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
 vg call c.aug.xg -k m.aug.pack -p s1 >m.vcf
