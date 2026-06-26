@@ -80,12 +80,13 @@ rm -f fail.vg
 # check that we produce a full graph
 
 refbp=$(tail -n+2 small/x.fa | tr -d '\n' | wc -c)
-variantbp=$(zcat small/x.vcf.gz | fgrep -v "#" | cut -f 5,4 \
+variantbp=$(zcat < small/x.vcf.gz | grep -v "#" | cut -f 5,4 \
     | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
         | awk '{ sum += $1 } END { print sum }')
 
 graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 2)
 
+echo "$graphbp = $refbp + $variantbp"
 is "$graphbp" $(echo "$refbp + $variantbp" | bc) "the graph contains all the sequence in the reference and VCF"
 
 is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i | vg stats -l - | cut -f 2; done | sort | uniq | wc -l) 1 "varying the max node size does not affect graph length"
