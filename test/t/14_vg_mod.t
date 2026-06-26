@@ -55,7 +55,7 @@ is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - 
 
 is "$(vg view -Jv graphs/inv-mess.json | vg mod -U 10 - | vg validate - && vg view -Jv graphs/inv-mess.json | vg mod -U 10 - | vg view - | sort | diff - correct/14_vg_mod/inv-mess-normalized.gfa)" "" "normalization works on a graph with an inversion"
 
-vg mod -u mgsas/s2.vg >/dev/null
+vg mod -u msgas/s2.vg >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
 
 vg mod -X 8 msgas/l.vg | vg validate -
