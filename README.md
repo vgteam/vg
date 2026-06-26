@@ -450,16 +450,13 @@ Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on d
 
 Infer variants from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
 
-<!-- !test check MSGA and deconstruct -->
+<!-- !test check deconstruct -->
 ```sh
-# create a graph from a multiple alignment of HLA haplotypes (from vg/test directory)
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
+# convert a GFA to vg's xg file format (from vg/test directory)
+vg convert --gfa-in graphs/cactus-BRCA2.gfa --xg-out > cactus-BRCA2.xg
 
-# index it
-vg index hla.vg -x hla.xg
-
-# generate a VCF using gi|568815592:29791752-29792749 as the reference contig.  The other paths will be considered as haploid samples
-vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
+# generate a VCF using "13" as the reference contig.  The other paths will be considered as haploid samples
+vg deconstruct cactus-BRCA2.xg -e -p "13" > BRCA2.vcf
 ```
 
 Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g`, respectively.
