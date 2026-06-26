@@ -219,7 +219,7 @@ production-build-job:
     - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then DOCKER_TAG="${CI_COMMIT_TAG}" ; else DOCKER_TAG="ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"; fi
     - make version
     # Make sure ARM emulation is available.
-    - if [[ "${CI_BUILDKIT_DRIVER}" != "kubernetes" ]] ; then docker run --privileged --rm tonistiigi/binfmt:qemu-v8.0.4-33 --install all || true; fi
+    - if [[ "${CI_BUILDKIT_DRIVER}" != "kubernetes" ]] ; then docker run --privileged --rm tonistiigi/binfmt:qemu-v10.2.1-65 --install all || true; fi
     # TODO: deduplicate this code with normal build above
     # Note that A LOCAL CACHE CAN ONLY HOLD ONE TAG/TARGET AT A TIME!
     # And Quay can't use mode=max registry caching to cache the intermediate targets with the final image, just inline caching.
