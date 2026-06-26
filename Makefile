@@ -77,7 +77,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
 # We omit Cairo for now because its transitive dependencies can't be determined until after it's built. Set them lazily
 LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) pkg-config --libs --static cairo)
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
@@ -336,13 +336,11 @@ RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
 MIMALLOC_DIR:=deps/mimalloc
 SDSL_DIR:=deps/sdsl-lite
-SNAPPY_DIR:=deps/snappy
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
 KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
-FERMI_DIR:=deps/fermi-lite
 VCFLIB_DIR:=deps/vcflib
 TABIXPP_DIR:=deps/tabixpp
 HTSLIB_DIR:=deps/htslib
@@ -383,7 +381,6 @@ DEP_SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(DEP_OBJ))
 LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
 LIB_DEPS += $(LIB_DIR)/libssw.a
-LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
 LIB_DEPS += $(LIB_DIR)/libgbwtgraph.a
@@ -395,7 +392,6 @@ LIB_DEPS += $(LIB_DIR)/libgssw.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
-LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
@@ -644,11 +640,6 @@ endif
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
 	+cd $(SSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
 
-# We need to hide -Xpreprocessor -fopenmp from Snappy, at least on Mac, because
-# it will drop the -Xpreprocessor and keep the -fopenmp and upset Clang.
-$(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
-	+cd $(SNAPPY_DIR) && ./autogen.sh && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --prefix=$(CWD) $(FILTER) && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) libsnappy.la $(FILTER) && cp .libs/libsnappy.a $(CWD)/lib/ && cp snappy-c.h snappy-sinksource.h snappy-stubs-public.h snappy.h $(CWD)/include/
-
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
@@ -868,9 +859,6 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
 $(SHARED_OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
-
-$(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
-	cd $(FERMI_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
 # But we do need to hack out the return type error to work around https://github.com/yoheirosen/sublinear-Li-Stephens/issues/6
