@@ -709,8 +709,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "      --left-align              attempt to left-align indels in linear formats" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
-             << "      --off-ref-position        annotate off-reference alignments in linear formats" << endl
-             << "                                with the nearest reference position in the NR tag" << endl
+             << "      --off-ref-position        annotate off-reference mappings in HTSLib output" << endl
+             << "                                with the nearest reference position in NR tag" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination. Setting values for" << endl
