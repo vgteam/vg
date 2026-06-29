@@ -84,7 +84,7 @@ void help_surject(char** argv) {
          << "                            re-alignments to paths in SS tag" << endl
          << "  -H, --graph-aln           annotate SAM records with cs-style difference string" << endl
          << "                            of the pre-surjected graph alignment in GR tag" << endl
-         << "  --off-ref-position        annotate SAM records that become unmapped during" << endl
+         << "      --off-ref-position    annotate SAM records that become unmapped during" << endl
          << "                            surject with the nearest ref. position in the NR tag" << endl
          << "  -C, --compression N       level for compression [0-9]" << endl
          << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
