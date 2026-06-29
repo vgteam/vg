@@ -1256,12 +1256,6 @@ public:
     /// Collect the subgraph of a Node. TODO: what does that mean?
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
-    /// Join head nodes of graph to common null node, creating a new single head.
-    Node* join_heads(void);
-    /// Join head nodes of graph to specified node. Optionally from the start/to the end of the new node.
-    void join_heads(Node* node, bool from_start = false);
-    /// Join tail nodes of graph to specified node. Optionally from the start/to the end of the new node.
-    void join_tails(Node* node, bool to_end = false);
     /// Add singular head and tail null nodes to graph.
     void wrap_with_null_nodes(void);
     /// Add a start node and an end node, where all existing heads in the graph

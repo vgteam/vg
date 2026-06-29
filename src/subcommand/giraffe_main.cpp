@@ -11,6 +11,7 @@
 #include <cstring>
 #include <ctime>
 #include <map>
+#include <optional>
 #include <vector>
 #include <unordered_set>
 #include <chrono>
@@ -338,6 +339,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_mapq_score_scale,
         "scale scores for mapping quality"
     );
+    comp_opts.add_range(
+        "min-mapq0-score",
+        &MinimizerMapper::min_mapq0_score,
+        MinimizerMapper::default_min_mapq0_score,
+        "discard MAPQ 0 alignments with scores lower than threshold"
+    );
     
     // Configure chaining
     auto& chaining_opts = parser->add_group<MinimizerMapper>("long-read/chaining parameters");
@@ -437,12 +444,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "bonus for taking each item when chaining"
     );
     chaining_opts.add_range(
-        "item-scale",
-        &MinimizerMapper::item_scale,
-        MinimizerMapper::default_item_scale,
-        "scale for items' scores when chaining"
-    );
-    chaining_opts.add_range(
         "gap-scale",
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
@@ -450,18 +451,18 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
-        "rec-penalty-chain",
-        &MinimizerMapper::rec_penalty_chain,
-        MinimizerMapper::default_rec_penalty_chain,
-        "penalty for a recombination when chaining, requires -E (ALPHA)",
+        "rec-penalty",
+        &MinimizerMapper::rec_penalty,
+        MinimizerMapper::default_rec_penalty,
+        "penalty for a recombination in recombination-aware mode",
         int_is_nonnegative
     );
     chaining_opts.add_range(
-        "points-per-possible-match",
-        &MinimizerMapper::points_per_possible_match,
-        MinimizerMapper::default_points_per_possible_match,
-        "points to award non-indel connecting bases when chaining",
-        double_is_nonnegative
+        "rec-consistency-bonus",
+        &MinimizerMapper::rec_consistency_bonus,
+        MinimizerMapper::default_rec_consistency_bonus,
+        "untracked bonus for chains staying consistent with haplotypes to avoid recombinations in recombination-aware mode",
+        int_is_nonnegative
     );
     
     chaining_opts.add_range(
@@ -591,6 +592,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "band distance to allow in the longest WFA connection or tail"
     );
     chaining_opts.add_range(
+        "rec-penalty-aln",
+        &MinimizerMapper::rec_penalty_aln,
+        MinimizerMapper::default_rec_penalty_aln,
+        "penalty per recombination for final alignment scoring in recombination-aware mode",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
         "softclip-penalty",
         &MinimizerMapper::softclip_penalty,
         MinimizerMapper::default_softclip_penalty,
@@ -717,7 +725,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 
     if (full_help) {
         cerr << "Giraffe parameters:" << endl
-             << "  -E, --rec-mode                activate giraffe recombination-aware mode" << endl
+             << "  -E, --rec-mode                activate recombination-aware mode" << endl
+             << "      --no-rec-mode             deactivate recombination-aware mode" << endl
              << "  -A, --rescue-algorithm NAME   use this rescue algorithm [dozeu]" << endl
              << "                                {none / dozeu / gssw}" << endl
              << "      --fragment-mean FLOAT     force fragment length distribution to have this" << endl
@@ -767,6 +776,7 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_COMMENTS_AS_TAGS = 1013;
     constexpr int OPT_OFF_REF_POSITION = 1014;
     constexpr int OPT_LEFT_ALIGN = 1015;
+    constexpr int OPT_NO_REC_MODE = 1016;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -884,8 +894,12 @@ int main_giraffe(int argc, char** argv) {
     // Are we mapping long reads or short reads? According to the parameter preset
     bool map_long_reads = false;
     
-    // If recombination mode is set, we are using PathMinimizer, else standard Giraffe.
-    bool use_path_minimizer = false;
+    // User-provided option for whether to do recombination-aware mapping. 
+    //
+    // If true, use a minimizer index with paths in the payloads, and do
+    // recombination-aware chaining. If false, use minimizer-only payloads and
+    // don't do recombination-aware chaining.
+    std::optional<bool> rec_mode;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -948,8 +962,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 2)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.27579)
+        .add_entry<int>("rec-penalty", 2)
+        .add_entry<int>("rec-consistency-bonus", 12)
         .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
@@ -969,6 +984,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<int>("rec-penalty-aln", 28)
         .add_entry<bool>("prune-low-cplx", true);
 
     Preset r10_base;
@@ -989,6 +1005,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hard-hit-cap", 13614)
         .add_entry<double>("mapq-score-scale", 1)
         .add_entry<size_t>("mapq-score-window", 150)
+        .add_entry<size_t>("min-mapq0-score", 67)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
@@ -1004,11 +1021,15 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.06759721757973396)
+        .add_entry<int>("rec-penalty", 2)
+        .add_entry<int>("rec-consistency-bonus", 13)
         .add_entry<double>("chain-score-threshold", 160.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<size_t>("max-chains-per-tree", 3)
+        // Lowering this can reduce wrong reads in mapping experiments, but
+        // seems to *increase* miscalls; see
+        // https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1779202719223779?thread_ts=1779127572.303779&cid=CJ2EHEH1A
         .add_entry<double>("min-chain-score-per-base", 0.052)
         .add_entry<int>("max-min-chain-score", 1900.0)
         .add_entry<size_t>("min-indel-avoid-bases", 50)
@@ -1025,6 +1046,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<int>("rec-penalty-aln", 32)
         .add_entry<bool>("prune-low-cplx", true);
 
     presets.emplace("r10", r10_base);
@@ -1066,7 +1088,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.01)
         .add_entry<int>("max-min-chain-score", 200.0)
         .add_entry<int>("item-bonus", 0)
-        .add_entry<double>("item-scale", 1.0)
         .add_entry<int>("min-chains", 3)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 4)
@@ -1132,6 +1153,7 @@ int main_giraffe(int argc, char** argv) {
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
         {"parameter-preset", required_argument, 0, 'b'},
         {"rec-mode", no_argument, 0, 'E'},
+        {"no-rec-mode", no_argument, 0, OPT_NO_REC_MODE},
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
@@ -1209,13 +1231,11 @@ int main_giraffe(int argc, char** argv) {
             case 'm':
                 provided_indexes.emplace("Long Read Minimizers", optarg);
                 provided_indexes.emplace("Short Read Minimizers", optarg);
-                provided_indexes.emplace("Long Read PathMinimizers", optarg);
                 break;
                 
             case 'z':
                 provided_indexes.emplace("Long Read Zipcodes", optarg);
                 provided_indexes.emplace("Short Read Zipcodes", optarg);
-                provided_indexes.emplace("Long Read PathZipcodes", optarg);
                 break;
             case 'd':
                 provided_indexes.emplace("Giraffe Distance Index", optarg);
@@ -1348,12 +1368,18 @@ int main_giraffe(int argc, char** argv) {
                         found->second.apply(*parser);
                     }
                 }
+                // TODO: Can we make the presets know if they are long read
+                // presets and not list their names here? What if someone
+                // manually turns on chaining?
                 if (param_preset == "hifi" || param_preset == "r10") {
                     map_long_reads = true;
                 }
                 break;
             case 'E':
-                use_path_minimizer = true;
+                rec_mode = true;
+                break;
+            case OPT_NO_REC_MODE:
+                rec_mode = false;
                 break;
             case 'A':
                 {
@@ -1531,9 +1557,10 @@ int main_giraffe(int argc, char** argv) {
         logger.error() << "Paired-end alignment is not yet implemented "
                        << "for --align-from-chains or chaining-based presets" << std::endl;
     }
-    if (use_path_minimizer && !map_long_reads) {
-        // We don't have file paths to load defined for recombination-aware short-read minimizers.
-        logger.error() << "Path minimizers cannot be used with short reads." << endl;
+    if (rec_mode.has_value() && rec_mode.value() && !map_long_reads) {
+        // The user has specifically asked fro recombination-aware mapping on short reads, which isn't available.
+        // TODO: Get a better idea of if reads are long.
+        logger.error() << "Recombination-aware mode cannot be used with short reads yet." << endl;
     }
     
     // Use all the provided indexes
@@ -1545,7 +1572,7 @@ int main_giraffe(int argc, char** argv) {
     // or when either --haplotype-name or --kff-name is given.
     // Otherwise we'd always sample when we had reads available.
     bool haplotype_sampling = haplotype_sampling_flag || provided_indexes.count("Haplotype Index") || !kff_filename.empty();
-    
+
     string sample_scope;
     if (haplotype_sampling) {
 
@@ -1650,13 +1677,8 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe Distance Index", {"dist"}}
     };
     if (map_long_reads) {
-        if (use_path_minimizer) {
-            indexes_and_extensions.emplace(std::string("Long Read PathMinimizers"), std::vector<std::string>({"longread.path.min","path.min", "min"}));
-            indexes_and_extensions.emplace(std::string("Long Read PathZipcodes"), std::vector<std::string>({"longread.path.zipcodes", "path.zipcodes", "zipcodes"}));
-        } else {
-            indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.withzip.min","withzip.min", "min"}));
-            indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
-        }
+        indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.path.min", "longread.withzip.min", "path.min", "withzip.min", "min"}));
+        indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.path.zipcodes", "longread.zipcodes", "path.zipcodes", "zipcodes"}));
     } else {
         indexes_and_extensions.emplace(std::string("Short Read Minimizers"), std::vector<std::string>({"shortread.withzip.min","withzip.min", "min"}));
         indexes_and_extensions.emplace(std::string("Short Read Zipcodes"), std::vector<std::string>({"shortread.zipcodes", "zipcodes"}));
@@ -1714,14 +1736,12 @@ int main_giraffe(int argc, char** argv) {
     }
 
     //If we're making new zipcodes, we should rebuild the minimizers too
-    if (!(indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+    if (!indexes_and_extensions.count(std::string("Long Read Minimizers")) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         logger.info() << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Long Read Minimizers"));
-        registry.reset(std::string("Long Read PathMinimizers"));
-    } else if ((indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+    } else if (indexes_and_extensions.count(std::string("Long Read Minimizers")) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         logger.info() << "Rebuilding zipcodes index to match new minimizers" << endl;
         registry.reset(std::string("Long Read Zipcodes"));
-        registry.reset(std::string("Long Read PathZipcodes"));
     } else if (!indexes_and_extensions.count(std::string("Short Read Minimizers")) && indexes_and_extensions.count(std::string("Short Read Zipcodes"))) {
         logger.info() << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Short Read Minimizers"));
@@ -1740,11 +1760,7 @@ int main_giraffe(int argc, char** argv) {
     if (!map_long_reads) {
         index_targets = VGIndexes::get_default_short_giraffe_indexes();
     } else {
-        if (use_path_minimizer) {
-            index_targets = VGIndexes::get_default_long_path_giraffe_indexes();
-        } else {
-            index_targets = VGIndexes::get_default_long_giraffe_indexes();
-        }
+        index_targets = VGIndexes::get_default_long_giraffe_indexes();
     }
 #ifdef debug
     for (auto& needed : index_targets) {
@@ -1777,15 +1793,9 @@ int main_giraffe(int argc, char** argv) {
     }
     IndexName minimizer_indexname;
     unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
-    MinimizerIndexParameters::PayloadType payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES;
     if (map_long_reads) {
-        if (use_path_minimizer) {
-            minimizer_indexname = "Long Read PathMinimizers";
-            payload_type = MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS;
-        } else {
-            // Use the long read minimizers
-            minimizer_indexname = "Long Read Minimizers";
-        }
+        // Use the long read minimizers
+        minimizer_indexname = "Long Read Minimizers";
     } else {
         minimizer_indexname = "Short Read Minimizers";
     }
@@ -1793,8 +1803,23 @@ int main_giraffe(int argc, char** argv) {
         logger.error() << registry.require("Giraffe Distance Index").at(0) << " is newer than " << registry.require(minimizer_indexname).at(0) << " which depends on it" << std::endl;
     }
     minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_indexname).at(0));
-    require_payload(*minimizer_index, payload_type);
 
+    // Decide if we want to do recombination-aware mapping by default, based on whether we can.
+    
+    // Whether to use recombination-aware mapping if the user did not set the option.
+    // Can't be a constant because it has to depend on the haplotype count in the index.
+    bool default_rec_mode = has_payload(*minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) && map_long_reads;
+
+    std::vector<MinimizerIndexParameters::PayloadType> allowed_payloads;
+    allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
+    if (!rec_mode.value_or(default_rec_mode)) {
+        // If we're not doing recombination-aware mapping, we can also accept a
+        // payload without path info, as long as it still has zipcodes.
+        allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
+    }
+    // Make sure we have a usable minimizer index payload.
+    require_payload(*minimizer_index, allowed_payloads);
+    
     // Grab the zipcodes
     if (show_progress) {
         logger.info() << "Loading Zipcodes" << endl;
@@ -1802,11 +1827,7 @@ int main_giraffe(int argc, char** argv) {
     IndexName oversized_zipcodes_indexname;
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
-        if (use_path_minimizer) {
-            oversized_zipcodes_indexname = "Long Read PathZipcodes";
-        } else {
-            oversized_zipcodes_indexname = "Long Read Zipcodes";
-        }
+        oversized_zipcodes_indexname = "Long Read Zipcodes";
     } else {
         oversized_zipcodes_indexname = "Short Read Zipcodes";
     }
@@ -1976,6 +1997,14 @@ int main_giraffe(int argc, char** argv) {
                 }
             }
         };
+        auto report_paired_flag = [&](const std::string& name, bool value) {
+            if (value) {
+                params_json << ",\"" << name << "\":" << (value ? "true" : "false");
+                if (show_progress) {
+                    cerr << "--" << (value ? "" : "no-") << name << endl;
+                }
+            }
+        };
         auto report_number = [&](const std::string& name, size_t value) {
             params_json << ",\"" << name << "\":" << value;
             if (show_progress) {
@@ -2015,6 +2044,9 @@ int main_giraffe(int argc, char** argv) {
             report_string("rescue-algorithm", algorithm_names[rescue_algorithm]);
         }
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
+        report_paired_flag("rec-mode", rec_mode.value_or(default_rec_mode));
+        minimizer_mapper.use_payload_paths &= rec_mode.value_or(default_rec_mode);
+        
 
         params_json << "}" << std::endl;
 

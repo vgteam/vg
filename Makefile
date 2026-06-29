@@ -48,11 +48,14 @@ include $(wildcard test/*.d)
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
-PKG_CONFIG_DEPS := cairo libzstd 
+PKG_CONFIG_DEPS := libzstd libcrypto
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
 # Note that we then must *always* link anything *else* that uses them statically.
 # Jansson has to be in here because it has to come after libvgio, which is in the static deps.
 PKG_CONFIG_STATIC_DEPS := protobuf jansson
+# What pkg-config-controlled system dependencies should we only use compiler and not linker flags from?
+# We manually load these libraries at runtime.
+PKG_CONFIG_HEADER_DEPS :=
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 # We don't ask for automatic Make dependency file (*.d) generation here because
@@ -67,14 +70,16 @@ DEPGEN_FLAGS := -MMD -MP
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/cairo $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) $(PKG_CONFIG_HEADER_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
 
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph -lcrypto
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
+# We omit Cairo for now because its transitive dependencies can't be determined until after it's built. Set them lazily
+LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) pkg-config --libs --static cairo)
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -119,13 +124,6 @@ ifeq ($(shell uname -s),Darwin)
         # Use /usr/local/include to the end of the include search path.
         # Make sure it is system level only so it comes after other -I paths.
         INCLUDE_FLAGS += -isystem /usr/local/include
-
-        ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
-            # pkg-config is not always smart enough to find Cairo's include path for us.
-            # We make sure to grab its directory manually if we see it.
-            INCLUDE_FLAGS += -isystem /usr/local/include/cairo
-            LD_LIB_FLAGS += -lcairo
-        endif
     endif
 
     ifndef HOMEBREW_PREFIX
@@ -240,7 +238,7 @@ else
     LD_LIB_FLAGS += -rdynamic
 
     # We want to link against the elfutils libraries
-    LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
+    LD_LIB_FLAGS += -ldw -lelf
 
     # We want to link against libatomic which the GNU C++ standard library needs.
     # See <https://github.com/nodejs/node/issues/30093> and <https://stackoverflow.com/q/30591313>
@@ -300,10 +298,7 @@ else
     FILTER=
 endif
 
-# When building statically, we need to tell the linker not to bail if it sees multiple definitions.
-# libc on e.g. our Jenkins host does not define malloc as weak, so other mallocs can't override it in a static build.
-# TODO: Why did this problem only begin to happen when libvw was added?
-STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-definition
+STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg. Grab everything except main
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
@@ -341,13 +336,11 @@ RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
 MIMALLOC_DIR:=deps/mimalloc
 SDSL_DIR:=deps/sdsl-lite
-SNAPPY_DIR:=deps/snappy
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
 KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
-FERMI_DIR:=deps/fermi-lite
 VCFLIB_DIR:=deps/vcflib
 TABIXPP_DIR:=deps/tabixpp
 HTSLIB_DIR:=deps/htslib
@@ -361,7 +354,6 @@ LINLS_DIR:=deps/sublinear-Li-Stephens
 STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 DOZEU_DIR:=deps/dozeu
-ELFUTILS_DIR:=deps/elfutils
 LIBDEFLATE_DIR:=deps/libdeflate
 LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
@@ -372,6 +364,8 @@ IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
+CAIRO_DIR=deps/cairo
+PIXMAN_DIR=deps/pixman
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -387,7 +381,6 @@ DEP_SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(DEP_OBJ))
 LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
 LIB_DEPS += $(LIB_DIR)/libssw.a
-LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
 LIB_DEPS += $(LIB_DIR)/libgbwtgraph.a
@@ -396,11 +389,9 @@ LIB_DEPS += $(LIB_DIR)/libhts.a
 LIB_DEPS += $(LIB_DIR)/libtabixpp.a
 LIB_DEPS += $(LIB_DIR)/libvcflib.a
 LIB_DEPS += $(LIB_DIR)/libgssw.a
-LIB_DEPS += $(LIB_DIR)/libvcfh.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
-LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
@@ -408,15 +399,8 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
-ifneq ($(shell uname -s),Darwin)
-    # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
-    # backward-cpp will use.
-    LIB_DEPS += $(LIB_DIR)/libdw.a
-    LIB_DEPS += $(LIB_DIR)/libdwfl.a
-    LIB_DEPS += $(LIB_DIR)/libdwelf.a
-    LIB_DEPS += $(LIB_DIR)/libebl.a
-    LIB_DEPS += $(LIB_DIR)/libelf.a
-endif
+LIB_DEPS += $(LIB_DIR)/libcairo.a
+LIB_DEPS += $(LIB_DIR)/libpixman-1.a
 
 # Control variable for address sanitizer
 # Like valgrind but fast!
@@ -518,8 +502,9 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
+DEPS += $(LIB_DIR)/cleaned_old_elfutils_v002
 
-.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man .pre-build version
+.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man version
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -544,11 +529,11 @@ $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPO
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS) $(LD_CAIRO_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(LIB_DIR)/libvg.a $(EXE_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(UNITTEST_SUPPORT_OBJ_COMMON) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(STATIC_FLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS) $(LD_CAIRO_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -565,11 +550,23 @@ static-docker: static scripts/*
 
 # We have system-level deps to install
 # We want the One True Place for them to be in the Dockerfile.
+# TODO: when libssl-dev on modern Ubuntu no longer needs libjitterentropy3-dev
+# (not available for older Ubuntu) manually installed, we can stop polling for
+# it and filtering it here. See
+# <https://bugs.launchpad.net/ubuntu/+source/openssl/+bug/2158026>.
+# We also need to work around meson being available but too old on older
+# Ubuntu, by getting it from pip.
 get-deps:
-	sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr '\n' ' ' | tr -d '\\')
+	sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr ' ' '\n' | (if ! apt-cache show libjitterentropy3-dev >/dev/null 2>&1 ; then grep -v libjitterentropy3-dev ; else cat ; fi) | tr '\n' ' ' | tr -d '\\')
+	MESON_MAJOR="$$(meson --version | cut -f1 -d'.')" ; \
+		MESON_MINOR="$$(meson --version | cut -f2 -d'.')" ; \
+		if [ "$${MESON_MAJOR}" -lt 1 ] || ( [ "$${MESON_MAJOR}" -eq 1 ] && [ "$${MESON_MINOR}" -lt 3 ] ) ; then \
+			sudo DEBIAN_FRONTEND=$(DEBIAN_FRONTEND) apt-get install -qq -y --no-upgrade pipx && \
+			pipx install meson ; \
+		fi
 
 # And we have submodule deps to build
-deps: $(DEPS)
+deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/check_options.py 1>&2
@@ -643,11 +640,6 @@ endif
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
 	+cd $(SSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
 
-# We need to hide -Xpreprocessor -fopenmp from Snappy, at least on Mac, because
-# it will drop the -Xpreprocessor and keep the -fopenmp and upset Clang.
-$(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
-	+cd $(SNAPPY_DIR) && ./autogen.sh && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --prefix=$(CWD) $(FILTER) && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) libsnappy.la $(FILTER) && cp .libs/libsnappy.a $(CWD)/lib/ && cp snappy-c.h snappy-sinksource.h snappy-stubs-public.h snappy.h $(CWD)/include/
-
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
@@ -710,11 +702,10 @@ $(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC
 	+rm -Rf $(INC_DIR)/boost
 	+touch $(LIB_DIR)/cleaned_old_boost
 
-# We used to build elfutils with libdebuginfod, but we now need to build
-# without it.
-$(LIB_DIR)/cleaned_old_elfutils:
+# We used to build elfutils, but now we need to use the system one
+$(LIB_DIR)/cleaned_old_elfutils_v002:
 	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a
-	+touch $(LIB_DIR)/cleaned_old_elfutils
+	+touch $(LIB_DIR)/cleaned_old_elfutils_v002
 
 # We used to accidentally bring vcflib's intervaltree's copy of catch.hpp into the global include
 $(LIB_DIR)/cleaned_old_catch:
@@ -722,6 +713,7 @@ $(LIB_DIR)/cleaned_old_catch:
 	+touch $(LIB_DIR)/cleaned_old_catch
 
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
+	@protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
 	+export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib -DUSE_INSTALLED_LIBHANDLEGRAPH_ONLY=ON .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
@@ -825,10 +817,6 @@ $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(w
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
 
-#$(INC_DIR)/Variant.h
-$(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
-	+cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
-
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
 	+cd $(DEP_DIR)/sonLib && $(MAKE) clean && kyotoTycoonLib="" CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
@@ -867,40 +855,10 @@ $(INC_DIR)/simde/x86/sse4.1.h: $(DOZEU_DIR)/simde/*.h $(DOZEU_DIR)/simde/x86/*.h
 $(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h $(INC_DIR)/simde/x86/sse4.1.h
 	+mkdir -p $(CWD)/$(INC_DIR)/dozeu && cp $(DOZEU_DIR)/*.h $(CWD)/$(INC_DIR)/dozeu/
 
-$(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
-
-$(LIB_DIR)/libdw.a: $(LIB_DIR)/libelf.a
-
-$(LIB_DIR)/libdwelf.a: $(LIB_DIR)/libelf.a
-
-$(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
-
-# We can't build elfutils from Git without "maintainer mode".
-# There are some release-only headers or something that it complains it can't find otherwise.
-# We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
-# We need to disable libdebuginfod or the static binary will try and load it at
-# runtime and pull in incompatible libs it depends on on whatever system it's
-# running on.
-$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h $(LIB_DIR)/cleaned_old_elfutils
-	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
-	+cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
-	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libelf.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libebl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwelf.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/lib && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libeu.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libcpu && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libcpu.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/backends && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libebl_backends.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libdw.a known-dwarf.h $(FILTER)
-	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
-
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
 $(SHARED_OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
-
-$(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
-	cd $(FERMI_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
 # But we do need to hack out the return type error to work around https://github.com/yoheirosen/sublinear-Li-Stephens/issues/6
@@ -934,6 +892,21 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -DNO_GFAKLUGE -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
 	+ar rs $@ $(XG_DIR)/xg.o
 
+# TODO: When https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1104888 is fixed
+# and Debian/Ubuntu ship the static libraries again, stop using submodules and
+# go back to system Cairo and pixman.
+#
+# We need to make sure ~/.local/bin is on the PATH first because we might have
+# installed an updated meson in there.
+$(LIB_DIR)/libpixman-1.a: $(PIXMAN_DIR)/pixman/*
+	+export PATH="$${HOME}/.local/bin:$${PATH}" && cd $(PIXMAN_DIR) && rm -Rf build && meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib build/ && ninja -C build && ninja -C build install
+
+$(LIB_DIR)/libcairo.a: $(LIB_DIR)/libpixman-1.a $(CAIRO_DIR)/src/*
+	+export PATH="$${HOME}/.local/bin:$${PATH}" && cd $(CAIRO_DIR) && rm -Rf build && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) meson setup --prefix $(CWD) -Ddefault_library=both -Dlibdir=lib --auto-features=disabled -Dpng=enabled -Dfontconfig=enabled -Dfreetype=enabled build/ && ninja -C build && ninja -C build install
+
+# All this version header generation stuff needs to work even if SRC_DIR hasn't been copied into the container yet.
+$(shell mkdir -p $(SRC_DIR))
+
 # Auto-git-versioning
 
 # Can be overridden from the environment to supply a version if none is on disk.
@@ -957,7 +930,7 @@ ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
 else
     # Just use the version file we have, if any.
     $(info Do not check Git)
-    $(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp] ; then echo "#define VG_GIT_VERSION \"$(VG_GIT_VERSION)\"" > $(SRC_DIR)/vg_git_version.hpp ; fi)
+    $(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp ] ; then echo "#define VG_GIT_VERSION \"$(VG_GIT_VERSION)\"" > $(SRC_DIR)/vg_git_version.hpp ; fi)
 endif
 
 
@@ -968,7 +941,7 @@ version:
 # Build an environment version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
-# Clean old path
+# Clean old path.
 $(shell rm -f $(INC_DIR)/vg_environment_version.hpp)
 $(shell echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(SRC_DIR)/vg_environment_version.hpp.tmp)
 $(shell echo "#define VG_OS \"$(shell uname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
@@ -1055,54 +1028,36 @@ test/%.d: ;
 ## VG source code compilation ends here
 ####################################
 
+# Make all the directories we need.
+# If these don't exist, they can become files (somehow) when we run the rest of
+# the build.
+# We used to run a target to do this but since GNU Make 4.4 we can't easily run
+# a target at startup by `-include`-ing a .PHONY target so we need to do it at
+# top-level with shell calls. See <https://stackoverflow.com/a/76870264>
+$(shell if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi)
+$(shell if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi)
+$(shell if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi)
+$(shell if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi)
+$(shell if [ ! -d $(SHARED_OBJ_DIR) ]; then mkdir -p $(SHARED_OBJ_DIR); fi)
+$(shell if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi)
+$(shell if [ ! -d $(ALGORITHMS_SHARED_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_SHARED_OBJ_DIR); fi)
+$(shell if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi)
+$(shell if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi)
+$(shell if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi)
+$(shell if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi)
+$(shell if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi)
+$(shell if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi)
+$(shell if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi)
 
-# Make directories before quitting target due to missing protoc.
-# If we run the rest of the build without these, lib and include can become files.
-# TODO: quitting if no protoc doesn't reliably stop the build.
-.pre-build:
-	@if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
-	@if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi
-	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
-	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
-	@if [ ! -d $(SHARED_OBJ_DIR) ]; then mkdir -p $(SHARED_OBJ_DIR); fi
-	@if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
-	@if [ ! -d $(ALGORITHMS_SHARED_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_SHARED_OBJ_DIR); fi
-	@if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi
-	@if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi
-	@if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi
-	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
-	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
-	@if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi
-	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
-	@protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
-	@if [ -e $(INC_DIR)/vg/vg.pb.h ] ; then \
-		HEADER_VER=$$(cat $(INC_DIR)/vg/vg.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-		WORKDIR=$$(pwd); \
-		TESTDIR=$$(mktemp -d); \
-		echo 'syntax = "proto3";' > $${TESTDIR}/empty.proto; \
-		protoc $${TESTDIR}/empty.proto --proto_path=$${TESTDIR} --cpp_out=$${TESTDIR}; \
-		PROTOC_VER=$$(cat $${TESTDIR}/empty.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-		if [ "$${HEADER_VER}" != "$${PROTOC_VER}" ] ; then \
-			echo "Protobuf version has changed!"; \
-			echo "Headers are for $${HEADER_VER} but we make headers for $${PROTOC_VER}"; \
-			echo "Need to rebuild libvgio"; \
-			rm -f $(LIB_DIR)/libvgio.a; \
-			rm -f $(INC_DIR)/vg/vg.pb.h; \
-		fi; \
-		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
-		rmdir $${TESTDIR}; \
-	fi;
-
-# A note about Protobuf:
-# We have a lot of logic here to make sure that the protoc we have henerates headers with exactly the same
-# version requirements as the headers we already have.
-# If not, we regenerate them.
-# Doesn't handle Protobuf 3.12.3 weirdness; just make clean if you change flavors of Protobuf 3.12.3.
-	
-	
-	
-# run .pre-build before we make anything at all.
--include .pre-build
+# run pre-build.sh before we make anything at all.
+# Make really doesn't want to depend on this succeeding, but we need it to.
+# See <https://stackoverflow.com/a/225626>.
+# Make sure to run right now.
+PREBUILD_RESULT:=$(shell ./pre-build.sh >pre-build.log 2>&1 ; echo $$?)
+ifneq ($(PREBUILD_RESULT), 0)
+    $(info $(shell cat pre-build.log))
+    $(error Pre-build script failed)
+endif
 
 # for rebuilding just vg
 clean-vg:
@@ -1146,7 +1101,6 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
-	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
@@ -1161,5 +1115,4 @@ clean: clean-vcflib
 
 clean-vcflib:
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
-	rm -f $(LIB_DIR)/libvcfh.a
 	cd $(INC_DIR) && rm -f BedReader.h convert.h join.h mt19937ar.h split.h Variant.h vec128int.h veclib_types.h

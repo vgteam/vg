@@ -15,7 +15,6 @@
 
 //#define debug_chaining
 //#define debug_transition
-//#define debug_missing_transition
 //#define debug_dp
 
 namespace vg {
@@ -263,31 +262,17 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+                                          max_read_lookback_bases, to_chain,
                                           seed_to_starting, seed_to_ending);
 
-#ifdef debug_missing_transition
-        bool has_missing = \
-        find_missing_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
-                                          seed_to_starting, seed_to_ending, distance_index, 
-                                          all_transitions);
-        if (has_missing) {
-            throw std::runtime_error("Zipcode tree iterator failed to output some transitions");
-        } else {
-            cerr << "No missing transitions" << endl;
-        }
-#endif
-
-        std::vector<transition_info> filtered_transitions =
-            calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
-
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
-        std::sort(filtered_transitions.begin(), filtered_transitions.end(), 
+        std::sort(all_transitions.begin(), all_transitions.end(), 
             [&](const transition_info& a, const transition_info& b) {
             // Return true if a's destination seed is before b's in the read, and false otherwise.
             return to_chain[a.to_anchor].read_start() < to_chain[b.to_anchor].read_start();
         });
 
-        for (auto& transition : filtered_transitions) {
+        for (auto& transition : all_transitions) {
             callback(transition); 
         }
     };
@@ -297,10 +282,14 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
+    size_t max_read_lookback_bases,
+    const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending) {
 
     std::vector<transition_info> all_transitions;
+    // Save hopefully enough space for the transitions
+    all_transitions.reserve(zip_code_tree.get_tree_size());
 
     for (auto seed_itr = zip_code_tree.begin(); seed_itr != zip_code_tree.end(); ++seed_itr) {
         // For each destination seed left to right
@@ -360,8 +349,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
                         std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
                                   << " to #" << cur_dest_anchor.second << std::endl;
 #endif
-                        all_transitions.emplace_back(found_source_anchor->second, cur_dest_anchor.second,
-                                                     source_seed.distance);
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
+                                                found_source_anchor->second, cur_dest_anchor.second, 
+                                                source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -381,8 +371,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
                         std::cerr << "\t\tFound backward transition from #" << cur_dest_anchor.second << " to #"
                                   << found_source_anchor->second << std::endl;
 #endif
-                        all_transitions.emplace_back(cur_dest_anchor.second, found_source_anchor->second,
-                                                     source_seed.distance);
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
+                                                cur_dest_anchor.second, found_source_anchor->second,
+                                                source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -400,211 +391,79 @@ std::vector<transition_info> generate_zip_tree_transitions(
     return all_transitions;
 }
 
-bool find_missing_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-    const ZipCodeTree& zip_code_tree,
-    size_t max_graph_lookback_bases,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending,
-    const SnarlDistanceIndex& distance_index,
-    const std::vector<transition_info>& all_transitions) {
+void add_transition_if_legal(vector<transition_info>& transitions, 
+                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+                             size_t from_anchor, size_t to_anchor, size_t graph_distance) {
+    auto& source_anchor = to_chain[from_anchor];
+    auto& dest_anchor = to_chain[to_anchor];
+
+#ifdef debug_transition
+    std::cerr << "Handle transition #" << from_anchor << " " << source_anchor
+              << " to #" << to_anchor << " " << dest_anchor << std::endl;
+    assert(graph_distance != std::numeric_limits<size_t>::max());
+#endif
+
+    size_t read_distance = get_read_distance(source_anchor, dest_anchor);
+    if (read_distance == std::numeric_limits<size_t>::max()) {
+        // Not reachable in read
+#ifdef debug_transition
+        std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+        return;
+    }
+
+    if (read_distance > max_read_lookback_bases) {
+        // Too far in read to consider
+#ifdef debug_transition
+        std::cerr << "\tToo far apart in read (" << read_distance
+                  << "/" << max_read_lookback_bases << ")." << std::endl;
+#endif
+        return;
+    }
+
+    if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
+        // The actual core anchor part is reachable in the read,
+        // but we cut these down from overlapping minimizers.
+#ifdef debug_transition
+        std::cerr << "\tOriginally overlapped in read." << std::endl;
+#endif
+        return;
+    }
+
+    // The zipcode tree is about point positions,
+    // but we need distances between whole anchors.
+    // The stored zipcode positions will be at distances
+    // from the start/end of the associated anchor.
     
-    // {source anchor : {dest anchor : dist}}
-    std::unordered_map<size_t, std::unordered_map<size_t, size_t>> found;
-    for (const auto& transition : all_transitions) {
-        size_t dist_to_save = transition.graph_distance;
-        if (!found.count(transition.from_anchor)) {
-            found[transition.from_anchor] = std::unordered_map<size_t, size_t>();
-        }
-        if (found[transition.from_anchor].count(transition.to_anchor)) {
-            // If a transition appears multiple times, remember the min
-            dist_to_save = std::min(transition.graph_distance, 
-                                    found[transition.from_anchor][transition.to_anchor]);
-        }
-        found[transition.from_anchor][transition.to_anchor] = transition.graph_distance;
+    // If the offset between the zip code point
+    // and the start of the destination is 0,
+    // and between the zip code point and the end of the source is 0,
+    // we subtract 0 from the measured distance.
+    // Otherwise we need to subtract something.
+    size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
+
+#ifdef debug_transition
+    std::cerr << "\tZip code tree sees " << graph_distance
+              << " but we should back out " << distance_to_remove << std::endl;
+#endif
+
+    if (distance_to_remove > graph_distance) {
+        // We actually end further along the graph path to the next
+        // thing than where the next thing starts, so we can't actually
+        // get there.
+#ifdef debug_transition
+        std::cerr << "\tBacked out too much" << std::endl;
+#endif
+        return;
     }
-
-    bool has_missing = false;
-
-    // Helper function to check for a distance between two seeds
-    auto check_distance = [&] (const ZipCodeTree::oriented_seed_t& from_seed, bool rev_from,
-                               const ZipCodeTree::oriented_seed_t& to_seed, bool rev_to) {
-        // XOR to get appropriate orientations
-        rev_from ^= from_seed.is_reversed;
-        rev_to ^= to_seed.is_reversed;
-        if (rev_from != rev_to) {
-            // Cannot be compared; incompatible orientations
-            return;
-        }
-
-        // Look up appropriate anchors
-        auto from_anchor_itr = rev_from ? seed_to_starting.find(from_seed.seed)
-                                        : seed_to_ending.find(from_seed.seed);
-        if ((rev_from && from_anchor_itr == seed_to_starting.end())
-            || (!rev_from && from_anchor_itr == seed_to_ending.end())) {
-            // No anchor exists
-            return;
-        }
-        auto to_anchor_itr = rev_to ? seed_to_ending.find(to_seed.seed)
-                                    : seed_to_starting.find(to_seed.seed);
-        if ((rev_to && to_anchor_itr == seed_to_ending.end())
-            || (!rev_to && to_anchor_itr == seed_to_starting.end())) {
-            // No anchor exists
-            return;
-        }
-
-        // Construct seed positions
-        pos_t from_pos = seeds.at(from_seed.seed).pos;
-        size_t from_length = distance_index.minimum_length(distance_index.get_node_net_handle(id(from_pos)));
-        from_pos = rev_from ? reverse(from_pos, from_length)
-                            : from_pos;
-        pos_t to_pos = seeds.at(to_seed.seed).pos;
-        size_t to_length = distance_index.minimum_length(distance_index.get_node_net_handle(id(to_pos)));
-        to_pos = rev_to ? reverse(to_pos, to_length)
-                        : to_pos;
-
-        // Look up true minimum distance
-        size_t true_distance = minimum_nontrivial_distance(distance_index, from_pos, to_pos);
-        if (true_distance <= max_graph_lookback_bases) {
-            // We should've found this transition
-            auto from_anchor = from_anchor_itr->second;
-            auto to_anchor = to_anchor_itr->second;
-            if (!found.count(from_anchor) 
-                || !found[from_anchor].count(to_anchor)
-                || found[from_anchor][to_anchor] != true_distance) {
-                has_missing = true;
-                cerr << "Missing transition " << from_pos << "->" 
-                     << to_pos << " dist " << true_distance << endl;
-            }
-        }
-    };
-    
-    vector<ZipCodeTree::oriented_seed_t> tree_seeds = zip_code_tree.get_all_seeds();
-    for (size_t i = 0; i < tree_seeds.size(); i++) {
-        // Check self-loops
-        check_distance(tree_seeds[i], false, tree_seeds[i], false);
-        check_distance(tree_seeds[i], false, tree_seeds[i], true);
-        check_distance(tree_seeds[i], true, tree_seeds[i], false);
-        for (size_t j = i + 1; j < tree_seeds.size(); j++) {
-            // Check all orientation pairs
-            check_distance(tree_seeds[i], false, tree_seeds[j], false);
-            check_distance(tree_seeds[i], false, tree_seeds[j], true);
-            check_distance(tree_seeds[i], true, tree_seeds[j], false);
-            check_distance(tree_seeds[i], true, tree_seeds[j], true);
-        }
-    }
-
-    return has_missing;
-}
-
-std::vector<transition_info> calculate_transition_read_distances(
-    const std::vector<transition_info>& all_transitions,
-    const VectorView<Anchor>& to_chain,
-    size_t max_read_lookback_bases) {
-
-    std::vector<transition_info> filtered_transitions;
-
-    for (auto transition : all_transitions) {
-        // Emit a transition between a source and destination anchor, or skip if actually unreachable.
-        auto& source_anchor = to_chain[transition.from_anchor];
-        auto& dest_anchor = to_chain[transition.to_anchor];
+    // Consume the length. 
+    graph_distance -= distance_to_remove;
 
 #ifdef debug_transition
-        std::cerr << "Handle transition #" << transition.from_anchor << " " << source_anchor
-                  << " to #" << transition.to_anchor << " " << dest_anchor << std::endl;
+    std::cerr << "\tZip code tree sees " << source_anchor << " and "
+              << dest_anchor << " as " << graph_distance << " apart" << std::endl;
 #endif
-
-        if (transition.graph_distance == std::numeric_limits<size_t>::max()) {
-            // Not reachable in graph (somehow)
-            // TODO: Should never happen!
-#ifdef debug_transition
-            std::cerr << "\tNot reachable in graph!" << std::endl;
-#endif
-            continue;
-        }
-
-        size_t read_distance = get_read_distance(source_anchor, dest_anchor);
-        if (read_distance == std::numeric_limits<size_t>::max()) {
-            // Not reachable in read
-#ifdef debug_transition
-            std::cerr << "\tNot reachable in read." << std::endl;
-#endif
-            continue;
-        }
-
-        if (read_distance > max_read_lookback_bases) {
-            // Too far in read to consider
-#ifdef debug_transition
-            std::cerr << "\tToo far apart in read (" << read_distance 
-                      << "/" << max_read_lookback_bases << ")." << std::endl;
-#endif
-            continue;
-        }
-
-        if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
-            // The actual core anchor part is reachable in the read,
-            // but we cut these down from overlapping minimizers.
-#ifdef debug_transition
-            std::cerr << "\tOriginally overlapped in read." << std::endl;
-#endif
-            continue;
-        }
-
-        // The zipcode tree is about point positions,
-        // but we need distances between whole anchors.
-        // The stored zipcode positions will be at distances
-        // from the start/end of the associated anchor.
-        
-        // If the offset between the zip code point
-        // and the start of the destination is 0,
-        // and between the zip code point and the end of the source is 0,
-        // we subtract 0 from the measured distance.
-        // Otherwise we need to subtract something.
-        size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
-
-#ifdef debug_transition
-        std::cerr << "\tZip code tree sees " << transition.graph_distance
-                  << " but we should back out " << distance_to_remove << std::endl;
-#endif
-
-        if (distance_to_remove > transition.graph_distance) {
-            // We actually end further along the graph path to the next
-            // thing than where the next thing starts, so we can't actually
-            // get there.
-            continue;
-        }
-        // Consume the length. 
-        transition.graph_distance -= distance_to_remove;
-
-#ifdef debug_transition
-        std::cerr << "\tZip code tree sees " << source_anchor << " and "
-                  << dest_anchor << " as " << transition.graph_distance << " apart" << std::endl;
-#endif
-
-#ifdef double_check_distances
-
-        auto from_pos = source_anchor.graph_end();
-        auto to_pos = dest_anchor.graph_start();
-        size_t check_distance = distance_index.minimum_distance(
-            id(from_pos), is_rev(from_pos), offset(from_pos),
-            id(to_pos), is_rev(to_pos), offset(to_pos),
-            false, &graph);
-        if (check_distance != transition.graph_distance) {
-            #pragma omp critical (cerr)
-            std::cerr << "\tZip code tree sees " << source_anchor << " and " 
-                      << dest_anchor << " as " << transition.graph_distance 
-                      << " apart but they are actually " << check_distance << " apart" << std::endl;
-            crash_unless(check_distance == transition.graph_distance);
-        }
-
-#endif
-
-        // Send it along.
-        transition.read_distance = read_distance;
-        filtered_transitions.emplace_back(transition);
-    }
-
-    return filtered_transitions;
+    transitions.emplace_back(from_anchor, to_anchor, graph_distance, read_distance);
 }
 
 /// Compute a gap score like minimap2.
@@ -614,7 +473,7 @@ std::vector<transition_info> calculate_transition_read_distances(
 /// that you are chaining get longer, and cost more at chaining than at
 /// fragmenting.
 ///
-/// Returns a negative value (gap score).
+/// Returns a positive value (gap penalty).
 int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
         // Do nothing and score 0
@@ -625,7 +484,8 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     }
 }
 
-/// If the current anchor shares paths with the chain, pay a penalty.
+/// If the current anchor does not share paths with the chain, pay a penalty.
+/// Returns a positive value (gap penalty)
 int check_recombination(const TracedScore& from, const Anchor& to) {
     if ((from.paths & to.anchor_start_paths()) == 0) {
         return 1;
@@ -640,13 +500,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
+                           const ChainScoringScheme& scheme,
                            const transition_iterator& for_each_transition,
-                           int item_bonus,
-                           double item_scale,
-                           double gap_scale,
-                           double points_per_possible_match,
                            size_t max_indel_bases,
-                           int recomb_penalty,
                            bool show_work) {
 
     DiagramExplainer diagram(show_work);
@@ -659,7 +515,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
-    crash_unless(recomb_penalty >= 0);
+    crash_unless(scheme.recombination_penalty >= 0);
+    crash_unless(scheme.consistency_bonus >= 0);
+
 
     // Compute a base seed average length.
     // TODO: Weight anchors differently?
@@ -683,11 +541,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // We store the bonus used to select the current winning predecessor for
     // each seed in this vector, which runs alongside the DP table.
     //
-    // Starting from nowhere means full path conservation, so bonus = recomb_penalty.
-    std::vector<int> eval_bonuses(to_chain.size(), recomb_penalty);
+    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
+    std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
     for (size_t i = 0; i < to_chain.size(); i++) {
-        // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
+        // Set up DP table so we can start anywhere with that item's score, with bonus applied.
+        chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -706,7 +564,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() * item_scale + item_bonus;
+        auto item_points = here.score() + scheme.item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
@@ -714,10 +572,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        // This also has full path conservation (bonus = recomb_penalty).
+        // This also has full path conservation (bonus = scheme.consistency_bonus).
         {
             TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
-            int nowhere_bonus = recomb_penalty;
+            int nowhere_bonus = scheme.consistency_bonus;
             int eval_nowhere = from_nowhere.score + nowhere_bonus;
             int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
             if (eval_nowhere > eval_current) {
@@ -748,9 +606,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // Decide how much length changed
         size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
                                                                                      : transition.graph_distance - transition.read_distance;
-        // TODO: remove this!
-        // How much could be matches/mismatches, double-counting with bases in the exclusion zones?
-        size_t possible_match_length = std::min(transition.read_distance, transition.graph_distance);
         
         if (show_work) {
 #ifdef debug_dp
@@ -787,13 +642,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
+            jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
 
             // add recombination penalty if necessary
-            jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * recomb_penalty;
-
-            // We can also account for the non-indel material, which we assume will have some identity in it.
-            jump_points += possible_match_length * points_per_possible_match;
+            jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * scheme.recombination_penalty;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
@@ -805,15 +657,15 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                                                         .set_shared_paths(here.anchor_paths());
             
             // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
-            // Bonus = fraction of conserved paths * recomb_penalty.
+            // Bonus = fraction of conserved paths * scheme.consistency_bonus.
             // Bonus is 0 when recombination occurs (no shared paths).
             int eval_bonus_from = 0;
-            if (recomb_penalty > 0) {
+            if (scheme.consistency_bonus > 0) {
                 int pre_count = __builtin_popcountll(source_score.paths);
                 if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
                     // No recombination: bonus = fraction of paths conserved * penalty
                     int post_count = __builtin_popcountll(from_source_score.paths);
-                    eval_bonus_from = (recomb_penalty * post_count) / pre_count;
+                    eval_bonus_from = (scheme.consistency_bonus * post_count) / pre_count;
                 }
                 // Recombination case (no shared paths): bonus stays 0
             }
@@ -895,7 +747,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         
         if (diagram) {
             // Draw the item in the diagram
-            auto item_points = here.score() * item_scale + item_bonus;
+            auto item_points = here.score() + scheme.item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
             label_stream << "#" << to_anchor << " " << here << " = " << item_points
@@ -941,8 +793,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
-                                                        int item_bonus,
-                                                        double item_scale,
+                                                        const ChainScoringScheme& scheme,
                                                         size_t max_tracebacks) {
     
     // We will fill this in with all the tracebacks, and then sort and truncate.
@@ -990,7 +841,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     // Take away all the points we got for coming from there and being ourselves.
                     penalty += chain_scores[here].score;
                     // But then re-add our score for just us
-                    penalty -= (to_chain[here].score() * item_scale + item_bonus);
+                    penalty -= (to_chain[here].score() + scheme.item_bonus);
                     // TODO: Score this more simply.
                     // TODO: find the edge to nowhere???
                     break;
@@ -1029,13 +880,9 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                    const HandleGraph& graph,
                                                    int gap_open,
                                                    int gap_extension,
-                                                   int recomb_penalty,
+                                                   const ChainScoringScheme& scheme,
                                                    size_t max_chains,
                                                    const transition_iterator& for_each_transition,
-                                                   int item_bonus,
-                                                   double item_scale,
-                                                   double gap_scale,
-                                                   double points_per_possible_match,
                                                    size_t max_indel_bases,
                                                    bool show_work) {
 
@@ -1057,20 +904,16 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
+                                                             scheme,
                                                              for_each_transition,
-                                                             item_bonus,
-                                                             item_scale,
-                                                             gap_scale,
-                                                             points_per_possible_match,
                                                              max_indel_bases,
-                                                             recomb_penalty,
-                                                             show_work);                                                             
+                                                             show_work);
 #ifdef debug_chaining
     std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
 #endif
     // Then do the tracebacks
     vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(
-        chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
+        chain_scores, to_chain, best_past_ending_score_ever, scheme, max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -1181,12 +1024,8 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
-                                          int recomb_penalty,
+                                          const ChainScoringScheme& scheme,
                                           const transition_iterator& for_each_transition,
-                                          int item_bonus,
-                                          double item_scale,
-                                          double gap_scale,
-                                          double points_per_possible_match,
                                           size_t max_indel_bases) {
                                                                  
     ChainsResult cr = find_best_chains(
@@ -1195,13 +1034,9 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         graph,
         gap_open,
         gap_extension,
-        recomb_penalty,
+        scheme,
         1,
         for_each_transition,
-        item_bonus,
-        item_scale,
-        gap_scale,
-        points_per_possible_match,
         max_indel_bases
     );
     return cr.chains.front().scored_chain;

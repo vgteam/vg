@@ -1119,13 +1119,13 @@ int main_stats(int argc, char** argv) {
         }
         cout << "Matches: " << combined.total_matched_bases << " bp";
         if (combined.total_alignments > 0) {
-            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_aligned) << " bp/aligned)";
         }
         cout << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp";
         if (combined.total_alignments > 0) {
             cout << " (" << 100 * combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
-                 << combined.total_softclipped_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+                 << combined.total_softclipped_bases / static_cast<double>(combined.total_aligned) << " bp/aligned)";
         } 
         cout << " in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
@@ -1179,30 +1179,38 @@ int main_stats(int argc, char** argv) {
         std::unordered_map<nid_t, size_t> extra_node_weight;
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         
+        // Collect paths in our assigned snarl coordinate sample
+        std::vector<std::string> ref_path_names;
+        if (snarl_stats && !snarl_sample.empty()) {
+            graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
+                ref_path_names.push_back(graph->get_path_name(path_handle));
+            });
+            if (ref_path_names.empty()) {
+                logger.error() << "unable to find any paths of --snarl-sample " << snarl_sample << endl;
+            }
+        }
+
+        // Turn them into an unordered_set so we can make sure they're all positionally indexed
+        std::unordered_set<std::string> target_paths(ref_path_names.begin(), ref_path_names.end());
+        
         // additional indexes only needed when finding --snarl-sample coordinates
         unique_ptr<PathTraversalFinder> path_trav_finder;
         bdsg::PathPositionOverlayHelper overlay_helper;
-        PathPositionHandleGraph* pp_graph = dynamic_cast<PathPositionHandleGraph*>(graph);;
-        unordered_map<const Snarl*, PathInterval> snarl_to_ref;
+        PathPositionHandleGraph* pp_graph = dynamic_cast<PathPositionHandleGraph*>(graph);
+        if (pp_graph == nullptr) {
+            pp_graph = overlay_helper.apply(graph, target_paths);
+        }
 
         if (snarl_stats) {
             // TSV header
             if (!snarl_sample.empty()) {
                 // optionally prefix with BED-like refpath coordinates if --snarl-sample given
                 cout <<"Contig\tStartPos\tEndPos\t";
-                
-                if (pp_graph == nullptr) {
-                    pp_graph = overlay_helper.apply(graph);
-                }
-                vector<string> ref_path_names;
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
-                    ref_path_names.push_back(graph->get_path_name(path_handle));
+                    // Try and pin down the tips of the sample
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
                 });
-                if (ref_path_names.empty()) {
-                    logger.error() << "unable to find any paths of --snarl-sample" << endl;
-                }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }
             cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes"
@@ -1212,6 +1220,8 @@ int main_stats(int argc, char** argv) {
 
         // First compute the snarls
         manager = IntegratedSnarlFinder(*graph, extra_node_weight).find_snarls_parallel();
+
+        std::unordered_map<const Snarl*, PathInterval> snarl_to_ref;
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.

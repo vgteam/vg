@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 82
+plan tests 87
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -26,11 +26,6 @@ rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
 vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + zips + dist specified without crashing"
-
-vg minimizer -d x.dist --rec-mode -o wrong.min -z wrong.zipcodes xx.gbz
-vg giraffe -Z x.giraffe.gbz -m wrong.min -z wrong.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "1" "a minimizer index with the wrong payload type is rejected"
-rm -f wrong.min wrong.zipcodes
 
 rm -f x.shortread.withzip.min
 rm -f x.shortread.zipcodes
@@ -68,6 +63,19 @@ rm -f log.txt
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
+
+rm -f x.longread.withzip.min
+rm -f x.longread.zipcodes
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi >mapped.gam
+is "$(vg view -aj mapped.gam | jq '.annotation.chain.rec_count')" "1" "recombinations are counted by default when mapping with the hifi preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --rec-penalty-aln 9999 >mapped.gam
+is "$(vg view -aj mapped.gam | jq '.score // 0')" "0" "recombination alignment score penalty is used by default and can unmap a read"
+
+rm -f mapped.gam
+rm -f x.longread.withzip.min
+rm -f x.longread.zipcodes
 
 rm -Rf grid-out
 mkdir grid-out
@@ -108,21 +116,34 @@ vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes 
 vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
 vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
 
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1_chaining.bam
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAM > t1_chaining.gam
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1_chaining.gaf
+
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
 is "$(samtools view t2.bam | grep T4 | grep T5 | grep T6 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 2"
 is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 1"
 is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 2"
 is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved on read 1"
+is "$(samtools view t1_chaining.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved in chaining mode"
+is "$(vg view -aj t1_chaining.gam | jq -r '.annotation.tags' | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are present in GAM in chaining mode"
+is "$(cat t1_chaining.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved in chaining mode"
+
+# a uniform random sequence
+printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f x.fq --comments-as-tags -o GAF >x.gaf
+is "$(cat x.gaf | grep 'TG:Z' | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved in chaining mode for unmapped reads"
+
+
+rm t1.bam t2.bam t3.bam t1_chaining.bam t1_chaining.gam t1_chaining.gaf t1.gaf tagged1.fq tagged2.fq x.fq
+rm -f read.fq read.gam
 
 # Attempts to use mismatched files fail
 vg gbwt -G graphs/components_walks.gfa -g wrong.gbz
 vg giraffe -Z wrong.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipcodes -f reads/small.middle.ref.fq > /dev/null 2> log.txt
 is "${?}" "1" "mapping with mismatched GBZ and minimizer index fails"
 is "$(grep -c 'error.*are not compatible' log.txt)" "1" "appropriate error message is printed"
-
-rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
-rm -f read.fq read.gam
 
 rm -rf explanation_*
 
