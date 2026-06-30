@@ -8,7 +8,9 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "graph.hpp"
+#include "../io/json2graph.hpp"
 #include "algorithms/subgraph.hpp"
+#include "bdsg/hash_graph.hpp"
 #include <stdio.h>
 
 namespace vg {
@@ -22,19 +24,18 @@ TEST_CASE("We can build an xg index on a nice graph", "[xg]") {
     {"id":2,"sequence":"ACA"}],
     "edge":[{"to":2,"from":1}]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
+    bdsg::HashGraph source;
+    vg::io::json2graph(graph_json, &source);
+
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     VG vg_graph;
     algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
     Graph& graph = vg_graph.graph;
-    sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
     REQUIRE(graph.edge_size() == 1);
@@ -49,19 +50,18 @@ TEST_CASE("We can build an xg index on a nasty graph", "[xg]") {
     {"id":9999,"sequence":"AAA"}],
     "edge":[{"to":2,"from":1}]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
+    bdsg::HashGraph source;
+    vg::io::json2graph(graph_json, &source);
+
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     VG vg_graph;
     algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
     Graph& graph = vg_graph.graph;
-    sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
     REQUIRE(graph.edge_size() == 1);
@@ -161,15 +161,14 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
     {"position":{"node_id":1444},"rank":1059},
     {"position":{"node_id":1445},"rank":1060}]}]}
     )";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
 
-    sort_by_id_dedup_and_clean(proto_graph);
+    // Load the JSON
+    VG source;
+    vg::io::json2graph(graph_json, &source);
+
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     SECTION("Context extraction gets something") {
         VG graph;
@@ -182,7 +181,7 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
         
         SECTION("We can extract within a single node") {
             algorithms::extract_path_range(xg_index, xg_index.get_path_handle("17"), 5, 15, graph);
-            
+
             // We should just get node 1416
             REQUIRE(graph.graph.node_size() == 1);
             REQUIRE(graph.graph.node(0).id() == 1416);
@@ -265,14 +264,14 @@ TEST_CASE("We can build and scan an XG index for a problematic graph", "[xg]") {
       ]}
     ]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    bdsg::HashGraph source;
+    vg::io::json2graph(graph_json, &source);
 
     // Build the xg index (without any sorting)
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     REQUIRE(xg_index.get_node_count() == 5);
     
@@ -300,18 +299,16 @@ TEST_CASE("We can build the xg index on a small graph with discontinuous node id
     )";
 
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    VG source;
+    vg::io::json2graph(graph_json, &source);
 
-    sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     VG vg_graph;
     algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(10), 0, 100);
     Graph& graph = vg_graph.graph;
-    sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
     REQUIRE(graph.edge_size() == 1);
@@ -326,14 +323,14 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
     {"id":2,"sequence":"ACA"}],
     "edge":[{"to":2,"from":1}]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
+    bdsg::HashGraph source;
+    vg::io::json2graph(graph_json, &source);
+
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     size_t count = 0;
 
@@ -341,7 +338,7 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
         #pragma omp critical
         count++;
     }, true);
-    
+
     REQUIRE(count == 2);
 
 }
@@ -400,14 +397,14 @@ TEST_CASE("Vectorization of xg works correctly", "[xg]") {
             {"edit": [{"from_length": 11, "to_length": 11}], "position": {"node_id": "15"}, "rank": "10"}
         ], "name": "x"}]}
     )";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    bdsg::HashGraph source;
+    vg::io::json2graph(graph_json, &source);
 
     // Build the xg index (without any sorting)
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(source);
 
     REQUIRE(xg_index.get_node_count() == 15);
     
