@@ -119,6 +119,9 @@ Classes</h2></td></tr>
 Functions</h2></td></tr>
 <tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
 <tr class="separator:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace1dc75acf7b63d46da02d63bad753bb"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:ace1dc75acf7b63d46da02d63bad753bb"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ace1dc75acf7b63d46da02d63bad753bb">enforce_min_max</a> (const T &amp;low, const std::string &amp;low_option, const T &amp;high, const std::string &amp;high_option)</td></tr>
+<tr class="separator:ace1dc75acf7b63d46da02d63bad753bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#aa6d5c2140d259252f3cad8b7bf6b4b1a">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser, const std::map&lt; std::string, <a class="el" href="structvg_1_1subcommand_1_1Preset.html">Preset</a> &gt; &amp;presets, bool full_help)</td></tr>
 <tr class="separator:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
@@ -127,6 +130,49 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast read-to-haplotypes mapper </p>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="ace1dc75acf7b63d46da02d63bad753bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace1dc75acf7b63d46da02d63bad753bb">&#9670;&nbsp;</a></span>enforce_min_max()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void enforce_min_max </td>
+          <td>(</td>
+          <td class="paramtype">const T &amp;&#160;</td>
+          <td class="paramname"><em>low</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>low_option</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const T &amp;&#160;</td>
+          <td class="paramname"><em>high</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>high_option</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Make sure that variables set by options independently controlling the min and max of something actually make sense as a min and max. </p>
+
+</div>
+</div>
 <a id="aa6d5c2140d259252f3cad8b7bf6b4b1a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa6d5c2140d259252f3cad8b7bf6b4b1a">&#9670;&nbsp;</a></span>help_giraffe()</h2>
 
