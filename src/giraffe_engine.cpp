@@ -4,6 +4,7 @@
 #include <fstream>
 #include <atomic>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
@@ -258,19 +259,50 @@ HaplotypeSurjectionResult HaplotypeSurjector::surject(
 
 namespace {
 
-string haplotype_seq_ids_csv(const HaplotypeAssignmentResult& r) {
-    string seq_ids_csv;
-    seq_ids_csv.reserve(r.seq_ids.size() * 8);
-    for (size_t i = 0; i < r.seq_ids.size(); ++i) {
-        if (i) seq_ids_csv.push_back(',');
-        seq_ids_csv += std::to_string(r.seq_ids[i]);
+/// Collapse raw GBWT sequence ids to the distinct, sorted set of haplotype
+/// names (sample#phase#contig) via GBWT metadata. The raw ids double-count
+/// orientations, repeats, and fragments, so a conserved locus can list
+/// hundreds of numbers that are really a few dozen haplotypes. Falls back to
+/// the numeric id when metadata is unavailable.
+std::vector<string> compute_haplotype_names(const gbwtgraph::GBZ& gbz,
+                                            const std::vector<gbwt::size_type>& seq_ids) {
+    std::set<string> uniq;
+    const gbwt::GBWT& index = gbz.index;
+    const bool have_md = index.hasMetadata();
+    const gbwt::Metadata& md = index.metadata;
+    for (gbwt::size_type s : seq_ids) {
+        // GBWT sequence id -> path id (forward/reverse share a path).
+        gbwt::size_type path_id = s / 2;
+        if (!have_md || path_id >= md.paths()) {
+            uniq.insert(std::to_string(s));  // no metadata: fall back to id
+            continue;
+        }
+        gbwt::PathName pn = md.path(path_id);
+        // Same name construction as build_translation_tables.cpp's
+        // build_base_name: sample#phase#contig, with safe fallbacks.
+        string sample = (md.samples() > 0 && pn.sample < md.samples())
+                        ? md.sample(pn.sample) : std::to_string(pn.sample);
+        string contig = (md.contigs() > 0 && pn.contig < md.contigs())
+                        ? md.contig(pn.contig) : std::to_string(pn.contig);
+        uniq.insert(sample + "#" + std::to_string(pn.phase) + "#" + contig);
     }
-    return seq_ids_csv;
+    return std::vector<string>(uniq.begin(), uniq.end());
+}
+
+string join_csv(const std::vector<string>& items) {
+    string out;
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (i) out.push_back(',');
+        out += items[i];
+    }
+    return out;
 }
 
 void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
-    string seq_ids_csv = haplotype_seq_ids_csv(r);
-    set_annotation(aln, "haplotype_seq_ids", seq_ids_csv);
+    // Report deduplicated haplotype NAMES (+ their count) rather than the raw,
+    // inflated sequence-id list.
+    set_annotation(aln, "haplotype_names", join_csv(r.haplotype_names));
+    set_annotation(aln, "haplotype_distinct_count", static_cast<double>(r.haplotype_names.size()));
     set_annotation(aln, "haplotype_candidate_count", static_cast<double>(r.candidate_count));
     set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
     set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
@@ -426,6 +458,9 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
                 for (auto& m : mapped) {
                     auto hap = this->haplotype_assigner_->assign(
                         m, this->assign_haplotypes_extend_to_snarls);
+                    // Resolve raw sequence ids to distinct haplotype names once,
+                    // here, so both the annotation and the hp/hn tags reuse it.
+                    hap.haplotype_names = compute_haplotype_names(*gbz_, hap.seq_ids);
                     attach_haplotype_annotations(m, hap);
                     hap_results.emplace_back(std::move(hap));
                 }
@@ -467,7 +502,11 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
                 ss << gaf;
                 if (!hap_results.empty()) {
                     const auto& hap = hap_results[j];
-                    ss << "\thp:Z:" << haplotype_seq_ids_csv(hap)
+                    // hp:Z: = deduplicated haplotype NAMES (was raw seq ids);
+                    // hn:i: = number of distinct haplotypes; hc:i: = raw
+                    // candidate occurrences (pre-cap, for reference).
+                    ss << "\thp:Z:" << join_csv(hap.haplotype_names)
+                       << "\thn:i:" << hap.haplotype_names.size()
                        << "\thc:i:" << hap.candidate_count
                        << "\thl:i:" << hap.left_boundary_node
                        << "\thr:i:" << hap.right_boundary_node
@@ -553,23 +592,53 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         aln.set_name(gaf_record.query_name);
     }
 
-    // 2. Validate target haplotype.
+    // 2. Validate target haplotype. The caller may pass either a full GBZ
+    //    path name (e.g. "GRCh38#0#chrM") or a haplotype prefix that T1
+    //    resolved during build_surject_anchors (e.g. "HG002#2"). For the
+    //    second case the GBZ doesn't know "HG002#2" as a path, so we
+    //    recover the concrete path name from the first anchor's step_handle
+    //    — which was pinned during build to exactly one GBWT path id.
     HaplotypeSurjectionResult surj_result;
+    std::string resolved_target = target_haplotype;
+    path_handle_t target_path{};
+    bool target_resolved = false;
+
     if (aln.path().mapping_size() == 0) {
         surj_result.status = S::EMPTY_INPUT;
-    } else if (!gbz_->graph.has_path(target_haplotype)) {
+    } else if (gbz_->graph.has_path(target_haplotype)) {
+        target_path = gbz_->graph.get_path_handle(target_haplotype);
+        target_resolved = true;
+    } else if (!anchors.empty()) {
+        // Anchors carry step_handles in gbwtgraph's native (node,
+        // offset_in_record) encoding; get_path_handle_of_step decodes that
+        // back to the path the anchor pinned during the build step.
+        handlegraph::step_handle_t s = make_step_handle(
+            anchors[0].step_begin_node, anchors[0].step_begin_offset);
+        try {
+            target_path = gbz_->graph.get_path_handle_of_step(s);
+            resolved_target = gbz_->graph.get_path_name(target_path);
+            target_resolved = !resolved_target.empty();
+        } catch (const std::exception&) {
+            target_resolved = false;
+        }
+        if (!target_resolved) {
+            surj_result.status = S::UNKNOWN_PATH;
+        }
+    } else {
         surj_result.status = S::UNKNOWN_PATH;
     }
 
-    if (surj_result.status != S::OK) {
+    if (!target_resolved || surj_result.status != S::OK) {
+        if (surj_result.status == S::OK) {
+            surj_result.status = S::UNKNOWN_PATH;
+        }
         stringstream ss;
         ss << gaf_line;
         ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
         return {ss.str()};
     }
 
-    // 3. Build the path-handle + path-length pair for the AnchorBackedPositionGraph.
-    path_handle_t target_path = gbz_->graph.get_path_handle(target_haplotype);
+    // 3. Determine the target path length (cached by the caller if possible).
     size_t path_length = target_path_length;
     if (path_length == 0) {
         gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(target_path);
@@ -663,7 +732,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
        << "\tsm:i:" << surj_result.mapping_quality
        << "\tsc:Z:" << (surj_result.cigar.empty() ? string("*") : surj_result.cigar)
        << "\tan:i:" << anchors.size()
-       << "\tap:Z:" << target_haplotype;
+       << "\tap:Z:" << resolved_target;
     return {ss.str()};
 }
 

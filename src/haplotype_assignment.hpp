@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <gbwt/gbwt.h>
@@ -32,6 +33,12 @@ class Alignment;
 struct HaplotypeAssignmentResult {
     /// Compatible haplotype sequence IDs (GBWT sequence IDs), possibly capped.
     std::vector<gbwt::size_type> seq_ids;
+    /// Distinct haplotype/path names (e.g. "HG00290#1#chr10") for `seq_ids`,
+    /// deduplicated and sorted. Collapses the raw sequence ids (which double-
+    /// count orientations, repeats, and fragments) into the actual set of
+    /// haplotypes — far smaller and human-readable. Populated by the caller
+    /// from GBWT metadata; empty if metadata is unavailable.
+    std::vector<std::string> haplotype_names;
     /// Number of haplotypes consistent with the final SearchState, before any
     /// capping by max_haplotypes_to_report.
     size_t candidate_count = 0;
