@@ -120,3 +120,9 @@ is $? 0 "Reference with ambiguity codes has them coerced to Ns"
 is "$(vg view -j tiny.vg | jq -r '.node[].sequence' | tr -d 'ACGT\n' | wc -c)" "10" "Expected number of Ns are created"
 rm -f tiny.vg
 
+vg construct -r small/x.fa -r small/x.fa > /dev/null
+is $? 1 "Names may not be duplicated across files"
+sed "s/y/x/" small/xy.fa > xx.fa
+vg construct -r xx.fa > /dev/null
+is $? 1 "Names may not be duplicated within a file"
+rm -f xx.fa
