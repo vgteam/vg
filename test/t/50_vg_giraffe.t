@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 87
+plan tests 89
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -47,6 +47,12 @@ is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l | sed 's/^[[:space:]]*/
 
 is "$(vg view -aj mapped1.gam | jq '.score')" "73" "Mapping produces the correct score"
 
+vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq --min-extensions 2 --max-extensions 1 >/dev/null 2>error.txt
+is "${?}" "1" "mapping with conflicting values for parameters representing a range fails"
+grep -E -- "(--min-extensions.*--max-extensions|--max-extensions.*--min-extensions)" error.txt >/dev/null
+is "${?}" "0" "error message mentions offending parameters"
+rm -f error.txt
+
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b fast >/dev/null
 is "${?}" "0" "a read can be mapped with the fast preset"
 
@@ -58,7 +64,7 @@ is "${?}" "0" "a read can be mapped with the short read chaining preset"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -f reads/small.middle.ref.fq -b chaining-sr >/dev/null 2>log.txt
 is "${?}" "1" "a read pair cannot be mapped with the short read chaining preset"
-is "$(cat log.txt | grep "not yet implemented" | wc -l)" "1" "trying to map paired-end data with chaining produces an informative error"
+is "$(cat log.txt | grep "not yet implemented" | wc -l | sed 's/^[[:space:]]*//')" "1" "trying to map paired-end data with chaining produces an informative error"
 rm -f log.txt
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b chaining-sr >/dev/null
