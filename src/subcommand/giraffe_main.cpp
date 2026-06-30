@@ -67,6 +67,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+static Logger logger("vg giraffe");
+
 /// Options struct for options for the Giraffe driver (i.e. this file)
 struct GiraffeMainOptions {
     /// How long should we wait while mapping a read before complaining, in seconds.
@@ -182,7 +184,8 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "hard-hit-cap", 'C',
         &MinimizerMapper::hard_hit_cap,
         MinimizerMapper::default_hard_hit_cap,
-        "ignore all minimizers with more than INT hits"
+        "ignore all minimizers with more than INT hits",
+        size_t_is_positive
     );
     comp_opts.add_range(
         "score-fraction", 'F',
@@ -227,10 +230,18 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "cluster using this distance limit"
     );
     comp_opts.add_range(
+        "min-extensions",
+        &MinimizerMapper::min_extensions,
+        MinimizerMapper::default_min_extensions,
+        "extend at least INT clusters",
+        size_t_is_positive
+    );
+    comp_opts.add_range(
         "max-extensions", 'e',
         &MinimizerMapper::max_extensions,
         MinimizerMapper::default_max_extensions,
-        "extend up to INT clusters"
+        "extend up to INT clusters",
+        size_t_is_positive
     );
     comp_opts.add_range(
         "max-alignments", 'a',
@@ -634,6 +645,16 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
+/**
+ * Make sure that variables set by options independently controlling the min
+ * and max of something actually make sense as a min and max.
+ */
+template<typename T> void enforce_min_max(const T& low, const std::string& low_option, const T& high, const std::string& high_option) {
+    if (low > high) {
+        logger.error() << "Empty range: --" << low_option << " of " << low << " exceeds --" << high_option << " of " << high << std::endl;
+    }
+}
+
 //----------------------------------------------------------------------------
 
 void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
@@ -752,7 +773,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 //----------------------------------------------------------------------------
 
 int main_giraffe(int argc, char** argv) {
-    Logger logger("vg giraffe");
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
@@ -1970,6 +1990,22 @@ int main_giraffe(int argc, char** argv) {
         parser->apply(minimizer_mapper);
         parser->apply(main_options);
         parser->apply(scoring_options);
+
+        // Make sure that options that represent ranges are sensible, nonempty
+        // ranges.
+        //
+        // TODO: It would be nice if we did this earlier when setting up the
+        // option ranges to iterate, to make it happen before indexing/index
+        // loading, but then we'd have to know how to do the comparison on the
+        // range objects themselves.
+        enforce_min_max(minimizer_mapper.wfa_max_mismatches, "wfa-max-mismatches",
+                        minimizer_mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
+        enforce_min_max(minimizer_mapper.wfa_distance, "wfa-distance",
+                        minimizer_mapper.wfa_max_distance, "wfa-max-distance");
+        enforce_min_max(minimizer_mapper.min_chaining_problems, "min-chaining-problems",
+                        minimizer_mapper.max_chaining_problems, "max-chaining-problems");
+        enforce_min_max(minimizer_mapper.min_extensions, "min-extensions",
+                        minimizer_mapper.max_extensions, "max-extensions");
 
         // Make a line of JSON about our command line options.
         // We may embed it in the output file later.

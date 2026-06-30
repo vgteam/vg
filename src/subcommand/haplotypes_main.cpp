@@ -965,7 +965,7 @@ void validate_error_sequence(const Logger& logger, size_t chain_id, size_t subch
 }
 
 std::string validate_unary_path(const HandleGraph& graph, handle_t from, handle_t to) {
-    hash_set<handle_t> visited;
+    vg::hash_set<handle_t> visited;
     handle_t curr = from;
     while (curr != to) {
         if (visited.find(curr) != visited.end()) {
@@ -989,7 +989,7 @@ std::string validate_unary_path(const HandleGraph& graph, handle_t from, handle_
 // Returns true if the path from (start, offset) reaches the end without revisiting start or leaving the subchain.
 // The path may continue in subsequent fragments.
 bool trace_path(
-    const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map, const hash_set<nid_t>& subchain_nodes,
+    const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map, const vg::hash_set<nid_t>& subchain_nodes,
     gbwt::size_type sequence_id, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end
 ) {
     gbwt::edge_type pos(start, offset);
@@ -1132,8 +1132,8 @@ void validate_chain(const Logger& logger,
         // Sequences: normal subchains.
         if (subchain.type == Haplotypes::Subchain::normal) {
             std::vector<gbwt::size_type> da = r_index.decompressDA(subchain.start);
-            hash_set<nid_t> nodes = extract_subchain(graph, gbwtgraph::GBWTGraph::node_to_handle(subchain.start), gbwtgraph::GBWTGraph::node_to_handle(subchain.end));
-            hash_set<Haplotypes::sequence_type> selected;
+            vg::hash_set<nid_t> nodes = extract_subchain(graph, gbwtgraph::GBWTGraph::node_to_handle(subchain.start), gbwtgraph::GBWTGraph::node_to_handle(subchain.end));
+            vg::hash_set<Haplotypes::sequence_type> selected;
             for (size_t i = 0; i < da.size(); i++) {
                 if (trace_path(*(graph.index), fragment_map, nodes, da[i], subchain.start, i, subchain.end)) {
                     selected.insert(Haplotypes::sequence_type(da[i], i));
@@ -1159,7 +1159,7 @@ void validate_chain(const Logger& logger,
                 std::string message = expected_got(da.size(), subchain.sequences.size()) + " sequences (prefix / suffix)";
                 validate_error_subchain(logger, chain_id, subchain_id, message);
             }
-            hash_set<Haplotypes::sequence_type> truth;
+            vg::hash_set<Haplotypes::sequence_type> truth;
             for (size_t i = 0; i < da.size(); i++) {
                 truth.insert({ da[i], i });
             }
@@ -1180,7 +1180,7 @@ void validate_chain(const Logger& logger,
 
         // Kmers.
         if (subchain.type != Haplotypes::Subchain::full_haplotype) {
-            hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
+            vg::hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
             for (size_t i = 0; i < subchain.kmers.size(); i++) {
                 all_kmers.insert(subchain.kmers[i]);
             }
@@ -1188,14 +1188,14 @@ void validate_chain(const Logger& logger,
                 std::string message = expected_got(subchain.kmers.size(), all_kmers.size()) + " kmers";
                 validate_error_subchain(logger, chain_id, subchain_id, message);
             }
-            hash_map<Haplotypes::Subchain::kmer_type, size_t> used_kmers; // (kmer used in haplotypes, number of sequences that contain it)
-            hash_map<Haplotypes::Subchain::kmer_type, size_t> missing_kmers; // (kmer not used in haplotypes, number of sequences that contain it)
+            vg::hash_map<Haplotypes::Subchain::kmer_type, size_t> used_kmers; // (kmer used in haplotypes, number of sequences that contain it)
+            vg::hash_map<Haplotypes::Subchain::kmer_type, size_t> missing_kmers; // (kmer not used in haplotypes, number of sequences that contain it)
             for (size_t i = 0; i < subchain.sequences.size(); i++) {
                 std::vector<std::string> haplotype = get_haplotype(
                     graph, fragment_map,
                     subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k()
                 );
-                hash_map<Haplotypes::Subchain::kmer_type, bool> unique_minimizers; // (kmer, used in the sequence)
+                vg::hash_map<Haplotypes::Subchain::kmer_type, bool> unique_minimizers; // (kmer, used in the sequence)
                 for (const std::string& sequence : haplotype) {
                     auto minimizers = minimizer_index.minimizers(sequence);
                     for (auto& minimizer : minimizers) {
@@ -1322,7 +1322,7 @@ void validate_haplotypes(const Logger& logger,
     if (verbosity >= HaplotypePartitioner::Verbosity::verbosity_detailed) {
         logger.info() << "Validating kmer specificity" << std::endl;
     }
-    hash_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
+    vg::hash_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
     size_t collisions = 0, total_kmers = 0;
     for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
         const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
