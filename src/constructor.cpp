@@ -2444,6 +2444,11 @@ namespace vg {
                 exit(1);
             }
             for (auto& kv : *(reference->index)) {
+                if (reference_for.count(kv.first)) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] Contig " << kv.first << " appears multiple times" << endl;
+                    exit(1);
+                }
                 // For every sequence name and index entry, point to this reference
                 reference_for[kv.first] = reference;
 #ifdef debug
