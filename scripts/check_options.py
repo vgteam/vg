@@ -142,9 +142,9 @@ import sys
 from typing import Dict, List, Optional, Set
 from dataclasses import dataclass
 
-SUBCOMMAND_DIR = 'src/subcommand'
+SUBCMD_DIR = 'src/subcommand'
 """Where to search for subcommand files."""
-SUBCOMMAND_SUFFIX = '_main.cpp'
+SUBCMD_END = '_main.cpp'
 """Suffix for subcommand files."""
 SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
 """Files to skip in the consistency check."""
@@ -965,16 +965,16 @@ def check_autocomplete_file(filepath: str, subcommands_truth: Set[str]) -> bool:
 
 if __name__ == "__main__":
     is_ok = True
-    subcommands_truth = set()
+    subcmds_truth = set()
 
-    for base_name in os.listdir(SUBCOMMAND_DIR):
-        if not base_name.endswith(SUBCOMMAND_SUFFIX) or base_name in SKIP_FILES:
+    for base_name in os.listdir(SUBCMD_DIR):
+        if not base_name.endswith(SUBCMD_END) or base_name in SKIP_FILES:
             continue
-        subcommands_truth.add(base_name.removesuffix(SUBCOMMAND_SUFFIX))
-        full_name = os.path.join(SUBCOMMAND_DIR, base_name)
+        subcmds_truth.add(base_name.removesuffix(SUBCMD_END).replace('_', '-'))
+        full_name = os.path.join(SUBCMD_DIR, base_name)
         is_ok = check_subcommand_file(full_name) and is_ok
     
     for file_name in AUTOCOMP_FILES:
-        is_ok = check_autocomplete_file(file_name, subcommands_truth) and is_ok
+        is_ok = check_autocomplete_file(file_name, subcmds_truth) and is_ok
 
     sys.exit(0 if is_ok else 1)
