@@ -170,8 +170,8 @@ Functions</h2></td></tr>
 <tr class="separator:a7d41d058a7d66edd017e4808cb4f1128"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5ec83acb4aef7e3600194a474bf7503c"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a5ec83acb4aef7e3600194a474bf7503c">validate_unary_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> to)</td></tr>
 <tr class="separator:a5ec83acb4aef7e3600194a474bf7503c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1f49b50acf45f0783068a9921d7cfae8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a1f49b50acf45f0783068a9921d7cfae8">trace_path</a> (const gbwt::GBWT &amp;index, const gbwt::FragmentMap &amp;fragment_map, const <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subchain_nodes, gbwt::size_type sequence_id, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end)</td></tr>
-<tr class="separator:a1f49b50acf45f0783068a9921d7cfae8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acbf9efa31e0e2a577aa6875612d33d0e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#acbf9efa31e0e2a577aa6875612d33d0e">trace_path</a> (const gbwt::GBWT &amp;index, const gbwt::FragmentMap &amp;fragment_map, const <a class="el" href="classvg_1_1hash__set.html">vg::hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subchain_nodes, gbwt::size_type sequence_id, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end)</td></tr>
+<tr class="separator:acbf9efa31e0e2a577aa6875612d33d0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76831bdd9091f70393bbe1e82588cb45"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a76831bdd9091f70393bbe1e82588cb45">get_haplotype</a> (const gbwtgraph::GBWTGraph &amp;graph, const gbwt::FragmentMap &amp;fragment_map, <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a> sequence, gbwt::node_type from, gbwt::node_type to, size_t k)</td></tr>
 <tr class="separator:a76831bdd9091f70393bbe1e82588cb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa8ceb0c55bf2b7a24709c4161cdbd0c5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#aa8ceb0c55bf2b7a24709c4161cdbd0c5">validate_chain</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">Haplotypes::TopLevelChain</a> &amp;chain, const gbwtgraph::GBWTGraph &amp;graph, const gbwt::FragmentMap &amp;fragment_map, const gbwt::FastLocate &amp;r_index, const <a class="el" href="classvg_1_1HaplotypePartitioner.html#a9c0dfd5c716bfc4ae5427b96a658b349">HaplotypePartitioner::minimizer_index_type</a> &amp;minimizer_index, size_t chain_id, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">HaplotypePartitioner::Verbosity</a> verbosity)</td></tr>
@@ -742,8 +742,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a1f49b50acf45f0783068a9921d7cfae8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1f49b50acf45f0783068a9921d7cfae8">&#9670;&nbsp;</a></span>trace_path()</h2>
+<a id="acbf9efa31e0e2a577aa6875612d33d0e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acbf9efa31e0e2a577aa6875612d33d0e">&#9670;&nbsp;</a></span>trace_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -763,7 +763,7 @@ template&lt;typename T &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1hash__set.html">vg::hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>subchain_nodes</em>, </td>
         </tr>
         <tr>
