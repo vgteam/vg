@@ -46,7 +46,7 @@ is $(vg gbwt -H -Z no_ref.gbz) 4 "4 haplotypes"
 # Sample banning the selection of CHM13
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --ban-sample CHM13 -g ban_ref.gbz full.gbz
 is $? 0 "sampling banning the selection of CHM13"
-cmp ban_ref.gbz no_ref.gbz
+cmp ban_ref.gbz no_ref.gbz > /dev/null
 is $? 1 "the output changes"
 
 # Diploid sampling
