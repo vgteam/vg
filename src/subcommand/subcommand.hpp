@@ -66,6 +66,13 @@ enum CommandCategory {
     DEPRECATED
 };
 
+const static std::map<std::string, std::string> REMOVED_CMD_MESSAGES{
+    {"explode", std::string("Please use \"vg chunk -C source.vg -b part_dir/component\" "
+                            "for the same* functionality as \"vg explode source.vg part_dir\"\n"
+                            "* (unlike explode, the output directory must already exist when running chunk)")
+    }
+ };
+
 /// Define a way to print the titles of the different categories
 std::ostream& operator<<(std::ostream& out, const CommandCategory& category);
 

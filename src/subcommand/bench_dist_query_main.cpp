@@ -45,6 +45,7 @@ void help_bench_dist_query(char** argv) {
 
 
 int main_bench_dist_query(int argc, char** argv) {
+    Logger logger("vg bench-dist-query");
     bool show_progress = false;
 
     string graph_path = "";
@@ -77,10 +78,10 @@ int main_bench_dist_query(int argc, char** argv) {
 
         switch (c) {
         case 'g':
-            graph_path = optarg;
+            graph_path = require_exists(logger, optarg);
             break;
         case 'd':
-            dist_paths.push_back(optarg);
+            dist_paths.push_back(require_exists(logger, optarg));
             break;
         case 'q':
             {
@@ -88,10 +89,10 @@ int main_bench_dist_query(int argc, char** argv) {
             }
             break;
         case 's':
-            save_queries_path = optarg;
+            save_queries_path = ensure_writable(logger, optarg);
             break;
         case 'Q':
-            load_queries_path = optarg;
+            load_queries_path = require_exists(logger, optarg);
             break;
         case 'p':
             show_progress = true;
@@ -107,25 +108,21 @@ int main_bench_dist_query(int argc, char** argv) {
     }
 
     if (graph_path.empty()) {
-        cerr << "error: a GBZ graph file is required (-g)" << endl;
-        help_bench_dist_query(argv);
-        exit(1);
+        logger.error() << "a GBZ graph file is required (-g)" << endl;
     }
 
     if (dist_paths.empty()) {
-        cerr << "error: at least one distance index file is required (-d)" << endl;
-        help_bench_dist_query(argv);
-        exit(1);
+        logger.error() << "at least one distance index file is required (-d)" << endl;
     }
 
     // Load GBZ graph
     if (show_progress) {
-        cerr << "Loading GBZ graph from " << graph_path << "..." << endl;
+        logger.info() << "Loading GBZ graph from " << graph_path << "..." << endl;
     }
     gbwtgraph::GBZ gbz;
     load_gbz(gbz, graph_path, show_progress);
     const HandleGraph& graph = gbz.graph;
-    cerr << "Loaded graph with " << graph.get_node_count() << " nodes" << endl;
+    logger.info() << "Loaded graph with " << graph.get_node_count() << " nodes" << endl;
 
     // Collect all node IDs
     vector<nid_t> all_node_ids;
@@ -138,13 +135,9 @@ int main_bench_dist_query(int argc, char** argv) {
 
     if (!load_queries_path.empty()) {
         if (show_progress) {
-            cerr << "Loading queries from " << load_queries_path << "..." << endl;
+            logger.info() << "Loading queries from " << load_queries_path << "..." << endl;
         }
         ifstream qf(load_queries_path);
-        if (!qf) {
-            cerr << "error: cannot open query file: " << load_queries_path << endl;
-            exit(1);
-        }
         string line;
         while (getline(qf, line)) {
             if (line.empty()) continue;
@@ -156,10 +149,10 @@ int main_bench_dist_query(int argc, char** argv) {
             q.second = make_tuple(id2, (bool)rev2, off2);
             queries.push_back(q);
         }
-        cerr << "Loaded " << queries.size() << " queries from " << load_queries_path << endl;
+        logger.info() << "Loaded " << queries.size() << " queries from " << load_queries_path << endl;
     } else {
         if (show_progress) {
-            cerr << "Generating " << num_queries << " queries..." << endl;
+            logger.info() << "Generating " << num_queries << " queries..." << endl;
         }
         queries.resize(num_queries);
         for (auto& query : queries) {
@@ -170,22 +163,18 @@ int main_bench_dist_query(int argc, char** argv) {
             query.first  = make_tuple(node1, rand() % 2 == 1, len1 > 0 ? rand() % len1 : 0);
             query.second = make_tuple(node2, rand() % 2 == 1, len2 > 0 ? rand() % len2 : 0);
         }
-        cerr << "Generated " << queries.size() << " queries" << endl;
+        logger.info() << "Generated " << queries.size() << " queries" << endl;
     }
 
     if (!save_queries_path.empty()) {
         ofstream qf(save_queries_path);
-        if (!qf) {
-            cerr << "error: cannot open save file: " << save_queries_path << endl;
-            exit(1);
-        }
         for (auto& query : queries) {
             auto& [id1, rev1, off1] = query.first;
             auto& [id2, rev2, off2] = query.second;
             qf << id1 << "\t" << (int)rev1 << "\t" << off1 << "\t"
                << id2 << "\t" << (int)rev2 << "\t" << off2 << "\n";
         }
-        cerr << "Saved " << queries.size() << " queries to " << save_queries_path << endl;
+        logger.info() << "Saved " << queries.size() << " queries to " << save_queries_path << endl;
     }
 
     // Output header
@@ -194,11 +183,11 @@ int main_bench_dist_query(int argc, char** argv) {
     // Benchmark each distance index
     for (const auto& dist_path : dist_paths) {
         if (show_progress) {
-            cerr << "Loading distance index from " << dist_path << "..." << endl;
+            logger.info() << "Loading distance index from " << dist_path << "..." << endl;
         }
         SnarlDistanceIndex distance_index;
         distance_index.deserialize(dist_path);
-        cerr << "Loaded distance index from " << dist_path << endl;
+        logger.info() << "Loaded distance index from " << dist_path << endl;
 
         // Pull the whole index into the OS page cache so timings reflect
         // unavoidable query cost, not avoidable first-touch I/O
@@ -223,7 +212,7 @@ int main_bench_dist_query(int argc, char** argv) {
 
         filesystem::path dist_fs_path(dist_path);
         cout << dist_fs_path.filename().string() << "\t" << avg_us << endl;
-        cerr << dist_path << ": avg query time = " << avg_us << " us" << endl;
+        logger.info() << dist_path << ": avg query time = " << avg_us << " us" << endl;
     }
 
     return 0;
