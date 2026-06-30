@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 1
 
-vg index -x hla.xg msgas/hla.vg
+vg index -x hla.xg msgas/hla_v.vg
 vg dotplot -x hla.xg >/dev/null
 
 is "${?}" "0" "vg dotplot runs successfully"

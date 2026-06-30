@@ -7,8 +7,8 @@ PATH=../bin:$PATH # for vg
 
 plan tests 59
 
-vg mod -U 10 msgas/hla.vg | vg mod -c - > hla.vg
-vg index hla.vg -x hla.xg
+vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
+vg index hla_v.vg -x hla.xg
 
 vg deconstruct hla.xg -p "gi|157734152:29563108-29564082" > hla_decon.vcf
 is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf has correct number of sites"
@@ -33,7 +33,7 @@ is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq
 is $(grep "#" hla_decon_path.vcf | grep "568815592") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
 
 
-rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla.vg hla.xg
+rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla_v.vg hla.xg
 
 cp sv/x.inv.gfa inv.gfa
 printf "P\ty\t1+,2-,3+\t9M,20M,21M\n" >> inv.gfa
