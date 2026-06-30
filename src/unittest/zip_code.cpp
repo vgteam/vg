@@ -117,6 +117,10 @@ using namespace std;
         bool chain_is_reversed = distance_index.is_reversed_in_parent(
                                                 distance_index.get_node_net_handle(n1->id()));
 
+        // Node 4 is in snarl 3 to 6 which should be regular.
+        // The zip codes are going to encode this so it had better be true.
+        REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n4->id())))));
+
         SECTION ("zip code for node on top-level chain") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode_from_pos(distance_index, make_pos_t(n1->id(), 0, false));
