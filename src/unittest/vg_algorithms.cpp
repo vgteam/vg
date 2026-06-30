@@ -27,7 +27,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include <bdsg/hash_graph.hpp>
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 
 
 using namespace google::protobuf;
@@ -1092,11 +1092,8 @@ TEST_CASE( "Connecting graph extraction works on a cool loop without leaving ext
     {"edge": [{"from": "185927720", "to": "185927722"}, {"from": "185927721", "from_start": true, "to": "185927722"}, {"from": "185927722", "to": "186681786", "to_end": true}, {"from": "185927722", "to": "185927723"}, {"from": "186681786", "to": "186683083"}, {"from": "186681786", "from_start": true, "to": "186681787", "to_end": true}, {"from": "186681787", "to": "186683069", "to_end": true}, {"from": "186681787", "from_start": true, "to": "186681789"}, {"from": "186681787", "from_start": true, "to": "186681788", "to_end": true}, {"from": "186681788", "from_start": true, "to": "186681790", "to_end": true}, {"from": "186681789", "to": "186681790", "to_end": true}, {"from": "186681790", "from_start": true, "to": "186681792", "to_end": true}, {"from": "186683069", "from_start": true, "to": "186683079", "to_end": true}, {"from": "186683079", "from_start": true, "to": "186683080", "to_end": true}, {"from": "186683080", "from_start": true, "to": "186683081", "to_end": true}, {"from": "186683081", "from_start": true, "to": "186683083", "to_end": true}], "node": [{"id": "185927720", "sequence": "G"}, {"id": "185927721", "sequence": "A"}, {"id": "185927722", "sequence": "ACCGGG"}, {"id": "185927723", "sequence": "AGTGGGGG"}, {"id": "186681786", "sequence": "C"}, {"id": "186681787", "sequence": "TGGGAGTCTAAGTCTCTTTTGATCACACTTTAAAGACCAAAAGGTAGAAGCGCAAAGACGTTATCTGTCCAATATTACAAACCTAGTAAGTGGTGGAATTTGGCCTTGAACCCAGATCTGTAACTCCAGAGCCGAAGTGCTTCACCCACCTCCCTGTGGTG"}, {"id": "186681788", "sequence": "G"}, {"id": "186681789", "sequence": "T"}, {"id": "186681790", "sequence": "TAT"}, {"id": "186681792", "sequence": "T"}, {"id": "186683069", "sequence": "G"}, {"id": "186683079", "sequence": "G"}, {"id": "186683080", "sequence": "TACCCCGGAATCCCTGCCGCGGCCCCTCGGGCCTGTCCACATCCCTCTGCCCCTCCCAGACCTCTGTCCTTCCACCAATCGCCTCCCGCAGCCCCGAGCCGCCACTCCCAGTCCCCCGAGTCCCTGCCGCGCGCCCTCGCGCCTGTCCACATCCCTCTGCCCATCCGAGACCTCTGTCCTTACACCACTAGCCACCCCACGTGGGACTTCCATGGCTTCTGAGTACAAGGCCAGCCCCCCGGCCCACCAGCTTTCGGAATGCCTGCTTACCTCTTTTTCTGTAGA"}, {"id": "186683081", "sequence": "CCGG"}, {"id": "186683083", "sequence": "C"}]}
     )";
             
-    Graph source;
-    json2pb(source, graph_json.c_str(), graph_json.size());
-            
     VG vg;
-    vg.extend(source);
+    vg::io::json2graph(graph_json, &vg);
             
     bdsg::HashGraph extractor;
             
@@ -1688,11 +1685,8 @@ TEST_CASE( "Connecting graph extraction works on a particular case without leavi
         
             )";
             
-    Graph source;
-    json2pb(source, graph_json.c_str(), graph_json.size());
-            
     VG vg;
-    vg.extend(source);
+    vg::io::json2graph(graph_json, &vg);
             
     VG extractor;
             
@@ -2583,13 +2577,9 @@ TEST_CASE( "Topological sort works on a more complex graph",
             {"node": [{"id": 1, "sequence": "GTATTTTTAGTA"}, {"id": 2, "sequence": "G"}, {"id": 3, "sequence": "GAGACGGGGTTTCACCATGTT"}, {"id": 4, "sequence": "T"}, {"id": 5, "sequence": "CTAATTTTT"}, {"id": 6, "sequence": "CA"}, {"id": 7, "sequence": "GG"}, {"id": 8, "sequence": "ACGCCC"}, {"id": 9, "sequence": "C"}, {"id": 10, "sequence": "T"}, {"id": 11, "sequence": "C"}, {"id": 12, "sequence": "GCCA"}, {"id": 13, "sequence": "A"}, {"id": 14, "sequence": "GGGATTACAGGCGCACACC"}, {"id": 15, "sequence": "CCACACC"}, {"id": 16, "sequence": "AT"}, {"id": 17, "sequence": "CC"}, {"id": 18, "sequence": "GGTCAGGCTGGTCTCGACTCC"}, {"id": 19, "sequence": "TGACCTCCTGATCTGCCCCCC"}, {"id": 20, "sequence": "A"}, {"id": 21, "sequence": "G"}, {"id": 22, "sequence": "TATTTTTAGTA"}, {"id": 23, "sequence": "A"}, {"id": 24, "sequence": "G"}, {"id": 25, "sequence": "GA"}], "edge": [{"from": 4, "to": 1}, {"from": 5, "to": 1}, {"from": 1, "to": 2}, {"from": 1, "to": 3}, {"from": 22, "to": 2}, {"from": 2, "to": 20}, {"from": 2, "to": 21}, {"from": 3, "to": 18}, {"from": 5, "to": 4}, {"from": 6, "to": 5}, {"from": 7, "to": 5}, {"from": 8, "to": 6}, {"from": 8, "to": 7}, {"from": 9, "to": 8}, {"from": 10, "to": 8}, {"from": 11, "to": 9}, {"from": 11, "to": 10}, {"from": 12, "to": 11}, {"from": 13, "to": 11}, {"from": 16, "to": 12}, {"from": 17, "to": 12}, {"from": 12, "to": 15}, {"from": 14, "to": 13}, {"from": 18, "to": 19}, {"from": 20, "to": 25}, {"from": 21, "to": 25}, {"from": 23, "to": 22}, {"from": 24, "to": 22}]}
             )";
             
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
-    // Make it into a VG
+    // Load the JSON into a VG
     VG vg;
-    vg.extend(proto_graph);
+    vg::io::json2graph(graph_json, &vg);
             
     SECTION( "handlealgs::topological_order produces a consistent total ordering and orientation" ) {
         auto handle_sort = handlealgs::topological_order(&vg);
@@ -5385,11 +5375,8 @@ TEST_CASE("simplify_siblings() works on a graph with a reversing self loop", "[a
         {"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "2"}, {"from": "2", "to": "2", "to_end": true}], "node": [{"id": "1", "sequence": "T"}, {"id": "2", "sequence": "A"}, {"id": "3", "sequence": "ACA"}], "path": [{"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "2"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "2"}, "rank": "3"}], "name": "x"}, {"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "3"}, "rank": "2"}], "name": "y"}]}
     )";
     
-    Graph source;
-    json2pb(source, graph_json.c_str(), graph_json.size());
-            
     VG graph;
-    graph.extend(source);
+    vg::io::json2graph(graph_json, &graph);
             
     
     
@@ -5405,11 +5392,8 @@ TEST_CASE("simplify_siblings() works on a smaller graph with a reversing self lo
         {"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "2"}, {"from": "2", "to": "2", "to_end": true}], "node": [{"id": "1", "sequence": "T"}, {"id": "2", "sequence": "A"}, {"id": "3", "sequence": "A"}], "path": [{"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "2"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "2"}, "rank": "3"}], "name": "x"}]}
     )";
     
-    Graph source;
-    json2pb(source, graph_json.c_str(), graph_json.size());
-            
     VG graph;
-    graph.extend(source);
+    vg::io::json2graph(graph_json, &graph);
             
     
     
@@ -5425,11 +5409,8 @@ TEST_CASE("normalize() works on a graph with a reversing self loop", "[algorithm
         {"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "2"}, {"from": "2", "to": "2", "to_end": true}], "node": [{"id": "1", "sequence": "T"}, {"id": "2", "sequence": "A"}, {"id": "3", "sequence": "ACA"}], "path": [{"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "2"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "2"}, "rank": "3"}], "name": "x"}, {"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "3"}, "rank": "2"}], "name": "y"}]}
     )";
     
-    Graph source;
-    json2pb(source, graph_json.c_str(), graph_json.size());
-            
     VG graph;
-    graph.extend(source);
+    vg::io::json2graph(graph_json, &graph);
             
     
     

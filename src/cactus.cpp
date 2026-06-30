@@ -999,8 +999,8 @@ VG cactus_to_vg(stCactusGraph* cactus_graph) {
     return vg_graph;
 }
 
-VG cactusify(VG& graph) {
-    if (graph.size() == 0) {
+VG cactusify(const PathHandleGraph& graph) {
+    if (graph.get_node_count() == 0) {
         return VG();
     }
     auto parts = handle_graph_to_cactus(graph, unordered_set<string>());

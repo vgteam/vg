@@ -77,7 +77,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
 # We omit Cairo for now because its transitive dependencies can't be determined until after it's built. Set them lazily
 LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) pkg-config --libs --static cairo)
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
@@ -109,7 +109,8 @@ ifeq ($(shell uname -s),Darwin)
     LD_UTIL_RPATH_FLAGS=""
 
     # Homebrew installs a Protobuf that uses an Abseil that is built with C++17, so we need to build with at least C++17
-    CXX_STANDARD?=17
+	# C++20 for spaceship operator and ranges
+    CXX_STANDARD?=20
 
     # We may need libraries from Macports
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -227,8 +228,9 @@ else
     $(info Compiler $(CXX) is assumed to be GCC)
 
 	# gbwtgraph uses inline variables and our oldest supported compiler has
-	# C++17, so we should use C++17
-    CXX_STANDARD?=17
+	# C++17, so we should use at least C++17.
+    # C++20 for spaceship operator and ranges
+    CXX_STANDARD?=20
 
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
@@ -336,13 +338,11 @@ RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
 MIMALLOC_DIR:=deps/mimalloc
 SDSL_DIR:=deps/sdsl-lite
-SNAPPY_DIR:=deps/snappy
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
 KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
-FERMI_DIR:=deps/fermi-lite
 VCFLIB_DIR:=deps/vcflib
 TABIXPP_DIR:=deps/tabixpp
 HTSLIB_DIR:=deps/htslib
@@ -383,7 +383,6 @@ DEP_SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(DEP_OBJ))
 LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
 LIB_DEPS += $(LIB_DIR)/libssw.a
-LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
 LIB_DEPS += $(LIB_DIR)/libgbwtgraph.a
@@ -395,7 +394,6 @@ LIB_DEPS += $(LIB_DIR)/libgssw.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
-LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
@@ -575,7 +573,7 @@ deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/check_options.py 1>&2
 
-test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(VCFLIB_DIR)/contrib/fastahack/fastahack $(BIN_DIR)/rapper
+test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/rapper
 	cd test && prove -v t
 	# Hide the compiler configuration from the doc tests, so that the ones that
 	# build code can't pick up libraries out of the vg build itself.
@@ -643,11 +641,6 @@ endif
 
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
 	+cd $(SSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
-
-# We need to hide -Xpreprocessor -fopenmp from Snappy, at least on Mac, because
-# it will drop the -Xpreprocessor and keep the -fopenmp and upset Clang.
-$(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
-	+cd $(SNAPPY_DIR) && ./autogen.sh && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --prefix=$(CWD) $(FILTER) && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) libsnappy.la $(FILTER) && cp .libs/libsnappy.a $(CWD)/lib/ && cp snappy-c.h snappy-sinksource.h snappy-stubs-public.h snappy.h $(CWD)/include/
 
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
@@ -787,7 +780,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # has headers.
 $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h $(LIB_DIR)/cleaned_old_catch
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib vcf2tsv wfa2_static
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -796,14 +789,6 @@ $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libt
 	+cp $(VCFLIB_DIR)/src/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/build/libvcflib.a $(LIB_DIR)
 	+cp $(VCFLIB_DIR)/build/contrib/WFA2-lib/libwfa2.a $(LIB_DIR)
-
-# vcflib binaries are all automatically built. We need this one.
-$(BIN_DIR)/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
-	+cp $(VCFLIB_DIR)/build/vcf2tsv $(BIN_DIR)
-
-# We need the fastahack binary for testing
-$(VCFLIB_DIR)/contrib/fastahack/fastahack: $(VCFLIB_DIR)/contrib/fastahack/*.c $(VCFLIB_DIR)/contrib/fastahack/*.h $(VCFLIB_DIR)/contrib/fastahack/*.cpp
-	+cd $(VCFLIB_DIR)/contrib/fastahack && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/
@@ -821,7 +806,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 	+mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
-	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
+	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) src/sparsehash/internal/sparseconfig.h $(FILTER) && $(MAKE) install-data $(FILTER)
 
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
@@ -868,9 +853,6 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
 $(SHARED_OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
-
-$(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
-	cd $(FERMI_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
 # But we do need to hack out the return type error to work around https://github.com/yoheirosen/sublinear-Li-Stephens/issues/6
