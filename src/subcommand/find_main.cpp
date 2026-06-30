@@ -30,7 +30,7 @@ void help_find(char** argv) {
          << "options:" << endl
          << "  -h, --help                  print this help message to stderr and exit" << endl
          << "graph features:" << endl
-         << "  -x, --xg-name FILE          use this xg index or graph (instead of rocksdb db)" << endl
+         << "  -x, --xg-name FILE          use this xg index or graph" << endl
          << "  -n, --node ID               find node(s), return 1-hop context as graph" << endl
          << "  -N, --node-list FILE        whitespace or line delimited list of nodes to grab" << endl
          << "      --mapping FILE          include nodes mapping to the selected node IDs" << endl
@@ -613,8 +613,6 @@ int main_find(int argc, char** argv) {
                 logger.error() << "path \"" << path_name << "\" not found in index" << endl;
             }
             
-            // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
-            // and then mapping, but need this info right now for scripts/chunked_call
             path_handle_t path_handle = xindex->get_path_handle(path_name);
             for (auto node_id : node_ids) {
                 cout << node_id;
