@@ -779,8 +779,15 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # try and use the latest installed Python over the default one that probably
 # has headers.
 $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h $(LIB_DIR)/cleaned_old_catch
-	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib wfa2_static
+	# TODO: CI can't seem to check out the right commit here somehow.
+	+cd deps/vcflib && git rev-parse HEAD
+	+cd deps/vcflib/contrib/fastahack && git rev-parse HEAD
+	+if [[ $$(cd deps/vcflib/contrib/fastahack && git rev-parse HEAD) != "5b89a73915b28a1ea68ee45198e21666bd73522b" ]] ; then exit 1 ; fi
+	+cat deps/vcflib/contrib/fastahack/Fasta.cpp
+	+md5sum deps/vcflib/contrib/fastahack/Fasta.cpp | cut -f1 -d' '
+	+if [[ $$(md5sum deps/vcflib/contrib/fastahack/Fasta.cpp | cut -f1 -d' ') != "94b657747ccf7627d3f75e405d367886" ]] ; then exit 1 ; fi
+	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION $(VCFLIB_DIR)/contrib/*/*.o
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --clean-first --build . --target vcflib wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)

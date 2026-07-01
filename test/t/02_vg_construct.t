@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 32
+plan tests 33
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -122,7 +122,11 @@ rm -f tiny.vg
 
 vg construct -r small/x.fa -r small/x.fa > /dev/null
 is $? 1 "Names may not be duplicated across files"
-cat small/x.fa small/x.fa > xx.fa
+sed "s/y/x/" small/xy.fa > xx.fa
 vg construct -r xx.fa > /dev/null
 is $? 1 "Names may not be duplicated within a file"
 rm -f xx.fa
+
+strings $(which vg) >strings.txt
+grep "\" appears multiple times" strings.txt
+is $? 0 "Message string for multiple appearances in a single FASTA is in the vg binary"
