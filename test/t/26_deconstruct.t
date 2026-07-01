@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 59
+plan tests 63
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -156,7 +156,19 @@ is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
-rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
+# --cluster-min-len gates when the longest non-boundary traversal is below
+# the threshold.  small_cluster's only snarl has max interior length 6 bp.
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3_off.vcf
+is "$(tail -1 small_cluster_3_off.vcf | awk '{print $5}')" "G" "--cluster-min-len 0 is equivalent to clustering everywhere"
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 50 > small_cluster_3_50.vcf
+is "$(tail -1 small_cluster_3_50.vcf | awk '{print $5}')" "GATTTGA,G" "--cluster-min-len 50 gates clustering on a small site"
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 6 > small_cluster_3_6.vcf
+is "$(tail -1 small_cluster_3_6.vcf | awk '{print $5}')" "G" "--cluster-min-len at the site length still clusters"
+vg deconstruct small_cluster.gfa -p x --cluster-min-len 50 2>/dev/null > small_cluster_min_only.vcf
+diff small_cluster_0.vcf small_cluster_min_only.vcf
+is "$?" 0 "--cluster-min-len without -L is a no-op"
+
+rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
 
 # Nesting tests now use a two-step process:
 # 1. Compute gref cover with vg paths

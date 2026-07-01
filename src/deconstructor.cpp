@@ -859,11 +859,45 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // jaccard clustering (using handles for now) on traversals
         vector<pair<double, int64_t>> trav_cluster_info;
         vector<int> unused_child_snarl_mapping;
-        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs,
-                                                               vector<pair<handle_t, handle_t>>(),
-                                                               cluster_threshold,
-                                                               trav_cluster_info,
-                                                               unused_child_snarl_mapping);
+        vector<vector<int>> trav_clusters;
+
+        // If a minimum-allele-length gate is set, skip clustering at sites
+        // where every used traversal's interior (non-boundary) sequence is
+        // shorter than the threshold.  This lets the clustering be SV-only
+        // (default 50bp matches the standard SV size cutoff) while leaving
+        // small variants represented exactly as they are.
+        bool gate_clustering = false;
+        if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
+            int64_t max_alt_len = 0;
+            for (size_t i = 0; i < travs.size(); ++i) {
+                if (!use_trav[i]) continue;
+                const Traversal& t = travs[i];
+                int64_t len = 0;
+                if (t.size() > 2) {
+                    for (size_t k = 1; k + 1 < t.size(); ++k) {
+                        len += graph->get_length(t[k]);
+                    }
+                }
+                if (len > max_alt_len) max_alt_len = len;
+            }
+            gate_clustering = max_alt_len < cluster_min_allele_len;
+        }
+
+        if (gate_clustering) {
+            // Trivial clusters (one per used traversal) in sorted_travs order.
+            // Mirrors what cluster_traversals would return when nothing collapses.
+            trav_cluster_info.assign(travs.size(), make_pair(-1.0, (int64_t)0));
+            for (int idx : sorted_travs) {
+                trav_clusters.push_back({idx});
+                trav_cluster_info[idx] = make_pair(1.0, (int64_t)0);
+            }
+        } else {
+            trav_clusters = cluster_traversals(graph, travs, sorted_travs,
+                                               vector<pair<handle_t, handle_t>>(),
+                                               cluster_threshold,
+                                               trav_cluster_info,
+                                               unused_child_snarl_mapping);
+        }
 
 #ifdef debug
         cerr << "cluster priority";
@@ -1286,6 +1320,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool strict_conflicts,
                                 bool long_ref_contig,
                                 double cluster_threshold,
+                                int64_t cluster_min_allele_len,
                                 gbwt::GBWT* gbwt,
                                 bool star_allele) {
 
@@ -1301,6 +1336,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
     }
     this->cluster_threshold = cluster_threshold;
+    this->cluster_min_allele_len = cluster_min_allele_len;
     this->gbwt = gbwt;
     this->star_allele = star_allele;
 
