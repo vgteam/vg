@@ -51,7 +51,7 @@ enum alignment_emitter_flags_t {
     /// When surjecting, produce and report supplementary alignments
     ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY = 32,
     /// When surjecting, annote off-reference reads with their nearest reference position
-    ALIGNMENT_EMITTER_FLAG_OFF_REF_POSITION = 64,
+    ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION = 64,
     /// When surjecting, attempt to left align
     ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN = 128
 };

@@ -399,8 +399,7 @@ using namespace std;
         static Alignment make_null_alignment(const Alignment& source);
         
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
-                                                            const string& src_quality,
-                                                            int32_t src_mapping_quality);
+                                                            const string& src_quality);
         
         pair<string, size_t> nearest_ref_pos(const Alignment& source, const PathPositionHandleGraph* graph) const;
 

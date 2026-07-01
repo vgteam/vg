@@ -428,8 +428,7 @@ using namespace std;
             positions_out.emplace_back("", -1, false);
 
             if (source_mp_aln) {
-                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality(),
-                                                                 source_mp_aln->mapping_quality()));
+                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality()));
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
@@ -439,7 +438,7 @@ using namespace std;
                     if (!get<0>(nearest).empty()) {
                         stringstream strm;
                         // note: we assign to the base before the insertion by not adding 1 to make 1-based
-                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest);
+                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest) << ',' << source_mp_aln->mapping_quality();
                         mp_alns_out->back().set_annotation("nearest_ref_pos", strm.str());
                     }
                 }
@@ -471,7 +470,7 @@ using namespace std;
                     if (!get<0>(nearest).empty()) {
                         stringstream strm;
                         // note: we assign to the base before the insertion by not adding 1 to make 1-based
-                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest);
+                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest) << ',' << source_aln->mapping_quality();
                         set_annotation<string>(alns_out->back(), "nearest_ref_pos", strm.str());
                     }
                 }
@@ -3045,7 +3044,7 @@ using namespace std;
                     if (copy_path.mapping_size() == 0) {
                         // the DP chose a segment that was unsurjectable
                         surj.second.first = surj.second.second = graph->path_end(path_handle);
-                        surj.first = make_null_mp_alignment(src_sequence, src_quality, src_mapping_quality);
+                        surj.first = make_null_mp_alignment(src_sequence, src_quality);
                         break;
                     }
                     
@@ -3140,7 +3139,7 @@ using namespace std;
             cerr << "traceback is empty" << endl;
 #endif
             // sentinel for unmapped
-            surjected.emplace_back(make_null_mp_alignment(src_sequence, src_quality, src_mapping_quality),
+            surjected.emplace_back(make_null_mp_alignment(src_sequence, src_quality),
                                    make_pair(graph->path_end(path_handle), graph->path_end(path_handle)));
         }
         
@@ -5320,7 +5319,7 @@ using namespace std;
         null.set_read_group(source.read_group());
         null.set_sample_name(source.sample_name());
         null.set_is_secondary(source.is_secondary());
-        null.set_mapping_quality(source.mapping_quality()); // SAM does not prohibit MAPQ > 0 on unmapped reads
+        null.set_mapping_quality(0);
         if (source.has_fragment_next()) {
             *null.mutable_fragment_next() = source.fragment_next();
         }
@@ -5332,12 +5331,11 @@ using namespace std;
     }
 
     multipath_alignment_t Surjector::make_null_mp_alignment(const string& src_sequence,
-                                                            const string& src_quality,
-                                                            int32_t src_mapping_quality) {
+                                                            const string& src_quality) {
         multipath_alignment_t null;
         null.set_sequence(src_sequence);
         null.set_quality(src_quality);
-        null.set_mapping_quality(src_mapping_quality); // SAM does not prohibit MAPQ > 0 on unmapped reads
+        null.set_mapping_quality(0);
         return null;
     }
 

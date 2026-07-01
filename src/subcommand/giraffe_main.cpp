@@ -2160,7 +2160,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 if (annotate_off_ref_position) {
                     // When surjecting, annotate the position of off-reference reads
-                    flags |= ALIGNMENT_EMITTER_FLAG_OFF_REF_POSITION;
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION;
                 }
                 if (left_align) {
                     // When surjecting, attempt to left align
