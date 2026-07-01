@@ -122,7 +122,7 @@ rm -f tiny.vg
 
 vg construct -r small/x.fa -r small/x.fa > /dev/null
 is $? 1 "Names may not be duplicated across files"
-sed "s/y/x/" small/xy.fa > xx.fa
+cat small/x.fa small/x.fa > xx.fa
 vg construct -r xx.fa > /dev/null
 is $? 1 "Names may not be duplicated within a file"
 rm -f xx.fa
