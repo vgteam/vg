@@ -47,14 +47,15 @@ namespace algorithms {
     ///
     /// Returns: a map from node ids in the extracted graph to the node ids in
     /// the original graph. The map and the graph will have the same number of
-    /// entries, plus two:
-    ///   -std::numeric_limits<id_t>::max() -> pos_1's new edge node ID
-    ///   std::numeric_limits<id_t>::max() -> pos_2's new edge node ID
+    /// entries, plus two if track_new_ids is used:
+    ///   * -std::numeric_limits<id_t>::max() -> pos_1's new edge node ID
+    ///   * std::numeric_limits<id_t>::max() -> pos_2's new edge node ID
     unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                                                        DeletableHandleGraph* into,
                                                        int64_t max_len,
                                                        pos_t pos_1, pos_t pos_2,
-                                                       bool strict_max_len = false);
+                                                       bool strict_max_len = false,
+                                                       bool track_new_ids = false);
 
 }
 }

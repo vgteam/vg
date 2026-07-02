@@ -302,12 +302,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                             cerr << "Node " << node->id() << " not on path" << endl;
                         }
                     });
-                    
-                    if (lock.get_subgraph().is_acyclic()) {
-                        cerr << "Subgraph is acyclic" << endl;
-                    } else {
-                        cerr << "Subgraph is cyclic" << endl;
-                    }
                 });
 #endif
                 

@@ -3409,7 +3409,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             &local_graph,
             max_path_length,
             left_anchor, right_anchor,
-            true
+            true, // Only extract stuff on within-distance walks
+            true // Tell us the new end node IDs
         );
 
         if (local_to_base.empty()) {
@@ -3438,8 +3439,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             &local_graph,
             max_path_length,
             left_anchor,
-            false,
-            false
+            false, // We are going left to right (backward = false)
+            false, // Don't bother preserving cycles on the source node
+            true // Tell us the new end node ID
         );
         local_left_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
         local_to_base.erase(std::numeric_limits<id_t>::max());
@@ -3450,8 +3452,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             &local_graph,
             max_path_length,
             right_anchor,
-            true,
-            false
+            true, // We are going right to left (backward = true)
+            false, // Don't bother preserving cycles on the source node
+            true  // Tell us the new end node ID
         );
         local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
         local_to_base.erase(std::numeric_limits<id_t>::max());

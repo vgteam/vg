@@ -16,7 +16,7 @@ namespace algorithms {
 using namespace structures;
 
 unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, DeletableHandleGraph* into, int64_t max_dist, pos_t pos,
-                                                  bool backward, bool preserve_cycles_on_src_node) {
+                                                  bool backward, bool preserve_cycles_on_src_node, bool track_new_id) {
     
     if (into->get_node_count()) {
         cerr << "error:[extract_extending_graph] must extract into an empty graph" << endl;
@@ -224,15 +224,19 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
         into->destroy_handle(halves.first);
         id_trans[into->get_id(halves.second)] = id(pos);
         // Memory for where the end is
-        id_trans[std::numeric_limits<id_t>::max()] = into->get_id(halves.second);
+        if (track_new_id) {
+            id_trans[std::numeric_limits<id_t>::max()] = into->get_id(halves.second);
+        }
     }
     else {
         into->destroy_handle(halves.second);
         id_trans[into->get_id(halves.first)] = id(pos);
-        id_trans[std::numeric_limits<id_t>::max()] = into->get_id(halves.first);
+        if (track_new_id) {
+            id_trans[std::numeric_limits<id_t>::max()] = into->get_id(halves.first);
+        }
     }
     
-    crash_unless(id_trans.size() == into->get_node_count() + 1);
+    crash_unless(id_trans.size() == into->get_node_count() + track_new_id);
     return id_trans;
 }
 
