@@ -776,7 +776,7 @@ TEST_CASE( "Connecting graph extraction works on a self loop on the right node",
     REQUIRE(retained_node_ids.count(graph.get_id(h2)));
 }
 
-TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the left node",
+TEST_CASE( "Connecting graph extraction works when a connection is only possible by doubling back through the left node",
            "[algorithms][extract_connecting_graph]" ) {
             
     bdsg::HashGraph graph;
@@ -801,14 +801,12 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
         retained_node_ids.insert(kv.second);
     }
 
-    // If we can't duplicate any nodes, there's no way to get a graph that has
-    // the connection path and also cut the nodes/keep them as tips. So we
-    // expect an empty graph.
-    REQUIRE(retained_node_ids.empty());
-    REQUIRE(extractor.get_node_count() == 0);
+    // We will be able to double back by making a copy of the left node
+    REQUIRE(retained_node_ids.size() == 3);
+    REQUIRE(extractor.get_node_count() == 4);
 }
 
-TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the right node",
+TEST_CASE( "Connecting graph extraction works when a connection is only possible by doubling back through the right node",
            "[algorithms][extract_connecting_graph]" ) {
             
     bdsg::HashGraph graph;
@@ -833,11 +831,9 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
         retained_node_ids.insert(kv.second);
     }
 
-    // If we can't duplicate any nodes, there's no way to get a graph that has
-    // the connection path and also cut the nodes/keep them as tips. So we
-    // expect an empty graph.
-    REQUIRE(retained_node_ids.empty());
-    REQUIRE(extractor.get_node_count() == 0);
+    // We will be able to double back by making a copy of the right node
+    REQUIRE(retained_node_ids.size() == 3);
+    REQUIRE(extractor.get_node_count() == 4);
 }
 
 TEST_CASE( "Connecting graph extraction works when you can turn around on the right and come back to the same node to get a path",
