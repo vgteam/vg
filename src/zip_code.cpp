@@ -2444,7 +2444,7 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
         //is_reversed
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         //TODO: For top-level chains we got this from the distance index
-        payload.is_reversed = zip_value;
+        payload.is_reversed = bit_is_set(zip_value, 0);
 
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         payload.chain_component = zip_value;
@@ -2492,12 +2492,15 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             //If this is a non-root snarl, get as much as we can from it 
             payload.parent_type = ZipCode::EMPTY;
-            if (zip_value == 0) {
-                payload.parent_type = ZipCode::IRREGULAR_SNARL;
-            } else if (zip_value == 1) {
+            if (bit_is_set(zip_value, 0)) {
+                // Ones bit is 1 for regular snarls
                 payload.parent_type = ZipCode::REGULAR_SNARL;
-            } else {
+            } else if (bit_is_set(zip_value, 1)) {
+                // Twos bit is 1 for cyclic snarls
                 payload.parent_type = ZipCode::CYCLIC_SNARL;
+            } else {
+                // If 1s is 0 and 2s is 0, then irregular snarl
+                payload.parent_type = ZipCode::IRREGULAR_SNARL;
             }
 
             //Snarl prefix sum
@@ -2511,7 +2514,7 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             //Chain component of the snarl
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
-            //TODO: SHould use this somehow
+            //TODO: Should use this somehow
             payload.chain_component = 0;
             //is_reversed for regular snarl and record offset for irregular/cyclic snarl
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
