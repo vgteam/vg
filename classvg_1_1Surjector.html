@@ -220,6 +220,13 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a99dc61c54ce73a8db8526b0f935a14c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a20b070bccfd79546db5d7b355ec1c67e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a20b070bccfd79546db5d7b355ec1c67e">annotate_with_graph_alignment</a> = false</td></tr>
 <tr class="separator:a20b070bccfd79546db5d7b355ec1c67e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a17398d792f28b7bd3e21a3ebdf7a0d5f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a17398d792f28b7bd3e21a3ebdf7a0d5f">annotate_off_reference_pos</a> = false</td></tr>
+<tr class="memdesc:a17398d792f28b7bd3e21a3ebdf7a0d5f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Annotate reads whose alignments are lost during surjection with the nearest reference position.  <a href="classvg_1_1Surjector.html#a17398d792f28b7bd3e21a3ebdf7a0d5f">More...</a><br /></td></tr>
+<tr class="separator:a17398d792f28b7bd3e21a3ebdf7a0d5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a69cf213aa2e314f73a43aac995c6f6df"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a69cf213aa2e314f73a43aac995c6f6df">off_reference_pos_search_limit</a> = 20000</td></tr>
+<tr class="memdesc:a69cf213aa2e314f73a43aac995c6f6df"><td class="mdescLeft">&#160;</td><td class="mdescRight">How far we will traverse the graph in search of a reference position? <br  />
+  <a href="classvg_1_1Surjector.html#a69cf213aa2e314f73a43aac995c6f6df">More...</a><br /></td></tr>
+<tr class="separator:a69cf213aa2e314f73a43aac995c6f6df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -263,6 +270,10 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">set_path_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;init_surj_pos, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;final_surj_pos, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_end, bool rev_strand, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out) const</td></tr>
 <tr class="memdesc:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the graph position bounds and the path range bounds to assign a path position to a surjected read  <a href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">More...</a><br /></td></tr>
 <tr class="separator:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c7ca51638bf904a03a7355bd694a787"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, int64_t, bool, size_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1c7ca51638bf904a03a7355bd694a787">nearest_ref_pos</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths) const</td></tr>
+<tr class="separator:a1c7ca51638bf904a03a7355bd694a787"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a74e5eeeaaf44673b950fdd5842b207a9"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, int64_t, bool, size_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a74e5eeeaaf44673b950fdd5842b207a9">nearest_ref_pos</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;source, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths) const</td></tr>
+<tr class="separator:a74e5eeeaaf44673b950fdd5842b207a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a591ec19ab6c9da5bae0d0c0db5104699"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
 <tr class="memitem:a591ec19ab6c9da5bae0d0c0db5104699"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a591ec19ab6c9da5bae0d0c0db5104699">path_score_annotations</a> (const unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, vector&lt; pair&lt; AlnType, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt;&gt;&gt; &amp;surjections) const</td></tr>
 <tr class="separator:a591ec19ab6c9da5bae0d0c0db5104699"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -314,6 +325,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a54b0b7fe9db83a6cfdbebf9dbeb81f04"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab65da876e448d86bc64985c0b14d3e78"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ab65da876e448d86bc64985c0b14d3e78">prune_unconnectable</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; vector&lt; tuple&lt; size_t, int32_t, bool &gt;&gt;&gt; &amp;splice_adj, vector&lt; size_t &gt; &amp;component, vector&lt; vector&lt; size_t &gt;&gt; &amp;comp_groups, vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks) const</td></tr>
 <tr class="separator:ab65da876e448d86bc64985c0b14d3e78"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4af1dfd392d2d13f80089f8dd387bf6f"><td class="memItemLeft" align="right" valign="top">pair&lt; string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a4af1dfd392d2d13f80089f8dd387bf6f">nearest_ref_pos</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>) const</td></tr>
+<tr class="separator:a4af1dfd392d2d13f80089f8dd387bf6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0579877e7e9f6b233f4ef6d586dd38de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0579877e7e9f6b233f4ef6d586dd38de">annotate_graph_cigar</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;surjections, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions) const</td></tr>
 <tr class="separator:a0579877e7e9f6b233f4ef6d586dd38de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4ed7d16fac989717a2aa56f428ab9966"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a4ed7d16fac989717a2aa56f428ab9966">annotate_graph_cigar</a> (vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;surjections, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;source, const vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions) const</td></tr>
@@ -1626,6 +1639,128 @@ template&lt;&gt; </div>
 
 </div>
 </div>
+<a id="a4af1dfd392d2d13f80089f8dd387bf6f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4af1dfd392d2d13f80089f8dd387bf6f">&#9670;&nbsp;</a></span>nearest_ref_pos() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt;string, size_t&gt; vg::Surjector::nearest_ref_pos </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1c7ca51638bf904a03a7355bd694a787"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c7ca51638bf904a03a7355bd694a787">&#9670;&nbsp;</a></span>nearest_ref_pos() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; string, int64_t, bool, size_t, bool &gt; vg::Surjector::nearest_ref_pos </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>get the nearest reference position for a mapped read that does not overlap a reference path</p>
+<p>the final two fields in return value indicate 1) the distance traversed to reach the NR position from the end of the alignment that would be further in the direction of low coordinates of the oriented path, and 2) true if the traversal direction was in the direction of low coordinates, else false </p>
+
+</div>
+</div>
+<a id="a74e5eeeaaf44673b950fdd5842b207a9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a74e5eeeaaf44673b950fdd5842b207a9">&#9670;&nbsp;</a></span>nearest_ref_pos() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; string, int64_t, bool, size_t, bool &gt; vg::Surjector::nearest_ref_pos </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a591ec19ab6c9da5bae0d0c0db5104699"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a591ec19ab6c9da5bae0d0c0db5104699">&#9670;&nbsp;</a></span>path_score_annotations()</h2>
 
@@ -2589,6 +2724,22 @@ template&lt;class AlnType &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a17398d792f28b7bd3e21a3ebdf7a0d5f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a17398d792f28b7bd3e21a3ebdf7a0d5f">&#9670;&nbsp;</a></span>annotate_off_reference_pos</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Surjector::annotate_off_reference_pos = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Annotate reads whose alignments are lost during surjection with the nearest reference position. </p>
+
+</div>
+</div>
 <a id="a99dc61c54ce73a8db8526b0f935a14c9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a99dc61c54ce73a8db8526b0f935a14c9">&#9670;&nbsp;</a></span>annotate_with_all_path_scores</h2>
 
@@ -3066,6 +3217,23 @@ template&lt;class AlnType &gt; </div>
 </div><div class="memdoc">
 
 <p>Return alignments to overlapping paths as secondaries instead of just the best one. </p>
+
+</div>
+</div>
+<a id="a69cf213aa2e314f73a43aac995c6f6df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a69cf213aa2e314f73a43aac995c6f6df">&#9670;&nbsp;</a></span>off_reference_pos_search_limit</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Surjector::off_reference_pos_search_limit = 20000</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>How far we will traverse the graph in search of a reference position? <br  />
+ </p>
 
 </div>
 </div>
