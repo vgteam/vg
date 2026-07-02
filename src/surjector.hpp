@@ -180,6 +180,11 @@ using namespace std;
         
         bool annotate_with_all_path_scores = false;
         bool annotate_with_graph_alignment = false;
+
+        /// Annotate reads whose alignments are lost during surjection with the nearest reference position
+        bool annotate_off_reference_pos = false;
+        /// How far we will traverse the graph in search of a reference position?  
+        size_t off_reference_pos_search_limit = 20000;
         
         
     protected:
@@ -264,6 +269,16 @@ using namespace std;
                                const step_handle_t& range_begin, const step_handle_t& range_end,
                                bool rev_strand, string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
+        /// get the nearest reference position for a mapped read that does not overlap a reference path
+        ///
+        /// the final two fields in return value indicate 1) the distance traversed to reach the NR position from
+        /// the end of the alignment that would be further in the direction of low coordinates of the oriented
+        /// path, and 2) true if the traversal direction was in the direction of low coordinates, else false
+        tuple<string, int64_t, bool, size_t, bool> nearest_ref_pos(const Alignment& source, const PathPositionHandleGraph* graph,
+                                                                   const unordered_set<path_handle_t>& paths) const;
+        tuple<string, int64_t, bool, size_t, bool> nearest_ref_pos(const multipath_alignment_t& source, const PathPositionHandleGraph* graph,
+                                                                   const unordered_set<path_handle_t>& paths) const;
+
         template<class AlnType>
         string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
@@ -386,6 +401,8 @@ using namespace std;
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
                                                             const string& src_quality);
         
+        pair<string, size_t> nearest_ref_pos(const Alignment& source, const PathPositionHandleGraph* graph) const;
+
         void annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, 
                                   const vector<tuple<string, int64_t, bool>>& positions) const;
         
