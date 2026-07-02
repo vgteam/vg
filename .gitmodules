@@ -1,6 +1,6 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/vcflib/vcflib.git
+	url = https://github.com/vgteam/vcflib.git
 [submodule "gssw"]
 	path = deps/gssw
 	url = https://github.com/vgteam/gssw.git
@@ -31,9 +31,6 @@
 [submodule "deps/raptor"]
 	path = deps/raptor
 	url = https://github.com/vgteam/raptor.git
-[submodule "deps/snappy"]
-	path = deps/snappy
-	url = https://github.com/google/snappy.git
 [submodule "deps/Complete-Striped-Smith-Waterman-Library"]
 	path = deps/ssw
 	url = https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
@@ -43,9 +40,6 @@
 [submodule "deps/sonLib"]
 	path = deps/sonLib
 	url = https://github.com/benedictpaten/sonLib.git
-[submodule "deps/fermi-lite"]
-	path = deps/fermi-lite
-    url = https://github.com/vgteam/fermi-lite.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git

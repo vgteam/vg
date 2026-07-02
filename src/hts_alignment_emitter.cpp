@@ -63,6 +63,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS,
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG,
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY,
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION,
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN);
         }
     

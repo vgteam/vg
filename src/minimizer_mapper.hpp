@@ -252,7 +252,7 @@ class MinimizerMapper : public AlignerClient {
     /// When converting chains to alignments, what's the longest gap between
     /// items we will try to WFA align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
-    /// May not be 0.
+    /// Set to 0 to not use WFA alignment between items.
     static constexpr size_t default_max_chain_connection = 100;
     size_t max_chain_connection = default_max_chain_connection;
     /// Similarly, what is the maximum tail length we will try to WFA align?

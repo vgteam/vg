@@ -67,6 +67,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+static Logger logger("vg giraffe");
+
 /// Options struct for options for the Giraffe driver (i.e. this file)
 struct GiraffeMainOptions {
     /// How long should we wait while mapping a read before complaining, in seconds.
@@ -182,7 +184,8 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "hard-hit-cap", 'C',
         &MinimizerMapper::hard_hit_cap,
         MinimizerMapper::default_hard_hit_cap,
-        "ignore all minimizers with more than INT hits"
+        "ignore all minimizers with more than INT hits",
+        size_t_is_positive
     );
     comp_opts.add_range(
         "score-fraction", 'F',
@@ -227,10 +230,18 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "cluster using this distance limit"
     );
     comp_opts.add_range(
+        "min-extensions",
+        &MinimizerMapper::min_extensions,
+        MinimizerMapper::default_min_extensions,
+        "extend at least INT clusters",
+        size_t_is_positive
+    );
+    comp_opts.add_range(
         "max-extensions", 'e',
         &MinimizerMapper::max_extensions,
         MinimizerMapper::default_max_extensions,
-        "extend up to INT clusters"
+        "extend up to INT clusters",
+        size_t_is_positive
     );
     comp_opts.add_range(
         "max-alignments", 'a',
@@ -634,6 +645,16 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
+/**
+ * Make sure that variables set by options independently controlling the min
+ * and max of something actually make sense as a min and max.
+ */
+template<typename T> void enforce_min_max(const T& low, const std::string& low_option, const T& high, const std::string& high_option) {
+    if (low > high) {
+        logger.error() << "Empty range: --" << low_option << " of " << low << " exceeds --" << high_option << " of " << high << std::endl;
+    }
+}
+
 //----------------------------------------------------------------------------
 
 void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
@@ -709,6 +730,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "      --left-align              attempt to left-align indels in linear formats" << endl
              << "                                in the GR tag as a cs-style difference string" << endl
+             << "      --off-ref-position        annotate off-reference mappings in HTSLib output" << endl
+             << "                                with the nearest reference position in NR tag" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination. Setting values for" << endl
@@ -752,7 +775,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 //----------------------------------------------------------------------------
 
 int main_giraffe(int argc, char** argv) {
-    Logger logger("vg giraffe");
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
@@ -772,8 +794,9 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
     constexpr int OPT_COMMENTS_AS_TAGS = 1013;
-    constexpr int OPT_LEFT_ALIGN = 1014;
-    constexpr int OPT_NO_REC_MODE = 1015;
+    constexpr int OPT_OFF_REF_POSITION = 1014;
+    constexpr int OPT_LEFT_ALIGN = 1015;
+    constexpr int OPT_NO_REC_MODE = 1016;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -882,6 +905,9 @@ int main_giraffe(int argc, char** argv) {
     // When surjecting, should we attempt to left-align relative to the reference?
     bool left_align = false;
     
+    // When surjecting, should we annotate the off-reference reads with the nearest reference position?
+    bool annotate_off_ref_position = false;
+
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
 
@@ -1139,6 +1165,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
+        {"off-ref-position", no_argument, 0, OPT_OFF_REF_POSITION},
         {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
@@ -1325,6 +1352,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
                 add_graph_alignment = true;
+                break;
+                
+            case OPT_OFF_REF_POSITION:
+                annotate_off_ref_position = true;
                 break;
                 
             case OPT_LEFT_ALIGN:
@@ -1971,6 +2002,22 @@ int main_giraffe(int argc, char** argv) {
         parser->apply(main_options);
         parser->apply(scoring_options);
 
+        // Make sure that options that represent ranges are sensible, nonempty
+        // ranges.
+        //
+        // TODO: It would be nice if we did this earlier when setting up the
+        // option ranges to iterate, to make it happen before indexing/index
+        // loading, but then we'd have to know how to do the comparison on the
+        // range objects themselves.
+        enforce_min_max(minimizer_mapper.wfa_max_mismatches, "wfa-max-mismatches",
+                        minimizer_mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
+        enforce_min_max(minimizer_mapper.wfa_distance, "wfa-distance",
+                        minimizer_mapper.wfa_max_distance, "wfa-max-distance");
+        enforce_min_max(minimizer_mapper.min_chaining_problems, "min-chaining-problems",
+                        minimizer_mapper.max_chaining_problems, "max-chaining-problems");
+        enforce_min_max(minimizer_mapper.min_extensions, "min-extensions",
+                        minimizer_mapper.max_extensions, "max-extensions");
+
         // Make a line of JSON about our command line options.
         // We may embed it in the output file later.
         std::stringstream params_json;
@@ -2009,6 +2056,7 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("add-graph-aln", add_graph_alignment);
+        report_flag("off-ref-position", annotate_off_ref_position);
         report_flag("left-align", left_align);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
@@ -2145,6 +2193,10 @@ int main_giraffe(int argc, char** argv) {
                 if (minimizer_mapper.find_supplementaries) {
                     // When surjecting, also report supplementary alignments
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY;
+                }
+                if (annotate_off_ref_position) {
+                    // When surjecting, annotate the position of off-reference reads
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION;
                 }
                 if (left_align) {
                     // When surjecting, attempt to left align

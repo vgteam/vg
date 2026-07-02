@@ -100,7 +100,7 @@ To build vg's bundled Cairo and pixman (currently 1.3.0 or newer is required), s
     sudo apt-get install pipx
     pipx install meson
 
-At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
+At present, you will need GCC version 10 or greater, with support for C++20, to compile vg. (Check your version with `gcc --version`.) GCC up to 15.2.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 

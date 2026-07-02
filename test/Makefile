@@ -7,14 +7,8 @@ vg:=../bin/vg
 
 all: test clean
 
-test: build_graph $(vg) vcf2tsv fastahack
+test: build_graph $(vg)
 	prove -v t
-
-vcf2tsv:
-	cd ../deps/vcflib && $(MAKE) bin/vcf2tsv
-
-fastahack:
-	cd ../deps/vcflib/contrib/fastahack && $(MAKE)
 
 $(vg):
 	cd .. && $(MAKE) bin/vg
