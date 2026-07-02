@@ -328,7 +328,7 @@ int main_map(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv,
-        "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:XUpF:m:7:v5:824:3:90:%^h?",
+        "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:XUpF:m:7:v5:824:3:9:0:%^h?",
                          long_options, &option_index);
 
 
