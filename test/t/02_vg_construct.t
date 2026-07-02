@@ -122,14 +122,14 @@ rm -f tiny.vg
 
 vg construct -r small/x.fa -r small/x.fa > /dev/null
 is $? 1 "Names may not be duplicated across files"
-rm -f xx.fa xx.fa.fai
 sed "s/y/x/" small/xy.fa > xx.fa
+samtools faidx xx.fa
+# Samtools drops duplicate entries so we need to manually make an index with duplicates.
+cat xx.fa.fai xx.fa.fai >xx.fa.fai2
+mv xx.fa.fai2 xx.fa.fai
 vg construct -r xx.fa > /dev/null
 is $? 1 "Names may not be duplicated within an index"
-cat xx.fa
-cat xx.fa.fai
+rm -f xx.fa.fai
+vg construct -r xx.fa > /dev/null
+is $? 1 "Names may not be duplicated within an unindexed file"
 rm -f xx.fa xx.fa.fai
-
-strings $(which vg) >strings.txt
-grep "\" appears multiple times" strings.txt
-is $? 0 "Message string for multiple appearances in a single FASTA is in the vg binary"
