@@ -33,8 +33,12 @@ namespace algorithms {
     ///  pos                     extend from this position
     ///  backward                extend in this direction
     ///  preserve_cycles_on_src  if necessary, duplicate starting node to preserve cycles after cutting it
+    /// Returns: a map from node ids in the extracted graph to the node ids in
+    /// the original graph. The map and the graph will have the same number of
+    /// entries, plus one if track_new_id is used:
+    ///   std::numeric_limits<id_t>::max() -> pos's new edge node ID
     unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, DeletableHandleGraph* into, int64_t max_dist, pos_t pos,
-                                                      bool backward, bool preserve_cycles_on_src_node);
+                                                      bool backward, bool preserve_cycles_on_src_node, bool track_new_id = false);
                                                       
 }
 }

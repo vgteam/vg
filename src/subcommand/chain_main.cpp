@@ -287,7 +287,8 @@ int main_chain(int argc, char** argv) {
     // TODO: Replace with designated initializer list when we get C++20
     vg::algorithms::ChainScoringScheme scheme;
     scheme.recombination_penalty = recombination_penalty;
-    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.scorer->gap_open, scorer.scorer->gap_extension, scheme);
+    std::pair<int, std::vector<vg::algorithms::TracedItem>> score_and_chain = vg::algorithms::find_best_chain(
+        items, distance_index, graph, scorer.scorer->gap_open, scorer.scorer->gap_extension, scheme);
     
     logger.info() << "Best chain gets score " << score_and_chain.first << std::endl;
     

@@ -197,9 +197,12 @@ class ZipCode {
 
         //Both regular and irregular snarls have these
 
-        // This will be 0 for irregular snarls, 1 for regular, and 2 for non-dag irregular snarls
-        // cyclic snarls will be identical to irregular snarls except for SNARL_IS_REGULAR
-        const static size_t SNARL_IS_REGULAR_OFFSET = 0; 
+        // Ones bit: 0 for irregular snarls, 1 for regular
+        // Twos bit: 0 for non-cyclic snarls, 1 for cyclic snarls
+        // cyclic snarls are identical to irregular snarls except for this bit
+        // Fours bit: 1 for a forward loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        // Eights bit: 1 for a reverse loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        const static size_t SNARL_METADATA_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
         const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
@@ -222,9 +225,11 @@ class ZipCode {
         const static size_t NODE_SIZE = 4;
         const static size_t NODE_OFFSET_OFFSET = 0;
         const static size_t NODE_LENGTH_OFFSET = 1;
-        const static size_t NODE_IS_REVERSED_OFFSET = 2;
+        // Ones bit is 0 for normal, 1 for reversed
+        // Twos bit is 1 for a forward loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        // Fours bit is 1 for a reverse loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
+        const static size_t NODE_METADATA_OFFSET = 2;
         const static size_t NODE_CHAIN_COMPONENT_OFFSET = 3;
-
 
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
@@ -242,6 +247,10 @@ class ZipCode {
 
     public:
 
+        /// Minimum distance for flipping a flag that indicates a node/snarl
+        /// loops back on itself (SNARL_METADATA_OFFSET, NODE_METADATA_OFFSET)
+        const static size_t LOOP_DISTANCE_STORAGE_THRESHOLD = 20000;
+
         /* Functions to get the values out of the zipcode for one code
            The decoded code might not have all the values set*/
 
@@ -253,6 +262,12 @@ class ZipCode {
         chain_code_t unpack_chain_code(size_t zipcode_level) const;
         //Return a vector of size_ts that will represent the snarl in the zip code
         snarl_code_t unpack_snarl_code(size_t zipcode_level) const;
+
+        /// Check for a particular bit being set
+        /// Used for the bitpacked SNARL/NODE_METADATA_OFFSET values
+        inline bool bit_is_set(size_t value, size_t bit_position) const {
+            return (value & (1 << bit_position)) != 0;
+        }
 
 
     //////////////////////////////// Stuff for decoding the zipcode
@@ -326,6 +341,9 @@ class ZipCode {
 
         ///Is the snarl tree node backwards relative to its parent
         bool get_is_reversed_in_parent(const size_t& depth) const;
+        ///Does the snarl tree node have forward/backward loops
+        bool get_has_forward_loop(const size_t& depth) const;
+        bool get_has_reverse_loop(const size_t& depth) const;
 
         ///Get the handle of the thing at the given depth. This can only be used for
         ///Root-level structures or irregular snarls
@@ -427,6 +445,8 @@ struct ZipCode::node_code_t {
     size_t chain_component : 32;
     size_t length : 31;
     bool is_reversed;
+    bool has_forward_loop;
+    bool has_reverse_loop;
 
     public:
 
@@ -435,24 +455,32 @@ struct ZipCode::node_code_t {
     size_t get_raw_chain_component() {return chain_component;}
     size_t get_raw_length() {return length;}
     bool get_raw_is_reversed() {return is_reversed;}
+    bool get_raw_has_forward_loop() {return has_forward_loop;}
+    bool get_raw_has_reverse_loop() {return has_reverse_loop;}
 
     ///// Raw setters
     void set_raw_prefix_sum_or_identifier(size_t val) {prefix_sum_or_identifier = val;}
     void set_raw_chain_component(size_t val) {chain_component = val;}
     void set_raw_length(size_t val) {length = val;}
     void set_raw_is_reversed(bool val) {is_reversed = val;}
+    void set_raw_has_forward_loop(bool val) {has_forward_loop = val;}
+    void set_raw_has_reverse_loop(bool val) {has_reverse_loop = val;}
 
     //// Real value setters
     size_t get_prefix_sum_or_identifier() {return prefix_sum_or_identifier == 0 ? numeric_limits<size_t>::max() : prefix_sum_or_identifier-1;}
     size_t get_chain_component() {return chain_component;}
     size_t get_length() {return length-1;}
     bool get_is_reversed() {return is_reversed;}
+    bool get_has_forward_loop() {return has_forward_loop;}
+    bool get_has_reverse_loop() {return has_reverse_loop;}
 
     ////Real value getters
     void set_prefix_sum_or_identifier(size_t val) {prefix_sum_or_identifier = val == std::numeric_limits<size_t>::max() ? 0 : val+1;}
     void set_chain_component(size_t val) {chain_component = val == std::numeric_limits<size_t>::max() ? 0 : val;}
     void set_length(size_t val) {length = val+1;}
     void set_is_reversed(bool val) {is_reversed = val;}
+    void set_has_forward_loop(bool val) {has_forward_loop = val;}
+    void set_has_reverse_loop(bool val) {has_reverse_loop = val;}
 }; 
 
 /**
@@ -542,6 +570,8 @@ struct ZipCode::snarl_code_t {
         size_t code_type : 4;
 
         bool is_reversed;
+        bool has_forward_loop;
+        bool has_reverse_loop;
 
     public:
         //We use getters and setters to deal with things that are max() but stored as 0
@@ -558,6 +588,8 @@ struct ZipCode::snarl_code_t {
         size_t get_raw_chain_component() {return chain_component;}
         size_t get_raw_code_type() {return code_type;}
         bool get_raw_is_reversed() {return is_reversed;}
+        bool get_raw_has_forward_loop() {return has_forward_loop;}
+        bool get_raw_has_reverse_loop() {return has_reverse_loop;}
 
         void set_raw_length(size_t val) {length = val;}
         void set_raw_prefix_sum_or_identifier (size_t val) {prefix_sum_or_identifier = val;}
@@ -570,8 +602,8 @@ struct ZipCode::snarl_code_t {
         void set_raw_chain_component(size_t val) {chain_component = val;}
         void set_raw_code_type(size_t val) {code_type = val;}
         void set_raw_is_reversed(bool val) {is_reversed = val;}
-
-
+        void set_raw_has_forward_loop(bool val) {has_forward_loop = val;}
+        void set_raw_has_reverse_loop(bool val) {has_reverse_loop = val;}
 
         //// Getters
         size_t get_length() {
@@ -605,6 +637,8 @@ struct ZipCode::snarl_code_t {
         size_t get_code_type() {return code_type;}
 
         bool get_is_reversed() {return is_reversed;}
+        bool get_has_forward_loop() {return has_forward_loop;}
+        bool get_has_reverse_loop() {return has_reverse_loop;}
 
         //////// Setters
         void set_length(size_t val) {
@@ -647,6 +681,13 @@ struct ZipCode::snarl_code_t {
             is_reversed = val;
         }
 
+        void set_has_forward_loop(bool val) {
+            has_forward_loop = val;
+        }
+        
+        void set_has_reverse_loop(bool val) {
+            has_reverse_loop = val;
+        }
 };
 
 
