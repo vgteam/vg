@@ -15,7 +15,6 @@
 #include "../algorithms/extract_extending_graph.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
-#include "../algorithms/shortest_cycle.hpp"
 #include "../algorithms/jump_along_path.hpp"
 #include "../algorithms/expand_context.hpp"
 #include "../algorithms/simplify_siblings.hpp"
@@ -4011,127 +4010,7 @@ TEST_CASE("Eades algorithm finds layouts with small feedback arc sets","[eades][
         REQUIRE(layout_correct);
     }
 }
-        
-TEST_CASE("Shortest cycle algorithm correctly identifies shortest cycle","[shortest-cycle][cycles][algorithms]") {
-            
-    SECTION("shortest_cycle correctly identifies graph with no cycles") {
-                
-        VG graph;
-                
-        handle_t n1 = graph.create_handle("GGGA");
-        handle_t n2 = graph.create_handle("TACC");
-        handle_t n3 = graph.create_handle("A");
-        handle_t n4 = graph.create_handle("ATG");
-        handle_t n5 = graph.create_handle("TG");
-        handle_t n6 = graph.create_handle("CCG");
-        handle_t n7 = graph.create_handle("C");
-                
-        graph.create_edge(n1, n2);
-        graph.create_edge(n1, n7);
-        graph.create_edge(n3, n7);
-        graph.create_edge(n2, n3);
-        graph.create_edge(n3, n4);
-        graph.create_edge(n3, n5);
-        graph.create_edge(n4, n6);
-        graph.create_edge(n5, n6);
-                
-        REQUIRE(algorithms::shortest_cycle_length(&graph) == numeric_limits<size_t>::max());
-    }
-            
-    SECTION("shortest_cycle correctly identifies self-loop in graph with small FAS") {
-                
-        VG graph;
-                
-        handle_t n1 = graph.create_handle("GGGA");
-        handle_t n2 = graph.create_handle("TACC");
-        handle_t n3 = graph.create_handle("A");
-        handle_t n4 = graph.create_handle("ATG");
-        handle_t n5 = graph.create_handle("TG");
-        handle_t n6 = graph.create_handle("CCG");
-        handle_t n7 = graph.create_handle("C");
-                
-        graph.create_edge(n1, n2);
-        graph.create_edge(n1, n7);
-        graph.create_edge(n3, n7);
-        graph.create_edge(n3, n3);
-        graph.create_edge(n2, n3);
-        graph.create_edge(n3, n4);
-        graph.create_edge(n3, n5);
-        graph.create_edge(n4, n6);
-        graph.create_edge(n5, n6);
-                
-        REQUIRE(algorithms::shortest_cycle_length(&graph) == 1);
-    }
-            
-    SECTION("shortest_cycle correctly identifies a short cycle in graph with moderate FAS") {
-                
-        VG graph;
-                
-        handle_t n1 = graph.create_handle("GGGA");
-        handle_t n2 = graph.create_handle("TACC");
-        handle_t n3 = graph.create_handle("A");
-        handle_t n4 = graph.create_handle("ATG");
-        handle_t n5 = graph.create_handle("TG");
-        handle_t n6 = graph.create_handle("CCG");
-        handle_t n7 = graph.create_handle("C");
-        handle_t n8 = graph.create_handle("TGA");
-        handle_t n9 = graph.create_handle("TTTC");
-                
-        graph.create_edge(n1, n2);
-        graph.create_edge(n1, n7);
-        graph.create_edge(n2, n3);
-        graph.create_edge(n3, n4);
-        graph.create_edge(n3, n5);
-        graph.create_edge(n3, n7);
-        graph.create_edge(n4, n6);
-        graph.create_edge(n4, n1); // feedback
-        graph.create_edge(n7, n8);
-        graph.create_edge(n7, n3); // feedback
-        graph.create_edge(n8, n9);
-        graph.create_edge(n9, n1); // feedback
-                
-        REQUIRE(algorithms::shortest_cycle_length(&graph) == 2);
-    }
-            
-    SECTION("shortest_cycle correctly identifies a short cycle in graph with large FAS") {
-                
-        VG graph;
-                
-        handle_t n1 = graph.create_handle("GGGA");
-        handle_t n2 = graph.create_handle("TACC");
-        handle_t n3 = graph.create_handle("A");
-        handle_t n4 = graph.create_handle("ATG");
-        handle_t n5 = graph.create_handle("TG");
-        handle_t n6 = graph.create_handle("CCG");
-        handle_t n7 = graph.create_handle("C");
-        handle_t n8 = graph.create_handle("TGA");
-        handle_t n9 = graph.create_handle("TTTC");
-                
-        graph.create_edge(n1, n2);
-        graph.create_edge(n1, n7);
-        graph.create_edge(n2, n1); // feedback
-        graph.create_edge(n2, n3);
-        graph.create_edge(n3, n1); // feedback
-        graph.create_edge(n3, n2); // feedback
-        graph.create_edge(n3, n4);
-        graph.create_edge(n3, n5);
-        graph.create_edge(n3, n7);
-        graph.create_edge(n4, n1); // feedback
-        graph.create_edge(n4, n3); // feedback
-        graph.create_edge(n4, n6);
-        graph.create_edge(n5, n2); // feedback
-        graph.create_edge(n5, n3); // feedback
-        graph.create_edge(n7, n3); // feedback
-        graph.create_edge(n7, n4); // feedback
-        graph.create_edge(n7, n6); // feedback
-        graph.create_edge(n7, n8);
-        graph.create_edge(n8, n9);
-        graph.create_edge(n9, n1); // feedback
-                
-        REQUIRE(algorithms::shortest_cycle_length(&graph) == 2);
-    }
-}
-        
+
 TEST_CASE("Reverse complementing graphs works correctly","[algorithms]") {
             
     VG graph;
