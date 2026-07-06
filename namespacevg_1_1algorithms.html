@@ -128,9 +128,6 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplParams" colspan="2">template&lt;class DistHeuristic &gt; </td></tr>
-<tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7">a_star</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos_1, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos_2, const DistHeuristic &amp;dist_heuristic, bool find_min=true, int64_t extremal_distance=numeric_limits&lt; int64_t &gt;::max(), bool monotonic_heuristic=true)</td></tr>
-<tr class="separator:a5af5b6f1083925669832ae59d0e549e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aead0aa069554bbc1a3fcce05ca4d1127"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aead0aa069554bbc1a3fcce05ca4d1127">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, int64_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
 <tr class="separator:aead0aa069554bbc1a3fcce05ca4d1127"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0cecedaa8dd475e634b513af5be028b"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad0cecedaa8dd475e634b513af5be028b">multipath_alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
@@ -370,17 +367,6 @@ Functions</h2></td></tr>
 <tr class="separator:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a175ee345e226732cb1c37da13a2f045e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a175ee345e226732cb1c37da13a2f045e">sample_minimal</a> (size_t count, size_t element_length, size_t window_size, size_t sequence_length, const std::function&lt; size_t(size_t)&gt; &amp;get_start, const std::function&lt; bool(size_t, size_t)&gt; &amp;should_beat, const std::function&lt; void(size_t)&gt; &amp;sample)</td></tr>
 <tr class="separator:a175ee345e226732cb1c37da13a2f045e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af51e5eafc2c18f33dd6a120c753247a3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af51e5eafc2c18f33dd6a120c753247a3">bellman_ford_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;layout, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;handle_index, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;feedback_edges)</td></tr>
-<tr class="separator:af51e5eafc2c18f33dd6a120c753247a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a40d6162a9f0dba28306c836d07d7d6e3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a40d6162a9f0dba28306c836d07d7d6e3">dijkstra_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source)</td></tr>
-<tr class="memdesc:a40d6162a9f0dba28306c836d07d7d6e3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Simple Dijkstra implementation that computes shortest cycle.  <a href="namespacevg_1_1algorithms.html#a40d6162a9f0dba28306c836d07d7d6e3">More...</a><br /></td></tr>
-<tr class="separator:a40d6162a9f0dba28306c836d07d7d6e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa87ca8c58307fdb47d448deb2ec43389"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa87ca8c58307fdb47d448deb2ec43389">shortest_cycle_length_internal</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;layout, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;handle_index, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;feedback_edges)</td></tr>
-<tr class="separator:aa87ca8c58307fdb47d448deb2ec43389"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acfe6f985e8bedbad1b33861c62379772"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#acfe6f985e8bedbad1b33861c62379772">shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source)</td></tr>
-<tr class="separator:acfe6f985e8bedbad1b33861c62379772"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a012fced2754c445ec404ff5420018982"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a012fced2754c445ec404ff5420018982">shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
-<tr class="separator:a012fced2754c445ec404ff5420018982"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e4cebdfc1e901db4588c4612653df96"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9e4cebdfc1e901db4588c4612653df96">simplify_siblings</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
 <tr class="separator:a9e4cebdfc1e901db4588c4612653df96"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab94713d614172af602155e6d44e0ede2"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab94713d614172af602155e6d44e0ede2">sorted_id_ranges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -415,13 +401,6 @@ Functions</h2></td></tr>
 <tr class="separator:a6347e00229560b4adb7cc7cb6332b21a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4d4b7c6814fb1f53a83c2e8355d72efa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4d4b7c6814fb1f53a83c2e8355d72efa">three_edge_connected_component_merges_dense</a> (size_t node_count, size_t first_root, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(size_t, size_t)&gt; &amp;same_component)</td></tr>
 <tr class="separator:a4d4b7c6814fb1f53a83c2e8355d72efa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a34c4a74208a88c0f956e697d5e183f5c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a34c4a74208a88c0f956e697d5e183f5c">three_edge_connected_components_dense</a> (size_t node_count, size_t first_root, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;component_callback)</td></tr>
-<tr class="separator:a34c4a74208a88c0f956e697d5e183f5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57de725b70b138394479863428f9d2eb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a57de725b70b138394479863428f9d2eb">three_edge_connected_components_dense_cactus</a> (size_t node_count, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;component_callback)</td></tr>
-<tr class="separator:a57de725b70b138394479863428f9d2eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae4677e69f0b8ceb8580bc019cc8fbea8"><td class="memTemplParams" colspan="2">template&lt;typename TECCNode &gt; </td></tr>
-<tr class="memitem:ae4677e69f0b8ceb8580bc019cc8fbea8"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae4677e69f0b8ceb8580bc019cc8fbea8">three_edge_connected_components</a> (const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_node, const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;)&gt; &amp;component_callback)</td></tr>
-<tr class="separator:ae4677e69f0b8ceb8580bc019cc8fbea8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memTemplParams" colspan="2">template&lt;typename TECCNode &gt; </td></tr>
 <tr class="memitem:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a7215192f2cc6536b6b3aadef4e95c64a">three_edge_connected_component_merges</a> (const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_node, const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(TECCNode, TECCNode)&gt; &amp;same_component)</td></tr>
 <tr class="separator:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -523,67 +502,6 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="a5af5b6f1083925669832ae59d0e549e7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5af5b6f1083925669832ae59d0e549e7">&#9670;&nbsp;</a></span>a_star()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;class DistHeuristic &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; vg::algorithms::a_star </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>pos_1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>pos_2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const DistHeuristic &amp;&#160;</td>
-          <td class="paramname"><em>dist_heuristic</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>find_min</em> = <code>true</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>extremal_distance</em> = <code>numeric_limits&lt;int64_t&gt;::max()</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>monotonic_heuristic</em> = <code>true</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Implements the A* heuristic-guided search algorithm. Returns the path from pos_1 to pos_2 that is either minimal or maximal length, according to the parameters. Allows an extremal distance beyond which the algorithm will cease looking for paths (this should be a large value when looking for minimal paths and a small value when looking for maximum paths). If there is no path between the positions, or none within the extremal length, an empty vector will be returned. </p>
-
-</div>
-</div>
 <a id="a6347e00229560b4adb7cc7cb6332b21a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6347e00229560b4adb7cc7cb6332b21a">&#9670;&nbsp;</a></span>add_connecting_edges_to_subgraph()</h2>
 
@@ -1084,53 +1002,6 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Translate the given <a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl.">Visit</a> in place from node ID space to named segment space. </p>
-
-</div>
-</div>
-<a id="af51e5eafc2c18f33dd6a120c753247a3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af51e5eafc2c18f33dd6a120c753247a3">&#9670;&nbsp;</a></span>bellman_ford_shortest_cycle_length()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::algorithms::bellman_ford_shortest_cycle_length </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>source</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>layout</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>handle_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>feedback_edges</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>An implementation of Bellman-Ford with Yen's ordering improvement applied to a layout ideally has a small feedback arc set </p>
 
 </div>
 </div>
@@ -1745,36 +1616,6 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a40d6162a9f0dba28306c836d07d7d6e3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a40d6162a9f0dba28306c836d07d7d6e3">&#9670;&nbsp;</a></span>dijkstra_shortest_cycle_length()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::algorithms::dijkstra_shortest_cycle_length </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>source</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Simple Dijkstra implementation that computes shortest cycle. </p>
 
 </div>
 </div>
@@ -5171,100 +5012,6 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
 
 </div>
 </div>
-<a id="a012fced2754c445ec404ff5420018982"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a012fced2754c445ec404ff5420018982">&#9670;&nbsp;</a></span>shortest_cycle_length() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::algorithms::shortest_cycle_length </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Returns the length of the shortest cycle in the entire graph, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;size_t&gt;::max()</a> if no cycle exists. </p>
-
-</div>
-</div>
-<a id="acfe6f985e8bedbad1b33861c62379772"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acfe6f985e8bedbad1b33861c62379772">&#9670;&nbsp;</a></span>shortest_cycle_length() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::algorithms::shortest_cycle_length </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>source</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Returns the length of the shortest cycle containing the source node, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;size_t&gt;::max()</a> if no cycle exists. </p>
-
-</div>
-</div>
-<a id="aa87ca8c58307fdb47d448deb2ec43389"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa87ca8c58307fdb47d448deb2ec43389">&#9670;&nbsp;</a></span>shortest_cycle_length_internal()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::algorithms::shortest_cycle_length_internal </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>source</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>layout</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>handle_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>feedback_edges</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a9ddb73ef3cf5a8891aa82001f272c3c4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9ddb73ef3cf5a8891aa82001f272c3c4">&#9670;&nbsp;</a></span>simple_offsets_in_paths()</h2>
 
@@ -5432,7 +5179,7 @@ template&lt;typename TECCNode &gt; </div>
 <p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are arbitrary value types (which may need to be hashable).</p>
 <p>Takes a function that loops an iteratee over all nodes, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
 <p>Calls same_component with pairs of nodes in (at least) a spanning tree of the set of nodes in each component (not restricted to the input graph). Doing merge operations on a union-find can get you the set of components. The callback MUST NOT modify the graph!</p>
-<p>If you have a graph where you can easily rank the nodes, don't use this. Use <a class="el" href="namespacevg_1_1algorithms.html#a34c4a74208a88c0f956e697d5e183f5c">three_edge_connected_components_dense()</a> instead. The first thing this function does is asign nodes a dense, 0-based rank space. <br  />
+<p>If you have a graph where you can easily rank the nodes, don't use this. Use three_edge_connected_components_dense() instead. The first thing this function does is asign nodes a dense, 0-based rank space. <br  />
  </p>
 
 </div>
@@ -5489,128 +5236,6 @@ template&lt;typename TECCNode &gt; </div>
 <p>Track all the neighbors left to visit. When we visit a neighbor we pop it off the back.</p>
 <p>When we look at the neighbors, we need to be able to tell the tree edge to the parent from further back edges to the parent. So we have a flag for whether we have seen the parent tree edge already, and the first neighbors entry that is our parent will get called the tree edge.</p>
 <p>Track whether we made a recursive DFS call into the last neighbor or not. If we did, we need to do some work when we come out of it and return to this frame.</p>
-
-</div>
-</div>
-<a id="ae4677e69f0b8ceb8580bc019cc8fbea8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae4677e69f0b8ceb8580bc019cc8fbea8">&#9670;&nbsp;</a></span>three_edge_connected_components()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename TECCNode &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::three_edge_connected_components </td>
-          <td>(</td>
-          <td class="paramtype">const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>for_each_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>for_each_connected_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>component_callback</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are arbitrary value types (which may need to be hashable).</p>
-<p>Takes a function that loops an iteratee over all nodes, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
-<p>For each component identified, calls the given callback with a function that iterates over all nodes in the component.</p>
-<p>If you have a graph where you can easily rank the nodes, don't use this. Use <a class="el" href="namespacevg_1_1algorithms.html#a34c4a74208a88c0f956e697d5e183f5c">three_edge_connected_components_dense()</a> instead. The first thing this function does is asign nodes a dense, 0-based rank space. <br  />
- </p>
-
-</div>
-</div>
-<a id="a34c4a74208a88c0f956e697d5e183f5c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a34c4a74208a88c0f956e697d5e183f5c">&#9670;&nbsp;</a></span>three_edge_connected_components_dense()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::three_edge_connected_components_dense </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>node_count</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>first_root</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>for_each_connected_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>component_callback</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are dense positive integers starting with 0.</p>
-<p>Takes a total node count, a suggested root (or 0), and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
-<p>For each component identified, calls the given callback with a function that iterates over all nodes in the component. </p>
-
-</div>
-</div>
-<a id="a57de725b70b138394479863428f9d2eb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a57de725b70b138394479863428f9d2eb">&#9670;&nbsp;</a></span>three_edge_connected_components_dense_cactus()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::three_edge_connected_components_dense_cactus </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>node_count</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>for_each_connected_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>component_callback</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are dense positive integers starting with 0.</p>
-<p>Wraps the known good the 3 edge connected components algorithm from the pinchesAndCacti library.</p>
-<p>Takes a total node count, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
-<p>For each component identified, calls the given callback with a function that iterates over all nodes in the component. </p>
 
 </div>
 </div>

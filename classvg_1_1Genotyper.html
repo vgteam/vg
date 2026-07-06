@@ -84,12 +84,6 @@ $(function() {
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Genotyper_1_1Affinity.html">Affinity</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Genotyper_1_1hash__ambiguous__allele__set.html">hash_ambiguous_allele_set</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Genotyper_1_1hash__node__traversal.html">hash_node_traversal</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Genotyper_1_1hash__oriented__edge.html">hash_oriented_edge</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
@@ -140,10 +134,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aadb967b3ab9daa067f8451c29fda0a5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab11a87f5f21d3a7122ec85f6d853f336"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Genotyper.html#ab11a87f5f21d3a7122ec85f6d853f336">make_subset_graph</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const string &amp;ref_path_name, map&lt; string, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> * &gt; &amp;reads_by_name)</td></tr>
 <tr class="separator:ab11a87f5f21d3a7122ec85f6d853f336"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae52b974044843aed34fc31152ccda77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Genotyper.html#aae52b974044843aed34fc31152ccda77">edge_allele_labels</a> (const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const vector&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;superbubble_paths, unordered_map&lt; pair&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>, <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;, unordered_set&lt; size_t &gt;, <a class="el" href="structvg_1_1Genotyper_1_1hash__oriented__edge.html">hash_oriented_edge</a> &gt; *out_edge_allele_sets)</td></tr>
-<tr class="separator:aae52b974044843aed34fc31152ccda77"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa46523cd1493686b28210136d9baf713"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Genotyper.html#aa46523cd1493686b28210136d9baf713">allele_ambiguity_log_probs</a> (const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const vector&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;superbubble_paths, const unordered_map&lt; pair&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>, <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;, unordered_set&lt; size_t &gt;, <a class="el" href="structvg_1_1Genotyper_1_1hash__oriented__edge.html">hash_oriented_edge</a> &gt; &amp;edge_allele_sets, vector&lt; unordered_map&lt; vector&lt; size_t &gt;, double, <a class="el" href="structvg_1_1Genotyper_1_1hash__ambiguous__allele__set.html">hash_ambiguous_allele_set</a> &gt;&gt; *out_allele_ambiguity_probs)</td></tr>
-<tr class="separator:aa46523cd1493686b28210136d9baf713"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -263,92 +253,6 @@ Public Attributes</h2></td></tr>
 <p>Given an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> and a <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>, compute a phred score for the quality of the alignment's bases within the snarl overall (not counting the start and end nodes), which is supposed to be interpretable as the probability that the call of the sequence is wrong (to the degree that it would no longer support the alleles it appears to support).</p>
 <p>In practice we're just going to average the quality scores for all the bases interior to the snarl (i.e. not counting the start and end nodes).</p>
 <p>If the alignment doesn't have base qualities, or no qualities are available for bases internal to the snarl, returns a default value. </p>
-
-</div>
-</div>
-<a id="aa46523cd1493686b28210136d9baf713"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa46523cd1493686b28210136d9baf713">&#9670;&nbsp;</a></span>allele_ambiguity_log_probs()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::Genotyper::allele_ambiguity_log_probs </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
-          <td class="paramname"><em>snarl</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>superbubble_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const unordered_map&lt; pair&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>, <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;, unordered_set&lt; size_t &gt;, <a class="el" href="structvg_1_1Genotyper_1_1hash__oriented__edge.html">hash_oriented_edge</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_allele_sets</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; unordered_map&lt; vector&lt; size_t &gt;, double, <a class="el" href="structvg_1_1Genotyper_1_1hash__ambiguous__allele__set.html">hash_ambiguous_allele_set</a> &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>out_allele_ambiguity_probs</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aae52b974044843aed34fc31152ccda77"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aae52b974044843aed34fc31152ccda77">&#9670;&nbsp;</a></span>edge_allele_labels()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::Genotyper::edge_allele_labels </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
-          <td class="paramname"><em>snarl</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>superbubble_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>, <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;, unordered_set&lt; size_t &gt;, <a class="el" href="structvg_1_1Genotyper_1_1hash__oriented__edge.html">hash_oriented_edge</a> &gt; *&#160;</td>
-          <td class="paramname"><em>out_edge_allele_sets</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
