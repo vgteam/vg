@@ -540,7 +540,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 // This looks like an actually different loop
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
                     ZipCodeTree::LOOP, new_loop_value, true);
-                // Update memory
+                // Update reverse loop hints
                 cur_chain.last_reverse_loop_index = trees[forest_state.active_tree_index].get_tree_size() - 1;
                 cur_chain.dist_since_reverse_loop = 0;  
             }
@@ -645,7 +645,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             // Perform removal
             trees[forest_state.active_tree_index].zip_code_tree.erase(
                 trees[forest_state.active_tree_index].zip_code_tree.begin() + cur_chain.last_forward_loop_index);
-            // Update memory of indexes for things that got shifted
+            // Update loop hints for things that got shifted
 
             // Last reverse loop
             if (cur_chain.has_reverse_loop()
@@ -672,7 +672,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #endif
         trees[forest_state.active_tree_index].zip_code_tree.back().set_forward_loop_length(new_loop_value);
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::LOOP, new_loop_value, false);
-        // Update memory
+        // Update forward loop hint
         cur_chain.last_forward_loop_index = trees[forest_state.active_tree_index].get_tree_size() - 1;
         cur_chain.dist_since_forward_loop = 0;  
     }
@@ -907,7 +907,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
         if (move_forward_loop) {
             // Also move the loop itself
             active_zip_tree.emplace_back(forward_loop);
-            // Update index of loop in memory
+            // Update index for loop hint
             active_chain.last_forward_loop_index = active_zip_tree.size() - 1;
         }
 
