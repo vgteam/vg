@@ -20,6 +20,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                                                    int64_t max_len,
                                                    pos_t pos_1, pos_t pos_2,
                                                    bool strict_max_len,
+                                                   bool preserve_cycles_on_src_nodes,
                                                    nid_t* new_start_id,
                                                    nid_t* new_end_id) {
 #ifdef debug_vg_algorithms
@@ -289,7 +290,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     switch (colocation) {
         case SeparateNodes:
         {
-            if (seen_pos_1_both_ways) {
+            if (seen_pos_1_both_ways && preserve_cycles_on_src_nodes) {
                 // make a new node which will preserve edges on right
                 handle_t dup_node = duplicate_node(into_handle_1, false, true);
                 cut_handle_1 = into->truncate_handle(dup_node, true, offset(pos_1));
@@ -301,7 +302,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
             id_trans[into->get_id(cut_handle_1)] = id(pos_1);
             
             // repeat for the second position
-            if (seen_pos_2_both_ways) {
+            if (seen_pos_2_both_ways && preserve_cycles_on_src_nodes) {
                 // make a new node which will preserve edges on left
                 handle_t dup_node = duplicate_node(into_handle_2, true, false);
                 cut_handle_2 = into->truncate_handle(dup_node, false, offset(pos_2));

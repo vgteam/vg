@@ -20,9 +20,10 @@ namespace algorithms {
     /// Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes
     /// that contain the two positions will be 'cut' at the position and will be tips in the returned graph. The
     /// algorithm guarantees that 'into' contains all walks between pos_1 and pos_2 under the maximum length
-    /// except walks that include a cycle involving either position. If no walk between the two positions under
-    /// the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when
-    /// passed to function.
+    /// except walks that include a cycle involving either position (unless preserve_cycles_on_src_node is set,
+    /// in which case the cycle is kept and the node is duplicated as needed).
+    /// If no walk between the two positions under the maximum length exists, 'into' will be left empty.
+    /// An error is thrown if 'into' is not empty when passed to function.
     ///
     /// If pos_1 and pos_2 face each other on the same node, the intervening
     /// portion of the node is produced in into. If they are on the same node
@@ -37,13 +38,15 @@ namespace algorithms {
     /// may be tips.
     ///
     /// Args:
-    ///  source                     graph to extract subgraph from
-    ///  into                       graph to extract into
-    ///  max_len                    guarantee finding walks along which pos_1 and pos_2 are this distance apart
-    ///  pos_1                      start position, subgraph walks begin from here in same orientation
-    ///  pos_2                      end position, subgraph walks end here in the same orientation
-    ///  strict_max_len             only extract nodes and edges if they fall on some walk between pos_1 and pos_2
-    ///                             that is under the maximum length (implies only_walks = true)
+    ///  source                        graph to extract subgraph from
+    ///  into                          graph to extract into
+    ///  max_len                       guarantee finding walks along which pos_1 and pos_2 are this distance apart
+    ///  pos_1                         start position, subgraph walks begin from here in same orientation
+    ///  pos_2                         end position, subgraph walks end here in the same orientation
+    ///  strict_max_len                only extract nodes and edges if they fall on some walk between pos_1 and pos_2
+    ///                                that is under the maximum length (implies only_walks = true)
+    ///  preserve_cycles_on_src_nodes  whether to allow walks that cycle through source nodes
+    ///                                by duplicating as necessary
     ///
     /// Returns: a map from node ids in the extracted graph to the node ids in
     /// the original graph. The map and the graph will have the same number of
@@ -56,6 +59,7 @@ namespace algorithms {
                                                        int64_t max_len,
                                                        pos_t pos_1, pos_t pos_2,
                                                        bool strict_max_len = false,
+                                                       bool preserve_cycles_on_src_nodes = false,
                                                        nid_t* new_start_id = nullptr,
                                                        nid_t* new_end_id = nullptr);
 

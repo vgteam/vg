@@ -791,19 +791,37 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possible
             
     pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
     pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
-                
-    bdsg::HashGraph extractor;
-    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
 
-    // Collect all the node IDs we kept
-    std::unordered_set<id_t> retained_node_ids;
-    for (auto& kv : trans) {
-        retained_node_ids.insert(kv.second);
+    SECTION("Allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, true);
+
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // We will be able to double back by making a copy of the left node
+        REQUIRE(retained_node_ids.size() == 3);
+        REQUIRE(extractor.get_node_count() == 4);
     }
+    SECTION("Not allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, false);
 
-    // We will be able to double back by making a copy of the left node
-    REQUIRE(retained_node_ids.size() == 3);
-    REQUIRE(extractor.get_node_count() == 4);
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // If we can't duplicate any nodes, there's no way to get a graph that has
+        // the connection path and also cut the nodes/keep them as tips. So we
+        // expect an empty graph.
+        REQUIRE(retained_node_ids.empty());
+        REQUIRE(extractor.get_node_count() == 0);
+    }
 }
 
 TEST_CASE( "Connecting graph extraction works when a connection is only possible by doubling back through the right node",
@@ -821,19 +839,37 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possible
             
     pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
     pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
-                
-    bdsg::HashGraph extractor;
-    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+    
+    SECTION("Allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, true);
 
-    // Collect all the node IDs we kept
-    std::unordered_set<id_t> retained_node_ids;
-    for (auto& kv : trans) {
-        retained_node_ids.insert(kv.second);
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // We will be able to double back by making a copy of the right node
+        REQUIRE(retained_node_ids.size() == 3);
+        REQUIRE(extractor.get_node_count() == 4);
     }
+    SECTION("Not allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, false);
 
-    // We will be able to double back by making a copy of the right node
-    REQUIRE(retained_node_ids.size() == 3);
-    REQUIRE(extractor.get_node_count() == 4);
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // If we can't duplicate any nodes, there's no way to get a graph that has
+        // the connection path and also cut the nodes/keep them as tips. So we
+        // expect an empty graph.
+        REQUIRE(retained_node_ids.empty());
+        REQUIRE(extractor.get_node_count() == 0);
+    }
 }
 
 TEST_CASE( "Connecting graph extraction works when you can turn around on the right and come back to the same node to get a path",

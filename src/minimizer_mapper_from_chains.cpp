@@ -3414,6 +3414,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             max_path_length,
             left_anchor, right_anchor,
             true, // Only extract stuff on within-distance walks
+            true, // Allow loops/cycles just in case we need them
             &local_left_anchor_id,
             &local_right_anchor_id
         );
