@@ -211,15 +211,19 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
         auto& tree_num = chain_source_tree.at(chain_num);
 
         // Find all the seeds in its zip tree
-        vector<algorithms::TracedItem> involved_seeds;
+        vector<size_t> involved_seeds;
         for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
             involved_seeds.emplace_back(found.seed);
         }
 
         // Start making a list of things to show.
-        std::vector<std::pair<std::string, std::vector<std::vector<algorithms::TracedItem>>>> seed_sets;
-        seed_sets.emplace_back("", std::vector<std::vector<algorithms::TracedItem>>{std::move(involved_seeds)});
-        seed_sets.emplace_back("chain", std::vector<std::vector<algorithms::TracedItem>>{chains.at(chain_num)});
+        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
+        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
+        std::vector<size_t> chain_plain_seeds(chains.at(chain_num).size());
+        for (const auto& chain_item : chains.at(chain_num)) {
+            chain_plain_seeds.emplace_back(chain_item.index);
+        }
+        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chain_plain_seeds});
 
         // Sort everything in read order
         for (auto& seed_set : seed_sets) {
@@ -251,28 +255,28 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
             wanted_senses.insert(PathSense::HAPLOTYPE);
         }
         for (auto& kv : seed_sets) {
-            for (const std::vector<algorithms::TracedItem> included_seeds : kv.second) {
+            for (const std::vector<size_t> included_seeds : kv.second) {
                 for (auto& seed_num : included_seeds) {
                     // For each seed in the run
-                    auto& seed = seeds.at(seed_num.index);
+                    auto& seed = seeds.at(seed_num);
 
-                    auto found = seed_positions.find(seed_num.index);
+                    auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
                         // If we don't know the seed's positions yet, get them
-                        found = seed_positions.emplace_hint(found, seed_num.index, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
+                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
                         for (auto& handle_and_positions : found->second) {
                             std::string path_name = path_graph->get_path_name(handle_and_positions.first);
                             for (auto& position : handle_and_positions.second) {
                                 // Dump all the seed positions so we can select seeds we want to know about.
                                 // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
                                 seedpos.line();
-                                seedpos.field(seed_anchors.at(seed_num.index).read_start());
+                                seedpos.field(seed_anchors.at(seed_num).read_start());
                                 seedpos.field(path_name);
                                 seedpos.field(position.first);
                                 seedpos.field(position.second ? "-" : "+");
-                                seedpos.field(seed_num.index);
+                                seedpos.field(seed_num);
                                 std::stringstream ss;
-                                ss << seed_anchors.at(seed_num.index);
+                                ss << seed_anchors.at(seed_num);
                                 seedpos.field(ss.str());
                             }
                         }
@@ -280,13 +284,13 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                             // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
                             // Report it.
                             seedpos.line();
-                            seedpos.field(seed_anchors.at(seed_num.index).read_start());
+                            seedpos.field(seed_anchors.at(seed_num).read_start());
                             seedpos.field("");
                             seedpos.field("");
                             seedpos.field("");
-                            seedpos.field(seed_num.index);
+                            seedpos.field(seed_num);
                             std::stringstream ss;
-                            ss << seed_anchors.at(seed_num.index);
+                            ss << seed_anchors.at(seed_num);
                             seedpos.field(ss.str());
                         }
                     }
@@ -299,10 +303,10 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
             const std::string& marker = kv.first;
             for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
                 // For each run of seeds in it
-                const std::vector<algorithms::TracedItem>& included_seeds = kv.second[run_number];
+                const std::vector<size_t>& included_seeds = kv.second[run_number];
                 for (size_t idx = 0; idx < included_seeds.size(); ++idx) {
                     // For each seed in the run (index-based so we can consult chain flags)
-                    size_t seed_num = included_seeds[idx].index;
+                    size_t seed_num = included_seeds[idx];
                     auto& seed = seeds.at(seed_num);
 
                     // Determine whether this seed (in chain mode) is from an anchor that is recombinant
