@@ -202,7 +202,7 @@ class ZipCode {
         // cyclic snarls are identical to irregular snarls except for this bit
         // Fours bit: 1 for a forward loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
         // Eights bit: 1 for a reverse loop < LOOP_DISTANCE_STORAGE_THRESHOLD, 0 otherwise
-        const static size_t SNARL_METADATA_OFFSET = 0; 
+        const static size_t SNARL_FLAGS_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
         const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
@@ -248,7 +248,7 @@ class ZipCode {
     public:
 
         /// Minimum distance for flipping a flag that indicates a node/snarl
-        /// loops back on itself (SNARL_METADATA_OFFSET, NODE_METADATA_OFFSET)
+        /// loops back on itself (SNARL_FLAGS_OFFSET, NODE_METADATA_OFFSET)
         const static size_t LOOP_DISTANCE_STORAGE_THRESHOLD = 20000;
 
         /* Functions to get the values out of the zipcode for one code

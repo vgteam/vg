@@ -372,7 +372,7 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
             //If !previous_is_chain, then the current zip_index points to a snarl
 
             //The regular/irregular snarl tag
-            for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET  ; i++) {
+            for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET  ; i++) {
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
 
@@ -382,7 +382,7 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
                 cerr << "\tAdd a node child of a regular snarl" << endl;
 #endif
                 //Regular snarl, so 2 remaining things in the code
-                for (size_t i = 0 ; i < ZipCode::REGULAR_SNARL_SIZE - ZipCode::SNARL_METADATA_OFFSET - 1; i++) {
+                for (size_t i = 0 ; i < ZipCode::REGULAR_SNARL_SIZE - ZipCode::SNARL_FLAGS_OFFSET - 1; i++) {
                     std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
                 }
                 decoder.emplace_back(!previous_is_chain, zip_index);
@@ -394,7 +394,7 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
                 //If the decoder has two things in it (top-level chain and the current snarl), then this
                 //is a top-level irregular snarl. Otherwise a normal irregular snarl
                 size_t code_size = ZipCode::IRREGULAR_SNARL_SIZE;
-                for (size_t i = 0 ; i < code_size - ZipCode::SNARL_METADATA_OFFSET - 1; i++) {
+                for (size_t i = 0 ; i < code_size - ZipCode::SNARL_FLAGS_OFFSET - 1; i++) {
                     std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
                 }
                 decoder.emplace_back(!previous_is_chain, zip_index);
@@ -441,7 +441,7 @@ ZipCode::code_type_t ZipCode::get_code_type(const size_t& depth) const {
             //Definitely a snarl
             size_t zip_value;
             size_t zip_index = decoder[depth].offset;
-            for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET; i++) {
+            for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET; i++) {
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
             if (bit_is_set(zip_value, 0)) {
@@ -708,14 +708,14 @@ bool ZipCode::get_is_reversed_in_parent(const size_t& depth) const {
             size_t zip_value;
             size_t zip_index = decoder[depth-1].offset;
             //zip_value is true if the parent is a regular snarl
-            for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+            for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
             if (bit_is_set(zip_value, 0)) {
                 //The parent is a regular snarl, which stores is_reversed for the child
                 
                 for (size_t i = 0 ; i <= ZipCode::REGULAR_SNARL_IS_REVERSED_OFFSET -
-                                         ZipCode::SNARL_METADATA_OFFSET - 1 ; i++) {
+                                         ZipCode::SNARL_FLAGS_OFFSET - 1 ; i++) {
                     std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
                 }
                 return zip_value;
@@ -747,7 +747,7 @@ bool ZipCode::get_has_forward_loop(const size_t& depth) const {
         //If this is a snarl
         size_t zip_value;
         size_t zip_index = decoder[depth].offset;
-        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+        for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
         // Fours bit is the forward loopability
@@ -774,7 +774,7 @@ bool ZipCode::get_has_reverse_loop(const size_t& depth) const {
         //If this is a snarl
         size_t zip_value;
         size_t zip_index = decoder[depth].offset;
-        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+        for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
         // Eights bit is the reverse loopability
@@ -808,7 +808,7 @@ net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceInd
         size_t zip_value; 
         size_t zip_index = decoder[depth].offset;
         //zip_value is is_regular_snarl
-        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+        for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
         // Ones bit is is_regular_snarl
@@ -820,7 +820,7 @@ net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceInd
 
             //zip_value is distance index offset
             for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET -
-                                     ZipCode::SNARL_METADATA_OFFSET-1 ; i++) {
+                                     ZipCode::SNARL_FLAGS_OFFSET-1 ; i++) {
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
             net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
@@ -861,7 +861,7 @@ net_handle_t ZipCode::get_net_handle_slow(nid_t id, const size_t& depth, const S
         size_t zip_value; 
         size_t zip_index = decoder[depth].offset;
         //zip_value is is_regular_snarl
-        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+        for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
         // Ones bit is is_regular_snarl
@@ -884,7 +884,7 @@ net_handle_t ZipCode::get_net_handle_slow(nid_t id, const size_t& depth, const S
 
             //zip_value is distance index offset
             for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET -
-                                     ZipCode::SNARL_METADATA_OFFSET-1 ; i++) {
+                                     ZipCode::SNARL_FLAGS_OFFSET-1 ; i++) {
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
             net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
@@ -916,7 +916,7 @@ size_t ZipCode::get_distance_index_address(const size_t& depth) const {
         size_t zip_value;
         size_t zip_index = decoder[depth].offset;
         //Ones bit of zip_value is is_regular_snarl
-        for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+        for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
         if (bit_is_set(zip_value, 0)) {
@@ -927,7 +927,7 @@ size_t ZipCode::get_distance_index_address(const size_t& depth) const {
 
             //zip_value is distance index offset
             for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET -
-                                     ZipCode::SNARL_METADATA_OFFSET-1 ; i++) {
+                                     ZipCode::SNARL_FLAGS_OFFSET-1 ; i++) {
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
             return zip_value;
@@ -943,13 +943,13 @@ size_t ZipCode::get_distance_to_snarl_bound(const size_t& depth, bool snarl_star
      size_t zip_value;
      size_t zip_index = decoder[depth-1].offset;
      //zip_value's ones bit is 1 if the parent is a regular snarl
-     for (size_t i = 0 ; i <= ZipCode::SNARL_METADATA_OFFSET ; i++) {
+     for (size_t i = 0 ; i <= ZipCode::SNARL_FLAGS_OFFSET ; i++) {
          std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
      }
      if (bit_is_set(zip_value, 0)) {
          //The parent is a regular snarl, which stores is_reversed for the child
          for (size_t i = 0 ; i <= ZipCode::REGULAR_SNARL_IS_REVERSED_OFFSET -
-                                  ZipCode::SNARL_METADATA_OFFSET - 1 ; i++) {
+                                  ZipCode::SNARL_FLAGS_OFFSET - 1 ; i++) {
              std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
          }
          //Zip value is true if the child is reversed
@@ -972,7 +972,7 @@ size_t ZipCode::get_distance_to_snarl_bound(const size_t& depth, bool snarl_star
         } else {
             distance_offset = ZipCode::IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET;
         }
-        for (size_t i = 0 ; i <= distance_offset - ZipCode::SNARL_METADATA_OFFSET -1 ; i++) {
+        for (size_t i = 0 ; i <= distance_offset - ZipCode::SNARL_FLAGS_OFFSET -1 ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value - 1;
