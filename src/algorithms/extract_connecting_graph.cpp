@@ -20,7 +20,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                                                    int64_t max_len,
                                                    pos_t pos_1, pos_t pos_2,
                                                    bool strict_max_len,
-                                                   bool track_new_ids) {
+                                                   nid_t* new_start_id,
+                                                   nid_t* new_end_id) {
 #ifdef debug_vg_algorithms
     cerr << "[extract_connecting_graph] max len: " << max_len << ", pos 1: " << pos_1 << ", pos 2: " << pos_2 << endl;
 #endif
@@ -541,10 +542,14 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // on the first node being offset (however this information is fully contained in the arguments of
     // the function, which are obviously available in the environment that calls it)
     crash_unless(id_trans.size() == into->get_node_count());
-    if (track_new_ids) {
-        // Add memory for where the edge nodes ended up
-        id_trans[-std::numeric_limits<id_t>::max()] = into->get_id(cut_handle_1);
-        id_trans[std::numeric_limits<id_t>::max()] = into->get_id(cut_handle_2);
+    // Remembere where the edge nodes ended up
+    if (new_start_id != nullptr) {
+        nid_t start_id_val = into->get_id(cut_handle_1);
+        new_start_id = &start_id_val;
+    }
+    if (new_end_id != nullptr) {
+        nid_t end_id_val = into->get_id(cut_handle_2);
+        new_end_id = &end_id_val;
     }
     return id_trans;
 }

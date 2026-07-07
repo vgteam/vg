@@ -3414,7 +3414,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             max_path_length,
             left_anchor, right_anchor,
             true, // Only extract stuff on within-distance walks
-            true // Tell us the new end node IDs
+            &local_left_anchor_id,
+            &local_right_anchor_id
         );
 
         if (local_to_base.empty()) {
@@ -3431,11 +3432,6 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             ss << " with max path length of " << max_path_length;
             throw ChainAlignmentFailedError(ss.str());
         }
-        
-        local_left_anchor_id = local_to_base.at(-std::numeric_limits<id_t>::max());
-        local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
-        local_to_base.erase(-std::numeric_limits<id_t>::max());
-        local_to_base.erase(std::numeric_limits<id_t>::max());
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3445,10 +3441,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             left_anchor,
             false, // We are going left to right (backward = false)
             false, // Don't bother preserving cycles on the source node
-            true // Tell us the new end node ID
+            &local_left_anchor_id
         );
-        local_left_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
-        local_to_base.erase(std::numeric_limits<id_t>::max());
     } else {
         // We only have the right anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3458,10 +3452,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             right_anchor,
             true, // We are going right to left (backward = true)
             false, // Don't bother preserving cycles on the source node
-            true  // Tell us the new end node ID
+            &local_right_anchor_id
         );
-        local_right_anchor_id = local_to_base.at(std::numeric_limits<id_t>::max());
-        local_to_base.erase(std::numeric_limits<id_t>::max());
     }
 
 #ifdef debug
