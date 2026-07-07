@@ -586,7 +586,7 @@ public:
         /// Best distance for each cyclic snarl exit or loop we've seen
         /// For cyclic snarls: {snarl start index : (start dist, end dist)}
         /// For loops: {loop index : (right_to_left dist, left_to_right dist)}
-        std::unordered_map<size_t, std::pair<size_t, size_t>> distance_memory;
+        std::unordered_map<size_t, std::pair<size_t, size_t>> best_so_far_distance_cache;
 
         /// A specific snapshot of the iterator's position
         /// which includes necessary state information (e.g. stack)

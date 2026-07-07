@@ -2027,8 +2027,8 @@ size_t ZipCodeTree::distance_iterator::get_cyclic_snarl_bound_distance(size_t sn
 #endif
     size_t total_dist = SnarlDistanceIndex::sum(top(), edge_dist);
 
-    auto old_dist = distance_memory.find(snarl_start_i);
-    if (old_dist == distance_memory.end()) {
+    auto old_dist = best_so_far_distance_cache.find(snarl_start_i);
+    if (old_dist == best_so_far_distance_cache.end()) {
         // Never tried to exit this snarl before; create entry
         std::pair<size_t, size_t> exit_dists;
         if (to_end) {
@@ -2036,7 +2036,7 @@ size_t ZipCodeTree::distance_iterator::get_cyclic_snarl_bound_distance(size_t sn
         } else {
             exit_dists = {total_dist, std::numeric_limits<size_t>::max()};
         }
-        distance_memory.emplace_hint(old_dist, snarl_start_i, exit_dists);
+        best_so_far_distance_cache.emplace_hint(old_dist, snarl_start_i, exit_dists);
     } else if (to_end && old_dist->second.second > total_dist) {
         // Update best distance to snarl end
         old_dist->second.second = total_dist;
@@ -2378,17 +2378,17 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             }
         } else if ((*current_item).get_type() == LOOP) {
             bool can_loop = pos.right_to_left == (*current_item).get_is_reversed();
-            auto old_dist = distance_memory.find(pos.index);
-            if (old_dist == distance_memory.end()) {
+            auto old_dist = best_so_far_distance_cache.find(pos.index);
+            if (old_dist == best_so_far_distance_cache.end()) {
                 // Try to take the loop
                 if (can_loop) {
                     save_loop_traversal();
                 }
-                // Also save memory about how we've seen this before
+                // Also cache the best-so-far distance
                 std::pair<size_t, size_t> new_hint = std::make_pair(
                     pos.right_to_left ? top() : std::numeric_limits<size_t>::max(),
                     pos.right_to_left ? std::numeric_limits<size_t>::max() : top());
-                distance_memory.emplace_hint(old_dist, pos.index, new_hint);
+                best_so_far_distance_cache.emplace_hint(old_dist, pos.index, new_hint);
             } else {
                 // We have seen this loop before
 
@@ -2498,7 +2498,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             pos.right_to_left = !pos.right_to_left;
             top() += (*current_item).get_value();
 
-            auto old_dist = distance_memory.find(pos.index);
+            auto old_dist = best_so_far_distance_cache.find(pos.index);
             size_t old_dist_val = pos.right_to_left ? old_dist->second.first
                                                     : old_dist->second.second;
             if (old_dist_val <= top()) {
