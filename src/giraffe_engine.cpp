@@ -1,7 +1,10 @@
 #include "giraffe_engine.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <atomic>
 #include <mutex>
 #include <set>
@@ -26,6 +29,7 @@
 
 #include <vg/io/gafkluge.hpp>
 #include <handlegraph/util.hpp>
+#include <gbwtgraph/utils.h>   // sample_name_set, GENERIC_PATH_SAMPLE_NAME
 
 namespace vg {
 
@@ -298,15 +302,72 @@ string join_csv(const std::vector<string>& items) {
     return out;
 }
 
+/// Build the sample#phase#contig name for a GBWT path id (safe fallbacks).
+string path_name_for(const gbwt::Metadata& md, gbwt::size_type path_id) {
+    gbwt::PathName pn = md.path(path_id);
+    string sample = (md.samples() > 0 && pn.sample < md.samples())
+                    ? md.sample(pn.sample) : std::to_string(pn.sample);
+    string contig = (md.contigs() > 0 && pn.contig < md.contigs())
+                    ? md.contig(pn.contig) : std::to_string(pn.contig);
+    return sample + "#" + std::to_string(pn.phase) + "#" + contig;
+}
+
+/// Break the (often large) tie among haplotypes that carry the read's path
+/// identically by choosing one representative. Policy:
+///   1. prefer a haplotype whose sample is a reference sample (or the generic
+///      backbone), then
+///   2. among the eligible class, take the lowest GBWT sequence id
+///      (deterministic and reproducible).
+/// Returns (representative_name, chosen_because_reference). Empty name if there
+/// are no candidates or no metadata.
+std::pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
+                                              const std::vector<gbwt::size_type>& seq_ids) {
+    const gbwt::GBWT& index = gbz.index;
+    if (seq_ids.empty() || !index.hasMetadata()) {
+        return {string(), false};
+    }
+    const gbwt::Metadata& md = index.metadata;
+    const gbwtgraph::sample_name_set& refs = gbz.get_reference_samples();
+
+    bool any = false, ref_found = false;
+    gbwt::size_type best_any = 0, best_ref = 0;
+    for (gbwt::size_type s : seq_ids) {
+        gbwt::size_type path_id = s / 2;
+        if (path_id >= md.paths()) continue;
+        gbwt::PathName pn = md.path(path_id);
+        string sample = (md.samples() > 0 && pn.sample < md.samples())
+                        ? md.sample(pn.sample) : string();
+        bool is_ref = !sample.empty() &&
+                      (refs.count(sample) > 0 ||
+                       sample == gbwtgraph::GENERIC_PATH_SAMPLE_NAME);
+        if (!any || s < best_any) { best_any = s; any = true; }
+        if (is_ref && (!ref_found || s < best_ref)) { best_ref = s; ref_found = true; }
+    }
+    if (!any) {
+        return {string(), false};
+    }
+    gbwt::size_type chosen = ref_found ? best_ref : best_any;
+    return {path_name_for(md, chosen / 2), ref_found};
+}
+
 void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
     // Report deduplicated haplotype NAMES (+ their count) rather than the raw,
     // inflated sequence-id list.
     set_annotation(aln, "haplotype_names", join_csv(r.haplotype_names));
     set_annotation(aln, "haplotype_distinct_count", static_cast<double>(r.haplotype_names.size()));
+    set_annotation(aln, "haplotype_representative", r.representative_name);
+    set_annotation(aln, "haplotype_representative_is_reference", r.representative_is_reference);
     set_annotation(aln, "haplotype_candidate_count", static_cast<double>(r.candidate_count));
     set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
     set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
     set_annotation(aln, "haplotype_truncated", r.truncated);
+    // Path-coverage / mosaic accounting: whether one haplotype carries the whole
+    // read, how much of it the reported (best) block covers, and how many
+    // maximal haplotype-consistent segments the read decomposes into.
+    set_annotation(aln, "haplotype_fully_covered", r.fully_covered);
+    set_annotation(aln, "haplotype_best_covered_bp", static_cast<double>(r.best_covered_bp));
+    set_annotation(aln, "haplotype_path_length_bp", static_cast<double>(r.path_length_bp));
+    set_annotation(aln, "haplotype_num_segments", static_cast<double>(r.segments.size()));
 }
 
 /// Append GAF optional tags describing a surjection result. We always emit
@@ -458,9 +519,23 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
                 for (auto& m : mapped) {
                     auto hap = this->haplotype_assigner_->assign(
                         m, this->assign_haplotypes_extend_to_snarls);
-                    // Resolve raw sequence ids to distinct haplotype names once,
-                    // here, so both the annotation and the hp/hn tags reuse it.
-                    hap.haplotype_names = compute_haplotype_names(*gbz_, hap.seq_ids);
+                    // Name every mosaic segment and pick each one's representative
+                    // (reference-first, else lowest id). For a fully-covered read
+                    // there is a single segment spanning the whole path.
+                    for (auto& seg : hap.segments) {
+                        seg.haplotype_names = compute_haplotype_names(*gbz_, seg.seq_ids);
+                        seg.representative_name = choose_representative(*gbz_, seg.seq_ids).first;
+                    }
+                    // Promote the best (longest) segment's names/representative to
+                    // the top level so the annotation and hp/hn/hb tags describe
+                    // the haplotype(s) covering the most of the read path.
+                    if (hap.best_segment < hap.segments.size()) {
+                        const auto& best = hap.segments[hap.best_segment];
+                        hap.haplotype_names = best.haplotype_names;
+                        auto rep = choose_representative(*gbz_, best.seq_ids);
+                        hap.representative_name = rep.first;
+                        hap.representative_is_reference = rep.second;
+                    }
                     attach_haplotype_annotations(m, hap);
                     hap_results.emplace_back(std::move(hap));
                 }
@@ -507,10 +582,37 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
                     // candidate occurrences (pre-cap, for reference).
                     ss << "\thp:Z:" << join_csv(hap.haplotype_names)
                        << "\thn:i:" << hap.haplotype_names.size()
+                       << "\thb:Z:" << (hap.representative_name.empty()
+                                        ? string("*") : hap.representative_name)
+                       << "\thf:i:" << (hap.representative_is_reference ? 1 : 0)
                        << "\thc:i:" << hap.candidate_count
                        << "\thl:i:" << hap.left_boundary_node
                        << "\thr:i:" << hap.right_boundary_node
-                       << "\tht:i:" << (hap.truncated ? 1 : 0);
+                       << "\tht:i:" << (hap.truncated ? 1 : 0)
+                       // Path-coverage / mosaic tags:
+                       //   hq:i: 1 if one haplotype carries the whole read, else 0
+                       //   hv:i: % of the read path the reported (best) block covers
+                       //   hs:i: number of maximal haplotype-consistent segments
+                       << "\thq:i:" << (hap.fully_covered ? 1 : 0)
+                       << "\thv:i:" << (hap.path_length_bp
+                                        ? (100 * hap.best_covered_bp / hap.path_length_bp)
+                                        : 0)
+                       << "\ths:i:" << hap.segments.size();
+                    // hm:Z: mosaic breakdown, emitted only when the read is NOT
+                    // carried by a single haplotype (>1 segment). Each entry is
+                    // "<covered_bp>:<distinct_haplotypes>:<representative>", in
+                    // path order, separated by ';'.
+                    if (hap.segments.size() > 1) {
+                        ss << "\thm:Z:";
+                        for (size_t s = 0; s < hap.segments.size(); ++s) {
+                            const auto& seg = hap.segments[s];
+                            ss << (s ? ";" : "")
+                               << seg.covered_bp << ":"
+                               << seg.haplotype_names.size() << ":"
+                               << (seg.representative_name.empty()
+                                   ? string("*") : seg.representative_name);
+                        }
+                    }
                 }
                 if (j < surj_results.size()) {
                     append_surjection_tags(ss, surj_results[j]);
@@ -576,6 +678,18 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     require_loaded();
     using S = HaplotypeSurjectionResult::Status;
 
+    // Optional phase timing for surjection performance debugging. Enable with
+    // the env var GIRAFFE_SURJECT_TIMING=1; prints a per-read breakdown of
+    // where time goes (parse / path-length walk / anchor build / surjector DP /
+    // post) to stderr. No overhead when unset.
+    static const bool surject_timing =
+        (std::getenv("GIRAFFE_SURJECT_TIMING") != nullptr);
+    using surj_clock = std::chrono::steady_clock;
+    surj_clock::time_point t_begin   = surj_clock::now();
+    surj_clock::time_point t_parse   = t_begin, t_pathlen = t_begin,
+                           t_anchors = t_begin, t_build   = t_begin,
+                           t_surject = t_begin;
+
     if (gaf_line.empty()) {
         throw runtime_error("surject_with_anchors: empty GAF input");
     }
@@ -638,12 +752,41 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         return {ss.str()};
     }
 
+    t_parse = surj_clock::now();
+
     // 3. Determine the target path length (cached by the caller if possible).
     size_t path_length = target_path_length;
     if (path_length == 0) {
         gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(target_path);
         path_length = walk_target_path_length(*gbz_, gbwt_path_id);
     }
+    t_pathlen = surj_clock::now();
+
+    // Per-read timing reporter (no-op unless GIRAFFE_SURJECT_TIMING is set).
+    auto report_timing = [&](const char* outcome) {
+        if (!surject_timing) return;
+        auto ms = [](surj_clock::time_point a, surj_clock::time_point b) {
+            return std::chrono::duration<double, std::milli>(b - a).count();
+        };
+        surj_clock::time_point now = surj_clock::now();
+        std::cerr << "[surject-timing]"
+                  << " read=" << aln.name()
+                  << " read_len=" << aln.sequence().size()
+                  << " n_anchors=" << anchors.size()
+                  << " path_len=" << path_length
+                  << " | parse="   << ms(t_begin,   t_parse)
+                  << " pathlen="   << ms(t_parse,   t_pathlen)
+                  << " anchors="   << ms(t_pathlen, t_anchors)
+                  << " build="     << ms(t_anchors, t_build)
+                  << " surject="   << ms(t_build,   t_surject)
+                  << " post="      << ms(t_surject, now)
+                  << " posq="      << g_anchor_graph_stats.pos_of_step_calls
+                     << "/"        << g_anchor_graph_stats.pos_of_step_walk
+                  << " stepq="     << g_anchor_graph_stats.step_at_pos_calls
+                     << "/"        << g_anchor_graph_stats.step_at_pos_walk
+                  << " total="     << ms(t_begin,   now) << "ms"
+                  << " outcome="   << outcome << std::endl;
+    };
 
     // 4. Translate wire anchors → vg::PrecomputedAnchor records. The
     //    anchor-backed position graph only needs step_handles + base offsets.
@@ -657,21 +800,27 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         pa.path_offset_step_end   = a.path_offset_step_end;
         vg_anchors.push_back(pa);
     }
+    t_anchors = surj_clock::now();
 
     // 5. Build the anchor-backed position graph and a Surjector over it.
     AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
                                            target_path, path_length);
     Surjector anchor_surjector(&anchor_graph);
+    t_build = surj_clock::now();
 
     unordered_set<path_handle_t> paths;
     paths.insert(target_path);
     vector<tuple<string, int64_t, bool>> positions_out;
     vector<Alignment> surjected;
+    g_anchor_graph_stats = {};  // measure position-query cost during this surjection
     try {
         surjected = anchor_surjector.surject(aln, paths, positions_out,
                                              /*allow_negative_scores=*/false,
                                              /*preserve_deletions=*/false);
+        t_surject = surj_clock::now();
     } catch (const std::exception& e) {
+        t_surject = surj_clock::now();
+        report_timing("surject_exception");
         surj_result.status = S::SURJECTION_FAILED;
         stringstream ss;
         ss << gaf_line;
@@ -681,6 +830,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     }
 
     if (surjected.empty() || positions_out.empty()) {
+        report_timing("surject_empty");
         surj_result.status = S::SURJECTION_FAILED;
         stringstream ss;
         ss << gaf_line;
@@ -733,6 +883,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
        << "\tsc:Z:" << (surj_result.cigar.empty() ? string("*") : surj_result.cigar)
        << "\tan:i:" << anchors.size()
        << "\tap:Z:" << resolved_target;
+    report_timing("ok");
     return {ss.str()};
 }
 

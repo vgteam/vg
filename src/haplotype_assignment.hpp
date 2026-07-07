@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,7 +32,30 @@ class Alignment;
 
 /// Result of assigning haplotypes to a single alignment.
 struct HaplotypeAssignmentResult {
+    /// One maximal run of the read's alignment path that is carried, as a single
+    /// walk, by at least one haplotype. The read path is tiled greedily left to
+    /// right into such segments: a boundary between two segments is a
+    /// recombination point (an edge no single haplotype takes). When the whole
+    /// read is haplotype-consistent there is exactly one segment spanning it.
+    struct Segment {
+        size_t start_mapping   = 0;   ///< first path-mapping index (inclusive)
+        size_t end_mapping     = 0;   ///< one past the last path-mapping index
+        size_t covered_bp      = 0;   ///< sum of node lengths over the segment
+        size_t candidate_count = 0;   ///< haplotypes carrying the whole segment (pre-cap)
+        /// Carrying-haplotype GBWT sequence ids for this segment (capped at
+        /// max_haplotypes_to_report).
+        std::vector<gbwt::size_type> seq_ids;
+        /// Distinct haplotype/path names for this segment (filled by the caller).
+        std::vector<std::string> haplotype_names;
+        /// Representative haplotype name for this segment (reference-first, else
+        /// lowest seq id; filled by the caller). Empty if no candidates.
+        std::string representative_name;
+    };
+
     /// Compatible haplotype sequence IDs (GBWT sequence IDs), possibly capped.
+    /// These are the haplotypes covering the BEST (longest) segment — for a
+    /// fully-covered read that is the whole path (identical to the old
+    /// behavior); for a mosaic read it is the longest single consistent block.
     std::vector<gbwt::size_type> seq_ids;
     /// Distinct haplotype/path names (e.g. "HG00290#1#chr10") for `seq_ids`,
     /// deduplicated and sorted. Collapses the raw sequence ids (which double-
@@ -50,6 +74,35 @@ struct HaplotypeAssignmentResult {
     nid_t right_boundary_node = 0;
     /// True if seq_ids was truncated to max_haplotypes_to_report.
     bool truncated = false;
+    /// A single representative haplotype name chosen to break the (often large)
+    /// tie when many haplotypes carry the read's path identically. Policy:
+    /// prefer a reference-sample haplotype; among the eligible class take the
+    /// lowest GBWT sequence id (deterministic). Empty if no candidates.
+    /// Populated by the caller. See compute in giraffe_engine.cpp.
+    std::string representative_name;
+    /// True if the representative was chosen because it is a reference-sample
+    /// (or generic backbone) haplotype; false if it is just the lowest-id
+    /// fallback (no reference among the candidates).
+    bool representative_is_reference = false;
+
+    /// Greedy left-to-right decomposition of the read path into maximal
+    /// haplotype-consistent segments (in path order). Size 1 ⇔ fully_covered.
+    /// A read that spans a recombination, tandem repeat, or inversion in a way
+    /// no single haplotype realizes will have >1 segment — the mosaic.
+    std::vector<Segment> segments;
+    /// True iff some haplotype carries the ENTIRE read path as a single walk
+    /// (segments.size() == 1 spanning the whole path). This is the old
+    /// "clean" case; false means the read is a mosaic and no single haplotype
+    /// is consistent end to end.
+    bool fully_covered = false;
+    /// Total bp of the read's node path (sum of node lengths).
+    size_t path_length_bp = 0;
+    /// bp covered by the best (longest) single segment — how much of the read
+    /// path the reported haplotype(s) cover as one consistent block.
+    size_t best_covered_bp = 0;
+    /// Index into `segments` of the best (longest) segment, whose haplotypes are
+    /// promoted to the top-level seq_ids/representative. SIZE_MAX if no segment.
+    size_t best_segment = std::numeric_limits<size_t>::max();
 };
 
 /**

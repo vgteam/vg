@@ -5,8 +5,12 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
 namespace vg {
+
+thread_local AnchorGraphStats g_anchor_graph_stats;
 
 AnchorBackedPositionGraph::AnchorBackedPositionGraph(
     const PathHandleGraph* base,
@@ -52,6 +56,29 @@ AnchorBackedPositionGraph::AnchorBackedPositionGraph(
                  const std::pair<size_t, step_handle_t>& b) {
                   return a.first < b.first;
               });
+
+    // Precompute node -> target-path steps over the read's overlap region.
+    // We walk the target path from each anchor's step_begin to its step_end
+    // (that is exactly the stretch of the target path the read covers) and
+    // record every step. for_each_step_on_handle then returns just these,
+    // instead of asking the base graph to enumerate every haplotype on the
+    // node. The walk is bounded by the read's span, not the path length.
+    for (const auto& a : anchors) {
+        step_handle_t step = a.step_begin;
+        // Safety cap so a bad anchor can never spin: the region can't be longer
+        // than the whole path.
+        for (size_t guard = 0; guard <= target_path_length_ + 1; ++guard) {
+            nid_t node = base_->get_id(base_->get_handle_of_step(step));
+            node_target_steps_[node].push_back(step);
+            if (step == a.step_end) {
+                break;
+            }
+            if (!base_->has_next_step(step)) {
+                break;
+            }
+            step = base_->get_next_step(step);
+        }
+    }
 }
 
 // ============================================================
@@ -70,6 +97,8 @@ size_t AnchorBackedPositionGraph::get_path_length(const path_handle_t& path_hand
 }
 
 size_t AnchorBackedPositionGraph::get_position_of_step(const step_handle_t& step) const {
+    ++g_anchor_graph_stats.pos_of_step_calls;
+
     // Cache hit?
     auto cached = step_pos_.find(step);
     if (cached != step_pos_.end()) {
@@ -86,50 +115,57 @@ size_t AnchorBackedPositionGraph::get_position_of_step(const step_handle_t& step
         throw std::logic_error(msg.str());
     }
 
-    // Walk strategy: from the path's beginning forward until we hit the
-    // target step. Memoize every step we pass so future queries are O(1).
-    // We could narrow the start by binary-searching sorted_known_ for the
-    // nearest known step that precedes `step` on the path; but we don't
-    // know the position of `step` yet, so we can't binary-search by position.
-    // Instead we walk from path_begin (cheap if anchors cover the path well,
-    // because each walk-pass terminates at the cached entry as soon as it
-    // reaches one).
+    // Walk BACKWARD from `step` to the nearest step whose position we already
+    // know — an anchor boundary, the path-begin sentinel (position 0), or a
+    // previously-memoized step — accumulating node lengths as we go. Then
+    // position(step) = known_pos + accumulated.
     //
-    // For the common case (queried step is interior to an anchor range and
-    // close to its boundary), the walk is very short — the loop returns the
-    // moment it encounters the queried step.
+    // This is O(distance to the nearest known step), NOT O(path). The previous
+    // implementation re-walked from path_begin on every cache miss and ignored
+    // the already-cached prefix, so a Surjector issuing many position queries
+    // with sparse anchors cost O(path^2). Walking backward and backfilling every
+    // step we pass keeps each query bounded by the gap to the nearest known
+    // position, and that gap only shrinks as the cache fills.
+    //
+    // `accumulated` for a cursor is the summed length of steps in [cursor, step)
+    // (0 when cursor == step). trail records each visited (cursor, accumulated)
+    // so we can backfill all of them once we find a known anchor.
+    std::vector<std::pair<step_handle_t, size_t>> trail;
+    step_handle_t cursor = step;
+    size_t accumulated = 0;
+    size_t known_pos = 0;
 
-    step_handle_t cursor = base_->path_begin(target_path_);
-    size_t cursor_pos = 0;
-    const size_t guard = target_path_length_ + 1;
-
-    while (cursor_pos <= guard) {
-        if (cursor == step) {
-            step_pos_[step] = cursor_pos;
-            return cursor_pos;
-        }
-        // Memoize every step we pass to amortize future queries.
-        step_pos_.emplace(cursor, cursor_pos);
-
-        // Advance.
-        handle_t h = base_->get_handle_of_step(cursor);
-        cursor_pos += base_->get_length(h);
-        if (!base_->has_next_step(cursor)) {
+    while (true) {
+        auto it = step_pos_.find(cursor);
+        if (it != step_pos_.end()) {
+            known_pos = it->second;
             break;
         }
-        cursor = base_->get_next_step(cursor);
+        trail.emplace_back(cursor, accumulated);
+        if (!base_->has_previous_step(cursor)) {
+            // First step on the path; its position is 0. (path_begin is normally
+            // already cached at 0, so this is just a safety net.)
+            known_pos = 0;
+            break;
+        }
+        step_handle_t prev = base_->get_previous_step(cursor);
+        accumulated += base_->get_length(base_->get_handle_of_step(prev));
+        cursor = prev;
+        ++g_anchor_graph_stats.pos_of_step_walk;
     }
 
-    std::ostringstream msg;
-    msg << "AnchorBackedPositionGraph::get_position_of_step: walked the full target path '"
-        << base_->get_path_name(target_path_) << "' without finding the queried step. "
-        << "Either the step is not on this path, or target_path_length is wrong.";
-    throw std::logic_error(msg.str());
+    const size_t acc_end = accumulated;
+    // Backfill every step we visited: position(s) = known_pos + (acc_end - acc_s).
+    for (const auto& e : trail) {
+        step_pos_.emplace(e.first, known_pos + (acc_end - e.second));
+    }
+    return known_pos + acc_end;
 }
 
 step_handle_t AnchorBackedPositionGraph::get_step_at_position(
     const path_handle_t& path, const size_t& position) const
 {
+    ++g_anchor_graph_stats.step_at_pos_calls;
     if (!(path == target_path_)) {
         std::ostringstream msg;
         msg << "AnchorBackedPositionGraph::get_step_at_position called for non-target path '"
@@ -182,6 +218,7 @@ step_handle_t AnchorBackedPositionGraph::get_step_at_position(
         // Memoize every step we pass.
         step_pos_.emplace(cursor, cursor_pos - base_->get_length(h));
         cursor = base_->get_next_step(cursor);
+        ++g_anchor_graph_stats.step_at_pos_walk;
     }
 }
 
@@ -315,7 +352,23 @@ bool AnchorBackedPositionGraph::for_each_path_handle_impl(
 bool AnchorBackedPositionGraph::for_each_step_on_handle_impl(
     const handle_t& handle,
     const std::function<bool(const step_handle_t&)>& iteratee) const {
-    return base_->for_each_step_on_handle(handle, iteratee);
+    // Return ONLY the target path's steps on this node (precomputed over the
+    // read's overlap region), not every haplotype's. The Surjector filters to
+    // the target path anyway, so this is behavior-preserving for surjection but
+    // avoids the all-haplotype GBWT enumeration that dominated the runtime.
+    // A node with no entry is either off the target path or outside the read's
+    // overlap region — in both cases the target path contributes no step the
+    // Surjector would keep, so returning nothing matches the filtered result.
+    auto it = node_target_steps_.find(base_->get_id(handle));
+    if (it == node_target_steps_.end()) {
+        return true;
+    }
+    for (const step_handle_t& step : it->second) {
+        if (!iteratee(step)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // ============================================================

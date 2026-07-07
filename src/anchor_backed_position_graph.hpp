@@ -60,6 +60,17 @@ struct PrecomputedAnchor {
     size_t path_offset_step_end = 0;
 };
 
+/// Per-thread diagnostics for the position-query cost. Reset before a surjection
+/// and read afterwards to see how much walking the position queries did — the
+/// difference between a healthy sparse-anchor run and an O(path^2) blow-up.
+struct AnchorGraphStats {
+    size_t pos_of_step_calls = 0;  ///< calls to get_position_of_step
+    size_t pos_of_step_walk  = 0;  ///< total steps walked backward on cache miss
+    size_t step_at_pos_calls = 0;  ///< calls to get_step_at_position
+    size_t step_at_pos_walk  = 0;  ///< total steps walked forward on cache miss
+};
+extern thread_local AnchorGraphStats g_anchor_graph_stats;
+
 /**
  * A PathPositionHandleGraph that delegates everything except position
  * queries to an underlying PathHandleGraph, and answers position queries
@@ -189,6 +200,15 @@ private:
     /// get_step_at_position for binary search; NOT updated by memoization
     /// (the unordered_map handles cache hits regardless).
     std::vector<std::pair<size_t, step_handle_t>> sorted_known_;
+
+    /// node id -> the target path's steps that visit it within the read's
+    /// overlap region (the union of the anchors' [step_begin, step_end] spans),
+    /// precomputed once at construction. for_each_step_on_handle returns these
+    /// instead of enumerating EVERY haplotype's step on the node via the base
+    /// graph — that enumeration is what made surjection cost
+    /// O(#haplotypes-per-node x read-nodes) (~12s on dense graphs) even though
+    /// the Surjector discards all non-target steps.
+    std::unordered_map<nid_t, std::vector<step_handle_t>> node_target_steps_;
 
     /// Walk forward from `start` on the target path, accumulating node
     /// lengths starting from `start_pos`, until we reach `target` or pass

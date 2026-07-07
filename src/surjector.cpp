@@ -6,6 +6,10 @@
 
 #include "surjector.hpp"
 
+#include <chrono>
+#include <cstdlib>
+#include <memory>
+
 #include "crash.hpp"
 #include "sequence_complexity.hpp"
 #include "alignment.hpp"
@@ -288,14 +292,35 @@ using namespace std;
             source_mp_aln = &simplified_source_mp_aln;
         }
         
+        // ---- optional per-phase timing (env: VG_SURJECT_PHASE_TIMING=1) ----
+        // Splits a surjection into extract-overlapping-paths / prune-anchors /
+        // realign, printed to stderr on any exit, so we can see exactly which
+        // step dominates. No overhead when the env var is unset.
+        static const bool surj_phase_timing = (getenv("VG_SURJECT_PHASE_TIMING") != nullptr);
+        auto surj_t0 = chrono::steady_clock::now();
+        double surj_ms_extract = 0.0, surj_ms_prune = 0.0, surj_ms_realign = 0.0;
+        shared_ptr<void> surj_phase_report(nullptr, [&](void*) {
+            if (!surj_phase_timing) return;
+            double total = chrono::duration<double, milli>(chrono::steady_clock::now() - surj_t0).count();
+            size_t len = source_aln ? source_aln->sequence().size() : source_mp_aln->sequence().size();
+            string nm = source_aln ? source_aln->name() : string();
+            cerr << "[surject-phase] read=" << nm << " len=" << len << " npaths=" << paths.size()
+                 << " | extract=" << surj_ms_extract << " prune=" << surj_ms_prune
+                 << " realign=" << surj_ms_realign
+                 << " other=" << (total - surj_ms_extract - surj_ms_prune - surj_ms_realign)
+                 << " total=" << total << "ms" << endl;
+        });
+
         // make an overlay that will memoize the results of some expensive XG operations
         MemoizingGraph memoizing_graph(graph);
         
         // get the chunks of the aligned path that overlap the ref path
         unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
+        auto surj_t_extract = chrono::steady_clock::now();
         auto path_overlapping_anchors = source_aln ? extract_overlapping_paths(&memoizing_graph, *source_aln, paths)
                                                    : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
                                                                                paths, connections);
+        surj_ms_extract += chrono::duration<double, milli>(chrono::steady_clock::now() - surj_t_extract).count();
         
         if (source_mp_aln) {
             // the multipath alignment anchor algorithm can produce redundant paths if
@@ -337,10 +362,12 @@ using namespace std;
         
         // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
         // low complexity sequences
+        auto surj_t_prune = chrono::steady_clock::now();
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
             prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
                                    it->second.first, it->second.second);
         }
+        surj_ms_prune += chrono::duration<double, milli>(chrono::steady_clock::now() - surj_t_prune).count();
         
         // the surjected alignment for each path we overlapped
         unordered_map<pair<path_handle_t, bool>, vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>> aln_surjections;
@@ -350,8 +377,10 @@ using namespace std;
             // to hold the path interval that corresponds to the path we surject to
             if (!preserve_deletions && source_aln) {
                 // unspliced GAM -> GAM surjection
+                auto surj_t_realign = chrono::steady_clock::now();
                 auto surjections = realigning_surject(&memoizing_graph, *source_aln, surj_record.first.first, surj_record.first.second,
                                                       surj_record.second.first, surj_record.second.second, allow_negative_scores);
+                surj_ms_realign += chrono::duration<double, milli>(chrono::steady_clock::now() - surj_t_realign).count();
                 // get rid of unmapped
                 surjections.resize(remove_if(surjections.begin(), surjections.end(),
                                              [](const decltype(surjections)::value_type& surj) {
