@@ -90,7 +90,7 @@ printf "@read\n${SEQ_RC}\n+\n${QUAL_R}\n" > rev.fq
 vg map -f fwd.fq -g x.gcsa -x x.xg > mapped.fwd.gam
 vg map -f rev.fq -g x.gcsa -x x.xg > mapped.rev.gam
 
-is "$(vg view -aj mapped.rev.gam | jq -r '.quality' | base64 -d | xxd -p -c1 | tac | xxd -p -r | xxd)" "$(vg view -aj mapped.fwd.gam | jq -r '.quality' | base64 -d | xxd)" "quality strings we will use for testing are oriented correctly"
+is "$(vg filter --tsv-out quality mapped.rev.gam | tac -rs 'x\|[^x]' | head -2 | tail -1)" "$(vg filter --tsv-out quality mapped.fwd.gam | tail -1)" "quality strings we will use for testing are oriented correctly"
 
 is "$(vg surject -p x -x x.xg mapped.fwd.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "$(vg surject -p x -x x.xg mapped.rev.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
 
