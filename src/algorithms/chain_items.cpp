@@ -216,8 +216,9 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                 
                 // How far do we go in the graph?
                 // Don't bother finding out exactly if it is too much longer than in the read.
-                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, 
-                                                           read_distance + max_indel_bases);
+                size_t graph_distance = std::numeric_limits<size_t>::max(); 
+                get_graph_distance(source, here, distance_index, graph, 
+                                   graph_distance, read_distance + max_indel_bases);
                 
                 std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
                 if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
@@ -1073,8 +1074,12 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 //#define double_check_distances
 //#define stop_on_mismatch
 //#define replace_on_mismatch
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index,
-                          const HandleGraph& graph, size_t distance_limit) {
+void get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index,
+                          const HandleGraph& graph, size_t& distance_return, size_t distance_limit) {
+    if (distance_return != std::numeric_limits<size_t>::max()) {
+        // We already know the distance!
+        return;
+    }
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
@@ -1147,7 +1152,7 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
         // Cut it off here.
         distance = std::numeric_limits<size_t>::max();
     }
-    return distance;
+    distance_return = distance;
 }
 
 size_t get_read_distance(const Anchor& from, const Anchor& to) {

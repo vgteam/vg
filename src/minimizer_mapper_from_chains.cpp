@@ -2800,9 +2800,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 
         // Keep track of the total distance from the previous seed to the next one we choose in the graph
         size_t total_graph_distance = (*next_it).graph_distance;
-        if (total_graph_distance == std::numeric_limits<size_t>::max()) {
-            total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
-        }
+        algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph, total_graph_distance);
         size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
 
         // The sum of the differences between read and graph lengths
@@ -2822,9 +2820,8 @@ Alignment MinimizerMapper::find_chain_alignment(
             } else {
                 // Distance from end of this anchor to start of next anchor
                 cur_graph_distance = (*(skip_to_it+1)).graph_distance;
-                if (cur_graph_distance == std::numeric_limits<size_t>::max()) {
-                    cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[(*(skip_to_it+1)).index], *distance_index, gbwt_graph);
-                }
+                algorithms::get_graph_distance(*skip_to, to_chain[(*(skip_to_it+1)).index], *distance_index, 
+                                                gbwt_graph, cur_graph_distance);
                 // Also add in distance from start of this anchor to end of this anchor
                 cur_graph_distance += skip_to->length();
                 // Combined those are graph start -> start dist we are trying to skip past
@@ -2877,9 +2874,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     }
 #endif
                     total_graph_distance = (*next_it).graph_distance;
-                    if (total_graph_distance == std::numeric_limits<size_t>::max()) {
-                        total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
-                    }
+                    algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph, total_graph_distance);
                 }
                 // If there wasn't a gap then don't skip anything
                 break;
