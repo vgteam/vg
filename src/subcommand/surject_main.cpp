@@ -56,6 +56,7 @@ void help_surject(char** argv) {
          << "  -b, --bam-output          write BAM instead of GAM to stdout" << endl
          << "  -s, --sam-output          write SAM instead of GAM to stdout" << endl
          << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
+         << "  -B, --left-align          attempt to left-align indels" << endl
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
          << "                            (rather than global) alignments" << endl
          << "  -T, --max-tail-len N      only align up to N bases of read tails [10000]" << endl
@@ -83,6 +84,8 @@ void help_surject(char** argv) {
          << "                            re-alignments to paths in SS tag" << endl
          << "  -H, --graph-aln           annotate SAM records with cs-style difference string" << endl
          << "                            of the pre-surjected graph alignment in GR tag" << endl
+         << "      --off-ref-position    annotate SAM records that become unmapped during" << endl
+         << "                            surject with the nearest ref. position in the NR tag" << endl
          << "  -C, --compression N       level for compression [0-9]" << endl
          << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
          << "                            against the provided graph" << endl
@@ -145,6 +148,7 @@ int main_surject(int argc, char** argv) {
     Logger logger("vg surject");
 
     constexpr int OPT_NO_PRUNE_LOW_CPLX = 1000;
+    constexpr int OPT_OFF_REF_POS = 1001;
 
     if (argc == 2) {
         help_surject(argv);
@@ -178,9 +182,11 @@ int main_surject(int argc, char** argv) {
     bool report_supplementary = false;
     bool annotate_with_all_path_scores = false;
     bool annotate_with_graph_alignment = false;
+    bool annotate_off_reference_pos = false;
     bool multimap = false;
     bool validate = true;
     bool show_progress = false;
+    bool left_align = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -206,6 +212,8 @@ int main_surject(int argc, char** argv) {
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
             {"supplementary", no_argument, 0, 'u'},
+            {"off-ref-position", no_argument, 0, OPT_OFF_REF_POS},
+            {"left-align", no_argument, 0, 'B'},
             {"read-length", required_argument, 0, 'D'},
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
@@ -227,7 +235,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuBN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -296,6 +304,10 @@ int main_surject(int argc, char** argv) {
 
         case 'u':
             report_supplementary = true;
+            break;
+
+        case 'B':
+            left_align = true;
             break;
                 
         case 'D':
@@ -368,6 +380,10 @@ int main_surject(int argc, char** argv) {
             
         case 'H':
             annotate_with_graph_alignment = true;
+            break;
+            
+        case OPT_OFF_REF_POS:
+            annotate_off_reference_pos = true;
             break;
 
         case 'h':
@@ -479,12 +495,14 @@ int main_surject(int argc, char** argv) {
     surjector.max_tail_length = max_tail_len;
     surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
     surjector.annotate_with_graph_alignment = annotate_with_graph_alignment;
+    surjector.annotate_off_reference_pos = annotate_off_reference_pos;
     if (max_graph_scale) {
         // We have an override
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
     }
     surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
     surjector.report_supplementary = report_supplementary;
+    surjector.left_align = left_align;
     surjector.multimap_to_all_paths = multimap;
 
     // Count our threads

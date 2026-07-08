@@ -14,12 +14,15 @@ namespace vg {
 using namespace std;
 
 SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths,
-    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors, bool add_graph_alignment_tag, bool report_supplementary) : surjector(graph), paths(paths), backing(std::move(backing)) {
+    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors, bool add_graph_alignment_tag, bool report_supplementary,
+    bool add_off_ref_position_tag, bool left_align) : surjector(graph), paths(paths), backing(std::move(backing)) {
     
     // Configure the surjector
     surjector.prune_suspicious_anchors = prune_suspicious_anchors;
     surjector.annotate_with_graph_alignment = add_graph_alignment_tag;
     surjector.report_supplementary = report_supplementary;
+    surjector.annotate_off_reference_pos = add_off_ref_position_tag;
+    surjector.left_align = left_align;
 }
 
 void SurjectingAlignmentEmitter::surject_alignments_in_place(vector<Alignment>& alns) const {

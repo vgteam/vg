@@ -252,7 +252,7 @@ class MinimizerMapper : public AlignerClient {
     /// When converting chains to alignments, what's the longest gap between
     /// items we will try to WFA align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
-    /// May not be 0.
+    /// Set to 0 to not use WFA alignment between items.
     static constexpr size_t default_max_chain_connection = 100;
     size_t max_chain_connection = default_max_chain_connection;
     /// Similarly, what is the maximum tail length we will try to WFA align?
@@ -283,20 +283,16 @@ class MinimizerMapper : public AlignerClient {
     /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
-    /// How much of a multiple should we apply to each item's non-bonus score
-    /// in chaining?
-    static constexpr double default_item_scale = 1.0;
-    double item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
-    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared haplotypes.
-    static constexpr int default_rec_penalty_chain = 0;
-    int rec_penalty_chain = default_rec_penalty_chain;
-    // How many points should we treat a non-gap connection base as producing, at chaining?
-    static constexpr double default_points_per_possible_match = 0;
-    double points_per_possible_match = default_points_per_possible_match;
+    /// Recombination penalty for chaining. This is added to the cost of a transition if there are no shared haplotypes.
+    static constexpr int default_rec_penalty = 0;
+    int rec_penalty = default_rec_penalty;
+    /// Recombination-aware chaining bonus for avoiding losing haplotypes. Not actually tracked in chaining DP score.
+    static constexpr int default_rec_consistency_bonus = 0;
+    int rec_consistency_bonus = default_rec_consistency_bonus;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
@@ -327,8 +323,13 @@ class MinimizerMapper : public AlignerClient {
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
 
-    /// When turning chains into alignments, we can skip seeds to create gaps up to this
-    /// length in the graph
+    /// When turning chains into alignments, we can skip seeds if otherwise
+    /// there would be a forced indel of at least this much
+    static constexpr size_t default_min_indel_avoid_bases = 0;
+    size_t min_indel_avoid_bases = default_min_indel_avoid_bases;
+
+    /// When turning chains into alignments, we can skip seeds to link
+    /// seeds of at most this distance apart in the graph
     static constexpr size_t default_max_skipped_bases = 0;
     size_t max_skipped_bases = default_max_skipped_bases;
     
@@ -373,6 +374,9 @@ class MinimizerMapper : public AlignerClient {
     static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
     int wfa_max_distance = default_wfa_max_distance;
 
+    /// Recombination penalty for alignment scoring. This is deducted from the score of an alignment for each required recombination.
+    static constexpr int default_rec_penalty_aln = 0;
+    int rec_penalty_aln = default_rec_penalty_aln;
     /// How much should candidate alignment scores be penalized for softclipped bases?
     static constexpr double default_softclip_penalty = 0.0;
     double softclip_penalty = default_softclip_penalty;
@@ -395,6 +399,9 @@ class MinimizerMapper : public AlignerClient {
     /// How should we scale scores before mapq, for calibration
     static constexpr double default_mapq_score_scale = 1.0;
     double mapq_score_scale = default_mapq_score_scale;
+    /// What's the minimum score we'll accept from an MQ 0 read
+    static constexpr size_t default_min_mapq0_score = 0;
+    size_t min_mapq0_score = default_min_mapq0_score;
 
     /////////////////
     // More shared parameters:
@@ -427,6 +434,10 @@ class MinimizerMapper : public AlignerClient {
     /// Track linear reference position for placements in log output.
     static constexpr bool default_track_position = false;
     bool track_position = default_track_position;
+
+    /// Track positions along haplotypes
+    static constexpr bool default_haplotype_positions = false;
+    bool haplotype_positions = default_haplotype_positions;
     
     /// If set, log what the mapper is thinking in its mapping of each read.
     static constexpr bool default_show_work = false;
@@ -499,6 +510,11 @@ class MinimizerMapper : public AlignerClient {
     string sample_name;
     /// Apply this read group name
     string read_group;
+
+    /// Should we use path information from the minimizer index payloads?
+    /// By default we fill this in based on availability in the index, but you
+    /// can clear this if it is set to turn off recombination-aware mapping.
+    bool use_payload_paths;
     
     /// Have we complained about hitting the size limit for rescue?
     atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
@@ -638,9 +654,8 @@ protected:
     // caching common information about the minimizer index
     int32_t k;
     int32_t w;
-    bool payload_with_paths; // Does the payload for minimizer hits include path information in addition to a zipcode?
     bool uses_syncmers; // TODO: We could discard the syncmer support.
-    
+                        
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
     /// This is our primary graph.
@@ -865,9 +880,10 @@ protected:
      * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
      * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
-    void do_chaining_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+    void do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags, std::vector<size_t>& chain_source_tree,
+                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+                              std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
                               std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
                               std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
@@ -876,7 +892,7 @@ protected:
     /**
      * Collect stats about the best chains for annotating the final alignment
      */
-    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
+    void get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                const std::vector<std::vector<size_t>>& chains,
                                const std::vector<size_t>& chain_source_tree,
@@ -886,7 +902,7 @@ protected:
                                double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
                                Funnel& funnel) const ;
 
-    void do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
+    void do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                const vector<algorithms::Anchor>& seed_anchors,
                                const std::vector<std::vector<size_t>>& chains, 
@@ -896,14 +912,21 @@ protected:
                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                                vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                vector<size_t>& alignments_to_source,
-                               SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                               SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
 
-    void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
+    /**
+     * Select the max_multimaps best alignments from alignments into mappings.
+     *
+     * Skips alignments that overlap too much with previous alignments.
+     *
+     * If no alignments have a positive score, responsible for creating an unmapped mapping.
+     */
+    void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
                                        const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
                                        const std::vector<int>& chain_score_estimates,
                                        std::vector<Alignment>& mappings,
                                        std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
-                                       bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                                       LazyRNG& rng, Funnel& funnel) const;
 
     
 
@@ -1077,11 +1100,11 @@ protected:
      *
      * For connecting alignment, restricts the alignment to use <= max_dp_cells
      * cells. If too many DP cells would be used, produces an Alignment with
-     * and empty path.
+     * an empty path.
      *
-     * Returns the number of nodes and bases in the graph aligned against.
+     * Returns whether a graph was aligned against or not.
      */
-    static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static bool align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
 
 public:
     /**
@@ -1089,7 +1112,7 @@ public:
      * same answer (modulo reverse-complementation) no matter whether the
      * sequence and anchors are reverse-complemented or not.
      */
-    static std::pair<size_t, size_t> align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static bool align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
 
 protected:
     /**
@@ -1467,7 +1490,8 @@ protected:
                                    const std::vector<std::vector<size_t>>& chains,
                                    const std::vector<std::vector<bool>>& chain_rec_flags,
                                    const std::vector<size_t>& chain_source_tree,
-                                   const PathPositionHandleGraph* path_graph);
+                                   const PathPositionHandleGraph* path_graph,
+                                   bool haplotype_positions);
 
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);

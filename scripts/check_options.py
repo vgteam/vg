@@ -71,6 +71,15 @@ Note that only the first of these which fails will be printed,
 so if you see a message about a missing long_options[] entry,
 you may have to do multiple runs/fixes to see all the problems.
 
+### Subcommands all together
+
+All subcommand names which aren't skipped must appear in the
+autocomplete files (AUTOCOMP_FILES), and those files also can't
+have any subcommands which don't exist.
+
+Autocompleted subcommands detected via a line like
+    opts="name1 name2 etc."
+
 ## Format
 
 - helptext: within the `help_<command>()` function,
@@ -130,19 +139,26 @@ Some GitHub Copilot autocompletions were used.
 import os
 import re
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from dataclasses import dataclass
 
-SUBCOMMAND_DIR = 'src/subcommand'
+SUBCMD_DIR = 'src/subcommand'
 """Where to search for subcommand files."""
+SUBCMD_END = '_main.cpp'
+"""Suffix for subcommand files."""
 SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
 """Files to skip in the consistency check."""
+AUTOCOMP_FILES = ['autocomp.bash', 'autocomplete.sh']
+"""Where to double-check subcommand autocomplete existence."""
+
 HELPTEXT_FUNCTION = r'void\shelp_\w+\s*\(char\*\* argv.*\) \{'
 """Regex to match the start of a helptext function."""
 HELP_DESC = 'print this help message to stderr and exit'
 """Expected description for the --help option."""
+
 ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
+
 NON_WORK_WORDS = {'exit', 'return', 'deprecated', 'abort', 'throw', 'error'}
 """Keywords that indicate something is meant to not work in the switch block."""
 FILENAME_VAR_ENDS = {'file', 'filename', 'file_name', 'filepath', 'file_path'}
@@ -157,11 +173,11 @@ class OptionInfo:
     (Though the switch block parsers uses {shortform: OptionInfo})
     """
 
-    takes_argument: bool = None
+    takes_argument: bool | None = None
     """Whether the option takes an argument."""
     shortform: Optional[str] = None
     """Short option name, or None if not present."""
-    errors: List[str] = None
+    errors: List[str] | None = None
     """Extra things to complain about at the end."""
 
     def is_unset(self) -> bool:
@@ -447,7 +463,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     inside_longopts = False
     
     # Track constexpr int definitions
-    const_pattern = re.compile(r'constexpr int ([A-Z_]+)\s+=\s+(\d+);')
+    const_pattern = re.compile(r'constexpr int ([A-Z_0-9]+)\s+=\s+(\d+);')
     all_caps_names = set()
     all_caps_values = set()
 
@@ -718,7 +734,7 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
 
     return optarg_usage
 
-def check_file(filepath: str) -> bool:
+def check_subcommand_file(filepath: str) -> bool:
     """Run all consistency checks on a single file.
     
     Any problems are printed to stdout.
@@ -896,10 +912,69 @@ def check_file(filepath: str) -> bool:
 
     return is_ok
 
+def check_autocomplete_file(filepath: str, subcommands_truth: Set[str]) -> bool:
+    """Check whether the autocompleted subcommands match the real list.
+    
+    Finds a line like 
+        opts="name1 name2 etc."
+    and checks that the list of names matches those in subcommands_seen
+    though not necessarily in the same order.
+
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to check.
+    subcommand_truth : Set[str]
+        The subcommands actually observed.
+
+    Returns
+    -------
+    bool
+        True if the file is OK, and False if it
+        contains problems.
+
+    Raises
+    ------
+    ValueError
+        Gross formatting issues, such as lacking an opts line.
+    """
+
+    seen_opts = False
+    with open(filepath) as file:
+        for line in file:
+            if "opts=" in line:
+                seen_opts = True
+                # Turn `opts="name1 name2 etc."` into `name1 name2 etc.``
+                seen_cmds = line.strip().removeprefix('opts=').strip('"')
+                seen_set = set(seen_cmds.split())
+
+                # What doesn't match?
+                seen_not_truth = seen_set - subcommands_truth
+                truth_not_seen = subcommands_truth - seen_set
+                if seen_not_truth or truth_not_seen:
+                    # Something's off. Complain.
+                    for cmd in seen_not_truth:
+                        print(f"{filepath}: {cmd} doesn't actually exist")
+                    for cmd in truth_not_seen:
+                        print(f"{filepath}: {cmd} exists but isn't here")
+                    return False
+                else:
+                    return True
+    if not seen_opts:
+        raise ValueError(f'No opts="cmds" line found in {filepath}')
+
 if __name__ == "__main__":
     is_ok = True
-    for fname in os.listdir(SUBCOMMAND_DIR):
-        if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
+    subcmds_truth = set()
+
+    for base_name in os.listdir(SUBCMD_DIR):
+        if not base_name.endswith(SUBCMD_END) or base_name in SKIP_FILES:
             continue
-        is_ok = check_file(os.path.join(SUBCOMMAND_DIR, fname)) and is_ok
+        subcmds_truth.add(base_name.removesuffix(SUBCMD_END).replace('_', '-'))
+        full_name = os.path.join(SUBCMD_DIR, base_name)
+        is_ok = check_subcommand_file(full_name) and is_ok
+    
+    for file_name in AUTOCOMP_FILES:
+        is_ok = check_autocomplete_file(file_name, subcmds_truth) and is_ok
+
     sys.exit(0 if is_ok else 1)

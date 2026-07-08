@@ -49,7 +49,11 @@ enum alignment_emitter_flags_t {
     /// expresses the alignment in graph space in the "GR" tag
     ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG = 16,
     /// When surjecting, produce and report supplementary alignments
-    ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY = 32
+    ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY = 32,
+    /// When surjecting, annote off-reference reads with their nearest reference position
+    ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION = 64,
+    /// When surjecting, attempt to left align
+    ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN = 128
 };
 
 /// Represents a path or subpath's sequence dictionary information. Holds

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 80
+plan tests 89
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -27,11 +27,6 @@ rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + zips + dist specified without crashing"
 
-vg minimizer -d x.dist --rec-mode -o wrong.min -z wrong.zipcodes xx.gbz
-vg giraffe -Z x.giraffe.gbz -m wrong.min -z wrong.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "1" "a minimizer index with the wrong payload type is rejected"
-rm -f wrong.min wrong.zipcodes
-
 rm -f x.shortread.withzip.min
 rm -f x.shortread.zipcodes
 vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
@@ -52,6 +47,12 @@ is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l | sed 's/^[[:space:]]*/
 
 is "$(vg view -aj mapped1.gam | jq '.score')" "73" "Mapping produces the correct score"
 
+vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq --min-extensions 2 --max-extensions 1 >/dev/null 2>error.txt
+is "${?}" "1" "mapping with conflicting values for parameters representing a range fails"
+grep -E -- "(--min-extensions.*--max-extensions|--max-extensions.*--min-extensions)" error.txt >/dev/null
+is "${?}" "0" "error message mentions offending parameters"
+rm -f error.txt
+
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b fast >/dev/null
 is "${?}" "0" "a read can be mapped with the fast preset"
 
@@ -63,11 +64,24 @@ is "${?}" "0" "a read can be mapped with the short read chaining preset"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -f reads/small.middle.ref.fq -b chaining-sr >/dev/null 2>log.txt
 is "${?}" "1" "a read pair cannot be mapped with the short read chaining preset"
-is "$(cat log.txt | grep "not yet implemented" | wc -l)" "1" "trying to map paired-end data with chaining produces an informative error"
+is "$(cat log.txt | grep "not yet implemented" | wc -l | sed 's/^[[:space:]]*//')" "1" "trying to map paired-end data with chaining produces an informative error"
 rm -f log.txt
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
+
+rm -f x.longread.withzip.min
+rm -f x.longread.zipcodes
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi >mapped.gam
+is "$(vg view -aj mapped.gam | jq '.annotation.chain.rec_count')" "1" "recombinations are counted by default when mapping with the hifi preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --rec-penalty-aln 9999 >mapped.gam
+is "$(vg view -aj mapped.gam | jq '.score // 0')" "0" "recombination alignment score penalty is used by default and can unmap a read"
+
+rm -f mapped.gam
+rm -f x.longread.withzip.min
+rm -f x.longread.zipcodes
 
 rm -Rf grid-out
 mkdir grid-out
@@ -108,12 +122,28 @@ vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes 
 vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
 vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
 
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1_chaining.bam
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAM > t1_chaining.gam
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1_chaining.gaf
+
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
 is "$(samtools view t2.bam | grep T4 | grep T5 | grep T6 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 2"
 is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 1"
 is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 2"
 is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved on read 1"
+is "$(samtools view t1_chaining.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved in chaining mode"
+is "$(vg view -aj t1_chaining.gam | jq -r '.annotation.tags' | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are present in GAM in chaining mode"
+is "$(cat t1_chaining.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved in chaining mode"
+
+# a uniform random sequence
+printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
+vg giraffe -b chaining-sr -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f x.fq --comments-as-tags -o GAF >x.gaf
+is "$(cat x.gaf | grep 'TG:Z' | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved in chaining mode for unmapped reads"
+
+
+rm t1.bam t2.bam t3.bam t1_chaining.bam t1_chaining.gam t1_chaining.gaf t1.gaf tagged1.fq tagged2.fq x.fq
+rm -f read.fq read.gam
 
 # Attempts to use mismatched files fail
 vg gbwt -G graphs/components_walks.gfa -g wrong.gbz
@@ -121,13 +151,15 @@ vg giraffe -Z wrong.gbz -d x.dist -m x.shortread.withzip.min -z x.shortread.zipc
 is "${?}" "1" "mapping with mismatched GBZ and minimizer index fails"
 is "$(grep -c 'error.*are not compatible' log.txt)" "1" "appropriate error message is printed"
 
-rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
-rm -f read.fq read.gam
+rm -rf explanation_*
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr > /dev/null 2>&1
 # Check that at least some TSV files and directories were created 
 is "$(find explanation_read1 -name 'chain*-dotplot*.tsv' 2>/dev/null | wc -l | tr -d ' ')" "1" "Chain explanation files are created per chain"
 is "$(ls -d explanation_* 2>/dev/null | wc -l | tr -d ' ')" "3" "Explanation directories are created per read"
+is "$(cat explanation_read1/chain0-seeds*.tsv | wc -l | tr -d ' ')" "1" "Chain reports one seed with one position"
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.indel.multi.fq --show-work --track-position -b chaining-sr --haplotype-positions > /dev/null 2>&1
+is "$(cat explanation_read1/chain0-seeds*.tsv | wc -l | tr -d ' ')" "3" "Chain reports one seed with three positions when checking haplotypes"
 
 rm -rf explanation_*
 rm -f x.giraffe.gbz wrong.gbz
@@ -294,8 +326,8 @@ vg index -j 1mb1kgp.dist  1mb1kgp.vg
 vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraffe Distance Index:1mb1kgp.dist" -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz
 vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --track-provenance --align-from-chains --set-refpos
 # This is an 8001 bp read with 1 insert and 1 substitution
-# 7999 * 1 + 1 * -4 + -6 + 5 + 5 = 7999
-is "$(vg view -aj longread.gam | jq -r '.score')" "7999" "A long read can be correctly aligned"
+# We use minimap2-based scoring which awards that this many points.
+is "$(vg view -aj longread.gam | jq -r '.score')" "7948" "A long read can be correctly aligned"
 is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l | sed 's/^[[:space:]]*//')" "2" "A long read has the correct edits found"
 is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l | sed 's/^[[:space:]]*//')" "1" "Long read minimizer set is correctly restricted"
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"

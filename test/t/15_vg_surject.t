@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 75
+plan tests 78
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -90,7 +90,7 @@ printf "@read\n${SEQ_RC}\n+\n${QUAL_R}\n" > rev.fq
 vg map -f fwd.fq -g x.gcsa -x x.xg > mapped.fwd.gam
 vg map -f rev.fq -g x.gcsa -x x.xg > mapped.rev.gam
 
-is "$(vg view -aj mapped.rev.gam | jq -r '.quality' | base64 -d | xxd -p -c1 | tac | xxd -p -r | xxd)" "$(vg view -aj mapped.fwd.gam | jq -r '.quality' | base64 -d | xxd)" "quality strings we will use for testing are oriented correctly"
+is "$(vg filter --tsv-out quality mapped.rev.gam | tac -rs 'x\|[^x]' | head -2 | tail -1)" "$(vg filter --tsv-out quality mapped.fwd.gam | tail -1)" "quality strings we will use for testing are oriented correctly"
 
 is "$(vg surject -p x -x x.xg mapped.fwd.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "$(vg surject -p x -x x.xg mapped.rev.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
 
@@ -125,9 +125,17 @@ is "$(cat surjected.sam | grep '@RG' | grep 'RG1' | grep 'Sample1' | wc -l)" "1"
 
 # a uniform random sequence
 printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
-is $(vg map -d x -t 1 -f x.fq -5 bam --comments-as-tags | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
+vg map -d x -t 1 -f x.fq --comments-as-tags >x.gam
+is $(vg surject -p x -x x.xg --bam-output x.gam | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
+vg map -d x -t 1 -f x.fq --comments-as-tags --gaf >x.gaf
+is $(vg surject -p x -x x.xg --bam-output --gaf-input x.gaf | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads in GAF"
 
-rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
+# A sequence that should map
+printf "@read TG:Z:val\nACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x2.fq
+vg map -d x -t 1 -f x2.fq --comments-as-tags --gaf >x2.gaf
+is $(vg surject -p x -x x.xg --bam-output --gaf-input x2.gaf | samtools view | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on mapped reads in GAF"
+
+rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
 
 vg mod -c graphs/fail.vg >f.vg
 vg index -k 11 -g f.gcsa -x f.xg f.vg
@@ -265,3 +273,9 @@ vg surject -x haplotypes.gbz -p 'KOLF2.1J#1#chr1_1#0' --sam-output read.gam >sur
 is "$(cat surjected.sam | tail -n1 | cut -f3)" "KOLF2.1J#1#chr1_1#0" "surjecting explicitly to a haplotype in a GBZ puts a read on that haplotype"
 
 rm haplotypes.gbz read.gam surjected.sam
+
+vg autoindex -p g -w map -g graphs/long_insertion.gfa
+vg map -d g -f reads/ts.fq | vg surject -x g.xg -b --off-ref-position - > g.bam
+is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "1" "off reference reads can be annotated with the nearest reference position"
+
+rm g.xg g.gcsa g.gcsa.lcp g.bam

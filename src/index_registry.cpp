@@ -519,8 +519,7 @@ construct_minimizers_impl(
     if (IndexingParameters::verbosity != IndexingParameters::None) {
         info(context) << "Constructing minimizer index and associated zipcodes." << endl;
         info(context) << "    using parameters -k " << params.k << " -w " << params.w_or_s 
-                      << (params.use_weighted_minimizers ? " -W " : "")
-                      << (params.paths_in_payload ? " with paths" : "") << endl;
+                      << (params.use_weighted_minimizers ? " -W " : "") << endl;
     }
 
     assert(inputs.size() == 2);
@@ -550,6 +549,10 @@ construct_minimizers_impl(
     gbwtgraph::DefaultMinimizerIndex minimizers = build_minimizer_index(
         *gbz, distance_index.get(), &oversized_zipcodes, params
     );
+
+    // Close the distance index so it can't appear to be modified after the
+    // files that depend on it.
+    distance_index.reset();
 
     string output_name = plan->output_filepath(minimizer_output);
     save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
@@ -4523,6 +4526,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     dup2(devnull, STDERR_FILENO);
                     close(devnull);
                 }
+            } else {
+                // KMC prints statistics to stdout, which conflicts with many vg subcommands
+                // that write their output to stdout. So we redirect them to stderr.
+                dup2(STDERR_FILENO, STDOUT_FILENO);
             }
             
             // Allow enough open files for kmc to work; see
@@ -4570,24 +4577,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // TODO: We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
     registry.register_recipe(
-        {"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-        [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
-            MinimizerIndexParameters params;
-            params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
-                .with_paths(true)
-                .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
-                .kmer_counting(IndexingParameters::space_efficient_counting)
-                .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
-            return construct_minimizers_impl(inputs, plan, constructing, params);
-        }
-    );
-
-    registry.register_recipe(
         {"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
             params.minimizers(IndexingParameters::short_read_minimizer_k, IndexingParameters::short_read_minimizer_w)
-                .with_paths(false)
                 .weighted(IndexingParameters::short_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
                 .kmer_counting(IndexingParameters::space_efficient_counting)
                 .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
@@ -4599,7 +4592,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         [&](const vector<const IndexFile*>& inputs, const IndexingPlan* plan, AliasGraph& alias_graph, const IndexGroup& constructing) {
             MinimizerIndexParameters params;
             params.minimizers(IndexingParameters::long_read_minimizer_k, IndexingParameters::long_read_minimizer_w)
-                .with_paths(false)
                 .weighted(IndexingParameters::long_read_minimizer_W, IndexingParameters::minimizer_downweight_threshold)
                 .kmer_counting(IndexingParameters::space_efficient_counting)
                 .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
@@ -4658,12 +4650,10 @@ vector<IndexName> VGIndexes::get_default_long_giraffe_indexes() {
     return indexes;
 }
 
-vector<IndexName> VGIndexes::get_default_long_path_giraffe_indexes() {
+vector<IndexName> VGIndexes::get_default_haplotype_sampling_indexes() {
     vector<IndexName> indexes{
-        "Giraffe Distance Index",
-        "Giraffe GBZ",
-        "Long Read PathMinimizers",
-        "Long Read PathZipcodes",
+        "GBZ",
+        "Haplotype Index",
     };
     return indexes;
 }
@@ -5212,6 +5202,34 @@ vector<string> IndexRegistry::require(const IndexName& identifier) const {
         error(context) << "do not have and did not make index: " << identifier << endl;
     }
     return index->get_filenames();
+}
+
+bool IndexRegistry::predates(const IndexName& earlier, const IndexName& later) const {
+    // Get all the files
+    std::vector<std::string> earlier_files = require(earlier);
+    std::vector<std::string> later_files = require(later);
+
+    // Make sure they're nonempty
+    if (earlier_files.empty()) {
+        throw std::runtime_error(earlier + " index has no files");
+    }
+    if (later_files.empty()) {
+        throw std::runtime_error(later + " index has no files");
+    }
+
+    // Get all their modification times
+    std::filesystem::file_time_type (*predicate)(const std::filesystem::path&) = std::filesystem::last_write_time;
+    std::vector<std::filesystem::file_time_type> earlier_times;
+    std::transform(earlier_files.begin(), earlier_files.end(), std::back_inserter(earlier_times), predicate);
+    std::vector<std::filesystem::file_time_type> later_times;
+    std::transform(later_files.begin(), later_files.end(), std::back_inserter(later_times), predicate);
+
+    // Find where the times that shouldn't intersect are, and get them. 
+    std::filesystem::file_time_type earlier_time = *std::max_element(earlier_times.begin(), earlier_times.end());
+    std::filesystem::file_time_type later_time = *std::max_element(later_times.begin(), later_times.end());
+    
+    // Return if the earlier files are touched no later than the later files.
+    return earlier_time <= later_time; 
 }
 
 void IndexRegistry::set_target_memory_usage(int64_t bytes) {

@@ -263,7 +263,7 @@ int main_align(int argc, char** argv) {
             StrandSplitGraph split(graph.get());
             
             // dagify it as far as we might ever want
-            DagifiedGraph dag(&split, seq.size() + aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
+            DagifiedGraph dag(&split, seq.size() + aligner.scorer->longest_detectable_gap(seq.size(), seq.size() / 2));
             
             if (pinned_alignment) {
                 aligner.align_pinned(alignment, dag, pin_left);

@@ -1,6 +1,6 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/vcflib/vcflib.git
+	url = https://github.com/vgteam/vcflib.git
 [submodule "gssw"]
 	path = deps/gssw
 	url = https://github.com/vgteam/gssw.git
@@ -22,9 +22,6 @@
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
     url = https://github.com/vgteam/sdsl-lite.git
-[submodule "deps/libVCFH"]
-	path = deps/libVCFH
-	url = https://github.com/edawson/libVCFH.git
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
@@ -34,9 +31,6 @@
 [submodule "deps/raptor"]
 	path = deps/raptor
 	url = https://github.com/vgteam/raptor.git
-[submodule "deps/snappy"]
-	path = deps/snappy
-	url = https://github.com/google/snappy.git
 [submodule "deps/Complete-Striped-Smith-Waterman-Library"]
 	path = deps/ssw
 	url = https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
@@ -46,9 +40,6 @@
 [submodule "deps/sonLib"]
 	path = deps/sonLib
 	url = https://github.com/benedictpaten/sonLib.git
-[submodule "deps/fermi-lite"]
-	path = deps/fermi-lite
-    url = https://github.com/vgteam/fermi-lite.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git
@@ -58,9 +49,6 @@
 [submodule "deps/backward-cpp"]
 	path = deps/backward-cpp
 	url = https://github.com/adamnovak/backward-cpp.git
-[submodule "deps/elfutils"]
-	path = deps/elfutils
-	url = https://sourceware.org/git/elfutils.git
 [submodule "deps/structures"]
 	path = deps/structures
 	url = https://github.com/vgteam/structures.git
@@ -136,3 +124,9 @@
 [submodule "deps/GFAz"]
 	path = deps/GFAz
 	url = https://github.com/babyplutokurt/GFAz.git
+[submodule "deps/cairo"]
+	path = deps/cairo
+	url = git://anongit.freedesktop.org/git/cairo
+[submodule "deps/pixman"]
+	path = deps/pixman
+	url = git://anongit.freedesktop.org/git/pixman

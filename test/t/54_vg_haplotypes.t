@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 44
+plan tests 45
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -72,7 +72,7 @@ is $(vg gbwt -H -Z diploid3.gbz) 3 "2 generated + 1 reference haplotypes"
 # Giraffe integration, guessed output name
 rm -f full.HG003.* default.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
-    -f haplotype-sampling/HG003.fq.gz > default.gam
+    -f haplotype-sampling/HG003.fq.gz > default.gam 2> /dev/null
 is $? 0 "Giraffe integration with a guessed output name"
 cmp diploid.gbz full.HG003.gbz
 is $? 0 "the sampled graph is identical to a manually sampled one"
@@ -81,7 +81,7 @@ is $? 0 "the sampled graph is identical to a manually sampled one"
 rm -f sampled.003HG.* specified.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     --index-basename sampled -N 003HG \
-    -f haplotype-sampling/HG003.fq.gz > specified.gam
+    -f haplotype-sampling/HG003.fq.gz > specified.gam 2> /dev/null
 is $? 0 "Giraffe integration with a specified output name"
 cmp full.HG003.gbz sampled.003HG.gbz
 is $? 0 "the sampled graphs are identical"
@@ -90,7 +90,7 @@ is $? 0 "the sampled graphs are identical"
 rm -f GRCh38.HG003.* HG003_GRCh38.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     --index-basename GRCh38 -N HG003 --set-reference GRCh38 \
-    -f haplotype-sampling/HG003.fq.gz > HG003_GRCh38.gam
+    -f haplotype-sampling/HG003.fq.gz > HG003_GRCh38.gam 2> /dev/null
 is $? 0 "Giraffe integration with a specified reference sample"
 cmp diploid3.gbz GRCh38.HG003.gbz
 is $? 0 "the sampled graph is identical to a manually sampled one"
@@ -101,7 +101,7 @@ is $? 0 "the sampled graph is identical to a manually sampled one"
 rm -f auto_hapl.HG003.* auto_hapl.gam
 vg giraffe --progress -Z full.gbz --kff-name haplotype-sampling/HG003.kff \
     --index-basename auto_hapl -N HG003 \
-    -f haplotype-sampling/HG003.fq.gz > auto_hapl.gam
+    -f haplotype-sampling/HG003.fq.gz > auto_hapl.gam 2> /dev/null
 is $? 0 "Giraffe builds haplotype index automatically"
 is "$(vg gbwt -H -Z auto_hapl.HG003.gbz)" 4 "auto-built hapl produces 2 diploid + 2 reference haplotypes"
 
@@ -111,16 +111,21 @@ is "$(vg gbwt -H -Z auto_hapl.HG003.gbz)" 4 "auto-built hapl produces 2 diploid 
 rm -f auto_kff.HG003.* auto_kff.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl \
     --index-basename auto_kff -N HG003 \
-    -f haplotype-sampling/HG003.fq.gz > auto_kff.gam
+    -f haplotype-sampling/HG003.fq.gz -o gaf > auto_kff.gaf 2> /dev/null
 is $? 0 "Giraffe counts kmers from reads automatically"
 is "$(vg gbwt -H -Z auto_kff.HG003.gbz)" 4 "auto kmer counting produces 2 diploid + 2 reference haplotypes"
+
+# KMC prints statistics to stdout.
+# Check that the stats are not included in the alignment output.
+is "$(head -n 1 auto_kff.gaf | cut -f 1)" "@HD" "auto kmer counting does not output KMC stats"
+rm -f auto_kff.gaf
 
 # Giraffe integration, fully automatic: both hapl and kff are built by the
 # IndexRegistry. Triggered by --haplotype-sampling without either input file.
 rm -f auto_all.HG003.* auto_all.gam
 vg giraffe --progress -Z full.gbz --haplotype-sampling \
     --index-basename auto_all -N HG003 \
-    -f haplotype-sampling/HG003.fq.gz > auto_all.gam
+    -f haplotype-sampling/HG003.fq.gz > auto_all.gam 2> /dev/null
 is $? 0 "Giraffe does fully automatic haplotype sampling"
 is "$(vg gbwt -H -Z auto_all.HG003.gbz)" 4 "fully automatic haplotype sampling produces 2 diploid + 2 reference haplotypes"
 
@@ -128,7 +133,7 @@ is "$(vg gbwt -H -Z auto_all.HG003.gbz)" 4 "fully automatic haplotype sampling p
 rm -f auto_nondip.HG003.* auto_nondip.gam
 vg giraffe --progress -Z full.gbz --haplotype-sampling --no-diploid-sampling --num-haplotypes 3 \
     --index-basename auto_nondip -N HG003 \
-    -f haplotype-sampling/HG003.fq.gz > auto_nondip.gam
+    -f haplotype-sampling/HG003.fq.gz > auto_nondip.gam 2> /dev/null
 is $? 0 "Giraffe does non-diploid haplotype sampling"
 is "$(vg gbwt -H -Z auto_nondip.HG003.gbz)" 5 "non-diploid haplotype sampling sampling produces 3 requested + 2 reference haplotypes"
 
@@ -136,7 +141,7 @@ is "$(vg gbwt -H -Z auto_nondip.HG003.gbz)" 5 "non-diploid haplotype sampling sa
 rm -f auto_oneref.HG003.* auto_oneref.gam
 vg giraffe --progress -Z full.gbz --haplotype-sampling --set-reference GRCh38 \
     --index-basename auto_oneref -N HG003 \
-    -f haplotype-sampling/HG003.fq.gz > auto_oneref.gam
+    -f haplotype-sampling/HG003.fq.gz > auto_oneref.gam 2> /dev/null
 is $? 0 "Giraffe does haplotype sampling when setting reference"
 is "$(vg gbwt -H -Z auto_oneref.HG003.gbz)" 3 "setting reference produces 2 diploid + 1 reference haplotypes"
 

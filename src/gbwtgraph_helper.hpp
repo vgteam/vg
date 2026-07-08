@@ -57,6 +57,9 @@ void save_gbwtgraph(const gbwtgraph::GBWTGraph& graph, const std::string& filena
 /// Save GBZ to the file.
 void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress = false);
 
+/// Save GBZ to the file, writing version 1 of the format for compatibility with older tools.
+void save_gbz_v1(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress = false);
+
 /// Save GBWT and GBWTGraph to the GBZ file.
 /// NOTE: GBZ tags will be empty, apart from the source tag.
 void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
@@ -145,7 +148,7 @@ struct MinimizerIndexParameters {
     constexpr static size_t HASH_TABLE_MAX_WIDTH = 36;
 
     /// Number of words used for a zipcode payload.
-    constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type); 
+    constexpr static size_t ZIPCODE_PAYLOAD_SIZE = sizeof(ZipCode::payload_type) / sizeof(gbwtgraph::KmerEncoding::code_type);
 
     enum PayloadType {
         /// No payload.
@@ -167,10 +170,6 @@ struct MinimizerIndexParameters {
 
     /// Whether to use syncmers instead of minimizers.
     bool use_syncmers = false;
-
-    /// Whether to include path information in the payload (for recombination-aware mapping).
-    /// Ignored if there is no zipcode payload.
-    bool paths_in_payload = false;
 
     /// Whether to use weighted minimizers (cannot be used with syncmers).
     bool use_weighted_minimizers = false;
@@ -203,12 +202,6 @@ struct MinimizerIndexParameters {
         this->k = k;
         this->w_or_s = s;
         this->use_syncmers = true;
-        return *this;
-    }
-
-    /// Includes path information in the payload.
-    MinimizerIndexParameters& with_paths(bool paths_in_payload = true) {
-        this->paths_in_payload = paths_in_payload;
         return *this;
     }
 
@@ -253,7 +246,8 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     const gbwtgraph::GBZ& gbz,
     const SnarlDistanceIndex* distance_index,
     ZipCodeCollection* oversized_zipcodes,
-    const MinimizerIndexParameters& params
+    const MinimizerIndexParameters& params,
+    bool require_path_payloads = false
 );
 
 /// Checks that the minimizer index has the expected payload type.

@@ -4120,10 +4120,10 @@ namespace vg {
         // compute the weight of edges and node matches
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& from_node = path_nodes.at(i);
-            node_weights[i] = (aligner->score_exact_match(from_node.begin, from_node.end,
+            node_weights[i] = (aligner->scorer->score_exact_match(from_node.begin, from_node.end,
                                                           alignment.quality().begin() + (from_node.begin - alignment.sequence().begin()))
-                               + (from_node.begin == alignment.sequence().begin() ? aligner->score_full_length_bonus(true, alignment) : 0)
-                               + (from_node.end == alignment.sequence().end() ? aligner->score_full_length_bonus(false, alignment) : 0));
+                               + (from_node.begin == alignment.sequence().begin() ? aligner->scorer->score_full_length_bonus(true, alignment) : 0)
+                               + (from_node.end == alignment.sequence().end() ? aligner->scorer->score_full_length_bonus(false, alignment) : 0));
                         
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 PathNode& to_node = path_nodes.at(edge.first);
@@ -4135,19 +4135,19 @@ namespace vg {
                     // the read length in between the MEMs is longer than the distance, suggesting a read insert
                     // and potentially another mismatch on the other end
                     int64_t gap_length = read_dist - graph_dist;
-                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->gap_extension - aligner->gap_open
-                                                              - (graph_dist > 0) * aligner->mismatch);
+                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->scorer->gap_extension - aligner->scorer->gap_open
+                                                              - (graph_dist > 0) * aligner->scorer->mismatch);
                 }
                 else if (read_dist < graph_dist) {
                     // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
                     // and potentially another mismatch on the other end
                     int64_t gap_length = graph_dist - read_dist;
-                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->gap_extension - aligner->gap_open
-                                                              - (read_dist > 0) * aligner->mismatch);
+                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->scorer->gap_extension - aligner->scorer->gap_open
+                                                              - (read_dist > 0) * aligner->scorer->mismatch);
                 }
                 else {
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_weights[make_pair(i, edge.first)] = -((graph_dist > 0) + (graph_dist > 1)) * aligner->mismatch;
+                    edge_weights[make_pair(i, edge.first)] = -((graph_dist > 0) + (graph_dist > 1)) * aligner->scorer->mismatch;
                 }
             }
         }
@@ -4695,7 +4695,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
             
             // score the zipped alignment
-            return_val.second = aligner->score_partial_alignment(alignment, align_graph, return_val.first, alignment_begin);
+            return_val.second = aligner->scorer->score_partial_alignment(alignment, align_graph, return_val.first, alignment_begin);
             
             // remove this part of the score from the alt alignments
             for (auto& alt_aln : alt_alns) {
@@ -5153,7 +5153,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         cerr << "rescore unshared alt " << j << " in block " << i - 1 << endl;
                         cerr << debug_string(unshared_alt_alns[j].first) << endl;
 #endif
-                        unshared_alt_alns[j].second = aligner->score_partial_alignment(alignment, align_graph,
+                        unshared_alt_alns[j].second = aligner->scorer->score_partial_alignment(alignment, align_graph,
                                                                                        unshared_alt_alns[j].first, seq_pos);
                     }
                     // they all cover the same read interval, so we can choose an arbitrary alt here
@@ -5164,7 +5164,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 cerr << debug_string(return_val.first[i].first) << endl;
 #endif
                 // score a shared segment
-                return_val.first[i].second = aligner->score_partial_alignment(alignment, align_graph,
+                return_val.first[i].second = aligner->scorer->score_partial_alignment(alignment, align_graph,
                                                                               return_val.first[i].first, seq_pos);
                 seq_pos += path_to_length(return_val.first[i].first);
             }
@@ -5216,12 +5216,12 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 PathNode& path_node = path_nodes.at(j);
                 subpath_t* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
-                int32_t match_score = scoring_aligner->score_exact_match(path_node.begin, path_node.end,
+                int32_t match_score = scoring_aligner->scorer->score_exact_match(path_node.begin, path_node.end,
                                                                          alignment.quality().begin() + (path_node.begin - alignment.sequence().begin()));
                 
                 subpath->set_score(match_score
-                                   + (path_node.begin == alignment.sequence().begin() ? scoring_aligner->score_full_length_bonus(true, alignment) : 0)
-                                   + (path_node.end == alignment.sequence().end() ? scoring_aligner->score_full_length_bonus(false, alignment) : 0));
+                                   + (path_node.begin == alignment.sequence().begin() ? scoring_aligner->scorer->score_full_length_bonus(true, alignment) : 0)
+                                   + (path_node.end == alignment.sequence().end() ? scoring_aligner->scorer->score_full_length_bonus(false, alignment) : 0));
             }
         }
         else {
@@ -5229,7 +5229,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 PathNode& path_node = path_nodes.at(j);
                 subpath_t* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
-                subpath->set_score(scoring_aligner->score_partial_alignment(alignment, align_graph, path_node.path, path_node.begin));
+                subpath->set_score(scoring_aligner->scorer->score_partial_alignment(alignment, align_graph, path_node.path, path_node.begin));
             }
         }
         
@@ -5277,7 +5277,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                        final_mapping_position.offset() + mapping_from_length(final_mapping));
             
             // the longest gap that could be detected at this position in the read
-            size_t src_max_gap = dp_aligner->longest_detectable_gap(alignment, src_path_node.end);
+            size_t src_max_gap = dp_aligner->scorer->longest_detectable_gap(alignment, src_path_node.end);
             
             // This holds edges that we remove, because we couldn't actually get an alignment across them with a positive score.
             unordered_set<pair<size_t, size_t>> edges_for_removal;
@@ -5296,12 +5296,12 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 // otherwise set it to the maximum gap length possible while retaining a positive score 
                 size_t max_dist = allow_negative_scores ?
                     edge.second :
-                    intervening_length + min(min(src_max_gap, dp_aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
+                    intervening_length + min(min(src_max_gap, dp_aligner->scorer->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
                 size_t min_gap = (edge.second > intervening_length) ? edge.second - intervening_length : intervening_length - edge.second;
 
 #ifdef debug_multipath_alignment
-                cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << dp_aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
+                cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << dp_aligner->scorer->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
                 cerr << "min gap: " << min_gap << endl;
 #endif
                 
@@ -5391,7 +5391,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                                                   band_padding_function(intervening_sequence, *aln_connecting_graph), true, max_band_cells);
                             if (dp_aligner != scoring_aligner) {
                                 for (auto& aln : alt_alignments) {
-                                    aln.set_score(scoring_aligner->score_contiguous_alignment(aln, false, false));
+                                    aln.set_score(scoring_aligner->scorer->score_contiguous_alignment(aln, false, false));
                                 }
                             }
                         } catch(BandMatricesTooBigException& e) {
@@ -5748,7 +5748,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 auto b = begin;
                 for (size_t i = first_idx; i < multipath_aln_out.subpath_size(); ++i) {
                     auto subpath = multipath_aln_out.mutable_subpath(i);
-                    subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, subpath->path(), b));
+                    subpath->set_score(aligner->scorer->score_partial_alignment(alignment, align_graph, subpath->path(), b));
                     b += path_to_length(subpath->path());
                 }
                 
@@ -6119,7 +6119,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     cerr << "trimming tail from length " << tail_length << " to " << aligning_tail_length << endl;
                 }
 #endif
-                int64_t gap =  min(max_gap, dp_aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
+                int64_t gap =  min(max_gap, dp_aligner->scorer->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
                                                                                                     path_node.end - alignment.sequence().begin()));
                 if (pessimistic_tail_gap_multiplier) {
                     gap = min(gap, pessimistic_tail_gap(aligning_tail_length, pessimistic_tail_gap_multiplier));
@@ -6187,7 +6187,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 // TODO: This assumes the match score is the *highest*
                 // match score in the quality-adjusted matrix, while the
                 // aligner usually loads the first.
-                int64_t tail_max_score = ((int64_t) dp_aligner->match) * right_tail_sequence.sequence().size() + ((int64_t) dp_aligner->full_length_bonus);
+                int64_t tail_max_score = ((int64_t) dp_aligner->scorer->match) * right_tail_sequence.sequence().size() + ((int64_t) dp_aligner->scorer->full_length_bonus);
                 auto tail_aligner = tail_max_score < std::numeric_limits<int16_t>::max() ? dp_aligner : scoring_aligner;
 #ifdef debug_multipath_alignment
                 cerr << "align right with aligner " << tail_aligner << " because aligner " << dp_aligner << " gives max score " << tail_max_score << endl;
@@ -6205,7 +6205,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     alt_alignments.emplace_back(std::move(right_tail_sequence));
                     tail_aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
                     if (tail_aligner != scoring_aligner) {
-                        alt_alignments.back().set_score(scoring_aligner->score_contiguous_alignment(alt_alignments.back(), false, true));
+                        alt_alignments.back().set_score(scoring_aligner->scorer->score_contiguous_alignment(alt_alignments.back(), false, true));
                     }
                 }
                 else {
@@ -6231,7 +6231,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     tail_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                     if (tail_aligner != scoring_aligner) {
                         for (auto& aln : alt_alignments) {
-                            aln.set_score(scoring_aligner->score_contiguous_alignment(aln, false, true));
+                            aln.set_score(scoring_aligner->scorer->score_contiguous_alignment(aln, false, true));
                         }
                     }
                 }
@@ -6312,7 +6312,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     }
 #endif
 
-                    int64_t gap =  min(max_gap, dp_aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
+                    int64_t gap =  min(max_gap, dp_aligner->scorer->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
                                                                                                         aligning_tail_length));
                     if (pessimistic_tail_gap_multiplier) {
                         gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
@@ -6372,7 +6372,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     });
 #endif
                         
-                    int64_t tail_max_score = ((int64_t) dp_aligner->match) * left_tail_sequence.sequence().size() + ((int64_t) dp_aligner->full_length_bonus);
+                    int64_t tail_max_score = ((int64_t) dp_aligner->scorer->match) * left_tail_sequence.sequence().size() + ((int64_t) dp_aligner->scorer->full_length_bonus);
                     auto tail_aligner = tail_max_score < std::numeric_limits<int16_t>::max() ? dp_aligner : scoring_aligner;
 #ifdef debug_multipath_alignment
                     cerr << "align left with aligner " << tail_aligner << " because aligner " << dp_aligner << " gives max score " << tail_max_score << endl;
@@ -6388,7 +6388,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         alt_alignments.emplace_back(std::move(left_tail_sequence));
                         tail_aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
                         if (tail_aligner != scoring_aligner) {
-                            alt_alignments.back().set_score(scoring_aligner->score_contiguous_alignment(alt_alignments.back(), true, false));
+                            alt_alignments.back().set_score(scoring_aligner->scorer->score_contiguous_alignment(alt_alignments.back(), true, false));
                         }
                     }
                     else {
@@ -6411,7 +6411,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         tail_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         if (tail_aligner != scoring_aligner) {
                             for (auto& aln : alt_alignments) {
-                                aln.set_score(scoring_aligner->score_contiguous_alignment(aln, true, false));
+                                aln.set_score(scoring_aligner->scorer->score_contiguous_alignment(aln, true, false));
                             }
                         }
                     }
@@ -6505,7 +6505,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         for (const auto& path_node : path_nodes) {
             for (const auto& edge : path_node.edges) {
                 const auto& next_node = path_nodes[edge.first];
-                shift = max<size_t>(shift, abs<int64_t>((next_node.begin - path_node.end) - edge.second));
+                shift = max<size_t>(shift, std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second)));
             }
         }
         return shift;
@@ -6529,7 +6529,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     ++in_degree[edge.first];
                     
                     const auto& next_node = path_nodes[edge.first];
-                    size_t shift = abs<int64_t>((next_node.begin - path_node.end) - edge.second);
+                    size_t shift = std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second));
                     
 #ifdef debug_shift_pruning
                     cerr << "shift DP reverse " << i << " <- " << edge.first << " with shift " << shift << " for total " << min_shift_rev[edge.first] + shift << endl;
@@ -6555,7 +6555,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             else {
                 for (auto& edge : path_node.edges) {
                     const auto& next_node = path_nodes[edge.first];
-                    size_t shift = abs<int64_t>((next_node.begin - path_node.end) - edge.second);
+                    size_t shift = std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second));
 #ifdef debug_shift_pruning
                     cerr << "shift DP forward " << i << " -> " << edge.first << " with shift " << shift << " for total " << min_shift_fwd[i] + shift << endl;
 #endif
@@ -6577,7 +6577,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             for (size_t j = 0; j < path_node.edges.size(); ++j) {
                 auto& edge = path_node.edges[j];
                 const auto& next_node = path_nodes[edge.first];
-                size_t shift = abs<int64_t>((next_node.begin - path_node.end) - edge.second);
+                size_t shift = std::abs(static_cast<std::int64_t>(next_node.begin - path_node.end) - static_cast<std::int64_t>(edge.second));
                 
                 size_t min_edge_shift = min_shift_fwd[i] + shift + min_shift_rev[edge.first];
                 

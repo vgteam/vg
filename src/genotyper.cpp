@@ -540,162 +540,6 @@ template<typename T> inline void set_intersection(const unordered_set<T>& set_1,
     }
 }
 
-
-// TODO properly handle cycles inside ultrabubble by including multiplicity of an edge in a path
-void Genotyper::edge_allele_labels(const VG& graph,
-                                   const Snarl* snarl,
-                                   const vector<list<NodeTraversal>>& snarl_paths,
-                                   unordered_map<pair<NodeTraversal, NodeTraversal>,
-                                   unordered_set<size_t>,
-                                   hash_oriented_edge>* out_edge_allele_sets)
-{
-    // edges are indicated by the pair of node ids they connect and what orientation
-    // they start and end in (true indicates forward)
-    *out_edge_allele_sets = unordered_map<pair<NodeTraversal, NodeTraversal>, unordered_set<size_t>, hash_oriented_edge>();
-    unordered_map<pair<NodeTraversal, NodeTraversal>, unordered_set<size_t>, hash_oriented_edge>& edge_allele_sets = *out_edge_allele_sets;
-
-    for (size_t i = 0; i < snarl_paths.size(); i++) {
-        list<NodeTraversal> path = snarl_paths[i];
-        // start at second node so we can look at edge leading into it
-        auto iter = path.begin();
-        iter++;
-        // can stop before last node because only interested in case where allele is ambiguous
-        auto last_node = path.end();
-        last_node--;
-        for (; iter != last_node; iter++) {
-
-            auto prev_iter = iter;
-            prev_iter--;
-
-            NodeTraversal node = *iter;
-            NodeTraversal prev_node = *prev_iter;
-
-            pair<NodeTraversal, NodeTraversal> edge = make_pair(prev_node, node);
-
-            if (!edge_allele_sets.count(edge)) {
-                edge_allele_sets.emplace(edge, unordered_set<size_t>());
-            }
-
-            // label the edge with this allele (indicated by its position in the vector)
-            edge_allele_sets.at(edge).insert(i);
-        }
-
-    }
-}
-
-// find the log conditional probability of each ambiguous allele set given each true allele
-void Genotyper::allele_ambiguity_log_probs(const VG& graph,
-                                           const Snarl* snarl,
-                                           const vector<list<NodeTraversal>>& snarl_paths,
-                                           const unordered_map<pair<NodeTraversal, NodeTraversal>,
-                                           unordered_set<size_t>,
-                                           hash_oriented_edge>& edge_allele_sets,
-                                           vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>* out_allele_ambiguity_probs)
-{
-    *out_allele_ambiguity_probs = vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>();
-    vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>& ambiguous_allele_probs = *out_allele_ambiguity_probs;
-    ambiguous_allele_probs.reserve(snarl_paths.size());
-
-    for (size_t i = 0; i < snarl_paths.size(); i++) {
-        ambiguous_allele_probs[i] = unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>();
-        unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>& allele_probs = ambiguous_allele_probs[i];
-        list<NodeTraversal> path = snarl_paths[i];
-
-        // consider both prefixes and suffixes that partially cross the ultrabubble
-        for (bool forward : {true, false}) {
-            // the set of alleles that this prefix of the current allele is consistent with
-            unordered_set<size_t> prefix_allele_set;
-
-            // find the first and last node to iterate through in this orientation
-            // stop one node before last node because only interested in case where allele is ambiguous
-            list<NodeTraversal>::iterator iter;
-            list<NodeTraversal>::iterator final;
-            if (forward) {
-                // extend prefix forward through the ultrabubble
-                iter = path.begin();
-                final = path.end();
-                final--;
-            }
-            else {
-                // extend suffix backward through the ultrabubble
-                iter = path.end();
-                iter--;
-                final = path.begin();
-            }
-            // iterate forwards or backwards along edges of path
-            while (true) {
-                // get the two nodes of the edge in the order they were entered into the allele label map
-                NodeTraversal node;
-                NodeTraversal next_node;
-                auto next_iter = iter;
-                if (forward) {
-                    next_iter++;
-                    node = *iter;
-                    next_node = *next_iter;
-                }
-                else {
-                    next_iter--;
-                    node = *next_iter;
-                    next_node = *iter;
-                }
-                if (next_iter == final) {
-                    break;
-                }
-
-                pair<NodeTraversal, NodeTraversal> edge = make_pair(node, next_node);
-                const unordered_set<size_t>& edge_allele_set = edge_allele_sets.at(edge);
-
-                if (prefix_allele_set.empty()) {
-                    // first edge in path, consistent with all alleles edge is labeled with
-                    prefix_allele_set = edge_allele_set;
-                }
-                else {
-                    // take set intersection of prefix alleles and the edge's allele labels
-                    unordered_set<size_t> new_prefix_allele_set;
-                    set_intersection<size_t>(prefix_allele_set, edge_allele_set, &new_prefix_allele_set);
-                    prefix_allele_set = new_prefix_allele_set;
-                }
-
-                // convert unordered set into a sorted vector for consistent hash-key behavior
-                vector<size_t> allele_set_key;
-                allele_set_key.reserve(prefix_allele_set.size());
-                for (size_t allele : prefix_allele_set) {
-                    allele_set_key.emplace_back(allele);
-                }
-                sort(allele_set_key.begin(), allele_set_key.end());
-
-                // add the length of the sequence to the probability of that allele set (will normalize later)
-                if (allele_probs.count(allele_set_key)) {
-                    allele_probs.at(allele_set_key) += node.node->sequence().length();
-                }
-                else {
-                    allele_probs.at(allele_set_key) = node.node->sequence().length();
-                }
-
-                // iterate forward or backward through bubble
-                if (forward) {
-                    iter++;
-                }
-                else {
-                    iter--;
-                }
-            }
-        }
-
-        // normalize lengths to probabilities (must sum to 1)
-        size_t total_ambiguous_length = 0;
-        for (auto& allele_length : allele_probs) {
-            total_ambiguous_length += allele_length.second;
-        }
-        for (auto& allele_length : allele_probs) {
-            allele_length.second = log(allele_length.second / total_ambiguous_length);
-        }
-    }
-}
-
-
-
-
 map<const Alignment*, vector<Genotyper::Affinity>>
     Genotyper::get_affinities(AugmentedGraph& aug,
                               const map<string, const Alignment*>& reads_by_name,
@@ -901,11 +745,11 @@ map<const Alignment*, vector<Genotyper::Affinity>>
             // Compute the unnormalized likelihood of the read given the allele graph.
             if(read->sequence().size() == read->quality().size()) {
                 // Use the quality-adjusted default scoring system
-                affinity.likelihood_ln = qa_aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+                affinity.likelihood_ln = qa_aligner.mapq_calc->score_to_unnormalized_likelihood_ln(aligned.score());
             } else {
                 // We will have aligned without quality adjustment, so interpret
                 // score in terms of the normal scoring parameters.
-                affinity.likelihood_ln = aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+                affinity.likelihood_ln = aligner.mapq_calc->score_to_unnormalized_likelihood_ln(aligned.score());
             }
 
             // Get the NodeTraversals for the winning alignment through the snarl.

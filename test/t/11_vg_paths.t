@@ -134,79 +134,79 @@ is "${?}" "0" "vg paths emits matching path FASTA for equivalent GFA and GFAZ in
 rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
 rm -f empty.vg empty.gbwt empty.fa
 
-# Augref (augmented reference path) computation tests
-vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 > augref_test.vg
-vg validate augref_test.vg
-is $? 0 "augref computation produces valid graph"
+# Gref (graph reference path) computation tests
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 > gref_test.vg
+vg validate gref_test.vg
+is $? 0 "gref computation produces valid graph"
 
-is $(vg paths -x augref_test.vg -L | grep "_alt$" | wc -l) 2 "augref computation creates expected number of augref paths"
+is $(vg paths -x gref_test.vg -L | grep "_alt$" | wc -l) 2 "gref computation creates expected number of gref paths"
 
-is $(vg paths -x augref_test.vg -L | grep "^x$" | wc -l) 1 "original reference path is preserved after augref computation"
+is $(vg paths -x gref_test.vg -L | grep "^x$" | wc -l) 1 "original reference path is preserved after gref computation"
 
-# Test augref naming convention matches pattern x_{N}_alt
-is $(vg paths -x augref_test.vg -L | grep -E "^x_[0-9]+_alt$" | wc -l) 2 "augref paths follow naming convention path_{N}_alt"
+# Test gref naming convention matches pattern x_{N}_alt
+is $(vg paths -x gref_test.vg -L | grep -E "^x_[0-9]+_alt$" | wc -l) 2 "gref paths follow naming convention path_{N}_alt"
 
 # Test with triple_nested.gfa which has more complex structure
-vg paths -x nesting/triple_nested.gfa -Q x --compute-augref --min-augref-len 1 > triple_augref.vg
-vg validate triple_augref.vg
-is $? 0 "augref computation works on complex nested structure"
+vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 1 > triple_gref.vg
+vg validate triple_gref.vg
+is $? 0 "gref computation works on complex nested structure"
 
-is $(vg paths -x triple_augref.vg -L | grep "_alt$" | wc -l) 2 "correct number of augref paths for triple nested graph"
+is $(vg paths -x triple_gref.vg -L | grep "_alt$" | wc -l) 2 "correct number of gref paths for triple nested graph"
 
 # Test minimum length filter
-vg paths -x nesting/triple_nested.gfa -Q x --compute-augref --min-augref-len 100 > triple_augref_long.vg
-is $(vg paths -x triple_augref_long.vg -L | grep "_alt$" | wc -l) 0 "min-augref-len filters out short fragments"
+vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 100 > triple_gref_long.vg
+is $(vg paths -x triple_gref_long.vg -L | grep "_alt$" | wc -l) 0 "min-gref-len filters out short fragments"
 
 # Test second pass coverage of dangling nodes (nodes outside snarls but on haplotype paths)
-vg paths -x nesting/dangling_node.gfa -Q x --compute-augref --min-augref-len 1 > dangling_augref.vg
-vg validate dangling_augref.vg
-is $? 0 "augref computation handles dangling nodes outside snarls"
+vg paths -x nesting/dangling_node.gfa -Q x --compute-gref --min-gref-len 1 > dangling_gref.vg
+vg validate dangling_gref.vg
+is $? 0 "gref computation handles dangling nodes outside snarls"
 
-is $(vg paths -x dangling_augref.vg -L | grep "_alt$" | wc -l) 2 "augref second pass covers dangling nodes"
+is $(vg paths -x dangling_gref.vg -L | grep "_alt$" | wc -l) 2 "gref second pass covers dangling nodes"
 
-# Verify the dangling node (node 5, 8bp) is covered by checking augref path lengths include 8bp
-# Note: use -E with grep instead of -Q since augref paths are filtered from prefix matching
-is $(vg paths -x dangling_augref.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum}') 12 "augref paths cover both snarl node and dangling node"
+# Verify the dangling node (node 5, 8bp) is covered by checking gref path lengths include 8bp
+# Note: use -E with grep instead of -Q since gref paths are filtered from prefix matching
+is $(vg paths -x dangling_gref.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum}') 12 "gref paths cover both snarl node and dangling node"
 
-# Test --augref-segs option for writing segment table
-vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-segs augref_test.segs > augref_segs_test.vg
-is $? 0 "augref-segs option produces no error"
+# Test --gref-segs option for writing segment table
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs gref_test.segs > gref_segs_test.vg
+is $? 0 "gref-segs option produces no error"
 
-is $(wc -l < augref_test.segs) 2 "augref-segs produces correct number of lines"
+is $(wc -l < gref_test.segs) 2 "gref-segs produces correct number of lines"
 
-is $(cut -f4 augref_test.segs | grep -c "x_.*_alt") 2 "augref-segs contains augref path names"
+is $(cut -f4 gref_test.segs | grep -c "x_.*_alt") 2 "gref-segs contains gref path names"
 
-is $(cut -f1 augref_test.segs | grep -c "#") 2 "augref-segs contains source path names with metadata"
+is $(cut -f1 gref_test.segs | grep -c "#") 2 "gref-segs contains source path names with metadata"
 
-is $(cut -f5 augref_test.segs | grep -c "^x$") 2 "augref-segs contains reference path name"
+is $(cut -f5 gref_test.segs | grep -c "^x$") 2 "gref-segs contains reference path name"
 
-# Test that augref-segs requires compute-augref
-vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --augref-segs augref_test.segs 2>&1 | grep -q "requires --compute-augref"
-is $? 0 "augref-segs requires compute-augref option"
+# Test that gref-segs requires compute-gref
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --gref-segs gref_test.segs 2>&1 | grep -q "requires --compute-gref"
+is $? 0 "gref-segs requires compute-gref option"
 
-# Test augref-segs with augref-sample option
-vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-augref --min-augref-len 1 --augref-sample TESTSAMPLE --augref-segs augref_sample_test.segs > augref_sample_test.vg
-is $(cut -f4 augref_sample_test.segs | grep -c "TESTSAMPLE") 2 "augref-segs uses augref-sample for path names"
+# Test gref-segs with gref-sample option
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 --gref-sample TESTSAMPLE --gref-segs gref_sample_test.segs > gref_sample_test.vg
+is $(cut -f4 gref_sample_test.segs | grep -c "TESTSAMPLE") 2 "gref-segs uses gref-sample for path names"
 
 # Test cross-path interval merging (left merge: new interval absorbs previous from different path)
-vg paths -x nesting/cross_path_merge.gfa -Q x --compute-augref --min-augref-len 1 > cross_merge_test.vg
+vg paths -x nesting/cross_path_merge.gfa -Q x --compute-gref --min-gref-len 1 > cross_merge_test.vg
 vg validate cross_merge_test.vg
-is $? 0 "cross-path merge: augref computation produces valid graph"
+is $? 0 "cross-path merge: gref computation produces valid graph"
 
 # Cross-path merge should combine snarl interval [2,3,4] + dangling [9] into one path on hap3
-# Without merging: 3 augref paths. With merging: 2 augref paths.
-is $(vg paths -x cross_merge_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path left merge reduces augref path count"
+# Without merging: 3 gref paths. With merging: 2 gref paths.
+is $(vg paths -x cross_merge_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path left merge reduces gref path count"
 
 # Test cross-path interval merging (right merge: new interval absorbs following from different path)
-vg paths -x nesting/cross_path_merge_right.gfa -Q x --compute-augref --min-augref-len 1 > cross_merge_right_test.vg
+vg paths -x nesting/cross_path_merge_right.gfa -Q x --compute-gref --min-gref-len 1 > cross_merge_right_test.vg
 vg validate cross_merge_right_test.vg
-is $? 0 "cross-path right merge: augref computation produces valid graph"
+is $? 0 "cross-path right merge: gref computation produces valid graph"
 
 # Cross-path merge should combine dangling [9] + snarl interval [2,3,4] into one path on hap3
-is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path right merge reduces augref path count"
+is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path right merge reduces gref path count"
 
-rm -f augref_test.vg triple_augref.vg triple_augref_long.vg dangling_augref.vg x.pg x.gbwt x.gbz
-rm -f augref_test.segs augref_segs_test.vg augref_sample_test.segs augref_sample_test.vg
+rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
+rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
 rm -f cross_merge_test.vg cross_merge_right_test.vg
 
 

@@ -46,7 +46,7 @@ VG cactus_to_vg(stCactusGraph* cactus_graph);
 
 // Convert vg into vg formatted cactus representation
 // Input graph must be sorted!
-VG cactusify(VG& graph);
+VG cactusify(const PathHandleGraph& graph);
 
 }
 

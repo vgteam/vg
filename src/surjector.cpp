@@ -19,6 +19,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
 #include "algorithms/component.hpp"
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -49,12 +50,12 @@ using namespace std;
         for (size_t i = 0, j = 0; i < 25; ++i) {
             if (i % 5 != 4 && i / 5 != 4) {
                 // This entry is kept
-                cut_matrix[j] = aligner->score_matrix[i];
+                cut_matrix[j] = aligner->scorer->score_matrix[i];
                 ++j;
             }
         }
         try {
-            set_dp_alignment_scores(cut_matrix, aligner->gap_open, aligner->gap_extension, aligner->full_length_bonus);
+            set_dp_alignment_scores(cut_matrix, aligner->scorer->gap_open, aligner->scorer->gap_extension, aligner->scorer->full_length_bonus);
         } catch (...) {
             free(cut_matrix);
             throw;
@@ -225,7 +226,6 @@ using namespace std;
                                      vector<tuple<string, int64_t, bool>>& positions_out,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
-        
         // we need one and only one data type: Alignment or multipath_alignment_t
         assert(!(source_aln && source_mp_aln));
         assert((source_aln && alns_out) || (source_mp_aln && mp_alns_out));
@@ -424,13 +424,24 @@ using namespace std;
         // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
         if (aln_surjections.empty() && mp_aln_surjections.empty()) {
             // this surjection didn't get aligned
-
+            
             positions_out.emplace_back("", -1, false);
+
             if (source_mp_aln) {
                 mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality()));
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
+                if (annotate_off_reference_pos && source_mp_aln->subpath_size() != 0) {
+                    // annotate with the closest ref pos
+                    auto nearest = nearest_ref_pos(*source_mp_aln, &memoizing_graph, paths);
+                    if (!get<0>(nearest).empty()) {
+                        stringstream strm;
+                        // note: we assign to the base before the insertion by not adding 1 to make 1-based
+                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest) << ',' << source_mp_aln->mapping_quality();
+                        mp_alns_out->back().set_annotation("nearest_ref_pos", strm.str());
+                    }
+                }
             }
             else {
                 // We already constrained source_aln and alns_out to both be set if source_mp_aln is unset.
@@ -452,6 +463,17 @@ using namespace std;
 #endif
                 
                 alns_out->emplace_back(make_null_alignment(*source_aln));
+                if (annotate_off_reference_pos && source_aln->path().mapping_size() != 0) {
+                    // annotate with the closest ref pos
+                    // TODO: repetitive
+                    auto nearest = nearest_ref_pos(*source_aln, &memoizing_graph, paths);
+                    if (!get<0>(nearest).empty()) {
+                        stringstream strm;
+                        // note: we assign to the base before the insertion by not adding 1 to make 1-based
+                        strm << get<0>(nearest) << ':' << get<1>(nearest) << (get<2>(nearest) ? '-' : '+') << ',' << (get<4>(nearest) ? '<' : '>') << get<3>(nearest) << ',' << source_aln->mapping_quality();
+                        set_annotation<string>(alns_out->back(), "nearest_ref_pos", strm.str());
+                    }
+                }
             }
             return;
         }
@@ -1362,7 +1384,7 @@ using namespace std;
                     vector<vector<Alignment>> repair_alns;
                     repair_alns.reserve(left_side.size());
                     
-                    int64_t max_aln_length = (get_aligner()->longest_detectable_gap(src_sequence.size())
+                    int64_t max_aln_length = (get_aligner()->scorer->longest_detectable_gap(src_sequence.size())
                                               + (path_chunks[*right_side.begin()].first.first
                                                  - path_chunks[*left_side.begin()].first.second));
                     for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
@@ -2268,7 +2290,7 @@ using namespace std;
             aln.set_sequence(src_sequence);
             aln.set_quality(src_quality);
             to_proto_path(surj_subpath->path(), *aln.mutable_path());
-            surj_subpath->set_score(get_aligner(!src_quality.empty())->score_contiguous_alignment(aln));
+            surj_subpath->set_score(get_aligner(!src_quality.empty())->scorer->score_contiguous_alignment(aln));
             
             surjected.front().first.add_start(0);
             
@@ -2495,7 +2517,7 @@ using namespace std;
                                 score = 0;
                             }
                             else {
-                                score = get_aligner(!src_quality.empty())->score_gap(dist);
+                                score = get_aligner(!src_quality.empty())->scorer->score_gap(dist);
                             }
                             
 #ifdef debug_spliced_surject
@@ -2746,14 +2768,14 @@ using namespace std;
                         if (read_range.first != src_sequence.begin()) {
                             if (sections[k].first.path().mapping(0).edit(0).from_length() > 0) {
                                 sections[k].first.set_score(sections[k].first.score()
-                                                            - aligner.score_full_length_bonus(true, section_source));
+                                                            - aligner.scorer->score_full_length_bonus(true, section_source));
                             }
                         }
                         if (read_range.second != src_sequence.end()) {
                             const Mapping& m = sections[k].first.path().mapping(0);
                             if (m.edit(m.edit_size() - 1).from_length() > 0) {
                                 sections[k].first.set_score(sections[k].first.score()
-                                                            - aligner.score_full_length_bonus(false, section_source));
+                                                            - aligner.scorer->score_full_length_bonus(false, section_source));
                             }
                         }
                     }
@@ -2883,7 +2905,7 @@ using namespace std;
                         
                         // TODO: this is an approximate cost, but we could probably make it more precise
                         int64_t overlap = sections[j].first.sequence().size() - softclip_end(sections[j].first) - softclip_start(sections[k].first);
-                        int32_t score_penalty = overlap > 0 ? get_aligner(!src_quality.empty())->match * overlap : 0;
+                        int32_t score_penalty = overlap > 0 ? get_aligner(!src_quality.empty())->scorer->match * overlap : 0;
                         // note: we don't enforce colinearity here, since these edges would trigger supplementary alignments
                         int32_t extended_score = score_dp[j] - score_penalty + sections[k].first.score();
 #ifdef debug_spliced_surject
@@ -3222,7 +3244,7 @@ using namespace std;
             surjected.back().first.set_sequence(source.sequence());
             surjected.back().first.set_quality(source.quality());
             to_proto_path(path_chunks.front().second, *surjected.back().first.mutable_path());
-            surjected.back().first.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(surjected.back().first));
+            surjected.back().first.set_score(get_aligner(!source.quality().empty())->scorer->score_contiguous_alignment(surjected.back().first));
             surjected.back().second = ref_chunks.front();
             if (all_path_ranges_out) {
                 all_path_ranges_out->emplace_back();
@@ -3389,7 +3411,7 @@ using namespace std;
                     cerr << "chunk constitutes full alignment of this interval, no need for multipath alignment" << endl;
 #endif
                     to_proto_path(mp_aln_path_chunks->front().second, *surjected_aln.mutable_path());
-                    surjected_aln.set_score(normal_aligner->score_contiguous_alignment(surjected_aln));
+                    surjected_aln.set_score(normal_aligner->scorer->score_contiguous_alignment(surjected_aln));
                     // TODO: it should be possible to rely on the ref chunks here rather than using the path scan later
                 }
                 else {
@@ -3541,7 +3563,7 @@ using namespace std;
                             edit->set_to_length(interval_offset);
                             edit->set_sequence(source.sequence().substr(0, interval_offset));
                             // remove a false full length bonus
-                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->full_length_bonus);
+                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->scorer->full_length_bonus);
                         }
                     }
                     if (interval_offset + mp_aln_source->sequence().size() < source.sequence().size()) {
@@ -3561,7 +3583,7 @@ using namespace std;
                             new_edit->set_to_length(clip_seq.size());
                             new_edit->set_sequence(clip_seq);
                             // remove a false full length bonus
-                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->full_length_bonus);
+                            surjected_aln.set_score(surjected_aln.score() - normal_aligner->scorer->full_length_bonus);
                         }
                     }
 #ifdef debug_anchored_surject
@@ -3707,7 +3729,7 @@ using namespace std;
             }
         }
         
-            // transfer applicable metadata (including data that doesn't transit through multipath_alignment_t)
+        // transfer applicable metadata (including data that doesn't transit through multipath_alignment_t)
         for (auto& surj : surjected) {
             surj.first.set_name(source.name());
             surj.first.set_read_group(source.read_group());
@@ -3722,6 +3744,47 @@ using namespace std;
             }
             if (source.has_annotation()) {
                 *surj.first.mutable_annotation() = source.annotation();
+            }
+        }
+
+        if (left_align) {
+            for (size_t i = 0; i < surjected.size(); ++i) {
+
+                auto& surj = surjected[i];
+
+                // remember how many nodes the alignment visits before left-alignment
+                size_t num_mappings = surj.first.path().mapping_size();
+
+                // do left alignment relative to the strand
+                if (rev_strand) {
+                    normalize_indel_adjustment(surj.first, false, *path_position_graph, sinks_are_anchors);
+                }
+                else {
+                    normalize_indel_adjustment(surj.first, true, *path_position_graph, sources_are_anchors);
+                }
+
+                surj.first.set_score(get_aligner(!source.quality().empty())->scorer->score_contiguous_alignment(source));
+
+                // pinch in the step ranges if left-aligning caused us to shift the alignment off of the first node
+                for (size_t j = 0, n = num_mappings - surj.first.path().mapping_size(); j < n; ++j) {
+
+                    if (rev_strand) {
+                        surj.second.second = path_position_graph->get_next_step(surj.second.second);
+                    }
+                    else {
+                        surj.second.first = path_position_graph->get_next_step(surj.second.first);
+                    }
+                    if (all_path_ranges_out) {
+                        for (auto& path_range : (*all_path_ranges_out)[i]) {
+                            if (rev_strand) {
+                                path_range.second = path_position_graph->get_next_step(path_range.second);
+                            }
+                            else {
+                                path_range.first = path_position_graph->get_next_step(path_range.first);
+                            }
+                        }
+                    }
+                }
             }
         }
         
@@ -5118,10 +5181,10 @@ using namespace std;
             const auto& ref_chunk = ref_chunks[i];
             
             
-            size_t begin_overhang = no_left_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.first)
+            size_t begin_overhang = no_left_expansion ? 0 : (get_aligner()->scorer->longest_detectable_gap(source, path_chunk.first.first)
                                                             + (path_chunk.first.first - source.sequence().begin()));
             
-            size_t end_overhang = no_right_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
+            size_t end_overhang = no_right_expansion ? 0 : (get_aligner()->scorer->longest_detectable_gap(source, path_chunk.first.second)
                                                             + (source.sequence().end() - path_chunk.first.second));
             
             chunk_intervals.emplace_back();
@@ -5256,6 +5319,7 @@ using namespace std;
         null.set_read_group(source.read_group());
         null.set_sample_name(source.sample_name());
         null.set_is_secondary(source.is_secondary());
+        null.set_mapping_quality(0);
         if (source.has_fragment_next()) {
             *null.mutable_fragment_next() = source.fragment_next();
         }
@@ -5271,6 +5335,7 @@ using namespace std;
         multipath_alignment_t null;
         null.set_sequence(src_sequence);
         null.set_quality(src_quality);
+        null.set_mapping_quality(0);
         return null;
     }
 
@@ -5388,7 +5453,7 @@ using namespace std;
             suppl_intervals.emplace_back(interval.first, interval.second, i);
         }
         auto primary_interval = aligned_interval(source);
-        suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, -1);
+        suppl_intervals.emplace_back(primary_interval.first, primary_interval.second, numeric_limits<size_t>::max());
         sort(suppl_intervals.begin(), suppl_intervals.end());
         
         // make hard-clipped Alignments
@@ -5586,6 +5651,168 @@ using namespace std;
                 return_val = strm.str();
             }
         }
+        return return_val;
+    }
+    tuple<string, int64_t, bool, size_t, bool> Surjector::nearest_ref_pos(const multipath_alignment_t& source, const PathPositionHandleGraph* graph,
+                                                                          const unordered_set<path_handle_t>& paths) const {
+        Alignment opt;
+        optimal_alignment(source, opt);
+        return nearest_ref_pos(opt, graph, paths);
+    }
+
+    tuple<string, int64_t, bool, size_t, bool> Surjector::nearest_ref_pos(const Alignment& source, const PathPositionHandleGraph* graph,
+                                                                          const unordered_set<path_handle_t>& paths) const {
+
+        assert(source.path().mapping_size() != 0);
+
+#ifdef debug_anchored_surject
+        cerr << "identifying nearest reference position for a failed surjection" << endl;
+#endif
+
+        tuple<string, int64_t, bool, size_t, bool> return_val("", -1, false, 0, false);
+
+        
+
+        // traverse to the nearest reference path from both the start and end of the alignment
+        std::function<bool(const path_handle_t&)> path_filter = [&](const path_handle_t& path) -> bool {
+            return paths.count(path);
+        };
+
+        // find the first and last mappings that have aligned bases
+        size_t initial_idx = 0;
+        {
+            size_t edit_idx = 0;
+            while (source.path().mapping(initial_idx).edit(edit_idx).from_length() == 0) {
+                ++edit_idx;
+                if (edit_idx == source.path().mapping(initial_idx).edit_size()) {
+                    ++initial_idx;
+                    edit_idx = 0;
+                }
+            }
+        }
+        size_t final_idx = source.path().mapping_size() - 1;
+        {
+            size_t edit_idx = source.path().mapping(final_idx).edit_size() - 1;
+            while (source.path().mapping(final_idx).edit(edit_idx).from_length() == 0) {
+                if (edit_idx == 0) {
+                    --final_idx;
+                    edit_idx = source.path().mapping(final_idx).edit_size() - 1;
+                }
+                else {
+                    --edit_idx;
+                }
+            }
+        }
+        pos_t initial_pos = make_pos_t(source.path().mapping(initial_idx).position());
+        pos_t final_pos = make_pos_t(source.path().mapping(final_idx).position());
+        get_offset(final_pos) += mapping_from_length(source.path().mapping(final_idx));
+
+        pair<size_t, bool> initial_search_trav, final_search_trav;
+        auto initial_offset_collection = algorithms::nearest_offsets_in_paths(graph, initial_pos, 
+            off_reference_pos_search_limit, {PathSense::REFERENCE, PathSense::GENERIC}, &path_filter, false, &initial_search_trav);
+        auto final_offset_collection = algorithms::nearest_offsets_in_paths(graph, final_pos, 
+            off_reference_pos_search_limit, {PathSense::REFERENCE, PathSense::GENERIC}, &path_filter, false, &final_search_trav);
+        
+#ifdef debug_anchored_surject
+        cerr << "initial traversal from " << initial_pos << " found path(s) at dist " <<  initial_search_trav.first << ", leftward? " << initial_search_trav.second << endl;
+        for (const auto& rec : initial_offset_collection) {
+            cerr << '\t' << graph->get_path_name(rec.first) << ':';
+            for (const auto& path_pos : rec.second) {
+                cerr << ' ' << path_pos.first << (path_pos.second ? '-' : '+');
+            }
+            cerr << endl;
+        }
+        cerr << "final traversal from " << final_pos << " found path(s) at dist " <<  final_search_trav.first << ", leftward? " << final_search_trav.second << endl;
+        for (const auto& rec : final_offset_collection) {
+            cerr << '\t' << graph->get_path_name(rec.first) << ':';
+            for (const auto& path_pos : rec.second) {
+                cerr << ' ' << path_pos.first << (path_pos.second ? '-' : '+');
+            }
+            cerr << endl;
+        }
+#endif
+        
+        // choose the nearest position that gives us the most consistent traversal distance
+        bool chose_initial = true;
+        auto choice = initial_offset_collection.end();
+        size_t which_pos = -1;
+        for (bool initial : {true, false}) {
+            auto& offset_collection = initial ? initial_offset_collection : final_offset_collection;
+            const auto& trav = initial ? initial_search_trav : final_search_trav;
+            for (auto it = offset_collection.begin(); it != offset_collection.end(); ++it) {
+                for (size_t i = 0; i < it->second.size(); ++i) {
+                    if (choice == initial_offset_collection.end()) {
+                        // first option we've considered
+                        choice = it;
+                        chose_initial = initial;
+                        which_pos = i;
+                    }
+                    else {
+                        const auto& choice_path_pos = choice->second[which_pos];
+                        const auto& choice_trav = chose_initial ? initial_search_trav : final_search_trav;
+                        const auto& path_pos = it->second[i];
+                        if (initial != path_pos.second && chose_initial == choice_path_pos.second) {
+                            // choose the read end that is in the direction of the upstream orientation of the reference
+                            choice = it;
+                            chose_initial = initial;
+                            which_pos = i;
+                        }
+                        else if (!(chose_initial != choice_path_pos.second && initial == path_pos.second) &&
+                                 make_tuple(trav, graph->get_path_name(it->first), path_pos) 
+                                  < make_tuple(choice_trav, graph->get_path_name(choice->first), choice_path_pos)) {
+                            // make an arbitrary but consistent choice among the remaining options  
+                            choice = it;
+                            chose_initial = initial;
+                            which_pos = i;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (choice != initial_offset_collection.end()) {
+            // construct the return value
+
+#ifdef debug_anchored_surject
+            cerr << "chose pos from " << (chose_initial ? "initial" : "final" ) << " pos traversal " << graph->get_path_name(choice->first) << ":" << choice->second[which_pos].first << (choice->second[which_pos].second ? '-' : '+') << endl;
+#endif
+
+            // construct the NR position
+            get<1>(return_val) = choice->second[which_pos].first;
+            get<2>(return_val) = choice->second[which_pos].second;
+            auto range = graph->get_subrange(choice->first);
+            if (range != PathMetadata::NO_SUBRANGE) {
+                // apply the offset of this sub-interval of the full path
+                get<1>(return_val) += range.first;
+                // strip the range out of the path name
+                get<0>(return_val) = graph->create_path_name(graph->get_sense(choice->first),
+                                                             graph->get_sample_name(choice->first),
+                                                             graph->get_locus_name(choice->first),
+                                                             graph->get_haplotype(choice->first),
+                                                             graph->get_phase_block(choice->first),
+                                                             PathMetadata::NO_SUBRANGE);
+
+            }
+            else {
+                // no sub-range to deal with, just get the path name as is
+                get<0>(return_val) = graph->get_path_name(choice->first);
+            }
+
+            // record the traversal to the NR position
+            const auto& trav = chose_initial ? initial_search_trav : final_search_trav;
+            get<3>(return_val) = trav.first;
+            // left is toward low coordinates for forward, right for reverse
+            get<4>(return_val) = (trav.second != get<2>(return_val));
+            if (get<2>(return_val) == chose_initial) {
+                // we chose the traversal that is more downstream on this path strand, so we adjust
+                // the traversal length by the path length of the alignment
+                get<3>(return_val) += alignment_from_length(source);
+            }
+#ifdef debug_anchored_surject
+            cerr << "constructed return value: " << get<0>(return_val) << ", " << get<1>(return_val) << ", " << get<2>(return_val) << ", " << get<3>(return_val) << ", " << get<4>(return_val) << endl;
+#endif
+        }
+
         return return_val;
     }
 }

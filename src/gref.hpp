@@ -1,17 +1,17 @@
-#ifndef VG_AUGREF_HPP_INCLUDED
-#define VG_AUGREF_HPP_INCLUDED
+#ifndef VG_GREF_HPP_INCLUDED
+#define VG_GREF_HPP_INCLUDED
 
 /**
- * \file augref.hpp
+ * \file gref.hpp
  *
- * Interface for computing and querying augmented reference path covers.
+ * Interface for computing and querying graph reference path covers.
  *
- * An augref cover is a set of path fragments (stored as separate paths) in the graph.
+ * An gref cover is a set of path fragments (stored as separate paths) in the graph.
  * They are always relative to an existing reference sample (ie GRCh38 or CHM13).
- * Unlike rGFA paths which use complex metadata embedding, augref paths use a simple naming
+ * Unlike rGFA paths which use complex metadata embedding, gref paths use a simple naming
  * scheme: {base_path_name}_{N}_alt
  *
- * For example, if the reference path is "CHM13#0#chr1", augref paths would be named:
+ * For example, if the reference path is "CHM13#0#chr1", gref paths would be named:
  *   - CHM13#0#chr1_1_alt
  *   - CHM13#0#chr1_2_alt
  *   - etc.
@@ -31,57 +31,57 @@ namespace vg {
 
 using namespace std;
 
-class AugRefCover {
+class GrefCover {
 public:
-    // The suffix used to identify augref paths
-    static const string augref_suffix;  // "_alt"
+    // The suffix used to identify gref paths
+    static const string gref_suffix;  // "_alt"
 
-    // Create an augref path name from a base reference path name and an index.
-    // Example: make_augref_name("CHM13#0#chr1", 1) -> "CHM13#0#chr1_1_alt"
-    static string make_augref_name(const string& base_path_name, int64_t augref_index);
+    // Create an gref path name from a base reference path name and an index.
+    // Example: make_gref_name("CHM13#0#chr1", 1) -> "CHM13#0#chr1_1_alt"
+    static string make_gref_name(const string& base_path_name, int64_t gref_index);
 
-    // Test if a path name is an augref path (contains "_{N}_alt" suffix).
-    static bool is_augref_name(const string& path_name);
+    // Test if a path name is an gref path (contains "_{N}_alt" suffix).
+    static bool is_gref_name(const string& path_name);
 
-    // Parse an augref path name to extract the base reference path name.
-    // Returns the original base path name, or the input if not an augref path.
+    // Parse an gref path name to extract the base reference path name.
+    // Returns the original base path name, or the input if not an gref path.
     // Example: parse_base_path("CHM13#0#chr1_3_alt") -> "CHM13#0#chr1"
-    static string parse_base_path(const string& augref_name);
+    static string parse_base_path(const string& gref_name);
 
-    // Parse an augref path name to extract the augref index.
-    // Returns -1 if the path is not an augref path.
-    // Example: parse_augref_index("CHM13#0#chr1_3_alt") -> 3
-    static int64_t parse_augref_index(const string& augref_name);
+    // Parse an gref path name to extract the gref index.
+    // Returns -1 if the path is not an gref path.
+    // Example: parse_gref_index("CHM13#0#chr1_3_alt") -> 3
+    static int64_t parse_gref_index(const string& gref_name);
 
 public:
-    // Clear out any existing augref paths from the graph. Recommended to run this
+    // Clear out any existing gref paths from the graph. Recommended to run this
     // before compute().
     void clear(MutablePathMutableHandleGraph* graph);
 
-    // Compute the augref cover from the graph, starting with a given set of reference paths.
+    // Compute the gref cover from the graph, starting with a given set of reference paths.
     void compute(const PathHandleGraph* graph,
                  SnarlManager* snarl_manager,
                  const unordered_set<path_handle_t>& reference_paths,
                  int64_t minimum_length);
 
-    // Load existing augref paths from the graph, assuming they've been computed already.
-    // The reference_paths should be the rank-0 paths the augref paths extend from.
+    // Load existing gref paths from the graph, assuming they've been computed already.
+    // The reference_paths should be the rank-0 paths the gref paths extend from.
     void load(const PathHandleGraph* graph,
               const unordered_set<path_handle_t>& reference_paths);
 
-    // Apply the augref cover to a graph (must have been computed first), adding it
+    // Apply the gref cover to a graph (must have been computed first), adding it
     // as a bunch of REFERENCE-sense paths with the simplified naming scheme.
-    // If augref_sample_name is set, base paths are first copied to the new sample,
-    // and augref paths are created under the new sample name.
+    // If gref_sample_name is set, base paths are first copied to the new sample,
+    // and gref paths are created under the new sample name.
     void apply(MutablePathMutableHandleGraph* mutable_graph);
 
-    // Set the sample name for augref paths. When set, apply() will:
+    // Set the sample name for gref paths. When set, apply() will:
     // 1. Copy base reference paths to this new sample (CHM13#0#chr1 -> new_sample#0#chr1)
-    // 2. Create augref paths under the new sample (new_sample#0#chr1_1_alt, etc.)
-    void set_augref_sample(const string& sample_name);
+    // 2. Create gref paths under the new sample (new_sample#0#chr1_1_alt, etc.)
+    void set_gref_sample(const string& sample_name);
 
-    // Get the current augref sample name (empty string if not set).
-    const string& get_augref_sample() const;
+    // Get the current gref sample name (empty string if not set).
+    const string& get_gref_sample() const;
 
     // Enable verbose output (coverage summary, etc.)
     void set_verbose(bool verbose);
@@ -101,12 +101,12 @@ public:
     // Get the number of reference intervals (rank-0).
     int64_t get_num_ref_intervals() const;
 
-    // Write a tab-separated table describing augref segments.
-    // Each line contains: source_path, source_start, source_end, augref_path_name,
+    // Write a tab-separated table describing gref segments.
+    // Each line contains: source_path, source_start, source_end, gref_path_name,
     //                     ref_path, ref_start, ref_end
-    // Must be called after compute() and knows what augref path names will be used.
-    // If augref_sample is set, uses that for the augref path names.
-    void write_augref_segments(ostream& os);
+    // Must be called after compute() and knows what gref path names will be used.
+    // If gref_sample is set, uses that for the gref path names.
+    void write_gref_segments(ostream& os);
 
 protected:
 
@@ -114,7 +114,7 @@ protected:
     // The cover is added to the two "thread_" structures.
     // top_snarl_start/end are the boundary node IDs of the top-level snarl containing this snarl.
     void compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
-                       vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
+                       vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
                        unordered_map<nid_t, int64_t>& thread_node_to_interval,
                        nid_t top_snarl_start, nid_t top_snarl_end,
                        vector<pair<nid_t, nid_t>>& thread_snarl_bounds);
@@ -124,10 +124,10 @@ protected:
     vector<pair<int64_t, int64_t>> get_uncovered_intervals(const vector<step_handle_t>& trav,
                                                            const unordered_map<nid_t, int64_t>& thread_node_to_interval);
 
-    // Add a new interval into the augref_intervals vector and update the node_to_interval map.
+    // Add a new interval into the gref_intervals vector and update the node_to_interval map.
     // If the interval can be merged into an existing, contiguous interval, do that instead.
     // Returns true if a new interval was added, false if an existing interval was updated.
-    bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_augref_intervals,
+    bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
                       const pair<step_handle_t, step_handle_t>& new_interval,
                       bool global = false,
@@ -139,7 +139,7 @@ protected:
 
     // Post-insertion cross-path merge: tries to consolidate the interval containing
     // ref_step with any cross-path neighbor at its left or right boundary.
-    // Operates on this->augref_intervals and this->node_to_interval.
+    // Operates on this->gref_intervals and this->node_to_interval.
     void try_cross_path_merge(step_handle_t ref_step);
 
     // Remove non-reference intervals shorter than minimum_length, then defragment.
@@ -162,23 +162,24 @@ protected:
     bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
                                     const pair<step_handle_t, step_handle_t>& interval_b) const;
 
-    // Fast duplicate check for global fold: walks only new_steps [start, end) and
-    // checks whether any of those node IDs already belong to target_interval_idx
-    // in the given node-to-interval map.  skip_first_node should be true for
-    // overlap-by-one merges where the boundary node is shared by design.
+    // Fast duplicate check for global fold: walks [ext_start, ext_end) and
+    // checks whether any node ID in that range already belongs to
+    // target_interval_idx in nti.  The caller is responsible for pre-trimming
+    // any shared boundary step (overlap-by-one) from the walk range so that
+    // boundary nodes owned by the target are not flagged as duplicates.
     bool extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
                                         int64_t target_interval_idx,
-                                        step_handle_t start, step_handle_t end,
-                                        bool skip_first_node) const;
+                                        step_handle_t ext_start, step_handle_t ext_end) const;
 
     // Unified duplicate-node check: dispatches to extension_would_duplicate_node
     // (O(extension_length)) when global=true, or merge_would_duplicate_node
-    // (O(combined_length)) otherwise.
+    // (O(combined_length)) otherwise.  Callers must pre-trim shared boundary
+    // steps from [ext_start, ext_end); merge_would_duplicate_node handles the
+    // shared boundary naturally via its combined walk.
     bool would_duplicate_node(bool global,
                               const unordered_map<nid_t, int64_t>& nti,
                               int64_t target_idx,
                               step_handle_t ext_start, step_handle_t ext_end,
-                              bool skip_first,
                               const pair<step_handle_t, step_handle_t>& interval_a,
                               const pair<step_handle_t, step_handle_t>& interval_b) const;
 
@@ -195,32 +196,32 @@ protected:
     // "first" toggles returning the first interval found vs all of them.
     vector<pair<int64_t, nid_t>> get_reference_nodes(nid_t node_id, bool first) const;
 
-    // Debug function: verify that every node in the graph is covered by the augref cover.
+    // Debug function: verify that every node in the graph is covered by the gref cover.
     // Prints a summary of coverage statistics to stderr.
     void verify_cover(int64_t minimum_length) const;
 
     const PathHandleGraph* graph = nullptr;
 
     // Intervals are end-exclusive (like BED).
-    vector<pair<step_handle_t, step_handle_t>> augref_intervals;
+    vector<pair<step_handle_t, step_handle_t>> gref_intervals;
 
-    // Top-level snarl boundary nodes for each interval, parallel to augref_intervals.
+    // Top-level snarl boundary nodes for each interval, parallel to gref_intervals.
     // (0, 0) sentinel for reference intervals and fill_uncovered_nodes intervals.
     vector<pair<nid_t, nid_t>> interval_snarl_bounds;
 
-    // augref_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
+    // gref_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
     int64_t num_ref_intervals = 0;
 
     // Map from node ID to interval index.
     unordered_map<nid_t, int64_t> node_to_interval;
 
-    // Counter for generating unique augref indices per base path.
+    // Counter for generating unique gref indices per base path.
     // Using mutable so it can be updated in apply() which is logically const for the cover.
-    unordered_map<string, int64_t> base_path_augref_counter;
+    unordered_map<string, int64_t> base_path_gref_counter;
 
-    // Optional sample name for augref paths. When set, base paths are copied to this
-    // sample and augref paths are created under it.
-    string augref_sample_name;
+    // Optional sample name for gref paths. When set, base paths are copied to this
+    // sample and gref paths are created under it.
+    string gref_sample_name;
 
     // Whether to print verbose output (coverage summary, etc.)
     bool verbose = false;
@@ -229,7 +230,7 @@ protected:
     // This ensures deterministic output regardless of thread count.
     bool rank_by_name = false;
 
-    // Copy base reference paths to the augref sample.
+    // Copy base reference paths to the gref sample.
     // Creates new paths like "new_sample#0#chr1" from "CHM13#0#chr1".
     void copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
                                    const unordered_set<path_handle_t>& reference_paths);

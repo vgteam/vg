@@ -1,4 +1,4 @@
-/// \file indexed_vg.cpp
+/// \file index_registry.cpp
 ///  
 /// unit tests for the vg-file-backed handle graph implementation
 

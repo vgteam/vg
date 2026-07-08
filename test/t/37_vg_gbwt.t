@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 160
+plan tests 168
 
 
 # Build vg graphs for two chromosomes
@@ -240,6 +240,16 @@ vg gbwt --set-pggname -Z x.gbz -g x.gbz
 is $? 0 "Graph name can be set"
 is "$(vg describe x.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name after setting"
 
+# Set graph name and a subgraph relationship
+vg gbwt -g supergraph.gbz -G graphs/components_walks.gfa
+is $? 0 "GBZ construction for supergraph"
+vg chunk --gbz --contig A -x supergraph.gbz
+is $? 0 "Graph component extraction"
+vg gbwt --subgraph-of supergraph.gbz -g subgraph.gbz -Z chunk_0_component_0.gbz
+is $? 0 "Subgraph relationship can be set"
+is "$(vg describe subgraph.gbz | grep -c 'subgraph =')" 1 "GBZ contains subgraph relationship"
+rm -f supergraph.gbz chunk_0_component_0.gbz subgraph.gbz
+
 # Build and serialize GBZ from VCF
 vg gbwt -x x.vg -g x2.gbz -v small/xy2.vcf.gz
 is $? 0 "GBZ construction from VCF"
@@ -414,12 +424,19 @@ vg gbwt -g gfa3.gbz --set-reference GRCh37 --set-reference CHM13 -Z gfa2.gbz
 is $? 0 "Samples can be direcly set as references"
 is "$(vg gbwt --tags -Z gfa3.gbz | grep reference_samples | cut -f 2)" "CHM13 GRCh37" "Direct reference assignment works"
 
-rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv
+# Try writing and reading GBZ v1.
+vg gbwt -Z gfa.gbz -g gfa_v1.gbz --gbz-v1
+is $? 0 "GBZ version 1 output"
+is "$(vg describe gfa_v1.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 1')" "1" "Correct version for GBZ v1 output"
+vg gbwt -Z gfa_v1.gbz -g gfa_v2.gbz
+is $? 0 "GBZ v1 can be read and rewritten as GBZ v2"
+cmp gfa.gbz gfa_v2.gbz
+is $? 0 "GBZ v1 was converted to v2 without changes"
+
+rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv gfa_v1.gbz gfa_v2.gbz
 
 # Build a GBZ from a graph with a reference but no haplotype phase number
 vg gbwt -g gfa.gbz -G graphs/gfa_two_part_reference.gfa
 is "$(vg paths -M --reference-paths -x gfa.gbz | grep -v "^#" | cut -f4 | grep NO_HAPLOTYPE | wc -l)" "2" "GBZ can represent reference paths without haplotype numbers"
 
 rm -f gfa.gbz
-
-

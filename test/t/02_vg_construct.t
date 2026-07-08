@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 30
+plan tests 33
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -79,15 +79,14 @@ rm -f fail.vg
 
 # check that we produce a full graph
 
-refbp=$(../deps/vcflib/contrib/fastahack/fastahack -r x small/x.fa | tr -d '\n' | wc -c)
-variantbp=$(zcat < small/x.vcf.gz | ../bin/vcf2tsv \
-    | cut -f 5,4 | tail -n+2 \
+refbp=$(tail -n+2 small/x.fa | tr -d '\n' | wc -c)
+variantbp=$(zcat < small/x.vcf.gz | grep -v "#" | cut -f 5,4 \
     | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
         | awk '{ sum += $1 } END { print sum }')
 
 graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 2)
 
-is $graphbp $(echo "$refbp + $variantbp" | bc) "the graph contains all the sequence in the reference and VCF"
+is "$graphbp" $(echo "$refbp + $variantbp" | bc) "the graph contains all the sequence in the reference and VCF"
 
 is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i | vg stats -l - | cut -f 2; done | sort | uniq | wc -l) 1 "varying the max node size does not affect graph length"
 
@@ -121,3 +120,16 @@ is $? 0 "Reference with ambiguity codes has them coerced to Ns"
 is "$(vg view -j tiny.vg | jq -r '.node[].sequence' | tr -d 'ACGT\n' | wc -c)" "10" "Expected number of Ns are created"
 rm -f tiny.vg
 
+vg construct -r small/x.fa -r small/x.fa > /dev/null
+is $? 1 "Names may not be duplicated across files"
+sed "s/y/x/" small/xy.fa > xx.fa
+samtools faidx xx.fa
+# Samtools drops duplicate entries so we need to manually make an index with duplicates.
+cat xx.fa.fai xx.fa.fai >xx.fa.fai2
+mv xx.fa.fai2 xx.fa.fai
+vg construct -r xx.fa > /dev/null
+is $? 1 "Names may not be duplicated within an index"
+rm -f xx.fa.fai
+vg construct -r xx.fa > /dev/null
+is $? 1 "Names may not be duplicated within an unindexed file"
+rm -f xx.fa xx.fa.fai

@@ -479,7 +479,9 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
                 } else {
                     // Make sure the name is correct
                     // TODO: can we justy match on pointer value and not string value?
-                    assert(strcmp(filter_names[filter_index], item.passed_filters[filter_index]) == 0);
+                    if (strcmp(filter_names[filter_index], item.passed_filters[filter_index]) != 0) {
+                        throw std::runtime_error("Passed filter needs to be " + std::string(filter_names[filter_index]) + " but is " + std::string(item.passed_filters[filter_index]));
+                    }
                 }
                 
                 // Record passing
@@ -513,7 +515,9 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
                 } else {
                     // Make sure the name is correct
                     // TODO: can we justy match on pointer value and not string value?
-                    assert(strcmp(filter_names[filter_index], item.failed_filter) == 0);
+                    if (strcmp(filter_names[filter_index], item.failed_filter) != 0) {
+                        throw std::runtime_error("Failed filter needs to be " + std::string(filter_names[filter_index]) + " but is " + std::string(item.passed_filters[filter_index]));
+                    }
                 }
                 
                 // Record failing
