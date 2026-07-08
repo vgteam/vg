@@ -57,7 +57,7 @@ void help_stats(char** argv) {
          << "  -A, --is-acyclic         print if the graph is acyclic or not" << endl
          << "  -n, --node ID            consider node with the given id" << endl
          << "  -d, --to-head            show distance to head for each provided node" << endl
-         << "  -t, --to-tail            show distance to head for each provided node" << endl
+         << "  -t, --to-tail            show distance to tail for each provided node" << endl
          << "  -a, --alignments FILE    compute stats for reads aligned to the graph" << endl
          << "  -r, --node-id-range      X:Y where X and Y are the smallest and largest" << endl
          << "                           node id in the graph, respectively" << endl
@@ -67,7 +67,7 @@ void help_stats(char** argv) {
          << "  -O, --overlap-all        print overlap table for cartesian product of paths" << endl
          << "  -R, --snarls             print statistics for each snarl" << endl
          << "      --snarl-contents     print table of <snarl, depth, parent, node ids>" << endl
-         << "      --snarl-sample NAME  print out reference coordinates on given sample" << endl
+         << "      --snarl-sample NAME  print reference coordinates on given sample" << endl
          << "  -C, --chains             print statistics for each chain" << endl
          << "  -F, --format             graph type {VG-Protobuf, PackedGraph, HashGraph, XG}" << endl
          << "                           Can't detect Protobuf if graph read from stdin" << endl
