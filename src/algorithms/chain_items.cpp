@@ -886,22 +886,27 @@ vector<SparseAnchorChain> chain_items_traceback(const vector<TracedScore>& chain
         tracebacks.resize(max_tracebacks);
     }
 
+    for (auto& cur_traceback : tracebacks) {
+        // Convert penalty to an actual score
+        cur_traceback.score = best_past_ending_score_ever.score - cur_traceback.score;
+    }
+
     return tracebacks;
 }
 
-std::vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
-                                                 const SnarlDistanceIndex& distance_index,
-                                                 const HandleGraph& graph,
-                                                 int gap_open,
-                                                 int gap_extension,
-                                                 const ChainScoringScheme& scheme,
-                                                 size_t max_chains,
-                                                 const transition_iterator& for_each_transition,
-                                                 size_t max_indel_bases,
-                                                 bool show_work) {
+std::vector<SparseAnchorChainWithRec> find_best_chains(const VectorView<Anchor>& to_chain,
+                                                       const SnarlDistanceIndex& distance_index,
+                                                       const HandleGraph& graph,
+                                                       int gap_open,
+                                                       int gap_extension,
+                                                       const ChainScoringScheme& scheme,
+                                                       size_t max_chains,
+                                                       const transition_iterator& for_each_transition,
+                                                       size_t max_indel_bases,
+                                                       bool show_work) {
 
     if (to_chain.empty()) {
-        return {SparseAnchorChain()};
+        return {SparseAnchorChainWithRec()};
     }
         
     // We actually need to do DP
@@ -925,15 +930,15 @@ std::vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_cha
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
-        return {SparseAnchorChain()};
+        return {SparseAnchorChainWithRec()};
     }
         
     // Convert from traceback and penalty to score and traceback.
     // Everything is already sorted.
+    std::vector<SparseAnchorChainWithRec> result;
+    result.resize(tracebacks.size());
     for (auto& traceback : tracebacks) {
-        // Convert penalty to score
-        traceback.score = best_past_ending_score_ever.score - traceback.score;
-
+        result.emplace_back(traceback);
         // Compute the anchor indices in this chain that introduce an
         // inter-anchor recombination event. We simulate the path-bit
         // propagation along the chain using the same logic as
@@ -953,7 +958,7 @@ std::vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_cha
                 if (new_paths.first == new_paths.second) {
                     if ((current_paths & new_paths.first) == 0) {
                         // No overlap -> inter-anchor recombination occurred here.
-                        traceback.rec_positions.push_back(anchor_idx);
+                        result.back().rec_positions.push_back(anchor_idx);
                         // Reset current paths to the anchor's start paths.
                         current_paths = new_paths.first;
                     } else {
@@ -1002,24 +1007,24 @@ std::vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_cha
         // When counts disagree (e.g. internally recombinant anchors break
         // the symmetry) leave rec_intervals empty so consumers fall back
         // to rec_positions.
-        if (left_rec_positions.size() == traceback.rec_positions.size()) {
-            traceback.rec_intervals.reserve(traceback.rec_positions.size());
-            for (size_t i = 0; i < traceback.rec_positions.size(); ++i) {
-                traceback.rec_intervals.emplace_back(left_rec_positions[i], traceback.rec_positions[i]);
+        if (left_rec_positions.size() == result.back().rec_positions.size()) {
+            result.back().rec_intervals.reserve(result.back().rec_positions.size());
+            for (size_t i = 0; i < result.back().rec_positions.size(); ++i) {
+                result.back().rec_intervals.emplace_back(left_rec_positions[i], result.back().rec_positions[i]);
             }
         }
     }
-    return tracebacks;
+    return result;
 }
 
-SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
-                                              const SnarlDistanceIndex& distance_index,
-                                              const HandleGraph& graph,
-                                              int gap_open,
-                                              int gap_extension,
-                                              const ChainScoringScheme& scheme,
-                                              const transition_iterator& for_each_transition,
-                                              size_t max_indel_bases) {
+SparseAnchorChainWithRec find_best_chain(const VectorView<Anchor>& to_chain,
+                                         const SnarlDistanceIndex& distance_index,
+                                         const HandleGraph& graph,
+                                         int gap_open,
+                                         int gap_extension,
+                                         const ChainScoringScheme& scheme,
+                                         const transition_iterator& for_each_transition,
+                                         size_t max_indel_bases) {
                                                                  
     return find_best_chains(
         to_chain,

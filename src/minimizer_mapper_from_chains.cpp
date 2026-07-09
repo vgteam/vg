@@ -1606,7 +1606,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
 
             // This will hold our chaining results
-            std::vector<algorithms::SparseAnchorChain> chain_results;
+            std::vector<algorithms::SparseAnchorChainWithRec> chain_results;
 
             if (show_work) {
                 #pragma omp critical (cerr)
