@@ -2871,6 +2871,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
                     // If there was a big gap
                     next_it = skip_to_seed_it;
+                    graph_dist_it = skip_to_dist_it;
                     next = skip_to;
                 } else {
 #ifdef debug_chain_alignment
