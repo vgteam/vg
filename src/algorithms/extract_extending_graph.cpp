@@ -225,16 +225,14 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
         id_trans[into->get_id(halves.second)] = id(pos);
         // Memory for where the end is
         if (new_tip_id != nullptr) {
-            nid_t tip_id_val = into->get_id(halves.second);
-            *new_tip_id = tip_id_val;
+            *new_tip_id = into->get_id(halves.second);
         }
     }
     else {
         into->destroy_handle(halves.second);
         id_trans[into->get_id(halves.first)] = id(pos);
         if (new_tip_id != nullptr) {
-            nid_t tip_id_val = into->get_id(halves.first);
-            *new_tip_id = tip_id_val;
+            *new_tip_id = into->get_id(halves.first);
         }
     }
     

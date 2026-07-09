@@ -545,12 +545,10 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     crash_unless(id_trans.size() == into->get_node_count());
     // Remembere where the edge nodes ended up
     if (new_start_id != nullptr) {
-        nid_t start_id_val = into->get_id(cut_handle_1);
-        *new_start_id = start_id_val;
+        *new_start_id = into->get_id(cut_handle_1);
     }
     if (new_end_id != nullptr) {
-        nid_t end_id_val = into->get_id(cut_handle_2);
-        *new_end_id = end_id_val;
+        *new_end_id = into->get_id(cut_handle_2);
     }
     return id_trans;
 }
