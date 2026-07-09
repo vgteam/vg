@@ -2793,6 +2793,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
             
                 ++next_it;
+                ++graph_dist_it;
             } else {
                 // No overlap, so try it.
                 break;
@@ -3173,6 +3174,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Advance here to next and start considering the next after it
         here_it = next_it;
         ++next_it;
+        ++graph_dist_it;
         here = next;
     }
 
