@@ -560,7 +560,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
- * with their penalties (stored in "score"). The best_past_ending_score_ever
+ * with their scores. The best_past_ending_score_ever
  * is *not* always the source of the first traceback, if there is a tie.
  *
  * Tracebacks are constrained to be nonoverlapping by stopping each traceback
