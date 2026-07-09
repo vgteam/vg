@@ -80,7 +80,10 @@ TEST_CASE( "Connecting graph extraction produces expected results in an acyclic 
         int64_t max_len = 5;
                 
         VG extractor;
-        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
+        nid_t local_left_anchor_id = 0;
+        nid_t local_right_anchor_id = 0; 
+        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, false, 
+                                                          &local_left_anchor_id, &local_right_anchor_id);
                 
         Graph& g = extractor.graph;
                 
@@ -88,6 +91,9 @@ TEST_CASE( "Connecting graph extraction produces expected results in an acyclic 
         REQUIRE( g.edge_size() == 0 );
         REQUIRE( trans[g.node(0).id()] == n1->id() );
         REQUIRE( g.node(0).sequence() == "TG" );
+        // These should be set
+        REQUIRE( local_left_anchor_id != 0 );
+        REQUIRE( local_right_anchor_id != 0 );
     }
             
     SECTION( "Graph extraction can extract a section between two nodes" ) {
@@ -1995,7 +2001,8 @@ TEST_CASE( "Extending graph extraction algorithm produces expected results", "[a
         bool preserve_cycles = false;
                 
         VG extractor;
-        auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+        nid_t tip_id = 0;
+        auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles, &tip_id);
         Graph& g = extractor.graph;
                 
         REQUIRE(g.node_size() == 1);
@@ -2011,6 +2018,7 @@ TEST_CASE( "Extending graph extraction algorithm produces expected results", "[a
         }
                 
         REQUIRE(found_node_0);
+        REQUIRE(tip_id != 0);
     }
             
     SECTION( "Extending graph extraction algorithm only finds nodes within the maximum distance" ) {
