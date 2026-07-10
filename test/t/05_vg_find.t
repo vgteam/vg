@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 31
+plan tests 32
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
