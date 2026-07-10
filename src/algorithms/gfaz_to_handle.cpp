@@ -402,12 +402,15 @@ void GFAzPathDecoder::for_each_rgfa_visit(
   }
 
   for (auto& kv : by_path) {
+    // For each rGFA path we found
     auto& path_name = kv.first;
     auto& path_info = kv.second;
+    // Sort the visits by offset along the path
     sort(path_info.visits.begin(), path_info.visits.end(), [](const RGFAVisit& a, const RGFAVisit& b) {
       return a.offset < b.offset;
     });
     for (const auto& visit : path_info.visits) {
+      // Produce each visit in order.
       callback(visit.node_id, visit.offset, visit.length, path_name, path_info.rank);
     }
   }
