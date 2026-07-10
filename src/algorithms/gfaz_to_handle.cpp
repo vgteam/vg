@@ -458,8 +458,7 @@ void GFAzParser::parse(const string& filename) {
   gfaz_paths.walk_seq_ends = Codec::decompress_varint_int64(
       compressed.walk_seq_ends_zstd, compressed.walk_lengths.size());
 
-  std::pair<vector<int32_t>, vector<int32_t>> decoded_rules = decode_rules(compressed);
-  gfaz_paths.rules = std::move(decoded_rules);
+  gfaz_paths.rules = decode_rules(compressed);
   gfaz_paths.min_rule_id = compressed.min_rule_id();
 
   if (!compressed.paths_zstd.payload.empty()) {
