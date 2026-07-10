@@ -1,9 +1,10 @@
 /**
- * \file register_loader_saver_gfaz.cpp
+ * \file register_loader_gfaz.cpp
  */
 
 #include <vg/io/registry.hpp>
-#include "register_loader_saver_gfaz.hpp"
+#include "register_loader_gfaz.hpp"
+#include <GFAz/core/codec/codec.hpp>
 #include "algorithms/gfa_to_handle.hpp"
 
 #include "gfa.hpp"
@@ -23,47 +24,34 @@ namespace io {
 using namespace std;
 using namespace vg::io;
 
-static bool sniff_gfaz(istream& stream) {
-    if (!stream) {
-        return false;
-    }
-    char buffer[sizeof(uint32_t)];
-    size_t buffer_used = 0;
-    while (stream.peek() != EOF && buffer_used < sizeof(buffer)) {
-        buffer[buffer_used++] = (char) stream.get();
-    }
-    for (size_t i = 0; i < buffer_used; ++i) {
-        stream.unget();
-        if (!stream) {
-            throw runtime_error("Ungetting failed after " + to_string(i) + " characters");
-        }
-    }
-    if (!stream) {
-        stream.clear();
-    }
-    return algorithms::GFAzParser::has_magic(buffer, buffer_used);
-}
+void register_loader_gfaz() {
 
-void register_loader_saver_gfaz() {
-    Registry::register_bare_loader_saver_with_header_check<GFAHandleGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("GFAZ", sniff_gfaz, [](istream& input, const string& filename) -> void* {
+    std::uint32_t magic_number = gfaz::GFAZ_MAGIC;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
+
+    Registry::register_bare_loader_with_magic_and_filename<GFAHandleGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("GFAZ", magic_string, [](istream& input, const string& filename) -> void* {
         GFAHandleGraph* gfa_graph = new GFAHandleGraph();
         string temp_name;
         try {
             string load_name = filename;
             if (load_name.empty() || load_name == "-") {
+                // Dump the whole stream to a temporary file
+                // TODO: When GFAz lets us load from a stream we can stop doing this.
+                // TODO: When we get a stream, is the filename meant to be empty or "-"? One of those is wrong!
                 temp_name = temp_file::create("gfaz-load");
                 ofstream temp_stream(temp_name, ios::binary);
                 temp_stream << input.rdbuf();
                 temp_stream.close();
                 load_name = temp_name;
             }
+            // Load the graph
             algorithms::GFAzParser parser;
             parser.external_id_map = &gfa_graph->gfa_id_space;
             algorithms::parser_to_path_handle_graph(parser, gfa_graph);
             parser.parse(load_name);
             gfa_graph->gfa_id_space.invert_translation();
         } catch (algorithms::GFAFormatError& e) {
-            cerr << "error[register_loader_saver_gfaz] GFAZ ";
+            cerr << "error[register_loader_gfaz] GFAZ ";
             if (!filename.empty() && filename != "-") {
                 cerr << "file " << filename;
             } else {
@@ -73,12 +61,10 @@ void register_loader_saver_gfaz() {
             exit(1);
         }
         if (!temp_name.empty()) {
+            // Clean up the temporary file
             unlink(temp_name.c_str());
         }
         return (void*) gfa_graph;
-    }, [](const void* gfa_graph_void, ostream& output) {
-        assert(gfa_graph_void != nullptr);
-        graph_to_gfa((const GFAHandleGraph*) gfa_graph_void, output);
     });
 }
 
