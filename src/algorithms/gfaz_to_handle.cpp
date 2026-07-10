@@ -43,7 +43,8 @@ namespace Codec = gfaz::Codec;
  */
 struct GFAzPathDecoder {
   /**
-   * Holds the length of each graph node, by 1-based ID. 
+   * Holds the length of each graph node, by 1-based ID.
+   * TODO: This wastes space at index 0.
    */
   vector<size_t> node_lengths;
   /**
@@ -352,8 +353,10 @@ void GFAzPathDecoder::for_each_rgfa_visit(
 
   for (nid_t node_id = 1; static_cast<size_t>(node_id) <= node_count(); ++node_id) {
     // Go through all the nodes and make rGFA visits for them.
-    
+    // Determine the GFAz node index from the ID.
+    // TODO: is there a better way to write this loop?
     size_t idx = node_id - 1;
+    
     if (idx >= sn_col->string_lengths.size() ||
         idx >= so_col->int_values.size() ||
         idx >= sr_col->int_values.size()) {
@@ -447,8 +450,7 @@ void GFAzParser::parse(const string& filename) {
     vector<uint32_t> segment_lengths =
         Codec::zstd_decompress_uint32_vector(compressed.segment_seq_lengths_zstd);
     
-    // Reserve space for all the nodes' lengths.
-    // TODO: Why is there a +1 here?
+    // Reserve space for all the nodes' lengths, plus an empty slot at ID 0.
     gfaz_paths.node_lengths.resize(segment_lengths.size() + 1, 0);
   
     // Configure the ID map to pass through IDs.
