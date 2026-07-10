@@ -332,15 +332,26 @@ public:
     
 };
 
-/// Drive the shared node/edge import logic from an already-configured parser.
-void parser_to_handle_graph(GFAParser& parser,
-                            MutableHandleGraph* graph);
+// We have these functions to connect up the parser to HandleGraph-level stuff.
+// They might be better as methods, but then the parser itself would need to
+// know about HandleGraphs, which we want to avoid.
 
-/// Drive the shared node/edge/path import logic from an already-configured parser.
-void parser_to_path_handle_graph(GFAParser& parser,
-                                 MutablePathMutableHandleGraph* graph,
-                                 int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
-                                 unordered_set<PathSense>* ignore_sense = nullptr);
+/// Set up a parser to parse into a plain graph.
+///
+void attach_parser(GFAParser& parser, MutableHandleGraph* graph);
+
+/// Set up a parser to parse into a path graph.
+///
+/// Throws away paths at rGFA ranks higher than max_rgfa_rank.
+/// Throws away paths with senses in ignore_sense.
+void attach_parser(GFAParser& parser,
+                   MutablePathMutableHandleGraph* graph,
+                   int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                   unordered_set<PathSense>* ignore_sense = nullptr);
+
+/// Set up a parser to parse and populate the given ID translation (which may
+/// be null).
+void attach_parser(GFAParser& parser, GFAIDMapInfo* translation);
 
 /// Text GFA parser implementation that emits listener events from the legacy
 /// line-oriented parser.
