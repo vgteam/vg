@@ -56,7 +56,7 @@ struct StreamingGFAZPaths {
   
   vector<OptionalFieldColumn> segment_optional_fields;
 
-  LinkData links;
+  
 
   std::pair<vector<int32_t>, vector<int32_t>> rules;
   vector<int32_t> paths_flat;
@@ -197,6 +197,18 @@ static GFAParser::chars_t as_chars(const string& value) {
   return make_pair(value.begin(), value.end());
 }
 
+/**
+ * Decode the optional fields AKA tags for a sequence line/row.
+ *
+ * string_offsets and byte_offsets are decoder state that need to have been
+ * updated by decoding all prior rows. They should have one field per entry in
+ * columns and should start at 0.
+ *
+ * Must be called in order; does not provide random access.
+ *
+ * TODO: Make this a class or a function with a callback instead of something
+ * that needs to be called exactly right with the right scratch state.
+ */
 static GFAParser::tag_list_t collect_optional_tags_for_row(
     const vector<OptionalFieldColumn>& columns,
     vector<size_t>& string_offsets,
@@ -408,62 +420,82 @@ void GFAzParser::parse(const string& filename) {
     map_info.max_id = gfaz_paths.node_count();
     // We know the ID map is empty when parsing starts so we don't have to clear it.
 
-    // Load all the optional fields
+    // Load all the optional fields (node tags)
     gfaz_paths.segment_optional_fields.reserve(compressed.segment_optional_fields_zstd.size());
     for (const auto& column : compressed.segment_optional_fields_zstd) {
       gfaz_paths.segment_optional_fields.push_back(decompress_optional_column(column));
     }
-
-    
-
+  
+    // Set up decoder scratch for the tags
     vector<size_t> optional_string_offsets(gfaz_paths.segment_optional_fields.size(), 0);
     vector<size_t> optional_byte_offsets(gfaz_paths.segment_optional_fields.size(), 0);
+    // And for the segment sequences
     size_t segment_seq_offset = 0;
     for (size_t i = 0; i < segment_lengths.size(); ++i) {
+      // Get the ID of this segment
       nid_t id = static_cast<nid_t>(i + 1);
+      
+      // Load its sequence
       uint32_t len = segment_lengths[i];
       if (segment_seq_offset + len > segment_sequences.size()) {
         throw runtime_error("GFAZ segment sequence column is truncated");
       }
       string sequence = segment_sequences.substr(segment_seq_offset, len);
+
+      // Load its tags
       auto tags = collect_optional_tags_for_row(gfaz_paths.segment_optional_fields,
                                                 optional_string_offsets,
                                                 optional_byte_offsets,
                                                 i);
+
       for (auto& listener : this->node_listeners) {
+        // Show it to the listeners
         listener(id, as_chars(sequence), tags);
       }
+
+      // Remember its length because we need node lengths later when doing rGFA visits.
+      // TODO: Why not just generarte and hold onto rGFA visits now???
       gfaz_paths.node_lengths[id] = len;
+
+      // The next node's sequence is after this one's.
       segment_seq_offset += len;
     }
   }
+  
 
-  gfaz_paths.links.from_ids = Codec::decompress_delta_varint_uint32(
-      compressed.link_from_ids_zstd, compressed.num_links);
-  gfaz_paths.links.to_ids = Codec::decompress_delta_varint_uint32(
-      compressed.link_to_ids_zstd, compressed.num_links);
-  gfaz_paths.links.from_orients = Codec::decompress_orientations(
-      compressed.link_from_orients_zstd, compressed.num_links);
-  gfaz_paths.links.to_orients = Codec::decompress_orientations(
-      compressed.link_to_orients_zstd, compressed.num_links);
-  gfaz_paths.links.overlap_nums =
-      Codec::zstd_decompress_uint32_vector(compressed.link_overlap_nums_zstd);
-  gfaz_paths.links.overlap_ops =
-      Codec::zstd_decompress_char_vector(compressed.link_overlap_ops_zstd);
+  {
+    LinkData links;
 
-  for (size_t i = 0; i < gfaz_paths.links.from_ids.size(); ++i) {
-    string overlap;
-    if (i < gfaz_paths.links.overlap_ops.size() && gfaz_paths.links.overlap_ops[i] != '\0') {
-      overlap = to_string(i < gfaz_paths.links.overlap_nums.size() ? gfaz_paths.links.overlap_nums[i] : 0) +
-                gfaz_paths.links.overlap_ops[i];
-    }
-    for (auto& listener : this->edge_listeners) {
-      listener(gfaz_paths.links.from_ids[i],
-               i < gfaz_paths.links.from_orients.size() ? gfaz_paths.links.from_orients[i] == '-' : false,
-               gfaz_paths.links.to_ids[i],
-               i < gfaz_paths.links.to_orients.size() ? gfaz_paths.links.to_orients[i] == '-' : false,
-               as_chars(overlap),
-               GFAParser::tag_list_t());
+    // Load the link information
+    links.from_ids = Codec::decompress_delta_varint_uint32(
+        compressed.link_from_ids_zstd, compressed.num_links);
+    links.to_ids = Codec::decompress_delta_varint_uint32(
+        compressed.link_to_ids_zstd, compressed.num_links);
+    links.from_orients = Codec::decompress_orientations(
+        compressed.link_from_orients_zstd, compressed.num_links);
+    links.to_orients = Codec::decompress_orientations(
+        compressed.link_to_orients_zstd, compressed.num_links);
+    links.overlap_nums =
+        Codec::zstd_decompress_uint32_vector(compressed.link_overlap_nums_zstd);
+    links.overlap_ops =
+        Codec::zstd_decompress_char_vector(compressed.link_overlap_ops_zstd);
+
+    for (size_t i = 0; i < links.from_ids.size(); ++i) {
+      string overlap;
+      if (i < links.overlap_ops.size() && links.overlap_ops[i] != '\0') {
+        // Reconstruct the overlap string
+        overlap = to_string(i < links.overlap_nums.size() ? links.overlap_nums[i] : 0) +
+                  gfaz_paths.links.overlap_ops[i];
+      }
+      for (auto& listener : this->edge_listeners) {
+        // Show the link to the listener
+        listener(links.from_ids[i],
+                 i < links.from_orients.size() ? links.from_orients[i] == '-' : false,
+                 links.to_ids[i],
+                 i < links.to_orients.size() ? links.to_orients[i] == '-' : false,
+                 as_chars(overlap),
+                 GFAParser::tag_list_t());
+      }
     }
   }
 
