@@ -44,8 +44,7 @@ struct StreamingGFAZPaths {
 
   LinkData links;
 
-  vector<int32_t> rules_first;
-  vector<int32_t> rules_second;
+  std::pair<vector<int32_t>, vector<int32_t>> rules;
   vector<int32_t> paths_flat;
   vector<int32_t> walks_flat;
   SequenceOffsets path_offsets;
@@ -106,8 +105,8 @@ static CompressedData load_gfaz_compressed(const string &filename) {
 void StreamingGFAZPaths::expand_rule(uint32_t rule_id, bool reverse,
                                      uint32_t max_rule_id, vector<NodeId> &out) const {
   const uint32_t idx = rule_id - min_rule_id;
-  const int32_t a = rules_first[idx];
-  const int32_t b = rules_second[idx];
+  const int32_t a = rules.first[idx];
+  const int32_t b = rules.second[idx];
 
   if (!reverse) {
     const uint32_t abs_a = static_cast<uint32_t>(std::abs(a));
@@ -155,7 +154,7 @@ vector<NodeId> StreamingGFAZPaths::decode_sequence_at_index(
   }
 
   const uint32_t max_rule_id =
-      min_rule_id + static_cast<uint32_t>(rules_first.size());
+      min_rule_id + static_cast<uint32_t>(rules.first.size());
   const size_t original_length =
       (index + 1 < original_path_offsets.size())
           ? (original_path_offsets[index + 1] - original_path_offsets[index])
@@ -459,9 +458,8 @@ void GFAzParser::parse(const string& filename) {
   gfaz_paths.walk_seq_ends = Codec::decompress_varint_int64(
       compressed.walk_seq_ends_zstd, compressed.walk_lengths.size());
 
-  auto decoded_rules = decode_rules(compressed);
-  gfaz_paths.rules_first = std::move(decoded_rules.first);
-  gfaz_paths.rules_second = std::move(decoded_rules.second);
+  std::pair<vector<int32_t>, vector<int32_t>> decoded_rules = decode_rules(compressed);
+  gfaz_paths.rules = std::move(decoded_rules);
   gfaz_paths.min_rule_id = compressed.min_rule_id();
 
   if (!compressed.paths_zstd.payload.empty()) {
