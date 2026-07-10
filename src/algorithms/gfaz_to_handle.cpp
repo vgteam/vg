@@ -235,16 +235,14 @@ static GFAParser::tag_list_t collect_optional_tags_for_row(
 static GFAParser::visit_source_t make_gfaz_visit_source(const vector<NodeId>& visits) {
   return [visits](const GFAParser::visit_iteratee_t& visit_step) {
     if (visits.empty()) {
-      visit_step(-1, 0, std::string_view(), false);
+      visit_step(-1, 0, false);
       return;
     }
-    // GFAz encodes node IDs numerically, so we hand them to the listener
-    // directly and skip the listener's name-based lookup.
     for (size_t i = 0; i < visits.size(); ++i) {
       NodeId visit = visits[i];
       bool is_reverse = visit < 0;
       nid_t node_id = is_reverse ? -static_cast<nid_t>(visit) : static_cast<nid_t>(visit);
-      if (!visit_step(i, node_id, std::string_view(), is_reverse)) {
+      if (!visit_step(i, node_id, is_reverse)) {
         return;
       }
     }

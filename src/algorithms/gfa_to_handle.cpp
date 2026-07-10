@@ -13,21 +13,19 @@ static std::string_view as_view(const GFAParser::chars_t& range) {
     return len == 0 ? std::string_view() : std::string_view(&*range.first, len);
 }
 
-static GFAParser::visit_source_t make_p_visit_source(const GFAParser::chars_t& visits) {
-    // Adapt the legacy P-line scan helpers to the parser's iterator interface.
-    return [visits](const GFAParser::visit_iteratee_t& visit_step) {
-        GFAParser::scan_p_visits(visits, [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
-            return visit_step(rank, 0, as_view(node_name), is_reverse);
-        });
+GFAParser::text_visit_iteratee_t GFAParser::wrap(const visit_iteratee_t& iteratee) const {
+    return [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
+        // Interpose a lookup in our ID map
+        return iteratee(rank, 
+                        GFAParser::find_existing_sequence_id(as_view(node_name), this->id_map()),
+                        is_reverse);
     };
 }
 
-static GFAParser::visit_source_t make_w_visit_source(const GFAParser::chars_t& visits) {
-    // Adapt the legacy W-line scan helpers to the parser's iterator interface.
-    return [visits](const GFAParser::visit_iteratee_t& visit_step) {
-        GFAParser::scan_w_visits(visits, [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
-            return visit_step(rank, 0, as_view(node_name), is_reverse);
-        });
+GFAParser::visit_source_t GFAParser::wrap(const text_visit_source_t& source) const {
+    return [&](const visit_iteratee_t& iteratee) {
+        // Wrap the iteratee and hand it to the source
+        source(this->wrap(iteratee));
     };
 }
 
@@ -201,13 +199,10 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                               phase_block,
                                               subrange);
         
-        visits([&](int64_t step_rank, nid_t step_node_id, std::string_view step_name, bool step_is_reverse) {
+        visits([&](int64_t step_rank, nid_t step_node_id, bool step_is_reverse) {
             if (step_rank >= 0) {
                 // Not an empty path sentinel.
-                // Use the pre-resolved ID if the parser supplied one; otherwise look it up by name.
-                nid_t n = step_node_id != 0 ? step_node_id
-                                            : GFAParser::find_existing_sequence_id(step_name, parser.id_map());
-                graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+                graph->append_step(path_handle, graph->get_handle(step_node_id, step_is_reverse));
             }
             // Don't stop.
             return true;
@@ -288,12 +283,10 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                               phase_block,
                                               assigned_subrange);
         
-        visits([&](int64_t step_rank, nid_t step_node_id, std::string_view step_name, bool step_is_reverse) {
+        visits([&](int64_t step_rank, nid_t step_node_id, bool step_is_reverse) {
             if (step_rank >= 0) {
                 // Not an empty path sentinel.
-                nid_t n = step_node_id != 0 ? step_node_id
-                                            : GFAParser::find_existing_sequence_id(step_name, parser.id_map());
-                graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+                graph->append_step(path_handle, graph->get_handle(step_node_id, step_is_reverse));
             }
             // Don't stop.
             return true;
@@ -905,7 +898,7 @@ nid_t GFAParser::assign_new_sequence_id(const string& str, GFAIDMapInfo& id_map_
     return node_id;
 }
 
-nid_t GFAParser::find_existing_sequence_id(std::string_view str, GFAIDMapInfo& id_map_info) {
+nid_t GFAParser::find_existing_sequence_id(std::string_view str, const GFAIDMapInfo& id_map_info) {
     if (id_map_info.numeric_mode && id_map_info.direct_numeric_lookup) {
         // GFAz fast path: IDs are dense 1-based integers, no map needed.
         if (str.empty()) {
@@ -1220,11 +1213,15 @@ void GFATextParser::parse(istream& in) {
                             throw GFAFormatError("Path " + path_name + " has nontrivial overlaps and can't be handled", it);
                         }
                     }
+
+                    text_visit_source_t text_visit_source = [&](const text_visit_iteratee_t& iteratee) {
+                        GFAParser::scan_p_visits(visits, iteratee);
+                    };
                     
                     // Make sure we have all the nodes in the graph
-                    GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
-                                                         const GFAParser::chars_t& step_id,
-                                                         bool step_is_reverse) {
+                    text_visit_source([&](int64_t step_rank,
+                                          const GFAParser::chars_t& step_id,
+                                          bool step_is_reverse) {
                          if (step_rank == -1) {
                             // Nothing to do for empty paths
                             return true;
@@ -1246,9 +1243,10 @@ void GFATextParser::parse(istream& in) {
                         return false;
                     }
                     
+                    visit_source_t visit_source = wrap(text_visit_source);
                     for (auto& listener : this->path_listeners) {
                         // Tell all the listener functions
-                        listener(path_name, make_p_visit_source(visits), tags);
+                        listener(path_name, visit_source, tags);
                     }
                 }
                 break;
@@ -1263,7 +1261,7 @@ void GFATextParser::parse(istream& in) {
                     bool missing = false;
                     string missing_name;
                     
-                    // Fins the pieces of the walk line
+                    // Find the pieces of the walk line
                     tuple<string, size_t, string, pair<int64_t, int64_t>, chars_t, tag_list_t> w_parse = GFAParser::parse_w(line_buffer);
                     auto& sample_name = get<0>(w_parse);
                     auto& haplotype = get<1>(w_parse);
@@ -1271,10 +1269,16 @@ void GFATextParser::parse(istream& in) {
                     auto& subrange = get<3>(w_parse);
                     auto& visits = get<4>(w_parse);
                     auto& tags = get<5>(w_parse);
+
+                    // TODO: Figure out how to share more code with the 'P' section above.
+
+                    text_visit_source_t text_visit_source = [&](const text_visit_iteratee_t& iteratee) {
+                        GFAParser::scan_w_visits(visits, iteratee);
+                    };
                     
-                    GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
-                                                         const GFAParser::chars_t& step_id,
-                                                         bool step_is_reverse) {
+                    text_visit_source([&](int64_t step_rank,
+                                          const GFAParser::chars_t& step_id,
+                                          bool step_is_reverse) {
                         if (step_rank == -1) {
                             // Nothing to do for empty paths
                             return true;
@@ -1296,10 +1300,10 @@ void GFATextParser::parse(istream& in) {
                         return false;
                     }
                     
-                    auto visit_iteratee = make_w_visit_source(visits);
+                    visit_source_t visit_source = wrap(text_visit_source);
                     for (auto& listener : this->walk_listeners) {
                         // Tell all the listener functions
-                        listener(sample_name, haplotype, contig_name, subrange, visit_iteratee, tags);
+                        listener(sample_name, haplotype, contig_name, subrange, visit_source, tags);
                     }
                 }
                 break;
@@ -1442,6 +1446,16 @@ GFAIDMapInfo& GFAParser::id_map() {
     }
     if (!internal_id_map) {
         internal_id_map = make_unique<GFAIDMapInfo>();
+    }
+    return *internal_id_map;
+};
+
+const GFAIDMapInfo& GFAParser::id_map() const {
+    if (external_id_map) {
+        return *external_id_map;
+    }
+    if (!internal_id_map) {
+        throw std::runtime_error("Can't get an ID map to do a lookup because no IDs are assigned");
     }
     return *internal_id_map;
 };

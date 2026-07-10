@@ -130,16 +130,16 @@ void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
  * Lower-level tools for parsing GFA elements.
  *
  * Parsing functions return the fields as strings, and don't support overlaps.
- * Optional tags get read as strings in the vectors.
+ * Optional tags get read as strings into vectors.
  *
  * Allows you to register "listeners" for different kinds of GFA file items, by
- * adding functions to the various *_listeners vectors. These listeners can
- * raise GFAFormatError or its subclasses if they do not like what the GFA is
- * saying. Some types of GFAFormatError can be caught internally and
- * processing of the file will continue with the next line, but *not* with the
- * next listener for that line, so the user is responsible for worrying about
- * what happens if some but not all listeners for something end up getting
- * called because one failed.
+ * adding functions to the various *_listeners vectors. Listeners deal with
+ * nodes as having numeric IDs. These listeners can raise GFAFormatError or its
+ * subclasses if they do not like what the GFA is saying. Some types of
+ * GFAFormatError can be caught internally and processing of the file will
+ * continue with the next line, but *not* with the next listener for that line,
+ * so the user is responsible for worrying about what happens if some but not
+ * all listeners for something end up getting called because one failed.
  */
 class GFAParser {
 public:
@@ -161,17 +161,45 @@ public:
     inline static bool empty(const chars_t& range) {
         return range.second == range.first;
     }
-    // And a type for a collection of GFA tags.
-    // This could become a range or list of ranges if we wanted to copy less.
-    using tag_list_t = vector<string>;
-    // And a callback shape for iterating path/walk visits without exposing
-    // the source encoding. The node_name is a view into a buffer owned by the
-    // caller and is valid only for the duration of the call. If node_id is
-    // nonzero, it is the pre-resolved graph node ID and the listener should
-    // use it directly instead of looking up node_name; text parsers pass 0.
-    using visit_iteratee_t = function<bool(int64_t rank, nid_t node_id, std::string_view node_name, bool is_reverse)>;
-    using visit_source_t = function<void(const visit_iteratee_t&)>;
     
+    /// Type for a collection of GFA tags.
+    /// This could become a range or list of ranges if we wanted to copy less.
+    using tag_list_t = vector<string>;
+    /// Callback shape for receiving path/walk visits in a listener.
+    ///
+    using visit_iteratee_t = function<bool(int64_t rank, nid_t node_id, bool is_reverse)>;
+    /// Callback shape for being a producer of path/walk visits.
+    ///
+    /// One of these will be provided to a path/walk listener. Because those
+    /// listeners only happen after the involved nodes have been handled, this
+    /// only needs to handle the case where all the nodes have numerical IDs
+    /// assigned.
+    using visit_source_t = function<void(const visit_iteratee_t&)>;
+
+protected:
+
+    // All these internal parsing functions deal with node IDs as text.
+    
+    /// Callback shape for receiving path/walk visits internally.
+    using text_visit_iteratee_t = function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)>;
+    /// Callback shape for being a producer of path/walk visits.
+    using text_visit_source_t = function<void(const text_visit_iteratee_t&)>;
+
+    /// Convert an iteratee that needs numerical node IDs into one that handles
+    /// text node names.
+    ///
+    /// All the node IDs must have already been assigned.
+    /// Uses our ID map.
+    text_visit_iteratee_t wrap(const visit_iteratee_t& iteratee) const;
+
+    /// Convert a visit source that produces text node IDs into one that
+    /// produces numerical node IDs.
+    ///
+    /// All the node IDs must have already been assigned.
+    /// Uses our ID map.
+    visit_source_t wrap(const text_visit_source_t& source) const;
+    
+
     /**
      * Parse tags out from a possibly empty range to a vector of tag strings.
      */
@@ -266,20 +294,16 @@ public:
     /**
      * Find the existing sequence ID for the given node name, or 0 if it has not been seen yet.
      */
-    static nid_t find_existing_sequence_id(std::string_view str, GFAIDMapInfo& id_map_info);
+    static nid_t find_existing_sequence_id(std::string_view str, const GFAIDMapInfo& id_map_info);
     
+public:
+
     // To actually parse GFA, we stick event listeners on here and then we go
     // through the GFA. It is the parser's job to make sure events aren't fired
     // before events they depend on (so a path is delayed until all the nodes
     // in it are parsed).
     
-    // We can either use an internal ID map here
-    unique_ptr<GFAIDMapInfo> internal_id_map;
-    // Or have this pointed at an external one before we start parsing.
-    GFAIDMapInfo* external_id_map = nullptr;
-    
-    /// Get the ID map we should be using for parsing.
-    GFAIDMapInfo& id_map();
+    // The external listener interface deals with node IDs as numbers
     
     /// These listeners are called for the header line(s), if any.
     vector<std::function<void(const tag_list_t& tags)>> header_listeners;
@@ -307,8 +331,28 @@ public:
     /// Listeners are protected from duplicate paths with the same name and
     /// different ranks, but not from overlaps of nodes in path offset space.
     vector<std::function<void(nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank)>> rgfa_listeners;
+  
+    // To manage text node ID to numerical node ID translation, we use an ID map.
+
+    /// Get the ID map we are using for parsing.
+    /// To translate text node IDs to numbers, we use this.
+    GFAIDMapInfo& id_map();
+
+    /// Get a const reference to the ID map we are using for parsing.
+    /// To translate text node IDs to numbers, we use this.
+    const GFAIDMapInfo& id_map() const;
+
+    /// By default we use this internal ID map to translate text node names to
+    /// numbers.
+    unique_ptr<GFAIDMapInfo> internal_id_map;
+    // If this is pointed at an external ID map before parsing stars, we will
+    // use that ID map to translate text node names to numbers.
+    GFAIDMapInfo* external_id_map = nullptr;
     
-    /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.
+    // We can configure how we handle parsing paths.
+
+    /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore
+    /// rGFA tags.
     int64_t max_rgfa_rank = -1;
     
     /// Set to true to treat duplicate paths as errors. Otherwise, they will be
@@ -316,6 +360,8 @@ public:
     /// files, like the first HPRC graph releases, include duplicate paths.
     bool stop_on_duplicate_paths = false;
     
+    // The main parsing entrypoints are here.
+
     /**
      * Parse GFA from the given stream.
      */
@@ -327,6 +373,8 @@ public:
      * the stream parser.
      */
     virtual void parse(const string& filename);
+
+    // Because we have descendant classes, we need a virtual destructor.
     
     virtual ~GFAParser() = default;
     
