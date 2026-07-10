@@ -30,6 +30,11 @@ public:
     /// Return true if the first sizeof(uint32_t) bytes of the buffer encode the
     /// GFAz magic number.
     static bool has_magic(const char* buffer, size_t length);
+
+private:
+    /// Wrap a function in a handler for GFADuplicatePathError that reports
+    /// that a line of the given line tyoe is being skipped.
+    void handle_duplicate_paths(char line_type, const std::function<void(void)>& callback);
 };
 
 
@@ -60,6 +65,7 @@ void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
                                            int64_t max_rgfa_rank,
                                            const string& translation_filename,
                                            unordered_set<PathSense>* ignore_sense = nullptr);
+
 
 }
 }

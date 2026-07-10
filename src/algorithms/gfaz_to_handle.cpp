@@ -249,12 +249,11 @@ static GFAParser::visit_source_t make_gfaz_visit_source(const vector<NodeId>& vi
   };
 }
 
-template<class Callback>
-static void handle_duplicate_paths(GFAParser& parser, char line_type, Callback&& callback) {
+void GFAzParser::handle_duplicate_paths(char line_type, const std::function<void(void)>& callback) {
   try {
     callback();
   } catch (GFADuplicatePathError& e) {
-    if (parser.stop_on_duplicate_paths) {
+    if (stop_on_duplicate_paths) {
       throw;
     }
     #pragma omp critical (cerr)
@@ -471,7 +470,7 @@ void GFAzParser::parse(const string& filename) {
         gfaz_paths.original_path_offsets, i, gfaz_paths.rules_first,
         gfaz_paths.rules_second, gfaz_paths.min_rule_id, compressed.delta_round);
     auto visit_iteratee = make_gfaz_visit_source(visits);
-    handle_duplicate_paths(*this, 'P', [&]() {
+    handle_duplicate_paths('P', [&]() {
       for (auto& listener : this->path_listeners) {
         listener(gfaz_paths.path_names[i], visit_iteratee, GFAParser::tag_list_t());
       }
@@ -497,7 +496,7 @@ void GFAzParser::parse(const string& filename) {
         subrange.second = end;
       }
     }
-    handle_duplicate_paths(*this, 'W', [&]() {
+    handle_duplicate_paths('W', [&]() {
       for (auto& listener : this->walk_listeners) {
         listener(sample_name, haplotype, contig_name, subrange, visit_iteratee, GFAParser::tag_list_t());
       }
@@ -507,7 +506,7 @@ void GFAzParser::parse(const string& filename) {
   dispatch_rgfa_visits(gfaz_paths.node_count, gfaz_paths.segment_optional_fields,
                        gfaz_paths.node_lengths, this->max_rgfa_rank,
                        [&](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
-                         handle_duplicate_paths(*this, 'S', [&]() {
+                         handle_duplicate_paths('S', [&]() {
                            for (auto& listener : this->rgfa_listeners) {
                              listener(id, offset, length, path_name, path_rank);
                            }
