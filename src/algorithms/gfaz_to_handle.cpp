@@ -1,4 +1,4 @@
-#include "gfa_to_handle.hpp"
+#include "gfaz_to_handle.hpp"
 
 #include "../path.hpp"
 
@@ -513,6 +513,49 @@ void GFAzParser::parse(const string& filename) {
                            }
                          });
                        });
+}
+
+
+/// Helper function to make a parser of the right type form a filename.
+static unique_ptr<GFAParser> make_gfa_family_parser_for_file(const string& filename) {
+    if (filename != "-" && GFAzParser::looks_like_gfaz(filename)) {
+        return make_unique<GFAzParser>();
+    }
+    return make_unique<GFATextParser>();
+}
+
+void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                                      GFAIDMapInfo* translation) {
+    auto parser = make_gfa_family_parser_for_file(filename);
+    attach_parser(*parser, translation);
+    attach_parser(*parser, graph);
+    parser->parse(filename);
+}
+
+void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                                      const string& translation_filename) {
+
+    GFAIDMapInfo id_map_info;
+    load_gfa_or_gfaz_to_handle_graph(filename, graph, &id_map_info);
+    id_map_info.write_gfa_translation(translation_filename);
+}
+
+void load_gfa_or_gfaz_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                                           GFAIDMapInfo* translation, int64_t max_rgfa_rank,
+                                           unordered_set<PathSense>* ignore_sense) {
+    auto parser = make_gfa_family_parser_for_file(filename);
+    attach_parser(*parser, translation);
+    attach_parser(*parser, graph, max_rgfa_rank, ignore_sense);
+    parser->parse(filename);
+}
+
+void load_gfa_or_gfaz_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                                           int64_t max_rgfa_rank, const string& translation_filename,
+                                           unordered_set<PathSense>* ignore_sense) {
+
+    GFAIDMapInfo id_map_info;
+    load_gfa_or_gfaz_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank, ignore_sense);
+    id_map_info.write_gfa_translation(translation_filename);
 }
 
 } // namespace algorithms

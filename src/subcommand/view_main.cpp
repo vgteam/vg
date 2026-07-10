@@ -19,7 +19,7 @@
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
-#include "../algorithms/gfa_to_handle.hpp"
+#include "../algorithms/gfaz_to_handle.hpp"
 
 #include <vg/io/message_iterator.hpp>
 #include <vg/io/vpkg.hpp>

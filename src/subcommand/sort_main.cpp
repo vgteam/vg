@@ -15,7 +15,7 @@
 #include "../vg.hpp"
 #include "../stream_index.hpp"
 #include "../flow_sort.hpp"
-#include "../algorithms/gfa_to_handle.hpp"
+#include "../algorithms/gfaz_to_handle.hpp"
 #include "../algorithms/id_sort.hpp"
 #include <vg/io/vpkg.hpp>
 

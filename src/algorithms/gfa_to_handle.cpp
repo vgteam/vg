@@ -56,26 +56,17 @@ std::string GFAIDMapInfo::get_back_graph_node_name(const nid_t& back_node_id) co
     return *id_to_name->at(back_node_id);
 }
 
-static void write_gfa_translation(const GFAIDMapInfo& id_map_info, const string& translation_filename) {
+void GFAIDMapInfo::write_gfa_translation(const string& translation_filename) const {
     // don't write anything unless we have both an output file and at least one non-trivial mapping
-    if (!translation_filename.empty() && !id_map_info.numeric_mode) {
+    if (!translation_filename.empty() && !numeric_mode) {
         ofstream trans_file(translation_filename);
         if (!trans_file) {
             throw runtime_error("error:[gfa_to_handle_graph] Unable to open output translation file: " + translation_filename);
         }
-        for (const auto& mapping : *id_map_info.name_to_id) {
+        for (const auto& mapping : *name_to_id) {
             trans_file << "T\t" << mapping.first << "\t" << mapping.second << "\n";
         }
     }
-}
-
-// Temporary filename-based parser dispatch for old command paths that have not
-// yet moved fully onto the registry/VPKG loading path.
-static unique_ptr<GFAParser> make_gfa_family_parser_for_file(const string& filename) {
-    if (filename != "-" && GFAzParser::looks_like_gfaz(filename)) {
-        return make_unique<GFAzParser>();
-    }
-    return make_unique<GFATextParser>();
 }
 
 /// Add listeners which let a GFA parser fill in a handle graph with nodes and edges.
@@ -366,22 +357,6 @@ void gfa_to_handle_graph(istream& in, MutableHandleGraph* graph,
     parser.parse(in);
 }
 
-void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                                      GFAIDMapInfo* translation) {
-    auto parser = make_gfa_family_parser_for_file(filename);
-    attach_parser(*parser, translation);
-    attach_parser(*parser, graph);
-    parser->parse(filename);
-}
-
-void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                                      const string& translation_filename) {
-
-    GFAIDMapInfo id_map_info;
-    load_gfa_or_gfaz_to_handle_graph(filename, graph, &id_map_info);
-    write_gfa_translation(id_map_info, translation_filename);
-}
-
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation, int64_t max_rgfa_rank,
                               unordered_set<PathSense>* ignore_sense) {
@@ -411,24 +386,6 @@ void gfa_to_path_handle_graph(istream& in,
     attach_parser(parser, translation);
     attach_parser(parser, graph, max_rgfa_rank, ignore_sense);
     parser.parse(in);
-}
-
-void load_gfa_or_gfaz_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                                           GFAIDMapInfo* translation, int64_t max_rgfa_rank,
-                                           unordered_set<PathSense>* ignore_sense) {
-    auto parser = make_gfa_family_parser_for_file(filename);
-    attach_parser(*parser, translation);
-    attach_parser(*parser, graph, max_rgfa_rank, ignore_sense);
-    parser->parse(filename);
-}
-
-void load_gfa_or_gfaz_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                                           int64_t max_rgfa_rank, const string& translation_filename,
-                                           unordered_set<PathSense>* ignore_sense) {
-
-    GFAIDMapInfo id_map_info;
-    load_gfa_or_gfaz_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank, ignore_sense);
-    write_gfa_translation(id_map_info, translation_filename);
 }
 
 void attach_parser(GFAParser& parser, MutableHandleGraph* graph) {

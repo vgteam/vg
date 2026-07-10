@@ -56,6 +56,11 @@ struct GFAIDMapInfo : public NamedNodeBackTranslation {
      * Assumes this will never be called until after name_to_id is fully populated.
      */
     std::string get_back_graph_node_name(const nid_t& back_node_id) const;
+    
+    /**
+     * If the mapping is not empty, write it to the given filename as T-lines.
+     */
+    void write_gfa_translation(const string& translation_filename) const;
 
 };
 
@@ -80,18 +85,6 @@ void gfa_to_handle_graph(istream& in,
                          GFAIDMapInfo* translation = nullptr);
 
 
-/// Load either a GFA or a GFAz into a HandleGraph.
-/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
-void load_gfa_or_gfaz_to_handle_graph(const string& filename,
-                                      MutableHandleGraph* graph,
-                                      GFAIDMapInfo* translation = nullptr);
-
-/// Load either a GFA or a GFAz into a HandleGraph, saving the translation to the given file.
-/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
-void load_gfa_or_gfaz_to_handle_graph(const string& filename,
-                                      MutableHandleGraph* graph,
-                                      const string& translation_filename);
-
 /// Same as gfa_to_handle_graph but also adds path elements from the text GFA to the graph.
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
@@ -112,22 +105,6 @@ void gfa_to_path_handle_graph(istream& in,
                               GFAIDMapInfo* translation = nullptr,
                               int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
                               unordered_set<PathSense>* ignore_sense = nullptr);
-
-/// Load a GFA or GFAz into a PathHandleGraph.
-/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
-void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
-                                           MutablePathMutableHandleGraph* graph,
-                                           GFAIDMapInfo* translation = nullptr,
-                                           int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
-                                           unordered_set<PathSense>* ignore_sense = nullptr);
-
-/// Load a GFA or GFAz into a PathHandleGraph, saving the translation to the given file.
-/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
-void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
-                                           MutablePathMutableHandleGraph* graph,
-                                           int64_t max_rgfa_rank,
-                                           const string& translation_filename,
-                                           unordered_set<PathSense>* ignore_sense = nullptr);
 
 /**
  * Lower-level tools for parsing GFA elements.
@@ -404,28 +381,12 @@ void attach_parser(GFAParser& parser,
 /// be null).
 void attach_parser(GFAParser& parser, GFAIDMapInfo* translation);
 
-/// Text GFA parser implementation that emits listener events from the legacy
-/// line-oriented parser.
+/// Text GFA parser implementation.
+/// 
 class GFATextParser : public GFAParser {
 public:
     void parse(istream& in) override;
     void parse(const string& filename) override;
-};
-
-/// GFAZ parser implementation that emits the same listener events from
-/// decompressed GFAZ data.
-class GFAzParser : public GFAParser {
-public:
-    void parse(istream& in) override;
-    void parse(const string& filename) override;
-
-    /// Return true if the named file begins with the GFAz magic number.
-    /// Returns false for stdin ("-") or empty filenames.
-    static bool looks_like_gfaz(const string& filename);
-
-    /// Return true if the first sizeof(uint32_t) bytes of the buffer encode the
-    /// GFAz magic number.
-    static bool has_magic(const char* buffer, size_t length);
 };
 
 /// This exception will be thrown if the GFA data is not acceptable.

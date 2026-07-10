@@ -2,7 +2,7 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "xg.hpp"
-#include "../algorithms/gfa_to_handle.hpp"
+#include "../algorithms/gfaz_to_handle.hpp"
 
 #include "../io/save_handle_graph.hpp"
 #include "../gfa.hpp"
