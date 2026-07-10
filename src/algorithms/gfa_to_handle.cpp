@@ -13,18 +13,18 @@ static std::string_view as_view(const GFAParser::chars_t& range) {
     return len == 0 ? std::string_view() : std::string_view(&*range.first, len);
 }
 
-static GFAParser::visit_iteratee_t make_p_visit_iteratee(const GFAParser::chars_t& visits) {
+static GFAParser::visit_source_t make_p_visit_source(const GFAParser::chars_t& visits) {
     // Adapt the legacy P-line scan helpers to the parser's iterator interface.
-    return [visits](const GFAParser::visit_step_t& visit_step) {
+    return [visits](const GFAParser::visit_iteratee_t& visit_step) {
         GFAParser::scan_p_visits(visits, [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
             return visit_step(rank, 0, as_view(node_name), is_reverse);
         });
     };
 }
 
-static GFAParser::visit_iteratee_t make_w_visit_iteratee(const GFAParser::chars_t& visits) {
+static GFAParser::visit_source_t make_w_visit_source(const GFAParser::chars_t& visits) {
     // Adapt the legacy W-line scan helpers to the parser's iterator interface.
-    return [visits](const GFAParser::visit_step_t& visit_step) {
+    return [visits](const GFAParser::visit_iteratee_t& visit_step) {
         GFAParser::scan_w_visits(visits, [&](int64_t rank, const GFAParser::chars_t& node_name, bool is_reverse) {
             return visit_step(rank, 0, as_view(node_name), is_reverse);
         });
@@ -137,7 +137,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
     });
 
     parser.path_listeners.push_back([&parser, graph, reference_samples, ignore_sense](const string& name,
-                                                                                      const GFAParser::visit_iteratee_t& visits,
+                                                                                      const GFAParser::visit_source_t& visits,
                                                                                       const GFAParser::tag_list_t& tags) {
         // For P lines, we add the path.
         
@@ -218,7 +218,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                                                         int64_t haplotype,
                                                                         const string& contig_name,
                                                                         const subrange_t& subrange,
-                                                                        const GFAParser::visit_iteratee_t& visits,
+                                                                        const GFAParser::visit_source_t& visits,
                                                                         const GFAParser::tag_list_t& tags) {
         // For W lines, we add the path with a bit more metadata.
         
@@ -1248,7 +1248,7 @@ void GFATextParser::parse(istream& in) {
                     
                     for (auto& listener : this->path_listeners) {
                         // Tell all the listener functions
-                        listener(path_name, make_p_visit_iteratee(visits), tags);
+                        listener(path_name, make_p_visit_source(visits), tags);
                     }
                 }
                 break;
@@ -1296,7 +1296,7 @@ void GFATextParser::parse(istream& in) {
                         return false;
                     }
                     
-                    auto visit_iteratee = make_w_visit_iteratee(visits);
+                    auto visit_iteratee = make_w_visit_source(visits);
                     for (auto& listener : this->walk_listeners) {
                         // Tell all the listener functions
                         listener(sample_name, haplotype, contig_name, subrange, visit_iteratee, tags);

@@ -169,8 +169,8 @@ public:
     // caller and is valid only for the duration of the call. If node_id is
     // nonzero, it is the pre-resolved graph node ID and the listener should
     // use it directly instead of looking up node_name; text parsers pass 0.
-    using visit_step_t = function<bool(int64_t rank, nid_t node_id, std::string_view node_name, bool is_reverse)>;
-    using visit_iteratee_t = function<void(const visit_step_t&)>;
+    using visit_iteratee_t = function<bool(int64_t rank, nid_t node_id, std::string_view node_name, bool is_reverse)>;
+    using visit_source_t = function<void(const visit_iteratee_t&)>;
     
     /**
      * Parse tags out from a possibly empty range to a vector of tag strings.
@@ -293,11 +293,11 @@ public:
     /// These listeners will be called with information for all P line paths,
     /// after the listeners for all involved nodes, and for the first header if any.
     /// Listeners are not protected from duplicate path names.
-    vector<std::function<void(const string& name, const visit_iteratee_t& visits, const tag_list_t& tags)>> path_listeners;
+    vector<std::function<void(const string& name, const visit_source_t& visits, const tag_list_t& tags)>> path_listeners;
     /// These listeners will be called with information for all W line paths,
     /// after the listeners for all involved nodes, and for the first header if any.
     /// Listeners are not protected from duplicate path metadata.
-    vector<std::function<void(const string& sample_name, int64_t haplotype, const string& contig_name, const pair<int64_t, int64_t>& subrange, const visit_iteratee_t& visits, const tag_list_t& tags)>> walk_listeners;
+    vector<std::function<void(const string& sample_name, int64_t haplotype, const string& contig_name, const pair<int64_t, int64_t>& subrange, const visit_source_t& visits, const tag_list_t& tags)>> walk_listeners;
     /// These listeners will be called with each visit of an rGFA path to a
     /// node, after the node listeners for the involved node, but in an
     /// unspecified order with respect to listeners for headers. They will be

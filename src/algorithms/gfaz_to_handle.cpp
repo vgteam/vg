@@ -232,8 +232,8 @@ static GFAParser::tag_list_t collect_optional_tags_for_row(
   return tags;
 }
 
-static GFAParser::visit_iteratee_t make_gfaz_visit_iteratee(const vector<NodeId>& visits) {
-  return [visits](const GFAParser::visit_step_t& visit_step) {
+static GFAParser::visit_source_t make_gfaz_visit_source(const vector<NodeId>& visits) {
+  return [visits](const GFAParser::visit_iteratee_t& visit_step) {
     if (visits.empty()) {
       visit_step(-1, 0, std::string_view(), false);
       return;
@@ -472,7 +472,7 @@ void GFAzParser::parse(const string& filename) {
         gfaz_paths.paths_flat, gfaz_paths.path_offsets,
         gfaz_paths.original_path_offsets, i, gfaz_paths.rules_first,
         gfaz_paths.rules_second, gfaz_paths.min_rule_id, compressed.delta_round);
-    auto visit_iteratee = make_gfaz_visit_iteratee(visits);
+    auto visit_iteratee = make_gfaz_visit_source(visits);
     handle_duplicate_paths(*this, 'P', [&]() {
       for (auto& listener : this->path_listeners) {
         listener(gfaz_paths.path_names[i], visit_iteratee, GFAParser::tag_list_t());
@@ -486,7 +486,7 @@ void GFAzParser::parse(const string& filename) {
         gfaz_paths.walks_flat, gfaz_paths.walk_offsets,
         gfaz_paths.original_walk_offsets, i, gfaz_paths.rules_first,
         gfaz_paths.rules_second, gfaz_paths.min_rule_id, compressed.delta_round);
-    auto visit_iteratee = make_gfaz_visit_iteratee(visits);
+    auto visit_iteratee = make_gfaz_visit_source(visits);
     string sample_name = i < gfaz_paths.walk_sample_ids.size() ? gfaz_paths.walk_sample_ids[i] : "*";
     int64_t haplotype = i < gfaz_paths.walk_hap_indices.size() ? gfaz_paths.walk_hap_indices[i] : 0;
     string contig_name = i < gfaz_paths.walk_seq_ids.size() ? gfaz_paths.walk_seq_ids[i] : PathMetadata::NO_LOCUS_NAME;
