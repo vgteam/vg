@@ -887,7 +887,7 @@ $(INC_DIR)/atomic_queue.h: $(ATOMIC_QUEUE_DIR)/include/*
 # Both are produced by a single cmake build; the core rule builds and copies both.
 $(LIB_DIR)/libgfaz_compress.a: $(LIB_DIR)/libgfaz_core.a
 
-$(LIB_DIR)/libgfaz_core.a: $(GFAz_DIR)/CMakeLists.txt $(shell find $(GFAz_DIR)/src $(GFAz_DIR)/include -type f 2>/dev/null)
+$(LIB_DIR)/libgfaz_core.a: $(GFAz_DIR)/CMakeLists.txt $(shell find $(GFAz_DIR)/src $(GFAz_DIR)/include -type f "(" -iname "*.cpp" -o -iname "*.hpp" ")" 2>/dev/null)
 	+rm -f $(CWD)/$(LIB_DIR)/libgfaz_core.a $(CWD)/$(LIB_DIR)/libgfaz_compress.a
 	+rm -Rf $(CWD)/$(INC_DIR)/GFAz
 	+cd $(GFAz_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_FLAGS="-fPIC $(CXXFLAGS) $(CPPFLAGS)" -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CLI=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_TESTS=OFF -DGFAZ_USE_SYSTEM_ZSTD=ON .. && $(MAKE) $(FILTER) gfaz_core gfaz_compress && cp libgfaz_core.a libgfaz_compress.a $(CWD)/$(LIB_DIR)/

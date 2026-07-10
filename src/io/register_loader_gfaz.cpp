@@ -2,16 +2,17 @@
  * \file register_loader_gfaz.cpp
  */
 
-#include <vg/io/registry.hpp>
 #include "register_loader_gfaz.hpp"
-#include <GFAz/core/codec/codec.hpp>
-#include "algorithms/gfa_to_handle.hpp"
 
-#include "gfa.hpp"
+#include <GFAz/core/codec/serialization.hpp>
+#include <vg/io/registry.hpp>
 
-#include "handle.hpp"
-#include "save_handle_graph.hpp"
+#include "../algorithms/gfa_to_handle.hpp"
+#include "../gfa.hpp"
+#include "../handle.hpp"
 #include "../utility.hpp"
+
+#include "save_handle_graph.hpp"
 
 #include <cstdio>
 #include <fstream>
@@ -46,8 +47,8 @@ void register_loader_gfaz() {
             }
             // Load the graph
             algorithms::GFAzParser parser;
-            parser.external_id_map = &gfa_graph->gfa_id_space;
-            algorithms::parser_to_path_handle_graph(parser, gfa_graph);
+            algorithms::attach_parser(parser, &gfa_graph->gfa_id_space);
+            algorithms::attach_parser(parser, gfa_graph);
             parser.parse(load_name);
             gfa_graph->gfa_id_space.invert_translation();
         } catch (algorithms::GFAFormatError& e) {
