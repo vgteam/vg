@@ -539,9 +539,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
-                           // TODO: We should maybe just take an EditAlignmentScorer here.
-                           int gap_open,
-                           int gap_extension,
                            const ChainScoringScheme& scheme = ChainScoringScheme(),
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            size_t max_indel_bases = 100,
@@ -581,8 +578,6 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                    const SnarlDistanceIndex& distance_index,
                                                    const HandleGraph& graph,
-                                                   int gap_open,
-                                                   int gap_extension,
                                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
                                                    size_t max_chains = 1,
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
@@ -601,8 +596,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
 pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const SnarlDistanceIndex& distance_index,
                                           const HandleGraph& graph,
-                                          int gap_open,
-                                          int gap_extension,
                                           const ChainScoringScheme& scheme = ChainScoringScheme(),
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           size_t max_indel_bases = 100);
@@ -613,7 +606,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
  *
  * Input items must be sorted by start position in the read.
  */
-int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension);
+int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
 
 
 /// Score a chaining gap using the Minimap2 method. See

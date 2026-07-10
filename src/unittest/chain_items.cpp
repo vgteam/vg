@@ -73,7 +73,7 @@ TEST_CASE("score_best_chain scores no anchors as 0", "[chain_items][score_best_c
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     
     vector<algorithms::Anchor> to_score;
-    REQUIRE(algorithms::score_best_chain(to_score, distance_index, graph, 6, 1) == 0);
+    REQUIRE(algorithms::score_best_chain(to_score, distance_index, graph) == 0);
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items][find_best_chain]") {
@@ -89,7 +89,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
                                   {10, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
 }
@@ -107,7 +107,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
                                   {10, h[1], 11, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
@@ -126,7 +126,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
                                   {11, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
@@ -149,7 +149,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     // We should take all of the items in order and not be scared off by the indels.
     REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
 }

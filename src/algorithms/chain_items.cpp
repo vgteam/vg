@@ -498,8 +498,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
-                           int gap_open,
-                           int gap_extension,
                            const ChainScoringScheme& scheme,
                            const transition_iterator& for_each_transition,
                            size_t max_indel_bases,
@@ -878,8 +876,6 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                    const SnarlDistanceIndex& distance_index,
                                                    const HandleGraph& graph,
-                                                   int gap_open,
-                                                   int gap_extension,
                                                    const ChainScoringScheme& scheme,
                                                    size_t max_chains,
                                                    const transition_iterator& for_each_transition,
@@ -902,8 +898,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                              to_chain,
                                                              distance_index,
                                                              graph,
-                                                             gap_open,
-                                                             gap_extension,
                                                              scheme,
                                                              for_each_transition,
                                                              max_indel_bases,
@@ -1022,8 +1016,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
 pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const SnarlDistanceIndex& distance_index,
                                           const HandleGraph& graph,
-                                          int gap_open,
-                                          int gap_extension,
                                           const ChainScoringScheme& scheme,
                                           const transition_iterator& for_each_transition,
                                           size_t max_indel_bases) {
@@ -1032,8 +1024,6 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         to_chain,
         distance_index,
         graph,
-        gap_open,
-        gap_extension,
         scheme,
         1,
         for_each_transition,
@@ -1043,15 +1033,14 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
 }
 
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, 
-                     const HandleGraph& graph, int gap_open, int gap_extension) {
+                     const HandleGraph& graph) {
     
     if (to_chain.empty()) {
         return 0;
     } else {
         // Do the DP but without the traceback.
         vector<TracedScore> chain_scores;
-        TracedScore winner = algorithms::chain_items_dp(
-            chain_scores, to_chain, distance_index, graph, gap_open, gap_extension);
+        TracedScore winner = algorithms::chain_items_dp(chain_scores, to_chain, distance_index, graph);
         return winner.score;
     }
 }
