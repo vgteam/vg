@@ -95,13 +95,6 @@ bool GFAzParser::looks_like_gfaz(const string& filename) {
   return has_magic(buffer, static_cast<size_t>(in.gcount()));
 }
 
-static CompressedData load_gfaz_compressed(const string &filename) {
-  if (filename == "-") {
-    throw invalid_argument("GFAZ input from stdin (-) is not supported");
-  }
-  return deserialize_compressed_data(filename);
-}
-
 void StreamingGFAZPaths::expand_rule(uint32_t rule_id, bool reverse,
                                      uint32_t max_rule_id, vector<NodeId> &out) const {
   const uint32_t idx = rule_id - min_rule_id;
@@ -363,7 +356,11 @@ void GFAzParser::parse(istream& in) {
 }
 
 void GFAzParser::parse(const string& filename) {
-  CompressedData compressed = load_gfaz_compressed(filename);
+  if (filename == "-") {
+    // TODO: Handle parsing from standard input when the library can.
+    throw invalid_argument("GFAZ input from stdin (-) is not supported");
+  }
+  CompressedData compressed = deserialize_compressed_data(filename);
   StreamingGFAZPaths gfaz_paths;
 
   {
