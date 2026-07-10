@@ -66,6 +66,12 @@ struct StreamingGFAZPaths {
    * Decode a sequence of visited node IDs.
    */
   vector<NodeId> decode_sequence_at_index(size_t index, int delta_round) const;
+
+  /**
+   * Expand a rule for encoded visited node IDs.
+   */
+  void expand_rule(uint32_t rule_id, bool reverse,
+                   uint32_t max_id, vector<NodeId> &out) const;
 };
 
 bool GFAzParser::has_magic(const char* buffer, size_t length) {
@@ -97,39 +103,37 @@ static CompressedData load_gfaz_compressed(const string &filename) {
   return deserialize_compressed_data(filename);
 }
 
-static void expand_rule(uint32_t rule_id, bool reverse,
-                        const vector<int32_t> &first,
-                        const vector<int32_t> &second, uint32_t min_id,
-                        uint32_t max_id, vector<NodeId> &out) {
-  const uint32_t idx = rule_id - min_id;
-  const int32_t a = first[idx];
-  const int32_t b = second[idx];
+void StreamingGFAZPaths::expand_rule(uint32_t rule_id, bool reverse,
+                                     uint32_t max_rule_id, vector<NodeId> &out) const {
+  const uint32_t idx = rule_id - min_rule_id;
+  const int32_t a = rules_first[idx];
+  const int32_t b = rules_second[idx];
 
   if (!reverse) {
     const uint32_t abs_a = static_cast<uint32_t>(std::abs(a));
-    if (abs_a >= min_id && abs_a < max_id) {
-      expand_rule(abs_a, a < 0, first, second, min_id, max_id, out);
+    if (abs_a >= min_rule_id && abs_a < max_rule_id) {
+      expand_rule(abs_a, a < 0, max_rule_id, out);
     } else {
       out.push_back(a);
     }
 
     const uint32_t abs_b = static_cast<uint32_t>(std::abs(b));
-    if (abs_b >= min_id && abs_b < max_id) {
-      expand_rule(abs_b, b < 0, first, second, min_id, max_id, out);
+    if (abs_b >= min_rule_id && abs_b < max_rule_id) {
+      expand_rule(abs_b, b < 0, max_rule_id, out);
     } else {
       out.push_back(b);
     }
   } else {
     const uint32_t abs_b = static_cast<uint32_t>(std::abs(b));
-    if (abs_b >= min_id && abs_b < max_id) {
-      expand_rule(abs_b, b >= 0, first, second, min_id, max_id, out);
+    if (abs_b >= min_rule_id && abs_b < max_rule_id) {
+      expand_rule(abs_b, b >= 0, max_rule_id, out);
     } else {
       out.push_back(-b);
     }
 
     const uint32_t abs_a = static_cast<uint32_t>(std::abs(a));
-    if (abs_a >= min_id && abs_a < max_id) {
-      expand_rule(abs_a, a >= 0, first, second, min_id, max_id, out);
+    if (abs_a >= min_rule_id && abs_a < max_rule_id) {
+      expand_rule(abs_a, a >= 0, max_rule_id, out);
     } else {
       out.push_back(-a);
     }
@@ -163,8 +167,7 @@ vector<NodeId> StreamingGFAZPaths::decode_sequence_at_index(
     const NodeId node = paths_flat[pos];
     const uint32_t abs_id = static_cast<uint32_t>(std::abs(node));
     if (abs_id >= min_rule_id && abs_id < max_rule_id) {
-      expand_rule(abs_id, node < 0, rules_first, rules_second, min_rule_id,
-                  max_rule_id, decoded);
+      expand_rule(abs_id, node < 0, max_rule_id, decoded);
     } else {
       decoded.push_back(node);
     }
