@@ -36,12 +36,12 @@ namespace Codec = gfaz::Codec;
 /**
  * Class which manages decoding GFAz path information.
  *
- * TODO: This doesn't exaclty, "represent" anything. It contains exactly the
- * fields that need to be filled in during the
- * decoding-and-calling-parser-listeners process that *don't* get thrown out
- * later.
+ * Contains information needed to generate the rGFA visits (which includes node length information and tags), and information used to store and decode the path compression rules.
+ *
+ * Also used to hold that information during the main decode process.
+ * TODO: Split that responsibility out?
  */
-struct StreamingGFAZPaths {
+struct GFAzPathDecoder {
   /**
    * Holds the length of each graph node, plus a final zero.
    * TODO: Can that final zero be gotten rid of?
@@ -109,7 +109,7 @@ bool GFAzParser::looks_like_gfaz(const string& filename) {
   return has_magic(buffer, static_cast<size_t>(in.gcount()));
 }
 
-void StreamingGFAZPaths::expand_rule(uint32_t rule_id, bool reverse,
+void GFAzPathDecoder::expand_rule(uint32_t rule_id, bool reverse,
                                      uint32_t max_rule_id, vector<NodeId> &out) const {
   const uint32_t idx = rule_id - min_rule_id;
   const int32_t a = rules.first[idx];
@@ -146,7 +146,7 @@ void StreamingGFAZPaths::expand_rule(uint32_t rule_id, bool reverse,
   }
 }
 
-vector<NodeId> StreamingGFAZPaths::decode_sequence_at_index(
+vector<NodeId> GFAzPathDecoder::decode_sequence_at_index(
     size_t index,
     int delta_round
 ) const {
@@ -399,11 +399,15 @@ void GFAzParser::parse(const string& filename) {
     }
   }
   // TODO: What if there's no header? Shouldn't that be an error?
-  
-  StreamingGFAZPaths gfaz_paths;
+ 
+  // We will populate this with information needed to decode paths.
+  // Some of that information we also use more generally.
+  GFAzPathDecoder gfaz_paths;
 
   {
-    // Temporarily load the sequence data
+    // Do the nodes
+
+    // Temporarily unpack the sequence data
     string segment_sequences =
         Codec::zstd_decompress_string(compressed.segment_sequences_zstd);
     vector<uint32_t> segment_lengths =
@@ -420,7 +424,7 @@ void GFAzParser::parse(const string& filename) {
     map_info.max_id = gfaz_paths.node_count();
     // We know the ID map is empty when parsing starts so we don't have to clear it.
 
-    // Load all the optional fields (node tags)
+    // Unpack all the optional fields (node tags)
     gfaz_paths.segment_optional_fields.reserve(compressed.segment_optional_fields_zstd.size());
     for (const auto& column : compressed.segment_optional_fields_zstd) {
       gfaz_paths.segment_optional_fields.push_back(decompress_optional_column(column));
@@ -442,7 +446,7 @@ void GFAzParser::parse(const string& filename) {
       }
       string sequence = segment_sequences.substr(segment_seq_offset, len);
 
-      // Load its tags
+      // Generate a string representation for its tags
       auto tags = collect_optional_tags_for_row(gfaz_paths.segment_optional_fields,
                                                 optional_string_offsets,
                                                 optional_byte_offsets,
@@ -464,9 +468,11 @@ void GFAzParser::parse(const string& filename) {
   
 
   {
+    // Do the edges
+
     LinkData links;
 
-    // Load the link information
+    // Temporarily unpack the link information
     links.from_ids = Codec::decompress_delta_varint_uint32(
         compressed.link_from_ids_zstd, compressed.num_links);
     links.to_ids = Codec::decompress_delta_varint_uint32(
@@ -485,7 +491,7 @@ void GFAzParser::parse(const string& filename) {
       if (i < links.overlap_ops.size() && links.overlap_ops[i] != '\0') {
         // Reconstruct the overlap string
         overlap = to_string(i < links.overlap_nums.size() ? links.overlap_nums[i] : 0) +
-                  gfaz_paths.links.overlap_ops[i];
+                  links.overlap_ops[i];
       }
       for (auto& listener : this->edge_listeners) {
         // Show the link to the listener
@@ -498,7 +504,8 @@ void GFAzParser::parse(const string& filename) {
       }
     }
   }
-
+  
+  // Unpack the rest of the path information
   gfaz_paths.path_names =
       decompress_string_column(compressed.names_zstd, compressed.name_lengths_zstd);
   gfaz_paths.walk_sample_ids = decompress_string_column(
@@ -511,57 +518,70 @@ void GFAzParser::parse(const string& filename) {
       compressed.walk_seq_starts_zstd, compressed.walk_lengths.size());
   gfaz_paths.walk_seq_ends = Codec::decompress_varint_int64(
       compressed.walk_seq_ends_zstd, compressed.walk_lengths.size());
-
+  // Including the rule information
   gfaz_paths.rules = decode_rules(compressed);
   gfaz_paths.min_rule_id = compressed.min_rule_id();
-
+  // And the optional flat information
   if (!compressed.paths_zstd.payload.empty()) {
     gfaz_paths.paths_flat = Codec::zstd_decompress_int32_vector(compressed.paths_zstd);
   }
   if (!compressed.walks_zstd.payload.empty()) {
     gfaz_paths.walks_flat = Codec::zstd_decompress_int32_vector(compressed.walks_zstd);
   }
+
+  // Build the offset information
   gfaz_paths.path_offsets = build_offsets(compressed.sequence_lengths);
   gfaz_paths.walk_offsets = build_offsets(compressed.walk_lengths);
   gfaz_paths.original_path_offsets = build_offsets(compressed.original_path_lengths);
   gfaz_paths.original_walk_offsets = build_offsets(compressed.original_walk_lengths);
 
+  // Figure out how many paths there are supposed to be.
   size_t encoded_path_count =
       gfaz_paths.path_offsets.empty() ? 0 : gfaz_paths.path_offsets.size() - 1;
+  // TODO: Shouldn't it be an error if we have more or fewer paths than there are supposed to be?
   size_t path_count = min(gfaz_paths.path_names.size(), encoded_path_count);
   for (size_t i = 0; i < path_count; ++i) {
+    // Decode each path
     vector<NodeId> visits = gfaz_paths.decode_sequence_at_index(i, compressed.delta_round);
-    auto visit_iteratee = make_gfaz_visit_source(visits);
+    // Make a visit source to translate it into vg terms
+    auto visit_source = make_gfaz_visit_source(visits);
     handle_duplicate_paths('P', [&]() {
       for (auto& listener : this->path_listeners) {
-        listener(gfaz_paths.path_names[i], visit_iteratee, GFAParser::tag_list_t());
+        // And show it to all the listeners
+        listener(gfaz_paths.path_names[i], visit_source, GFAParser::tag_list_t());
       }
     });
   }
-
+  
+  // Figure out how many walks there are
   size_t walk_count = gfaz_paths.walk_offsets.empty() ? 0 : gfaz_paths.walk_offsets.size() - 1;
+  // TODO: We handle having fewer paths than there should be, but what about walks?
   for (size_t i = 0; i < walk_count; ++i) {
+    // Decode each walk
     vector<NodeId> visits = gfaz_paths.decode_sequence_at_index(i, compressed.delta_round);
-    auto visit_iteratee = make_gfaz_visit_source(visits);
+    // Make a visit source to translate it into vg terms
+    auto visit_source = make_gfaz_visit_source(visits);
+
+    // Decode the metadata
     string sample_name = i < gfaz_paths.walk_sample_ids.size() ? gfaz_paths.walk_sample_ids[i] : "*";
     int64_t haplotype = i < gfaz_paths.walk_hap_indices.size() ? gfaz_paths.walk_hap_indices[i] : 0;
     string contig_name = i < gfaz_paths.walk_seq_ids.size() ? gfaz_paths.walk_seq_ids[i] : PathMetadata::NO_LOCUS_NAME;
-    int64_t start = i < gfaz_paths.walk_seq_starts.size() ? gfaz_paths.walk_seq_starts[i] : PathMetadata::NO_END_POSITION;
-    int64_t end = i < gfaz_paths.walk_seq_ends.size() ? gfaz_paths.walk_seq_ends[i] : PathMetadata::NO_END_POSITION;
     subrange_t subrange = PathMetadata::NO_SUBRANGE;
-    if (start != PathMetadata::NO_END_POSITION) {
-      subrange.first = start;
-      if (end != PathMetadata::NO_END_POSITION) {
-        subrange.second = end;
+    if (i < gfaz_paths.walk_seq_starts.size()) {
+      subrange.first = gfaz_paths.walk_seq_starts[i];
+      if (i < gfaz_paths.walk_seq_ends.size()) {
+        subrange.second = gfaz_paths.walk_seq_ends[i];
       }
     }
+
     handle_duplicate_paths('W', [&]() {
       for (auto& listener : this->walk_listeners) {
-        listener(sample_name, haplotype, contig_name, subrange, visit_iteratee, GFAParser::tag_list_t());
+        listener(sample_name, haplotype, contig_name, subrange, visit_source, GFAParser::tag_list_t());
       }
     });
   }
 
+  // Now do the rGFA paths.
   dispatch_rgfa_visits(gfaz_paths.node_count(), gfaz_paths.segment_optional_fields,
                        gfaz_paths.node_lengths, this->max_rgfa_rank,
                        [&](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
