@@ -345,7 +345,7 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
     
     GFAIDMapInfo id_map_info;
     gfa_to_handle_graph(filename, graph, &id_map_info);
-    write_gfa_translation(id_map_info, translation_filename);
+    id_map_info.write_gfa_translation(translation_filename);
 }
 
 void gfa_to_handle_graph(istream& in, MutableHandleGraph* graph,
@@ -372,7 +372,7 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
 
     GFAIDMapInfo id_map_info;
     gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank, ignore_sense);
-    write_gfa_translation(id_map_info, translation_filename);
+    id_map_info.write_gfa_translation(translation_filename);
 
 }
 

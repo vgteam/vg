@@ -7,7 +7,7 @@
 #include <GFAz/core/codec/serialization.hpp>
 #include <vg/io/registry.hpp>
 
-#include "../algorithms/gfa_to_handle.hpp"
+#include "../algorithms/gfaz_to_handle.hpp"
 #include "../gfa.hpp"
 #include "../handle.hpp"
 #include "../utility.hpp"
