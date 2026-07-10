@@ -366,8 +366,6 @@ void gfa_to_handle_graph(istream& in, MutableHandleGraph* graph,
     parser.parse(in);
 }
 
-// Temporary IO wrappers for old command paths that still want filename-based
-// "GFA or GFAZ" loading without going through the registry.
 void load_gfa_or_gfaz_to_handle_graph(const string& filename, MutableHandleGraph* graph,
                                       GFAIDMapInfo* translation) {
     auto parser = make_gfa_family_parser_for_file(filename);

@@ -79,13 +79,15 @@ void gfa_to_handle_graph(istream& in,
                          MutableHandleGraph* graph,
                          GFAIDMapInfo* translation = nullptr);
 
-/// Temporary IO helper for old command paths that still need to load either a
-/// text GFA or a GFAZ file by filename.
+
+/// Load either a GFA or a GFAz into a HandleGraph.
+/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
 void load_gfa_or_gfaz_to_handle_graph(const string& filename,
                                       MutableHandleGraph* graph,
                                       GFAIDMapInfo* translation = nullptr);
 
-/// Overload which serializes its translation to a file internally.
+/// Load either a GFA or a GFAz into a HandleGraph, saving the translation to the given file.
+/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
 void load_gfa_or_gfaz_to_handle_graph(const string& filename,
                                       MutableHandleGraph* graph,
                                       const string& translation_filename);
@@ -111,15 +113,16 @@ void gfa_to_path_handle_graph(istream& in,
                               int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
                               unordered_set<PathSense>* ignore_sense = nullptr);
 
-/// Temporary IO helper for old command paths that still need to load either a
-/// text GFA or a GFAZ file by filename.
+/// Load a GFA or GFAz into a PathHandleGraph.
+/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
 void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
                                            MutablePathMutableHandleGraph* graph,
                                            GFAIDMapInfo* translation = nullptr,
                                            int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
                                            unordered_set<PathSense>* ignore_sense = nullptr);
 
-/// Overload which serializes its translation to a file internally.
+/// Load a GFA or GFAz into a PathHandleGraph, saving the translation to the given file.
+/// TODO: Fix https://github.com/vgteam/vg/issues/4880 and remove this!
 void load_gfa_or_gfaz_to_path_handle_graph(const string& filename,
                                            MutablePathMutableHandleGraph* graph,
                                            int64_t max_rgfa_rank,
