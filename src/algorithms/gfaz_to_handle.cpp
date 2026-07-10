@@ -29,6 +29,13 @@ using gfaz::GFAZ_MAGIC;
 using gfaz::deserialize_compressed_data;
 namespace Codec = gfaz::Codec;
 
+// TODO: The GFAz library doesn't really implement a way to access a GFAz file
+// without getting all involved in the format. So we implement our own GFAz
+// interpretation logic which we keep penned in in dedicated classes.
+
+/**
+ * Class which manages decoding GFAz path information.
+ */
 struct StreamingGFAZPaths {
   string header_line;
   size_t node_count = 0;
@@ -54,6 +61,11 @@ struct StreamingGFAZPaths {
   vector<int64_t> walk_seq_ends;
 
   uint32_t min_rule_id = 0;
+
+  /**
+   * Decode a sequence of visited node IDs.
+   */
+  vector<NodeId> decode_sequence_at_index(size_t index, int delta_round) const;
 };
 
 bool GFAzParser::has_magic(const char* buffer, size_t length) {
@@ -124,32 +136,31 @@ static void expand_rule(uint32_t rule_id, bool reverse,
   }
 }
 
-static vector<NodeId> decode_sequence_at_index(
-    const vector<int32_t> &flat, const SequenceOffsets &compressed_offsets,
-    const SequenceOffsets &original_offsets, size_t index,
-    const vector<int32_t> &rules_first, const vector<int32_t> &rules_second,
-    uint32_t min_rule_id, int delta_round) {
-  if (index + 1 >= compressed_offsets.size()) {
+vector<NodeId> StreamingGFAZPaths::decode_sequence_at_index(
+    size_t index,
+    int delta_round
+) const {
+  if (index + 1 >= path_offsets.size()) {
     throw out_of_range("GFAZ traversal index out of range");
   }
 
-  const size_t start = compressed_offsets[index];
-  const size_t end = compressed_offsets[index + 1];
-  if (end > flat.size()) {
+  const size_t start = path_offsets[index];
+  const size_t end = path_offsets[index + 1];
+  if (end > paths_flat.size()) {
     throw runtime_error("GFAZ traversal block is truncated");
   }
 
   const uint32_t max_rule_id =
       min_rule_id + static_cast<uint32_t>(rules_first.size());
   const size_t original_length =
-      (index + 1 < original_offsets.size())
-          ? (original_offsets[index + 1] - original_offsets[index])
+      (index + 1 < original_path_offsets.size())
+          ? (original_path_offsets[index + 1] - original_path_offsets[index])
           : (end - start);
 
   vector<NodeId> decoded;
   decoded.reserve(original_length);
   for (size_t pos = start; pos < end; ++pos) {
-    const NodeId node = flat[pos];
+    const NodeId node = paths_flat[pos];
     const uint32_t abs_id = static_cast<uint32_t>(std::abs(node));
     if (abs_id >= min_rule_id && abs_id < max_rule_id) {
       expand_rule(abs_id, node < 0, rules_first, rules_second, min_rule_id,
@@ -465,10 +476,7 @@ void GFAzParser::parse(const string& filename) {
       gfaz_paths.path_offsets.empty() ? 0 : gfaz_paths.path_offsets.size() - 1;
   size_t path_count = min(gfaz_paths.path_names.size(), encoded_path_count);
   for (size_t i = 0; i < path_count; ++i) {
-    vector<NodeId> visits = decode_sequence_at_index(
-        gfaz_paths.paths_flat, gfaz_paths.path_offsets,
-        gfaz_paths.original_path_offsets, i, gfaz_paths.rules_first,
-        gfaz_paths.rules_second, gfaz_paths.min_rule_id, compressed.delta_round);
+    vector<NodeId> visits = gfaz_paths.decode_sequence_at_index(i, compressed.delta_round);
     auto visit_iteratee = make_gfaz_visit_source(visits);
     handle_duplicate_paths('P', [&]() {
       for (auto& listener : this->path_listeners) {
@@ -479,10 +487,7 @@ void GFAzParser::parse(const string& filename) {
 
   size_t walk_count = gfaz_paths.walk_offsets.empty() ? 0 : gfaz_paths.walk_offsets.size() - 1;
   for (size_t i = 0; i < walk_count; ++i) {
-    vector<NodeId> visits = decode_sequence_at_index(
-        gfaz_paths.walks_flat, gfaz_paths.walk_offsets,
-        gfaz_paths.original_walk_offsets, i, gfaz_paths.rules_first,
-        gfaz_paths.rules_second, gfaz_paths.min_rule_id, compressed.delta_round);
+    vector<NodeId> visits = gfaz_paths.decode_sequence_at_index(i, compressed.delta_round);
     auto visit_iteratee = make_gfaz_visit_source(visits);
     string sample_name = i < gfaz_paths.walk_sample_ids.size() ? gfaz_paths.walk_sample_ids[i] : "*";
     int64_t haplotype = i < gfaz_paths.walk_hap_indices.size() ? gfaz_paths.walk_hap_indices[i] : 0;
