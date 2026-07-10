@@ -120,6 +120,11 @@ void gfa_to_path_handle_graph(istream& in,
  * continue with the next line, but *not* with the next listener for that line,
  * so the user is responsible for worrying about what happens if some but not
  * all listeners for something end up getting called because one failed.
+ *
+ * Because this contains state (the node ID map), an instance can only parse
+ * one file before needing to be discarded.
+ *
+ * TODO: Allow resetting the node ID map.
  */
 class GFAParser {
 public:

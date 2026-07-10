@@ -35,11 +35,25 @@ namespace Codec = gfaz::Codec;
 
 /**
  * Class which manages decoding GFAz path information.
+ *
+ * TODO: This doesn't exaclty, "represent" anything. It contains exactly the
+ * fields that need to be filled in during the
+ * decoding-and-calling-parser-listeners process that *don't* get thrown out
+ * later.
  */
 struct StreamingGFAZPaths {
-  string header_line;
-  size_t node_count = 0;
+  /**
+   * Holds the length of each graph node, plus a final zero.
+   * TODO: Can that final zero be gotten rid of?
+   */
   vector<size_t> node_lengths;
+  /**
+   * Get the number of nodes in the graph.
+   */
+  inline size_t node_count() const {
+    return node_lengths.size() - 1;
+  }
+  
   vector<OptionalFieldColumn> segment_optional_fields;
 
   LinkData links;
@@ -62,15 +76,15 @@ struct StreamingGFAZPaths {
   uint32_t min_rule_id = 0;
 
   /**
-   * Decode a sequence of visited node IDs.
-   */
-  vector<NodeId> decode_sequence_at_index(size_t index, int delta_round) const;
-
-  /**
    * Expand a rule for encoded visited node IDs.
    */
   void expand_rule(uint32_t rule_id, bool reverse,
                    uint32_t max_id, vector<NodeId> &out) const;
+
+  /**
+   * Decode a sequence of visited node IDs.
+   */
+  vector<NodeId> decode_sequence_at_index(size_t index, int delta_round) const;
 };
 
 bool GFAzParser::has_magic(const char* buffer, size_t length) {
@@ -360,36 +374,47 @@ void GFAzParser::parse(const string& filename) {
     // TODO: Handle parsing from standard input when the library can.
     throw invalid_argument("GFAZ input from stdin (-) is not supported");
   }
+
+  // Load the compressed data.
   CompressedData compressed = deserialize_compressed_data(filename);
+
+  if (!compressed.header_line.empty() && compressed.header_line[0] == 'H') {
+    // We got a header, so parse it.
+    auto parsed = GFAParser::parse_h(compressed.header_line);
+    for (auto& listener : this->header_listeners) {
+      // And show the listeners.
+      listener(get<0>(parsed));
+    }
+  }
+  // TODO: What if there's no header? Shouldn't that be an error?
+  
   StreamingGFAZPaths gfaz_paths;
 
   {
+    // Temporarily load the sequence data
     string segment_sequences =
         Codec::zstd_decompress_string(compressed.segment_sequences_zstd);
     vector<uint32_t> segment_lengths =
         Codec::zstd_decompress_uint32_vector(compressed.segment_seq_lengths_zstd);
-    gfaz_paths.header_line = compressed.header_line;
-    gfaz_paths.node_count = segment_lengths.size();
-    gfaz_paths.node_lengths.resize(gfaz_paths.node_count + 1, 0);
-
+    
+    // Reserve space for all the nodes' lengths.
+    // TODO: Why is there a +1 here?
+    gfaz_paths.node_lengths.resize(segment_lengths.size() + 1, 0);
+  
+    // Configure the ID map to pass through IDs.
     auto& map_info = this->id_map();
     map_info.numeric_mode = true;
     map_info.direct_numeric_lookup = true;
-    map_info.max_id = gfaz_paths.node_count;
-    map_info.name_to_id->clear();
-    map_info.id_to_name.reset();
+    map_info.max_id = gfaz_paths.node_count();
+    // We know the ID map is empty when parsing starts so we don't have to clear it.
 
+    // Load all the optional fields
     gfaz_paths.segment_optional_fields.reserve(compressed.segment_optional_fields_zstd.size());
     for (const auto& column : compressed.segment_optional_fields_zstd) {
       gfaz_paths.segment_optional_fields.push_back(decompress_optional_column(column));
     }
 
-    if (!gfaz_paths.header_line.empty() && gfaz_paths.header_line[0] == 'H') {
-      auto parsed = GFAParser::parse_h(gfaz_paths.header_line);
-      for (auto& listener : this->header_listeners) {
-        listener(get<0>(parsed));
-      }
-    }
+    
 
     vector<size_t> optional_string_offsets(gfaz_paths.segment_optional_fields.size(), 0);
     vector<size_t> optional_byte_offsets(gfaz_paths.segment_optional_fields.size(), 0);
@@ -505,7 +530,7 @@ void GFAzParser::parse(const string& filename) {
     });
   }
 
-  dispatch_rgfa_visits(gfaz_paths.node_count, gfaz_paths.segment_optional_fields,
+  dispatch_rgfa_visits(gfaz_paths.node_count(), gfaz_paths.segment_optional_fields,
                        gfaz_paths.node_lengths, this->max_rgfa_rank,
                        [&](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
                          handle_duplicate_paths('S', [&]() {
