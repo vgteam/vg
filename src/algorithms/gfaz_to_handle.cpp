@@ -56,8 +56,6 @@ struct GFAzPathDecoder {
   
   vector<OptionalFieldColumn> segment_optional_fields;
 
-  
-
   std::pair<vector<int32_t>, vector<int32_t>> rules;
   vector<int32_t> paths_flat;
   vector<int32_t> walks_flat;
@@ -194,10 +192,6 @@ vector<NodeId> GFAzPathDecoder::decode_sequence_at_index(
     Codec::inverse_delta_transform(seqs);
   }
   return std::move(seqs[0]);
-}
-
-static GFAParser::chars_t as_chars(const string& value) {
-  return make_pair(value.begin(), value.end());
 }
 
 /**

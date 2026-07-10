@@ -146,6 +146,12 @@ public:
     inline static bool empty(const chars_t& range) {
         return range.second == range.first;
     }
+
+    /// Turn a string reference into a chars_t.
+    /// The string must outlive the returned chars_t.
+    inline static chars_t as_chars(const string& value) {
+      return make_pair(value.begin(), value.end());
+    }
     
     /// Type for a collection of GFA tags.
     /// This could become a range or list of ranges if we wanted to copy less.
