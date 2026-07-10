@@ -2,9 +2,9 @@
 
 #include "../path.hpp"
 
-#include <GFAz/codec/codec.hpp>
-#include <GFAz/codec/serialization.hpp>
-#include <GFAz/io/gfa_write_utils.hpp>
+#include <GFAz/core/codec/codec.hpp>
+#include <GFAz/core/codec/serialization.hpp>
+#include <GFAz/compress/io/gfa_write_utils.hpp>
 
 #include <gbwtgraph/utils.h>
 

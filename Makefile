@@ -77,7 +77,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I$(CWD)/$(INC_DIR)/GFAz -I. -I$(CWD)/$(SRC_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph -lgfa_compression_core -lzstd
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph -lgfaz_compress -lgfaz_core -lzstd
 # We omit Cairo for now because its transitive dependencies can't be determined until after it's built. Set them lazily
 LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) pkg-config --libs --static cairo)
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
@@ -402,7 +402,8 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
-LIB_DEPS += $(LIB_DIR)/libgfa_compression_core.a
+LIB_DEPS += $(LIB_DIR)/libgfaz_core.a
+LIB_DEPS += $(LIB_DIR)/libgfaz_compress.a
 LIB_DEPS += $(LIB_DIR)/libcairo.a
 LIB_DEPS += $(LIB_DIR)/libpixman-1.a
 
@@ -880,10 +881,16 @@ $(INC_DIR)/atomic_queue.h: $(ATOMIC_QUEUE_DIR)/include/*
 
 
 
-$(LIB_DIR)/libgfa_compression_core.a: $(GFAz_DIR)/CMakeLists.txt $(wildcard $(GFAz_DIR)/src/*) $(wildcard $(GFAz_DIR)/src/gpu/*) $(wildcard $(GFAz_DIR)/include/*) $(wildcard $(GFAz_DIR)/include/gpu/*)
-	+rm -f $(CWD)/$(LIB_DIR)/libgfa_compression_core.a
+# GFAz is now built as two static libraries on a shared core:
+#   libgfaz_core.a     - model/codec/serialization/utils (deserialize, Codec, ...)
+#   libgfaz_compress.a - the compressor + gfa_write_utils helpers; links core
+# Both are produced by a single cmake build; the core rule builds and copies both.
+$(LIB_DIR)/libgfaz_compress.a: $(LIB_DIR)/libgfaz_core.a
+
+$(LIB_DIR)/libgfaz_core.a: $(GFAz_DIR)/CMakeLists.txt $(shell find $(GFAz_DIR)/src $(GFAz_DIR)/include -type f 2>/dev/null)
+	+rm -f $(CWD)/$(LIB_DIR)/libgfaz_core.a $(CWD)/$(LIB_DIR)/libgfaz_compress.a
 	+rm -Rf $(CWD)/$(INC_DIR)/GFAz
-	+cd $(GFAz_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_FLAGS="-fPIC $(CXXFLAGS) $(CPPFLAGS)" -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CLI=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_TESTS=OFF -DGFAZ_USE_SYSTEM_ZSTD=ON .. && $(MAKE) $(FILTER) gfa_compression_core && cp libgfa_compression_core.a $(CWD)/$(LIB_DIR)/
+	+cd $(GFAz_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_FLAGS="-fPIC $(CXXFLAGS) $(CPPFLAGS)" -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CLI=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_TESTS=OFF -DGFAZ_USE_SYSTEM_ZSTD=ON .. && $(MAKE) $(FILTER) gfaz_core gfaz_compress && cp libgfaz_core.a libgfaz_compress.a $(CWD)/$(LIB_DIR)/
 	+mkdir -p $(CWD)/$(INC_DIR)/GFAz
 	+cp -r $(GFAz_DIR)/include/* $(CWD)/$(INC_DIR)/GFAz/
 
