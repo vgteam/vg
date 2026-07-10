@@ -936,7 +936,7 @@ std::vector<SparseAnchorChainWithRec> find_best_chains(const VectorView<Anchor>&
     // Convert from traceback and penalty to score and traceback.
     // Everything is already sorted.
     std::vector<SparseAnchorChainWithRec> result;
-    result.resize(tracebacks.size());
+    result.reserve(tracebacks.size());
     for (auto& traceback : tracebacks) {
         result.emplace_back(traceback);
         // Compute the anchor indices in this chain that introduce an
