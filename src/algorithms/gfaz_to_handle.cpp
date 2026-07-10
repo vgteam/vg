@@ -31,7 +31,7 @@ namespace Codec = gfaz::Codec;
 
 // TODO: The GFAz library doesn't really implement a way to access a GFAz file
 // without getting all involved in the format. So we implement our own GFAz
-// interpretation logic which we keep penned in in dedicated classes.
+// interpretation logic which we keep penned in here.
 
 /**
  * Class which manages decoding GFAz path information.
@@ -93,28 +93,6 @@ struct GFAzPathDecoder {
     const function<void(nid_t, int64_t, size_t, const string&, int64_t)>& callback
   ) const;
 };
-
-bool GFAzParser::has_magic(const char* buffer, size_t length) {
-  if (length < sizeof(uint32_t)) {
-    return false;
-  }
-  uint32_t magic = 0;
-  memcpy(&magic, buffer, sizeof(uint32_t));
-  return magic == GFAZ_MAGIC;
-}
-
-bool GFAzParser::looks_like_gfaz(const string& filename) {
-  if (filename.empty() || filename == "-") {
-    return false;
-  }
-  ifstream in(filename, ios::binary);
-  if (!in) {
-    return false;
-  }
-  char buffer[sizeof(uint32_t)];
-  in.read(buffer, sizeof(buffer));
-  return has_magic(buffer, static_cast<size_t>(in.gcount()));
-}
 
 void GFAzPathDecoder::expand_rule(uint32_t rule_id, bool reverse,
                                      uint32_t max_rule_id, vector<NodeId> &out) const {
@@ -192,109 +170,6 @@ vector<NodeId> GFAzPathDecoder::decode_sequence_at_index(
     Codec::inverse_delta_transform(seqs);
   }
   return std::move(seqs[0]);
-}
-
-/**
- * Decode the optional fields AKA tags for a sequence line/row.
- *
- * string_offsets and byte_offsets are decoder state that need to have been
- * updated by decoding all prior rows. They should have one field per entry in
- * columns and should start at 0.
- *
- * Must be called in order; does not provide random access.
- *
- * TODO: Make this a class or a function with a callback instead of something
- * that needs to be called exactly right with the right scratch state.
- *
- * This is a static helper because if we put it on GFAzParser we'd need to
- * include more GFAz headers.
- */
-static GFAParser::tag_list_t collect_optional_tags_for_row(
-    const vector<OptionalFieldColumn>& columns,
-    vector<size_t>& string_offsets,
-    vector<size_t>& byte_offsets,
-    size_t row_index) {
-  GFAParser::tag_list_t tags;
-  tags.reserve(columns.size());
-  for (size_t i = 0; i < columns.size(); ++i) {
-    const auto& col = columns[i];
-    switch (col.type) {
-      case 'A':
-        if (row_index < col.char_values.size()) {
-          tags.push_back(col.tag + ":A:" + string(1, col.char_values[row_index]));
-        }
-        break;
-      case 'i':
-        if (row_index < col.int_values.size()) {
-          tags.push_back(col.tag + ":i:" + to_string(col.int_values[row_index]));
-        }
-        break;
-      case 'f':
-        if (row_index < col.float_values.size()) {
-          tags.push_back(col.tag + ":f:" + to_string(col.float_values[row_index]));
-        }
-        break;
-      case 'Z':
-      case 'J':
-      case 'H':
-        if (row_index < col.string_lengths.size()) {
-          uint32_t len = col.string_lengths[row_index];
-          string value = col.concatenated_strings.substr(string_offsets[i], len);
-          string_offsets[i] += len;
-          tags.push_back(col.tag + ":" + string(1, col.type) + ":" + value);
-        }
-        break;
-      case 'B':
-        if (row_index < col.b_lengths.size() && row_index < col.b_subtypes.size()) {
-          uint32_t len = col.b_lengths[row_index];
-          size_t offset = byte_offsets[i];
-          byte_offsets[i] += len;
-          string value = col.tag + ":B:" + string(1, col.b_subtypes[row_index]);
-          for (uint32_t j = 0; j < len && offset + j < col.b_concat_bytes.size(); ++j) {
-            value.push_back(',');
-            value += to_string(col.b_concat_bytes[offset + j]);
-          }
-          tags.push_back(std::move(value));
-        }
-        break;
-      default:
-        break;
-    }
-  }
-  return tags;
-}
-
-/// Translate a vector of GFAz node IDs into a function that produces vg-style
-/// rank, id, orientation visit calls. This is a static helper because if we
-/// put it on GFAzParser we'd need to include more GFAz headers.
-static GFAParser::visit_source_t make_gfaz_visit_source(const vector<NodeId>& visits) {
-  return [visits](const GFAParser::visit_iteratee_t& visit_step) {
-    if (visits.empty()) {
-      visit_step(-1, 0, false);
-      return;
-    }
-    for (size_t i = 0; i < visits.size(); ++i) {
-      NodeId visit = visits[i];
-      bool is_reverse = visit < 0;
-      nid_t node_id = is_reverse ? -static_cast<nid_t>(visit) : static_cast<nid_t>(visit);
-      if (!visit_step(i, node_id, is_reverse)) {
-        return;
-      }
-    }
-  };
-}
-
-void GFAzParser::handle_duplicate_paths(char line_type, const std::function<void(void)>& callback) {
-  try {
-    callback();
-  } catch (GFADuplicatePathError& e) {
-    if (stop_on_duplicate_paths) {
-      throw;
-    }
-    #pragma omp critical (cerr)
-    cerr << "warning:[GFAzParser] Skipping GFA " << line_type << " line: "
-         << e.what() << endl;
-  }
 }
 
 void GFAzPathDecoder::for_each_rgfa_visit(
@@ -413,6 +288,133 @@ void GFAzPathDecoder::for_each_rgfa_visit(
       // Produce each visit in order.
       callback(visit.node_id, visit.offset, visit.length, path_name, path_info.rank);
     }
+  }
+}
+
+/**
+ * Decode the optional fields AKA tags for a sequence line/row.
+ *
+ * string_offsets and byte_offsets are decoder state that need to have been
+ * updated by decoding all prior rows. They should have one field per entry in
+ * columns and should start at 0.
+ *
+ * Must be called in order; does not provide random access.
+ *
+ * TODO: Make this a class or a function with a callback instead of something
+ * that needs to be called exactly right with the right scratch state.
+ *
+ * This is a static helper because if we put it on GFAzParser we'd need to
+ * include more GFAz headers.
+ */
+static GFAParser::tag_list_t collect_optional_tags_for_row(
+    const vector<OptionalFieldColumn>& columns,
+    vector<size_t>& string_offsets,
+    vector<size_t>& byte_offsets,
+    size_t row_index) {
+  GFAParser::tag_list_t tags;
+  tags.reserve(columns.size());
+  for (size_t i = 0; i < columns.size(); ++i) {
+    const auto& col = columns[i];
+    switch (col.type) {
+      case 'A':
+        if (row_index < col.char_values.size()) {
+          tags.push_back(col.tag + ":A:" + string(1, col.char_values[row_index]));
+        }
+        break;
+      case 'i':
+        if (row_index < col.int_values.size()) {
+          tags.push_back(col.tag + ":i:" + to_string(col.int_values[row_index]));
+        }
+        break;
+      case 'f':
+        if (row_index < col.float_values.size()) {
+          tags.push_back(col.tag + ":f:" + to_string(col.float_values[row_index]));
+        }
+        break;
+      case 'Z':
+      case 'J':
+      case 'H':
+        if (row_index < col.string_lengths.size()) {
+          uint32_t len = col.string_lengths[row_index];
+          string value = col.concatenated_strings.substr(string_offsets[i], len);
+          string_offsets[i] += len;
+          tags.push_back(col.tag + ":" + string(1, col.type) + ":" + value);
+        }
+        break;
+      case 'B':
+        if (row_index < col.b_lengths.size() && row_index < col.b_subtypes.size()) {
+          uint32_t len = col.b_lengths[row_index];
+          size_t offset = byte_offsets[i];
+          byte_offsets[i] += len;
+          string value = col.tag + ":B:" + string(1, col.b_subtypes[row_index]);
+          for (uint32_t j = 0; j < len && offset + j < col.b_concat_bytes.size(); ++j) {
+            value.push_back(',');
+            value += to_string(col.b_concat_bytes[offset + j]);
+          }
+          tags.push_back(std::move(value));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return tags;
+}
+
+/// Translate a vector of GFAz node IDs into a function that produces vg-style
+/// rank, id, orientation visit calls. This is a static helper because if we
+/// put it on GFAzParser we'd need to include more GFAz headers.
+static GFAParser::visit_source_t make_gfaz_visit_source(const vector<NodeId>& visits) {
+  return [visits](const GFAParser::visit_iteratee_t& visit_step) {
+    if (visits.empty()) {
+      visit_step(-1, 0, false);
+      return;
+    }
+    for (size_t i = 0; i < visits.size(); ++i) {
+      NodeId visit = visits[i];
+      bool is_reverse = visit < 0;
+      nid_t node_id = is_reverse ? -static_cast<nid_t>(visit) : static_cast<nid_t>(visit);
+      if (!visit_step(i, node_id, is_reverse)) {
+        return;
+      }
+    }
+  };
+}
+
+// GFAzParser Method Implementations
+
+bool GFAzParser::has_magic(const char* buffer, size_t length) {
+  if (length < sizeof(uint32_t)) {
+    return false;
+  }
+  uint32_t magic = 0;
+  memcpy(&magic, buffer, sizeof(uint32_t));
+  return magic == GFAZ_MAGIC;
+}
+
+bool GFAzParser::looks_like_gfaz(const string& filename) {
+  if (filename.empty() || filename == "-") {
+    return false;
+  }
+  ifstream in(filename, ios::binary);
+  if (!in) {
+    return false;
+  }
+  char buffer[sizeof(uint32_t)];
+  in.read(buffer, sizeof(buffer));
+  return has_magic(buffer, static_cast<size_t>(in.gcount()));
+}
+
+void GFAzParser::handle_duplicate_paths(char line_type, const std::function<void(void)>& callback) {
+  try {
+    callback();
+  } catch (GFADuplicatePathError& e) {
+    if (stop_on_duplicate_paths) {
+      throw;
+    }
+    #pragma omp critical (cerr)
+    cerr << "warning:[GFAzParser] Skipping GFA " << line_type << " line: "
+         << e.what() << endl;
   }
 }
 
@@ -635,6 +637,8 @@ void GFAzParser::parse(const string& filename) {
   );
 }
 
+
+// Machinery for helping call the parser
 
 /// Helper function to make a parser of the right type from a filename.
 static unique_ptr<GFAParser> make_gfa_family_parser_for_file(const string& filename) {
