@@ -85,6 +85,15 @@ struct GFAzPathDecoder {
    * Decode a sequence of visited node IDs.
    */
   vector<NodeId> decode_sequence_at_index(size_t index, int delta_round) const;
+  
+  /**
+   * Call the callback with rGFA path visits, in order along each path, for
+   * rGFA paths a the given rank and below.
+   */
+  void for_each_rgfa_visit(
+    int64_t max_rgfa_rank,
+    const function<void(nid_t, int64_t, size_t, const string&, int64_t)>& callback
+  ) const;
 };
 
 bool GFAzParser::has_magic(const char* buffer, size_t length) {
@@ -187,12 +196,6 @@ vector<NodeId> GFAzPathDecoder::decode_sequence_at_index(
   return std::move(seqs[0]);
 }
 
-static void dispatch_rgfa_visits(
-    size_t node_count, const vector<OptionalFieldColumn>& segment_optional_fields,
-    const vector<size_t>& node_lengths, int64_t max_rgfa_rank,
-    const function<void(nid_t, int64_t, size_t, const string&, int64_t)>& callback);
-
-
 static GFAParser::chars_t as_chars(const string& value) {
   return make_pair(value.begin(), value.end());
 }
@@ -294,11 +297,10 @@ void GFAzParser::handle_duplicate_paths(char line_type, const std::function<void
   }
 }
 
-static void dispatch_rgfa_visits(size_t node_count,
-                                 const vector<OptionalFieldColumn>& segment_optional_fields,
-                                 const vector<size_t>& node_lengths,
-                                 int64_t max_rgfa_rank,
-                                 const function<void(nid_t, int64_t, size_t, const string&, int64_t)>& callback) {
+void GFAzPathDecoder::for_each_rgfa_visit(
+  int64_t max_rgfa_rank,
+  const function<void(nid_t, int64_t, size_t, const string&, int64_t)>& callback
+) const {
   if (max_rgfa_rank < 0) {
     return;
   }
@@ -337,7 +339,7 @@ static void dispatch_rgfa_visits(size_t node_count,
   unordered_map<string, RGFAPath> by_path;
   const int64_t missing_i64 = numeric_limits<int64_t>::min();
 
-  for (nid_t node_id = 1; static_cast<size_t>(node_id) <= node_count; ++node_id) {
+  for (nid_t node_id = 1; static_cast<size_t>(node_id) <= node_count(); ++node_id) {
     size_t idx = node_id - 1;
     if (idx >= sn_col->string_lengths.size() ||
         idx >= so_col->int_values.size() ||
@@ -582,15 +584,18 @@ void GFAzParser::parse(const string& filename) {
   }
 
   // Now do the rGFA paths.
-  dispatch_rgfa_visits(gfaz_paths.node_count(), gfaz_paths.segment_optional_fields,
-                       gfaz_paths.node_lengths, this->max_rgfa_rank,
-                       [&](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
-                         handle_duplicate_paths('S', [&]() {
-                           for (auto& listener : this->rgfa_listeners) {
-                             listener(id, offset, length, path_name, path_rank);
-                           }
-                         });
-                       });
+  gfaz_paths.for_each_rgfa_visit(
+    this->max_rgfa_rank,
+    [&](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
+      // When we get an rGFA path visit
+      handle_duplicate_paths('S', [&]() {
+        for (auto& listener : this->rgfa_listeners) {
+          // Tell all the listeners about it
+          listener(id, offset, length, path_name, path_rank);
+        }
+      });
+    }
+  );
 }
 
 
