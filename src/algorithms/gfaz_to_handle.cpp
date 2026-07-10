@@ -43,8 +43,7 @@ namespace Codec = gfaz::Codec;
  */
 struct GFAzPathDecoder {
   /**
-   * Holds the length of each graph node, plus a final zero.
-   * TODO: Can that final zero be gotten rid of?
+   * Holds the length of each graph node, by 1-based ID. 
    */
   vector<size_t> node_lengths;
   /**
@@ -205,6 +204,9 @@ vector<NodeId> GFAzPathDecoder::decode_sequence_at_index(
  *
  * TODO: Make this a class or a function with a callback instead of something
  * that needs to be called exactly right with the right scratch state.
+ *
+ * This is a static helper because if we put it on GFAzParser we'd need to
+ * include more GFAz headers.
  */
 static GFAParser::tag_list_t collect_optional_tags_for_row(
     const vector<OptionalFieldColumn>& columns,
@@ -261,6 +263,9 @@ static GFAParser::tag_list_t collect_optional_tags_for_row(
   return tags;
 }
 
+/// Translate a vector of GFAz node IDs into a function that produces vg-style
+/// rank, id, orientation visit calls. This is a static helper because if we
+/// put it on GFAzParser we'd need to include more GFAz headers.
 static GFAParser::visit_source_t make_gfaz_visit_source(const vector<NodeId>& visits) {
   return [visits](const GFAParser::visit_iteratee_t& visit_step) {
     if (visits.empty()) {
@@ -296,9 +301,11 @@ void GFAzPathDecoder::for_each_rgfa_visit(
   const function<void(nid_t, int64_t, size_t, const string&, int64_t)>& callback
 ) const {
   if (max_rgfa_rank < 0) {
+    // We don't need to find any rGFA paths actually
     return;
   }
 
+  // Find the tag columns with the rGFA data
   const OptionalFieldColumn* sn_col = nullptr;
   const OptionalFieldColumn* so_col = nullptr;
   const OptionalFieldColumn* sr_col = nullptr;
@@ -312,51 +319,82 @@ void GFAzPathDecoder::for_each_rgfa_visit(
     }
   }
   if (!sn_col || !so_col || !sr_col) {
+    // We don't have all the columns we need to have any rGFA paths
     return;
   }
 
+  // Partition the path name string into the individual path names per tagged node
   vector<size_t> sn_offsets(sn_col->string_lengths.size() + 1, 0);
   for (size_t i = 0; i < sn_col->string_lengths.size(); ++i) {
     sn_offsets[i + 1] = sn_offsets[i] + sn_col->string_lengths[i];
   }
 
+  // We need to produce the path visits in sorted order, so we need to store
+  // them.
+
+  /// This represents a visit along an rGFA path, so they can be sorted by
+  /// offset.
   struct RGFAVisit {
     int64_t offset;
     nid_t node_id;
     size_t length;
   };
+  /// This represents an rGFA path.
+  ///
   struct RGFAPath {
-    int64_t rank = 0;
-    bool rank_set = false;
+    /// Rank of the rGFA path, or -1 for unset.
+    /// 
+    int64_t rank = -1;
     vector<RGFAVisit> visits;
   };
+  // This holds all the rGFA paths by name.
   unordered_map<string, RGFAPath> by_path;
-  const int64_t missing_i64 = numeric_limits<int64_t>::min();
 
   for (nid_t node_id = 1; static_cast<size_t>(node_id) <= node_count(); ++node_id) {
+    // Go through all the nodes and make rGFA visits for them.
+    
     size_t idx = node_id - 1;
     if (idx >= sn_col->string_lengths.size() ||
         idx >= so_col->int_values.size() ||
         idx >= sr_col->int_values.size()) {
+      // This node is past the range of nodes that can have all the values we
+      // need.
       continue;
     }
+    // Check the node's tag values.
     uint32_t sn_len = sn_col->string_lengths[idx];
     int64_t so = so_col->int_values[idx];
     int64_t sr = sr_col->int_values[idx];
-    if (sn_len == 0 || so == missing_i64 || sr == missing_i64 || sr > max_rgfa_rank) {
+    if (
+      sn_len == 0 ||
+      so == numeric_limits<int64_t>::min() ||
+      sr == numeric_limits<int64_t>::min() ||
+      sr > max_rgfa_rank
+    ) {
+      // This node doesn't have all the tags we need.
+      // TODO: If it has some but not all, should we error?
       continue;
     }
-
+    
+    // Unpack the actual rGFA path name
     string path_name = sn_col->concatenated_strings.substr(sn_offsets[idx], sn_len);
+    
+    if (sr < 0) {
+      // Real ranks can't be negative
+      throw GFAFormatError("rGFA path " + path_name +
+                           " has negative rank " + to_string(sr));
+    }
+
     auto& path_info = by_path[path_name];
-    if (path_info.rank_set && path_info.rank != sr) {
+    if (path_info.rank != -1 && path_info.rank != sr) {
       throw GFAFormatError("rGFA path " + path_name +
                            " has conflicting ranks " + to_string(sr) + " and " +
                            to_string(path_info.rank));
     }
     path_info.rank = sr;
-    path_info.rank_set = true;
-    size_t length = (static_cast<size_t>(node_id) < node_lengths.size()) ? node_lengths[node_id] : 0;
+    // Get the node's length.
+    // We know we loaded all the node lengths, so if it's not there, something is very wrong.
+    size_t length = node_lengths.at(node_id);
     path_info.visits.push_back({so, node_id, length});
   }
 
@@ -593,7 +631,7 @@ void GFAzParser::parse(const string& filename) {
 }
 
 
-/// Helper function to make a parser of the right type form a filename.
+/// Helper function to make a parser of the right type from a filename.
 static unique_ptr<GFAParser> make_gfa_family_parser_for_file(const string& filename) {
     if (filename != "-" && GFAzParser::looks_like_gfaz(filename)) {
         return make_unique<GFAzParser>();
