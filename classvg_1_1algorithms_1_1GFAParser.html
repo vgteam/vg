@@ -71,13 +71,26 @@ $(function() {
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pro-types">Protected Types</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="classvg_1_1algorithms_1_1GFAParser-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">vg::algorithms::GFAParser Class Reference</div>  </div>
+<div class="title">vg::algorithms::GFAParser Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div>  </div>
 </div><!--header-->
 <div class="contents">
 
 <p><code>#include &lt;gfa_to_handle.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::algorithms::GFAParser:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classvg_1_1algorithms_1_1GFAParser.png" usemap="#vg::algorithms::GFAParser_map" alt=""/>
+  <map id="vg::algorithms::GFAParser_map" name="vg::algorithms::GFAParser_map">
+<area href="classvg_1_1algorithms_1_1GFATextParser.html" alt="vg::algorithms::GFATextParser" shape="rect" coords="0,56,182,80"/>
+<area href="classvg_1_1algorithms_1_1GFAzParser.html" alt="vg::algorithms::GFAzParser" shape="rect" coords="192,56,374,80"/>
+  </map>
+</div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
@@ -87,14 +100,23 @@ Public Types</h2></td></tr>
 <tr class="separator:a807577028c5739ceb08abac94fe28054"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad6ed4063154c14a6e348a5c646bae1f1"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> = vector&lt; string &gt;</td></tr>
 <tr class="separator:ad6ed4063154c14a6e348a5c646bae1f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5fd6bf163fca2f579071433dd6aa16e6"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5fd6bf163fca2f579071433dd6aa16e6">visit_iteratee_t</a> = function&lt; bool(int64_t rank, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool is_reverse)&gt;</td></tr>
+<tr class="separator:a5fd6bf163fca2f579071433dd6aa16e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ec6d2dbd53a6d6dbeea4670ad8a5f0b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">visit_source_t</a> = function&lt; void(const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5fd6bf163fca2f579071433dd6aa16e6">visit_iteratee_t</a> &amp;)&gt;</td></tr>
+<tr class="separator:a5ec6d2dbd53a6d6dbeea4670ad8a5f0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a22e20a6a984b3dd5def4ad22836b15b9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a22e20a6a984b3dd5def4ad22836b15b9">id_map</a> ()</td></tr>
-<tr class="memdesc:a22e20a6a984b3dd5def4ad22836b15b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the ID map we should be using for parsing.  <a href="classvg_1_1algorithms_1_1GFAParser.html#a22e20a6a984b3dd5def4ad22836b15b9">More...</a><br /></td></tr>
 <tr class="separator:a22e20a6a984b3dd5def4ad22836b15b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a575aa78bfa6a567735133c8cffa6da77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a575aa78bfa6a567735133c8cffa6da77">parse</a> (istream &amp;in)</td></tr>
-<tr class="separator:a575aa78bfa6a567735133c8cffa6da77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a22abb1cb423e73f69ac81b9d9e63adaa"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a22abb1cb423e73f69ac81b9d9e63adaa">id_map</a> () const</td></tr>
+<tr class="separator:a22abb1cb423e73f69ac81b9d9e63adaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afcbaf42547ffa5e0959225db96a3feae"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#afcbaf42547ffa5e0959225db96a3feae">parse</a> (istream &amp;in)=0</td></tr>
+<tr class="separator:afcbaf42547ffa5e0959225db96a3feae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac5bef44ad2082d9b9236e5ffb4247bf4"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ac5bef44ad2082d9b9236e5ffb4247bf4">parse</a> (const string &amp;filename)</td></tr>
+<tr class="separator:ac5bef44ad2082d9b9236e5ffb4247bf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea9f534e53d72b4f3d8dab1c8d5f4a5a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aea9f534e53d72b4f3d8dab1c8d5f4a5a">~GFAParser</a> ()=default</td></tr>
+<tr class="separator:aea9f534e53d72b4f3d8dab1c8d5f4a5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -104,6 +126,51 @@ Static Public Member Functions</h2></td></tr>
 <tr class="separator:aea0cfcb22ae0987ea37f64c5cd547322"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3b8240590446e1ee287c9c05a74e2a9e"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a3b8240590446e1ee287c9c05a74e2a9e">empty</a> (const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;range)</td></tr>
 <tr class="separator:a3b8240590446e1ee287c9c05a74e2a9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acbe24834b0b92528a3c935bd0c368928"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#acbe24834b0b92528a3c935bd0c368928">as_chars</a> (const string &amp;value)</td></tr>
+<tr class="separator:acbe24834b0b92528a3c935bd0c368928"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:aeedc94c6fcd57b9da7e627c2136eab45"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aeedc94c6fcd57b9da7e627c2136eab45">header_listeners</a></td></tr>
+<tr class="memdesc:aeedc94c6fcd57b9da7e627c2136eab45"><td class="mdescLeft">&#160;</td><td class="mdescRight">These listeners are called for the header line(s), if any.  <a href="classvg_1_1algorithms_1_1GFAParser.html#aeedc94c6fcd57b9da7e627c2136eab45">More...</a><br /></td></tr>
+<tr class="separator:aeedc94c6fcd57b9da7e627c2136eab45"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af8e9a128ae89863a958de09962a50dae"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;sequence, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#af8e9a128ae89863a958de09962a50dae">node_listeners</a></td></tr>
+<tr class="separator:af8e9a128ae89863a958de09962a50dae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab784883f08cbef73ec9e735c0459414d"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> from, bool from_is_reverse, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> to, bool to_is_reverse, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;<a class="el" href="namespacevg.html#aaac70d8b120ca61591561cba307dcc1b">overlap</a>, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ab784883f08cbef73ec9e735c0459414d">edge_listeners</a></td></tr>
+<tr class="separator:ab784883f08cbef73ec9e735c0459414d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9cd2ef10bde854cf1d5472f45a129b1d"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(const string &amp;name, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">visit_source_t</a> &amp;visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a9cd2ef10bde854cf1d5472f45a129b1d">path_listeners</a></td></tr>
+<tr class="separator:a9cd2ef10bde854cf1d5472f45a129b1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5308b2863e22ce1e90acf36f13d0df7"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(const string &amp;sample_name, int64_t haplotype, const string &amp;contig_name, const pair&lt; int64_t, int64_t &gt; &amp;subrange, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">visit_source_t</a> &amp;visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad5308b2863e22ce1e90acf36f13d0df7">walk_listeners</a></td></tr>
+<tr class="separator:ad5308b2863e22ce1e90acf36f13d0df7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3caa995d2ef8a311e87b1202da714b53"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, int64_t <a class="el" href="namespacevg.html#ad48a54a3ddd5e6ffd8e3e6296fb9c037">offset</a>, size_t <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aea0cfcb22ae0987ea37f64c5cd547322">length</a>, const string &amp;path_name, int64_t path_rank)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a3caa995d2ef8a311e87b1202da714b53">rgfa_listeners</a></td></tr>
+<tr class="separator:a3caa995d2ef8a311e87b1202da714b53"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5bdb46afdb654469e3dc42fdfbe048ab"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5bdb46afdb654469e3dc42fdfbe048ab">internal_id_map</a></td></tr>
+<tr class="separator:a5bdb46afdb654469e3dc42fdfbe048ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2047be69a33b61966ddd33570c96a632"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a2047be69a33b61966ddd33570c96a632">external_id_map</a> = nullptr</td></tr>
+<tr class="separator:a2047be69a33b61966ddd33570c96a632"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae5841a4a832376b2894cbbb956c89569"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ae5841a4a832376b2894cbbb956c89569">max_rgfa_rank</a> = -1</td></tr>
+<tr class="separator:ae5841a4a832376b2894cbbb956c89569"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe8f148f7941fc1fbc449687b9623c21"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#abe8f148f7941fc1fbc449687b9623c21">stop_on_duplicate_paths</a> = false</td></tr>
+<tr class="separator:abe8f148f7941fc1fbc449687b9623c21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-types"></a>
+Protected Types</h2></td></tr>
+<tr class="memitem:a73f3daf4bd8c844be2b5c2ff5ff3901e"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">text_visit_iteratee_t</a> = function&lt; bool(int64_t rank, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;node_name, bool is_reverse)&gt;</td></tr>
+<tr class="memdesc:a73f3daf4bd8c844be2b5c2ff5ff3901e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback shape for receiving path/walk visits internally.  <a href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">More...</a><br /></td></tr>
+<tr class="separator:a73f3daf4bd8c844be2b5c2ff5ff3901e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f31b38caad5520d14919823e8e680fa"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a7f31b38caad5520d14919823e8e680fa">text_visit_source_t</a> = function&lt; void(const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">text_visit_iteratee_t</a> &amp;)&gt;</td></tr>
+<tr class="memdesc:a7f31b38caad5520d14919823e8e680fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback shape for being a producer of path/walk visits.  <a href="classvg_1_1algorithms_1_1GFAParser.html#a7f31b38caad5520d14919823e8e680fa">More...</a><br /></td></tr>
+<tr class="separator:a7f31b38caad5520d14919823e8e680fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a84f88e369946a4b193626bd0d4aee5c5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">text_visit_iteratee_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a84f88e369946a4b193626bd0d4aee5c5">wrap</a> (const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5fd6bf163fca2f579071433dd6aa16e6">visit_iteratee_t</a> &amp;iteratee) const</td></tr>
+<tr class="separator:a84f88e369946a4b193626bd0d4aee5c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae86fbf70495c50d8e72796c8f6c5ab9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">visit_source_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aae86fbf70495c50d8e72796c8f6c5ab9">wrap</a> (const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a7f31b38caad5520d14919823e8e680fa">text_visit_source_t</a> &amp;source) const</td></tr>
+<tr class="separator:aae86fbf70495c50d8e72796c8f6c5ab9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
+Static Protected Member Functions</h2></td></tr>
 <tr class="memitem:a4fecb9e4836c67853d300ffd29b046e7"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a4fecb9e4836c67853d300ffd29b046e7">parse_tags</a> (const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;tag_range)</td></tr>
 <tr class="separator:a4fecb9e4836c67853d300ffd29b046e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a122490db3d620bc310b106e2231a9140"><td class="memItemLeft" align="right" valign="top">static tuple&lt; <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a122490db3d620bc310b106e2231a9140">parse_h</a> (const string &amp;h_line)</td></tr>
@@ -126,38 +193,15 @@ Static Public Member Functions</h2></td></tr>
 <tr class="separator:abca93aab4d7a7375deca9a970808005d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7d65677018149472a7924da28b6633b"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aa7d65677018149472a7924da28b6633b">assign_new_sequence_id</a> (const string &amp;str, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;id_map_info)</td></tr>
 <tr class="separator:aa7d65677018149472a7924da28b6633b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8cc4a34d40334bb97f7af561db414e33"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a8cc4a34d40334bb97f7af561db414e33">find_existing_sequence_id</a> (const string &amp;str, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;id_map_info)</td></tr>
-<tr class="separator:a8cc4a34d40334bb97f7af561db414e33"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:a5bdb46afdb654469e3dc42fdfbe048ab"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5bdb46afdb654469e3dc42fdfbe048ab">internal_id_map</a></td></tr>
-<tr class="separator:a5bdb46afdb654469e3dc42fdfbe048ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2047be69a33b61966ddd33570c96a632"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a2047be69a33b61966ddd33570c96a632">external_id_map</a> = nullptr</td></tr>
-<tr class="separator:a2047be69a33b61966ddd33570c96a632"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeedc94c6fcd57b9da7e627c2136eab45"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aeedc94c6fcd57b9da7e627c2136eab45">header_listeners</a></td></tr>
-<tr class="memdesc:aeedc94c6fcd57b9da7e627c2136eab45"><td class="mdescLeft">&#160;</td><td class="mdescRight">These listeners are called for the header line(s), if any.  <a href="classvg_1_1algorithms_1_1GFAParser.html#aeedc94c6fcd57b9da7e627c2136eab45">More...</a><br /></td></tr>
-<tr class="separator:aeedc94c6fcd57b9da7e627c2136eab45"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af8e9a128ae89863a958de09962a50dae"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;sequence, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#af8e9a128ae89863a958de09962a50dae">node_listeners</a></td></tr>
-<tr class="separator:af8e9a128ae89863a958de09962a50dae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab784883f08cbef73ec9e735c0459414d"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> from, bool from_is_reverse, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> to, bool to_is_reverse, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;<a class="el" href="namespacevg.html#aaac70d8b120ca61591561cba307dcc1b">overlap</a>, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ab784883f08cbef73ec9e735c0459414d">edge_listeners</a></td></tr>
-<tr class="separator:ab784883f08cbef73ec9e735c0459414d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa856090842dafbe0dbaf22bed66fd411"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(const string &amp;name, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;overlaps, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aa856090842dafbe0dbaf22bed66fd411">path_listeners</a></td></tr>
-<tr class="separator:aa856090842dafbe0dbaf22bed66fd411"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a349711aec5bbd3063812eae72727c170"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(const string &amp;sample_name, int64_t haplotype, const string &amp;contig_name, const pair&lt; int64_t, int64_t &gt; &amp;subrange, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> &amp;visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a> &amp;tags)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a349711aec5bbd3063812eae72727c170">walk_listeners</a></td></tr>
-<tr class="separator:a349711aec5bbd3063812eae72727c170"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3caa995d2ef8a311e87b1202da714b53"><td class="memItemLeft" align="right" valign="top">vector&lt; std::function&lt; void(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, int64_t <a class="el" href="namespacevg.html#ad48a54a3ddd5e6ffd8e3e6296fb9c037">offset</a>, size_t <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aea0cfcb22ae0987ea37f64c5cd547322">length</a>, const string &amp;path_name, int64_t path_rank)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a3caa995d2ef8a311e87b1202da714b53">rgfa_listeners</a></td></tr>
-<tr class="separator:a3caa995d2ef8a311e87b1202da714b53"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae5841a4a832376b2894cbbb956c89569"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ae5841a4a832376b2894cbbb956c89569">max_rgfa_rank</a> = -1</td></tr>
-<tr class="memdesc:ae5841a4a832376b2894cbbb956c89569"><td class="mdescLeft">&#160;</td><td class="mdescRight">Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.  <a href="classvg_1_1algorithms_1_1GFAParser.html#ae5841a4a832376b2894cbbb956c89569">More...</a><br /></td></tr>
-<tr class="separator:ae5841a4a832376b2894cbbb956c89569"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abe8f148f7941fc1fbc449687b9623c21"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#abe8f148f7941fc1fbc449687b9623c21">stop_on_duplicate_paths</a> = false</td></tr>
-<tr class="separator:abe8f148f7941fc1fbc449687b9623c21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a65950650ebc5337e4db7b39cb08f4e14"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a65950650ebc5337e4db7b39cb08f4e14">find_existing_sequence_id</a> (std::string_view str, const <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;id_map_info)</td></tr>
+<tr class="separator:a65950650ebc5337e4db7b39cb08f4e14"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Lower-level tools for parsing GFA elements.</p>
-<p>Parsing functions return the fields as strings, and don't support overlaps. Optional tags get read as strings in the vectors.</p>
-<p>Allows you to register "listeners" for different kinds of GFA file items, by adding functions to the various *_listeners vectors. These listeners can raise <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> or its subclasses if they do not like what the GFA is saying. Some types of <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> can be caught internally and processing of the file will continue with the next line, but <em>not</em> with the next listener for that line, so the user is responsible for worrying about what happens if some but not all listeners for something end up getting called because one failed. </p>
+<p>Parsing functions return the fields as strings, and don't support overlaps. Optional tags get read as strings into vectors.</p>
+<p>Allows you to register "listeners" for different kinds of GFA file items, by adding functions to the various *_listeners vectors. Listeners deal with nodes as having numeric IDs. These listeners can raise <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> or its subclasses if they do not like what the GFA is saying. Some types of <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> can be caught internally and processing of the file will continue with the next line, but <em>not</em> with the next listener for that line, so the user is responsible for worrying about what happens if some but not all listeners for something end up getting called because one failed.</p>
+<p>Because this contains state (the node ID map), an instance can only parse one file before needing to be discarded.</p>
+<p>TODO: Allow resetting the node ID map. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a807577028c5739ceb08abac94fe28054"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a807577028c5739ceb08abac94fe28054">&#9670;&nbsp;</a></span>chars_t</h2>
@@ -198,10 +242,143 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Type for a collection of GFA tags. This could become a range or list of ranges if we wanted to copy less. </p>
+
+</div>
+</div>
+<a id="a73f3daf4bd8c844be2b5c2ff5ff3901e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a73f3daf4bd8c844be2b5c2ff5ff3901e">&#9670;&nbsp;</a></span>text_visit_iteratee_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">vg::algorithms::GFAParser::text_visit_iteratee_t</a> =  function&lt;bool(int64_t rank, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a>&amp; node_name, bool is_reverse)&gt;</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback shape for receiving path/walk visits internally. </p>
+
+</div>
+</div>
+<a id="a7f31b38caad5520d14919823e8e680fa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f31b38caad5520d14919823e8e680fa">&#9670;&nbsp;</a></span>text_visit_source_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a7f31b38caad5520d14919823e8e680fa">vg::algorithms::GFAParser::text_visit_source_t</a> =  function&lt;void(const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">text_visit_iteratee_t</a>&amp;)&gt;</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback shape for being a producer of path/walk visits. </p>
+
+</div>
+</div>
+<a id="a5fd6bf163fca2f579071433dd6aa16e6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5fd6bf163fca2f579071433dd6aa16e6">&#9670;&nbsp;</a></span>visit_iteratee_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5fd6bf163fca2f579071433dd6aa16e6">vg::algorithms::GFAParser::visit_iteratee_t</a> =  function&lt;bool(int64_t rank, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool is_reverse)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Callback shape for receiving path/walk visits in a listener. </p>
+
+</div>
+</div>
+<a id="a5ec6d2dbd53a6d6dbeea4670ad8a5f0b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">&#9670;&nbsp;</a></span>visit_source_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">vg::algorithms::GFAParser::visit_source_t</a> =  function&lt;void(const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5fd6bf163fca2f579071433dd6aa16e6">visit_iteratee_t</a>&amp;)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Callback shape for being a producer of path/walk visits.</p>
+<p>One of these will be provided to a path/walk listener. Because those listeners only happen after the involved nodes have been handled, this only needs to handle the case where all the nodes have numerical IDs assigned. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="aea9f534e53d72b4f3d8dab1c8d5f4a5a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aea9f534e53d72b4f3d8dab1c8d5f4a5a">&#9670;&nbsp;</a></span>~GFAParser()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual vg::algorithms::GFAParser::~GFAParser </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="acbe24834b0b92528a3c935bd0c368928"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acbe24834b0b92528a3c935bd0c368928">&#9670;&nbsp;</a></span>as_chars()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a> vg::algorithms::GFAParser::as_chars </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>value</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Turn a string reference into a chars_t. The string must outlive the returned chars_t. </p>
+
+</div>
+</div>
 <a id="aa7d65677018149472a7924da28b6633b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa7d65677018149472a7924da28b6633b">&#9670;&nbsp;</a></span>assign_new_sequence_id()</h2>
 
@@ -231,7 +408,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -285,7 +462,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -345,8 +522,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a8cc4a34d40334bb97f7af561db414e33"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8cc4a34d40334bb97f7af561db414e33">&#9670;&nbsp;</a></span>find_existing_sequence_id()</h2>
+<a id="a65950650ebc5337e4db7b39cb08f4e14"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a65950650ebc5337e4db7b39cb08f4e14">&#9670;&nbsp;</a></span>find_existing_sequence_id()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -357,13 +534,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> vg::algorithms::GFAParser::find_existing_sequence_id </td>
           <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramtype">std::string_view&#160;</td>
           <td class="paramname"><em>str</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp;&#160;</td>
           <td class="paramname"><em>id_map_info</em>&#160;</td>
         </tr>
         <tr>
@@ -374,7 +551,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -383,13 +560,10 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <a id="a22e20a6a984b3dd5def4ad22836b15b9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a22e20a6a984b3dd5def4ad22836b15b9">&#9670;&nbsp;</a></span>id_map()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a22e20a6a984b3dd5def4ad22836b15b9">&#9670;&nbsp;</a></span>id_map() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp; vg::algorithms::GFAParser::id_map </td>
@@ -398,14 +572,26 @@ Public Attributes</h2></td></tr>
           <td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
+<p>Get the ID map we are using for parsing. To translate text node IDs to numbers, we use this. </p>
 
-<p>Get the ID map we should be using for parsing. </p>
+</div>
+</div>
+<a id="a22abb1cb423e73f69ac81b9d9e63adaa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a22abb1cb423e73f69ac81b9d9e63adaa">&#9670;&nbsp;</a></span>id_map() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> &amp; vg::algorithms::GFAParser::id_map </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get a const reference to the ID map we are using for parsing. To translate text node IDs to numbers, we use this. </p>
 
 </div>
 </div>
@@ -435,22 +621,61 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a575aa78bfa6a567735133c8cffa6da77"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a575aa78bfa6a567735133c8cffa6da77">&#9670;&nbsp;</a></span>parse()</h2>
+<a id="ac5bef44ad2082d9b9236e5ffb4247bf4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5bef44ad2082d9b9236e5ffb4247bf4">&#9670;&nbsp;</a></span>parse() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::algorithms::GFAParser::parse </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Parse GFA from the given filename. The default implementation opens the file as a text GFA stream and calls the stream parser. </p>
+
+<p>Reimplemented in <a class="el" href="classvg_1_1algorithms_1_1GFAzParser.html#a634298e484a44d90dea1275e100f2c2e">vg::algorithms::GFAzParser</a>, and <a class="el" href="classvg_1_1algorithms_1_1GFATextParser.html#a94abf50e87266e4d516e4a0062493ee2">vg::algorithms::GFATextParser</a>.</p>
+
+</div>
+</div>
+<a id="afcbaf42547ffa5e0959225db96a3feae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afcbaf42547ffa5e0959225db96a3feae">&#9670;&nbsp;</a></span>parse() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void vg::algorithms::GFAParser::parse </td>
           <td>(</td>
           <td class="paramtype">istream &amp;&#160;</td>
           <td class="paramname"><em>in</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 <p>Parse GFA from the given stream. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1algorithms_1_1GFAzParser.html#acf47749417f80e421dd046cd75377a11">vg::algorithms::GFAzParser</a>, and <a class="el" href="classvg_1_1algorithms_1_1GFATextParser.html#a160f815e33339d17402bdd37eab6faad">vg::algorithms::GFATextParser</a>.</p>
 
 </div>
 </div>
@@ -473,7 +698,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -500,7 +725,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -527,7 +752,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -554,7 +779,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -581,7 +806,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -608,7 +833,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -645,7 +870,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -688,7 +913,7 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -725,11 +950,67 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 <p>Scan visits extracted from a W line. Calls a callback with all the steps. visit_step takes {rank (-1 if path empty), step node name, step reversed} and returns true if it wants to keep iterating (false means stop). </p>
+
+</div>
+</div>
+<a id="aae86fbf70495c50d8e72796c8f6c5ab9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aae86fbf70495c50d8e72796c8f6c5ab9">&#9670;&nbsp;</a></span>wrap() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">GFAParser::visit_source_t</a> vg::algorithms::GFAParser::wrap </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a7f31b38caad5520d14919823e8e680fa">text_visit_source_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert a visit source that produces text node IDs into one that produces numerical node IDs.</p>
+<p>All the node IDs must have already been assigned. Uses our ID map. </p>
+
+</div>
+</div>
+<a id="a84f88e369946a4b193626bd0d4aee5c5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a84f88e369946a4b193626bd0d4aee5c5">&#9670;&nbsp;</a></span>wrap() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a73f3daf4bd8c844be2b5c2ff5ff3901e">GFAParser::text_visit_iteratee_t</a> vg::algorithms::GFAParser::wrap </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5fd6bf163fca2f579071433dd6aa16e6">visit_iteratee_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert an iteratee that needs numerical node IDs into one that handles text node names.</p>
+<p>All the node IDs must have already been assigned. Uses our ID map. </p>
 
 </div>
 </div>
@@ -790,6 +1071,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>By default we use this internal ID map to translate text node names to numbers. </p>
 
 </div>
 </div>
@@ -804,7 +1086,6 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
 <p>Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags. </p>
 
 </div>
@@ -825,14 +1106,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa856090842dafbe0dbaf22bed66fd411"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa856090842dafbe0dbaf22bed66fd411">&#9670;&nbsp;</a></span>path_listeners</h2>
+<a id="a9cd2ef10bde854cf1d5472f45a129b1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9cd2ef10bde854cf1d5472f45a129b1d">&#9670;&nbsp;</a></span>path_listeners</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;std::function&lt;void(const string&amp; name, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a>&amp; visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a>&amp; overlaps, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a>&amp; tags)&gt; &gt; vg::algorithms::GFAParser::path_listeners</td>
+          <td class="memname">vector&lt;std::function&lt;void(const string&amp; name, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">visit_source_t</a>&amp; visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a>&amp; tags)&gt; &gt; vg::algorithms::GFAParser::path_listeners</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -870,14 +1151,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a349711aec5bbd3063812eae72727c170"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a349711aec5bbd3063812eae72727c170">&#9670;&nbsp;</a></span>walk_listeners</h2>
+<a id="ad5308b2863e22ce1e90acf36f13d0df7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad5308b2863e22ce1e90acf36f13d0df7">&#9670;&nbsp;</a></span>walk_listeners</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;std::function&lt;void(const string&amp; sample_name, int64_t haplotype, const string&amp; contig_name, const pair&lt;int64_t, int64_t&gt;&amp; subrange, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a807577028c5739ceb08abac94fe28054">chars_t</a>&amp; visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a>&amp; tags)&gt; &gt; vg::algorithms::GFAParser::walk_listeners</td>
+          <td class="memname">vector&lt;std::function&lt;void(const string&amp; sample_name, int64_t haplotype, const string&amp; contig_name, const pair&lt;int64_t, int64_t&gt;&amp; subrange, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#a5ec6d2dbd53a6d6dbeea4670ad8a5f0b">visit_source_t</a>&amp; visits, const <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1">tag_list_t</a>&amp; tags)&gt; &gt; vg::algorithms::GFAParser::walk_listeners</td>
         </tr>
       </table>
 </div><div class="memdoc">

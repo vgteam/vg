@@ -1,17 +1,17 @@
 var searchData=
 [
-  ['qual_5fadj_5faligner_13844',['qual_adj_aligner',['../classvg_1_1AlignerClient.html#ad808371671d657c01a8c0a57b34a2046',1,'vg::AlignerClient']]],
-  ['qual_5fadj_5ffull_5flength_5fbonuses_13845',['qual_adj_full_length_bonuses',['../classvg_1_1QualAdjAlignmentScorer.html#a26e637f7bc0aba25c65373de87a4f0c2',1,'vg::QualAdjAlignmentScorer']]],
-  ['qualities_13846',['qualities',['../structvg_1_1BasePileup.html#aad9e72ab33cea5e54f6f3b37724699d9',1,'vg::BasePileup::qualities()'],['../structvg_1_1EdgePileup.html#a0102dbbfce9153e00bae0520dd15d1ec',1,'vg::EdgePileup::qualities()']]],
-  ['quality_13847',['quality',['../structvg_1_1Alignment.html#afe4dfd54e11b8139c3ccbb493faf98dc',1,'vg::Alignment::quality()'],['../structvg_1_1MultipathAlignment.html#aa507c2c93acbbcc309d7808ebae603b6',1,'vg::MultipathAlignment::quality()'],['../structvg_1_1Support.html#aef1cd52697f504165b42fb74ab55bfa9',1,'vg::Support::quality()']]],
-  ['quality_5faligners_13848',['quality_aligners',['../classvg_1_1Genotyper.html#a2705913bdfb5f6679afb5475a22ecf61',1,'vg::Genotyper']]],
-  ['quality_5fcache_13849',['quality_cache',['../classvg_1_1Packer.html#a36c50d1d60cff7036fd853b3c02b450d',1,'vg::Packer']]],
-  ['queried_5fcount_13850',['queried_count',['../classvg_1_1MaximalExactMatch.html#a538bd4e79e6c025d41031bcc46b3a516',1,'vg::MaximalExactMatch']]],
-  ['query_5fend_13851',['query_end',['../structgafkluge_1_1GafRecord.html#a44e865cbd6ee8693c0ecda102e7271b9',1,'gafkluge::GafRecord']]],
-  ['query_5flength_13852',['query_length',['../structgafkluge_1_1GafRecord.html#a63f1b67e656da360cc9260005e8c0ecd',1,'gafkluge::GafRecord']]],
-  ['query_5fname_13853',['query_name',['../structgafkluge_1_1GafRecord.html#adb0c145a0585ca84e235acb160506811',1,'gafkluge::GafRecord']]],
-  ['query_5foffset_13854',['query_offset',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html#a97a6361d1ab730d37f88d27b92218d83',1,'vg::DozeuInterface::graph_pos_s']]],
-  ['query_5fposition_13855',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]],
-  ['query_5fstart_13856',['query_start',['../structgafkluge_1_1GafRecord.html#a7a92ff5f2dcd4035bfcc661f64d863cd',1,'gafkluge::GafRecord']]],
-  ['queue_13857',['queue',['../classvg_1_1JobSchedule.html#ad9c195bda4329dcf7f90e1135388a2bd',1,'vg::JobSchedule']]]
+  ['qual_5fadj_5faligner_13918',['qual_adj_aligner',['../classvg_1_1AlignerClient.html#ad808371671d657c01a8c0a57b34a2046',1,'vg::AlignerClient']]],
+  ['qual_5fadj_5ffull_5flength_5fbonuses_13919',['qual_adj_full_length_bonuses',['../classvg_1_1QualAdjAlignmentScorer.html#a26e637f7bc0aba25c65373de87a4f0c2',1,'vg::QualAdjAlignmentScorer']]],
+  ['qualities_13920',['qualities',['../structvg_1_1BasePileup.html#aad9e72ab33cea5e54f6f3b37724699d9',1,'vg::BasePileup::qualities()'],['../structvg_1_1EdgePileup.html#a0102dbbfce9153e00bae0520dd15d1ec',1,'vg::EdgePileup::qualities()']]],
+  ['quality_13921',['quality',['../structvg_1_1Alignment.html#afe4dfd54e11b8139c3ccbb493faf98dc',1,'vg::Alignment::quality()'],['../structvg_1_1MultipathAlignment.html#aa507c2c93acbbcc309d7808ebae603b6',1,'vg::MultipathAlignment::quality()'],['../structvg_1_1Support.html#aef1cd52697f504165b42fb74ab55bfa9',1,'vg::Support::quality()']]],
+  ['quality_5faligners_13922',['quality_aligners',['../classvg_1_1Genotyper.html#a2705913bdfb5f6679afb5475a22ecf61',1,'vg::Genotyper']]],
+  ['quality_5fcache_13923',['quality_cache',['../classvg_1_1Packer.html#a36c50d1d60cff7036fd853b3c02b450d',1,'vg::Packer']]],
+  ['queried_5fcount_13924',['queried_count',['../classvg_1_1MaximalExactMatch.html#a538bd4e79e6c025d41031bcc46b3a516',1,'vg::MaximalExactMatch']]],
+  ['query_5fend_13925',['query_end',['../structgafkluge_1_1GafRecord.html#a44e865cbd6ee8693c0ecda102e7271b9',1,'gafkluge::GafRecord']]],
+  ['query_5flength_13926',['query_length',['../structgafkluge_1_1GafRecord.html#a63f1b67e656da360cc9260005e8c0ecd',1,'gafkluge::GafRecord']]],
+  ['query_5fname_13927',['query_name',['../structgafkluge_1_1GafRecord.html#adb0c145a0585ca84e235acb160506811',1,'gafkluge::GafRecord']]],
+  ['query_5foffset_13928',['query_offset',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html#a97a6361d1ab730d37f88d27b92218d83',1,'vg::DozeuInterface::graph_pos_s']]],
+  ['query_5fposition_13929',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]],
+  ['query_5fstart_13930',['query_start',['../structgafkluge_1_1GafRecord.html#a7a92ff5f2dcd4035bfcc661f64d863cd',1,'gafkluge::GafRecord']]],
+  ['queue_13931',['queue',['../classvg_1_1JobSchedule.html#ad9c195bda4329dcf7f90e1135388a2bd',1,'vg::JobSchedule']]]
 ];
