@@ -72,7 +72,7 @@ void GFAIDMapInfo::write_gfa_translation(const string& translation_filename) con
 /// Add listeners which let a GFA parser fill in a handle graph with nodes and edges.
 static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
     parser.node_listeners.push_back([&parser, graph](nid_t id, const GFAParser::chars_t& sequence, const GFAParser::tag_list_t& tags) {
-        graph->create_handle(GFAParser::extract(sequence), id);
+        graph->create_handle(nonATGCNtoN(to_upper(GFAParser::extract(sequence))), id);
     });
     parser.edge_listeners.push_back([&parser, graph](nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const GFAParser::chars_t& overlap, const GFAParser::tag_list_t& tags) {
         static const string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
