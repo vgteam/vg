@@ -961,35 +961,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                 }
             }
         }
-
-        // Symmetric backward pass: walk the chain right-to-left to find the
-        // left boundary of each recombination event. An anchor is a left
-        // boundary when, intersecting suffix path supports, its end_paths do
-        // not overlap with the supports accumulated from anchors to its right.
-        std::vector<size_t> left_rec_positions;
-        if (chain_indexes.size() > 1) {
-            size_t last_idx = chain_indexes.back();
-            path_flags_t current_paths = to_chain[last_idx].anchor_start_paths();
-
-            for (size_t k = chain_indexes.size() - 1; k > 0; --k) {
-                size_t anchor_idx = chain_indexes[k - 1];
-                auto new_paths = to_chain[anchor_idx].anchor_paths();
-                if (new_paths.first == new_paths.second) {
-                    if ((current_paths & new_paths.second) == 0) {
-                        left_rec_positions.push_back(anchor_idx);
-                        current_paths = new_paths.second;
-                    } else {
-                        current_paths &= new_paths.second;
-                    }
-                } else {
-                    // Internally recombinant anchor: mirror the forward
-                    // logic by resetting to the "far side" (start_paths here).
-                    current_paths = new_paths.first;
-                }
-            }
-            std::reverse(left_rec_positions.begin(), left_rec_positions.end());
-        }
-
+        
         ChainWithRec entry;
         entry.scored_chain = {score, std::move(chain_indexes)};
         entry.rec_positions = std::move(rec_positions);
