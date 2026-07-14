@@ -887,7 +887,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         ChainWithRec empty_entry;
         empty_entry.scored_chain = {0, vector<size_t>()};
         empty_entry.rec_positions = {};
-        empty_entry.rec_intervals = {};
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
@@ -914,7 +913,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         ChainWithRec empty_entry;
         empty_entry.scored_chain = {0, vector<size_t>()};
         empty_entry.rec_positions = {};
-        empty_entry.rec_intervals = {};
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
@@ -992,22 +990,9 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
             std::reverse(left_rec_positions.begin(), left_rec_positions.end());
         }
 
-        // Pair forward (right) and backward (left) boundaries into intervals.
-        // When counts disagree (e.g. internally recombinant anchors break
-        // the symmetry) leave rec_intervals empty so consumers fall back
-        // to rec_positions.
-        std::vector<std::pair<size_t, size_t>> rec_intervals;
-        if (left_rec_positions.size() == rec_positions.size()) {
-            rec_intervals.reserve(rec_positions.size());
-            for (size_t i = 0; i < rec_positions.size(); ++i) {
-                rec_intervals.emplace_back(left_rec_positions[i], rec_positions[i]);
-            }
-        }
-
         ChainWithRec entry;
         entry.scored_chain = {score, std::move(chain_indexes)};
         entry.rec_positions = std::move(rec_positions);
-        entry.rec_intervals = std::move(rec_intervals);
         result.chains.emplace_back(std::move(entry));
     }
     return result;
