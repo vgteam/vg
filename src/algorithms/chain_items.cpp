@@ -848,8 +848,7 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
             
         if (show_work) {
 #ifdef debug_dp
-            cerr << "\t\tCome from score " << chain_scores[transition.from_anchor]
-                << " across " << source << " to " << here << endl;
+            cerr << "\t\tCome from " << source << " to " << here << endl;
 #endif
         }
             
@@ -1203,7 +1202,9 @@ ChainsResult find_best_chains_mp(const VectorView<Anchor>& to_chain,
         }
 
         ChainWithRec entry;
-        entry.scored_chain = {traceback.score(), std::move(chain_indexes)};
+        // Account for the first item's score (start of traceback)
+        entry.scored_chain = {traceback.score() + to_chain[chain_indexes.front()].score() + scheme.item_bonus,
+                              std::move(chain_indexes)};
         entry.rec_positions = std::move(rec_positions);
         result.chains.emplace_back(std::move(entry));
     }
