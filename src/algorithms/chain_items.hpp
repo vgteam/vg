@@ -15,7 +15,7 @@
  * You can use chain_items_traceback() to get a traceback of the chain's items
  * in order.
  *
- * Helper entry points are find_best_chain() and score_best_chain() which set
+ * Helper entry point is find_best_chain() which sets
  * up the DP for you and do the traceback if appropriate.
  */
  
@@ -510,35 +510,6 @@ void add_transition_if_legal(vector<transition_info>& transitions,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
- * Fill in the given DP table for the explored chain scores ending with each
- * item. Returns the best observed score overall from that table, with
- * provenance to its location in the table, if tracked in the type. Assumes
- * some items exist.
- *
- * We keep all the options to allow us to do multiple tracebacks and find
- * multiple good (ideally disjoint) chains.
- *
- * Input items must be sorted by start position in the read.
- *
- * Uses the given scoring scheme to score chains.
- *
- * Uses a transition iterator to enumerate where we can come from to reach an
- * item. 
- *
- * Limits transitions to those involving indels of the given size or less, to
- * avoid very bad transitions.
- */
-TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
-                           const VectorView<Anchor>& to_chain,
-                           const SnarlDistanceIndex& distance_index,
-                           const HandleGraph& graph,
-                           const ChainScoringScheme& scheme = ChainScoringScheme(),
-                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                           size_t max_indel_bases = 100,
-                           bool show_work = false
-                        );
-
-/**
  * Create a multipath_alignment_t with subpaths to represent each transition.
  */
 multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
@@ -548,26 +519,6 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                                      const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                      size_t max_indel_bases = 100,
                                      bool show_work = false);
-
-/**
- * Trace back through in the given DP table from the best chain score.
- *
- * Returns tracebacks that visit disjoint sets of items, in score order, along
- * with their penalties from the optimal score. The best_past_ending_score_ever
- * is *not* always the source of the first traceback, if there is a tie.
- *
- *  Tracebacks are constrained to be nonoverlapping by stopping each traceback
- *  when the optimum place to come from has already been used. The second-best
- *  place to come from is *not* considered. It might be possible that two
- *  returned tracebacks could be pasted together to get a higher score, but it
- *  won't be possible to recombine two tracebacks to get a higher score; no
- *  edges followed between items will ever need to be cut.
- */
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
-                                                        const VectorView<Anchor>& to_chain,
-                                                        const TracedScore& best_past_ending_score_ever,
-                                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                        size_t max_tracebacks = 1);
 
 
 /**
@@ -580,18 +531,6 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
  * that score, in order, with multiple tracebacks in descending score order.
  */
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                                                   const SnarlDistanceIndex& distance_index,
-                                                   const HandleGraph& graph,
-                                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                   size_t max_chains = 1,
-                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                                   size_t max_indel_bases = 100,
-                                                   bool show_work = false);
-
-/**
- * Same as find_best_chains() but using multipath alignments on the backend
- */
-ChainsResult find_best_chains_mp(const VectorView<Anchor>& to_chain,
                                                    const SnarlDistanceIndex& distance_index,
                                                    const HandleGraph& graph,
                                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
@@ -615,25 +554,11 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const ChainScoringScheme& scheme = ChainScoringScheme(),
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           size_t max_indel_bases = 100);
-                                          
-/**
- * Score the given group of items. Determines the best score that can be
- * obtained by chaining items together.
- *
- * Input items must be sorted by start position in the read.
- */
-int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
-
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
 /// This produces a penalty (positive number).
 int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
-
-/// Determine if adding the new anchor would cause a recombination event
-/// with respect to the old anchor, given their supported paths.
-/// Returns 0 if no recombination, or 1 if there is a recombination.
-int check_recombination(const Anchor& from, const Anchor& to);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());

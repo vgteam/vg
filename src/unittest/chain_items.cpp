@@ -66,16 +66,6 @@ static vector<handle_t> get_handles(const HandleGraph& graph) {
     return handles;
 }
 
-TEST_CASE("score_best_chain scores no anchors as 0", "[chain_items][score_best_chain]") {
-    HashGraph graph = make_long_graph(1);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    
-    vector<algorithms::Anchor> to_score;
-    REQUIRE(algorithms::score_best_chain(to_score, distance_index, graph) == 0);
-}
-
 TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
     HashGraph graph = make_long_graph(1);
