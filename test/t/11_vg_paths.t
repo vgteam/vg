@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 60
+plan tests 61
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -127,6 +127,8 @@ vg paths --list -x x.gbz >out.txt
 
 is "${?}" "0" "vg paths can list paths from a GBZ with only haplotypes"
 is "$(cat out.txt | wc -l)" "1" "vg paths sees the haplotype path in a GBZ with only haplotypes"
+diff <(vg paths -x tiny/tiny.gfa -F | sort) <(vg paths -x tiny/tiny.gfaz -F | sort)
+is "${?}" "0" "vg paths emits matching path FASTA for equivalent GFA and GFAZ inputs"
 
 rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path out.txt err.txt
 rm -f empty.vg empty.gbwt empty.fa
@@ -205,7 +207,6 @@ is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-p
 rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
 rm -f cross_merge_test.vg cross_merge_right_test.vg
-
 
 
 

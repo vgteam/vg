@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 77
+plan tests 78
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -90,7 +90,7 @@ printf "@read\n${SEQ_RC}\n+\n${QUAL_R}\n" > rev.fq
 vg map -f fwd.fq -g x.gcsa -x x.xg > mapped.fwd.gam
 vg map -f rev.fq -g x.gcsa -x x.xg > mapped.rev.gam
 
-is "$(vg view -aj mapped.rev.gam | jq -r '.quality' | base64 -d | xxd -p -c1 | tac | xxd -p -r | xxd)" "$(vg view -aj mapped.fwd.gam | jq -r '.quality' | base64 -d | xxd)" "quality strings we will use for testing are oriented correctly"
+is "$(vg filter --tsv-out quality mapped.rev.gam | tac -rs 'x\|[^x]' | head -2 | tail -1)" "$(vg filter --tsv-out quality mapped.fwd.gam | tail -1)" "quality strings we will use for testing are oriented correctly"
 
 is "$(vg surject -p x -x x.xg mapped.fwd.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "$(vg surject -p x -x x.xg mapped.rev.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
 
@@ -272,3 +272,9 @@ vg surject -x haplotypes.gbz -p 'KOLF2.1J#1#chr1_1#0' --sam-output read.gam >sur
 is "$(cat surjected.sam | tail -n1 | cut -f3)" "KOLF2.1J#1#chr1_1#0" "surjecting explicitly to a haplotype in a GBZ puts a read on that haplotype"
 
 rm haplotypes.gbz read.gam surjected.sam
+
+vg autoindex -p g -w map -g graphs/long_insertion.gfa
+vg map -d g -f reads/ts.fq | vg surject -x g.xg -b --off-ref-position - > g.bam
+is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "1" "off reference reads can be annotated with the nearest reference position"
+
+rm g.xg g.gcsa g.gcsa.lcp g.bam

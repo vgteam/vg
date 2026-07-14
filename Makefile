@@ -70,14 +70,14 @@ DEPGEN_FLAGS := -MMD -MP
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/cairo $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) $(PKG_CONFIG_HEADER_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I$(CWD)/$(INC_DIR)/GFAz -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/cairo $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) $(PKG_CONFIG_HEADER_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
 
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lstructures -lbdsg -lxg -lsdsl -lhandlegraph -lgfaz_compress -lgfaz_core -lzstd
 # We omit Cairo for now because its transitive dependencies can't be determined until after it's built. Set them lazily
 LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) pkg-config --libs --static cairo)
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
@@ -366,6 +366,7 @@ IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
+GFAz_DIR=deps/GFAz
 CAIRO_DIR=deps/cairo
 PIXMAN_DIR=deps/pixman
 
@@ -401,6 +402,8 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libgfaz_core.a
+LIB_DEPS += $(LIB_DIR)/libgfaz_compress.a
 LIB_DEPS += $(LIB_DIR)/libcairo.a
 LIB_DEPS += $(LIB_DIR)/libpixman-1.a
 
@@ -778,9 +781,15 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # because there's no way to turn off vcflib's pybind11 build and pybind11 will
 # try and use the latest installed Python over the default one that probably
 # has headers.
+# We now need to tell it to build in static mode so we get a static library.
+# And we also now need to tell it to actually build its bundled WFA.
+#
+# Note that on MacOS we rely on the Makefile putting GNU coreutils on the PATH
+# in order to avoid the dreaded "Could NOT find Threads".
 $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h $(LIB_DIR)/cleaned_old_catch
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" .. && cmake --build . --target vcflib wfa2_static
+	+env
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" -DBUILD_STATIC=ON -DWFA_GITMODULE=ON .. && cmake --build . --target vcflib wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -869,6 +878,22 @@ $(INC_DIR)/mio/mmap.hpp: $(MIO_DIR)/include/mio/*
 # It would be better to copy the atomic_queue directory rather than its contents, but to avoid re-writing mmmultimap...
 $(INC_DIR)/atomic_queue.h: $(ATOMIC_QUEUE_DIR)/include/*
 	+cp -r $(ATOMIC_QUEUE_DIR)/include/atomic_queue/* $(CWD)/$(INC_DIR)/
+
+
+
+# GFAz is now built as two static libraries on a shared core:
+#   libgfaz_core.a     - model/codec/serialization/utils (deserialize, Codec, ...)
+#   libgfaz_compress.a - the compressor + gfa_write_utils helpers; links core
+# Both are produced by a single cmake build; the core rule builds and copies both.
+$(LIB_DIR)/libgfaz_compress.a: $(LIB_DIR)/libgfaz_core.a
+
+$(LIB_DIR)/libgfaz_core.a: $(GFAz_DIR)/CMakeLists.txt $(shell find $(GFAz_DIR)/src $(GFAz_DIR)/include -type f "(" -iname "*.cpp" -o -iname "*.hpp" ")" 2>/dev/null)
+	+rm -f $(CWD)/$(LIB_DIR)/libgfaz_core.a $(CWD)/$(LIB_DIR)/libgfaz_compress.a
+	+rm -Rf $(CWD)/$(INC_DIR)/GFAz
+	+cd $(GFAz_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_CXX_FLAGS="-fPIC $(CXXFLAGS) $(CPPFLAGS)" -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CLI=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_TESTS=OFF -DGFAZ_USE_SYSTEM_ZSTD=ON .. && $(MAKE) $(FILTER) gfaz_core gfaz_compress && cp libgfaz_core.a libgfaz_compress.a $(CWD)/$(LIB_DIR)/
+	+mkdir -p $(CWD)/$(INC_DIR)/GFAz
+	+cp -r $(GFAz_DIR)/include/* $(CWD)/$(INC_DIR)/GFAz/
+
 
 $(INC_DIR)/mmmultiset.hpp: $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mmmultimap.hpp
 $(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.h

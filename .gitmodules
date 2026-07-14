@@ -1,6 +1,6 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/vcflib/vcflib.git
+	url = https://github.com/vgteam/vcflib.git
 [submodule "gssw"]
 	path = deps/gssw
 	url = https://github.com/vgteam/gssw.git
@@ -121,6 +121,9 @@
 [submodule "deps/mimalloc"]
 	path = deps/mimalloc
 	url = https://github.com/microsoft/mimalloc.git
+[submodule "deps/GFAz"]
+	path = deps/GFAz
+	url = https://github.com/babyplutokurt/GFAz.git
 [submodule "deps/cairo"]
 	path = deps/cairo
 	url = git://anongit.freedesktop.org/git/cairo

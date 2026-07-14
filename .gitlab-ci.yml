@@ -195,6 +195,9 @@ build-job:
     - docker buildx build --cache-from type=local,src=${HOME}/docker-cache/base --cache-from type=local,src=${HOME}/docker-cache/build --cache-from type=local,src=${HOME}/docker-cache/run --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=${THREADS} --target run -t ${CI_REPO}:${DOCKER_TAG} -f Dockerfile --push .
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
+    # Work around <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/39384>
+    # See <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>
+    GIT_STRATEGY: clone
 
 # The arm container build takes like 90 minutes, so we don't want to run it
 # before the main test phase where the other long tests live.
@@ -243,6 +246,9 @@ production-build-job:
     # manage to hit a 6 hour timeout on our extremely slow emulators.
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
+    # Work around <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/39384>
+    # See <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>
+    GIT_STRATEGY: clone
 
 # We also run the toil-vg/pytest-based tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt

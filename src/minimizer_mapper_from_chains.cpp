@@ -258,7 +258,12 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
 
                     auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
-                        // If we don't know the seed's positions yet, get them
+                        // If we don't know the seed's positions yet, get them.
+                        // We are working with the *pin point* (seed pos in the
+                        // graph and minimizer pin_offset() in the read), not
+                        // anything to do with the anchor.
+                        
+                        // Find that in the graph, on paths.
                         found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
                         for (auto& handle_and_positions : found->second) {
                             std::string path_name = path_graph->get_path_name(handle_and_positions.first);
@@ -266,7 +271,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 // Dump all the seed positions so we can select seeds we want to know about.
                                 // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
                                 seedpos.line();
-                                seedpos.field(seed_anchors.at(seed_num).read_start());
+                                seedpos.field(minimizers[seed.source].pin_offset());
                                 seedpos.field(path_name);
                                 seedpos.field(position.first);
                                 seedpos.field(position.second ? "-" : "+");
@@ -280,7 +285,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                             // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
                             // Report it.
                             seedpos.line();
-                            seedpos.field(seed_anchors.at(seed_num).read_start());
+                            seedpos.field(minimizers[seed.source].pin_offset());
                             seedpos.field("");
                             seedpos.field("");
                             seedpos.field("");

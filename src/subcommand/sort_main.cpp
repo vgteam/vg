@@ -15,7 +15,7 @@
 #include "../vg.hpp"
 #include "../stream_index.hpp"
 #include "../flow_sort.hpp"
-#include "../algorithms/gfa_to_handle.hpp"
+#include "../algorithms/gfaz_to_handle.hpp"
 #include "../algorithms/id_sort.hpp"
 #include <vg/io/vpkg.hpp>
 
@@ -138,7 +138,7 @@ int main_sort(int argc, char *argv[]) {
         // Read as GFA
         graph.reset(new VG());
         try {
-            algorithms::gfa_to_path_handle_graph(filename, graph.get());
+            algorithms::load_gfa_or_gfaz_to_path_handle_graph(filename, graph.get());
         } catch(algorithms::GFAFormatError& e) {
             // GFA loading has failed because the file is invalid
             logger.error() << e.what() << endl;
@@ -230,4 +230,3 @@ int main_sort(int argc, char *argv[]) {
 
 // Register subcommand
 static Subcommand vg_sort("sort", "sort variant graph by various algorithms", DEPRECATED, main_sort);
-

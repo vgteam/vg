@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 23
+plan tests 24
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -77,4 +77,5 @@ rm -f paths.truth.txt paths.test.txt
 vg view graphs/hap_subrange.gfa >/dev/null
 is "${?}" "0" "vg view can emit a GFA file with subranges on a haplotype without explicit phase blocks"
 
-
+diff <(vg view tiny/tiny.gfa | grep '^S' | cut -f3 | sort) <(vg view tiny/tiny.gfaz | grep '^S' | cut -f3 | sort)
+is "${?}" "0" "vg view preserves segment sequences for matching GFA and GFAZ inputs"
