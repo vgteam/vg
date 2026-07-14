@@ -788,6 +788,151 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     return best_score;
 }
 
+multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
+                                     const SnarlDistanceIndex& distance_index,
+                                     const HandleGraph& graph,
+                                     const ChainScoringScheme& scheme,
+                                     const transition_iterator& for_each_transition,
+                                     size_t max_indel_bases,
+                                     bool show_work) {
+
+    DiagramExplainer diagram(show_work);
+    TSVExplainer dump(show_work, "chaindump");
+    if (diagram) {
+        diagram.add_globals({{"rankdir", "LR"}});
+    }
+   
+    if (show_work) {
+        cerr << "Chaining group of " << to_chain.size() << " items" << endl;
+    }
+
+    crash_unless(scheme.recombination_penalty >= 0);
+    crash_unless(scheme.consistency_bonus >= 0);
+
+    // This is what we will build up
+    multipath_alignment_t multipath_aln;
+
+    // Compute a base seed average length.
+    // TODO: Weight anchors differently?
+    // TODO: Will this always be the same for all anchors in practice?
+    size_t base_seed_length = 0;
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        base_seed_length += to_chain[i].base_seed_length();
+        // "subpaths" are just what we use to represent anchors
+        subpath_t* subpath = multipath_aln.add_subpath();
+        // Add a fake position to this subpath to store the anchor ID
+        position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
+        position->set_node_id(i);
+        position->set_is_reverse(false);
+        position->set_offset(0);
+    }
+    base_seed_length /= to_chain.size();
+
+    // We will run this over every transition in a good DP order.
+    auto iteratee = [&](const transition_info& transition) {
+        if (show_work) {
+#ifdef debug_dp
+            cerr << "DP: " << transition.from_anchor << "->" << transition.to_anchor 
+                 << " rd " << transition.read_distance << " gd " << transition.graph_distance << endl;
+#endif
+        }
+        
+        // For each item
+        auto& here = to_chain[transition.to_anchor];
+        
+        // How many points is it worth to collect?
+        auto item_points = here.score() + scheme.item_bonus;
+        
+        // For each source we could come from
+        auto& source = to_chain[transition.from_anchor];
+            
+        if (show_work) {
+#ifdef debug_dp
+            cerr << "\t\tCome from score " << chain_scores[transition.from_anchor]
+                << " across " << source << " to " << here << endl;
+#endif
+        }
+            
+        // Decide how much length changed
+        size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
+                                                                                     : transition.graph_distance - transition.read_distance;
+        
+        if (show_work) {
+#ifdef debug_dp
+            cerr << "\t\t\tFor read distance " << transition.read_distance << " and graph distance " << transition.graph_distance
+                 << " an indel of length " << indel_length
+                 << ((transition.read_distance > transition.graph_distance) ? " seems plausible" : " would be required") << endl;
+#endif
+        }
+            
+        if (indel_length <= max_indel_bases) {
+            // Assign points for the assumed matches in the transition, and charge for the indel.
+            //
+            // The Minimap2 paper
+            // <https://doi.org/10.1093/bioinformatics/bty191> at 2.1.1 says
+            // that we ought to assign "α(j,i)=min{min{yi−yj,xi−xj},wi} is the
+            // number of matching bases between the two anchors", minus the gap
+            // penalty. Here, i is the destination anchor and j is the
+            // predecessor, and x and y are read and query positions of the
+            // *final* base in the anchor, while w is anchor width.
+            //
+            // As written, the gloss isn't really true; the number of matching
+            // bases between the two anchors isn't bounded below by the width
+            // of the second anchor. It looks more like we are counting the
+            // number of new matching bases in the destination anchor that are
+            // not overlapping matching bases in the source anchor.
+            //
+            // Our distances are between the end of the previous anchor and the
+            // start of this one (not the end as in Minimap2's formulation).
+            // And our anchors also thus never overlap. So we can just always
+            // use the length of the destination anchor.
+            //
+            // But we account for anchor length in the item points, so don't use it
+            // here.
+            int jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
+
+            // Penalize transitions which force a recombination
+            if (source.anchor_end_paths() & here.anchor_start_paths() == 0) {
+                jump_points -= scheme.recombination_penalty;
+            }
+
+            // Connect these anchors
+            connection_t* connection = multipath_aln.mutable_subpath(transition.from_anchor)->add_connection();
+            connection->set_score(jump_points + item_points);
+            connection->set_next(transition.to_anchor);
+            
+            /// TODO: Consistency bonus
+            
+            if (dump) {
+                // Dump a TSV of source anchor description, dest anchor description, and score of edge.
+                dump.line();
+                std::stringstream source_stream;
+                source_stream << source;
+                dump.field(source_stream.str());
+                std::stringstream here_stream;
+                here_stream << here;
+                dump.field(here_stream.str());
+                dump.field(jump_points + item_points);
+            }
+        } else {
+            if (show_work) {
+#ifdef debug_dp
+                cerr << "\t\tTransition is impossible." << endl;
+#endif
+            }
+        }
+    };
+
+    // Run our DP step over all the transitions.
+    for_each_transition(to_chain,
+                        distance_index,
+                        graph,
+                        max_indel_bases,
+                        iteratee);
+
+    return multipath_aln;
+}
+
 vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
@@ -970,6 +1115,101 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     return result;
 }
 
+ChainsResult find_best_chains_mp(const VectorView<Anchor>& to_chain,
+                                 const SnarlDistanceIndex& distance_index,
+                                 const HandleGraph& graph,
+                                 const ChainScoringScheme& scheme,
+                                 size_t max_chains,
+                                 const transition_iterator& for_each_transition,
+                                 size_t max_indel_bases,
+                                 bool show_work) {
+
+    ChainsResult result;
+    if (to_chain.empty()) {
+        ChainWithRec empty_entry;
+        empty_entry.scored_chain = {0, vector<size_t>()};
+        empty_entry.rec_positions = {};
+        result.chains.emplace_back(std::move(empty_entry));
+        return result;
+    }
+        
+    // First, we build the multipath alignment
+    multipath_alignment_t mp_aln = fill_in_mp_aln(to_chain,
+                                                  distance_index,
+                                                  graph,
+                                                  scheme,
+                                                  for_each_transition,
+                                                  max_indel_bases,
+                                                  show_work);
+    // Then do the tracebacks
+    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains);
+    
+    if (tracebacks.empty()) {
+        // Somehow we got nothing
+        ChainWithRec empty_entry;
+        empty_entry.scored_chain = {0, vector<size_t>()};
+        empty_entry.rec_positions = {};
+        result.chains.emplace_back(std::move(empty_entry));
+        return result;
+    }
+        
+    // Convert from sparse pseudo-alignments to sparse chains
+    // Everything is already sorted.
+    result.chains.reserve(tracebacks.size());
+    for (auto& traceback : tracebacks) {
+        // Move over the list of items
+        std::vector<size_t> chain_indexes;
+
+        for (const auto& mapping : traceback.path().mapping()) {
+            // We misused anchor IDs as node IDs, so convert that back
+            chain_indexes.emplace_back(mapping.position().node_id());
+        }
+
+        // Compute the anchor indices in this chain that introduce an
+        // inter-anchor recombination event. We simulate the path-bit
+        // propagation along the chain using the same logic as
+        // TracedScore::set_shared_paths (but without modifying the state).
+        std::vector<size_t> rec_positions;
+        if (!chain_indexes.empty()) {
+            // Start with the endpoint paths of the first anchor.
+            size_t first_idx = chain_indexes.front();
+            path_flags_t current_paths = to_chain[first_idx].anchor_end_paths();
+
+            // Walk the chain from the second anchor onward and apply the
+            // same recombination-detection rules used in set_shared_paths.
+            for (size_t k = 1; k < chain_indexes.size(); ++k) {
+                size_t anchor_idx = chain_indexes[k];
+                auto new_paths = to_chain[anchor_idx].anchor_paths();
+                // If the anchor's start and end paths are equal, it's not an
+                // internally recombinant anchor; check inter-anchor overlap.
+                if (new_paths.first == new_paths.second) {
+                    if ((current_paths & new_paths.first) == 0) {
+                        // No overlap -> inter-anchor recombination occurred here.
+                        rec_positions.push_back(anchor_idx);
+                        // Reset current paths to the anchor's start paths.
+                        current_paths = new_paths.first;
+                    } else {
+                        // Intersect supported paths and continue.
+                        current_paths &= new_paths.first;
+                    }
+                } else {
+                    // Recombinant anchor: do not count as inter-anchor
+                    // recombination per original logic; reset paths to the
+                    // anchor's end paths.
+                    // TODO: since no fragmenting, probably unnecessary to track
+                    current_paths = new_paths.second;
+                }
+            }
+        }
+
+        ChainWithRec entry;
+        entry.scored_chain = {traceback.score(), std::move(chain_indexes)};
+        entry.rec_positions = std::move(rec_positions);
+        result.chains.emplace_back(std::move(entry));
+    }
+    return result;
+}
+
 pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const SnarlDistanceIndex& distance_index,
                                           const HandleGraph& graph,
@@ -977,7 +1217,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const transition_iterator& for_each_transition,
                                           size_t max_indel_bases) {
                                                                  
-    ChainsResult cr = find_best_chains(
+    ChainsResult cr = find_best_chains_mp(
         to_chain,
         distance_index,
         graph,

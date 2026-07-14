@@ -27,6 +27,7 @@
 #include "../handle.hpp"
 #include "../explainer.hpp"
 #include "../utility.hpp"
+#include "../multipath_alignment.hpp"
 
 #include <bdsg/hash_graph.hpp>
 #include <crash.hpp>
@@ -538,6 +539,17 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                         );
 
 /**
+ * Create a multipath_alignment_t with subpaths to represent each transition.
+ */
+multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
+                                     const SnarlDistanceIndex& distance_index,
+                                     const HandleGraph& graph,
+                                     const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                     const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
+                                     size_t max_indel_bases = 100,
+                                     bool show_work = false);
+
+/**
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
@@ -568,6 +580,18 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
  * that score, in order, with multiple tracebacks in descending score order.
  */
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
+                                                   const SnarlDistanceIndex& distance_index,
+                                                   const HandleGraph& graph,
+                                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                                   size_t max_chains = 1,
+                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                                                   size_t max_indel_bases = 100,
+                                                   bool show_work = false);
+
+/**
+ * Same as find_best_chains() but using multipath alignments on the backend
+ */
+ChainsResult find_best_chains_mp(const VectorView<Anchor>& to_chain,
                                                    const SnarlDistanceIndex& distance_index,
                                                    const HandleGraph& graph,
                                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
