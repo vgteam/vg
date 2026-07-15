@@ -535,7 +535,7 @@ namespace vg {
         cerr << "computing mapping quality and sorting mappings" << endl;
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, cluster_idxs, &multiplicities_out);
-        
+
         if (!multipath_alns_out.empty() && likely_mismapping(multipath_alns_out.front())) {
             multipath_alns_out.front().set_mapping_quality(0);
         }
@@ -2261,7 +2261,7 @@ namespace vg {
         // Now compute the MAPQ for the best alignment
         auto placement_mapqs = compute_raw_mapping_qualities_from_scores(scores,
                                                                          !multipath_aln.quality().empty());
-        // And min it in with what;s there already.
+        // And min it in with what's there already.
         alns_out[0].set_mapping_quality(min(alns_out[0].mapping_quality(), placement_mapqs.front()));
         for (size_t i = 1; i < alns_out.size(); i++) {
             // And zero all the others

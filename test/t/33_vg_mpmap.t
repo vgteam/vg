@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 26
 
 
 # Exercise the GBWT
@@ -173,5 +173,7 @@ is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | 
 
 rm tagged1.fq tagged2.fq t1.bam t2.bam t3.bam
 rm x.vg x.gam xy.vg xy.xg xy.gcsa xy.snarls xy.dist xy.sam
+
+is $(vg mpmap --help 2>&1 | grep -c "promote-secondary") 1 "vg mpmap advertises --promote-secondary"
 
 

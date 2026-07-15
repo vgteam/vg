@@ -1136,9 +1136,9 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-    // Use exact mapping quality 
-    double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->mapq_calc->compute_max_mapping_quality(scores, false) ;
+    // Use exact mapping quality
+    double mapq = (mappings.front().path().mapping_size() == 0) ? 0 :
+        get_regular_aligner()->mapq_calc->compute_max_mapping_quality(scores, false);
 
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
@@ -1180,7 +1180,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
-   
+
     if (!supplementaries.empty()) {
         // Estimate a mapping quality for the supplementaries
         // TODO: only count the score of the overlapping portion of other alignments
@@ -1204,7 +1204,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     for (size_t i = 0; i < mappings.size(); i++) {
         // For each output alignment in score order
         auto& out = mappings[i];
-        
+
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
     }

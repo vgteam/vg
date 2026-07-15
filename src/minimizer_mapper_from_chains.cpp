@@ -987,8 +987,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Because the winning alignment won't necessarily *always* have the
     // maximum score, we need to use compute_first_mapping_quality and not
     // compute_max_mapping_quality.
-    double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->mapq_calc->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
+    double mapq = (mappings.front().path().mapping_size() == 0) ? 0 :
+        get_regular_aligner()->mapq_calc->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment);
 
 #ifdef debug_write_minimizers
 #pragma omp critical
@@ -1106,7 +1106,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     for (size_t i = 0; i < mappings.size(); i++) {
         // For each output alignment in score order
         auto& out = mappings[i];
-        
+
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
     }

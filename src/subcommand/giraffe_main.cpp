@@ -732,6 +732,9 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "                                in the GR tag as a cs-style difference string" << endl
              << "      --off-ref-position        annotate off-reference mappings in HTSLib output" << endl
              << "                                with the nearest reference position in NR tag" << endl
+             << "      --promote-secondary       in HTSLib output, if a read's primary fails to" << endl
+             << "                                surject, promote its best surjectable secondary" << endl
+             << "                                to primary (needs --max-multimaps > 1)" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
              << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
              << "                                for each setting combination. Setting values for" << endl
@@ -797,6 +800,7 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_OFF_REF_POSITION = 1014;
     constexpr int OPT_LEFT_ALIGN = 1015;
     constexpr int OPT_NO_REC_MODE = 1016;
+    constexpr int OPT_PROMOTE_SECONDARY = 1017;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -907,6 +911,9 @@ int main_giraffe(int argc, char** argv) {
     
     // When surjecting, should we annotate the off-reference reads with the nearest reference position?
     bool annotate_off_ref_position = false;
+
+    // When surjecting, if a read's primary fails to surject, should we promote its best surjectable secondary?
+    bool promote_secondary = false;
 
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
@@ -1166,6 +1173,7 @@ int main_giraffe(int argc, char** argv) {
         {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"off-ref-position", no_argument, 0, OPT_OFF_REF_POSITION},
+        {"promote-secondary", no_argument, 0, OPT_PROMOTE_SECONDARY},
         {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
@@ -1356,6 +1364,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_OFF_REF_POSITION:
                 annotate_off_ref_position = true;
+                break;
+
+            case OPT_PROMOTE_SECONDARY:
+                promote_secondary = true;
                 break;
                 
             case OPT_LEFT_ALIGN:
@@ -2057,6 +2069,7 @@ int main_giraffe(int argc, char** argv) {
         report_flag("interleaved", interleaved);
         report_flag("add-graph-aln", add_graph_alignment);
         report_flag("off-ref-position", annotate_off_ref_position);
+        report_flag("promote-secondary", promote_secondary);
         report_flag("left-align", left_align);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
@@ -2201,6 +2214,23 @@ int main_giraffe(int argc, char** argv) {
                 if (left_align) {
                     // When surjecting, attempt to left align
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN;
+                }
+                if (promote_secondary && minimizer_mapper.max_multimaps < 2) {
+                    logger.warn() << "--promote-secondary requires --max-multimaps > 1; "
+                                  << "with the current setting only one alignment is produced per read, "
+                                  << "so there are no secondary alignments to promote in case of an "
+                                  << "unsurjectable primary alignment. Ignoring." << endl;
+                    promote_secondary = false;
+                }
+                if (promote_secondary) {
+                    if (paired && !interleaved) {
+                        logger.warn() << "--promote-secondary with two-file paired input uses paired-end "
+                                      << "promotion semantics: promotion fires only when both mates of the "
+                                      << "primary pair fail to surject, and the demoted pair is kept in the "
+                                      << "output as secondary records. Use -i if your input is interleaved." << endl;
+                    }
+                    // When surjecting, promote a mapped secondary if the primary fails to surject
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_PROMOTE_SECONDARY;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.

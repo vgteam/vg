@@ -132,6 +132,9 @@ void help_map(char** argv) {
          << "      --ref-paths FILE             ordered list of paths in graph, one per line" << endl
          << "                                   or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "      --ref-name NAME              reference assembly in graph for HTSlib output" << endl
+         << "      --promote-secondary          in HTSlib output, if a read's primary fails to" << endl
+         << "                                   surject, promote its best surjectable secondary" << endl
+         << "                                   to primary (needs --max-multimaps > 1)" << endl
          << "  -X, --compare                    realign -G GAM input, writing alignment with" << endl
          << "                                   \"correct\" field set to overlap with input" << endl
          << "  -v, --refpos-table               for efficient testing output a table of" << endl
@@ -165,6 +168,7 @@ int main_map(int argc, char** argv) {
     constexpr int OPT_COMMENTS_AS_TAGS = 1005;
     constexpr int OPT_MAX_GAP_LENGTH = 1006;
     constexpr int OPT_XDROP_ALIGNMENT = 1007;
+    constexpr int OPT_PROMOTE_SECONDARY = 1008;
     string matrix_file_name;
     string seq;
     string qual;
@@ -243,6 +247,7 @@ int main_map(int argc, char** argv) {
     uint32_t max_gap_length = 40;
     bool log_time = false;
     bool comments_as_tags = false;
+    bool promote_secondary = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -322,6 +327,7 @@ int main_map(int argc, char** argv) {
                 {"gaf", no_argument, 0, '%'},
                 {"log-time", no_argument, 0, '^'},
                 {"comments-as-tags", no_argument, 0, OPT_COMMENTS_AS_TAGS},
+                {"promote-secondary", no_argument, 0, OPT_PROMOTE_SECONDARY},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
@@ -650,6 +656,10 @@ int main_map(int argc, char** argv) {
             comments_as_tags = true;
             break;
 
+        case OPT_PROMOTE_SECONDARY:
+            promote_secondary = true;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -800,9 +810,35 @@ int main_map(int argc, char** argv) {
         paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *xgidx);
     }
     
+    if (promote_secondary && !hts_output) {
+        logger.warn() << "--promote-secondary has no effect unless surjecting to SAM, BAM, or CRAM "
+                      << "(--surject-to); ignoring." << endl;
+        promote_secondary = false;
+    }
+
+    if (promote_secondary && max_multimaps < 2) {
+        logger.warn() << "--promote-secondary requires --max-multimaps > 1; "
+                      << "with the current setting only one alignment is produced per read, "
+                      << "so there are no secondary alignments to promote in case of an "
+                      << "unsurjectable primary alignment. Ignoring." << endl;
+        promote_secondary = false;
+    }
+
+    if (promote_secondary && !interleaved_input && !fastq2.empty()) {
+        logger.warn() << "--promote-secondary with two-file paired input uses paired-end "
+                      << "promotion semantics: promotion fires only when both mates of the "
+                      << "primary pair fail to surject, and the demoted pair is kept in the "
+                      << "output as secondary records. Use -i if your input is interleaved." << endl;
+    }
+
     // Set up output to an emitter that will handle serialization and surjection
+    int emitter_flags = ALIGNMENT_EMITTER_FLAG_NONE;
+    if (promote_secondary) {
+        // When surjecting, promote a mapped secondary if the primary fails to surject.
+        emitter_flags |= ALIGNMENT_EMITTER_FLAG_HTS_PROMOTE_SECONDARY;
+    }
     unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, paths, 
-                                                                                   thread_count, xgidx);
+                                                                                   thread_count, xgidx, emitter_flags);
 
     // We have one function to dump alignments into
     auto output_alignments = [&](vector<Alignment>& alns1, vector<Alignment>& alns2) {

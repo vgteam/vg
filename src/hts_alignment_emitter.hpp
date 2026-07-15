@@ -53,7 +53,11 @@ enum alignment_emitter_flags_t {
     /// When surjecting, annote off-reference reads with their nearest reference position
     ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION = 64,
     /// When surjecting, attempt to left align
-    ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN = 128
+    ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN = 128,
+    /// When surjecting, if a read's primary alignment fails to surject, promote
+    /// the best-scoring secondary that does surject to be the new primary
+    /// instead of emitting an unmapped primary alongside mapped secondaries.
+    ALIGNMENT_EMITTER_FLAG_HTS_PROMOTE_SECONDARY = 256
 };
 
 /// Represents a path or subpath's sequence dictionary information. Holds
