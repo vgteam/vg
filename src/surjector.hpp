@@ -198,6 +198,11 @@ using namespace std;
                               vector<tuple<string, int64_t, bool>>& positions_out,
                               bool allow_negative_scores, bool preserve_deletions) const;
         
+        /// Surject an alignment, defined by path_chunks and ref_chunks, to a
+        /// single strand of a single path, defined by path_handle and
+        /// rev_strand.
+        ///
+        /// ref_chunks already has to refer to that path strand.
         vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
                            const path_handle_t& path_handle, bool rev_strand,
@@ -210,6 +215,12 @@ using namespace std;
                            vector<vector<pair<step_handle_t, step_handle_t>>>* all_path_ranges_out = nullptr,
                            size_t override_read_length = 0) const;
         
+        /// Do surjection alowing for RNA splicing, or for parts of a multipath
+        /// alignment.
+        ///
+        /// Internally, uses an algorithm based around surjecting "sections"
+        /// with realigning_surject(), and then having a graph between them.
+        ///
         vector<pair<multipath_alignment_t, pair<step_handle_t, step_handle_t>>>
         spliced_surject(const PathPositionHandleGraph* path_position_graph,
                         const string& src_sequence, const string& src_quality,
@@ -224,7 +235,12 @@ using namespace std;
         // Support methods for the realigning surject algorithm
         ///////////////////////
         
-        /// get the chunks of the alignment path that follow the given reference paths
+        /// Get the chunks of the alignment path that follow the given
+        /// reference paths.
+        ///
+        /// Returns a map from path strand to a vector of the alignment pieces
+        /// (as path chunks) and one of the corresponding regions along the
+        /// target path (as step handles). 
         unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
         extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
                                   const unordered_set<path_handle_t>& surjection_paths) const;
