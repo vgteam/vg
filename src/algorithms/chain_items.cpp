@@ -516,6 +516,8 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
         base_seed_length += to_chain[i].base_seed_length();
         // "subpaths" are just what we use to represent anchors
         subpath_t* subpath = multipath_aln.add_subpath();
+        // How many points this anchor is worth to collect
+        subpath->set_score(to_chain[i].score() + scheme.item_bonus);
         // Add a fake position to this subpath to store the anchor ID
         position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
         position->set_node_id(i);
@@ -535,9 +537,6 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
         
         // For each item
         auto& here = to_chain[transition.to_anchor];
-        
-        // How many points is it worth to collect?
-        auto item_points = here.score() + scheme.item_bonus;
         
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
@@ -593,7 +592,7 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
 
             // Connect these anchors
             connection_t* connection = multipath_aln.mutable_subpath(transition.from_anchor)->add_connection();
-            connection->set_score(jump_points + item_points);
+            connection->set_score(jump_points);
             connection->set_next(transition.to_anchor);
             
             /// TODO: Consistency bonus
@@ -607,7 +606,7 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                 std::stringstream here_stream;
                 here_stream << here;
                 dump.field(here_stream.str());
-                dump.field(jump_points + item_points);
+                dump.field(jump_points);
             }
         } else {
             if (show_work) {
@@ -716,9 +715,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         }
 
         ChainWithRec entry;
-        // Account for the first item's score (start of traceback)
-        entry.scored_chain = {traceback.score() + to_chain[chain_indexes.front()].score() + scheme.item_bonus,
-                              std::move(chain_indexes)};
+        entry.scored_chain = {traceback.score(), std::move(chain_indexes)};
         entry.rec_positions = std::move(rec_positions);
         result.chains.emplace_back(std::move(entry));
     }
