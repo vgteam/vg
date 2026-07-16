@@ -9,7 +9,7 @@ cd ..
 
 make clean
 is "$?" "0" "make clean completes without errors"
-make -j20
+make
 is "$?" "0" "we can make after make clean"
 bin/vg help
 is "$?" "0" "vg builds successfully"
