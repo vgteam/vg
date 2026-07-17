@@ -198,7 +198,24 @@ using namespace std;
                               const unordered_set<path_handle_t>& paths,
                               vector<tuple<string, int64_t, bool>>& positions_out,
                               bool allow_negative_scores, bool preserve_deletions) const;
-        
+       
+        /// Represents the overlaps against a particular path-strand.
+        /// Intended to live in a map keyed by path-strand.
+        /// TODO: Is there a better name for this?
+        struct SurjectionRecord {
+            /// All the read intervals and their alignment paths.
+            ///
+            vector<path_chunk_t> path_chunks;
+            /// All the corresponding intervals along the target path-strand.
+            /// Note that these step handles don't track your orientation relative to the path.
+            vector<pair<step_handle_t, step_handle_t>> ref_chunks;
+            /// Connection edges within the path-strand.
+            /// Stored as (source chunk index, destination chunk index, score).
+            /// Can be empty if spliced alignment isn't used.
+            /// Can contain within-path-strand deletions if spliced alignment is used.
+            vector<tuple<size_t, size_t, int32_t>> connections;
+        };
+
         /// Surject an alignment, defined by path_chunks and ref_chunks, to a
         /// single strand of a single path, defined by path_handle and
         /// rev_strand.
@@ -227,29 +244,13 @@ using namespace std;
                         const string& src_sequence, const string& src_quality,
                         const int32_t src_mapping_quality,
                         const path_handle_t& path_handle, bool rev_strand,
-                        vector<path_chunk_t>& path_chunks,
-                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                        vector<tuple<size_t, size_t, int32_t>>& connections,
+                        SurjectionRecord& surjection_record,
                         bool allow_negative_scores, bool deletions_as_splices) const;
         
         ///////////////////////
         // Support methods for the realigning surject algorithm
         ///////////////////////
-        
 
-        /// Represents the overlaps against a particular path-strand.
-        /// Intended to live in a map keyed by path-strand.
-        /// TODO: Is there a bette rname for this?
-        struct SurjectionRecord {
-            /// All the read intervals and their alignment paths.
-            ///
-            vector<path_chunk_t> path_chunks;
-            /// All the corresponding intervals along the target path-strand.
-            /// Note that these step handles don't track your orientation relative to the path.
-            vector<pair<step_handle_t, step_handle_t>> ref_chunks;
-        };
-
-        
         /// Get the chunks of the alignment path that follow the given
         /// reference paths.
         ///
@@ -262,19 +263,15 @@ using namespace std;
         
         /// Same semantics except for a multipath alignment.
         ///
-        /// connections_out maps from path-strand to tuples of (source chunk,
-        /// destination chunk, connection score).
+        /// Populates connections on the result with within-path-strand deletions.
         unordered_map<pair<path_handle_t, bool>, SurjectionRecord>
         extract_overlapping_paths(const PathPositionHandleGraph* graph,
                                   const multipath_alignment_t& source,
-                                  const unordered_set<path_handle_t>& surjection_paths,
-                                  unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const;
+                                  const unordered_set<path_handle_t>& surjection_paths) const;
         
         /// remove any path chunks and corresponding ref chunks that are identical to a longer
         /// path chunk over the region where they overlap
-        void filter_redundant_path_chunks(bool path_rev, vector<path_chunk_t>& path_chunks,
-                                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                          vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        void filter_redundant_path_chunks(bool path_rev, SurjectionRecord& surjection_record) const;
         
         void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
                                     vector<pair<step_handle_t, step_handle_t>>& step_ranges) const;
@@ -396,20 +393,14 @@ using namespace std;
         /// eliminate any path chunks that have the exact same colinearities as another but are much shorter
         vector<vector<size_t>> remove_dominated_chunks(const string& src_sequence,
                                                        const vector<vector<size_t>>& adj,
-                                                       vector<path_chunk_t>& path_chunks,
-                                                       vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                                       vector<tuple<size_t, size_t, int32_t>>& connections) const;
+                                                       SurjectionRecord& surjection_record) const;
         
         /// if any anchors overlap each other, cut the second at the implied overlap position
-        void cut_anchors(bool rev_strand, vector<path_chunk_t>& path_chunks,
-                         vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                         vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        void cut_anchors(bool rev_strand, SurjectionRecord& surjection_record) const;
         
         /// if there are too many chunks, downsample to a given level
         void downsample_chunks(const string& src_sequence,
-                               vector<path_chunk_t>& path_chunks,
-                               vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                               vector<tuple<size_t, size_t, int32_t>>& connections) const;
+                               SurjectionRecord& surjection_record) const;
         
         /// returns all sets of chunks such that 1) all of chunks on the left set abut all of the chunks on the right
         /// set on the read, 2) all source-to-sink paths in the connected component go through an edge between
@@ -418,9 +409,7 @@ using namespace std;
         vector<pair<vector<size_t>, vector<size_t>>> find_constriction_bicliques(const vector<vector<size_t>>& adj,
                                                                                  const string& src_sequence,
                                                                                  const string& src_quality,
-                                                                                 vector<path_chunk_t>& path_chunks,
-                                                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                                                                 const vector<tuple<size_t, size_t, int32_t>>& connections) const;
+                                                                                 SurjectionRecord& surjection_record) const;
         
         void prune_unconnectable(vector<vector<size_t>>& adj,
                                  vector<vector<tuple<size_t, int32_t, bool>>>& splice_adj,

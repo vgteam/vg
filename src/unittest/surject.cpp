@@ -20,6 +20,7 @@ public:
     TestSurjector(const PathPositionHandleGraph* graph) : Surjector(graph) {}
     ~TestSurjector() = default;
     
+    using Surjector::SurjectionRecord;
     using Surjector::extract_overlapping_paths;
     using Surjector::filter_redundant_path_chunks;
     
@@ -319,36 +320,34 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     
     SECTION("Forward strand of path") {
         
-        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
-        
         auto overlaps = surjector.extract_overlapping_paths(&pos_graph, mp_aln,
-                                                            surjection_paths,
-                                                            connections);
+                                                            surjection_paths);
         
         auto fp = make_pair(p, false);
         
         REQUIRE(overlaps.count(fp));
         REQUIRE(overlaps.size() == 1);
-        REQUIRE(connections.empty());
         
         auto& p_overlaps = overlaps[fp];
+
+        REQUIRE(p_overlaps.connections.empty());
         
-        REQUIRE(p_overlaps.aln_chunks.size() == 1);
-        REQUIRE(p_overlaps.aln_chunks.front().first.first == mp_aln.sequence().begin());
-        REQUIRE(p_overlaps.aln_chunks.front().first.second == mp_aln.sequence().end());
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping_size() == 4);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().node_id() == graph.get_id(h1));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().is_reverse() == false);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().offset() == 2);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().node_id() == graph.get_id(h2));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().is_reverse() == false);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().offset() == 0);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().node_id() == graph.get_id(h4));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().is_reverse() == false);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().offset() == 0);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().node_id() == graph.get_id(h5));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().is_reverse() == false);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().offset() == 0);
+        REQUIRE(p_overlaps.path_chunks.size() == 1);
+        REQUIRE(p_overlaps.path_chunks.front().first.first == mp_aln.sequence().begin());
+        REQUIRE(p_overlaps.path_chunks.front().first.second == mp_aln.sequence().end());
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping_size() == 4);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(0).position().node_id() == graph.get_id(h1));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(0).position().is_reverse() == false);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(0).position().offset() == 2);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(1).position().node_id() == graph.get_id(h2));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(1).position().is_reverse() == false);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(1).position().offset() == 0);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(2).position().node_id() == graph.get_id(h4));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(2).position().is_reverse() == false);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(2).position().offset() == 0);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(3).position().node_id() == graph.get_id(h5));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(3).position().is_reverse() == false);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(3).position().offset() == 0);
         
         REQUIRE(p_overlaps.ref_chunks.size() == 1);
         REQUIRE(p_overlaps.ref_chunks.front().first == st0);
@@ -357,39 +356,37 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     
     SECTION("Reverse strand of path"){
         
-        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
-        
         multipath_alignment_t rev_mp_aln;
         rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
         
         auto overlaps = surjector.extract_overlapping_paths(&pos_graph, rev_mp_aln,
-                                                            surjection_paths,
-                                                            connections);
+                                                            surjection_paths);
         
         auto rp = make_pair(p, true);
             
         REQUIRE(overlaps.count(rp));
         REQUIRE(overlaps.size() == 1);
-        REQUIRE(connections.empty());
         
         auto& p_overlaps = overlaps[rp];
+
+        REQUIRE(p_overlaps.connections.empty());
         
-        REQUIRE(p_overlaps.aln_chunks.size() == 1);
-        REQUIRE(p_overlaps.aln_chunks.front().first.first == rev_mp_aln.sequence().begin());
-        REQUIRE(p_overlaps.aln_chunks.front().first.second == rev_mp_aln.sequence().end());
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping_size() == 4);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().node_id() == graph.get_id(h5));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().is_reverse() == true);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().offset() == 1);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().node_id() == graph.get_id(h4));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().is_reverse() == true);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().offset() == 0);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().node_id() == graph.get_id(h2));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().is_reverse() == true);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().offset() == 0);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().node_id() == graph.get_id(h1));
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().is_reverse() == true);
-        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().offset() == 0);
+        REQUIRE(p_overlaps.path_chunks.size() == 1);
+        REQUIRE(p_overlaps.path_chunks.front().first.first == rev_mp_aln.sequence().begin());
+        REQUIRE(p_overlaps.path_chunks.front().first.second == rev_mp_aln.sequence().end());
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping_size() == 4);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(0).position().node_id() == graph.get_id(h5));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(0).position().is_reverse() == true);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(0).position().offset() == 1);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(1).position().node_id() == graph.get_id(h4));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(1).position().is_reverse() == true);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(1).position().offset() == 0);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(2).position().node_id() == graph.get_id(h2));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(2).position().is_reverse() == true);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(2).position().offset() == 0);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(3).position().node_id() == graph.get_id(h1));
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(3).position().is_reverse() == true);
+        REQUIRE(p_overlaps.path_chunks.front().second.mapping(3).position().offset() == 0);
         
         REQUIRE(p_overlaps.ref_chunks.size() == 1);
         REQUIRE(p_overlaps.ref_chunks.front().first == st3);
@@ -426,11 +423,8 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     
     SECTION("Connections break segments and are recorded correctly") {
         
-        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
-        
         auto overlaps = surjector.extract_overlapping_paths(&pos_graph, mp_aln,
-                                                            surjection_paths,
-                                                            connections);
+                                                            surjection_paths);
         
         auto fp = make_pair(p, false);
         
@@ -439,27 +433,24 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
         
         auto& p_overlaps = overlaps[fp];
         
-        REQUIRE(p_overlaps.aln_chunks.size() == 5);
+        REQUIRE(p_overlaps.path_chunks.size() == 5);
         REQUIRE(p_overlaps.ref_chunks.size() == 5);
         
-        REQUIRE(connections.size() == 1);
-        REQUIRE(connections.count(fp));
-        
-        auto& p_connections = connections[fp];
+        auto& p_connections = p_overlaps.connections;
         
         REQUIRE(p_connections.size() == 2);
         
         for (auto& connection : p_connections) {
             if (get<2>(connection) == -2) {
-                REQUIRE(p_overlaps.aln_chunks[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h1));
-                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
-                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().offset() == 0);
+                REQUIRE(p_overlaps.path_chunks[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h1));
+                REQUIRE(p_overlaps.path_chunks[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
+                REQUIRE(p_overlaps.path_chunks[get<1>(connection)].second.mapping(0).position().offset() == 0);
 
             }
             else if (get<2>(connection) == -1) {
-                REQUIRE(p_overlaps.aln_chunks[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h2));
-                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
-                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().offset() == 1);
+                REQUIRE(p_overlaps.path_chunks[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h2));
+                REQUIRE(p_overlaps.path_chunks[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
+                REQUIRE(p_overlaps.path_chunks[get<1>(connection)].second.mapping(0).position().offset() == 1);
             }
             else {
                 REQUIRE(false);
@@ -798,17 +789,18 @@ TEST_CASE("Duplicate path chunks can be detected", "[surject][multipath]") {
     
     bdsg::PositionOverlay pos_graph(&graph);
     TestSurjector surjector(&pos_graph);
+
+    TestSurjector::SurjectionRecord record;
+    vector<Surjector::path_chunk_t>& path_chunks = record.path_chunks;
+    path_chunks = {chunk1, chunk2, chunk3, chunk4};
     
-    vector<Surjector::path_chunk_t> path_chunks{chunk1, chunk2, chunk3, chunk4};
-    vector<pair<step_handle_t, step_handle_t>> ref_chunks;
+    vector<pair<step_handle_t, step_handle_t>>& ref_chunks = record.ref_chunks;
     ref_chunks.emplace_back(s1, s2);
     ref_chunks.emplace_back(s1, s1);
     ref_chunks.emplace_back(s2, s2);
     ref_chunks.emplace_back(s3, s4);
     
-    vector<tuple<size_t, size_t, int32_t>> connections;
-    
-    surjector.filter_redundant_path_chunks(false, path_chunks, ref_chunks, connections);
+    surjector.filter_redundant_path_chunks(false, record);
     
     REQUIRE(ref_chunks.size() == path_chunks.size());
     REQUIRE(path_chunks.size() == 2);

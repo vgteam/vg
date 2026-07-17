@@ -293,17 +293,14 @@ using namespace std;
         MemoizingGraph memoizing_graph(graph);
         
         // get the chunks of the aligned path that overlap the ref path
-        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
         auto path_overlapping_anchors = source_aln ? extract_overlapping_paths(&memoizing_graph, *source_aln, paths)
-                                                   : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
-                                                                               paths, connections);
+                                                   : extract_overlapping_paths(&memoizing_graph, *source_mp_aln, paths);
         
         if (source_mp_aln) {
             // the multipath alignment anchor algorithm can produce redundant paths if
             // the alignment's graph is not parsimonious, so we filter the shorter ones out
             for (pair<const pair<path_handle_t, bool>, SurjectionRecord>& path_chunk_record : path_overlapping_anchors) {
-                filter_redundant_path_chunks(path_chunk_record.first.second, path_chunk_record.second.path_chunks, path_chunk_record.second.ref_chunks,
-                                             connections[path_chunk_record.first]);
+                filter_redundant_path_chunks(path_chunk_record.first.second, path_chunk_record.second);
             }
         }
         
@@ -329,9 +326,9 @@ using namespace std;
                 cerr << "\tpath interval " << graph->get_position_of_step(surjection_record.ref_chunks[i].first) << " - " << graph->get_position_of_step(surjection_record.ref_chunks[i].second) << endl;
                 cerr << "\t" << debug_string(anchor.second) << endl;
             }
-            if (connections.count(path_strand)) {
+            if (!surjection_record.connections.empty()) {
                 cerr << "\tconnections" << endl;
-                for (const auto& connection : connections[path_strand]) {
+                for (const auto& connection : surjection_record.connections) {
                     cerr << "\t\t" << get<0>(connection) << " -> " << get<1>(connection) << " (" << get<2>(connection) << ")" << endl;
                 }
             }
@@ -372,8 +369,7 @@ using namespace std;
                 // spliced GAM -> GAM surjection
                 auto surjections = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
                                                    source_aln->mapping_quality(), path_strand.first, path_strand.second,
-                                                   surjection_record.path_chunks, surjection_record.ref_chunks,
-                                                   connections[path_strand],
+                                                   surjection_record,
                                                    allow_negative_scores, preserve_deletions);
 
                 // get rid of unmapped
@@ -399,8 +395,7 @@ using namespace std;
                 auto surjections = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
                                                    source_mp_aln->quality(), source_mp_aln->mapping_quality(),
                                                    path_strand.first, path_strand.second,
-                                                   surjection_record.path_chunks, surjection_record.ref_chunks,
-                                                   connections[path_strand],
+                                                   surjection_record,
                                                    allow_negative_scores, preserve_deletions);
                 
                 // get rid of unmapped
@@ -735,10 +730,12 @@ using namespace std;
 
     vector<vector<size_t>> Surjector::remove_dominated_chunks(const string& src_sequence,
                                                               const vector<vector<size_t>>& adj,
-                                                              vector<path_chunk_t>& path_chunks,
-                                                              vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                                              vector<tuple<size_t, size_t, int32_t>>& connections) const {
+                                                              SurjectionRecord& surjection_record) const {
         
+        auto& path_chunks = surjection_record.path_chunks;
+        auto& ref_chunks = surjection_record.ref_chunks;
+        auto& connections = surjection_record.connections;
+
         // this is an easy way to ensure that all adjacency lists are ordered by index
         auto rev_adj = reverse_adjacencies(adj);
         auto fwd_adj = reverse_adjacencies(rev_adj);
@@ -1029,9 +1026,11 @@ using namespace std;
     vector<pair<vector<size_t>, vector<size_t>>> Surjector::find_constriction_bicliques(const vector<vector<size_t>>& adj,
                                                                                         const string& src_sequence,
                                                                                         const string& src_quality,
-                                                                                        vector<path_chunk_t>& path_chunks,
-                                                                                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                                                                        const vector<tuple<size_t, size_t, int32_t>>& connections) const {
+                                                                                        SurjectionRecord& surjection_record) const {
+
+        auto& path_chunks = surjection_record.path_chunks;
+        auto& ref_chunks = surjection_record.ref_chunks;
+        auto& connections = surjection_record.connections;
         
         auto connected_by_edge = [&](size_t i, size_t j) {
             const auto& final_mapping = *path_chunks[i].second.mapping().rbegin();
@@ -1893,9 +1892,11 @@ using namespace std;
         return return_val;
     }
 
-    void Surjector::cut_anchors(bool rev_strand, vector<path_chunk_t>& path_chunks,
-                                vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                vector<tuple<size_t, size_t, int32_t>>& connections) const {
+    void Surjector::cut_anchors(bool rev_strand, SurjectionRecord& surjection_record) const {
+
+        auto& path_chunks = surjection_record.path_chunks;
+        auto& ref_chunks = surjection_record.ref_chunks;
+        auto& connections = surjection_record.connections;
         
         // TODO: this is very repetitive with the similar function in the main spliced surject
         
@@ -2090,9 +2091,12 @@ using namespace std;
     }
 
     void Surjector::downsample_chunks(const string& src_sequence,
-                                      vector<path_chunk_t>& path_chunks,
-                                      vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                      vector<tuple<size_t, size_t, int32_t>>& connections) const {
+                                      SurjectionRecord& surjection_record) const {
+
+        auto& path_chunks = surjection_record.path_chunks;
+        auto& ref_chunks = surjection_record.ref_chunks;
+        auto& connections = surjection_record.connections;
+
         int64_t total_cov = 0;
         for (const auto& chunk : path_chunks) {
             total_cov += chunk.first.second - chunk.first.first;
@@ -2188,10 +2192,12 @@ using namespace std;
                                const string& src_sequence, const string& src_quality,
                                const int32_t src_mapping_quality,
                                const path_handle_t& path_handle, bool rev_strand,
-                               vector<path_chunk_t>& path_chunks,
-                               vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                               vector<tuple<size_t, size_t, int32_t>>& connections,
+                               SurjectionRecord& surjection_record,
                                bool allow_negative_scores, bool deletions_as_splices) const {
+
+        auto& path_chunks = surjection_record.path_chunks;
+        auto& ref_chunks = surjection_record.ref_chunks;
+        auto& connections = surjection_record.connections;
                 
 #ifdef debug_spliced_surject
         cerr << "doing spliced/multipath surject on path " << graph->get_path_name(path_handle) << endl;
@@ -2312,13 +2318,13 @@ using namespace std;
         cerr << "checking for need to downsample chunks" << endl;
 #endif
         
-        downsample_chunks(src_sequence, path_chunks, ref_chunks, connections);
+        downsample_chunks(src_sequence, surjection_record);
         
 #ifdef debug_spliced_surject
         cerr << "checking for need to cut anchors" << endl;
 #endif
         
-        cut_anchors(rev_strand, path_chunks, ref_chunks, connections);
+        cut_anchors(rev_strand, surjection_record);
         
         
 #ifdef debug_spliced_surject
@@ -2371,7 +2377,7 @@ using namespace std;
         cerr << "removing dominated path chunks" << endl;
 #endif
         
-        colinear_adj_red = remove_dominated_chunks(src_sequence, colinear_adj_red, path_chunks, ref_chunks, connections);
+        colinear_adj_red = remove_dominated_chunks(src_sequence, colinear_adj_red, surjection_record);
         
 #ifdef debug_spliced_surject
         cerr << "with dominated chunks removed:" << endl;
@@ -2480,8 +2486,7 @@ using namespace std;
                 
                 // find bicliques that constrict the colinearity graph
                 auto constrictions = find_constriction_bicliques(colinear_adj_red, src_sequence,
-                                                                 src_quality, path_chunks,
-                                                                 ref_chunks, connections);
+                                                                 src_quality, surjection_record);
                 
 #ifdef debug_spliced_surject
                 cerr << "found " << constrictions.size() << " constriction bicliques:" << endl;
@@ -3798,8 +3803,7 @@ using namespace std;
     unordered_map<pair<path_handle_t, bool>, Surjector::SurjectionRecord>
     Surjector::extract_overlapping_paths(const PathPositionHandleGraph* graph,
                                          const multipath_alignment_t& source,
-                                         const unordered_set<path_handle_t>& surjection_paths,
-                                         unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const {
+                                         const unordered_set<path_handle_t>& surjection_paths) const {
         
         unordered_map<pair<path_handle_t, bool>, SurjectionRecord> to_return;
         
@@ -3976,8 +3980,11 @@ using namespace std;
                                             }
                                             
                                             if (dist >= 0) {
-                                                connections_out[path_strand].emplace_back(source_idx, section_record.path_chunks.size() - 1,
-                                                                                          c.second);
+                                                to_return[path_strand].connections.emplace_back(
+                                                    source_idx,
+                                                    section_record.path_chunks.size() - 1,
+                                                    c.second
+                                                );
                                             }
                                         }
                                     }
@@ -4266,9 +4273,11 @@ using namespace std;
         return to_return;
     }
 
-    void Surjector::filter_redundant_path_chunks(bool path_rev, vector<path_chunk_t>& path_chunks,
-                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                                                 vector<tuple<size_t, size_t, int32_t>>& connections) const {
+    void Surjector::filter_redundant_path_chunks(bool path_rev, SurjectionRecord& surjection_record) const {
+
+        auto& path_chunks = surjection_record.path_chunks;
+        auto& ref_chunks = surjection_record.ref_chunks;
+        auto& connections = surjection_record.connections;
         
         
 #ifdef debug_filter_paths
