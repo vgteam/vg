@@ -1112,29 +1112,8 @@ clean: clean-vcflib
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
 	$(RM) -r share/
-	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
-	cd $(DEP_DIR) && cd tabixpp && rm -f tabix.o libtabixpp.a
-	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
-	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean || true
-	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
-	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
-	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean
-	cd $(DEP_DIR) && cd kff-cpp-api && rm -Rf build
-	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
-	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
-	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
-	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
-	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
-	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
-	cd $(DEP_DIR) && cd structures && $(MAKE) clean
-	cd $(DEP_DIR) && cd mimalloc && rm -Rf build CMakeCache.txt CMakeFiles
-	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean || true
-	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
-	cd $(DEP_DIR) && cd libhandlegraph && rm -Rf build CMakeCache.txt CMakeFiles
-	cd $(DEP_DIR) && cd libvgio && rm -Rf build CMakeCache.txt CMakeFiles
-	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
-	# lru_cache is never built because it is header-only
-	# bash-tap is never built either
+	$(RM) -r $(DEP_DIR)
+	git submodule update --recursive
 
 clean-vcflib:
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean

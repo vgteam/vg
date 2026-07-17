@@ -204,12 +204,12 @@ So, after migrating to an ARM Mac using e.g. Apple's migration tools:
 2. Uninstall Homebrew and its packages, if they were migrated. Similarly, only an ARM Homebrew install will work.
 3. Reinstall one of MacPorts or Homebrew. Make sure to use the M1 or ARM version.
 4. Use the package manager you installed to install system dependencies of vg, such as CMake, [as documented above](#mac-install-dependencies).
-5. Clean vg with `make clean`. This *should* remove all build artefacts.
+5. Clean vg with `make clean`.
 6. Build vg again with `make`.
 
-If you still experience build problems after this, delete the whole checkout and check out the code again; `make clean` is not under CI test and is not always up to date with the rest of the build system.
+If you still experience build problems after this, delete the whole checkout and check out the code again.
 
-Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build or fix `make clean`.
+Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build.
 
 ## Usage
 
