@@ -333,26 +333,26 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
         
         auto& p_overlaps = overlaps[fp];
         
-        REQUIRE(p_overlaps.first.size() == 1);
-        REQUIRE(p_overlaps.first.front().first.first == mp_aln.sequence().begin());
-        REQUIRE(p_overlaps.first.front().first.second == mp_aln.sequence().end());
-        REQUIRE(p_overlaps.first.front().second.mapping_size() == 4);
-        REQUIRE(p_overlaps.first.front().second.mapping(0).position().node_id() == graph.get_id(h1));
-        REQUIRE(p_overlaps.first.front().second.mapping(0).position().is_reverse() == false);
-        REQUIRE(p_overlaps.first.front().second.mapping(0).position().offset() == 2);
-        REQUIRE(p_overlaps.first.front().second.mapping(1).position().node_id() == graph.get_id(h2));
-        REQUIRE(p_overlaps.first.front().second.mapping(1).position().is_reverse() == false);
-        REQUIRE(p_overlaps.first.front().second.mapping(1).position().offset() == 0);
-        REQUIRE(p_overlaps.first.front().second.mapping(2).position().node_id() == graph.get_id(h4));
-        REQUIRE(p_overlaps.first.front().second.mapping(2).position().is_reverse() == false);
-        REQUIRE(p_overlaps.first.front().second.mapping(2).position().offset() == 0);
-        REQUIRE(p_overlaps.first.front().second.mapping(3).position().node_id() == graph.get_id(h5));
-        REQUIRE(p_overlaps.first.front().second.mapping(3).position().is_reverse() == false);
-        REQUIRE(p_overlaps.first.front().second.mapping(3).position().offset() == 0);
+        REQUIRE(p_overlaps.aln_chunks.size() == 1);
+        REQUIRE(p_overlaps.aln_chunks.front().first.first == mp_aln.sequence().begin());
+        REQUIRE(p_overlaps.aln_chunks.front().first.second == mp_aln.sequence().end());
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping_size() == 4);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().node_id() == graph.get_id(h1));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().is_reverse() == false);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().offset() == 2);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().node_id() == graph.get_id(h2));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().is_reverse() == false);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().offset() == 0);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().node_id() == graph.get_id(h4));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().is_reverse() == false);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().offset() == 0);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().node_id() == graph.get_id(h5));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().is_reverse() == false);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().offset() == 0);
         
-        REQUIRE(p_overlaps.second.size() == 1);
-        REQUIRE(p_overlaps.second.front().first == st0);
-        REQUIRE(p_overlaps.second.front().second == st3);
+        REQUIRE(p_overlaps.ref_chunks.size() == 1);
+        REQUIRE(p_overlaps.ref_chunks.front().first == st0);
+        REQUIRE(p_overlaps.ref_chunks.front().second == st3);
     }
     
     SECTION("Reverse strand of path"){
@@ -374,26 +374,26 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
         
         auto& p_overlaps = overlaps[rp];
         
-        REQUIRE(p_overlaps.first.size() == 1);
-        REQUIRE(p_overlaps.first.front().first.first == rev_mp_aln.sequence().begin());
-        REQUIRE(p_overlaps.first.front().first.second == rev_mp_aln.sequence().end());
-        REQUIRE(p_overlaps.first.front().second.mapping_size() == 4);
-        REQUIRE(p_overlaps.first.front().second.mapping(0).position().node_id() == graph.get_id(h5));
-        REQUIRE(p_overlaps.first.front().second.mapping(0).position().is_reverse() == true);
-        REQUIRE(p_overlaps.first.front().second.mapping(0).position().offset() == 1);
-        REQUIRE(p_overlaps.first.front().second.mapping(1).position().node_id() == graph.get_id(h4));
-        REQUIRE(p_overlaps.first.front().second.mapping(1).position().is_reverse() == true);
-        REQUIRE(p_overlaps.first.front().second.mapping(1).position().offset() == 0);
-        REQUIRE(p_overlaps.first.front().second.mapping(2).position().node_id() == graph.get_id(h2));
-        REQUIRE(p_overlaps.first.front().second.mapping(2).position().is_reverse() == true);
-        REQUIRE(p_overlaps.first.front().second.mapping(2).position().offset() == 0);
-        REQUIRE(p_overlaps.first.front().second.mapping(3).position().node_id() == graph.get_id(h1));
-        REQUIRE(p_overlaps.first.front().second.mapping(3).position().is_reverse() == true);
-        REQUIRE(p_overlaps.first.front().second.mapping(3).position().offset() == 0);
+        REQUIRE(p_overlaps.aln_chunks.size() == 1);
+        REQUIRE(p_overlaps.aln_chunks.front().first.first == rev_mp_aln.sequence().begin());
+        REQUIRE(p_overlaps.aln_chunks.front().first.second == rev_mp_aln.sequence().end());
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping_size() == 4);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().node_id() == graph.get_id(h5));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().is_reverse() == true);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(0).position().offset() == 1);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().node_id() == graph.get_id(h4));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().is_reverse() == true);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(1).position().offset() == 0);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().node_id() == graph.get_id(h2));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().is_reverse() == true);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(2).position().offset() == 0);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().node_id() == graph.get_id(h1));
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().is_reverse() == true);
+        REQUIRE(p_overlaps.aln_chunks.front().second.mapping(3).position().offset() == 0);
         
-        REQUIRE(p_overlaps.second.size() == 1);
-        REQUIRE(p_overlaps.second.front().first == st3);
-        REQUIRE(p_overlaps.second.front().second == st0);
+        REQUIRE(p_overlaps.ref_chunks.size() == 1);
+        REQUIRE(p_overlaps.ref_chunks.front().first == st3);
+        REQUIRE(p_overlaps.ref_chunks.front().second == st0);
     }
     
     //ATTAGACGCA
@@ -439,8 +439,8 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
         
         auto& p_overlaps = overlaps[fp];
         
-        REQUIRE(p_overlaps.first.size() == 5);
-        REQUIRE(p_overlaps.second.size() == 5);
+        REQUIRE(p_overlaps.aln_chunks.size() == 5);
+        REQUIRE(p_overlaps.ref_chunks.size() == 5);
         
         REQUIRE(connections.size() == 1);
         REQUIRE(connections.count(fp));
@@ -451,15 +451,15 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
         
         for (auto& connection : p_connections) {
             if (get<2>(connection) == -2) {
-                REQUIRE(p_overlaps.first[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h1));
-                REQUIRE(p_overlaps.first[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
-                REQUIRE(p_overlaps.first[get<1>(connection)].second.mapping(0).position().offset() == 0);
+                REQUIRE(p_overlaps.aln_chunks[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h1));
+                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
+                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().offset() == 0);
 
             }
             else if (get<2>(connection) == -1) {
-                REQUIRE(p_overlaps.first[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h2));
-                REQUIRE(p_overlaps.first[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
-                REQUIRE(p_overlaps.first[get<1>(connection)].second.mapping(0).position().offset() == 1);
+                REQUIRE(p_overlaps.aln_chunks[get<0>(connection)].second.mapping(0).position().node_id() == graph.get_id(h2));
+                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().node_id() == graph.get_id(h6));
+                REQUIRE(p_overlaps.aln_chunks[get<1>(connection)].second.mapping(0).position().offset() == 1);
             }
             else {
                 REQUIRE(false);

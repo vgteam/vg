@@ -92,6 +92,7 @@ using namespace std;
                                               bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
+        ///
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
 
         /// When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own Aligner
@@ -235,18 +236,32 @@ using namespace std;
         // Support methods for the realigning surject algorithm
         ///////////////////////
         
+
+        /// Represents the overlaps against a particular path-strand.
+        /// Intended to live in a map keyed by path-strand.
+        /// TODO: Is there a bette rname for this?
+        struct SurjectionRecord {
+            /// All the read intervals and their alignment paths.
+            ///
+            vector<path_chunk_t> aln_chunks;
+            /// All the corresponding intervals along the target path-strand.
+            /// Note that these step handles don't track your orientation relative to the path.
+            vector<pair<step_handle_t, step_handle_t>> ref_chunks;
+        };
+
+        
         /// Get the chunks of the alignment path that follow the given
         /// reference paths.
         ///
         /// Returns a map from path strand to a vector of the alignment pieces
         /// (as path chunks) and one of the corresponding regions along the
         /// target path (as step handles). 
-        unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+        unordered_map<pair<path_handle_t, bool>, SurjectionRecord>
         extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
                                   const unordered_set<path_handle_t>& surjection_paths) const;
         
         /// same semantics except for a multipath alignment
-        unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+        unordered_map<pair<path_handle_t, bool>, SurjectionRecord>
         extract_overlapping_paths(const PathPositionHandleGraph* graph,
                                   const multipath_alignment_t& source,
                                   const unordered_set<path_handle_t>& surjection_paths,

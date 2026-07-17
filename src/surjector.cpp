@@ -301,19 +301,21 @@ using namespace std;
         if (source_mp_aln) {
             // the multipath alignment anchor algorithm can produce redundant paths if
             // the alignment's graph is not parsimonious, so we filter the shorter ones out
-            for (pair<const pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& path_chunk_record : path_overlapping_anchors) {
-                filter_redundant_path_chunks(path_chunk_record.first.second, path_chunk_record.second.first, path_chunk_record.second.second,
+            for (pair<const pair<path_handle_t, bool>, SurjectionRecord>& path_chunk_record : path_overlapping_anchors) {
+                filter_redundant_path_chunks(path_chunk_record.first.second, path_chunk_record.second.aln_chunks, path_chunk_record.second.ref_chunks,
                                              connections[path_chunk_record.first]);
             }
         }
         
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;
-        for (const auto& surjection_record : path_overlapping_anchors) {
-            cerr << "path " << graph->get_path_name(surjection_record.first.first) << ", rev? " << surjection_record.first.second << endl;
+        for (const auto& surjection_entry : path_overlapping_anchors) {
+            const auto& path_strand = surjection_entry.first;
+            const auto& surjection_record = surjection_entry.second;
+            cerr << "path " << graph->get_path_name(path_strand.first) << ", rev? " << path_strand.second << endl;
             
-            for (size_t i = 0; i < surjection_record.second.first.size(); ++i) {
-                auto& anchor = surjection_record.second.first[i];
+            for (size_t i = 0; i < surjection_record.aln_chunks.size(); ++i) {
+                auto& anchor = surjection_record.aln_chunks[i];
                 if (source_aln) {
                     cerr << "\tread[" << (anchor.first.first - source_aln->sequence().begin()) << ":" << (anchor.first.second - source_aln->sequence().begin()) << "] : ";
                 }
@@ -324,12 +326,12 @@ using namespace std;
                     cerr << *iter;
                 }
                 cerr << endl;
-                cerr << "\tpath interval " << graph->get_position_of_step(surjection_record.second.second[i].first) << " - " << graph->get_position_of_step(surjection_record.second.second[i].second) << endl;
+                cerr << "\tpath interval " << graph->get_position_of_step(surjection_record.ref_chunks[i].first) << " - " << graph->get_position_of_step(surjection_record.ref_chunks[i].second) << endl;
                 cerr << "\t" << debug_string(anchor.second) << endl;
             }
-            if (connections.count(surjection_record.first)) {
+            if (connections.count(path_strand)) {
                 cerr << "\tconnections" << endl;
-                for (const auto& connection : connections[surjection_record.first]) {
+                for (const auto& connection : connections[path_strand]) {
                     cerr << "\t\t" << get<0>(connection) << " -> " << get<1>(connection) << " (" << get<2>(connection) << ")" << endl;
                 }
             }
@@ -340,19 +342,21 @@ using namespace std;
         // low complexity sequences
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
             prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
-                                   it->second.first, it->second.second);
+                                   it->second.aln_chunks, it->second.ref_chunks);
         }
         
         // the surjected alignment for each path we overlapped
         unordered_map<pair<path_handle_t, bool>, vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>> aln_surjections;
         unordered_map<pair<path_handle_t, bool>, vector<pair<multipath_alignment_t, pair<step_handle_t, step_handle_t>>>> mp_aln_surjections;
-        for (pair<const pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& surj_record : path_overlapping_anchors) {
+        for (pair<const pair<path_handle_t, bool>, SurjectionRecord>& surj_entry : path_overlapping_anchors) {
+            auto& path_strand = surj_entry.first;
+            auto& surjection_record = surj_entry.second;
             
             // to hold the path interval that corresponds to the path we surject to
             if (!preserve_deletions && source_aln) {
                 // unspliced GAM -> GAM surjection
-                auto surjections = realigning_surject(&memoizing_graph, *source_aln, surj_record.first.first, surj_record.first.second,
-                                                      surj_record.second.first, surj_record.second.second, allow_negative_scores);
+                auto surjections = realigning_surject(&memoizing_graph, *source_aln, path_strand.first, path_strand.second,
+                                                      surjection_record.aln_chunks, surjection_record.ref_chunks, allow_negative_scores);
                 // get rid of unmapped
                 surjections.resize(remove_if(surjections.begin(), surjections.end(),
                                              [](const decltype(surjections)::value_type& surj) {
@@ -361,15 +365,15 @@ using namespace std;
                 
                 if (!surjections.empty()) {
                     choose_primary(surjections);
-                    aln_surjections[surj_record.first] = std::move(surjections);
+                    aln_surjections[path_strand] = std::move(surjections);
                 }
             }
             else if (source_aln) {
                 // spliced GAM -> GAM surjection
                 auto surjections = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
-                                                   source_aln->mapping_quality(), surj_record.first.first, surj_record.first.second,
-                                                   surj_record.second.first, surj_record.second.second,
-                                                   connections[surj_record.first],
+                                                   source_aln->mapping_quality(), path_strand.first, path_strand.second,
+                                                   surjection_record.aln_chunks, surjection_record.ref_chunks,
+                                                   connections[path_strand],
                                                    allow_negative_scores, preserve_deletions);
 
                 // get rid of unmapped
@@ -381,11 +385,11 @@ using namespace std;
                 if (!surjections.empty()) {
                     // this internal method is written for multipath alignments, so we need to convert to standard alignments
                     for (const auto& surjection : surjections) {
-                        aln_surjections[surj_record.first].emplace_back(Alignment(), surjection.second);
-                        optimal_alignment(surjection.first, aln_surjections[surj_record.first].back().first, allow_negative_scores);
-                        transfer_read_metadata(*source_aln, aln_surjections[surj_record.first].back().first);
+                        aln_surjections[path_strand].emplace_back(Alignment(), surjection.second);
+                        optimal_alignment(surjection.first, aln_surjections[path_strand].back().first, allow_negative_scores);
+                        transfer_read_metadata(*source_aln, aln_surjections[path_strand].back().first);
                     }
-                    choose_primary(aln_surjections[surj_record.first]);
+                    choose_primary(aln_surjections[path_strand]);
                 }
 
             }
@@ -394,9 +398,9 @@ using namespace std;
                 // doing spliced alignment)
                 auto surjections = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
                                                    source_mp_aln->quality(), source_mp_aln->mapping_quality(),
-                                                   surj_record.first.first, surj_record.first.second,
-                                                   surj_record.second.first, surj_record.second.second,
-                                                   connections[surj_record.first],
+                                                   path_strand.first, path_strand.second,
+                                                   surjection_record.aln_chunks, surjection_record.ref_chunks,
+                                                   connections[path_strand],
                                                    allow_negative_scores, preserve_deletions);
                 
                 // get rid of unmapped
@@ -416,7 +420,7 @@ using namespace std;
                     choose_primary(surjections);
                     
                     // record the result for this path
-                    mp_aln_surjections[surj_record.first] = std::move(surjections);
+                    mp_aln_surjections[path_strand] = std::move(surjections);
                 }
             }
         }
@@ -3791,13 +3795,13 @@ using namespace std;
         return surjected;
     }
 
-    unordered_map<pair<path_handle_t, bool>, pair<vector<Surjector::path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+    unordered_map<pair<path_handle_t, bool>, Surjector::SurjectionRecord>
     Surjector::extract_overlapping_paths(const PathPositionHandleGraph* graph,
                                          const multipath_alignment_t& source,
                                          const unordered_set<path_handle_t>& surjection_paths,
                                          unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const {
         
-        unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>> to_return;
+        unordered_map<pair<path_handle_t, bool>, SurjectionRecord> to_return;
         
         // reverse the connection edges for easy backwards lookup
         vector<vector<pair<size_t, int32_t>>> rev_connections(source.subpath_size());
@@ -3889,14 +3893,14 @@ using namespace std;
                                 
                                 if (m_idx + 1 == path_here.mapping_size() && !subpath_here.connection().empty()) {
                                     // record that connections leave this patch chunk
-                                    connection_sources[make_tuple(path_handle, path_strand.second, s_idx)].push_back(section_record.first.size());
+                                    connection_sources[make_tuple(path_handle, path_strand.second, s_idx)].push_back(section_record.aln_chunks.size());
                                 }
                                 
                                 // the interval of steps
-                                section_record.second.emplace_back(get<3>(stack.front()), get<3>(stack.back()));
+                                section_record.ref_chunks.emplace_back(get<3>(stack.front()), get<3>(stack.back()));
                                 
-                                section_record.first.emplace_back();
-                                auto& chunk = section_record.first.back();
+                                section_record.aln_chunks.emplace_back();
+                                auto& chunk = section_record.aln_chunks.back();
                                 
                                 // the aligned path
                                 auto& path_chunk = chunk.second;
@@ -3949,10 +3953,10 @@ using namespace std;
                                         for (auto source_idx : connection_sources[make_tuple(path_handle, path_strand.second, c.first)]) {
                                             
                                             // compute the distance along the path
-                                            pos_t pos1 = final_position(section_record.first[source_idx].second);
-                                            pos_t pos2 = initial_position(section_record.first.back().second);
-                                            step_handle_t step1 = section_record.second[source_idx].second;
-                                            step_handle_t step2 = section_record.second.back().first;
+                                            pos_t pos1 = final_position(section_record.aln_chunks[source_idx].second);
+                                            pos_t pos2 = initial_position(section_record.aln_chunks.back().second);
+                                            step_handle_t step1 = section_record.ref_chunks[source_idx].second;
+                                            step_handle_t step2 = section_record.ref_chunks.back().first;
                                             int64_t dist;
                                             if (path_strand.second) {
                                                 // reverse strand of path
@@ -3972,7 +3976,7 @@ using namespace std;
                                             }
                                             
                                             if (dist >= 0) {
-                                                connections_out[path_strand].emplace_back(source_idx, section_record.first.size() - 1,
+                                                connections_out[path_strand].emplace_back(source_idx, section_record.aln_chunks.size() - 1,
                                                                                           c.second);
                                             }
                                         }
@@ -4105,11 +4109,11 @@ using namespace std;
         return to_return;
     }
     
-    unordered_map<pair<path_handle_t, bool>, pair<vector<Surjector::path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+    unordered_map<pair<path_handle_t, bool>, Surjector::SurjectionRecord>
     Surjector::extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
                                          const unordered_set<path_handle_t>& surjection_paths) const {
         
-        unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>> to_return;
+        unordered_map<pair<path_handle_t, bool>, SurjectionRecord> to_return;
         
         const Path& path = source.path();
         
@@ -4174,9 +4178,9 @@ using namespace std;
                 auto it = next_fwd_extending_steps.find(next_step);
                 if (it != next_fwd_extending_steps.end()) {
                     it->second.first = extending_step.second.first;
-                    auto& path_chunks = to_return[make_pair(it->second.second, false)];
-                    auto& aln_chunk = path_chunks.first[extending_step.second.first];
-                    auto& ref_chunk = path_chunks.second[extending_step.second.first];
+                    auto& surjection_record = to_return[make_pair(it->second.second, false)];
+                    auto& aln_chunk = surjection_record.aln_chunks[extending_step.second.first];
+                    auto& ref_chunk = surjection_record.ref_chunks[extending_step.second.first];
                     
                     // extend the range of the path on the reference
                     ref_chunk.second = it->first;
@@ -4190,14 +4194,14 @@ using namespace std;
             for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_fwd_extending_steps) {
                 if (extended_step.second.first == numeric_limits<size_t>::max()) {
                     
-                    auto& path_chunks = to_return[make_pair(extended_step.second.second, false)];
+                    auto& surjection_record = to_return[make_pair(extended_step.second.second, false)];
                     
-                    extended_step.second.first = path_chunks.first.size();
+                    extended_step.second.first = surjection_record.aln_chunks.size();
                     
-                    path_chunks.first.emplace_back();
-                    path_chunks.second.emplace_back();
-                    auto& aln_chunk = path_chunks.first.back();
-                    auto& ref_chunk = path_chunks.second.back();
+                    surjection_record.aln_chunks.emplace_back();
+                    surjection_record.ref_chunks.emplace_back();
+                    auto& aln_chunk = surjection_record.aln_chunks.back();
+                    auto& ref_chunk = surjection_record.ref_chunks.back();
                     // init the ref interval with the interval along the embedded path
                     ref_chunk.first = extended_step.first;
                     ref_chunk.second = extended_step.first;
@@ -4208,20 +4212,20 @@ using namespace std;
                     from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
                     
 #ifdef debug_anchored_surject
-                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding forward chunk, so start new chunk " << path_chunks.first.size() - 1 << endl;
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding forward chunk, so start new chunk " << surjection_record.aln_chunks.size() - 1 << endl;
 #endif
                 }
             }
             for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_rev_extending_steps) {
                 
-                auto& path_chunks = to_return[make_pair(extended_step.second.second, true)];
+                auto& surjection_record = to_return[make_pair(extended_step.second.second, true)];
                 
                 auto prev_step = graph->get_next_step(extended_step.first);
                 auto it = rev_extending_steps.find(prev_step);
                 if (it != rev_extending_steps.end()) {
                     extended_step.second.first = it->second.first;
-                    auto& aln_chunk = path_chunks.first[extended_step.second.first];
-                    auto& ref_chunk = path_chunks.second[extended_step.second.first];
+                    auto& aln_chunk = surjection_record.aln_chunks[extended_step.second.first];
+                    auto& ref_chunk = surjection_record.ref_chunks[extended_step.second.first];
                     
                     // extend the range of the path on the reference
                     ref_chunk.second = extended_step.first;
@@ -4231,12 +4235,12 @@ using namespace std;
                     from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
                 }
                 else {
-                    extended_step.second.first = path_chunks.first.size();
+                    extended_step.second.first = surjection_record.aln_chunks.size();
                     
-                    path_chunks.first.emplace_back();
-                    path_chunks.second.emplace_back();
-                    auto& aln_chunk = path_chunks.first.back();
-                    auto& ref_chunk = path_chunks.second.back();
+                    surjection_record.aln_chunks.emplace_back();
+                    surjection_record.ref_chunks.emplace_back();
+                    auto& aln_chunk = surjection_record.aln_chunks.back();
+                    auto& ref_chunk = surjection_record.ref_chunks.back();
                     // init the ref interval with the interval along the embedded path
                     ref_chunk.first = extended_step.first;
                     ref_chunk.second = extended_step.first;
@@ -4247,7 +4251,7 @@ using namespace std;
                     from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
                     
 #ifdef debug_anchored_surject
-                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding reverse chunk, so start new chunk " << path_chunks.first.size() - 1 << endl;
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding reverse chunk, so start new chunk " << surjection_record.aln_chunks.size() - 1 << endl;
 #endif
 
                 }
