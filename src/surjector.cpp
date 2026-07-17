@@ -2601,6 +2601,7 @@ using namespace std;
         }
 #endif
         
+        // TODO: path_chunks and ref_chunks will no longer line up with connections after this.
         prune_unconnectable(colinear_adj_red, splice_edges, constriction_comps, comp_groups,
                             path_chunks, ref_chunks);
         
