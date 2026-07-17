@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['mappingqualitymethod_14653',['MappingQualityMethod',['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39',1,'vg']]],
-  ['matrix_5ft_14654',['matrix_t',['../classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f',1,'vg::BandedGlobalAligner']]],
-  ['merge_5fmode_14655',['merge_mode',['../structGBWTConfig.html#a8a8cf3f78613e27997bd0c6377349b0f',1,'GBWTConfig']]],
-  ['mutablegraphimplementation_14656',['MutableGraphImplementation',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10',1,'vg::IndexingParameters']]]
+  ['mappingqualitymethod_14647',['MappingQualityMethod',['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39',1,'vg']]],
+  ['matrix_5ft_14648',['matrix_t',['../classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f',1,'vg::BandedGlobalAligner']]],
+  ['merge_5fmode_14649',['merge_mode',['../structGBWTConfig.html#a8a8cf3f78613e27997bd0c6377349b0f',1,'GBWTConfig']]],
+  ['mutablegraphimplementation_14650',['MutableGraphImplementation',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10',1,'vg::IndexingParameters']]]
 ];
