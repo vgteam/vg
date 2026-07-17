@@ -90,8 +90,10 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
-    REQUIRE(result.first == (9 + 9));
-    REQUIRE(result.second == std::vector<size_t>{0, 1});
+    REQUIRE(result.score == (9 + 9));
+    for (size_t i = 0; i < 2; i++) {
+        REQUIRE(result.anchors.at(i) == i);
+    }
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in graph correctly", "[chain_items][find_best_chain]") {
@@ -109,8 +111,10 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
     // TODO: why is this gap free under the current scoring?
-    REQUIRE(result.first == (9 + 9));
-    REQUIRE(result.second == std::vector<size_t>{0, 1});
+    REQUIRE(result.score == (9 + 9));
+    for (size_t i = 0; i < 2; i++) {
+        REQUIRE(result.anchors.at(i) == i);
+    }
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in read correctly", "[chain_items][find_best_chain]") {
@@ -128,8 +132,10 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
     // TODO: why is this gap free under the current scoring?
-    REQUIRE(result.first == (9 + 9));
-    REQUIRE(result.second == std::vector<size_t>{0, 1});
+    REQUIRE(result.score == (9 + 9));
+    for (size_t i = 0; i < 2; i++) {
+        REQUIRE(result.anchors.at(i) == i);
+    }
 }
 
 TEST_CASE("find_best_chain is willing to leave the main diagonal if the items suggest it", "[chain_items][find_best_chain]") {
@@ -151,7 +157,9 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
     // We should take all of the items in order and not be scared off by the indels.
-    REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
+    for (size_t i = 0; i < 4; i++) {
+        REQUIRE(result.anchors.at(i) == i);
+    }
 }
 
 }

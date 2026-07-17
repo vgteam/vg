@@ -143,7 +143,7 @@ class ZipCodeTree {
     public:
 
     /// The type of an item in the zip code tree
-    enum tree_item_type_t {SEED=0, CHAIN_START, CHAIN_END, EDGE, CHAIN_COUNT, SNARL_START, SNARL_END};
+    enum tree_item_type_t {SEED=0, CHAIN_START, CHAIN_END, EDGE, CHAIN_COUNT, SNARL_START, SNARL_END, LOOP};
 
     /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
@@ -153,7 +153,7 @@ class ZipCodeTree {
         tree_item_type_t type : 4;
 
         /// For a seed, the index into seeds
-        /// For an edge, the distance value
+        /// For an edge or loop, the distance value
         /// For a snarl or child chain bound, distance to the snarl start
         /// For example, (1 0 0 0 [seed]) would have 0 for the snarl start,
         /// 5 for the chain start, 7 for the chain end, and 8 for the snarl end
@@ -161,10 +161,14 @@ class ZipCodeTree {
 
         /// For a bound, how long the internal section is
         /// e.g. a chain with one seed would be "1"
-        size_t section_length : 59;
+        /// For a seed, how far its FORWARD loop is
+        /// i.e. how long the path is to leave forward and return backward
+        size_t extra_length : 59;
 
         /// For a seed, if we're walking through the tree from right to left
         /// (the default), will we traverse this position backwards?
+        /// For a loop, if this is a forward loop (placed to right of item)
+        /// or a reversed loop (placed to left of item)
         /// Or, for a bound is the snarl or parent snarl cyclic?
         /// Ignored for EDGE/CHAIN_COUNT and should be set to false
         bool is_reversed_or_cyclic;
@@ -185,7 +189,7 @@ class ZipCodeTree {
             : type(type), is_reversed_or_cyclic(is_reversed_or_cyclic) {
             set_value(raw_value);
             // Always default to max
-            section_length = internal_max();
+            extra_length = internal_max();
         }
         /// Constructor to set a "false" for is_reversed_or_cyclic
         tree_item_t (tree_item_type_t type, size_t raw_value) 
@@ -202,8 +206,12 @@ class ZipCodeTree {
                                                                       : new_value;
         }
         inline void set_section_length(size_t new_length) {
-            section_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
-                                                                                : new_length;
+            extra_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
+                                                                              : new_length;
+        }
+        inline void set_forward_loop_length(size_t new_length) {
+            extra_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
+                                                                              : new_length;
         }
         // Getters
         inline tree_item_type_t get_type() const { return type; }
@@ -215,8 +223,8 @@ class ZipCodeTree {
         /// Is this seed reversed in the tree? Uses is_reversed_or_cyclic
         /// Only call on a SEED
         inline bool get_is_reversed() const { 
-            if (this->type != ZipCodeTree::SEED) {
-                throw std::runtime_error("Can't get reversedness of a tree item that isn't a seed");
+            if (this->type != ZipCodeTree::SEED && this->type != ZipCodeTree::LOOP) {
+                throw std::runtime_error("Can't get reversedness of a tree item that isn't a seed or loop");
             }
             return is_reversed_or_cyclic;
         }
@@ -230,21 +238,25 @@ class ZipCodeTree {
             return is_reversed_or_cyclic;
         }
         inline size_t get_section_length() const { 
-            return section_length == internal_max() ? std::numeric_limits<size_t>::max()
-                                                    : section_length;
+            return extra_length == internal_max() ? std::numeric_limits<size_t>::max()
+                                                  : extra_length;
+        }
+        inline size_t get_forward_loop_length() const { 
+            return extra_length == internal_max() ? std::numeric_limits<size_t>::max()
+                                                  : extra_length;
         }
         /// What to add or subtract to this thing's index
         /// to get index of other bound
         inline int64_t get_other_bound_offset() const {
-            if (section_length == internal_max()) {
+            if (extra_length == internal_max()) {
                 throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
             }
             if (this->type == ZipCodeTree::SNARL_START
                 || this->type == ZipCodeTree::CHAIN_START) {
-                return section_length + 1;
+                return extra_length + 1;
             } else if (this->type == ZipCodeTree::SNARL_END
                        || this->type == ZipCodeTree::CHAIN_END) {
-                return -(section_length + 1);
+                return -(extra_length + 1);
             } else {
                 throw std::runtime_error("Can't get other bound offset of a tree item that isn't a bound");
             }
@@ -419,6 +431,16 @@ public:
         inline size_t get_index() const { return index; }
         inline bool get_right_to_left() const { return right_to_left; }
         inline stack<size_t> get_chain_numbers() const { return chain_numbers; }
+        /// The reversal loop distance that we take to start, or 0 otherwise
+        inline size_t get_extra_distance() const {
+            // Are we going backwards but not in a cyclic snarl?
+            if (cyclic_snarl_nestedness == 0 && !right_to_left) {
+                // We must've taken a reversal
+                return current_item().get_forward_loop_length();
+            } else {
+                return 0;
+            }
+        }
 
     private:
         /// A pointer to the ziptree vector to let us look up distance matrices.
@@ -475,12 +497,12 @@ public:
      * the stack state and index, to be restored later. Then, when the main
      * iterator hits the end, it can restore the saved state and continue.
      * 
-     * The iterator implements simple memorization of snarl exit distances. This
-     * is done for only cyclic snarls, as they are the only ones that literarlly
-     * turn one traversal into two via the exit-in-both-directions behavior.
+     * The iterator implements simple memorization of distances at key points.
+     * This is done for cyclic snarls and loops, as they literarlly turn one
+     * traversal into two by allowing exits in both directions.
      * Each time the iterator calculates the running distance to exit a cyclic
-     * snarl, it will check if it has ever seen a better or equal distance, and
-     * if so will pretend that the distance is infinite/unreachable.
+     * snarl or loop, it will check if it has ever seen a better or equal
+     * distance, and if so will pretend that the distance is infinite.
      */
     class distance_iterator {
     public:
@@ -488,7 +510,9 @@ public:
         /// going in the given direction, and with an optional distance limit
         distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
-                          std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
+                          size_t start_distance,
+                          std::stack<size_t> chain_numbers = std::stack<size_t>(),
+                          bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
         /// Make a reverse iterator from the given seed iterator
@@ -542,10 +566,10 @@ public:
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
         enum State {
-            S_START,
             S_SCAN_CHAIN,
             S_SCAN_DAG_SNARL,
-            S_SCAN_CYCLIC_SNARL
+            S_SCAN_CYCLIC_SNARL,
+            S_TAKE_LOOP
         };
 
     private:
@@ -559,9 +583,10 @@ public:
         bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>* zip_code_tree;
-        /// Best distance for each snarl exit we've seen
-        /// Stored as {snarl start index : (start dist, end dist)}
-        std::unordered_map<size_t, std::pair<size_t, size_t>> best_cyclic_snarl_exits;
+        /// Best distance for each cyclic snarl exit or loop we've seen
+        /// For cyclic snarls: {snarl start index : (start dist, end dist)}
+        /// For loops: {loop index : (right_to_left dist, left_to_right dist)}
+        std::unordered_map<size_t, std::pair<size_t, size_t>> best_so_far_distance_cache;
 
         /// A specific snapshot of the iterator's position
         /// which includes necessary state information (e.g. stack)
@@ -611,6 +636,9 @@ public:
         /// as the current one, e.g. using an edge C1_R -> SNARL_START
         void save_opposite_cyclic_snarl_exit(size_t chain_num);
 
+        /// Save a traversal taking a loop (i.e. turning around)
+        void save_loop_traversal();
+        
         /// Shift the current index & item
         inline void shift_index_by(int shift) {
             current_item += shift;
@@ -906,97 +934,8 @@ class ZipCodeForest {
     //////////
     ////////////////////////////////////////////////////
 
-    /// Structs which need to be declared for forest_growing_state_t
-    /// See definitions later
-    struct interval_state_t;
-    struct sort_value_t;
-    struct child_info_t;
-
-    /// This stores information about the state of the forest as we fill it in
-    struct forest_growing_state_t {
-        /// Seeds which are to be put in the forest
-        const vector<Seed>* seeds;
-
-        /// Distance index for the graph being represented
-        const SnarlDistanceIndex* distance_index;
-
-        /// Sort order for the seeds
-        vector<size_t> seed_sort_order;
-
-
-        /// This stores the sort value and code type of each seed 
-        /// This will change as forest building progresses
-        /// but it will be set for the relevant seed immediately before sorting
-        /// The values also get used to calculate distance, 
-        /// as long as they have been set for the correct depth
-        vector<sort_value_t> sort_values_by_seed;
-
-        /// Stores the previous things of the current structure at each depth
-        /// The children are stored at the depth of their parents.
-        /// For example, for a root chain, the vector at index 0 would have the
-        /// chain start, seeds on the chain, and snarl starts on the chain.
-        /// Similarly, for a top-level snarl, at depth 1, the second 
-        /// vector would contain the starts of chains at depth 2 
-        vector<vector<child_info_t>> sibling_indices_at_depth;
-
-        /// We build a forest of trees. This is an index into trees
-        /// to indicate which is actively being worked on.
-        ///
-        /// A new tree is formed either when a new top-level chain is found
-        /// (or a slice of a top-level chain if far enough from previous thing),
-        /// or when part of a chain in a snarl is too far from everything else.
-        /// In the second case, the entire subtree is found before determining
-        /// that it should be a subtree, and is copied into a new ZipCodeTree.
-        /// So only one tree is actively being added to at a time.
-        /// 
-        /// Note that this can't be an actual pointer to the forest because
-        /// the address may move if the vectors get shifted around in memory.
-        size_t active_tree_index;
-
-        /// If part of a chain is unreachable with the rest of the chain,
-        /// then we want to split it off into a separate zipcode tree.
-        /// This tracks all open chains as an index to the start of the chain
-        /// in the current active tree, and a boolean for if the chain start is
-        /// farther than distance_limit from anything else in the snarl tree.
-        ///
-        /// If the index is for a CHAIN_START, it includes the whole chain.
-        /// If it points to a SEED/SNARL_START, then it is a slice.
-        ///
-        /// Any time something gets added to a chain or the chain is closed,
-        /// check if the distance to anything following is >distance_limit.
-        /// If it is, copy from the start of the chain/slice into a new tree.
-        vector<pair<size_t, bool>> open_chains;
-
-        /// A stack of intervals representing snarl tree nodes.
-        /// These are yet to be sorted and added to the zip tree.
-        /// After an interval is popped, child intervals are added in
-        /// The stack structure ensures a depth-first processing order
-        forward_list<interval_state_t> intervals_to_process;
-    
-        /// Intervals that are currently open.
-        /// These represent ancestors of whatever is currently being worked on.
-        /// So the size is the depth of the snarl tree
-        vector<interval_state_t> open_intervals;
-
-
-        /// The overall distance limit for splitting of new connected components
-        size_t distance_limit;
-
-        /// Constructor given seeds and a distance index
-        forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
-                               size_t distance_limit) :
-            seeds(&seeds), distance_index(&distance_index), 
-            distance_limit(distance_limit), active_tree_index(std::numeric_limits<size_t>::max()) {
-
-            // This represents the current sort order of the seeds
-            seed_sort_order.assign(seeds.size(), 0);
-            for (size_t i = 0 ; i < seed_sort_order.size() ; i++) {
-                seed_sort_order[i] = i;
-            }
-            sort_values_by_seed.resize(seeds.size());
-        }
-
-    };
+    // This will exist, I promise, friend compiler
+    struct forest_growing_state_t;
 
     /// Store edgemost seeds in chains when creating a snarl's distance matrix
     /// We make one pass over each chain, remembering its edge seeds, and then
@@ -1017,7 +956,6 @@ class ZipCodeForest {
         /// If this seed is in a nested snarl, and we're calculating
         /// using minimum_distance, then we might need to subtract the
         /// offset from inner seed to inner snarl edge
-
         size_t nested_snarl_offset;
 
         /// Pass the seed's index (which is looked up from forest_state.seeds),
@@ -1054,6 +992,13 @@ class ZipCodeForest {
         /// The second item is the distance to the rightmost seed in the chain
         std::pair<std::unordered_map<size_t, size_t>, size_t> distances;
 
+        // For children of snarls, track the last loop of each type
+        // so that loops can be merged when possible
+        size_t last_forward_loop_index;
+        size_t dist_since_forward_loop;
+        size_t last_reverse_loop_index;
+        size_t dist_since_reverse_loop;
+
         /// If the item is a child of a chain, its chain component
         size_t chain_component : 26; 
 
@@ -1066,7 +1011,25 @@ class ZipCodeForest {
         bool is_reversed = false;
 
         /// Constructor for type/value leaving all other fields as defaults
-        child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) : type(type), value(value) {}
+        child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) : type(type), value(value) {
+            reset_loop_storage();
+        }
+
+        /// Set all loop storage to none/max
+        inline void reset_loop_storage() {
+            last_forward_loop_index = std::numeric_limits<size_t>::max();
+            dist_since_forward_loop = std::numeric_limits<size_t>::max();
+            last_reverse_loop_index = std::numeric_limits<size_t>::max();
+            dist_since_reverse_loop = std::numeric_limits<size_t>::max();
+        }
+
+        /// Check if a loop exists in storage
+        inline bool has_forward_loop() const {
+            return last_forward_loop_index != std::numeric_limits<size_t>::max();
+        }
+        inline bool has_reverse_loop() const {
+            return last_reverse_loop_index != std::numeric_limits<size_t>::max();
+        }
     };
 
     /// Used for sorting. Represents one interval along zipcode_sort_order,
@@ -1152,6 +1115,97 @@ class ZipCodeForest {
         inline void set_code_type(ZipCode::code_type_t type) { code_type = type; }
         inline void set_chain_order(size_t order) { chain_order = order; }
         inline void set_chain_component(size_t component) { chain_component = component; }
+
+    };
+
+        /// This stores information about the state of the forest as we fill it in
+    struct forest_growing_state_t {
+        /// Seeds which are to be put in the forest
+        const vector<Seed>* seeds;
+
+        /// Distance index for the graph being represented
+        const SnarlDistanceIndex* distance_index;
+
+        /// Sort order for the seeds
+        vector<size_t> seed_sort_order;
+
+
+        /// This stores the sort value and code type of each seed 
+        /// This will change as forest building progresses
+        /// but it will be set for the relevant seed immediately before sorting
+        /// The values also get used to calculate distance, 
+        /// as long as they have been set for the correct depth
+        vector<sort_value_t> sort_values_by_seed;
+
+        /// Stores the previous things of the current structure at each depth
+        /// The children are stored at the depth of their parents.
+        /// For example, for a root chain, the vector at index 0 would have the
+        /// chain start, seeds on the chain, and snarl starts on the chain.
+        /// Similarly, for a top-level snarl, at depth 1, the second 
+        /// vector would contain the starts of chains at depth 2 
+        vector<vector<child_info_t>> sibling_indices_at_depth;
+
+        /// We build a forest of trees. This is an index into trees
+        /// to indicate which is actively being worked on.
+        ///
+        /// A new tree is formed either when a new top-level chain is found
+        /// (or a slice of a top-level chain if far enough from previous thing),
+        /// or when part of a chain in a snarl is too far from everything else.
+        /// In the second case, the entire subtree is found before determining
+        /// that it should be a subtree, and is copied into a new ZipCodeTree.
+        /// So only one tree is actively being added to at a time.
+        /// 
+        /// Note that this can't be an actual pointer to the forest because
+        /// the address may move if the vectors get shifted around in memory.
+        size_t active_tree_index;
+
+        /// If part of a chain is unreachable with the rest of the chain,
+        /// then we want to split it off into a separate zipcode tree.
+        /// This tracks all open chains as an index to the start of the chain
+        /// in the current active tree, and a boolean for if the chain start is
+        /// farther than distance_limit from anything else in the snarl tree.
+        ///
+        /// If the index is for a CHAIN_START, it includes the whole chain.
+        /// If it points to a SEED/SNARL_START, then it is a slice.
+        ///
+        /// Any time something gets added to a chain or the chain is closed,
+        /// check if the distance to anything following is >distance_limit.
+        /// If it is, copy from the start of the chain/slice into a new tree.
+        vector<pair<size_t, bool>> open_chains;
+
+        /// A stack of intervals representing snarl tree nodes.
+        /// These are yet to be sorted and added to the zip tree.
+        /// After an interval is popped, child intervals are added in
+        /// The stack structure ensures a depth-first processing order
+        forward_list<interval_state_t> intervals_to_process;
+    
+        /// Intervals that are currently open.
+        /// These represent ancestors of whatever is currently being worked on.
+        /// So the size is the depth of the snarl tree
+        vector<interval_state_t> open_intervals;
+
+        /// A tracker for the current top-level chain,
+        /// so we know where the previous loops were
+        /// (would be at depth -1 in sibling_indicies_at_depth)
+        child_info_t active_top_level_chain = child_info_t(ZipCodeTree::CHAIN_START, 
+                                                           std::numeric_limits<size_t>::max());
+
+        /// The overall distance limit for splitting of new connected components
+        size_t distance_limit;
+
+        /// Constructor given seeds and a distance index
+        forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
+                               size_t distance_limit) :
+            seeds(&seeds), distance_index(&distance_index), 
+            distance_limit(distance_limit), active_tree_index(std::numeric_limits<size_t>::max()) {
+
+            // This represents the current sort order of the seeds
+            seed_sort_order.assign(seeds.size(), 0);
+            for (size_t i = 0 ; i < seed_sort_order.size() ; i++) {
+                seed_sort_order[i] = i;
+            }
+            sort_values_by_seed.resize(seeds.size());
+        }
 
     };
 
@@ -1244,6 +1298,12 @@ class ZipCodeForest {
     void add_child_to_chain(forest_growing_state_t& forest_state,
                             const size_t& depth, const size_t& seed_index, 
                             bool child_is_reversed, bool chain_is_reversed);
+
+    /// Helper for add_child_to_chain()
+    /// Look up loop distance for a seed/snarl, including any offsets
+    /// that are necessary from what the distance index stores directly
+    size_t get_loop_distance(const SnarlDistanceIndex* distance_index, const Seed& seed,
+                             size_t depth, bool forward_loop) const;
 
     /// Start a new snarl of the given type at the given depth
     void open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl);

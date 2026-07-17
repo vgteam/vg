@@ -33,8 +33,11 @@ namespace algorithms {
     ///  pos                     extend from this position
     ///  backward                extend in this direction
     ///  preserve_cycles_on_src  if necessary, duplicate starting node to preserve cycles after cutting it
+    /// Returns: a map from node ids in the extracted graph to the node ids in
+    /// the original graph. The map and the graph will have the same number of
+    /// entries. If new_tip_id is not null it will become the tip node's new ID.
     unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, DeletableHandleGraph* into, int64_t max_dist, pos_t pos,
-                                                      bool backward, bool preserve_cycles_on_src_node);
+                                                      bool backward, bool preserve_cycles_on_src_node, nid_t* new_tip_id = nullptr);
                                                       
 }
 }

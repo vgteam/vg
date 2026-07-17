@@ -80,7 +80,10 @@ TEST_CASE( "Connecting graph extraction produces expected results in an acyclic 
         int64_t max_len = 5;
                 
         VG extractor;
-        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
+        nid_t local_left_anchor_id = 0;
+        nid_t local_right_anchor_id = 0; 
+        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, false, 
+                                                          &local_left_anchor_id, &local_right_anchor_id);
                 
         Graph& g = extractor.graph;
                 
@@ -88,6 +91,9 @@ TEST_CASE( "Connecting graph extraction produces expected results in an acyclic 
         REQUIRE( g.edge_size() == 0 );
         REQUIRE( trans[g.node(0).id()] == n1->id() );
         REQUIRE( g.node(0).sequence() == "TG" );
+        // These should be set
+        REQUIRE( local_left_anchor_id != 0 );
+        REQUIRE( local_right_anchor_id != 0 );
     }
             
     SECTION( "Graph extraction can extract a section between two nodes" ) {
@@ -774,7 +780,7 @@ TEST_CASE( "Connecting graph extraction works on a self loop on the right node",
     REQUIRE(retained_node_ids.count(graph.get_id(h2)));
 }
 
-TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the left node",
+TEST_CASE( "Connecting graph extraction works when a connection is only possible by doubling back through the left node",
            "[algorithms][extract_connecting_graph]" ) {
             
     bdsg::HashGraph graph;
@@ -789,24 +795,40 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
             
     pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
     pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
-                
-    bdsg::HashGraph extractor;
-    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
 
-    // Collect all the node IDs we kept
-    std::unordered_set<id_t> retained_node_ids;
-    for (auto& kv : trans) {
-        retained_node_ids.insert(kv.second);
+    SECTION("Allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, true);
+
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // We will be able to double back by making a copy of the left node
+        REQUIRE(retained_node_ids.size() == 3);
+        REQUIRE(extractor.get_node_count() == 4);
     }
+    SECTION("Not allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, false);
 
-    // If we can't duplicate any nodes, there's no way to get a graph that has
-    // the connection path and also cut the nodes/keep them as tips. So we
-    // expect an empty graph.
-    REQUIRE(retained_node_ids.empty());
-    REQUIRE(extractor.get_node_count() == 0);
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // If we can't duplicate any nodes, there's no way to get a graph that has
+        // the connection path and also cut the nodes/keep them as tips. So we
+        // expect an empty graph.
+        REQUIRE(retained_node_ids.empty());
+        REQUIRE(extractor.get_node_count() == 0);
+    }
 }
 
-TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the right node",
+TEST_CASE( "Connecting graph extraction works when a connection is only possible by doubling back through the right node",
            "[algorithms][extract_connecting_graph]" ) {
             
     bdsg::HashGraph graph;
@@ -821,21 +843,37 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
             
     pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
     pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
-                
-    bdsg::HashGraph extractor;
-    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+    
+    SECTION("Allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, true);
 
-    // Collect all the node IDs we kept
-    std::unordered_set<id_t> retained_node_ids;
-    for (auto& kv : trans) {
-        retained_node_ids.insert(kv.second);
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // We will be able to double back by making a copy of the right node
+        REQUIRE(retained_node_ids.size() == 3);
+        REQUIRE(extractor.get_node_count() == 4);
     }
+    SECTION("Not allowed to duplicate") {
+        bdsg::HashGraph extractor;
+        auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true, false);
 
-    // If we can't duplicate any nodes, there's no way to get a graph that has
-    // the connection path and also cut the nodes/keep them as tips. So we
-    // expect an empty graph.
-    REQUIRE(retained_node_ids.empty());
-    REQUIRE(extractor.get_node_count() == 0);
+        // Collect all the node IDs we kept
+        std::unordered_set<id_t> retained_node_ids;
+        for (auto& kv : trans) {
+            retained_node_ids.insert(kv.second);
+        }
+
+        // If we can't duplicate any nodes, there's no way to get a graph that has
+        // the connection path and also cut the nodes/keep them as tips. So we
+        // expect an empty graph.
+        REQUIRE(retained_node_ids.empty());
+        REQUIRE(extractor.get_node_count() == 0);
+    }
 }
 
 TEST_CASE( "Connecting graph extraction works when you can turn around on the right and come back to the same node to get a path",
@@ -1963,7 +2001,8 @@ TEST_CASE( "Extending graph extraction algorithm produces expected results", "[a
         bool preserve_cycles = false;
                 
         VG extractor;
-        auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+        nid_t tip_id = 0;
+        auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles, &tip_id);
         Graph& g = extractor.graph;
                 
         REQUIRE(g.node_size() == 1);
@@ -1979,6 +2018,7 @@ TEST_CASE( "Extending graph extraction algorithm produces expected results", "[a
         }
                 
         REQUIRE(found_node_0);
+        REQUIRE(tip_id != 0);
     }
             
     SECTION( "Extending graph extraction algorithm only finds nodes within the maximum distance" ) {

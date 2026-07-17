@@ -191,14 +191,14 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
 }
 
 void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
-                                         const std::vector<Seed>& seeds,
-                                         const VectorView<Minimizer>& minimizers,
-                                         const vector<algorithms::Anchor>& seed_anchors,
-                                         const std::vector<std::vector<size_t>>& chains,
-                                         const std::vector<std::vector<bool>>& chain_rec_flags,
-                                         const std::vector<size_t>& chain_source_tree,
-                                         const PathPositionHandleGraph* path_graph,
-                                         bool haplotype_positions) {
+                                        const std::vector<Seed>& seeds,
+                                        const VectorView<Minimizer>& minimizers,
+                                        const vector<algorithms::Anchor>& seed_anchors,
+                                        const std::vector<std::vector<size_t>>& chains,
+                                        const std::vector<std::vector<bool>>& chain_rec_flags,
+                                        const std::vector<size_t>& chain_source_tree,
+                                        const PathPositionHandleGraph* path_graph,
+                                        bool haplotype_positions) {
     if (!path_graph) {
         // We don't have a path positional graph for this
         return;
@@ -213,7 +213,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
         // Find all the seeds in its zip tree
         vector<size_t> involved_seeds;
         for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
-            involved_seeds.push_back(found.seed);
+            involved_seeds.emplace_back(found.seed);
         }
 
         // Start making a list of things to show.
@@ -802,6 +802,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // For each chain, we need:
     // The chain itself, pointing into seeds
     std::vector<std::vector<size_t>> chains;
+    // The graph distances between successive seeds
+    std::vector<std::vector<size_t>> graph_dists;
     // For each chain, mark per-seed whether it came from a recombinant anchor
     std::vector<std::vector<bool>> chain_rec_flags;
     // For each chain, track how many recombination events were used
@@ -816,7 +818,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> multiplicity_by_chain;
 
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                         chains, chain_rec_flags, chain_rec_counts, chain_source_tree, chain_score_estimates,
+                         chains, graph_dists, chain_rec_flags, 
+                         chain_rec_counts, chain_source_tree, chain_score_estimates,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
@@ -869,7 +872,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     alignments_to_source.reserve(chain_score_estimates.size());
 
     if (alignments.size() == 0) {
-        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, graph_dists, 
+                               chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, rng, funnel);
     }
@@ -1201,7 +1205,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest,
     const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
     const vector<algorithms::Anchor>& seed_anchors,
-    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+    std::vector<std::vector<size_t>>& chains, std::vector<std::vector<size_t>>& graph_dists,
+    std::vector<std::vector<bool>>& chain_rec_flags,
     std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
     std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
     std::vector<double>& multiplicity_by_chain,
@@ -1449,7 +1454,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         //So to get the funnel to track the gapless extensions properly, we need to make a fake chaining
                         //stage for these too
                         // Tell the funnel
-                        //TODO: idk what score to give it funnel.score(funnel.latest(), scored_chain.first);!
+                        //TODO: idk what score to give it funnel.score(funnel.latest(), chain_score);!
 
                         funnel.project(item_num);
 
@@ -1606,7 +1611,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
 
             // This will hold our chaining results
-            algorithms::ChainsResult chain_results;
+            std::vector<algorithms::SparseAnchorChainWithRec> chain_results;
 
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1661,15 +1666,16 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             if (show_work) {
 #endif
                 #pragma omp critical (cerr)
-                cerr << log_name() << "\t[" << aln.name() << "] Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
+                cerr << log_name() << "\t[" << aln.name() << "] Found " << chain_results.size() << " chains in zip code tree " << item_num
                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
 
-            for (size_t result = 0; result < chain_results.chains.size(); result++) {
+            for (size_t result = 0; result < chain_results.size(); result++) {
                 // For each result
-                auto& entry = chain_results.chains[result];
-                auto& scored_chain = entry.scored_chain;
+                auto& entry = chain_results[result];
+                auto& chain_score = entry.score;
+                auto& chain_anchors = entry.anchors;
                 auto& chain_rec_positions = entry.rec_positions;
 #ifdef debug_rec
                 if (true)
@@ -1683,13 +1689,13 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     if (result < MANY_LIMIT)
 #endif
                     {
-                        if (!scored_chain.second.empty()) {
+                        if (!chain_anchors.empty()) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << scored_chain.first
-                                    << " (rec num =" << chain_rec_positions.size() << ") and length " << scored_chain.second.size()
-                                    << " running " << anchor_view[scored_chain.second.front()]
-                                    << " to " << anchor_view[scored_chain.second.back()];
+                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << chain_score
+                                    << " (rec num =" << chain_rec_positions.size() << ") and length " << chain_anchors.size()
+                                    << " running " << anchor_view[chain_anchors.front()]
+                                    << " to " << anchor_view[chain_anchors.back()];
                                 if (!chain_rec_positions.empty()) {
                                     cerr << " recombination introduced at anchors: ";
                                     for (size_t pi = 0; pi < chain_rec_positions.size(); ++pi) {
@@ -1701,7 +1707,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 #ifdef debug_rec
                                 algorithms::path_flags_t current_paths = 0;
                                 bool first = true;
-                                for (auto& selected_number : scored_chain.second) {
+                                for (auto& selected_number : chain_anchors) {
                                     auto& anchor = anchor_view[selected_number];
                                     auto new_paths = anchor.anchor_paths();
                                     if (first) {
@@ -1729,7 +1735,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         }
                     } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.size() - result) << " more chains>" << std::endl;
                     }
                 }
 
@@ -1741,21 +1747,28 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // Also make a parallel vector that marks whether each seed in the chain
                 // comes from an anchor that introduced recombination.
                 chain_rec_flags.emplace_back();
-                chains.back().reserve(scored_chain.second.size() * 2);
-                chain_rec_flags.back().reserve(scored_chain.second.size() * 2);
+                chains.back().reserve(chain_anchors.size() * 2);
+                chain_rec_flags.back().reserve(chain_anchors.size() * 2);
 
-                // Build a set of the anchor indices inside scored_chain that are recombinant
+                // Build a set of the anchor indices inside chain_anchors that are recombinant
                 std::unordered_set<size_t> rec_anchor_set(chain_rec_positions.begin(), chain_rec_positions.end());
 
-                for (auto& selected_number : scored_chain.second) {
+                for (auto& selected_number : chain_anchors) {
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     bool anchor_is_recomb = rec_anchor_set.count(selected_number) > 0;
-                    for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
-                        // And get all the seeds it actually uses in sequence and put them in the chain.
-                        chains.back().push_back(seed_number);
-                        // Mark whether this seed came from a recombinant anchor
-                        chain_rec_flags.back().push_back(anchor_is_recomb);
+
+                    // Do the first one
+                    chains.back().emplace_back(anchor_seed_sequences.at(anchor_number).front());
+                    chain_rec_flags.back().push_back(anchor_is_recomb);
+                    // If there are others (happens for gapless exention)
+                    if (anchor_seed_sequences.at(anchor_number).size() > 1) {
+                        for (size_t i = 1; i < anchor_seed_sequences.at(anchor_number).size(); i++) {
+                            // And get all the seeds it actually uses in sequence and put them in the chain.
+                            chains.back().emplace_back(anchor_seed_sequences.at(anchor_number).at(i));
+                            // Mark whether this seed came from a recombinant anchor
+                            chain_rec_flags.back().push_back(anchor_is_recomb);
+                        }
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
@@ -1764,7 +1777,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     }
                 }
                 // Remember the score
-                chain_score_estimates.push_back(scored_chain.first);
+                chain_score_estimates.push_back(chain_score);
+                // Remember its graph distances
+                graph_dists.push_back(entry.graph_dists);
                 // Remember how many recombinations were in this chain
                 chain_rec_counts.push_back(chain_rec_positions.size());
 
@@ -1776,10 +1791,15 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.introduce();
-                    funnel.score(funnel.latest(), scored_chain.first);
+                    funnel.score(funnel.latest(), chain_score);
+                    // Make simplified vector to give to funnel
+                    vector<size_t> only_indexes(chains.back().size());
+                    for (const auto& item : chains.back()) {
+                        only_indexes.push_back(item);
+                    }
                     // We come from all the seeds directly
                     // TODO: Include all the middle seeds when gapless extending!
-                    funnel.also_merge_group(2, chains.back().begin(), chains.back().end());
+                    funnel.also_merge_group(2, only_indexes.begin(), only_indexes.end());
                     // And are related to the problem
                     funnel.also_relevant(1, item_num);
                 }
@@ -1792,7 +1812,8 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     if (haplotype_positions) {
                         wanted_senses.insert(PathSense::HAPLOTYPE);
                     }
-                    for (auto& boundary : {anchor_view[scored_chain.second.front()].graph_start(), anchor_view[scored_chain.second.back()].graph_end()}) {
+                    for (auto& boundary : {anchor_view[chain_anchors.front()].graph_start(), 
+                                           anchor_view[chain_anchors.back()].graph_end()}) {
                         // For each end of the chain
                         auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
                         for (auto& handle_and_positions : offsets) {
@@ -1897,7 +1918,8 @@ void MinimizerMapper::get_best_chain_stats(const Alignment& aln, const ZipCodeFo
 
     // Find its coverage
     if (best_chain != std::numeric_limits<size_t>::max()) {
-        best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
+        best_chain_coverage = get_read_coverage(aln, 
+            std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
     }
     
     // Find out how gappy it is. We can get the longest and the average distance maybe.
@@ -1931,17 +1953,18 @@ void MinimizerMapper::get_best_chain_stats(const Alignment& aln, const ZipCodeFo
 }
 
 void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
-                                            const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                            const vector<algorithms::Anchor>& seed_anchors,
-                                            const std::vector<std::vector<size_t>>& chains, 
-                                            const std::vector<size_t>& chain_source_tree,
-                                            const std::vector<double>& multiplicity_by_chain,
-                                            const std::vector<int>& chain_score_estimates, 
-                                            const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                                            vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
-                                            vector<size_t>& alignments_to_source,
-                                            SmallBitset& minimizer_explored, aligner_stats_t& stats,
-                                            LazyRNG& rng, Funnel& funnel) const {
+                                             const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                             const vector<algorithms::Anchor>& seed_anchors,
+                                             const std::vector<std::vector<size_t>>& chains,
+                                             const std::vector<std::vector<size_t>>& graph_dists, 
+                                             const std::vector<size_t>& chain_source_tree,
+                                             const std::vector<double>& multiplicity_by_chain,
+                                             const std::vector<int>& chain_score_estimates, 
+                                             const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                                             vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
+                                             vector<size_t>& alignments_to_source,
+                                             SmallBitset& minimizer_explored, aligner_stats_t& stats,
+                                             LazyRNG& rng, Funnel& funnel) const {
   
     if (track_provenance) {
         funnel.stage("align");
@@ -2109,7 +2132,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
-                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
+                    best_alignments[0] = find_chain_alignment(
+                        aln, seed_anchors, chain, graph_dists.at(processed_num), &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
@@ -2533,6 +2557,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
+    const std::vector<size_t>& graph_dists,
     aligner_stats_t* stats
 ) const {
     
@@ -2577,6 +2602,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     auto here_it = chain.begin();
     auto next_it = here_it;
     ++next_it;
+    auto graph_dist_it = graph_dists.begin();
     
     // Track the anchor we're at.
     // Note that, although it has a score, that's an anchor score; it isn't the
@@ -2765,12 +2791,14 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
+                        cerr << log_name() << "Don't try and connect " << *here_it
+                             << " to " << *next_it << " because they overlap" << endl;
                     }
                 }
 #endif
             
                 ++next_it;
+                ++graph_dist_it;
             } else {
                 // No overlap, so try it.
                 break;
@@ -2783,54 +2811,57 @@ Alignment MinimizerMapper::find_chain_alignment(
         // i.e. the distances in the read and graph are different
 
         // Keep track of the total distance from the previous seed to the next one we choose in the graph
-        size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+        size_t total_graph_distance = *graph_dist_it;
+        algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph, total_graph_distance);
         size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
 
         // The sum of the differences between read and graph lengths
         size_t gap_lengths = (std::max(total_graph_distance, prev_read_distance) 
                             - std::min(total_graph_distance, prev_read_distance));
 
-        auto skip_to_it = next_it;
+        auto skip_to_seed_it = next_it;
+        auto skip_to_dist_it = graph_dist_it;
 
-        while (skip_to_it != chain.end()) {
-            const algorithms::Anchor* skip_to = &to_chain[*skip_to_it];
+        while (skip_to_seed_it != chain.end()) {
+            const algorithms::Anchor* skip_to = &to_chain[*skip_to_seed_it];
             // Try and find a next thing to connect to
             
-            //TODO: Getting the graph distance is probably slow, might want to save it from chaining
             size_t cur_graph_distance;
-            if (skip_to_it+1 == chain.end()) {
+            if (skip_to_seed_it+1 == chain.end()) {
                 // We can't skip any further
                 cur_graph_distance = std::numeric_limits<size_t>::max();
             } else {
                 // Distance from end of this anchor to start of next anchor
-                cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[*(skip_to_it+1)], 
-                                                                    *distance_index, gbwt_graph);
+                cur_graph_distance = *(skip_to_dist_it+1);
+                algorithms::get_graph_distance(*skip_to, to_chain[*(skip_to_seed_it+1)], *distance_index, 
+                                                gbwt_graph, cur_graph_distance);
                 // Also add in distance from start of this anchor to end of this anchor
                 cur_graph_distance += skip_to->length();
                 // Combined those are graph start -> start dist we are trying to skip past
             }
+            total_graph_distance += cur_graph_distance;
 
-            if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
-                total_graph_distance+cur_graph_distance < this->max_skipped_bases) {
+            if (skip_to->is_skippable() && skip_to_seed_it+1 != chain.end() && 
+                total_graph_distance < this->max_skipped_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Try to avoid connecting " << *here_it 
-                             << " to " << *skip_to_it << " because it is repetitive" << endl;
+                        cerr << log_name() << "Try to avoid connecting " << *here_it
+                             << " to " << *skip_to_seed_it << " because it is repetitive" << endl;
                     }
                 }
 #endif
                 // Read start -> start distance for what we're skipping
-                size_t cur_read_distance = algorithms::get_read_distance(*skip_to, to_chain[*(skip_to_it+1)]);
+                size_t cur_read_distance = algorithms::get_read_distance(*skip_to, to_chain[*(skip_to_seed_it+1)]);
                 cur_read_distance += skip_to->length();
                 // Total gap so far
                 gap_lengths += (std::max(cur_read_distance, cur_graph_distance) 
                               - std::min(cur_read_distance, cur_graph_distance));
-                total_graph_distance += cur_graph_distance;
             
-                ++skip_to_it;
+                ++skip_to_seed_it;
+                ++skip_to_dist_it;
             } else {
                 // skip_to is either not skippable or too far away so stop
                 if (gap_lengths > this->min_indel_avoid_bases) {
@@ -2838,24 +2869,27 @@ Alignment MinimizerMapper::find_chain_alignment(
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
-                            cerr << log_name() << "Skipping to " << *skip_to_it 
+                            cerr << log_name() << "Skipping to " << *skip_to_seed_it
                                  << " to avoid gap of " << gap_lengths << " in repetitive region" << endl;
                         }
                     }
 #endif
                     // If there was a big gap
-                    next_it = skip_to_it;
+                    next_it = skip_to_seed_it;
+                    graph_dist_it = skip_to_dist_it;
                     next = skip_to;
                 } else {
 #ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
-                            cerr << log_name() << "Not bothering to skip to " << *skip_to_it 
+                            cerr << log_name() << "Not bothering to skip to " << *skip_to_seed_it
                                  << " because total gaps are only " << gap_lengths << endl;
                         }
                     }
 #endif
+                    total_graph_distance = *graph_dist_it;
+                    algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph, total_graph_distance);
                 }
                 // If there wasn't a gap then don't skip anything
                 break;
@@ -2909,7 +2943,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         size_t link_start = (*here).read_end();
         size_t link_length = (*next).read_start() - link_start;
         string linking_bases = aln.sequence().substr(link_start, link_length);
-        size_t graph_dist = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+        size_t graph_dist = total_graph_distance;
         
 #ifdef debug_chain_alignment
         if (show_work) {
@@ -2971,7 +3005,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (!link_alignment) {
                 // We couldn't align.
-                if (graph_dist == 0) {
+                if (total_graph_distance == 0) {
                     // We had read sequence but no graph sequence.
                     // Try falling back to a pure insertion.
                     // TODO: We can be leaving the GBWT's space here!
@@ -3045,7 +3079,13 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " due to DP size limits, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align "
+                         << link_length << " bp connection between chain items "
+                         << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) 
+                         << " which are " << graph_dist << " apart at "
+                         << (*here).graph_end() << " and " << (*next).graph_start()
+                         << " in " << aln.name() << " due to DP size limits, creating "
+                         << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
                 }
                 // Just jump to right tail
                 break;
@@ -3056,7 +3096,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of "
+                     << link_length << " bp connection between chain items "
+                     << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it)
+                     << " which are " << graph_dist << " apart at "
+                     << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
 #endif
             
@@ -3066,12 +3110,26 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
             // Guess how long of a graph path we ought to allow in the alignment.
-            size_t max_gap_length = std::min(this->max_middle_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner()));
+            size_t max_gap_length = std::min(this->max_middle_gap, 
+                longest_detectable_gap_in_range(aln,
+                                                aln.sequence().begin() + link_start, 
+                                                aln.sequence().begin() + link_start + link_length,
+                                                this->get_regular_aligner()));
+
             size_t path_length = std::max(graph_dist, link_length);
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            bool did_aln = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length+max_gap_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            bool did_aln = MinimizerMapper::align_sequence_between_consistently(
+                (*here).graph_end(), 
+                (*next).graph_start(),
+                path_length+max_gap_length,
+                max_gap_length, &this->gbwt_graph,
+                this->get_regular_aligner(),
+                link_aln,
+                &aln.name(),
+                this->max_dp_cells,
+                this->choose_band_padding);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 if (did_aln) {
@@ -3087,7 +3145,11 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // TODO: Should we let the exceptions propagate up to here instead?
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for "
+                         << link_length << " bp connection between chain items "
+                         << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it)
+                         << " which are " << graph_dist << " apart at "
+                         << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
                 }
 
                 // Just jump to right tail
@@ -3108,13 +3170,17 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned and added link to " << *next << " of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
+                cerr << log_name() << "Aligned and added link to " << *next 
+                     << " of " << link_length << " bp read and " 
+                     << link_graph_path_length << " bp graph via " 
+                     << link_alignment_source << " with score of " << link_score << std::endl;
             }
         }
         
         // Advance here to next and start considering the next after it
         here_it = next_it;
         ++next_it;
+        ++graph_dist_it;
         here = next;
     }
 
@@ -3348,6 +3414,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     // We need to get the graph to align to.
     bdsg::HashGraph local_graph;
     unordered_map<id_t, id_t> local_to_base;
+    nid_t local_left_anchor_id = 0;
+    nid_t local_right_anchor_id = 0;
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
         // We want a graph actually between two positions.
         // Enforce strict max length to avoid extra tips.
@@ -3356,7 +3424,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             &local_graph,
             max_path_length,
             left_anchor, right_anchor,
-            true
+            true, // Only extract stuff on within-distance walks
+            true, // Allow loops/cycles just in case we need them
+            &local_left_anchor_id,
+            &local_right_anchor_id
         );
 
         if (local_to_base.empty()) {
@@ -3380,8 +3451,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             &local_graph,
             max_path_length,
             left_anchor,
-            false,
-            false
+            false, // We are going left to right (backward = false)
+            false, // Don't bother preserving cycles on the source node
+            &local_left_anchor_id
         );
     } else {
         // We only have the right anchor
@@ -3390,8 +3462,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             &local_graph,
             max_path_length,
             right_anchor,
-            true,
-            false
+            true, // We are going right to left (backward = true)
+            false, // Don't bother preserving cycles on the source node
+            &local_right_anchor_id
         );
     }
 
@@ -3400,91 +3473,6 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     dump_debug_graph(local_graph);
 #endif
     
-    // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
-    nid_t local_left_anchor_id = 0;
-    nid_t local_right_anchor_id = 0;
-    for (auto& kv : local_to_base) {
-        auto& local_id = kv.first;
-        auto& base_id = kv.second;
-        if (base_id == id(left_anchor) && base_id == id(right_anchor)) {
-            // The left and right anchors are on the same node, and this is a copy of it.
-            // It could be that the anchors face each other, and we extracted one intervening piece of node.
-            // In which case we go through this section once.
-            if (local_left_anchor_id == 0 && local_right_anchor_id == 0) {
-                // First time through, say we probably cut out the middle piece of a node
-                local_left_anchor_id = local_id;
-                local_right_anchor_id = local_id;
-#ifdef debug
-                std::cerr << "Assume left and right anchors are both node " << local_id << " representing " << base_id << std::endl;
-#endif
-            } else {
-                // Or it could be that we have two pieces of the original
-                // shared node represented as separate nodes, because the
-                // connecting path has to come back to the other end of this
-                // shared node.
-                //
-                // In that case, we assume that extract_connecting_graph
-                // assigns IDs so the start copy has a lower ID than the end
-                // copy.
-                if (local_left_anchor_id != local_right_anchor_id) {
-                    // We thought we already figured out the start and end
-                    // nodes; there are too many copies of our shared node to
-                    // work out which is which.
-                    std::stringstream ss;
-                    ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
-                    ss << " from " << left_anchor << " to " << right_anchor;
-                    ss << " with max path length of " << max_path_length;
-                    ss << " but shared node appeared more than twice in the resulting translation.";
-                    ss << " Graph dumped as crashdump.vg.";
-                    local_graph.serialize("crashdump.vg");
-                    throw std::runtime_error(ss.str());
-                }
-                // Whichever copy has the lower ID is the left one and
-                // whichever copy has the higher ID is the right one.
-                local_left_anchor_id = std::min(local_left_anchor_id, local_id);
-                local_right_anchor_id = std::max(local_right_anchor_id, local_id);
-#ifdef debug
-                std::cerr << "Second shared anchor copy as " << local_id << " representing " << base_id << "; left is now " << local_left_anchor_id << " and right is " << local_right_anchor_id << std::endl;
-#endif
-            }
-        } else if (base_id == id(left_anchor)) {
-            if (local_left_anchor_id != 0) {
-                // We thought we already figured out the start node; there are
-                // too many copies of our start node to find it. 
-                std::stringstream ss;
-                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
-                ss << " from " << left_anchor << " to " << right_anchor;
-                ss << " with max path length of " << max_path_length;
-                ss << " but start node appeared twice in the resulting translation.";
-                ss << " Graph dumped as crashdump.vg.";
-                local_graph.serialize("crashdump.vg");
-                throw std::runtime_error(ss.str());
-            }
-            local_left_anchor_id = local_id;
-#ifdef debug
-            std::cerr << "Left anchor is " << local_left_anchor_id << std::endl;
-#endif
-        } else if (base_id == id(right_anchor)) {
-            if (local_right_anchor_id != 0) {
-                // We thought we already figured out the end node; there are
-                // too many copies of our end node to find it. 
-                std::stringstream ss;
-                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
-                ss << " from " << left_anchor << " to " << right_anchor;
-                ss << " with max path length of " << max_path_length;
-                ss << " but end node appeared twice in the resulting translation.";
-                ss << " Graph dumped as crashdump.vg.";
-                local_graph.serialize("crashdump.vg");
-                throw std::runtime_error(ss.str());
-            }
-            local_right_anchor_id = local_id;
-#ifdef debug
-            std::cerr << "Right anchor is " << local_right_anchor_id << std::endl;
-#endif
-        }
-        // TODO: Stop early when we found them all.
-    }
-
     if (!is_empty(left_anchor) && local_left_anchor_id == 0) {
         // Somehow the left anchor didn't come through. Complain.
         std::stringstream ss;

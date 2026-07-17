@@ -882,7 +882,8 @@ protected:
      */
     void do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<size_t>>& graph_dists,
+                              std::vector<std::vector<bool>>& chain_rec_flags,
                               std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
                               std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
@@ -905,7 +906,8 @@ protected:
     void do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                const vector<algorithms::Anchor>& seed_anchors,
-                               const std::vector<std::vector<size_t>>& chains, 
+                               const std::vector<std::vector<size_t>>& chains,
+                               const std::vector<std::vector<size_t>>& graph_dists,
                                const std::vector<size_t>& chain_source_tree,
                                const std::vector<double>& multiplicity_by_chain,
                                const std::vector<int>& chain_score_estimates,
@@ -939,7 +941,11 @@ protected:
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+    Alignment find_chain_alignment(const Alignment& aln, 
+                                   const VectorView<algorithms::Anchor>& to_chain,
+                                   const std::vector<size_t>& chain,
+                                   const std::vector<size_t>& graph_dists,
+                                   aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
