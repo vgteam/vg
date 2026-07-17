@@ -64,7 +64,7 @@
 
 #include "io/save_handle_graph.hpp"
 
-#include "algorithms/gfa_to_handle.hpp"
+#include "algorithms/gfaz_to_handle.hpp"
 #include "algorithms/prune.hpp"
 #include "algorithms/component.hpp"
 #include "algorithms/find_translation.hpp"
@@ -1929,7 +1929,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // TODO: this could be fragile if we repurpose this lambda for Reference GFA w/ Haplotypes
             // if we're constructing from a reference GFA, we don't need anything from W lines
             unordered_set<PathSense> ignore{PathSense::HAPLOTYPE};
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name, &ignore);
+            algorithms::load_gfa_or_gfaz_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name, &ignore);
         }
         catch (algorithms::GFAFormatError& e) {
             error(context) << "GFA file " << input_filename << " is not usable in VG.\n" << e.what() << endl;
@@ -6488,4 +6488,3 @@ const IndexGroup& RewindPlanException::get_indexes() const noexcept {
 }
 
 }
-

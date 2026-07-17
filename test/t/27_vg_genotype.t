@@ -35,8 +35,7 @@ vg index -x flat2.xg flat2.vg
 cat tiny/flat2-s8675309-n30-l50-e0.005.gam >flat2.sim
 vg map -x flat.xg -g flat.gcsa -G <(cat flat1.sim flat2.sim) >flat.gam
 vg genotype flat.vg flat.gam -t 1 >flat.loci
-cat tiny/tiny.fa flat1.fa flat2.fa >flats.fa
-vg msga -f flats.fa -b x | vg paths -d -v - | vg mod -n - | vg mod -c - >flat_msga.vg
+vg paths -d -v msgas/flat.vg | vg mod -n - | vg mod -c - >flat_msga.vg
 vg augment flat.vg -L flat.loci | vg paths -d -v - | vg mod -n - | vg mod -c - >flat_mod.vg
 
 is $(vg view flat_mod.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
@@ -46,7 +45,7 @@ is $(vg view flat_mod.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
 vg view -q flat.loci | vg view -qJz - | vg view -q - >/dev/null
 is "$?" "0" "genotype format can be converted to and from JSON"
 
-rm -rf flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat1.fa flat1.fa.gam flat1.vg flat1.xg flat1.sim flat2.fa flat2.fa.gam flat2.vg flat2.xg flat2.sim flat.gam flats.fa flats.fa.fai flat.loci flat_msga.vg flat_mod.vg
+rm -rf flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat1.fa flat1.fa.gam flat1.vg flat1.xg flat1.sim flat2.fa flat2.fa.gam flat2.vg flat2.xg flat2.sim flat.gam flat.loci flat_msga.vg flat_mod.vg
 
 vg construct -v call/bigins.vcf.gz -r tiny/tiny.fa > bigins.vg
 vg index -x bigins.vg.xg -g bigins.vg.gcsa -k 16 bigins.vg
