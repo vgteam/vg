@@ -243,7 +243,7 @@ using namespace std;
         struct SurjectionRecord {
             /// All the read intervals and their alignment paths.
             ///
-            vector<path_chunk_t> aln_chunks;
+            vector<path_chunk_t> path_chunks;
             /// All the corresponding intervals along the target path-strand.
             /// Note that these step handles don't track your orientation relative to the path.
             vector<pair<step_handle_t, step_handle_t>> ref_chunks;
