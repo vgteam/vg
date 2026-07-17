@@ -214,6 +214,25 @@ using namespace std;
             /// Can be empty if spliced alignment isn't used.
             /// Can contain within-path-strand deletions if spliced alignment is used.
             vector<tuple<size_t, size_t, int32_t>> connections;
+            /// Transition edges from this path-strand to other path-strands.
+            ///
+            /// Stored as a read position and the path-strand where a chunk on
+            /// that path-strand could occur at that read position. Indexes
+            /// chunks on other path-strands that could come after chunks on
+            /// this one.
+            ///
+            /// This is stored as an ordered map indexed by read position so
+            /// that it doesn't need to be adjusted as path/ref chunks get
+            /// pruned or renumbered.
+            ///
+            /// To see where you go after a chunk, you see if the next
+            /// transition in the read is sooner than the next chunk, and then
+            /// to get the whole region in which a transition might hapen you
+            /// find the first chunk on the destination path strand after your
+            /// chunk, along the read.
+            ///
+            /// TODO: Turn that into code!
+            map<size_t, pair<path_handle_t, bool>> transitions; 
         };
 
         /// Surject an alignment, defined by path_chunks and ref_chunks, to a
