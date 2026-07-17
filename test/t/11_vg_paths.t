@@ -64,26 +64,25 @@ vg paths --list -x empty.vg 2> err.txt
 is $? 1 "vg paths exits with error when no paths are found"
 is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in vg"
 
-is $(vg msga -w 20 -f msgas/s.fa | vg paths -v - -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
+is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
-is $(vg msga -w 20 -f msgas/s.fa  | vg paths -v - -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
+is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg view msgas/s.vg | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
 
 is $(vg construct -a -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg paths -d -a -v - | vg paths -L -v - | wc -l) 1 "alt allele paths can be dropped"
 
-rm -f x.xg x.gbwt x.vg x2.vg x_from_xg.fa x_from_vg.fa q.vg
+rm -f x.xg x.gbwt x.vg x2.vg x_from_xg.fa x_from_vg.fa
 
-vg msga -w 20 -f msgas/q.fa  > q.vg
-is $(vg paths -cv q.vg | awk '{print NF; exit}') 4 "vg path coverage has correct number of columns"
-is $(vg paths -cv q.vg | wc -l) 4 "vg path coverage has correct number of rows"
+is $(vg paths -cv msgas/q.vg | awk '{print NF; exit}') 4 "vg path coverage has correct number of columns"
+is $(vg paths -cv msgas/q.vg | wc -l) 4 "vg path coverage has correct number of rows"
 
 # note: coverage doesn't include cycles at moment, so s2 path will not have full length
-vg paths -Q s2 -v q.vg -d | vg paths -cv - | grep -v ^Path | awk '{print $1 "\t" $2}' > q.cov.len
-vg paths -Q s2 -v q.vg -d | vg paths -Ev - > q.len
+vg paths -Q s2 -v msgas/q.vg -d | vg paths -cv - | grep -v ^Path | awk '{print $1 "\t" $2}' > q.cov.len
+vg paths -Q s2 -v msgas/q.vg -d | vg paths -Ev - > q.len
 is $(cat q.len | wc -l) 2 "vg paths found correct number of lengths"
 diff q.cov.len q.len
 is $? 0 "vg path coverage reports correct lengths in first column"
 
-rm -f q.vg q.cov.len q.len
+rm -f q.cov.len q.len
 
 # redundant paths are x2,x3,x4,x5 but not x1
 vg paths -x graphs/path_norm_test.gfa -n -Q x2 > norm_x2.gfa
