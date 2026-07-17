@@ -9,7 +9,7 @@
 
 #include <type_traits>
 
-//#define debug_multiple_tracebacks
+#define debug_multiple_tracebacks
 //#define debug_search
 //#define debug_trace
 //#define debug_verbose_validation
@@ -1110,7 +1110,6 @@ namespace vg {
             }
             cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
                  << basis_score_difference << endl;
-            cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
 #endif
             
             if (problem.prev_subpath[basis.front()] == -1) {
@@ -1192,7 +1191,8 @@ namespace vg {
         
     }
     
-    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count) {
+    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count,
+                                                                vector<pair<uint32_t, connection_t>>* alternatives) {
         
 #ifdef debug_multiple_tracebacks
         cerr << "Computing top " << count << " alignments with disjoint subpaths" << endl;
@@ -1288,15 +1288,8 @@ namespace vg {
             queue.push(end_queue.min());
             end_queue.pop_min();
             
-            if (subpath_is_used[queue.min().second.front()]) {
-                // We shouldn't ever have the place we want to trace back from already used, but if it is already used we don't want to use it.
-                
-#ifdef debug_multiple_tracebacks
-                cerr << "Skip " << queue.min().second.front() << " because it was already emitted in a previous traceback" << endl;
-#endif
-                
-                continue;
-            }
+            // We shouldn't ever have the place we want to trace back from already used
+            assert(!subpath_is_used[queue.min().second.front()]);
             
             // We also want to remember the lowest penalty with which each
             // subpath has been queued, so we can do a real Dijkstra traversal
@@ -1306,7 +1299,7 @@ namespace vg {
             // Seed with the end we are starting with.
             min_penalty_for_subpath[queue.min().second.front()] = queue.min().first;
             
-            // We also track visited-ness, so we don;t query edges for the same thing twice.
+            // We also track visited-ness, so we don't query edges for the same thing twice.
             // TODO: This is the world's most hacky Dijkstra and needs to be rewritten from the top with an understanding of what it is supposed to be doing.
             vector<bool> subpath_is_visited(multipath_aln.subpath_size(), false);
         
@@ -1328,18 +1321,10 @@ namespace vg {
                 }
                 cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
                      << basis_score_difference << endl;
-                cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
 #endif
 
-                if (subpath_is_used[basis.front()]) {
-                    // We already used this start and can't use it again. Try something else.
-                    // TODO: This shouldn't happen; we are also catching this case on enqueue.
-#ifdef debug_multiple_tracebacks
-                    cerr << "Traceback reaches already used subpath; skip" << endl;
-#endif
-                    
-                    continue;
-                }
+                // We already used this start and can't use it again. We shouldn't get here
+                assert(!subpath_is_used[basis.front()]);
                 
                 if (subpath_is_visited[basis.front()]) {
                     // We already processed this; this must be a higher cost version of the same thing.
@@ -1379,6 +1364,29 @@ namespace vg {
                         subpath_is_used[subpath] = true;
                     }
 
+                    if (alternatives != nullptr) {
+                        while (!queue.empty() && queue.min().first == basis_score_difference) {
+                            // Save identically scoring alternatives
+                            // First two items in the other traceback (i.e. the alternate edge)
+                            vector<uint32_t> first_two;
+                            size_t i = 0;
+                            for (const auto& item : queue.min().second) {
+                                first_two.push_back(item);
+                                i++;
+                                if (i > 1) {
+                                    break;
+                                }
+                            }
+                            if (first_two.size() == 2) {
+                                // Yay, there were at least two items; we can save an edge
+                                alternatives->emplace_back(first_two[0], connection_t());
+                                alternatives->back().second.set_next(first_two[1]);
+                                alternatives->back().second.set_score(opt_score - basis_score_difference);
+                            }
+                            queue.pop_min();
+                        }
+                    }
+
                     // Break out of this loop and try a different starting position
                     break;
                     
@@ -1393,20 +1401,11 @@ namespace vg {
                     
                     for (auto& prev : prev_subpaths[here]) {
                         // For each candidate previous subpath
-                        
-                        if (subpath_is_used[prev.first]) {
-                            // This subpath has already been used in an emitted alignment, so we can't use it.
-                            
-#ifdef debug_multiple_tracebacks
-                            cerr << "\tSkip " << prev << " which is already used" << endl;
-#endif
-                            
-                            continue;
-                        }
-                        
-                        // For each, compute the score of the optimal alignment ending at that predecessor
+
+                        // Compute the score of the optimal alignment ending at that predecessor
+                        // Score from source to predecessor + score of predecessor + score of edge to predecessor
                         auto prev_opt_score = problem.prefix_score[prev.first] + multipath_aln.subpath(prev.first).score() + prev.second;
-                        
+
                         // What's the difference we would take if we went with this predecessor?
                         auto additional_penalty = best_prefix_score - prev_opt_score;
                         
@@ -1421,6 +1420,20 @@ namespace vg {
                             cerr << "\tSkip " << prev.first << " with penalty " << total_penalty << " >= " << min_penalty_for_subpath[prev.first] << endl;
 #endif
                             
+                            continue;
+                        }
+
+                        if (subpath_is_used[prev.first]) {
+                            // This subpath has already been used in an emitted alignment, so we can't use it.
+                            
+#ifdef debug_multiple_tracebacks
+                            cerr << "\tSkip " << prev.first << " which is already used" << endl;
+#endif
+                            if (alternatives != nullptr) {
+                                alternatives->emplace_back(prev.first, connection_t());
+                                alternatives->back().second.set_next(here);
+                                alternatives->back().second.set_score(opt_score - total_penalty);
+                            }
                             continue;
                         }
                         
@@ -1546,10 +1559,6 @@ namespace vg {
                 // Make sure to search in the orientation we are actually going
                 state.haplo_state = score_provider.incremental_find(make_position(pos.node_id(), !pos.is_reverse(), 0));
                 state.started = true;
-                
-#ifdef debug_multiple_tracebacks
-                cerr << "New haplotype search for " << pb2json(pos) << " finds " << state.size() << " matching haplotypes" << endl;
-#endif
             }
             
             // Otherwise we have already selected the last Mapping when we crossed the edge back into here.

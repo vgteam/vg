@@ -510,7 +510,13 @@ void add_transition_if_legal(vector<transition_info>& transitions,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
- * Create a multipath_alignment_t with subpaths to represent each transition.
+ * Create a multipath_alignment_t to represent a chaining problem.
+ * 
+ * Anchors become "subpath_t" whose fake mappings have node ID of to anchor ID.
+ * They are scored as the sum of the general item bonus and the anchor's score.
+ * 
+ * Transitions become "connection_t" between anchors. They are scored via the
+ * jump distance (i.e. indels).
  */
 multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                                      const SnarlDistanceIndex& distance_index,
@@ -520,6 +526,18 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                                      size_t max_indel_bases = 100,
                                      bool show_work = false);
 
+/**
+ * Generate chains from multipath_alignment_t tracebacks.
+ * 
+ * Attempt to use "alternatives" to construct more possible high-quality chains
+ * by splicing chains which have good-scoring edges between them.
+ * 
+ * Returns a list of lists, where each sub-list is anchor indexes in order.
+ */
+vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
+                                    const vector<Alignment>& tracebacks,
+                                    const vector<pair<uint32_t, connection_t>>& alternatives,
+                                    size_t max_chains = 1);
 
 /**
  * Chain up the given group of items. Determines the best scores and

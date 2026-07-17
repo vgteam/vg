@@ -176,6 +176,41 @@ TEST_CASE("find_best_chains tries all possibilities for X", "[chain_items][find_
     }
 }
 
+TEST_CASE("X with different length chains", "[chain_items][find_best_chains]") {
+    // Set up graph fixture
+    HashGraph graph = make_disconnected_graph(7, 10);
+    // 1-3-5-6 diagonal
+    graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
+    graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
+    graph.create_edge(graph.get_handle(5, false), graph.get_handle(6, false));
+    // 2-3-4-7 diagonal
+    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
+    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
+    graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+    // One anchor on each node
+    // read start, graph handle and offset, length, and score
+    auto to_score = make_anchors({{1, h[1], 0, 10, 10},
+                                  {1, h[2], 0, 10, 10},
+                                  {11, h[3], 0, 10, 10},
+                                  {21, h[4], 0, 10, 10},
+                                  {21, h[5], 0, 10, 10},
+                                  {31, h[6], 0, 10, 10}}, graph);
+    
+    // Actually run the chaining and test
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 4);
+    // We should take all possible paths through the X
+    REQUIRE(result.chains.size() == 4);
+    for (size_t i = 0; i < 4; i++) {
+        REQUIRE(result.chains[i].scored_chain.second.size() == (i > 2 ? 3 : 4));
+    }
+}
+
 }
 
 }

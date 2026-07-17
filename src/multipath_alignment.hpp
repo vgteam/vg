@@ -210,8 +210,13 @@ namespace vg {
     ///  Args:
     ///    multipath_aln     multipath alignment to find optimal paths through
     ///    count             maximum number of top alignments to return
+    ///    alternatives      subpath to subpath connections which weren't taken because
+    ///                      one of the subpaths involved was already part of an alignment
+    ///                      stored as (source, (next, score-if-edge-is-used))
+    ///                      (defaults to nullptr, only filled in if not null)
     ///
-    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count);
+    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count,
+        vector<pair<uint32_t, connection_t>>* alternatives = nullptr);
     
 
     /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype

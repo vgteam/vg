@@ -627,6 +627,72 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
     return multipath_aln;
 }
 
+vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
+                                    const vector<Alignment>& tracebacks,
+                                    const vector<pair<uint32_t, connection_t>>& alternatives,
+                                    size_t max_chains) {
+    // This function assumes that there are tracebacks to trace
+    assert(!tracebacks.empty());
+    
+    vector<ChainWithRec> final_chains;
+    // For each anchor (by index), the traceback and index within that traceback where it was seen
+    vector<pair<size_t, size_t>> home_traceback_and_index(to_chain.size(), make_pair(std::numeric_limits<size_t>::max(),
+                                                                                     std::numeric_limits<size_t>::max()));
+    
+    // Extract raw lists of anchors from the tracebacks
+    vector<vector<size_t>> anchor_lists;
+    for (size_t i = 0; i < tracebacks.size(); i++) {
+        anchor_lists.emplace_back();
+        /// TODO: remove this once I finish testing the chaining outputs
+        cerr << "chain: ";
+        // Loop over all "subpaths" (anchor IDs) in the traceback
+        for (size_t j = 0; j < tracebacks[i].path().mapping().size(); j++) {
+            // Extract anchor ID, stick into list
+            anchor_lists.back().emplace_back(tracebacks[i].path().mapping(j).position().node_id());
+            // Also remember where this came from
+            home_traceback_and_index[anchor_lists.back().back()] = make_pair(i, j);
+            cerr << anchor_lists.back().back() << " ";
+        }
+        cerr << endl;
+        final_chains.emplace_back();
+        final_chains.back().scored_chain = make_pair(tracebacks[i].score(), anchor_lists.back());
+    }
+
+    // Now check in on the extra edges.
+    for (const auto& extra_edge : alternatives) {
+        /// TODO: remove this once I finish testing the chaining outputs
+        cerr << "alternative: " << extra_edge.first << " -> " << extra_edge.second.next() << " score " << extra_edge.second.score() << endl;
+        pair<size_t, size_t> start_location = home_traceback_and_index[extra_edge.first];
+        pair<size_t, size_t> end_location = home_traceback_and_index[extra_edge.second.next()];
+        if (start_location.first != std::numeric_limits<size_t>::max() 
+            && end_location.first != std::numeric_limits<size_t>::max()
+            && start_location.first != end_location.first) {
+            // This edge connections seeds in two different chains
+            // Paste the relevant sections of chain
+            vector<size_t> new_chain(anchor_lists[start_location.first].begin(), 
+                                     anchor_lists[start_location.first].begin() + start_location.second + 1);
+            new_chain.insert(new_chain.end(),
+                             anchor_lists[end_location.first].begin() + end_location.second,
+                             anchor_lists[end_location.first].end());
+            final_chains.emplace_back();
+            final_chains.back().scored_chain = make_pair(extra_edge.second.score(), new_chain);
+        }
+    }
+
+    std::sort(final_chains.begin(), final_chains.end(), 
+        [&](const ChainWithRec& a, const ChainWithRec& b) {
+        // Return true if a has higher score than b
+        return a.scored_chain.first > b.scored_chain.first;
+    });
+
+    if (final_chains.size() > max_chains) {
+        // Cut off extra chains
+        final_chains.resize(max_chains);
+    }
+
+    return final_chains;
+}
+
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                               const SnarlDistanceIndex& distance_index,
                               const HandleGraph& graph,
@@ -654,7 +720,8 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                   max_indel_bases,
                                                   show_work);
     // Then do the tracebacks
-    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains);
+    vector<pair<uint32_t, connection_t>> alternatives;
+    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains, &alternatives);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -664,61 +731,55 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
-        
-    // Convert from sparse pseudo-alignments to sparse chains
-    // Everything is already sorted.
-    result.chains.reserve(tracebacks.size());
-    for (auto& traceback : tracebacks) {
-        // Move over the list of items
-        std::vector<size_t> chain_indexes;
 
-        for (const auto& mapping : traceback.path().mapping()) {
-            // We misused anchor IDs as node IDs, so convert that back
-            chain_indexes.emplace_back(mapping.position().node_id());
+    // Generate optimal chains using the multi path traceback
+    result.chains = explode_chains(to_chain, tracebacks, alternatives, max_chains);
+
+    /// TODO: remove this once I finish testing the chaining outputs
+    for (const auto& chain : result.chains) {
+        for (const auto& item : chain.scored_chain.second) {
+            cerr << item << " ";
         }
-
+        cerr << endl;
+    }
+        
+    // Finally, fill in recombination info
+    for (auto& chain : result.chains) {
         // Compute the anchor indices in this chain that introduce an
         // inter-anchor recombination event. We simulate the path-bit
         // propagation along the chain using the same logic as
         // TracedScore::set_shared_paths (but without modifying the state).
-        std::vector<size_t> rec_positions;
-        if (!chain_indexes.empty()) {
-            // Start with the endpoint paths of the first anchor.
-            size_t first_idx = chain_indexes.front();
-            path_flags_t current_paths = to_chain[first_idx].anchor_end_paths();
+        // Start with the endpoint paths of the first anchor.
+        size_t first_idx = chain.scored_chain.second.front();
+        path_flags_t current_paths = to_chain[first_idx].anchor_end_paths();
 
-            // Walk the chain from the second anchor onward and apply the
-            // same recombination-detection rules used in set_shared_paths.
-            for (size_t k = 1; k < chain_indexes.size(); ++k) {
-                size_t anchor_idx = chain_indexes[k];
-                auto new_paths = to_chain[anchor_idx].anchor_paths();
-                // If the anchor's start and end paths are equal, it's not an
-                // internally recombinant anchor; check inter-anchor overlap.
-                if (new_paths.first == new_paths.second) {
-                    if ((current_paths & new_paths.first) == 0) {
-                        // No overlap -> inter-anchor recombination occurred here.
-                        rec_positions.push_back(anchor_idx);
-                        // Reset current paths to the anchor's start paths.
-                        current_paths = new_paths.first;
-                    } else {
-                        // Intersect supported paths and continue.
-                        current_paths &= new_paths.first;
-                    }
+        // Walk the chain from the second anchor onward and apply the
+        // same recombination-detection rules used in set_shared_paths.
+        for (size_t k = 1; k < chain.scored_chain.second.size(); ++k) {
+            size_t anchor_idx = chain.scored_chain.second[k];
+            auto new_paths = to_chain[anchor_idx].anchor_paths();
+            // If the anchor's start and end paths are equal, it's not an
+            // internally recombinant anchor; check inter-anchor overlap.
+            if (new_paths.first == new_paths.second) {
+                if ((current_paths & new_paths.first) == 0) {
+                    // No overlap -> inter-anchor recombination occurred here.
+                    chain.rec_positions.push_back(anchor_idx);
+                    // Reset current paths to the anchor's start paths.
+                    current_paths = new_paths.first;
                 } else {
-                    // Recombinant anchor: do not count as inter-anchor
-                    // recombination per original logic; reset paths to the
-                    // anchor's end paths.
-                    // TODO: since no fragmenting, probably unnecessary to track
-                    current_paths = new_paths.second;
+                    // Intersect supported paths and continue.
+                    current_paths &= new_paths.first;
                 }
+            } else {
+                // Recombinant anchor: do not count as inter-anchor
+                // recombination per original logic; reset paths to the
+                // anchor's end paths.
+                // TODO: since no fragmenting, probably unnecessary to track
+                current_paths = new_paths.second;
             }
         }
-
-        ChainWithRec entry;
-        entry.scored_chain = {traceback.score(), std::move(chain_indexes)};
-        entry.rec_positions = std::move(rec_positions);
-        result.chains.emplace_back(std::move(entry));
     }
+
     return result;
 }
 
