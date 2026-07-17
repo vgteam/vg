@@ -260,7 +260,10 @@ using namespace std;
         extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
                                   const unordered_set<path_handle_t>& surjection_paths) const;
         
-        /// same semantics except for a multipath alignment
+        /// Same semantics except for a multipath alignment.
+        ///
+        /// connections_out maps from path-strand to tuples of (source chunk,
+        /// destination chunk, connection score).
         unordered_map<pair<path_handle_t, bool>, SurjectionRecord>
         extract_overlapping_paths(const PathPositionHandleGraph* graph,
                                   const multipath_alignment_t& source,
