@@ -639,7 +639,9 @@ protected:
     
     const HandleGraph& graph;
     const gbwt::GBWT& gbwt;
-    
+    // When using the gbwt we need some precomputed information to ask about stored paths.
+    unordered_set<string> gbwt_reference_samples;
+
 public:
     
     GBWTTraversalFinder(const HandleGraph& graph, const gbwt::GBWT& gbwt);
@@ -667,6 +669,11 @@ public:
     virtual pair<vector<Traversal>, vector<gbwt::size_type>> find_path_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
 
     const gbwt::GBWT& get_gbwt() { return gbwt; }
+
+    /**
+     * Count the unique sample/haplotype pairs that are found in the nsarl (from second output of find_path_traversals)
+     */
+    int64_t count_haplotypes(const vector<gbwt::size_type>& gbwt_paths) const;
     
 protected:
 
