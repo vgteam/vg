@@ -2586,17 +2586,28 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
             // Did we get all the way to the end of the read?
             // If not, add a softclip.
             // TODO: Can we let the aligner know it can softclip for free?
+            size_t softclipped_bases = 0;
             if (is_left_tail && tail_wfa_aln.seq_offset != 0) {
                 // Prepend softclip
-                WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, tail_wfa_aln.seq_offset, 0);
+                softclipped_bases = tail_wfa_aln.seq_offset;
+                WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, softclipped_bases, 0);
                 prepend.join(tail_wfa_aln);
                 tail_wfa_aln = std::move(prepend);
             } else if (!is_left_tail && tail_wfa_aln.seq_offset + tail_wfa_aln.length != aln.sequence().size()) {
-                cerr << tail_wfa_aln.seq_offset << " + " << tail_wfa_aln.length << " != " << aln.sequence().size() << endl;
                 // Append softclip
                 size_t right_end = tail_wfa_aln.seq_offset + tail_wfa_aln.length;
-                size_t remaining = aln.sequence().size() - right_end;
-                tail_wfa_aln.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
+                softclipped_bases = aln.sequence().size() - right_end;
+                tail_wfa_aln.join(WFAAlignment::make_unlocalized_insertion(right_end, softclipped_bases, 0));
+            }
+
+            if (this->softclip_penalty != 0.0 && softclipped_bases > 0) {
+                double penalty = this->softclip_penalty * softclipped_bases;
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    cerr << log_name() << "Applied softclip penalty of " << penalty 
+                         << " for " << softclipped_bases << " total softclipped bases" << endl;
+                }
+                tail_wfa_aln.score -= penalty;
             }
         }
 
@@ -3199,17 +3210,6 @@ Alignment MinimizerMapper::find_chain_alignment(
     ScoredPath right_tail = find_tail_alignment(aln, *here, wfa_extender, false, stats);
     append_path(composed_path, right_tail.path);
     composed_score += right_tail.score;
-
-    if (softclip_penalty != 0.0 && composed_path.mapping_size() > 0) {
-        size_t softclipped_bases = softclip_start(composed_path) + softclip_end(composed_path);
-        double penalty = softclip_penalty * softclipped_bases;
-        // Make sure score can't go negative.
-        composed_score = std::max(composed_score - penalty, 0.0);
-        if (show_work) {
-            #pragma omp critical (cerr)
-            cerr << log_name() << "Applied softclip penalty of " << penalty << " for " << softclipped_bases << " total softclipped bases" << endl;
-        }
-    }
 
     if (show_work) {
         #pragma omp critical (cerr)
