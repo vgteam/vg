@@ -940,6 +940,22 @@ protected:
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
     Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+
+    // Path along with its score (as a step towards an Alignment)
+    struct ScoredPath {
+        Path path;
+        int32_t score = 0;
+    };
+
+    /**
+     * Find an optimal alignment path for a tail extending out from an anchor.
+     * 
+     * First tries to do basic extension via the WFAExtender,
+     * and if that fails then falls back to full graph alignment.
+     * 
+     * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
+     */
+    ScoredPath find_tail_alignment(const Alignment& aln, const algorithms::Anchor& tail_anchor, const WFAExtender& wfa_extender, bool is_left_tail, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -1298,7 +1314,7 @@ protected:
      *
      * Returns alignments in gbwt_graph space.
      */
-    pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
+    ScoredPath get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
         const Position& default_position, bool pin_left, size_t longest_detectable_gap, LazyRNG& rng) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly

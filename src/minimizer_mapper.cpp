@@ -5482,9 +5482,9 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             // scored in extension_path_scores[extended_seed_num]
             
             // We also have a left tail path and score
-            pair<Path, int64_t> left_tail_result {{}, 0};
+            ScoredPath left_tail_result {{}, 0};
             // And a right tail path and score
-            pair<Path, int64_t> right_tail_result {{}, 0};
+            ScoredPath right_tail_result {{}, 0};
             
             if (!extension.left_full) {
                 // There is a left tail
@@ -5521,7 +5521,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             }
             
             // Compute total score
-            int32_t total_score = extension.score + left_tail_result.second + right_tail_result.second;
+            int32_t total_score = extension.score + left_tail_result.score + right_tail_result.score;
             
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -5537,15 +5537,15 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             id_t winning_start = winning_score == 0 ? 0 : (winning_left.mapping_size() == 0
                                           ? winning_middle.mapping(0).position().node_id()
                                           : winning_left.mapping(0).position().node_id());
-            id_t current_start = left_tail_result.first.mapping_size() == 0
+            id_t current_start = left_tail_result.path.mapping_size() == 0
                                      ? gbwt_graph.get_id(extension.path.front())
-                                     : left_tail_result.first.mapping(0).position().node_id();
+                                     : left_tail_result.path.mapping(0).position().node_id();
             id_t winning_end = winning_score == 0 ? 0 : (winning_right.mapping_size() == 0
                                   ? winning_middle.mapping(winning_middle.mapping_size() - 1).position().node_id()
                                   : winning_right.mapping(winning_right.mapping_size()-1).position().node_id());
-            id_t current_end = right_tail_result.first.mapping_size() == 0
+            id_t current_end = right_tail_result.path.mapping_size() == 0
                                 ? gbwt_graph.get_id(extension.path.back())
-                                : right_tail_result.first.mapping(right_tail_result.first.mapping_size()-1).position().node_id();
+                                : right_tail_result.path.mapping(right_tail_result.path.mapping_size()-1).position().node_id();
 
             // Is this left tail different from the currently winning left tail?
             bool different_left = winning_start != current_start;
@@ -5565,9 +5565,9 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 // Save the score
                 winning_score = total_score;
                 // And the path parts
-                winning_left = std::move(left_tail_result.first);
+                winning_left = std::move(left_tail_result.path);
                 winning_middle = extension.to_path(gbwt_graph, aln.sequence());
-                winning_right = std::move(right_tail_result.first);
+                winning_right = std::move(right_tail_result.path);
 
             } else if ((total_score > second_score || second_score == 0) && different_left && different_right) {
                 // This is the new second best alignment seen so far and it is 
@@ -5576,9 +5576,9 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 // Save the score
                 second_score = total_score;
                 // And the path parts
-                second_left = std::move(left_tail_result.first);
+                second_left = std::move(left_tail_result.path);
                 second_middle = extension.to_path(gbwt_graph, aln.sequence());
-                second_right = std::move(right_tail_result.first);
+                second_right = std::move(right_tail_result.path);
             }
 
             return true;
@@ -5615,18 +5615,16 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 
 //-----------------------------------------------------------------------------
 
-pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
+MinimizerMapper::ScoredPath MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
     const string& sequence, const Position& default_position, bool pin_left, size_t longest_detectable_gap, LazyRNG& rng) const {
    
     // We want the best alignment, to the base graph, done against any target path
-    Path best_path;
-    // And its score
-    int32_t best_score = 0;
+    ScoredPath best;
     
     if (!sequence.empty()) {
         // We start out with the best alignment being a pure softclip.
         // If we don't have any trees, or all trees are empty, or there's nothing beter, this is what we return.
-        Mapping* m = best_path.add_mapping();
+        Mapping* m = best.path.add_mapping();
         Edit* e = m->add_edit();
         e->set_from_length(0);
         e->set_to_length(sequence.size());
@@ -5637,7 +5635,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "First best alignment: " << log_alignment(best_path) << " score " << best_score << endl;
+                cerr << log_name() << "First best alignment: " << log_alignment(best.path) << " score " << best.score << endl;
             }
         }
     }
@@ -5705,33 +5703,33 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                 }
             }
             
-            if (current_alignment.path().mapping_size() > 0 && deterministic_beats(current_alignment.score(), best_score, rng)) {
+            if (current_alignment.path().mapping_size() > 0 && deterministic_beats(current_alignment.score(), best.score, rng)) {
                 // This is a new best alignment, and it is nonempty.
-                best_path = current_alignment.path();
+                best.path = current_alignment.path();
                 
                 if (!pin_left) {
                     // Un-reverse it if we were pinning right
-                    best_path = reverse_complement_path(best_path, [&](id_t node) { 
+                    best.path = reverse_complement_path(best.path, [&](id_t node) { 
                         return subgraph.get_length(subgraph.get_handle(node, false));
                     });
                 }
                 
                 // Translate from subgraph into base graph and keep it.
-                best_path = subgraph.translate_down(best_path);
-                best_score = current_alignment.score();
+                best.path = subgraph.translate_down(best.path);
+                best.score = current_alignment.score();
                 
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "New best alignment is "
-                            << log_alignment(best_path) << " score " << best_score << endl;
+                            << log_alignment(best.path) << " score " << best.score << endl;
                     }
                 }
             }
         }
     }
 
-    return make_pair(best_path, best_score);
+    return best;
 }
 
 vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& extended_seed,

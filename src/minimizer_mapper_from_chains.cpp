@@ -2528,6 +2528,196 @@ double MinimizerMapper::get_read_coverage(
     return get_fraction_covered(covered);
 }
 
+MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
+    const Alignment& aln, 
+    const algorithms::Anchor& tail_anchor, 
+    const WFAExtender& wfa_extender, 
+    bool is_left_tail,
+    aligner_stats_t* stats
+) const {
+    // Set up alignment parameters
+    string tail_side = is_left_tail ? "left" : "right";
+    size_t tail_length = is_left_tail ? tail_anchor.read_start()
+                                      : aln.sequence().size() - tail_anchor.read_end();
+    string tail_seq = is_left_tail ? aln.sequence().substr(0, tail_length)
+                                   : aln.sequence().substr(tail_anchor.read_end(), tail_length);
+    pos_t anchor_pos = is_left_tail ? tail_anchor.graph_start()
+                                    : tail_anchor.graph_end();
+    if (!is_left_tail) {
+        // Pull back a base to get the outside-the-alignment anchoring position.
+        get_offset(anchor_pos)--;
+    }
+
+    ScoredPath output;
+    // Handle empty input
+    if (tail_length == 0) {
+        return output;
+    }
+
+    // Scratch to calculate time differences
+    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::high_resolution_clock::time_point stop_time;
+
+    WFAAlignment tail_wfa_aln;
+
+    // ---- Initial GBWT extension ----
+
+    if (tail_length <= this->max_tail_length) {
+        if (stats) {
+            start_time = std::chrono::high_resolution_clock::now();
+        }
+
+        // Generate a prefix/suffix alignment for the tail
+        tail_wfa_aln = is_left_tail ? wfa_extender.prefix(tail_seq, anchor_pos)
+                                    : wfa_extender.suffix(tail_seq, anchor_pos);
+
+        if (stats) {
+            stop_time = std::chrono::high_resolution_clock::now();
+            stats->bases.wfa_tail += tail_length;
+            stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+            stats->invocations.wfa_tail += 1;
+        }
+
+        if (tail_wfa_aln) {
+            if (!is_left_tail) {
+                // Shift the alignment over to where the tail actually is
+                tail_wfa_aln.seq_offset += tail_anchor.read_end();
+            }
+            // Did we get all the way to the end of the read?
+            // If not, add a softclip.
+            // TODO: Can we let the aligner know it can softclip for free?
+            if (is_left_tail && tail_wfa_aln.seq_offset != 0) {
+                // Prepend softclip
+                WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, tail_wfa_aln.seq_offset, 0);
+                prepend.join(tail_wfa_aln);
+                tail_wfa_aln = std::move(prepend);
+            } else if (!is_left_tail && tail_wfa_aln.seq_offset + tail_wfa_aln.length != aln.sequence().size()) {
+                cerr << tail_wfa_aln.seq_offset << " + " << tail_wfa_aln.length << " != " << aln.sequence().size() << endl;
+                // Append softclip
+                size_t right_end = tail_wfa_aln.seq_offset + tail_wfa_aln.length;
+                size_t remaining = aln.sequence().size() - right_end;
+                tail_wfa_aln.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
+            }
+        }
+
+        if (tail_wfa_aln.length != tail_length) {
+            // We didn't get the alignment we expected.
+            stringstream ss;
+            ss << "Aligning " << tail_side << " tail " << tail_seq 
+               << " anchored at " << anchor_pos << " produced wrong-length alignment ";
+            tail_wfa_aln.print(ss);
+            throw ChainAlignmentFailedError(ss.str());
+        }
+    }
+
+    // ---- Check for early return ----
+
+    // Do we already have an alignment (from GBWT step?)
+    if (tail_wfa_aln) {
+        tail_wfa_aln.check_lengths(this->gbwt_graph);
+            
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add " << tail_side << " tail of "
+                     << tail_wfa_aln.length << "bp with score of " << tail_wfa_aln.score << endl;
+            }
+        }
+#endif
+        output.path = tail_wfa_aln.to_path(this->gbwt_graph, aln.sequence());
+        output.score = tail_wfa_aln.score;
+        return output;
+    }
+
+    // Is the tail too long to align?
+    if (tail_length > this->max_tail_dp_length) {
+#ifdef debug_chain_alignment
+        #pragma omp critical (cerr)
+        {
+            cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align "
+                 << tail_length << " bp " << tail_side << " tail against "
+                 << anchor_pos << " in " << aln.name() << " to avoid overflow" << endl;
+        }
+#endif
+                
+        // Make a softclip for it.
+        tail_wfa_aln = WFAAlignment::make_unlocalized_insertion(is_left_tail ? 0 : tail_anchor.read_end(), tail_length, 0);
+        output.path = tail_wfa_aln.to_path(this->gbwt_graph, aln.sequence());
+        output.score = tail_wfa_aln.score;
+        return output;
+    }
+
+    // ---- Fall back on alignment against graph ----
+            
+#ifdef debug_chain_alignment
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Long " << tail_side << " tail fallback alignment" << endl;
+        }
+    }
+#endif
+                
+    Alignment tail_fallback_aln;
+    tail_fallback_aln.set_sequence(tail_seq);
+    if (!aln.quality().empty()) {
+        tail_fallback_aln.set_quality(aln.quality().substr(0, tail_length));
+    }
+                
+    // Work out how far the tail can see
+    auto seq_start = is_left_tail ? aln.sequence().begin()
+                                  : aln.sequence().begin() + tail_anchor.read_end();
+    auto seq_end = is_left_tail ? aln.sequence().begin() + tail_length
+                                : aln.sequence().end();
+    size_t max_gap_length = longest_detectable_gap_in_range(aln, seq_start, seq_end, this->get_regular_aligner());
+    max_gap_length = std::min(this->max_tail_gap, max_gap_length);
+    size_t graph_horizon = tail_length + max_gap_length;
+
+    // Align the tail, anchoring one end.
+    if (stats) {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
+    bool did_aln = align_sequence_between_consistently(is_left_tail ? empty_pos_t() : tail_anchor.graph_end(),
+                                                       is_left_tail ? tail_anchor.graph_start() : empty_pos_t(),
+                                                       graph_horizon,
+                                                       max_gap_length,
+                                                       &this->gbwt_graph,
+                                                       this->get_regular_aligner(),
+                                                       tail_fallback_aln,
+                                                       &aln.name(),
+                                                       this->max_dp_cells,
+                                                       this->choose_band_padding);
+    if (stats) {
+        stop_time = std::chrono::high_resolution_clock::now();
+        if (did_aln) {
+            // Actually did the alignment
+            stats->bases.dozeu_tail += tail_length;
+            stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+            stats->invocations.dozeu_tail += 1;
+        }
+    }
+                
+    if (show_work && max_tail_length > 0) {
+        #pragma omp critical (cerr)
+        {
+            cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_fallback_aln.score() << endl;
+        }
+    }
+
+    output.path = tail_fallback_aln.path();
+    output.score = tail_fallback_aln.score();
+        
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Aligned" << tail_side << "tail length " << tail_length << std::endl;
+        }
+    }
+
+    return output;
+}
+
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
@@ -2607,141 +2797,9 @@ Alignment MinimizerMapper::find_chain_alignment(
     int composed_score = 0;
 
     // Do the left tail, if any.
-    size_t left_tail_length = (*here).read_start();
-    if (left_tail_length > 0) {
-        // We need to do a left tail.
-        // Anchor position will not be covered.
-        
-        string left_tail = aln.sequence().substr(0, left_tail_length);
-        WFAAlignment left_alignment;
-        pos_t right_anchor = (*here).graph_start();
-        if (left_tail.size() <= max_tail_length) {
-            // Tail is short so keep to the GBWT.
-            // We align the left tail with prefix(), which creates a prefix of the alignment.
-            if (stats) {
-                start_time = std::chrono::high_resolution_clock::now();
-            }
-            left_alignment = wfa_extender.prefix(left_tail, right_anchor);
-            if (stats) {
-                stop_time = std::chrono::high_resolution_clock::now();
-                stats->bases.wfa_tail += left_tail_length;
-                stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
-                stats->invocations.wfa_tail += 1;
-            }
-            if (left_alignment && left_alignment.seq_offset != 0) {
-                // We didn't get all the way to the left end of the read without
-                // running out of score.
-                // Prepend a softclip.
-                // TODO: Can we let the aligner know it can softclip for free?
-                WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, left_alignment.seq_offset, 0);
-                prepend.join(left_alignment);
-                left_alignment = std::move(prepend);
-            }
-            if (left_alignment.length != (*here).read_start()) {
-                // We didn't get the alignment we expected.
-                stringstream ss;
-                ss << "Aligning left tail " << left_tail << " from " << (*here).graph_start() << " produced wrong-length alignment ";
-                left_alignment.print(ss);
-                throw ChainAlignmentFailedError(ss.str());
-            }
-        }
-        if (left_alignment) {
-            // We got an alignment, so make it a path
-            left_alignment.check_lengths(gbwt_graph);
-            
-#ifdef debug_chain_alignment
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Start with left tail of " << left_alignment.length << " with score of " << left_alignment.score << endl;
-                }
-            }
-#endif
-            
-            composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
-            composed_score = left_alignment.score;
-        } else {
-            // We need to fall back on alignment against the graph
-            
-            if (left_tail_length > max_tail_dp_length) {
-                // Left tail is too long to align.
-                
-#ifdef debug_chain_alignment
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << left_tail_length << " bp left tail against " << right_anchor << " in " << aln.name() << " to avoid overflow" << endl;
-                }
-#endif
-                
-                // Make a softclip for it.
-                left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
-                composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
-                composed_score = left_alignment.score;
-            } else {
-            
-#ifdef debug_chain_alignment
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Start with long left tail fallback alignment" << endl;
-                    }
-                }
-#endif
-                
-                Alignment tail_aln;
-                tail_aln.set_sequence(left_tail);
-                if (!aln.quality().empty()) {
-                    tail_aln.set_quality(aln.quality().substr(0, left_tail_length));
-                }
-                
-                // Work out how far the tail can see
-                size_t max_gap_length = std::min(this->max_tail_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + left_tail_length, this->get_regular_aligner()));
-                size_t graph_horizon = left_tail_length + max_gap_length;
-
-#ifdef warn_on_fallback
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp left tail against " << right_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
-                }
-#endif
-
-                // Align the left tail, anchoring the right end.
-                if (stats) {
-                    start_time = std::chrono::high_resolution_clock::now();
-                }
-                bool did_aln = align_sequence_between_consistently(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
-                if (stats) {
-                    stop_time = std::chrono::high_resolution_clock::now();
-                    if (did_aln) {
-                        // Actually did the alignment
-                        stats->bases.dozeu_tail += left_tail_length;
-                        stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
-                        stats->invocations.dozeu_tail += 1;
-                    }
-                }
-
-                
-                if (show_work && max_tail_length > 0) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_aln.score() << endl;
-                    }
-                }
-
-                // Since it's the left tail we can just clobber the path
-                composed_path = tail_aln.path();
-                composed_score = tail_aln.score();
-            }
-        }
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Aligned left tail length " << left_tail_length << std::endl;
-            }
-        }
-
-    }
+    ScoredPath left_tail = find_tail_alignment(aln, *here, wfa_extender, true, stats);
+    composed_path = left_tail.path;
+    composed_score = left_tail.score;
 
     size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
@@ -3049,15 +3107,6 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Just jump to right tail
                 break;
             }
-           
-#ifdef warn_on_fallback
-            // We can't actually do this alignment, we'd have to align too
-            // long of a sequence to find a connecting path.
-            #pragma omp critical (cerr)
-            {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
-            }
-#endif
             
             Alignment link_aln;
             link_aln.set_sequence(linking_bases);
@@ -3147,149 +3196,10 @@ Alignment MinimizerMapper::find_chain_alignment(
         composed_score += here_alignment.score;
     }
 
-    // Do the right tail, if any. Do as much of it as we can afford to do.
-    size_t right_tail_length = aln.sequence().size() - (*here).read_end();
-    if (right_tail_length > 0) {
-        // We need to do a right tail
-        
-        string right_tail = aln.sequence().substr((*here).read_end(), right_tail_length);
-        WFAAlignment right_alignment;
-        // Grab the past-end graph position from the last thing in the chain. It is included in the tail as a base to align against.
-        pos_t left_anchor_included = (*here).graph_end();
-        // Pull back a base to get the outside-the-alignment anchoring position.
-        pos_t left_anchor_excluded = left_anchor_included;
-        get_offset(left_anchor_excluded)--;
-        if (right_tail_length <= max_tail_length) {
-            // We align the right tail with suffix(), which creates a suffix of the alignment.
-            // Make sure to use the anchor outside of the region to be aligned.
-            if (stats) {
-                start_time = std::chrono::high_resolution_clock::now();
-            }
-            right_alignment = wfa_extender.suffix(right_tail, left_anchor_excluded);
-            if (stats) {
-                stop_time = std::chrono::high_resolution_clock::now();
-                stats->bases.wfa_tail += right_tail_length;
-                stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
-                stats->invocations.wfa_tail += 1;
-            }
-        }
-        
-        if (right_alignment) {
-            // Right tail did align. Put the alignment back into full read space.
-            right_alignment.seq_offset += (*here).read_end();
-            if (right_alignment.seq_offset + right_alignment.length != aln.sequence().size()) {
-                // We didn't get all the way to the right end of the read without
-                // running out of score.
-                // Append a softclip.
-                // TODO: Can we let the aligner know it can softclip for free?
-                size_t right_end = right_alignment.seq_offset + right_alignment.length;
-                size_t remaining = aln.sequence().size() - right_end;
-                right_alignment.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
-            }
-            if (right_alignment.length != right_tail_length) {
-                // We didn't get the alignment we expected.
-                stringstream ss;
-                ss << "Aligning right tail " << right_tail << " from " << left_anchor_excluded << " produced wrong-length alignment ";
-                right_alignment.print(ss);
-                throw ChainAlignmentFailedError(ss.str());
-            }
-#ifdef debug_chain_alignment
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
-                }
-            }
-#endif
-            
-            right_alignment.check_lengths(gbwt_graph);
-            
-            append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
-            composed_score += right_alignment.score;
-        } else {
-            // We need to fall back on alignment against the graph
-            
-#ifdef debug_chain_alignment
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "End with long right tail fallback alignment" << endl;
-                }
-            }
-#endif
+    ScoredPath right_tail = find_tail_alignment(aln, *here, wfa_extender, false, stats);
+    append_path(composed_path, right_tail.path);
+    composed_score += right_tail.score;
 
-            if (right_tail.size() > max_tail_dp_length) {
-                // Right tail is too long to align.
-               
-#ifdef debug_chain_alignment
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor_included << " in " << aln.name() << " to avoid overflow" << endl;
-                }
-#endif
-                
-                // Make a softclip for it.
-                right_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), aln.sequence().size() - (*here).read_end(), 0);
-                append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
-                composed_score += right_alignment.score;
-            } else {
-
-                Alignment tail_aln;
-                tail_aln.set_sequence(right_tail);
-                if (!aln.quality().empty()) {
-                    tail_aln.set_quality(aln.quality().substr((*here).read_end(), right_tail_length));
-                }
-
-                // Work out how far the tail can see
-                size_t max_gap_length = std::min(this->max_tail_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + (*here).read_end(), aln.sequence().end(), this->get_regular_aligner()));
-                size_t graph_horizon = right_tail_length + max_gap_length;
-
-#ifdef warn_on_fallback
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor_included << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
-                }
-#endif
-
-                // Align the right tail, anchoring the left end.
-                // We need to use the included-in-the-alignment left anchor position.
-                // TODO: What if it is past a node end? Is it guaranteed to be handled right?
-                if (stats) {
-                    start_time = std::chrono::high_resolution_clock::now();
-                }
-                bool did_aln = align_sequence_between_consistently(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
-                if (stats) {
-                    stop_time = std::chrono::high_resolution_clock::now();
-                    if (did_aln) {
-                        // Actually did the alignment
-                        stats->bases.dozeu_tail += right_tail_length;
-                        stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
-                        stats->invocations.dozeu_tail += 1;
-                    }
-                }
-
-                if (show_work && max_tail_length > 0) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_aln.score() << endl;
-                    }
-                }
-
-                // Since it's the right tail we have to add it on
-                append_path(composed_path, tail_aln.path());
-                composed_score += tail_aln.score();
-            }
-        } 
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Aligned right tail length " << right_tail_length << std::endl;
-            }
-        }
-
-    }
-   
     if (softclip_penalty != 0.0 && composed_path.mapping_size() > 0) {
         size_t softclipped_bases = softclip_start(composed_path) + softclip_end(composed_path);
         double penalty = softclip_penalty * softclipped_bases;
@@ -3323,9 +3233,9 @@ Alignment MinimizerMapper::find_chain_alignment(
         result.set_identity(identity(result.path()));
     }
     
-    set_annotation(result, "left_tail_length", (double) left_tail_length);
+    set_annotation(result, "left_tail_length", (double) left_tail.path.length());
     set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
-    set_annotation(result, "right_tail_length", (double) right_tail_length);
+    set_annotation(result, "right_tail_length", (double) right_tail.path.length());
     
     return result;
 }
