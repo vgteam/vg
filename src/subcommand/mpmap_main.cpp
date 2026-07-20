@@ -98,8 +98,6 @@ static void error_if_negative(const Logger& logger, double value, const string& 
     }
 }
 
-/// Returns true if the given surjected multipath alignment is mapped (has at
-/// least one aligned base).
 static bool mp_aln_is_mapped(const multipath_alignment_t& mp_aln) {
     for (size_t i = 0; i < mp_aln.subpath_size(); ++i) {
         if (mp_aln.subpath(i).path().mapping_size() > 0) {
@@ -109,19 +107,6 @@ static bool mp_aln_is_mapped(const multipath_alignment_t& mp_aln) {
     return false;
 }
 
-/// Apply "promote secondary on failed surjection" to a single read's surjected
-/// multipath alignments, keeping the parallel path_positions array in sync.
-///
-/// mp_alns holds the read's surjected primary followed by its secondaries (and
-/// possibly supplementaries appended at the end); path_positions holds the
-/// matching (path name, is_reverse, offset) for each. If the primary (the first
-/// non-supplementary entry) is unmapped, the best-scoring mapped,
-/// non-supplementary secondary is promoted into its place (both the alignment
-/// and its position). Only alignments already present are considered; no
-/// realignment is performed. Supplementaries are never promoted.
-///
-/// warned is a shared flag used to emit the "no promotable secondary" warning
-/// only once. Returns true iff a promotion occurred.
 static bool promote_secondary_mp(vector<multipath_alignment_t>& mp_alns,
                                  vector<tuple<string, bool, int64_t>>& path_positions,
                                  const string& read_name,

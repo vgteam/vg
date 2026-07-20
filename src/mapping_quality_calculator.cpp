@@ -271,22 +271,6 @@ void MappingQualityCalculator::compute_mapping_quality(vector<Alignment>& alignm
     for (size_t i = 1; i < alignments.size(); ++i) {
         alignments[0].add_secondary_score(alignments[i].score());
     }
-
-    // Compute meaningful MAPQs for all non-primary alignments using the same
-    // score vector. The primary-specific adjustments (identity scaling, cluster
-    // blending, mq_estimate cap) are not applied to secondaries.
-    if (alignments.size() > 1) {
-        vector<double> raw_scores(alignments.size());
-        for (size_t i = 0; i < alignments.size(); ++i) {
-            raw_scores[i] = alignments[i].score();
-        }
-        vector<int32_t> all_mapqs = compute_all_mapping_qualities(raw_scores);
-        for (size_t i = 0; i < alignments.size(); ++i) {
-            if (i == max_idx) continue;
-            int32_t mq = (i < all_mapqs.size()) ? all_mapqs[i] : 0;
-            alignments[i].set_mapping_quality(min(mq, max_mapping_quality));
-        }
-    }
 }
 
 void MappingQualityCalculator::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
