@@ -2729,6 +2729,360 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     return output;
 }
 
+void MinimizerMapper::find_next_non_overlapping(
+    const VectorView<algorithms::Anchor>& to_chain,
+    const std::vector<size_t>& chain, 
+    const algorithms::Anchor*& here, 
+    vector<size_t>::const_iterator& next_it) const {
+    // Don't move past the end of the chain
+    while (next_it != chain.end()) {
+        // Try and find a next thing to connect to
+        if (algorithms::get_read_distance(*here, *(&to_chain[*next_it])) == std::numeric_limits<size_t>::max()) {
+            // There's overlap between these items. Keep here and skip next.
+#ifdef debug_chain_alignment
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Don't try and connect to " << *next_it << " because they overlap" << endl;
+                }
+            }
+#endif
+        
+            ++next_it;
+        } else {
+            // No overlap, so try it.
+            break;
+        }
+    }
+}
+
+void MinimizerMapper::find_next_to_skip_to(
+    const VectorView<algorithms::Anchor>& to_chain,
+    const std::vector<size_t>& chain,
+    const algorithms::Anchor*& here,
+    vector<size_t>::const_iterator next_it) const {
+    // Keep track of the total distance from the previous seed to the next one we choose in the graph
+    const algorithms::Anchor* next = &to_chain[*next_it];
+    size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *this->distance_index, this->gbwt_graph);
+    size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
+
+    // The sum of the differences between read and graph lengths
+    size_t gap_lengths = (std::max(total_graph_distance, prev_read_distance) 
+                        - std::min(total_graph_distance, prev_read_distance));
+    // Where we will be moving next_it to (maybe)
+    auto skip_to_it = next_it;
+
+    while (skip_to_it != chain.end()) {
+        const algorithms::Anchor* skip_to = &to_chain[*skip_to_it];
+        // Try and find a next thing to connect to
+        
+        //TODO: Getting the graph distance is probably slow, might want to save it from chaining
+        size_t cur_graph_distance;
+        if (skip_to->is_skippable() && skip_to_it+1 != chain.end()) {
+            // Distance from end of this anchor to start of next anchor
+            cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[*(skip_to_it+1)], 
+                                                                *this->distance_index, this->gbwt_graph);
+            // Also add in distance from start of this anchor to end of this anchor
+            cur_graph_distance += skip_to->length();
+            // Combined those are graph start -> start dist we are trying to skip past
+        }
+
+        if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
+            total_graph_distance + cur_graph_distance < this->max_skipped_bases) {
+            // This anchor is repetitive and the next one is close enough to connect
+#ifdef debug_chain_alignment
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Try to avoid connecting to " << *skip_to_it << " because it is repetitive" << endl;
+                }
+            }
+#endif
+            // Read start -> start distance for what we're skipping
+            size_t cur_read_distance = algorithms::get_read_distance(*skip_to, to_chain[*(skip_to_it+1)]);
+            cur_read_distance += skip_to->length();
+            // Total gap so far
+            gap_lengths += (std::max(cur_read_distance, cur_graph_distance) 
+                            - std::min(cur_read_distance, cur_graph_distance));
+            total_graph_distance += cur_graph_distance;
+            
+            ++skip_to_it;
+        } else {
+            // skip_to is either not skippable or too far away so stop
+            if (gap_lengths > this->min_indel_avoid_bases) {
+#ifdef debug_chain_alignment
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Skipping to " << *skip_to_it 
+                             << " to avoid gap of " << gap_lengths << " in repetitive region" << endl;
+                    }
+                }
+#endif
+                // If there was a big gap
+                next_it = skip_to_it;
+            } else {
+#ifdef debug_chain_alignment
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Not bothering to skip to " << *skip_to_it 
+                             << " because total gaps are only " << gap_lengths << endl;
+                    }
+                }
+#endif
+            }
+            // If there wasn't a gap then don't skip anything
+            break;
+        }
+    }
+}
+
+MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
+    const VectorView<algorithms::Anchor>& to_chain,
+    const Alignment& aln,
+    const vector<size_t>::const_iterator& here_it,
+    const vector<size_t>::const_iterator& next_it,
+    const WFAExtender& wfa_extender,
+    const Aligner& aligner,
+    aligner_stats_t* stats) const {
+
+    // Where are we?
+    const algorithms::Anchor* here = &to_chain[*here_it];
+    const algorithms::Anchor* next = &to_chain[*next_it];
+
+#ifdef debug_chain_alignment
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Next connectable item " << *next
+                 << " with overall index " << to_chain.backing_index(*next_it)
+                 << " aligns " << (*next).read_start() << "-" << (*next).read_end()
+                 << " with " << (*next).graph_start() << "-" << (*next).graph_end()
+                 << endl;
+        }
+    }
+#endif
+    // Where we save output
+    ScoredPath output;
+    // Pull out the intervening string to the next, if any.
+    size_t link_start = (*here).read_end();
+    size_t link_length = (*next).read_start() - link_start;
+    string linking_bases = aln.sequence().substr(link_start, link_length);
+    size_t graph_dist = algorithms::get_graph_distance(*here, *next, *this->distance_index, this->gbwt_graph);
+    // Storage for this alignment once we find it
+    WFAAlignment link_alignment;
+    // Where did it come from?
+    std::string link_alignment_source;
+
+    // Scratch to calculate time differences
+    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::high_resolution_clock::time_point stop_time;
+        
+#ifdef debug_chain_alignment
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
+                 << " separated by ~" << graph_dist << " bp";
+            if (linking_bases.size() < 200) {
+                cerr << " and sequence \"" << linking_bases << "\"";
+            }
+            cerr << endl;
+        }
+    }
+#endif
+        
+    if (link_length == 0 && graph_dist == 0) {
+        // These items abut in the read and the graph, so we assume we can just connect them.
+        // WFAExtender::connect() can't handle an empty read sequence, and
+        // our fallback method to align just against the graph can't handle
+        // an empty graph region.
+        // TODO: We can be leaving the GBWT's space here!
+        
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Treat as empty link" << endl;
+            }
+        }
+#endif
+        
+        link_alignment = WFAAlignment::make_empty();
+        link_alignment_source = "empty";
+    } else if (link_length > 0 && link_length <= this->max_chain_connection && graph_dist * link_length <= max_dp_cells) {
+        // If it's not empty and is a reasonable size, align it.
+        // Make sure to walk back the left anchor so it is outside of the region to be aligned.
+        pos_t left_anchor = (*here).graph_end();
+        get_offset(left_anchor)--;
+        
+        if (stats) {
+            start_time = std::chrono::high_resolution_clock::now();
+        }
+        link_alignment = connect_consistently(linking_bases, left_anchor, (*next).graph_start(), wfa_extender);
+        if (stats) {
+            stop_time = std::chrono::high_resolution_clock::now();
+            stats->bases.wfa_middle += link_length;
+            stats->time.wfa_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+            stats->invocations.wfa_middle += 1;
+            if (!link_alignment) {
+                // Note that we had to fall back from WFA
+                stats->fallbacks.wfa_middle += 1;
+            } else {
+                stats->fallbacks.wfa_middle += 0;
+            }
+        }
+        link_alignment_source = "WFAExtender";
+        
+        if (!link_alignment) {
+            // We couldn't align.
+            if (graph_dist == 0) {
+                // We had read sequence but no graph sequence.
+                // Try falling back to a pure insertion.
+                // TODO: We can be leaving the GBWT's space here!
+                // TODO: What if this is forcing an insertion that could also be in the graph already?
+#ifdef debug_chain_alignment
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "connect() failed; treat as insertion" << endl;
+                    }
+                }
+#endif
+                link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner.scorer->score_gap(link_length));
+                link_alignment_source = "unlocalized_insertion";
+            }
+        } else if (link_alignment.length != linking_bases.size()) {
+            // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
+            stringstream ss;
+            ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size()
+               << " bp) from " << left_anchor << " - " << (*next).graph_start()
+               << " against graph distance " << graph_dist << " produced wrong-length alignment ";
+            link_alignment.print(ss);
+            throw ChainAlignmentFailedError(ss.str());
+        } else {
+            // We got the right alignment.
+            // Put the alignment back into full read space
+            link_alignment.seq_offset += (*here).read_end();
+        }
+    }
+    
+    if (link_alignment) {
+        // We found a link alignment
+        
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add link of length " << link_alignment.length
+                     << " with score of " << link_alignment.score << endl;
+            }
+        }
+#endif
+    
+        link_alignment.check_lengths(gbwt_graph);
+        
+        // Then the link (possibly empty)
+        output.path = link_alignment.to_path(this->gbwt_graph, aln.sequence());
+        output.score = link_alignment.score;
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\t" << pb2json(output.path) << endl;
+            }
+        }
+#endif
+    } else {
+        // The sequence to the next thing is too long, or we couldn't reach it doing connect().
+        // Fall back to another alignment method
+        
+        if (linking_bases.size() > max_middle_dp_length || graph_dist * link_length > max_dp_cells) {
+            // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align "
+                     << link_length << " bp connection between chain items " 
+                     << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) 
+                     << " which are " << graph_dist << " apart at " 
+                     << (*here).graph_end() << " and " << (*next).graph_start() 
+                     << " in " << aln.name() << " due to DP size limits, creating " 
+                     << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
+            }
+            // Give up
+            output.score = -std::numeric_limits<int32_t>::max();
+            return output;
+        }
+        
+        Alignment link_aln;
+        link_aln.set_sequence(linking_bases);
+        if (!aln.quality().empty()) {
+            link_aln.set_quality(aln.quality().substr(link_start, link_length));
+        }
+        // Guess how long of a graph path we ought to allow in the alignment.
+        size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner());
+        max_gap_length = std::min(this->max_middle_gap, max_gap_length);
+        size_t path_length = std::max(graph_dist, link_length);
+        if (stats) {
+            start_time = std::chrono::high_resolution_clock::now();
+        }
+        bool did_aln = MinimizerMapper::align_sequence_between_consistently(
+            (*here).graph_end(), 
+            (*next).graph_start(), 
+            path_length + max_gap_length,
+            max_gap_length,
+            &this->gbwt_graph,
+            this->get_regular_aligner(),
+            link_aln, &aln.name(),
+            this->max_dp_cells,
+            this->choose_band_padding);
+        if (stats) {
+            stop_time = std::chrono::high_resolution_clock::now();
+            if (did_aln) {
+                // Actually did the alignment
+                stats->bases.bga_middle += link_length;
+                stats->time.bga_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->invocations.bga_middle += 1;
+            }
+        }
+        
+        if (linking_bases.size() > 0 && link_aln.path().mapping_size() == 0) {
+            // Connecting alignment bailed out. Assume that this is due to size.
+            // TODO: Should we let the exceptions propagate up to here instead?
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for "
+                     << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) 
+                     << " and " << to_chain.backing_index(*next_it) 
+                     << " which are " << graph_dist << " apart at " 
+                     << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+            }
+
+            // Give up
+            output.score = -std::numeric_limits<int32_t>::max();
+            return output;
+        }
+        
+        // Otherwise we actually have a link alignment result.
+        link_alignment_source = "align_sequence_between";
+        
+        // Then tack that path and score on
+        output.path = link_aln.path();
+        output.score = link_aln.score();
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Aligned and added link to " << *next << " of " 
+                 << link_length << " bp read and " << path_from_length(output.path) << " bp graph via "
+                 << link_alignment_source << " with score of " << output.score << std::endl;
+        }
+    }
+    return output;
+}
+
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
@@ -2812,128 +3166,24 @@ Alignment MinimizerMapper::find_chain_alignment(
     composed_path = left_tail.path;
     composed_score = left_tail.score;
 
-    size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
         
         // We have to find the next item we can actually connect to
-        const algorithms::Anchor* next;
-        // And the actual connecting alignment to it
-        WFAAlignment link_alignment;
-        // Where did it come from?
-        std::string link_alignment_source;
-        
-        while (next_it != chain.end()) {
-            next = &to_chain[*next_it];
-            // Try and find a next thing to connect to
-            
-            if (algorithms::get_read_distance(*here, *next) == std::numeric_limits<size_t>::max()) {
-                // There's overlap between these items. Keep here and skip next.
-#ifdef debug_chain_alignment
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
-                    }
-                }
-#endif
-            
-                ++next_it;
-            } else {
-                // No overlap, so try it.
-                break;
-            }
-        }
-
+        find_next_non_overlapping(to_chain, chain, here, next_it);
         // Next, we want to skip seeds that are in repetitive regions of the read
         // Since skipping all repetitive seeds would leave too many gaps in the chain,
         // only skip seeds if they are involved in gaps,
         // i.e. the distances in the read and graph are different
+        find_next_to_skip_to(to_chain, chain, here, next_it);
 
-        // Keep track of the total distance from the previous seed to the next one we choose in the graph
-        size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
-        size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
-
-        // The sum of the differences between read and graph lengths
-        size_t gap_lengths = (std::max(total_graph_distance, prev_read_distance) 
-                            - std::min(total_graph_distance, prev_read_distance));
-
-        auto skip_to_it = next_it;
-
-        while (skip_to_it != chain.end()) {
-            const algorithms::Anchor* skip_to = &to_chain[*skip_to_it];
-            // Try and find a next thing to connect to
-            
-            //TODO: Getting the graph distance is probably slow, might want to save it from chaining
-            size_t cur_graph_distance;
-            if (skip_to_it+1 == chain.end()) {
-                // We can't skip any further
-                cur_graph_distance = std::numeric_limits<size_t>::max();
-            } else {
-                // Distance from end of this anchor to start of next anchor
-                cur_graph_distance = algorithms::get_graph_distance(*skip_to, to_chain[*(skip_to_it+1)], 
-                                                                    *distance_index, gbwt_graph);
-                // Also add in distance from start of this anchor to end of this anchor
-                cur_graph_distance += skip_to->length();
-                // Combined those are graph start -> start dist we are trying to skip past
-            }
-
-            if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
-                total_graph_distance+cur_graph_distance < this->max_skipped_bases) {
-                // This anchor is repetitive and the next one is close enough to connect
-#ifdef debug_chain_alignment
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Try to avoid connecting " << *here_it 
-                             << " to " << *skip_to_it << " because it is repetitive" << endl;
-                    }
-                }
-#endif
-                // Read start -> start distance for what we're skipping
-                size_t cur_read_distance = algorithms::get_read_distance(*skip_to, to_chain[*(skip_to_it+1)]);
-                cur_read_distance += skip_to->length();
-                // Total gap so far
-                gap_lengths += (std::max(cur_read_distance, cur_graph_distance) 
-                              - std::min(cur_read_distance, cur_graph_distance));
-                total_graph_distance += cur_graph_distance;
-            
-                ++skip_to_it;
-            } else {
-                // skip_to is either not skippable or too far away so stop
-                if (gap_lengths > this->min_indel_avoid_bases) {
-#ifdef debug_chain_alignment
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Skipping to " << *skip_to_it 
-                                 << " to avoid gap of " << gap_lengths << " in repetitive region" << endl;
-                        }
-                    }
-#endif
-                    // If there was a big gap
-                    next_it = skip_to_it;
-                    next = skip_to;
-                } else {
-#ifdef debug_chain_alignment
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Not bothering to skip to " << *skip_to_it 
-                                 << " because total gaps are only " << gap_lengths << endl;
-                        }
-                    }
-#endif
-                }
-                // If there wasn't a gap then don't skip anything
-                break;
-            }
-        }
-        
         if (next_it == chain.end()) {
             // We couldn't find anything to connect to
             break;
         }
+
+        // We have something to connect to! Make an alignment
+        const algorithms::Anchor* next = &to_chain[*next_it];
             
 #ifdef debug_chain_alignment
         if (show_work) {
@@ -2973,203 +3223,15 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
 #endif
 
-        // Pull out the intervening string to the next, if any.
-        size_t link_start = (*here).read_end();
-        size_t link_length = (*next).read_start() - link_start;
-        string linking_bases = aln.sequence().substr(link_start, link_length);
-        size_t graph_dist = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
-        
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
-                    << " separated by ~" << graph_dist << " bp";
-                if (linking_bases.size() < 200) {
-                    cerr << " and sequence \"" << linking_bases << "\"";
-                }
-                cerr << endl;
-            }
-        }
-#endif
-        
-        if (link_length == 0 && graph_dist == 0) {
-            // These items abut in the read and the graph, so we assume we can just connect them.
-            // WFAExtender::connect() can't handle an empty read sequence, and
-            // our fallback method to align just against the graph can't handle
-            // an empty graph region.
-            // TODO: We can be leaving the GBWT's space here!
-            
-#ifdef debug_chain_alignment
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Treat as empty link" << endl;
-                }
-            }
-#endif
-            
-            link_alignment = WFAAlignment::make_empty();
-            link_alignment_source = "empty";
-        } else if (link_length > 0 && link_length <= max_chain_connection && graph_dist * link_length <= max_dp_cells) {
-            // If it's not empty and is a reasonable size, align it.
-            // Make sure to walk back the left anchor so it is outside of the region to be aligned.
-            pos_t left_anchor = (*here).graph_end();
-            get_offset(left_anchor)--;
-            
-            if (stats) {
-                start_time = std::chrono::high_resolution_clock::now();
-            }
-            link_alignment = connect_consistently(linking_bases, left_anchor, (*next).graph_start(), wfa_extender);
-            if (stats) {
-                stop_time = std::chrono::high_resolution_clock::now();
-                stats->bases.wfa_middle += link_length;
-                stats->time.wfa_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
-                stats->invocations.wfa_middle += 1;
-                if (!link_alignment) {
-                    // Note that we had to fall back from WFA
-                    stats->fallbacks.wfa_middle += 1;
-                } else {
-                    stats->fallbacks.wfa_middle += 0;
-                }
-            }
-            link_alignment_source = "WFAExtender";
+        ScoredPath link_aln = find_link_alignment(to_chain, aln, here_it, next_it, wfa_extender, aligner, stats);
 
-            longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
-            
-            if (!link_alignment) {
-                // We couldn't align.
-                if (graph_dist == 0) {
-                    // We had read sequence but no graph sequence.
-                    // Try falling back to a pure insertion.
-                    // TODO: We can be leaving the GBWT's space here!
-                    // TODO: What if this is forcing an insertion that could also be in the graph already?
-#ifdef debug_chain_alignment
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "connect() failed; treat as insertion" << endl;
-                        }
-                    }
-#endif
-                    link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner.scorer->score_gap(link_length));
-                    link_alignment_source = "unlocalized_insertion";
-                }
-            } else if (link_alignment.length != linking_bases.size()) {
-                // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
-                stringstream ss;
-                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << (*next).graph_start() << " against graph distance " << graph_dist << " produced wrong-length alignment ";
-                link_alignment.print(ss);
-                throw ChainAlignmentFailedError(ss.str());
-            } else {
-                // We got the right alignment.
-                // Put the alignment back into full read space
-                link_alignment.seq_offset += (*here).read_end();
-            }
-        }
-        
-        // We will measure the graph distance on the link path actually found, for work-showing.
-        // This gets filled from either the WFA alignment we have already, or the BGA alignment we are about to compute.
-        size_t link_graph_path_length;
-        // We also measure the score for work-showing.
-        int link_score;
-
-        if (link_alignment) {
-            // We found a link alignment
-            
-#ifdef debug_chain_alignment
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
-                }
-            }
-#endif
-        
-            link_alignment.check_lengths(gbwt_graph);
-            
-            // Then the link (possibly empty)
-            {
-                Path link_path = link_alignment.to_path(this->gbwt_graph, aln.sequence());
-#ifdef debug_chain_alignment
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "\t" << pb2json(link_path) << endl;
-                    }
-                }
-#endif
-                link_graph_path_length = path_from_length(link_path);
-                append_path(composed_path, std::move(link_path));
-            }
-
-            link_score = link_alignment.score;
-            composed_score += link_score;
-        } else {
-            // The sequence to the next thing is too long, or we couldn't reach it doing connect().
-            // Fall back to another alignment method
-            
-            if (linking_bases.size() > max_middle_dp_length || graph_dist * link_length > max_dp_cells) {
-                // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " due to DP size limits, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
-                }
-                // Just jump to right tail
-                break;
-            }
-            
-            Alignment link_aln;
-            link_aln.set_sequence(linking_bases);
-            if (!aln.quality().empty()) {
-                link_aln.set_quality(aln.quality().substr(link_start, link_length));
-            }
-            // Guess how long of a graph path we ought to allow in the alignment.
-            size_t max_gap_length = std::min(this->max_middle_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner()));
-            size_t path_length = std::max(graph_dist, link_length);
-            if (stats) {
-                start_time = std::chrono::high_resolution_clock::now();
-            }
-            bool did_aln = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length+max_gap_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
-            if (stats) {
-                stop_time = std::chrono::high_resolution_clock::now();
-                if (did_aln) {
-                    // Actually did the alignment
-                    stats->bases.bga_middle += link_length;
-                    stats->time.bga_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
-                    stats->invocations.bga_middle += 1;
-                }
-            }
-            
-            if (linking_bases.size() > 0 && link_aln.path().mapping_size() == 0) {
-                // Connecting alignment bailed out. Assume that this is due to size.
-                // TODO: Should we let the exceptions propagate up to here instead?
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
-                }
-
-                // Just jump to right tail
-                break;
-            }
-            
-            // Otherwise we actually have a link alignment result.
-            link_alignment_source = "align_sequence_between";
-            
-            // Then tack that path and score on
-            Path link_path(link_aln.path());
-            link_graph_path_length = path_from_length(link_path);
-            append_path(composed_path, std::move(link_path));
-            link_score = link_aln.score();
-            composed_score += link_score;
+        if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
+            // We gave up. Jump to right tail.
+            break;
         }
 
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Aligned and added link to " << *next << " of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
-            }
-        }
+        append_path(composed_path, std::move(link_aln.path));
+        composed_score += link_aln.score;
         
         // Advance here to next and start considering the next after it
         here_it = next_it;
@@ -3233,8 +3295,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         result.set_identity(identity(result.path()));
     }
     
-    set_annotation(result, "left_tail_length", (double) left_tail.path.length());
-    set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
+    set_annotation(result, "left_tail_length", (double) left_tail.path.length()); 
     set_annotation(result, "right_tail_length", (double) right_tail.path.length());
     
     return result;

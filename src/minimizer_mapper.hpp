@@ -941,6 +941,8 @@ protected:
      */
     Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
 
+    // A bunch of helpers for find_chain_alignment() that do bits and pieces
+
     // Path along with its score (as a step towards an Alignment)
     struct ScoredPath {
         Path path;
@@ -955,7 +957,42 @@ protected:
      * 
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    ScoredPath find_tail_alignment(const Alignment& aln, const algorithms::Anchor& tail_anchor, const WFAExtender& wfa_extender, bool is_left_tail, aligner_stats_t* stats = nullptr) const;
+    ScoredPath find_tail_alignment(const Alignment& aln, 
+                                   const algorithms::Anchor& tail_anchor,
+                                   const WFAExtender& wfa_extender,
+                                   bool is_left_tail,
+                                   aligner_stats_t* stats = nullptr) const;
+
+    /**
+     * Move "next" to get the first anchor which doesn't overlap "here".
+     */
+    void find_next_non_overlapping(const VectorView<algorithms::Anchor>& to_chain,
+                                   const std::vector<size_t>& chain,
+                                   const algorithms::Anchor*& here,
+                                   vector<size_t>::const_iterator& next_it) const;
+    
+    /**
+     * Move "next" past skippable anchors, if they would force large gaps.
+     */
+    void find_next_to_skip_to(const VectorView<algorithms::Anchor>& to_chain,
+                              const std::vector<size_t>& chain,
+                              const algorithms::Anchor*& here,
+                              vector<size_t>::const_iterator next_it) const;
+
+    /**
+     * Find a link alignment between "here" and "next".
+     * 
+     * The alignment may bail out without finding anything,
+     * in which case the "score" field of the output
+     * will be set to -std::numeric_limits<int32_t>::max().
+     */
+    ScoredPath find_link_alignment(const VectorView<algorithms::Anchor>& to_chain,
+                                   const Alignment& aln,
+                                   const vector<size_t>::const_iterator& here_it,
+                                   const vector<size_t>::const_iterator& next_it,
+                                   const WFAExtender& wfa_extender,
+                                   const Aligner& aligner,
+                                   aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
