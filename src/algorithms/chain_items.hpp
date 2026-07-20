@@ -549,13 +549,14 @@ vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
  * that score, in order, with multiple tracebacks in descending score order.
  */
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                                                   const SnarlDistanceIndex& distance_index,
-                                                   const HandleGraph& graph,
-                                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                   size_t max_chains = 1,
-                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                                   size_t max_indel_bases = 100,
-                                                   bool show_work = false);
+                              const SnarlDistanceIndex& distance_index,
+                              const HandleGraph& graph,
+                              const Alignment& read,
+                              const ChainScoringScheme& scheme = ChainScoringScheme(),
+                              size_t max_chains = 1,
+                              const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                              size_t max_indel_bases = 100,
+                              bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -569,6 +570,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
 pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const SnarlDistanceIndex& distance_index,
                                           const HandleGraph& graph,
+                                          const Alignment& read,
                                           const ChainScoringScheme& scheme = ChainScoringScheme(),
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           size_t max_indel_bases = 100);
