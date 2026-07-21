@@ -430,17 +430,9 @@ struct SparseAnchorChain {
 struct ChainWithRec {
     // TODO: Shouldn't we split this into 2 fields?
     std::pair<int, std::vector<size_t>> scored_chain;
-    // Positions (anchor indices) in the chain that introduce a recombination
-    // event between anchors. These correspond to anchors where we had to
-    // reset supported paths because the previous path set did not overlap
-    // with the next anchor's start paths.
-    std::vector<size_t> rec_positions;
 };
 
-/// Result of finding best chains: a list of chains each paired with the
-/// recombination count observed at that chain's endpoint.
-/// TODO: Can we get rid of this once we're sure it won't need more fields?
-/// TODO: Is there a better name for this?
+/// Result of finding best chains: a list of chains
 struct ChainsResult {
     std::vector<ChainWithRec> chains;
 };

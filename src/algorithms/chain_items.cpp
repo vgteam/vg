@@ -707,7 +707,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     if (to_chain.empty()) {
         ChainWithRec empty_entry;
         empty_entry.scored_chain = {0, vector<size_t>()};
-        empty_entry.rec_positions = {};
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
@@ -728,58 +727,12 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         // Somehow we got nothing
         ChainWithRec empty_entry;
         empty_entry.scored_chain = {0, vector<size_t>()};
-        empty_entry.rec_positions = {};
         result.chains.emplace_back(std::move(empty_entry));
         return result;
     }
 
     // Generate optimal chains using the multi path traceback
     result.chains = explode_chains(to_chain, tracebacks, alternatives, max_chains);
-
-    /// TODO: remove this once I finish testing the chaining outputs
-    for (const auto& chain : result.chains) {
-        for (const auto& item : chain.scored_chain.second) {
-            cerr << item << " ";
-        }
-        cerr << endl;
-    }
-        
-    // Finally, fill in recombination info
-    for (auto& chain : result.chains) {
-        // Compute the anchor indices in this chain that introduce an
-        // inter-anchor recombination event. We simulate the path-bit
-        // propagation along the chain using the same logic as
-        // TracedScore::set_shared_paths (but without modifying the state).
-        // Start with the endpoint paths of the first anchor.
-        size_t first_idx = chain.scored_chain.second.front();
-        path_flags_t current_paths = to_chain[first_idx].anchor_end_paths();
-
-        // Walk the chain from the second anchor onward and apply the
-        // same recombination-detection rules used in set_shared_paths.
-        for (size_t k = 1; k < chain.scored_chain.second.size(); ++k) {
-            size_t anchor_idx = chain.scored_chain.second[k];
-            auto new_paths = to_chain[anchor_idx].anchor_paths();
-            // If the anchor's start and end paths are equal, it's not an
-            // internally recombinant anchor; check inter-anchor overlap.
-            if (new_paths.first == new_paths.second) {
-                if ((current_paths & new_paths.first) == 0) {
-                    // No overlap -> inter-anchor recombination occurred here.
-                    chain.rec_positions.push_back(anchor_idx);
-                    // Reset current paths to the anchor's start paths.
-                    current_paths = new_paths.first;
-                } else {
-                    // Intersect supported paths and continue.
-                    current_paths &= new_paths.first;
-                }
-            } else {
-                // Recombinant anchor: do not count as inter-anchor
-                // recombination per original logic; reset paths to the
-                // anchor's end paths.
-                // TODO: since no fragmenting, probably unnecessary to track
-                current_paths = new_paths.second;
-            }
-        }
-    }
 
     return result;
 }
