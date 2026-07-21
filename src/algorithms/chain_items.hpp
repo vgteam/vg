@@ -416,6 +416,14 @@ struct ChainScoringScheme {
     int consistency_bonus = 0;
 };
 
+/// A single chain result with only anchors in order
+struct SparseAnchorChain {
+    /// Score of the sparse chain
+    int chain_score = 0;
+    /// Anchors in order along the chain
+    std::vector<size_t> anchors;
+};
+
 /// A single chain result: scored chain plus the recombination count observed
 /// on its endpoint.
 /// TODO: Is there a better name for the abstraction this is getting at?
@@ -567,13 +575,13 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
  */
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          const Alignment& read,
-                                          const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                                          size_t max_indel_bases = 100);
+SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
+                                  const SnarlDistanceIndex& distance_index,
+                                  const HandleGraph& graph,
+                                  const Alignment& read,
+                                  const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                  const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
+                                  size_t max_indel_bases = 100);
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.

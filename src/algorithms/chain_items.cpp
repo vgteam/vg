@@ -644,16 +644,16 @@ vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
     for (size_t i = 0; i < tracebacks.size(); i++) {
         anchor_lists.emplace_back();
         /// TODO: remove this once I finish testing the chaining outputs
-        cerr << "chain: ";
+        //cerr << "chain: ";
         // Loop over all "subpaths" (anchor IDs) in the traceback
         for (size_t j = 0; j < tracebacks[i].path().mapping().size(); j++) {
             // Extract anchor ID, stick into list
             anchor_lists.back().emplace_back(tracebacks[i].path().mapping(j).position().node_id());
             // Also remember where this came from
             home_traceback_and_index[anchor_lists.back().back()] = make_pair(i, j);
-            cerr << anchor_lists.back().back() << " ";
+            //cerr << anchor_lists.back().back() << " ";
         }
-        cerr << endl;
+        //cerr << endl;
         final_chains.emplace_back();
         final_chains.back().scored_chain = make_pair(tracebacks[i].score(), anchor_lists.back());
     }
@@ -661,7 +661,7 @@ vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
     // Now check in on the extra edges.
     for (const auto& extra_edge : alternatives) {
         /// TODO: remove this once I finish testing the chaining outputs
-        cerr << "alternative: " << extra_edge.first << " -> " << extra_edge.second.next() << " score " << extra_edge.second.score() << endl;
+        //cerr << "alternative: " << extra_edge.first << " -> " << extra_edge.second.next() << " score " << extra_edge.second.score() << endl;
         pair<size_t, size_t> start_location = home_traceback_and_index[extra_edge.first];
         pair<size_t, size_t> end_location = home_traceback_and_index[extra_edge.second.next()];
         if (start_location.first != std::numeric_limits<size_t>::max() 
@@ -784,25 +784,35 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     return result;
 }
 
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          const Alignment& read,
-                                          const ChainScoringScheme& scheme,
-                                          const transition_iterator& for_each_transition,
-                                          size_t max_indel_bases) {
+SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
+                                  const SnarlDistanceIndex& distance_index,
+                                  const HandleGraph& graph,
+                                  const Alignment& read,
+                                  const ChainScoringScheme& scheme,
+                                  const transition_iterator& for_each_transition,
+                                  size_t max_indel_bases) {
                                                                  
-    ChainsResult cr = find_best_chains(
-        to_chain,
-        distance_index,
-        graph,
-        read,
-        scheme,
-        1,
-        for_each_transition,
-        max_indel_bases
-    );
-    return cr.chains.front().scored_chain;
+    if (to_chain.empty()) {
+        return SparseAnchorChain();
+    }
+    // First, we build the multipath alignment
+    multipath_alignment_t mp_aln = fill_in_mp_aln(to_chain,
+                                                  distance_index,
+                                                  graph,
+                                                  scheme,
+                                                  for_each_transition,
+                                                  max_indel_bases);
+    // Then find the top traceback
+    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, 1);
+
+    // Finally, convert back to anchor-space
+    SparseAnchorChain output;
+    output.chain_score = tracebacks.front().score();
+    // Loop over all "subpaths" (anchor IDs) in the traceback
+    for (const auto& mapping : tracebacks.front().path().mapping()) {
+        output.anchors.emplace_back(mapping.position().node_id());
+    }
+    return output;
 }
 
 //#define skip_zipcodes
