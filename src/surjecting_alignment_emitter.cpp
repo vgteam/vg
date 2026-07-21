@@ -72,7 +72,7 @@ void SurjectingAlignmentEmitter::surject_paired_alignments_in_place(vector<Align
                                mate_info(primary_pos2.name(), primary_pos2.offset(), primary_pos2.is_reverse(), false));
             }
             for (size_t j = 0; j < surjected2.size(); ++j) {
-                if (j == primary_idx1) {
+                if (j == primary_idx2) {
                     continue;
                 }
                 supplementary_alns.emplace_back(std::move(surjected2[j]));
