@@ -189,8 +189,8 @@ private:
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
 
-    // only apply cluster_threshold at sites where the longest non-boundary
-    // traversal sequence is at least this many bp.  0 disables the gate
+    // only apply cluster_threshold at sites with at least one non-boundary
+    // traversal sequence of at least this many bp.  0 disables the gate
     // (so cluster_threshold applies at every site).
     int64_t cluster_min_allele_len = 0;
 
