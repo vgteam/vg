@@ -424,17 +424,13 @@ struct SparseAnchorChain {
     std::vector<size_t> anchors;
 };
 
-/// A single chain result: scored chain plus the recombination count observed
-/// on its endpoint.
-/// TODO: Is there a better name for the abstraction this is getting at?
-struct ChainWithRec {
-    // TODO: Shouldn't we split this into 2 fields?
-    std::pair<int, std::vector<size_t>> scored_chain;
-};
-
-/// Result of finding best chains: a list of chains
-struct ChainsResult {
-    std::vector<ChainWithRec> chains;
+/// Result of finding best chains: a list of subchains and how they
+/// connect to each other, ready to be put in a multipath alignment graph
+struct ConnectedSubchains {
+    /// Subchains, each as a list of anchors
+    std::vector<std::vector<size_t>> subchains;
+    /// Connections between subchains, as (source index, sink index) pairs
+    std::vector<pair<size_t, size_t>> connections;
 };
 
 /**
@@ -527,17 +523,15 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                                      bool show_work = false);
 
 /**
- * Generate chains from multipath_alignment_t tracebacks.
+ * Generate subchains from multipath_alignment_t tracebacks.
  * 
- * Attempt to use "alternatives" to construct more possible high-quality chains
- * by splicing chains which have good-scoring edges between them.
- * 
- * Returns a list of lists, where each sub-list is anchor indexes in order.
+ * Split up tracebacks when possible inter-chain alternatives exist.
+ * Save connections between subchains, pulling from edges in tracebacks
+ * as well as alternative edges.
  */
-vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
-                                    const vector<Alignment>& tracebacks,
-                                    const vector<pair<uint32_t, connection_t>>& alternatives,
-                                    size_t max_chains = 1);
+ConnectedSubchains split_up_subchains(const size_t& anchor_count,
+                                      const vector<Alignment>& tracebacks,
+                                      const vector<pair<uint32_t, uint32_t>>& alternatives);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -548,15 +542,14 @@ vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
  * Returns the scores and the list of indexes of items visited to achieve
  * that score, in order, with multiple tracebacks in descending score order.
  */
-ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                              const SnarlDistanceIndex& distance_index,
-                              const HandleGraph& graph,
-                              const Alignment& read,
-                              const ChainScoringScheme& scheme = ChainScoringScheme(),
-                              size_t max_chains = 1,
-                              const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                              size_t max_indel_bases = 100,
-                              bool show_work = false);
+ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
+                                    const SnarlDistanceIndex& distance_index,
+                                    const HandleGraph& graph,
+                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                    size_t max_chains = 1,
+                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                                    size_t max_indel_bases = 100,
+                                    bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -570,7 +563,6 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
-                                  const Alignment& read,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                   size_t max_indel_bases = 100);

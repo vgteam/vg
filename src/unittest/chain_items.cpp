@@ -11,8 +11,6 @@
 namespace vg {
 namespace unittest {
 
-const static char CHAIN_ITEMS_TEST_BASE = 'A';
-
 /// Turn inline test data of read start, graph handle and offset, length, and score into Anchor objects.
 static vector<algorithms::Anchor> make_anchors(const vector<tuple<size_t, handle_t, size_t, size_t, int>>& test_data, const HandleGraph& graph) {
     vector<algorithms::Anchor> to_score;
@@ -35,7 +33,7 @@ static HashGraph make_disconnected_graph(size_t nodes, size_t length = 32) {
     HashGraph graph;
     
     // What node sequence should we use for everything?
-    string seq(length, CHAIN_ITEMS_TEST_BASE);
+    string seq(length, 'A');
     
     for (size_t i = 0; i < nodes; i++) {
         // Make all the nodes
@@ -79,13 +77,9 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {10, h[1], 10, 9, 9}}, graph);
-    // Set up boring read sequence
-    Alignment read;
-    string seq(20, CHAIN_ITEMS_TEST_BASE);
-    read.set_sequence(seq);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, read);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
 }
@@ -101,13 +95,9 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {10, h[1], 11, 9, 9}}, graph);
-    // Set up boring read sequence
-    Alignment read;
-    string seq(20, CHAIN_ITEMS_TEST_BASE);
-    read.set_sequence(seq);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, read);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
@@ -124,13 +114,9 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {11, h[1], 10, 9, 9}}, graph);
-    // Set up boring read sequence
-    Alignment read;
-    string seq(20, CHAIN_ITEMS_TEST_BASE);
-    read.set_sequence(seq);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, read);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
@@ -144,10 +130,6 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    // Set up boring read sequence
-    Alignment read;
-    string seq(110, CHAIN_ITEMS_TEST_BASE);
-    read.set_sequence(seq);
 
     // Set up extensions.
     // We're going to have to pay for at least 2 gaps so we need to make sure that doing that is worth it.
@@ -157,7 +139,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, read);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
     // We should take all of the items in order and not be scared off by the indels.
     REQUIRE(result.anchors == std::vector<size_t>{0, 1, 2, 3});
 }
@@ -165,9 +147,6 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
 TEST_CASE("find_best_chain gets edge case possibility for X", "[chain_items]") {
     // Set up graph fixture
     HashGraph graph = make_disconnected_graph(5, 10);
-    // substituion on 1 and 4
-    graph.change_sequence(graph.get_handle(1, false), "AAAAAAATAA");
-    graph.change_sequence(graph.get_handle(4, false), "AAAAAAATAA");
     // 1-3-5 diagonal
     graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
@@ -187,23 +166,17 @@ TEST_CASE("find_best_chain gets edge case possibility for X", "[chain_items]") {
                                   {11, h[3], 0, 5, 5},
                                   {21, h[4], 0, 5, 5},
                                   {21, h[5], 0, 5, 5}}, graph);
-    // Set up read sequence biased towards 1-2-4 (franken-diag)
-    Alignment read;
-    read.set_sequence("AAAAAAATAAAAAAAAATAAAAAAAAATAA");
     
-    // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, read);
-    // We should take best possible path through the X
-    REQUIRE(result.anchors.size() == 3);
-    REQUIRE(result.anchors == std::vector<size_t>{1, 2, 4});
+    /// Actually run the chaining and test
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 4);
+    // We should see all possible paths
+    REQUIRE(result.subchains.size() == 5);
+    REQUIRE(result.connections.size() == 4);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {
     // Set up graph fixture
     HashGraph graph = make_disconnected_graph(7, 10);
-    // substituion on 1 and 4
-    graph.change_sequence(graph.get_handle(1, false), "AAAAAAATAA");
-    graph.change_sequence(graph.get_handle(4, false), "AAAAAAATAA");
     // 1-3-5-6 diagonal
     graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
@@ -226,15 +199,12 @@ TEST_CASE("X with different length chains", "[chain_items]") {
                                   {21, h[4], 0, 10, 10},
                                   {21, h[5], 0, 10, 10},
                                   {31, h[6], 0, 10, 10}}, graph);
-    // Set up read sequence biased towards 1-2-4 (franken-diag)
-    Alignment read;
-    read.set_sequence("AAAAAAATAAAAAAAAATAAAAAAAAATAAAAAAAAAAAA");
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, read);
-    // We should take best possible path through the X
-    REQUIRE(result.anchors.size() == 3);
-    REQUIRE(result.anchors == std::vector<size_t>{1, 2, 4, 7});
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 4);
+    // We should see all possible paths
+    REQUIRE(result.subchains.size() == 5);
+    REQUIRE(result.connections.size() == 4);
 }
 
 }

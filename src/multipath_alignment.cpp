@@ -1192,7 +1192,7 @@ namespace vg {
     }
     
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count,
-                                                                vector<pair<uint32_t, connection_t>>* alternatives) {
+                                                                vector<pair<uint32_t, uint32_t>>* alternatives) {
         
 #ifdef debug_multiple_tracebacks
         cerr << "Computing top " << count << " alignments with disjoint subpaths" << endl;
@@ -1379,9 +1379,7 @@ namespace vg {
                             }
                             if (first_two.size() == 2) {
                                 // Yay, there were at least two items; we can save an edge
-                                alternatives->emplace_back(first_two[0], connection_t());
-                                alternatives->back().second.set_next(first_two[1]);
-                                alternatives->back().second.set_score(opt_score - basis_score_difference);
+                                alternatives->emplace_back(first_two[0], first_two[1]);
                             }
                             queue.pop_min();
                         }
@@ -1430,9 +1428,7 @@ namespace vg {
                             cerr << "\tSkip " << prev.first << " which is already used" << endl;
 #endif
                             if (alternatives != nullptr) {
-                                alternatives->emplace_back(prev.first, connection_t());
-                                alternatives->back().second.set_next(here);
-                                alternatives->back().second.set_score(opt_score - total_penalty);
+                                alternatives->emplace_back(prev.first, here);
                             }
                             continue;
                         }

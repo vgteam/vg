@@ -1555,7 +1555,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
 
             // This will hold our chaining results
-            algorithms::ChainsResult chain_results;
+            algorithms::ConnectedSubchains chain_results;
 
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1596,7 +1596,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
-                aln,
                 scheme,
                 this->max_alignments,
                 for_each_transition,

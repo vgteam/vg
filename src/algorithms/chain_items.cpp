@@ -627,88 +627,111 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
     return multipath_aln;
 }
 
-vector<ChainWithRec> explode_chains(const VectorView<Anchor>& to_chain,
-                                    const vector<Alignment>& tracebacks,
-                                    const vector<pair<uint32_t, connection_t>>& alternatives,
-                                    size_t max_chains) {
-    // This function assumes that there are tracebacks to trace
-    assert(!tracebacks.empty());
-    
-    vector<ChainWithRec> final_chains;
-    // For each anchor (by index), the traceback and index within that traceback where it was seen
-    vector<pair<size_t, size_t>> home_traceback_and_index(to_chain.size(), make_pair(std::numeric_limits<size_t>::max(),
-                                                                                     std::numeric_limits<size_t>::max()));
+ConnectedSubchains split_up_subchains(const size_t& anchor_count,
+                                      const vector<Alignment>& tracebacks,
+                                      const vector<pair<uint32_t, uint32_t>>& alternatives) {
+    ConnectedSubchains output;
+    // For each anchor (by index), which other anchors can it connect to?
+    // std::numeric_limits<size_t>::max() means the sink (i.e. it ends a chain)
+    vector<vector<size_t>> outgoing_edges(anchor_count);
+
+    // Where to search for subchains (we must guarantee they start in read order)
+    priority_queue<size_t, vector<size_t>, std::greater<size_t> > trace_from;
     
     // Extract raw lists of anchors from the tracebacks
-    vector<vector<size_t>> anchor_lists;
     for (size_t i = 0; i < tracebacks.size(); i++) {
-        anchor_lists.emplace_back();
-        /// TODO: remove this once I finish testing the chaining outputs
-        //cerr << "chain: ";
         // Loop over all "subpaths" (anchor IDs) in the traceback
-        for (size_t j = 0; j < tracebacks[i].path().mapping().size(); j++) {
-            // Extract anchor ID, stick into list
-            anchor_lists.back().emplace_back(tracebacks[i].path().mapping(j).position().node_id());
-            // Also remember where this came from
-            home_traceback_and_index[anchor_lists.back().back()] = make_pair(i, j);
-            //cerr << anchor_lists.back().back() << " ";
+        size_t num_ids = tracebacks[i].path().mapping().size();
+        // This will start a chain trace
+        trace_from.emplace(tracebacks[i].path().mapping(0).position().node_id());
+        for (size_t j = 0; j < num_ids - 1; j++) {
+            // Remember that this pair of anchors can connect
+            outgoing_edges[tracebacks[i].path().mapping(j).position().node_id()]\
+             .emplace_back(tracebacks[i].path().mapping(j+1).position().node_id());
         }
-        //cerr << endl;
-        final_chains.emplace_back();
-        final_chains.back().scored_chain = make_pair(tracebacks[i].score(), anchor_lists.back());
+        // Also remember the sink
+        outgoing_edges[tracebacks[i].path().mapping(num_ids - 1).position().node_id()]\
+         .emplace_back(std::numeric_limits<size_t>::max());
     }
 
     // Now check in on the extra edges.
     for (const auto& extra_edge : alternatives) {
-        /// TODO: remove this once I finish testing the chaining outputs
-        //cerr << "alternative: " << extra_edge.first << " -> " << extra_edge.second.next() << " score " << extra_edge.second.score() << endl;
-        pair<size_t, size_t> start_location = home_traceback_and_index[extra_edge.first];
-        pair<size_t, size_t> end_location = home_traceback_and_index[extra_edge.second.next()];
-        if (start_location.first != std::numeric_limits<size_t>::max() 
-            && end_location.first != std::numeric_limits<size_t>::max()
-            && start_location.first != end_location.first) {
-            // This edge connections seeds in two different chains
-            // Paste the relevant sections of chain
-            vector<size_t> new_chain(anchor_lists[start_location.first].begin(), 
-                                     anchor_lists[start_location.first].begin() + start_location.second + 1);
-            new_chain.insert(new_chain.end(),
-                             anchor_lists[end_location.first].begin() + end_location.second,
-                             anchor_lists[end_location.first].end());
-            final_chains.emplace_back();
-            final_chains.back().scored_chain = make_pair(extra_edge.second.score(), new_chain);
+        if (!outgoing_edges[extra_edge.first].empty() && !outgoing_edges[extra_edge.second].empty()) {
+            // Both sides of this edge are used, so it must connect two different subchains
+            // Add this as another possible next
+            outgoing_edges[extra_edge.first].emplace_back(extra_edge.second);
         }
     }
 
-    std::sort(final_chains.begin(), final_chains.end(), 
-        [&](const ChainWithRec& a, const ChainWithRec& b) {
-        // Return true if a has higher score than b
-        return a.scored_chain.first > b.scored_chain.first;
-    });
+    // Set up the subchains
+    // For each anchor (by index), which subchain did it end up in?
+    vector<size_t> subchain_id(anchor_count);
+    while (!trace_from.empty()) {
+        // Create a new subchain to trace into
+        size_t cur_subchain_id = output.subchains.size();
+        output.subchains.emplace_back();
 
-    if (final_chains.size() > max_chains) {
-        // Cut off extra chains
-        final_chains.resize(max_chains);
+        // Start trace for this subchain, until we hit into an endpoint
+        size_t cur_anchor_id = trace_from.top();
+        trace_from.pop();
+        output.subchains.back().emplace_back(cur_anchor_id);
+        subchain_id[cur_anchor_id] = cur_subchain_id;
+#ifdef debug_chaining
+        cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
+#endif
+        while (true) {
+            // If this is a decision point, then save all next edges
+            // We have reached the end of one subchain
+            if (outgoing_edges[cur_anchor_id].size() > 1) {
+                for (const auto& next : outgoing_edges[cur_anchor_id]) {
+                    if (next != std::numeric_limits<size_t>::max()) {
+                        trace_from.emplace(next);
+                    }
+                }
+                break;
+            }
+            // If this is the end of the subchain, just stop
+            if (outgoing_edges[cur_anchor_id].front() == std::numeric_limits<size_t>::max()) {
+                break;
+            }
+            // Otherwise, trace into the next edge
+            cur_anchor_id = outgoing_edges[cur_anchor_id].front();
+            output.subchains.back().emplace_back(cur_anchor_id);
+            subchain_id[cur_anchor_id] = cur_subchain_id;
+#ifdef debug_chaining
+            cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
+#endif
+        }
     }
 
-    return final_chains;
+    // Make all inter-subchain connections necessary
+    for (size_t i = 0; i < output.subchains.size(); i++) {
+        // Loop over any way to exit this subchain
+        for (const auto& next : outgoing_edges[output.subchains[i].back()]) {
+            if (next != std::numeric_limits<size_t>::max()) {
+                output.connections.emplace_back(i, subchain_id[next]);
+#ifdef debug_chaining
+                cerr << "Connect subchains " << i << " -> " << subchain_id[next] << endl;
+#endif
+            }
+        }
+    }
+
+    return output;
 }
 
-ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                              const SnarlDistanceIndex& distance_index,
-                              const HandleGraph& graph,
-                              const Alignment& read,
-                              const ChainScoringScheme& scheme,
-                              size_t max_chains,
-                              const transition_iterator& for_each_transition,
-                              size_t max_indel_bases,
-                              bool show_work) {
+ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
+                                    const SnarlDistanceIndex& distance_index,
+                                    const HandleGraph& graph,
+                                    const ChainScoringScheme& scheme,
+                                    size_t max_chains,
+                                    const transition_iterator& for_each_transition,
+                                    size_t max_indel_bases,
+                                    bool show_work) {
 
-    ChainsResult result;
     if (to_chain.empty()) {
-        ChainWithRec empty_entry;
-        empty_entry.scored_chain = {0, vector<size_t>()};
-        result.chains.emplace_back(std::move(empty_entry));
-        return result;
+        // Nothing to chain
+        return ConnectedSubchains();
     }
         
     // First, we build the multipath alignment
@@ -720,27 +743,20 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
                                                   max_indel_bases,
                                                   show_work);
     // Then do the tracebacks
-    vector<pair<uint32_t, connection_t>> alternatives;
+    vector<pair<uint32_t, uint32_t>> alternatives;
     vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains, &alternatives);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
-        ChainWithRec empty_entry;
-        empty_entry.scored_chain = {0, vector<size_t>()};
-        result.chains.emplace_back(std::move(empty_entry));
-        return result;
+        return ConnectedSubchains();
     }
 
-    // Generate optimal chains using the multi path traceback
-    result.chains = explode_chains(to_chain, tracebacks, alternatives, max_chains);
-
-    return result;
+    return split_up_subchains(to_chain.size(), tracebacks, alternatives);
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
-                                  const Alignment& read,
                                   const ChainScoringScheme& scheme,
                                   const transition_iterator& for_each_transition,
                                   size_t max_indel_bases) {
