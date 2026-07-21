@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 86
+plan tests 98
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -21,7 +21,40 @@ vg call tiny_aug.xg -k tiny_aug.pack > tiny_aug.vcf
 
 is $(grep -v '#' tiny_aug.vcf | wc -l) 0 "calling empty gam gives empty VCF"
 
-rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam
+# No ref paths test
+grep -v CHM13 graphs/haplotypes.gfa > only_haps.gfa
+vg convert --gfa-in only_haps.gfa > only_haps.vg
+vg index only_haps.vg -x only_haps.xg
+
+vg call only_haps.xg -k tiny_aug.pack 2> error.txt
+is "$?" 1 "Must be a non-reference path to call against"
+grep "REFERENCE or GENERIC" error.txt
+is "$?" 0 "Problem is explained in some detail"
+grep "Changing-References" error.txt
+is "$?" 0 "Hint towards solution provided"
+
+vg call only_haps.xg -k tiny_aug.pack -p "KOLF2.1J#1#chr1_1#0" 2> error.txt
+is "$?" 1 "-p path must be a reference"
+grep "REFERENCE or GENERIC" error.txt
+is "$?" 0 "Problem is explained in some detail"
+grep "Changing-References" error.txt
+is "$?" 0 "Hint towards solution provided"
+
+vg call only_haps.xg -k tiny_aug.pack -P "KOLF2.1J" 2> error.txt
+is "$?" 1 "-P paths must be references"
+grep "REFERENCE or GENERIC" error.txt
+is "$?" 0 "Problem is explained in some detail"
+grep "Changing-References" error.txt
+is "$?" 0 "Hint towards solution provided"
+
+vg call only_haps.xg -k tiny_aug.pack -S "KOLF2.1J" 2> error.txt
+is "$?" 1 "-P paths must be references"
+grep "REFERENCE" error.txt
+is "$?" 0 "Problem is explained in some detail"
+grep "Changing-References" error.txt
+is "$?" 0 "Hint towards solution provided"
+
+rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam only_haps.vg only_haps.xg error.txt
 
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
