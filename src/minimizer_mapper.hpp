@@ -993,6 +993,20 @@ protected:
                                    const WFAExtender& wfa_extender,
                                    const Aligner& aligner,
                                    aligner_stats_t* stats = nullptr) const;
+    
+    /**
+     * Find all non-tail alignments necessary to align this chain.
+     * 
+     * Returns the path of the alignment
+     * and then the anchor ID for the last anchor used
+     * (which may not be the last in the chain if we bailed)
+     */
+    pair<ScoredPath, size_t> find_all_inner_chain_links(const VectorView<algorithms::Anchor>& to_chain,
+                                                        const Alignment& aln,
+                                                        const vector<size_t>& chain,
+                                                        const WFAExtender& wfa_extender,
+                                                        const Aligner& aligner,
+                                                        aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the

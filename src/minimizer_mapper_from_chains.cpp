@@ -3083,6 +3083,174 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
     return output;
 }
 
+pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_links(
+    const VectorView<algorithms::Anchor>& to_chain,
+    const Alignment& aln,
+    const vector<size_t>& chain,
+    const WFAExtender& wfa_extender,
+    const Aligner& aligner,
+    aligner_stats_t* stats) const {
+    // Will be gradually built up by alignment
+    ScoredPath output;
+    // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
+    auto here_it = chain.begin();
+    auto next_it = here_it;
+    ++next_it;
+    
+    // Track the anchor we're at.
+    // Note that, although it has a score, that's an anchor score; it isn't the
+    // right score for the perfect-match alignment it represents.
+    const algorithms::Anchor* here = &to_chain[*here_it];
+
+#ifdef debug_chain_alignment
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "First item " << *here_it
+                << " with overall index " << to_chain.backing_index(*here_it)
+                << " aligns " << (*here).read_start() << "-" << (*here).read_end()
+                << " with " << (*here).graph_start() << "-" << (*here).graph_end()
+                << endl;
+        }
+    }
+#endif
+
+    while (next_it != chain.end()) {
+        // Do each region between successive gapless extensions
+        
+        // We have to find the next item we can actually connect to
+        find_next_non_overlapping(to_chain, chain, here, next_it);
+        // Next, we want to skip seeds that are in repetitive regions of the read
+        // Since skipping all repetitive seeds would leave too many gaps in the chain,
+        // only skip seeds if they are involved in gaps,
+        // i.e. the distances in the read and graph are different
+        find_next_to_skip_to(to_chain, chain, here, next_it);
+
+        if (next_it == chain.end()) {
+            // We couldn't find anything to connect to
+            break;
+        }
+
+        // We have something to connect to! Make an alignment
+        const algorithms::Anchor* next = &to_chain[*next_it];
+            
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add current item " << *here_it << " of length " << (*here).length() << endl;
+            }
+        }
+#endif
+        
+        // Make an alignment for the bases used in this item, and
+        // concatenate it in.
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
+        }
+#endif
+
+        append_path(output.path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        output.score += here_alignment.score;
+        
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Next connectable item " << *next_it
+                    << " with overall index " << to_chain.backing_index(*next_it)
+                    << " aligns " << (*next).read_start() << "-" << (*next).read_end()
+                    << " with " << (*next).graph_start() << "-" << (*next).graph_end()
+                    << endl;
+            }
+        }
+#endif
+
+        ScoredPath link_aln = find_link_alignment(to_chain, aln, here_it, next_it, wfa_extender, aligner, stats);
+
+        if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
+            // We gave up. Jump to right tail.
+            break;
+        }
+
+        append_path(output.path, std::move(link_aln.path));
+        output.score += link_aln.score;
+        
+        // Advance here to next and start considering the next after it
+        here_it = next_it;
+        ++next_it;
+        here = next;
+    }
+
+    if (next_it == chain.end()) {
+        // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
+    
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
+            }
+        }
+#endif
+    
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
+        }
+#endif
+
+        here_alignment.check_lengths(gbwt_graph);
+    
+        // Do the final GaplessExtension itself (may be the first)
+        append_path(output.path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        output.score += here_alignment.score;
+    }
+
+    if (next_it == chain.end()) {
+        // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
+    
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
+            }
+        }
+#endif
+    
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+
+#ifdef debug_chain_alignment
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
+        }
+#endif
+
+        here_alignment.check_lengths(gbwt_graph);
+    
+        // Do the final GaplessExtension itself (may be the first)
+        append_path(output.path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        output.score += here_alignment.score;
+    }
+
+    return make_pair(output, *next_it);
+}
+
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
@@ -3126,35 +3294,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     // We need a WFAExtender to do tail and intervening alignments.
     // Note that the extender expects anchoring matches!!!
     WFAExtender wfa_extender(gbwt_graph, aligner, wfa_error_model); 
-    
-    // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
-    auto here_it = chain.begin();
-    auto next_it = here_it;
-    ++next_it;
-    
-    // Track the anchor we're at.
-    // Note that, although it has a score, that's an anchor score; it isn't the
-    // right score for the perfect-match alignment it represents.
-    const algorithms::Anchor* here = &to_chain[*here_it];
-    
-#ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "First item " << *here_it
-                << " with overall index " << to_chain.backing_index(*here_it)
-                << " aligns " << (*here).read_start() << "-" << (*here).read_end()
-                << " with " << (*here).graph_start() << "-" << (*here).graph_end()
-                << endl;
-        }
-    }
-#endif
 
-    // We time each alignment operation using this scratch.
-    std::chrono::high_resolution_clock::time_point start_time;
-    std::chrono::high_resolution_clock::time_point stop_time;
-
-    
     // We compose into a Path, since sometimes we may have to drop back to
     // aligners that aren't the WFAAligner and don't make WFAAlignments.
     Path composed_path;
@@ -3162,114 +3302,19 @@ Alignment MinimizerMapper::find_chain_alignment(
     int composed_score = 0;
 
     // Do the left tail, if any.
-    ScoredPath left_tail = find_tail_alignment(aln, *here, wfa_extender, true, stats);
+    ScoredPath left_tail = find_tail_alignment(aln, to_chain[chain.front()], wfa_extender, true, stats);
     composed_path = left_tail.path;
     composed_score = left_tail.score;
 
-    while(next_it != chain.end()) {
-        // Do each region between successive gapless extensions
-        
-        // We have to find the next item we can actually connect to
-        find_next_non_overlapping(to_chain, chain, here, next_it);
-        // Next, we want to skip seeds that are in repetitive regions of the read
-        // Since skipping all repetitive seeds would leave too many gaps in the chain,
-        // only skip seeds if they are involved in gaps,
-        // i.e. the distances in the read and graph are different
-        find_next_to_skip_to(to_chain, chain, here, next_it);
+    // Then the middle
+    ScoredPath inner_links;
+    size_t last_anchor;
+    tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, chain, wfa_extender, aligner, stats);
+    append_path(composed_path, inner_links.path);
+    composed_score += inner_links.score;
 
-        if (next_it == chain.end()) {
-            // We couldn't find anything to connect to
-            break;
-        }
-
-        // We have something to connect to! Make an alignment
-        const algorithms::Anchor* next = &to_chain[*next_it];
-            
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add current item " << *here_it << " of length " << (*here).length() << endl;
-            }
-        }
-#endif
-        
-        // Make an alignment for the bases used in this item, and
-        // concatenate it in.
-        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
-
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "\tScore " << here_alignment.score << endl;
-            }
-        }
-#endif
-
-        append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
-        composed_score += here_alignment.score;
-        
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Next connectable item " << *next_it
-                    << " with overall index " << to_chain.backing_index(*next_it)
-                    << " aligns " << (*next).read_start() << "-" << (*next).read_end()
-                    << " with " << (*next).graph_start() << "-" << (*next).graph_end()
-                    << endl;
-            }
-        }
-#endif
-
-        ScoredPath link_aln = find_link_alignment(to_chain, aln, here_it, next_it, wfa_extender, aligner, stats);
-
-        if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
-            // We gave up. Jump to right tail.
-            break;
-        }
-
-        append_path(composed_path, std::move(link_aln.path));
-        composed_score += link_aln.score;
-        
-        // Advance here to next and start considering the next after it
-        here_it = next_it;
-        ++next_it;
-        here = next;
-    }
-
-    if (next_it == chain.end()) {
-        // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
-    
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
-            }
-        }
-#endif
-    
-        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
-
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "\tScore " << here_alignment.score << endl;
-            }
-        }
-#endif
-
-        here_alignment.check_lengths(gbwt_graph);
-    
-        // Do the final GaplessExtension itself (may be the first)
-    append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
-        composed_score += here_alignment.score;
-    }
-
-    ScoredPath right_tail = find_tail_alignment(aln, *here, wfa_extender, false, stats);
+    // Finally the right tail
+    ScoredPath right_tail = find_tail_alignment(aln, to_chain[last_anchor], wfa_extender, false, stats);
     append_path(composed_path, right_tail.path);
     composed_score += right_tail.score;
 
