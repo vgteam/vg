@@ -48,7 +48,7 @@ grep "Changing-References" error.txt
 is "$?" 0 "Hint towards solution provided"
 
 vg call only_haps.xg -k tiny_aug.pack -S "KOLF2.1J" 2> error.txt
-is "$?" 1 "-P paths must be references"
+is "$?" 1 "-S sample must have reference paths"
 grep "REFERENCE" error.txt
 is "$?" 0 "Problem is explained in some detail"
 grep "Changing-References" error.txt
