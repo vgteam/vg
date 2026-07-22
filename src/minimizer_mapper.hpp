@@ -881,39 +881,36 @@ protected:
      * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
      * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
-    void do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+    void do_chaining_on_trees(const Alignment& aln,
+                              const ZipCodeForest& zip_code_forest,
+                              const std::vector<Seed>& seeds,
+                              const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains,
-                              std::vector<size_t>& chain_source_tree,
-                              std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                              std::vector<algorithms::ConnectedSubchains>& chain_results,
+                              std::vector<size_t>& subchain_source_tree,
+                              std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
-                              std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
-                              LazyRNG& rng, Funnel& funnel) const;
+                              std::vector<Alignment>& alignments,
+                              SmallBitset& minimizer_explored,
+                              vector<double>& multiplicity_by_alignment,
+                              LazyRNG& rng,
+                              Funnel& funnel) const;
 
-    /**
-     * Collect stats about the best chains for annotating the final alignment
-     */
-    void get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
-                               const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                               const std::vector<std::vector<size_t>>& chains,
-                               const std::vector<size_t>& chain_source_tree,
-                               const vector<algorithms::Anchor>& seed_anchors,
-                               const std::vector<int>& chain_score_estimates,
-                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
-                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
-                               Funnel& funnel) const ;
-
-    void do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
-                               const VectorView<MinimizerMapper::Minimizer>& minimizers, 
-                               const vector<algorithms::Anchor>& seed_anchors,
-                               const std::vector<std::vector<size_t>>& chains, 
-                               const std::vector<size_t>& chain_source_tree,
-                               const std::vector<double>& multiplicity_by_chain,
-                               const std::vector<int>& chain_score_estimates,
-                               const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                               vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
-                               vector<size_t>& alignments_to_source,
-                               SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
+    void do_alignment_on_chains(const Alignment& aln,
+                                const std::vector<Seed>& seeds, 
+                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
+                                const vector<algorithms::Anchor>& seed_anchors,
+                                const std::vector<algorithms::ConnectedSubchains>& chain_results, 
+                                const std::vector<size_t>& subchain_source_tree,
+                                const std::vector<double>& multiplicity_by_chain,
+                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                                vector<Alignment>& alignments,
+                                vector<double>& multiplicity_by_alignment,
+                                vector<size_t>& alignments_to_source,
+                                SmallBitset& minimizer_explored,
+                                aligner_stats_t& stats,
+                                LazyRNG& rng,
+                                Funnel& funnel) const;
 
     /**
      * Select the max_multimaps best alignments from alignments into mappings.
@@ -923,8 +920,7 @@ protected:
      * If no alignments have a positive score, responsible for creating an unmapped mapping.
      */
     void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
-                                       const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
-                                       const std::vector<int>& chain_score_estimates,
+                                       const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source,
                                        std::vector<Alignment>& mappings,
                                        std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
                                        LazyRNG& rng, Funnel& funnel) const;
@@ -1557,8 +1553,8 @@ protected:
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
                                    const vector<algorithms::Anchor>& seed_anchors,
-                                   const std::vector<std::vector<size_t>>& chains,
-                                   const std::vector<size_t>& chain_source_tree,
+                                   const std::vector<algorithms::ConnectedSubchains>& chain_results,
+                                   const std::vector<size_t>& subchain_source_tree,
                                    const PathPositionHandleGraph* path_graph,
                                    bool haplotype_positions);
 

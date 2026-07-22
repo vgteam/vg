@@ -95,260 +95,168 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
     return position;
 }
 
-/// Figure out if the chains that start and end at the given seeds represent equivalent mappings
-/// based on the range they cover in their top-level chain
-static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1, const MinimizerMapper::Seed& end_seed1,
-                                        const MinimizerMapper::Seed& start_seed2, const MinimizerMapper::Seed& end_seed2) {
-#ifdef debug
-    assert(start_seed1.zipcode.get_distance_index_address(0) ==
-           end_seed1.zipcode.get_distance_index_address(0));
-    assert(start_seed2.zipcode.get_distance_index_address(0) ==
-           end_seed2.zipcode.get_distance_index_address(0));
-#endif
-    if (start_seed1.zipcode.get_distance_index_address(0) !=
-        start_seed2.zipcode.get_distance_index_address(0)) {
-        //If the two ranges are on different connected components
-        return false;
-    }
-    if (start_seed1.zipcode.get_code_type(0) == ZipCode::ROOT_SNARL) {
-        //If this is in a root snarl
-        if (start_seed1.zipcode.get_rank_in_snarl(1) !=
-            start_seed2.zipcode.get_rank_in_snarl(1) 
-            ||
-            start_seed1.zipcode.get_rank_in_snarl(1) !=
-            end_seed1.zipcode.get_rank_in_snarl(1) 
-            ||
-            start_seed2.zipcode.get_rank_in_snarl(1) !=
-            end_seed2.zipcode.get_rank_in_snarl(1)) {
-            //If the two ranges are on different children of the snarl
-            return false;
-        }
-    }
-
-    //Get the offset used for determining the range
-    //On the top-level chain, node, or child of the top-level snarl 
-    auto get_seed_offset = [&] (const MinimizerMapper::Seed& seed) {
-        if (seed.zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN) {
-            return seed.zipcode.get_offset_in_chain(1);
-        } else if (seed.zipcode.get_code_type(0) == ZipCode::ROOT_NODE) {
-            return is_rev(seed.pos) ? seed.zipcode.get_length(0) - offset(seed.pos)
-                                    : offset(seed.pos);
-        } else {
-            //Otherwise, this is a top-level snarl, and we've already made sure that it's on the 
-            //same child chain/node
-            if (seed.zipcode.get_code_type(1) == ZipCode::CHAIN) {
-                //On a chain
-                return seed.zipcode.get_offset_in_chain(2);
-            } else {
-                //On a node
-                return is_rev(seed.pos) ? seed.zipcode.get_length(1) - offset(seed.pos)
-                                        : offset(seed.pos);
-            }
-        }
-    };
-    size_t offset_start1 = get_seed_offset(start_seed1); 
-    size_t offset_end1 = get_seed_offset(end_seed1);
-    size_t offset_start2 = get_seed_offset(start_seed2); 
-    size_t offset_end2 = get_seed_offset(end_seed2);
-
-    if (offset_start1 > offset_end1) {
-        size_t temp = offset_start1;
-        offset_start1 = offset_end1;
-        offset_end1 = temp;
-    }
-    if (offset_start2 > offset_end2) {
-        size_t temp = offset_start2;
-        offset_start2 = offset_end2;
-        offset_end2 = temp;
-    }
-
-    if (offset_start1 > offset_end2 || offset_start2 > offset_end1 ){
-        //If the ranges are disconnected
-        return false;
-    }if ( (offset_start1 <= offset_start2 && offset_end1 >= offset_end2) ||
-         (offset_start2 <= offset_start1 && offset_end2 >= offset_end1)) {
-        //If one range contains the other
-        return true;
-    } else {
-        //Otherwise the two ranges must overlap on just one side
-
-        if (offset_start1 > offset_start2) { 
-            //Flip them so that range1 is first
-            size_t tmp_start = offset_start1;
-            size_t tmp_end = offset_end1;
-            offset_start1 = offset_start2;
-            offset_end1 = offset_end2;
-            offset_start2 = tmp_start;
-            offset_end2 = tmp_end;
-        }
-
-        size_t overlap_size = offset_end1 - offset_start2;
-        //The two ranges count as equivalent if the length of the overlap is more than half the 
-        //length of the shorter range
-        return overlap_size > (std::min(offset_end1-offset_start1, offset_end2-offset_start2) / 2);
-
-    }
-}
-
 void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
-                                         const std::vector<Seed>& seeds,
-                                         const VectorView<Minimizer>& minimizers,
-                                         const vector<algorithms::Anchor>& seed_anchors,
-                                         const std::vector<std::vector<size_t>>& chains,
-                                         const std::vector<size_t>& chain_source_tree,
-                                         const PathPositionHandleGraph* path_graph,
-                                         bool haplotype_positions) {
+                                        const std::vector<Seed>& seeds,
+                                        const VectorView<Minimizer>& minimizers,
+                                        const vector<algorithms::Anchor>& seed_anchors,
+                                        const std::vector<algorithms::ConnectedSubchains>& chain_results,
+                                        const std::vector<size_t>& subchain_source_tree,
+                                        const PathPositionHandleGraph* path_graph,
+                                        bool haplotype_positions) {
     if (!path_graph) {
         // We don't have a path positional graph for this
         return;
     }
 
-    // Loop through all chains
-    for (size_t chain_num = 0; chain_num < chains.size(); chain_num++) {
-        // For each chain, create a separate TSV file
+    // Loop through all trees' chaining results
+    for (size_t group_num = 0; group_num < chain_results.size(); group_num++) {
+        for (size_t chain_num = 0; chain_num < chain_results.at(group_num).subchains.size(); chain_num++) {
+            // For each chain, create a separate TSV file
+            std::string cur_name = std::to_string(group_num) + "chain" + std::to_string(chain_num);
 
-        auto& tree_num = chain_source_tree.at(chain_num);
+            auto& tree_num = subchain_source_tree.at(chain_num);
 
-        // Find all the seeds in its zip tree
-        vector<size_t> involved_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
-            involved_seeds.push_back(found.seed);
-        }
-
-        // Start making a list of things to show.
-        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
-        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
-        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(chain_num)});
-
-        // Sort everything in read order
-        for (auto& seed_set : seed_sets) {
-            for (auto& run : seed_set.second) {
-                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
-                    auto& seed_a = seeds.at(seed_index_a);
-                    auto& seed_b = seeds.at(seed_index_b);
-
-                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
-
-                });
+            // Find all the seeds in its zip tree
+            vector<size_t> involved_seeds;
+            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num).get_all_seeds()) {
+                involved_seeds.push_back(found.seed);
             }
-        }
 
-        // Create a name for this chain's file
-        std::string chain_file_name = "chain" + std::to_string(chain_num) + "-dotplot";
+            // Start making a list of things to show.
+            std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
+            seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
+            seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chain_results[group_num].subchains.at(chain_num)});
 
-        // Now we need to actually dump the data to a TSV
-        // The read context should already be set by the caller
-        TSVExplainer exp(true, chain_file_name);
+            // Sort everything in read order
+            for (auto& seed_set : seed_sets) {
+                for (auto& run : seed_set.second) {
+                    std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
+                        auto& seed_a = seeds.at(seed_index_a);
+                        auto& seed_b = seeds.at(seed_index_b);
 
-        // We make another TSV that's more parseable, with all the seeds.
-        TSVExplainer seedpos(true, "chain" + std::to_string(chain_num) + "-seeds");
+                        return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
 
-        // Determine the positions of all the involved seeds.
-        std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
-        std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
-        if (haplotype_positions) {
-            wanted_senses.insert(PathSense::HAPLOTYPE);
-        }
-        for (auto& kv : seed_sets) {
-            for (const std::vector<size_t> included_seeds : kv.second) {
-                for (auto& seed_num : included_seeds) {
-                    // For each seed in the run
-                    auto& seed = seeds.at(seed_num);
+                    });
+                }
+            }
 
-                    auto found = seed_positions.find(seed_num);
-                    if (found == seed_positions.end()) {
-                        // If we don't know the seed's positions yet, get them.
-                        // We are working with the *pin point* (seed pos in the
-                        // graph and minimizer pin_offset() in the read), not
-                        // anything to do with the anchor.
-                        
-                        // Find that in the graph, on paths.
-                        found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
-                        for (auto& handle_and_positions : found->second) {
-                            std::string path_name = path_graph->get_path_name(handle_and_positions.first);
-                            for (auto& position : handle_and_positions.second) {
-                                // Dump all the seed positions so we can select seeds we want to know about.
-                                // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
+            // Create a name for this chain's file
+            std::string chain_file_name = cur_name + "-dotplot";
+
+            // Now we need to actually dump the data to a TSV
+            // The read context should already be set by the caller
+            TSVExplainer exp(true, chain_file_name);
+
+            // We make another TSV that's more parseable, with all the seeds.
+            TSVExplainer seedpos(true, cur_name + "-seeds");
+
+            // Determine the positions of all the involved seeds.
+            std::unordered_map<size_t, algorithms::path_offset_collection_t> seed_positions;
+            std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
+            if (haplotype_positions) {
+                wanted_senses.insert(PathSense::HAPLOTYPE);
+            }
+            for (auto& kv : seed_sets) {
+                for (const std::vector<size_t> included_seeds : kv.second) {
+                    for (auto& seed_num : included_seeds) {
+                        // For each seed in the run
+                        auto& seed = seeds.at(seed_num);
+
+                        auto found = seed_positions.find(seed_num);
+                        if (found == seed_positions.end()) {
+                            // If we don't know the seed's positions yet, get them.
+                            // We are working with the *pin point* (seed pos in the
+                            // graph and minimizer pin_offset() in the read), not
+                            // anything to do with the anchor.
+                            
+                            // Find that in the graph, on paths.
+                            found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
+                            for (auto& handle_and_positions : found->second) {
+                                std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+                                for (auto& position : handle_and_positions.second) {
+                                    // Dump all the seed positions so we can select seeds we want to know about.
+                                    // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
+                                    seedpos.line();
+                                    seedpos.field(minimizers[seed.source].pin_offset());
+                                    seedpos.field(path_name);
+                                    seedpos.field(position.first);
+                                    seedpos.field(position.second ? "-" : "+");
+                                    seedpos.field(seed_num);
+                                    std::stringstream ss;
+                                    ss << seed_anchors.at(seed_num);
+                                    seedpos.field(ss.str());
+                                }
+                            }
+                            if (found->second.empty()) {
+                                // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
+                                // Report it.
                                 seedpos.line();
                                 seedpos.field(minimizers[seed.source].pin_offset());
-                                seedpos.field(path_name);
-                                seedpos.field(position.first);
-                                seedpos.field(position.second ? "-" : "+");
+                                seedpos.field("");
+                                seedpos.field("");
+                                seedpos.field("");
                                 seedpos.field(seed_num);
                                 std::stringstream ss;
                                 ss << seed_anchors.at(seed_num);
                                 seedpos.field(ss.str());
                             }
                         }
-                        if (found->second.empty()) {
-                            // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
-                            // Report it.
-                            seedpos.line();
-                            seedpos.field(minimizers[seed.source].pin_offset());
-                            seedpos.field("");
-                            seedpos.field("");
-                            seedpos.field("");
-                            seedpos.field(seed_num);
-                            std::stringstream ss;
-                            ss << seed_anchors.at(seed_num);
-                            seedpos.field(ss.str());
-                        }
                     }
                 }
             }
-        }
 
-        for (auto& kv : seed_sets) {
-            // For each named seed set
-            const std::string& marker = kv.first;
-            for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
-                // For each run of seeds in it
-                const std::vector<size_t>& included_seeds = kv.second[run_number];
-                for (size_t idx = 0; idx < included_seeds.size(); ++idx) {
-                    // For each seed in the run (index-based so we can consult chain flags)
-                    size_t seed_num = included_seeds[idx];
-                    auto& seed = seeds.at(seed_num);
+            for (auto& kv : seed_sets) {
+                // For each named seed set
+                const std::string& marker = kv.first;
+                for (size_t run_number = 0; run_number < kv.second.size(); run_number++) {
+                    // For each run of seeds in it
+                    const std::vector<size_t>& included_seeds = kv.second[run_number];
+                    for (size_t idx = 0; idx < included_seeds.size(); ++idx) {
+                        // For each seed in the run (index-based so we can consult chain flags)
+                        size_t seed_num = included_seeds[idx];
+                        auto& seed = seeds.at(seed_num);
 
-                    // Get its effective path positions
-                    auto& offsets = seed_positions.at(seed_num);
+                        // Get its effective path positions
+                        auto& offsets = seed_positions.at(seed_num);
 
-                    for (auto& handle_and_positions : offsets) {
-                        std::string path_name = path_graph->get_path_name(handle_and_positions.first);
-                        for (auto& position : handle_and_positions.second) {
-                            // For each position on a ref path that this seed is at, log a line
+                        for (auto& handle_and_positions : offsets) {
+                            std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+                            for (auto& position : handle_and_positions.second) {
+                                // For each position on a ref path that this seed is at, log a line
+                                exp.line();
+                                if (!marker.empty()) {
+                                    // Contig and a marker and a subscript
+                                    exp.field(path_name + "-" + marker + "-" + std::to_string(run_number));
+                                } else {
+                                    // Contig alone
+                                    exp.field(path_name);
+                                }
+                                // Offset on contig of the pin point
+                                exp.field(position.first);
+                                // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                                exp.field(minimizers[seed.source].pin_offset());
+                                /// TODO: recombination flag column?
+                            }
+                        }
+                        if (offsets.empty()) {
+                            // Note that we don't actually have a position
                             exp.line();
                             if (!marker.empty()) {
-                                // Contig and a marker and a subscript
-                                exp.field(path_name + "-" + marker + "-" + std::to_string(run_number));
+                                // Sentinel and a marker and a subscript
+                                exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
                             } else {
-                                // Contig alone
-                                exp.field(path_name);
+                                // Sentinel alone
+                                exp.field("NO_PATH");
                             }
-                            // Offset on contig of the pin point
-                            exp.field(position.first);
+                            // Put it at 0 on no path
+                            exp.field(0);
                             // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                             exp.field(minimizers[seed.source].pin_offset());
                             /// TODO: recombination flag column?
                         }
                     }
-                    if (offsets.empty()) {
-                        // Note that we don't actually have a position
-                        exp.line();
-                        if (!marker.empty()) {
-                            // Sentinel and a marker and a subscript
-                            exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
-                        } else {
-                            // Sentinel alone
-                            exp.field("NO_PATH");
-                        }
-                        // Put it at 0 on no path
-                        exp.field(0);
-                        // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
-                        exp.field(minimizers[seed.source].pin_offset());
-                        /// TODO: recombination flag column?
-                    }
-                }
 
+                }
             }
         }
     }
@@ -776,20 +684,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
 
-    // For each chain, we need:
-    // The chain itself, pointing into seeds
-    std::vector<std::vector<size_t>> chains;
+    // For each initial chaining DP, we need:
+    // The subchains and connections between them
+    std::vector<algorithms::ConnectedSubchains> chain_results;
     // The zip code tree it came from
-    std::vector<size_t> chain_source_tree;
-    // An estimated alignment score
-    std::vector<int> chain_score_estimates;
+    std::vector<size_t> subchain_source_tree;
     // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
     std::vector<std::vector<size_t>> minimizer_kept_chain_count;
     // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
     std::vector<double> multiplicity_by_chain;
 
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                         chains, chain_source_tree, chain_score_estimates,
+                         chain_results, subchain_source_tree,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
@@ -803,16 +709,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchor_length = 0;
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
-    if (show_work && !chains.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, chain_source_tree, this->path_graph, this->haplotype_positions);
+    if (show_work && !chain_results.empty() && this->path_graph != nullptr) {
+        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chain_results, subchain_source_tree, this->path_graph, this->haplotype_positions);
     }
-
-    if (alignments.size() == 0) {
-        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, chains, chain_source_tree, seed_anchors,
-                             chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
-                             best_chain_anchors, best_chain_anchor_length, funnel);
-    }
-
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -831,10 +730,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // tracing back to minimizers for MAPQ. Can hold
     // numeric_limits<size_t>::max() for an unaligned alignment.
     vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(chain_score_estimates.size());
+    alignments_to_source.reserve(chain_results.size());
 
     if (alignments.size() == 0) {
-        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chain_results,
+                               subchain_source_tree, multiplicity_by_chain,
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, rng, funnel);
     }
@@ -880,7 +780,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<double> multiplicity_by_mapping;
    
     // Collect the chosen mappings, or create the unmapped-read mapping.
-    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source, chain_score_estimates, 
+    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source,
                                   mappings, scores, multiplicity_by_mapping, rng, funnel);
     
     if (track_provenance) {
@@ -1080,14 +980,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Annotate with whatever's in the funnel
     funnel.annotate_mapped_alignment(mappings[0], track_correctness);
     
-    if (track_provenance) {
-        if (track_correctness) {
-            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), chains.size(), funnel);
-        }
+    if (track_provenance && track_correctness) {
+        annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), chain_results.size(), funnel);
     }
 
     // Special chain statistics
-    set_compressed_annotation(mappings[0], "chain_scores", chain_score_estimates);
     if (track_correctness) {
         set_annotation(mappings[0], "best_chain.correct", best_chain_correct);
     }
@@ -1151,8 +1048,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest,
     const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
     const vector<algorithms::Anchor>& seed_anchors,
-    std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree,
-    std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+    std::vector<algorithms::ConnectedSubchains>& chain_results, std::vector<size_t>& subchain_source_tree,
+    std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
     std::vector<double>& multiplicity_by_chain,
     std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
     LazyRNG& rng, Funnel& funnel) const {
@@ -1160,8 +1057,8 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
     // Keep track of which chain each alignment comes from for the funnel
     std::vector<size_t> alignment_source_chain;
 
-    // For now, multiplicity_by_chain just stores how many trees had equal or better score. After going through all
-    // trees and counting how many are kept, each value will be divided by the number of trees kept
+    // After going through all trees and counting how many are kept,
+    // each value will be divided by the number of trees kept
     size_t kept_tree_count = 0;
 
     //Do gapless extension if the read length is less than the limit
@@ -1217,7 +1114,12 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best, coverages " << best_tree_coverage << " best, " << second_best_tree_coverage << " second best" << std::endl;
+            std::cerr << log_name() << "Found "
+                      << zip_code_forest.trees.size() << " zip code trees, scores "
+                      << best_tree_score << " best, "
+                      << second_best_tree_score << " second best, coverages "
+                      << best_tree_coverage << " best, "
+                      << second_best_tree_coverage << " second best" << std::endl;
         }
     }
 
@@ -1295,7 +1197,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Making chains for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
+                    cerr << log_name() << "Making chains for zip code tree " << item_num 
+                         << " with score " << tree_scores[item_num]
+                         << " and coverage " << tree_coverages[item_num] << endl;
                 }
             }
 
@@ -1373,7 +1277,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                             if (track_provenance) {
                                 //We want to know which "chain" this came from
-                                alignment_source_chain.emplace_back(chains.size());
+                                alignment_source_chain.emplace_back(chain_results.size());
                             }
 
                             multiplicity_by_alignment.emplace_back(item_count);
@@ -1384,7 +1288,8 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                             if (show_work) {
                                 #pragma omp critical (cerr)
                                 {
-                                    cerr << log_name() << "Produced additional alignment directly from full length gapless extension " << extension_i << endl;
+                                    cerr << log_name() << "Produced additional alignment "
+                                         << "directly from full length gapless extension " << extension_i << endl;
                                 }
                             }
                         }
@@ -1406,7 +1311,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                         //Add an entry to the list of chains so we know which chain num to give the alignments
                         //This is just so the funnel can track everything
-                        chains.emplace_back();
+                        chain_results.emplace_back();
 
                     }
                     return true;
@@ -1554,9 +1459,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             // Make a view of the anchors we will chain over
             VectorView<algorithms::Anchor> anchor_view {anchors_to_chain, anchor_indexes};
 
-            // This will hold our chaining results
-            algorithms::ConnectedSubchains chain_results;
-
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1592,7 +1494,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
             };
-            chain_results = algorithms::find_best_chains(
+            chain_results.push_back(algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1601,22 +1503,18 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 for_each_transition,
                 indel_limit,
                 show_work
-            );
-#ifdef debug_rec
-            if (true) {
-#else
+            ));
             if (show_work) {
-#endif
                 #pragma omp critical (cerr)
-                cerr << log_name() << "\t[" << aln.name() << "] Found " << chain_results.chains.size() << " chains in zip code tree " << item_num
-                    << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
+                cerr << log_name() << "\t[" << aln.name() << "] Found "
+                     << chain_results.back().subchains.size() << " subchains with "
+                     << chain_results.back().connections.size() << " inter-subchain connections in zip code tree " << item_num
+                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
-
-            for (size_t result = 0; result < chain_results.chains.size(); result++) {
+            for (size_t subchain_i = 0; subchain_i < chain_results.back().subchains.size(); subchain_i++) {
                 // For each result
-                auto& entry = chain_results.chains[result];
-                auto& scored_chain = entry.scored_chain;
+                vector<size_t>& subchain = chain_results.back().subchains[subchain_i];
 #ifdef debug_rec
                 if (true)
 #else
@@ -1626,48 +1524,45 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 #ifdef debug
                     if(true)
 #else
-                    if (result < MANY_LIMIT)
+                    if (subchain_i < MANY_LIMIT)
 #endif
                     {
-                        if (!scored_chain.second.empty()) {
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << log_name() << "\t[" << aln.name() << "] Chain " << result << " with score " << scored_chain.first
-                                     << " and length " << scored_chain.second.size()
-                                     << " running " << anchor_view[scored_chain.second.front()]
-                                     << " to " << anchor_view[scored_chain.second.back()] << std::endl;
-#ifdef debug_rec
-                                algorithms::path_flags_t current_paths = 0;
-                                bool first = true;
-                                for (auto& selected_number : scored_chain.second) {
-                                    auto& anchor = anchor_view[selected_number];
-                                    auto new_paths = anchor.anchor_paths();
-                                    if (first) {
-                                        current_paths = new_paths.second;
-                                        first = false;
-                                    } else {
-                                        if (new_paths.first == new_paths.second) {
-                                            if ((current_paths & new_paths.first) == 0) {
-                                                current_paths = new_paths.first;
-                                            } else {
-                                                current_paths &= new_paths.first;
-                                            }
-                                        } else {
-                                            current_paths = new_paths.second;
-                                        }
-                                    }
-                                    
-                                    std::cerr << log_name() << "\t\t" << anchor 
-                                              << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
-                                              << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
-                                }
-#endif
-
-                            }
-                        }
-                    } else if (result == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.chains.size() - result) << " more chains>" << std::endl;
+                        {
+                            cerr << log_name() << "\t[" << aln.name() << "] Subchain " << subchain_i
+                                    << " and length " << subchain.size()
+                                    << " running " << anchor_view[subchain.front()]
+                                    << " to " << anchor_view[subchain.back()] << std::endl;
+#ifdef debug_rec
+                            algorithms::path_flags_t current_paths = 0;
+                            bool first = true;
+                            for (auto& selected_number : subchain) {
+                                auto& anchor = anchor_view[selected_number];
+                                auto new_paths = anchor.anchor_paths();
+                                if (first) {
+                                    current_paths = new_paths.second;
+                                    first = false;
+                                } else {
+                                    if (new_paths.first == new_paths.second) {
+                                        if ((current_paths & new_paths.first) == 0) {
+                                            current_paths = new_paths.first;
+                                        } else {
+                                            current_paths &= new_paths.first;
+                                        }
+                                    } else {
+                                        current_paths = new_paths.second;
+                                    }
+                                }
+                                
+                                std::cerr << log_name() << "\t\t" << anchor 
+                                          << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
+                                          << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
+                            }
+#endif
+                        }
+                    } else if (subchain_i == MANY_LIMIT) {
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.back().subchains.size() - subchain_i) << " more chains>" << std::endl;
                     }
                 }
 
@@ -1675,15 +1570,15 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 minimizer_kept_chain_count.emplace_back(minimizers.size(), 0);
 
                 // Translate chains into seed numbers and not local anchor numbers.
-                chains.emplace_back();
-                chains.back().reserve(scored_chain.second.size() * 2);
+                vector<size_t> seed_nums;
+                seed_nums.reserve(subchain.size() * 2);
 
-                for (auto& selected_number : scored_chain.second) {
+                for (auto& selected_number : subchain) {
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the chain.
-                        chains.back().push_back(seed_number);
+                        seed_nums.push_back(seed_number);
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
@@ -1691,34 +1586,33 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         minimizer_kept_chain_count.back()[seeds[seed_number].source]++;
                     }
                 }
-                // Remember the score
-                chain_score_estimates.push_back(scored_chain.first);
+                subchain = seed_nums;
 
                 // Remember how we got it
-                chain_source_tree.push_back(item_num);
-                //Remember the number of better or equal-scoring trees
+                subchain_source_tree.push_back(item_num);
+                // Remember the number of better or equal-scoring things
                 multiplicity_by_chain.emplace_back((float)item_count);
 
                 if (track_provenance) {
                     // Tell the funnel
                     funnel.introduce();
-                    funnel.score(funnel.latest(), scored_chain.first);
+                    /// TODO: no score provided because these are intentionally just pieces
                     // We come from all the seeds directly
                     // TODO: Include all the middle seeds when gapless extending!
-                    funnel.also_merge_group(2, chains.back().begin(), chains.back().end());
+                    funnel.also_merge_group(2, subchain.begin(), subchain.end());
                     // And are related to the problem
                     funnel.also_relevant(1, item_num);
                 }
 
-                if (track_position && result < MANY_LIMIT) {
-                    // Add position annotations for the good-looking chains.
+                if (track_position && subchain_i < MANY_LIMIT) {
+                    // Add position annotations for some chains.
                     // Should be much faster than full correctness tracking from every seed.
                     crash_unless(this->path_graph);
                     std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
                     if (haplotype_positions) {
                         wanted_senses.insert(PathSense::HAPLOTYPE);
                     }
-                    for (auto& boundary : {anchor_view[scored_chain.second.front()].graph_start(), anchor_view[scored_chain.second.back()].graph_end()}) {
+                    for (auto& boundary : {anchor_view[subchain.front()].graph_start(), anchor_view[subchain.back()].graph_end()}) {
                         // For each end of the chain
                         auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
                         for (auto& handle_and_positions : offsets) {
@@ -1731,7 +1625,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     }
                 }
 
-                if (track_provenance && show_work && result < MANY_LIMIT) {
+                if (track_provenance && show_work && subchain_i < MANY_LIMIT) {
                     for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
                         // Log each range on a path associated with the chain.
                         #pragma omp critical (cerr)
@@ -1793,81 +1687,17 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
 }
 
-
-
-void MinimizerMapper::get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
-                                           const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                           const std::vector<std::vector<size_t>>& chains,
-                                           const std::vector<size_t>& chain_source_tree,
-                                           const vector<algorithms::Anchor>& seed_anchors,
-                                           const std::vector<int>& chain_score_estimates,
-                                           bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
-                                           double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
-                                           Funnel& funnel) const {
-    // Find the best chain
-    size_t best_chain = std::numeric_limits<size_t>::max();
-    int best_chain_score = 0;
-    for (size_t i = 0; i < chains.size(); i++) {
-        if (best_chain == std::numeric_limits<size_t>::max() || chain_score_estimates.at(i) > best_chain_score) {
-            // Friendship ended with old chain
-            best_chain = i;
-            best_chain_score = chain_score_estimates[i];
-        }
-    }
-    if (track_correctness && best_chain != std::numeric_limits<size_t>::max()) {
-        // We want to explicitly check if the best chain was correct, for looking at stats about it later.
-        if (funnel.is_correct(best_chain)) {
-            best_chain_correct = true;
-        }
-    }
-
-    // Find its coverage
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
-    }
-    
-    // Find out how gappy it is. We can get the longest and the average distance maybe.
-    size_t best_chain_total_jump = 0;
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
-            // Find the pair of anchors we go between
-            auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
-            auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
-            // And get the distance between them in the read
-            size_t jump = right_anchor.read_start() - left_anchor.read_end();
-            // Max and add it in
-            best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
-            best_chain_total_jump += jump;
-        }
-        best_chain_average_jump = chains.at(best_chain).size() > 1 ? (double)best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
-    }
-
-    // Also count anchors in the chain
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        best_chain_anchors = chains.at(best_chain).size();
-    }
-
-    // And total length of anchors in the chain
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        for (auto& item : chains.at(best_chain)) {
-            best_chain_anchor_length += seed_anchors.at(item).length();
-        }
-    }
-
-}
-
 void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
-                                            const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                            const vector<algorithms::Anchor>& seed_anchors,
-                                            const std::vector<std::vector<size_t>>& chains, 
-                                            const std::vector<size_t>& chain_source_tree,
-                                            const std::vector<double>& multiplicity_by_chain,
-                                            const std::vector<int>& chain_score_estimates, 
-                                            const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                                            vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
-                                            vector<size_t>& alignments_to_source,
-                                            SmallBitset& minimizer_explored, aligner_stats_t& stats,
-                                            LazyRNG& rng, Funnel& funnel) const {
+                                             const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                             const vector<algorithms::Anchor>& seed_anchors,
+                                             const std::vector<algorithms::ConnectedSubchains>& chain_results, 
+                                             const std::vector<size_t>& subchain_source_tree,
+                                             const std::vector<double>& multiplicity_by_chain,
+                                             const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                                             vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
+                                             vector<size_t>& alignments_to_source,
+                                             SmallBitset& minimizer_explored, aligner_stats_t& stats,
+                                             LazyRNG& rng, Funnel& funnel) const {
   
     if (track_provenance) {
         funnel.stage("align");
@@ -1885,21 +1715,29 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
     // Apply the max in chain score limit
     chain_min_score = std::min(chain_min_score, max_min_chain_score);
+    vector<int> max_sparse_chain_scores;
+    for (const auto& group : chain_results) {
+        max_sparse_chain_scores.emplace_back(group.max_sparse_chain_score);
+    }
 
     // Remember: we also have chain_score_threshold, which counts down from best chain score
     
-    // We need to be able to discard a chain because its score isn't good enough.
+    // We need to be able to discard a ConnectedSubchains because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
     auto discard_chain_by_score = [&](size_t processed_num) -> void {
-        // This chain is not good enough.
+        // This ConnectedSubchains is not good enough.
         if (track_provenance) {
-            funnel.fail("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+            funnel.fail("min-chain-score-per-base||max-min-chain-score", processed_num, max_sparse_chain_scores[processed_num]);
         }
         
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "chain " << processed_num << " failed because its score was not good enough (score=" << chain_score_estimates[processed_num] << ", min=" << chain_min_score << ", threshold " << chain_score_threshold << " off best)" << endl;
+                cerr << log_name() << "subchain group " << processed_num
+                     << " failed because its score was not good enough (max score="
+                     << max_sparse_chain_scores[processed_num]
+                     << ", min=" << chain_min_score
+                     << ", threshold " << chain_score_threshold << " off best)" << endl;
                 if (track_correctness && funnel.was_correct(processed_num)) {
                     cerr << log_name() << "\tCORRECT!" << endl;
                 }
@@ -1918,13 +1756,13 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
     
     // Go through the chains in estimated-score order.
-    process_until_threshold_b<int>(chain_score_estimates,
+    process_until_threshold_b<int>(max_sparse_chain_scores,
         chain_score_threshold, min_chains, max_alignments, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
             // This chain is good enough.
             // Called in descending score order.
         
-            if (chain_score_estimates[processed_num] < chain_min_score) {
+            if (max_sparse_chain_scores[processed_num] < chain_min_score) {
                 // Actually discard by score
                 discard_chain_by_score(processed_num);
                 return false;
@@ -1933,86 +1771,18 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << ", min=" << chain_min_score << ", threshold " << chain_score_threshold << " off best)" << endl;
+                    cerr << log_name() << "subchain group " << processed_num
+                         << " is good enough (max score=" << max_sparse_chain_scores[processed_num]
+                         << ", min=" << chain_min_score
+                         << ", threshold " << chain_score_threshold << " off best)" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
                 }
             }
             if (track_provenance) {
-                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, max_sparse_chain_scores[processed_num]);
                 funnel.pass("max-alignments", processed_num);
-            }
-
-            for (auto& seed_num : chains[processed_num]) {
-                // Look at the individual pin points and their associated read-node offset
-                size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
-                pos_t graph_pos = seeds.at(seed_num).pos;
-
-                nid_t node_id = id(graph_pos);
-                bool orientation = is_rev(graph_pos);
-                int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
-                auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
-                if (used_matchings.count(matching)) {
-                    if (track_provenance) {
-                        funnel.fail("no-chain-overlap", processed_num);
-                    }
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
-                        }
-                    }
-                    return false;
-                } else {
-#ifdef debug
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Chain " << processed_num << " uniquely places read pos " << read_pos << " at graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
-                        }
-                    }
-#endif
-                }
-            }
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
-                }
-            }
-            if (track_provenance) {
-                funnel.pass("no-chain-overlap", processed_num);
-            }
-
-            // Make sure we aren't doing too many chains from this one tree.
-            auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
-            if (tree_count >= max_chains_per_tree) {
-                if (track_provenance) {
-                    funnel.fail("max-chains-per-tree", processed_num, tree_count);
-                }
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is rejected (score=" << chain_score_estimates[processed_num] << ")" << endl;
-                    }
-                }
-                tree_count++;
-                return false;
-            } else {
-                if (track_provenance) {
-                    funnel.pass("max-chains-per-tree", processed_num, tree_count);
-                }
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is kept" << endl;
-                    }
-                }
-                tree_count++;
-            }
-
-            if (track_provenance) {
                 funnel.processing_input(processed_num);
             }
 
@@ -2027,22 +1797,16 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                     funnel.substage("align");
                 }
                 
-                // We currently just have the one best score and chain per zip code tree
-                const vector<size_t>& chain = chains.at(processed_num);
-                
                 try {
                     // Do the DP between the items in the chain
 
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
-                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
+                    best_alignments = do_base_level_alignment(aln, seed_anchors, chain_results.at(processed_num), max_alignments, &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
                     stats += alignment_stats;
-
-                    // Mark the alignment with its chain score
-                    set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
@@ -2149,38 +1913,23 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }, [&](size_t processed_num) -> void {
             // There are too many sufficiently good chains
             if (track_provenance) {
-                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, max_sparse_chain_scores[processed_num]);
                 funnel.fail("max-alignments", processed_num);
             }
             
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "chain " << processed_num << " failed because there were too many good chains (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                    cerr << log_name() << "subchain group " << processed_num 
+                         << " failed because there were too many good groups (max score="
+                         << max_sparse_chain_scores[processed_num] << ")" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
                 }
             }
         }, discard_chain_by_score);
-
-    //chain_count_by_alignment is currently the number of better or equal chains that were used
-    // We really want the number of chains not including the ones that represent the same mapping
-    // TODO: This isn't very efficient
-    for (size_t i = 0 ; i < chain_count_by_alignment.size() ; ++i) {
-        size_t chain_i = alignments_to_source[i];
-        for (size_t j = 0 ; j < chain_count_by_alignment.size() ; ++j) {
-            size_t chain_j = alignments_to_source[j];
-            if (i != j &&
-                chain_score_estimates[chain_i] >= chain_score_estimates[chain_j] &&
-                chain_ranges_are_equivalent(seeds[chains[chain_i].front()],
-                                     seeds[chains[chain_i].back()],
-                                     seeds[chains[chain_j].front()],
-                                     seeds[chains[chain_j].back()])) {
-                --chain_count_by_alignment[i];
-            }
-        }
-    }
+    
     for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
         multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                       ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
@@ -2191,7 +1940,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
                                                     const std::vector<double>& multiplicity_by_alignment,
                                                     const std::vector<size_t>& alignments_to_source,
-                                                    const std::vector<int>& chain_score_estimates,
                                                     std::vector<Alignment>& mappings,
                                                     std::vector<double>& scores,
                                                     std::vector<double>& multiplicity_by_mapping,
@@ -2234,29 +1982,14 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
             used_nodes.insert(key);
         }
     };
-
-    // Have a way to get the score to use to sort alignments, which is configurable
-    auto get_sorting_score = [&](size_t alignment_number) -> double {
-        if (this->sort_by_chain_score) {
-            // Use the chain's score to rank the alignments
-            size_t chain_number = alignments_to_source.at(alignment_number);
-            // Unaligned alignments from no chain are no longer allowed in;
-            // this function is supposed to make them. So all alignments
-            // reference into chain_score_estimates.
-            return chain_score_estimates.at(chain_number);
-        } else {
-            // Use base-level alignment score to rank alignments
-            // Tiebreak by identity (which is always 0 to 1)
-            return alignments.at(alignment_number).score() + identity(alignments.at(alignment_number).path());
-        }
-    };
     
     // Grab all the scores in order for MAPQ computation.
     scores.reserve(alignments.size());
     
     // Go through the alignments in descending score order, with ties at the top end shuffled.
     process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
-        return get_sorting_score(i);
+        // Tiebreak by identity (which is always 0 to 1)
+        return alignments.at(i).score() + identity(alignments.at(i).path());
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
@@ -3182,7 +2915,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const algorithms::ConnectedSubchains& grouped_anchors,
-    const size_t& max_chains,
+    const size_t& max_alignments,
     aligner_stats_t* stats
 ) const {
     
@@ -3300,7 +3033,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     }
 
     // Do DP
-    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains);
+    vector<Alignment> tracebacks = optimal_alignments(mp_aln, max_alignments);
 
     // Convert back to real alignments
     vector<Alignment> output;
