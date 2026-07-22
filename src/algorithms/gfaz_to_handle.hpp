@@ -65,6 +65,8 @@ private:
                  int64_t sequence_end,
                  const vector<gfaz::NodeId>& visits) override;
 
+    /// Translate a vector of GFAz node IDs into a function that produces vg-style
+    /// rank, id, orientation visit calls.
     static visit_source_t make_visit_source(const vector<gfaz::NodeId>& visits);
 
     /// Wrap a function in a handler for GFADuplicatePathError that reports
