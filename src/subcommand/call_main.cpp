@@ -593,7 +593,8 @@ int main_call(int argc, char** argv) {
             }
         });
         if (ref_paths.empty()) {
-            logger.error() << "No paths found matching prefix(es)" << endl;
+            logger.error() << "No REFERENCE or GENERIC paths (see vg paths -M) found matching prefix(es)\n"
+                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
     }
 
@@ -677,8 +678,9 @@ int main_call(int argc, char** argv) {
         // Check our paths
         for (const auto& ref_path_used : ref_path_set) {
             if (!ref_path_used.second) {
-                logger.error() << "Reference path \"" << ref_path_used.first 
-                               << "\" not found in graph" << endl;
+                logger.error() << "Path \"" << ref_path_used.first 
+                               << "\" not found in graph as REFERENCE or GENERIC sense (see vg paths -M)\n"
+                               << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
             }
         }
         
@@ -688,10 +690,12 @@ int main_call(int argc, char** argv) {
     // make sure we have some ref paths
     if (ref_paths.empty()) {
         if (!ref_sample.empty()) {
-            logger.error() << "No paths with selected reference sample \"" << ref_sample << "\" found." 
-                           << "Try using vg paths -M to see which samples are in your graph" << endl;
+            logger.error() << "No REFERENCE paths for \"" << ref_sample << "\" found.\n" 
+                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
-        logger.error() << "No reference paths found" << endl;
+        logger.error() << "No reference paths found. "
+                       << "Paths must be REFERENCE or GENERIC sense (see vg paths -M)\n"
+                       << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
     // build table of ploidys
