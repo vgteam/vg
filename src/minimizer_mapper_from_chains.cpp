@@ -1507,7 +1507,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             if (show_work) {
                 #pragma omp critical (cerr)
                 cerr << log_name() << "\t[" << aln.name() << "] Found "
-                     << chain_results.back().subchains.size() << " subchains with "
+                     << chain_results.back().subchains.size() << " subchain groups with "
                      << chain_results.back().connections.size() << " inter-subchain connections in zip code tree " << item_num
                      << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
