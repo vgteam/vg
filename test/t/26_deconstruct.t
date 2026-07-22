@@ -5,10 +5,10 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 59
+plan tests 63
 
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
-vg index hla.vg -x hla.xg
+vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
+vg index hla_v.vg -x hla.xg
 
 vg deconstruct hla.xg -p "gi|157734152:29563108-29564082" > hla_decon.vcf
 is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf has correct number of sites"
@@ -33,7 +33,7 @@ is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq
 is $(grep "#" hla_decon_path.vcf | grep "568815592") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
 
 
-rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla.vg hla.xg
+rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla_v.vg hla.xg
 
 cp sv/x.inv.gfa inv.gfa
 printf "P\ty\t1+,2-,3+\t9M,20M,21M\n" >> inv.gfa
@@ -156,7 +156,19 @@ is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
-rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
+# --cluster-min-len gates when the longest non-boundary traversal is below
+# the threshold.  small_cluster's only snarl has max interior length 6 bp.
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3_off.vcf
+is "$(tail -1 small_cluster_3_off.vcf | awk '{print $5}')" "G" "--cluster-min-len 0 is equivalent to clustering everywhere"
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 50 > small_cluster_3_50.vcf
+is "$(tail -1 small_cluster_3_50.vcf | awk '{print $5}')" "GATTTGA,G" "--cluster-min-len 50 gates clustering on a small site"
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 6 > small_cluster_3_6.vcf
+is "$(tail -1 small_cluster_3_6.vcf | awk '{print $5}')" "G" "--cluster-min-len at the site length still clusters"
+vg deconstruct small_cluster.gfa -p x --cluster-min-len 50 2>/dev/null > small_cluster_min_only.vcf
+diff small_cluster_0.vcf small_cluster_min_only.vcf
+is "$?" 0 "--cluster-min-len without -L is a no-op"
+
+rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
 
 # Nesting tests now use a two-step process:
 # 1. Compute gref cover with vg paths

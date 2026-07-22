@@ -204,12 +204,12 @@ So, after migrating to an ARM Mac using e.g. Apple's migration tools:
 2. Uninstall Homebrew and its packages, if they were migrated. Similarly, only an ARM Homebrew install will work.
 3. Reinstall one of MacPorts or Homebrew. Make sure to use the M1 or ARM version.
 4. Use the package manager you installed to install system dependencies of vg, such as CMake, [as documented above](#mac-install-dependencies).
-5. Clean vg with `make clean`. This *should* remove all build artefacts.
+5. Clean vg with `make clean`.
 6. Build vg again with `make`.
 
-If you still experience build problems after this, delete the whole checkout and check out the code again; `make clean` is not under CI test and is not always up to date with the rest of the build system.
+If you still experience build problems after this, delete the whole checkout and check out the code again.
 
-Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build or fix `make clean`.
+Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build.
 
 ## Usage
 
@@ -450,16 +450,13 @@ Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on d
 
 Infer variants from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
 
-<!-- !test check MSGA and deconstruct -->
+<!-- !test check deconstruct -->
 ```sh
-# create a graph from a multiple alignment of HLA haplotypes (from vg/test directory)
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
+# convert a GFA to vg's xg file format (from vg/test directory)
+vg convert --gfa-in graphs/cactus-BRCA2.gfa --xg-out > cactus-BRCA2.xg
 
-# index it
-vg index hla.vg -x hla.xg
-
-# generate a VCF using gi|568815592:29791752-29792749 as the reference contig.  The other paths will be considered as haploid samples
-vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
+# generate a VCF using "13" as the reference contig.  The other paths will be considered as haploid samples
+vg deconstruct cactus-BRCA2.xg -e -p "13" > BRCA2.vcf
 ```
 
 Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g`, respectively.
