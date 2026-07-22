@@ -569,13 +569,6 @@ int main_surject(int argc, char** argv) {
             output_format, sequence_dictionary, thread_count, xgidx,
             ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
         
-        // Callback to determine if alignments should be grouped: if promote_secondary is enabled, we want to group by read name
-        // so we can access both primary and secondary alignments for a read. If promote_secondary is off, then we can just
-        // process each alignment independently and each 'group' will just be a single alignment.
-        // NOTE: In order for this to work, the input file must be collated by read name.
-        function<bool(const Alignment&, const Alignment&)> same_group = [promote_secondary](const Alignment& a, const Alignment& b) {
-            return promote_secondary && a.name() == b.name();
-        };
         if (interleaved) {
             using AlnPair = pair<Alignment, Alignment>;
             function<void(vector<AlnPair>&)> process_group = [&](vector<AlnPair>& group) {
@@ -751,18 +744,23 @@ int main_surject(int argc, char** argv) {
             };
             if (input_format == "GAM") {
                 get_input_file(file_name, [&](istream& in) {
-                    function<void(vector<Alignment>&)> process_interleaved = [&](vector<Alignment>& alns) {
-                        vector<AlnPair> pairs;
-                        for (size_t i = 0; i + 1 < alns.size(); i += 2) {
-                            pairs.emplace_back(std::move(alns[i]), std::move(alns[i + 1]));
-                        }
-                        if (alns.size() % 2 != 0) {
-#pragma omp critical (cerr)
-                            adjacent_but_not_paired_error(logger, alns.back().name(), "<missing mate>");
-                        }
-                        process_group(pairs);
-                    };
-                    vg::io::grouped_unpaired_for_each_parallel<Alignment>(in, process_interleaved, same_group);
+                    if (promote_secondary) {
+                        // Group consecutive pairs by first-mate name so promotion has access to
+                        // every multimap for both mates at once. Primary and secondary alignments
+                        // of the same mate carry the same name, so exact equality suffices.
+                        // Input must be collated by read name.
+                        auto same_group_pair = [](const AlnPair& a, const AlnPair& b) {
+                            return a.first.name() == b.first.name();
+                        };
+                        vg::io::grouped_interleaved_for_each_parallel<Alignment>(in, process_group, same_group_pair);
+                    } else {
+                        // No promotion: use the standard consecutive-pair reader.
+                        vg::io::for_each_interleaved_pair_parallel<Alignment>(in, [&](Alignment& src1, Alignment& src2) {
+                            vector<AlnPair> group;
+                            group.emplace_back(std::move(src1), std::move(src2));
+                            process_group(group);
+                        });
+                    }
                 });
             } else {
                 // promote_secondary is disabled for GAF input so this effectively just surjects each pair by itself.
@@ -811,6 +809,13 @@ int main_surject(int argc, char** argv) {
                 }
             };
             if (input_format == "GAM") {
+                // Callback to determine if alignments should be grouped: if promote_secondary is enabled, we want to group by read name
+                // so we can access both primary and secondary alignments for a read. If promote_secondary is off, then we can just
+                // process each alignment independently and each 'group' will just be a single alignment.
+                // NOTE: In order for this to work, the input file must be collated by read name.
+                function<bool(const Alignment&, const Alignment&)> same_group = [promote_secondary](const Alignment& a, const Alignment& b) {
+                    return promote_secondary && a.name() == b.name();
+                };
                 get_input_file(file_name, [&](istream& in) {
                     vg::io::grouped_unpaired_for_each_parallel<Alignment>(in, process_group, same_group);
                 });
