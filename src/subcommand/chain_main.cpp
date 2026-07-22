@@ -30,7 +30,6 @@ void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
          << "  -p, --progress                     show progress" << endl
-         << "  -s, --read-sequence                sequence of the read being aligned" << endl
          << "  -r, --recombination-penalty INT    set recombination penalty (default: 0)" << endl
          << "  -h, --help                         print this help message to stderr and exit" << endl;
 }
@@ -39,7 +38,6 @@ int main_chain(int argc, char** argv) {
     Logger logger("vg chain");
 
     bool show_progress = false;
-    string read_seq = "";
     int recombination_penalty = 0;
     
     int c;
@@ -48,7 +46,6 @@ int main_chain(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"progress", no_argument, 0, 'p'},
-                {"read-sequence", required_argument, 0, 's'},
                 {"recombination-penalty", required_argument, 0, 'r'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
@@ -67,10 +64,6 @@ int main_chain(int argc, char** argv) {
         
         case 'p':
             show_progress = true;
-            break;
-
-        case 's':
-            read_seq = optarg;
             break;
 
         case 'r':
@@ -103,12 +96,6 @@ int main_chain(int argc, char** argv) {
         help_chain(argv);
         exit(1);
     }
-
-    if (read_seq == "") {
-        logger.error() << "A --read-sequence is required" << endl;
-    }
-    Alignment read;
-    read.set_sequence(read_seq);
     
     // Load up the JSON file we are supposed to have.
     json_error_t json_error;
@@ -300,7 +287,7 @@ int main_chain(int argc, char** argv) {
     // TODO: Replace with designated initializer list when we get C++20
     vg::algorithms::ChainScoringScheme scheme;
     scheme.recombination_penalty = recombination_penalty;
-    auto score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, read, scheme);
+    auto score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scheme);
     
     logger.info() << "Best chain gets score " << score_and_chain.chain_score << std::endl;
     

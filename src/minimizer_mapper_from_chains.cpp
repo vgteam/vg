@@ -2954,7 +2954,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // The edges (connection_t) can't store Paths anyhow
     // and the nodes (subpath_t) require annoying conversion
     // We will piece the alignment back together with this memory
-    vector<size_t, Path> node_paths(grouped_anchors.subchains.size());
+    vector<Path> node_paths(grouped_anchors.subchains.size());
     unordered_map<pair<size_t, size_t>, Path> edge_paths;
     // We want to annotate alignments with their tail lengths
     // so for any subchains with a tail, save their length
