@@ -3068,8 +3068,8 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             output.back().set_identity(identity(output.back().path()));
         }
         // Annotate with tail lengths
-        set_annotation(output, "left_tail_length", left_tail_len[trace.path().mapping(0).position().node_id()]); 
-        set_annotation(output, "right_tail_length", right_tail_len[trace.path().mapping(num_subchains - 1).position().node_id()]);
+        set_annotation(output.back(), "left_tail_length", left_tail_len[trace.path().mapping(0).position().node_id()]); 
+        set_annotation(output.back(), "right_tail_length", right_tail_len[trace.path().mapping(num_subchains - 1).position().node_id()]);
     }
     
     return output;
