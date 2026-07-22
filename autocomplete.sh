@@ -6,7 +6,7 @@ then
 		  local cur prev
 		  COMPREPLY=()
 		  cur="${COMP_WORDS[COMP_CWORD]}"
-		  opts="add align annotate augment autoindex bench-dist-query benchmark call chain chains chunk circularize clip cluster combine concat construct convert deconstruct depth describe dotplot filter find gamcompare gampcompare gamsort gbwt genotype giraffe haplotypes ids index inject kmers map mask mcmc minimizer mod mpmap pack paths primers prune rna sim simplify snarls sort stats surject trace translate validate vectorize version view viz zipcode"
+		  opts="add align annotate augment autoindex bench-dist-query benchmark call chain chains chunk circularize clip cluster combine construct convert deconstruct depth describe dotplot filter find gamcompare gampcompare gamsort gbwt genotype giraffe haplotypes ids index inject kmers map mask mcmc minimizer mod mpmap pack paths primers prune rna sim simplify snarls sort stats surject trace translate validate vectorize version view viz zipcode"
 
 		  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 		  return 0
