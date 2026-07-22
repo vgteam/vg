@@ -64,6 +64,9 @@ void help_deconstruct(char** argv) {
          << "                           for reference if possible (i.e. only one ref sample)" << endl
          << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
          << "                           is >= F together [1.0; experimental]" << endl
+         << "      --cluster-min-len N  only apply -L clustering at sites with at least one" << endl
+         << "                           non-boundary traversal >= N bp (50 = SVs only,"  << endl
+         << "                           0 = always) [0]" << endl
          << "  -R, --star-allele        use *-alleles to represent haplotypes that span the" << endl
          << "                           parent but don't traverse nested sites (requires -a)" << endl
          << "  -t, --threads N          use N threads" << endl
@@ -94,7 +97,10 @@ int main_deconstruct(int argc, char** argv) {
     bool untangle_traversals = false;
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
+    int64_t cluster_min_allele_len = 0;
     bool star_allele = false;
+
+    constexpr int OPT_CLUSTER_MIN_LEN = 1000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -118,6 +124,7 @@ int main_deconstruct(int argc, char** argv) {
                 {"strict-conflicts", no_argument, 0, 'S'},
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
+                {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
                 {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
@@ -182,6 +189,12 @@ int main_deconstruct(int argc, char** argv) {
         case 'L':
             cluster_threshold = max(0.0, min(1.0, parse<double>(optarg)));
             break;
+        case OPT_CLUSTER_MIN_LEN:
+            cluster_min_allele_len = parse<int64_t>(optarg);
+            if (cluster_min_allele_len < 0) {
+                logger.error() << "--cluster-min-len must be >= 0" << endl;
+            }
+            break;
         case 'R':
             star_allele = true;
             break;
@@ -204,6 +217,10 @@ int main_deconstruct(int argc, char** argv) {
 
     if (star_allele == true && all_snarls == false) {
         logger.error() << "-R can only be used with -a" << endl;
+    }
+
+    if (cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
+        logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
     }
 
     // Read the graph
@@ -422,6 +439,7 @@ int main_deconstruct(int argc, char** argv) {
                    strict_conflicts,
                    !contig_only_ref,
                    cluster_threshold,
+                   cluster_min_allele_len,
                    gbwt_index,
                    star_allele);
 
