@@ -751,7 +751,10 @@ ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
         return ConnectedSubchains();
     }
 
-    return split_up_subchains(to_chain.size(), tracebacks, alternatives);
+    ConnectedSubchains output = split_up_subchains(to_chain.size(), tracebacks, alternatives);
+    // Also remember its maximum score
+    output.max_sparse_chain_score = tracebacks.front().score();
+    return output;
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,

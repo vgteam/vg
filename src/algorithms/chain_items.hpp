@@ -431,6 +431,8 @@ struct ConnectedSubchains {
     std::vector<std::vector<size_t>> subchains;
     /// Connections between subchains, as (source index, sink index) pairs
     std::vector<pair<size_t, size_t>> connections;
+    /// The maximum score of any chain
+    int max_sparse_chain_score = 0;
 };
 
 /**
