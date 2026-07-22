@@ -2942,8 +2942,8 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
     
     // Used to figure out which subchains should get tail alignments
-    vector<bool> seen_as_source;
-    vector<bool> seen_as_sink;
+    vector<bool> seen_as_source(to_chain.size(), false);
+    vector<bool> seen_as_sink(to_chain.size(), false);
     for (const auto& extra_edge : grouped_anchors.connections) {
         seen_as_source[extra_edge.first] = true;
         seen_as_sink[extra_edge.second] = true;
