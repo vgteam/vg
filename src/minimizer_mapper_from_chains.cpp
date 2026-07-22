@@ -2573,7 +2573,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
 #ifdef debug_chain_alignment
         #pragma omp critical (cerr)
         {
-            cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align "
+            cerr << "warning[MinimizerMapper::find_tail_alignment]: Refusing to align "
                  << tail_length << " bp " << tail_side << " tail against "
                  << anchor_pos << " in " << aln.name() << " to avoid overflow" << endl;
         }
@@ -2639,7 +2639,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     if (show_work && max_tail_length > 0) {
         #pragma omp critical (cerr)
         {
-            cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_fallback_aln.score() << endl;
+            cerr << "warning[MinimizerMapper::find_tail_alignment]: Fallback score: " << tail_fallback_aln.score() << endl;
         }
     }
 
@@ -2929,7 +2929,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
             // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align "
+                cerr << "warning[MinimizerMapper::find_link_alignment]: Refusing to align "
                      << link_length << " bp connection between chain items " 
                      << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) 
                      << " which are " << graph_dist << " apart at " 
@@ -2979,7 +2979,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
             // TODO: Should we let the exceptions propagate up to here instead?
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for "
+                cerr << "warning[MinimizerMapper::find_link_alignment]: BGA alignment too big for "
                      << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) 
                      << " and " << to_chain.backing_index(*next_it) 
                      << " which are " << graph_dist << " apart at " 
@@ -3178,31 +3178,16 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
     return make_pair(output, *next_it);
 }
 
-Alignment MinimizerMapper::find_chain_alignment(
+vector<Alignment> MinimizerMapper::do_base_level_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
-    const std::vector<size_t>& chain,
+    const algorithms::ConnectedSubchains& grouped_anchors,
+    const size_t& max_chains,
     aligner_stats_t* stats
 ) const {
     
-    if (chain.empty()) {
+    if (grouped_anchors.subchains.empty()) {
         throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
-    }
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Align chain of";
-            if (chain.size() < MANY_LIMIT) {
-                cerr << ": ";
-                for (auto item_number : chain) {
-                    cerr << " " << item_number;
-                }
-            } else {
-                cerr << " " << chain.size() << " items";
-            }
-            cerr << " in " << to_chain.size() << " items" << endl;
-        }
     }
     
     // We need an Aligner for scoring.
@@ -3222,55 +3207,139 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Note that the extender expects anchoring matches!!!
     WFAExtender wfa_extender(gbwt_graph, aligner, wfa_error_model); 
 
-    // We compose into a Path, since sometimes we may have to drop back to
-    // aligners that aren't the WFAAligner and don't make WFAAlignments.
-    Path composed_path;
-    // We also track the total score of all the pieces.
-    int composed_score = 0;
+    
+    // Used to figure out which subchains should get tail alignments
+    vector<bool> seen_as_source;
+    vector<bool> seen_as_sink;
+    for (const auto& extra_edge : grouped_anchors.connections) {
+        seen_as_source[extra_edge.first] = true;
+        seen_as_sink[extra_edge.second] = true;
+    }
 
-    // Do the left tail, if any.
-    ScoredPath left_tail = find_tail_alignment(aln, to_chain[chain.front()], wfa_extender, true, stats);
-    composed_path = left_tail.path;
-    composed_score = left_tail.score;
+    multipath_alignment_t mp_aln;
+    // We will store Paths for each node/edge in the MP alignment
+    // The edges (connection_t) can't store Paths anyhow
+    // and the nodes (subpath_t) require annoying conversion
+    // We will piece the alignment back together with this memory
+    vector<size_t, Path> node_paths(grouped_anchors.subchains.size());
+    unordered_map<pair<size_t, size_t>, Path> edge_paths;
+    // We want to annotate alignments with their tail lengths
+    // so for any subchains with a tail, save their length
+    vector<double> left_tail_len(grouped_anchors.subchains.size());
+    vector<double> right_tail_len(grouped_anchors.subchains.size());
+    // Subchains where we bailed out of link alignments
+    // We will have to ignore any connections which start from them
+    unordered_set<size_t> early_bail_subchains;
 
-    // Then the middle
-    ScoredPath inner_links;
-    size_t last_anchor;
-    tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, chain, wfa_extender, aligner, stats);
-    append_path(composed_path, inner_links.path);
-    composed_score += inner_links.score;
+    // Set up pseudo-subpaths
+    for (size_t i = 0; i < grouped_anchors.subchains.size(); i++) {
+        // Keep track of total base-level results for this subchain
+        Path composed_path;
+        int composed_score = 0;
 
-    // Finally the right tail
-    ScoredPath right_tail = find_tail_alignment(aln, to_chain[last_anchor], wfa_extender, false, stats);
-    append_path(composed_path, right_tail.path);
-    composed_score += right_tail.score;
+        // Should this subchain get a left tail?
+        if (!seen_as_sink[i]) {
+            ScoredPath left_tail = find_tail_alignment(aln, to_chain[grouped_anchors.subchains[i].front()], wfa_extender, true, stats);
+            composed_path = left_tail.path;
+            composed_score = left_tail.score;
+            left_tail_len[i] = left_tail.path.length();
+        }
 
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << composed_score << endl;
-            if (composed_path.mapping_size() > 0) {
-                cerr << log_name() << "Composed alignment starts with: " << pb2json(composed_path.mapping(0)) << endl;
-                cerr << log_name() << "Composed alignment ends with: " << pb2json(composed_path.mapping(composed_path.mapping_size() - 1)) << endl;
+        // Add in everything internal to the subchain
+        ScoredPath inner_links;
+        size_t last_anchor;
+        vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, grouped_anchors.subchains[i], wfa_extender, aligner, stats);
+        append_path(composed_path, inner_links.path);
+        composed_score += inner_links.score;
+
+        if (last_anchor != grouped_anchors.subchains[i].back()) {
+            // Oh no, we bailed out of a too-long chain connection
+            early_bail_subchains.emplace(i);
+        }
+
+        // Should this subchain get a right tail?
+        if (!seen_as_source[i] || last_anchor != grouped_anchors.subchains[i].back()) {
+            ScoredPath right_tail = find_tail_alignment(aln, to_chain[last_anchor], wfa_extender, false, stats);
+            append_path(composed_path, right_tail.path);
+            composed_score += right_tail.score;
+            right_tail_len[i] = right_tail.path.length();
+        }
+
+        subpath_t* subpath = mp_aln.add_subpath();
+        // Remember the path & score
+        node_paths[i] = composed_path;
+        subpath->set_score(composed_score);
+        // Add a fake position to this subpath to store the subchain ID
+        position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
+        position->set_node_id(i);
+        position->set_is_reverse(false);
+        position->set_offset(0);
+    }
+
+    // Set up connections between subpaths
+    for (const auto& extra_edge : grouped_anchors.connections) {
+        // Only use edge if we didn't bail out of its source
+        if (!early_bail_subchains.count(extra_edge.first)) {
+            // Calculate base-level alignment for this connection
+            vector<size_t> edge = {extra_edge.first, extra_edge.second};
+            ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
+
+            if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
+                // We gave up. This link isn't usable
+                break;
             }
+
+            // Remember the path
+            edge_paths[extra_edge] = link_aln.path;
+
+            // Create & save edge
+            connection_t* connection = mp_aln.mutable_subpath(extra_edge.first)->add_connection();
+            connection->set_next(extra_edge.second);
+            connection->set_score(link_aln.score);
         }
     }
 
-    // Convert to a vg Alignment.
-    Alignment result(aln);
-    // Simplify the path but keep internal deletions; we want to assert the
-    // read deleted relative to some graph, and avoid jumps along nonexistent
-    // edges.
-    *result.mutable_path() = std::move(simplify(composed_path, false));
-    result.set_score(composed_score);
-    if (!result.sequence().empty()) {
-        result.set_identity(identity(result.path()));
+    // Do DP
+    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains);
+
+    // Convert back to real alignments
+    vector<Alignment> output;
+    for (const auto& trace : tracebacks) {
+        output.emplace_back();
+        // Keep track of total base-level results for this alignment
+        Path composed_path = node_paths[trace.path().mapping(0).position().node_id()];
+        size_t num_subchains = trace.path().mapping().size();
+        for (size_t i = 1; i < num_subchains; i++) {
+            // Add path for edge from previous thing
+            append_path(composed_path, edge_paths[make_pair(trace.path().mapping(i-1).position().node_id(),
+                                                            trace.path().mapping(i).position().node_id())]);
+            // Add path for current thing
+            append_path(composed_path, node_paths[trace.path().mapping(i).position().node_id()]);
+        }
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << trace.score() << endl;
+                if (composed_path.mapping_size() > 0) {
+                    cerr << log_name() << "Composed alignment starts with: " << pb2json(composed_path.mapping(0)) << endl;
+                    cerr << log_name() << "Composed alignment ends with: " << pb2json(composed_path.mapping(composed_path.mapping_size() - 1)) << endl;
+                }
+            }
+        }
+
+        // Stick into alignment
+        *(output.back()).mutable_path() = std::move(simplify(composed_path, false));
+        output.back().set_score(trace.score());
+        if (!output.back().sequence().empty()) {
+            output.back().set_identity(identity(output.back().path()));
+        }
+        // Annotate with tail lengths
+        set_annotation(output, "left_tail_length", left_tail_len[trace.path().mapping(0).position().node_id()]); 
+        set_annotation(output, "right_tail_length", right_tail_len[trace.path().mapping(num_subchains - 1).position().node_id()]);
     }
     
-    set_annotation(result, "left_tail_length", (double) left_tail.path.length()); 
-    set_annotation(result, "right_tail_length", (double) right_tail.path.length());
-    
-    return result;
+    return output;
 }
 
 void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const {

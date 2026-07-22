@@ -18,6 +18,7 @@
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
 #include "funnel.hpp"
+#include "multipath_alignment.hpp"
 
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
@@ -928,20 +929,22 @@ protected:
                                        std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
                                        LazyRNG& rng, Funnel& funnel) const;
 
-    
-
     /**
-     * Turn a chain into an Alignment.
+     * Take a ConnectedSubchains result and find Alignments within it
      *
-     * Operating on the given input alignment, align the tails and intervening
-     * sequences along the given chain of perfect-match seeds, and return an
-     * optimal Alignment.
+     * Uses a backing multipath_alignment_t with subpaths (subchains)
+     * and edges (link alignments) scored based on actual base-level alignment.
+     * Outsources DP to the MP alignment, then reconstructs the actual paths.
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+    vector<Alignment> do_base_level_alignment(const Alignment& aln, 
+                                              const VectorView<algorithms::Anchor>& to_chain,
+                                              const algorithms::ConnectedSubchains& grouped_anchors,
+                                              const size_t& max_chains,
+                                              aligner_stats_t* stats = nullptr) const;
 
-    // A bunch of helpers for find_chain_alignment() that do bits and pieces
+    // A bunch of helpers for do_base_level_alignment() that do bits and pieces
 
     // Path along with its score (as a step towards an Alignment)
     struct ScoredPath {
