@@ -2735,7 +2735,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Aligned and added link to " << *next << " of " 
+            cerr << log_name() << "Aligned link from " << *here << " to " << *next << " of " 
                  << link_length << " bp read and " << path_from_length(output.path) << " bp graph via "
                  << link_alignment_source << " with score of " << output.score << std::endl;
         }
