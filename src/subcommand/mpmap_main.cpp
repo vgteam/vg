@@ -98,6 +98,167 @@ static void error_if_negative(const Logger& logger, double value, const string& 
     }
 }
 
+static bool mp_aln_is_mapped(const multipath_alignment_t& mp_aln) {
+    for (size_t i = 0; i < mp_aln.subpath_size(); ++i) {
+        if (mp_aln.subpath(i).path().mapping_size() > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool promote_secondary_mp(vector<multipath_alignment_t>& mp_alns,
+                                 vector<tuple<string, bool, int64_t>>& path_positions,
+                                 const string& read_name,
+                                 std::atomic_flag& warned) {
+    if (mp_alns.size() < 2) {
+        return false;
+    }
+
+    // Find the primary: first non-supplementary entry.
+    int64_t primary_idx = -1;
+    for (size_t i = 0; i < mp_alns.size(); ++i) {
+        if (!is_supplementary(mp_alns[i])) {
+            primary_idx = (int64_t) i;
+            break;
+        }
+    }
+    if (primary_idx < 0 || mp_aln_is_mapped(mp_alns[primary_idx])) {
+        // No primary, or primary surjected fine.
+        return false;
+    }
+
+    // Find the best-scoring mapped, non-supplementary secondary to promote.
+    int64_t best_idx = -1;
+    int32_t best_score = numeric_limits<int32_t>::min();
+    for (size_t i = 0; i < mp_alns.size(); ++i) {
+        if ((int64_t) i == primary_idx || is_supplementary(mp_alns[i])) {
+            continue;
+        }
+        if (!mp_aln_is_mapped(mp_alns[i])) {
+            continue;
+        }
+        int32_t score = optimal_alignment_score(mp_alns[i], true);
+        if (score > best_score ||
+            (score == best_score && best_idx >= 0 &&
+             mp_alns[i].mapping_quality() > mp_alns[best_idx].mapping_quality())) {
+            best_score = score;
+            best_idx = (int64_t) i;
+        }
+    }
+
+    if (best_idx < 0) {
+        // No mapped secondary to promote. Warn once.
+        if (!warned.test_and_set()) {
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning:[vg mpmap] --promote-secondary was requested, but a read whose "
+                     << "primary alignment failed to surject had no surjectable secondary alignment "
+                     << "to promote (first seen for read \"" << read_name << "\"). This can happen "
+                     << "because the reads were not generated with secondaries (run mpmap with "
+                     << "--max-multimaps > 1). Affected reads are left with an unmapped primary. "
+                     << "This warning is shown only once." << endl;
+            }
+        }
+        return false;
+    }
+
+    // Promote: swap the chosen secondary into the primary slot, mark it primary,
+    // and mark the demoted (unmapped) alignment secondary. Keep positions in sync.
+    mp_alns[best_idx].set_annotation("secondary", false);
+    mp_alns[primary_idx].set_annotation("secondary", true);
+    mp_alns[best_idx].set_annotation("promoted_from_secondary", true);
+    std::swap(mp_alns[primary_idx], mp_alns[best_idx]);
+    std::swap(path_positions[primary_idx], path_positions[best_idx]);
+    return true;
+}
+
+/// Paired counterpart of promote_secondary_mp for mpmap's surjected output.
+///
+/// output_mp_aln_pairs holds one surjected pair per multimapping (index 0 is the
+/// primary pair, later indices are secondary pairs); path_positions is the
+/// matching parallel array of (mate1 pos, mate2 pos). If BOTH mates of the
+/// primary pair are unmapped, the secondary pair with the highest summed
+/// mapped-mate score is promoted into index 0 (ties broken toward fully-mapped
+/// pairs), keeping path_positions in sync and updating the "secondary"
+/// annotations. A candidate is eligible if at least one of its mates is mapped.
+/// Only alignments already present are considered; no realignment is performed.
+///
+/// warned is shared so the "no promotable secondary" warning is emitted once.
+/// Returns true iff a promotion occurred.
+static bool promote_secondary_pair_mp(vector<pair<multipath_alignment_t, multipath_alignment_t>>& output_mp_aln_pairs,
+                                      vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>>& path_positions,
+                                      const string& read_name,
+                                      std::atomic_flag& warned) {
+    if (output_mp_aln_pairs.size() < 2 || output_mp_aln_pairs.size() != path_positions.size()) {
+        return false;
+    }
+
+    // Only act when BOTH mates of the primary pair failed to surject.
+    if (mp_aln_is_mapped(output_mp_aln_pairs[0].first) ||
+        mp_aln_is_mapped(output_mp_aln_pairs[0].second)) {
+        return false;
+    }
+
+    int64_t best_idx = -1;
+    int32_t best_score = numeric_limits<int32_t>::min();
+    bool best_fully_mapped = false;
+    int32_t best_mapq = numeric_limits<int32_t>::min();
+    for (size_t k = 1; k < output_mp_aln_pairs.size(); ++k) {
+        bool m1 = mp_aln_is_mapped(output_mp_aln_pairs[k].first);
+        bool m2 = mp_aln_is_mapped(output_mp_aln_pairs[k].second);
+        if (!m1 && !m2) {
+            continue;
+        }
+        int32_t score = (m1 ? optimal_alignment_score(output_mp_aln_pairs[k].first, true) : 0)
+                      + (m2 ? optimal_alignment_score(output_mp_aln_pairs[k].second, true) : 0);
+        bool fully_mapped = m1 && m2;
+        int32_t mapq = (m1 ? output_mp_aln_pairs[k].first.mapping_quality() : 0)
+                     + (m2 ? output_mp_aln_pairs[k].second.mapping_quality() : 0);
+        bool better = false;
+        if (score != best_score) {
+            better = score > best_score;
+        }
+        else if (fully_mapped != best_fully_mapped) {
+            better = fully_mapped;
+        }
+        else {
+            better = mapq > best_mapq;
+        }
+        if (best_idx < 0 || better) {
+            best_idx = (int64_t) k;
+            best_score = score;
+            best_fully_mapped = fully_mapped;
+            best_mapq = mapq;
+        }
+    }
+
+    if (best_idx < 0) {
+        if (!warned.test_and_set()) {
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning:[vg mpmap] --promote-secondary was requested, but a read pair whose "
+                     << "primary alignment failed to surject had no surjectable secondary alignment "
+                     << "to promote (first seen for read \"" << read_name << "\"). This can happen "
+                     << "because the reads were not generated with secondaries (run mpmap with "
+                     << "--max-multimaps > 1). Affected read pairs are left with an unmapped primary. "
+                     << "This warning is shown only once." << endl;
+            }
+        }
+        return false;
+    }
+
+    output_mp_aln_pairs[best_idx].first.set_annotation("secondary", false);
+    output_mp_aln_pairs[best_idx].second.set_annotation("secondary", false);
+    output_mp_aln_pairs[0].first.set_annotation("secondary", true);
+    output_mp_aln_pairs[0].second.set_annotation("secondary", true);
+    output_mp_aln_pairs[best_idx].first.set_annotation("promoted_from_secondary", true);
+    output_mp_aln_pairs[best_idx].second.set_annotation("promoted_from_secondary", true);
+    std::swap(output_mp_aln_pairs[0], output_mp_aln_pairs[best_idx]);
+    std::swap(path_positions[0], path_positions[best_idx]);
+    return true;
+}
+
 void help_mpmap(char** argv) {
     cerr << "usage: " << argv[0] << " mpmap [options] -x graph.xg -g index.gcsa "
          << "[-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
@@ -142,6 +303,9 @@ void help_mpmap(char** argv) {
          << "                            [all reference paths, all generic paths]" << endl
          << "      --ref-name NAME       reference assembly in graph to use for" << endl
          << "                            HTSlib formats (see -F) [all references]" << endl 
+         << "      --promote-secondary   in HTSlib output, if a read's primary fails to surject," << endl
+         << "                            promote its best surjectable secondary to primary" << endl
+         << "                            (needs --max-multimaps > 1)" << endl
          << "  -N, --sample NAME         add this sample name to output" << endl
          << "  -R, --read-group NAME     add this read group to output" << endl
          << "  -p, --suppress-progress   do not report progress to stderr" << endl
@@ -271,6 +435,7 @@ int main_mpmap(int argc, char** argv) {
     constexpr int OPT_REF_NAME = 1039;
     constexpr int OPT_LINEAR_PATH = 1040;
     constexpr int OPT_LINEAR_INDEX = 1041;
+    constexpr int OPT_PROMOTE_SECONDARY = 1042;
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -357,6 +522,7 @@ int main_mpmap(int argc, char** argv) {
     int default_num_alt_alns = 16;
     int num_alt_alns = default_num_alt_alns;
     bool agglomerate_multipath_alns = false;
+    bool promote_secondary = false;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
     double likelihood_approx_exp_arg = numeric_limits<double>::lowest();
@@ -456,6 +622,7 @@ int main_mpmap(int argc, char** argv) {
             {"same-strand", no_argument, 0, 'T'},
             {"ref-paths", required_argument, 0, 'S'},
             {"ref-name", required_argument, 0, OPT_REF_NAME},
+            {"promote-secondary", no_argument, 0, OPT_PROMOTE_SECONDARY},
             {"output-fmt", required_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
@@ -628,6 +795,10 @@ int main_mpmap(int argc, char** argv) {
 
             case OPT_REF_NAME:
                 reference_assembly_names.insert(optarg);
+                break;
+
+            case OPT_PROMOTE_SECONDARY:
+                promote_secondary = true;
                 break;
                 
             case 's':
@@ -1189,6 +1360,20 @@ int main_mpmap(int argc, char** argv) {
         logger.warn() << "Reference path file (-S) is only used "
                       << "when output format (-F) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
+    }
+
+    if (promote_secondary && !hts_output) {
+        logger.warn() << "--promote-secondary has no effect unless output format (-F) is "
+                      << "SAM, BAM, or CRAM; ignoring." << endl;
+        promote_secondary = false;
+    }
+
+    if (promote_secondary && num_alt_alns < 2) {
+        logger.warn() << "--promote-secondary requires --alt-paths > 1; "
+                      << "with the current setting only one alignment is produced per read, "
+                      << "so there are no secondary alignments to promote in case of an "
+                      << "unsurjectable primary alignment. Ignoring." << endl;
+        promote_secondary = false;
     }
     
     if (!reference_assembly_names.empty() && !hts_output) {
@@ -1957,6 +2142,9 @@ int main_mpmap(int argc, char** argv) {
     // during distribution estimation
     vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
     
+    // Shared flag so the "no promotable secondary" warning is emitted only once.
+    std::atomic_flag warned_no_promotable_secondary = ATOMIC_FLAG_INIT;
+
     // do unpaired multipath alignment and write to buffer
     function<void(Alignment&)> do_unpaired_alignments = [&](Alignment& alignment) {
 #ifdef record_read_run_times
@@ -2000,6 +2188,14 @@ int main_mpmap(int argc, char** argv) {
                     path_positions.emplace_back(std::move(get<0>(suppl_positions[j])),
                                                 get<2>(suppl_positions[j]), get<1>(suppl_positions[j]));
                 }
+            }
+
+            if (promote_secondary) {
+                // If the primary failed to surject, promote the best mapped
+                // secondary in its place (positions kept in sync). Warns once if
+                // no surjectable secondary is available.
+                promote_secondary_mp(mp_alns, path_positions, alignment.name(),
+                                     warned_no_promotable_secondary);
             }
         }
         
@@ -2146,6 +2342,14 @@ int main_mpmap(int argc, char** argv) {
                         suppl_positions.emplace_back(get<0>(positions[j]), get<2>(positions[j]), get<1>(positions[j]));
                     }
                 }
+            }
+
+            if (promote_secondary) {
+                // If both mates of the primary pair failed to surject, promote
+                // the best surjectable secondary pair into its place (positions
+                // kept in sync). Warns once if no surjectable secondary exists.
+                promote_secondary_pair_mp(output_mp_aln_pairs, path_positions,
+                                          alignment_1.name(), warned_no_promotable_secondary);
             }
         }
         else {

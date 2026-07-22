@@ -21,6 +21,7 @@
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <vg/io/alignment_io.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
 #include "../hts_alignment_emitter.hpp"
@@ -86,6 +87,9 @@ void help_surject(char** argv) {
          << "                            of the pre-surjected graph alignment in GR tag" << endl
          << "      --off-ref-position    annotate SAM records that become unmapped during" << endl
          << "                            surject with the nearest ref. position in the NR tag" << endl
+         << "      --promote-secondary   if a read's primary fails to surject, promote its best" << endl
+         << "                            surjectable secondary to primary instead of emitting an" << endl
+         << "                            unmapped primary (input must be collated by read name)" << endl
          << "  -C, --compression N       level for compression [0-9]" << endl
          << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
          << "                            against the provided graph" << endl
@@ -149,6 +153,7 @@ int main_surject(int argc, char** argv) {
 
     constexpr int OPT_NO_PRUNE_LOW_CPLX = 1000;
     constexpr int OPT_OFF_REF_POS = 1001;
+    constexpr int OPT_PROMOTE_SECONDARY = 1002;
 
     if (argc == 2) {
         help_surject(argv);
@@ -187,6 +192,7 @@ int main_surject(int argc, char** argv) {
     bool validate = true;
     bool show_progress = false;
     bool left_align = false;
+    bool promote_secondary = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -213,6 +219,7 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"supplementary", no_argument, 0, 'u'},
             {"off-ref-position", no_argument, 0, OPT_OFF_REF_POS},
+            {"promote-secondary", no_argument, 0, OPT_PROMOTE_SECONDARY},
             {"left-align", no_argument, 0, 'B'},
             {"read-length", required_argument, 0, 'D'},
             {"spliced", no_argument, 0, 'S'},
@@ -386,6 +393,10 @@ int main_surject(int argc, char** argv) {
             annotate_off_reference_pos = true;
             break;
 
+        case OPT_PROMOTE_SECONDARY:
+            promote_secondary = true;
+            break;
+
         case 'h':
         case '?':
             help_surject(argv);
@@ -504,6 +515,22 @@ int main_surject(int argc, char** argv) {
     surjector.report_supplementary = report_supplementary;
     surjector.left_align = left_align;
     surjector.multimap_to_all_paths = multimap;
+    surjector.promote_secondary_on_failed_surjection = promote_secondary;
+    surjector.warn_about_input_collation = true;
+
+    bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
+    if (promote_secondary && !hts_output) {
+        logger.warn() << "--promote-secondary has no effect unless output is SAM, BAM, or CRAM; "
+                      << "ignoring." << endl;
+        promote_secondary = false;
+        surjector.promote_secondary_on_failed_surjection = false;
+    }
+    if (promote_secondary && input_format == "GAF") {
+        logger.warn() << "--promote-secondary is not supported with GAF input because GAF does not "
+                      << "distinguish primary and secondary alignments; ignoring." << endl;
+        promote_secondary = false;
+        surjector.promote_secondary_on_failed_surjection = false;
+    }
 
     // Count our threads
     int thread_count = vg::get_thread_count();
@@ -541,126 +568,172 @@ int main_surject(int argc, char** argv) {
         unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", 
             output_format, sequence_dictionary, thread_count, xgidx,
             ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
-
+        
         if (interleaved) {
-            // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
-            // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
-            function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
+            using AlnPair = pair<Alignment, Alignment>;
+            function<void(vector<AlnPair>&)> process_group = [&](vector<AlnPair>& group) {
+                if (group.empty()) {
+                    return;
+                }
                 try {
-                    set_crash_context(src1.name() + ", " + src2.name());
+                    set_crash_context(group.front().first.name());
                     size_t thread_num = omp_get_thread_num();
                     if (watchdog) {
-                        watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                        watchdog->check_in(thread_num, group.front().first.name());
                     }
                     // Make sure that the alignments are actually paired with each other
                     // (proper fragment_prev/fragment_next). We want to catch people giving us
                     // un-interleaved GAMs as interleaved.
                     // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                    const Alignment& src1 = group.front().first;
+                    const Alignment& src2 = group.front().second;
                     if (src1.has_fragment_next()) {
                         // Alignment 1 comes first in fragment
                         if (src1.fragment_next().name() != src2.name() ||
                             !src2.has_fragment_prev() ||
                             src2.fragment_prev().name() != src1.name()) {
-                            
 #pragma omp critical (cerr)
                             adjacent_but_not_paired_error(logger, src1.name(), src2.name());
-                            
                         }
                     } else if (src2.has_fragment_next()) {
                         // Alignment 2 comes first in fragment
                         if (src2.fragment_next().name() != src1.name() ||
                             !src1.has_fragment_prev() ||
                             src1.fragment_prev().name() != src2.name()) {
-                            
 #pragma omp critical (cerr)
-                           adjacent_but_not_paired_error(logger, src1.name(), src2.name());
-                            
+                            adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                         }
                     } else {
                         // Alignments aren't paired up at all
 #pragma omp critical (cerr)
                         adjacent_but_not_paired_error(logger, src1.name(), src2.name());
                     }
-                    
-                    if (validate) {
-                        ensure_alignment_is_for_graph(logger, src1, *xgidx);
-                        ensure_alignment_is_for_graph(logger, src2, *xgidx);
+
+                    vector<Alignment> alns1, alns2;
+                    vector<Alignment> extras1, extras2;
+                    // Surject each pair in the group and run secondary promotion (if enabled)
+                    // on the non-supplementary results. Append any supplementaries to the end
+                    // after promotion is done
+                    for (auto& rec : group) {
+                        Alignment& src1 = rec.first;
+                        Alignment& src2 = rec.second;
+                        if (validate) {
+                            ensure_alignment_is_for_graph(logger, src1, *xgidx);
+                            ensure_alignment_is_for_graph(logger, src2, *xgidx);
+                        }
+
+                        // Preprocess read to set metadata before surjection
+                        set_metadata(src1);
+                        set_metadata(src2);
+
+                        // Surject
+                        auto surjected1 = surjector.surject(src1, paths, subpath_global, spliced);
+                        auto surjected2 = surjector.surject(src2, paths, subpath_global, spliced);
+
+                        // Split into non-supplementary and supplementary
+                        int64_t k1 = -1, k2 = -1;
+                        for (size_t j = 0; j < surjected1.size(); ++j) {
+                            if (k1 < 0 && !is_supplementary(surjected1[j])) {
+                                k1 = (int64_t) j;
+                            } else {
+                                extras1.emplace_back(std::move(surjected1[j]));
+                            }
+                        }
+                        for (size_t j = 0; j < surjected2.size(); ++j) {
+                            if (k2 < 0 && !is_supplementary(surjected2[j])) {
+                                k2 = (int64_t) j;
+                            } else {
+                                extras2.emplace_back(std::move(surjected2[j]));
+                            }
+                        }
+                        auto make_placeholder = [](const Alignment& src) {
+                            Alignment a;
+                            a.set_name(src.name());
+                            a.set_sequence(src.sequence());
+                            a.set_quality(src.quality());
+                            a.add_refpos(); // empty refpos
+                            return a;
+                        };
+                        // Add placeholders if all surjected alignments were supplementary
+                        // so the two vectors are still index-aligned
+                        // Keep exactly one non-supplementary alignment per group so `alns1` and `alns2`
+                        // are index-aligned
+                        alns1.emplace_back(k1 >= 0 ? std::move(surjected1[k1]) : make_placeholder(src1));
+                        alns2.emplace_back(k2 >= 0 ? std::move(surjected2[k2]) : make_placeholder(src2));
                     }
-                    
-                    // Preprocess read to set metadata before surjection
-                    set_metadata(src1);
-                    set_metadata(src2);
-                    
-                    // Surject
-                    auto surjected1 = surjector.surject(src1, paths, subpath_global, spliced);
-                    auto surjected2 = surjector.surject(src2, paths, subpath_global, spliced);
-                    
+
+                    // No-op when promote_secondary_on_failed_surjection is false.
+                    surjector.promote_secondary_pair_if_primary_unmapped(alns1, alns2);
+
+                    // Append back the supplementary alignments to the end of each vector
+                    // now that secondary promotion is done.
+                    for (auto& a : extras1) {
+                        alns1.emplace_back(std::move(a));
+                    }
+                    for (auto& a : extras2) {
+                        alns2.emplace_back(std::move(a));
+                    }
+
                     // pair up non-supplementary alignments
                     unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        if (!is_supplementary(surjected1[i])) {
-                            const auto& pos = surjected1[i].refpos(0);
+                    for (size_t i = 0; i < alns1.size(); ++i) {
+                        if (!is_supplementary(alns1[i])) {
+                            const auto& pos = alns1[i].refpos(0);
                             strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
                         }
                     }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        if (!is_supplementary(surjected2[i])) {
-                            const auto& pos = surjected2[i].refpos(0);
+                    for (size_t i = 0; i < alns2.size(); ++i) {
+                        if (!is_supplementary(alns2[i])) {
+                            const auto& pos = alns2[i].refpos(0);
                             strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
                         }
                     }
-
-                    
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        const auto& pos = surjected1[i].refpos(0);
+                    for (size_t i = 0; i < alns1.size(); ++i) {
+                        const auto& pos = alns1[i].refpos(0);
                         auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (!is_supplementary(surjected1[i]) && it != strand_idx2.end()) {
-                            // the alignments are paired on this strand
-                            alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[it->second]), max_frag_len);
-                        }
-                        else {
+                        if (!is_supplementary(alns1[i]) && it != strand_idx2.end()) {
+                            alignment_emitter->emit_pair(std::move(alns1[i]), std::move(alns2[it->second]), max_frag_len);
+                        } else {
                             // supplementary or unpaired
-                            if (is_supplementary(surjected1[i]) && !has_annotation(surjected1[i], "mate_info")) {
+                            if (is_supplementary(alns1[i]) && !has_annotation(alns1[i], "mate_info")) {
                                 // we need to annotate this supplementary with mate info for SAM/BAM conversion
                                 string annotation;
                                 if (!strand_idx2.empty()) {
                                     // there is a non-supplementary alignment available (prefer the one consistent with this path strand)
-                                    const auto& mate = it != strand_idx2.end() ? surjected2[it->second] : surjected2[strand_idx2.begin()->second];
+                                    const auto& mate = it != strand_idx2.end() ? alns2[it->second] : alns2[strand_idx2.begin()->second];
                                     annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), false));
-                                }
-                                else {
+                                } else {
                                     // we don't have access to the primary, but we can still record the read 1/2 identity
                                     annotation = std::move(mate_info("", -1, false, false));
                                 }
-                                set_annotation(surjected1[i], "mate_info", annotation);
+                                set_annotation(alns1[i], "mate_info", annotation);
                             }
-                            alignment_emitter->emit_single(std::move(surjected1[i]));
+                            alignment_emitter->emit_single(std::move(alns1[i]));
                         }
                     }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        const auto& pos = surjected2[i].refpos(0);
+                    for (size_t i = 0; i < alns2.size(); ++i) {
+                        const auto& pos = alns2[i].refpos(0);
                         auto it = strand_idx1.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (is_supplementary(surjected2[i]) || it == strand_idx1.end()) {
+                        if (is_supplementary(alns2[i]) || it == strand_idx1.end()) {
                             // this strand's surjection is unpaired or supplementary
-                            if (is_supplementary(surjected2[i]) && !has_annotation(surjected2[i], "mate_info")) {
+                            if (is_supplementary(alns2[i]) && !has_annotation(alns2[i], "mate_info")) {
                                 // we need to annotate this supplementary with mate info for SAM/BAM conversion
                                 string annotation;
                                 if (!strand_idx1.empty()) {
                                     // there is a non-supplementary alignment available (prefer the one consistent with this path strand)
-                                    const auto& mate = it != strand_idx1.end() ? surjected1[it->second] : surjected1[strand_idx1.begin()->second];
+                                    const auto& mate = it != strand_idx1.end() ? alns1[it->second] : alns1[strand_idx1.begin()->second];
                                     annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), true));
-                                }
-                                else {
+                                } else {
                                     // we don't have access to the primary, but we can still record the read 1/2 identity
                                     annotation = std::move(mate_info("", -1, false, true));
                                 }
-                                set_annotation(surjected2[i], "mate_info", annotation);
+                                set_annotation(alns2[i], "mate_info", annotation);
                             }
-                            alignment_emitter->emit_single(std::move(surjected2[i]));
+                            alignment_emitter->emit_single(std::move(alns2[i]));
                         }
                     }
-                    
-                    total_reads_surjected += 2;
+
+                    total_reads_surjected += 2 * group.size();
                     if (watchdog) {
                         watchdog->check_out(thread_num);
                     }
@@ -671,36 +744,62 @@ int main_surject(int argc, char** argv) {
             };
             if (input_format == "GAM") {
                 get_input_file(file_name, [&](istream& in) {
-                    vg::io::for_each_interleaved_pair_parallel<Alignment>(in, lambda);
+                    if (promote_secondary) {
+                        // Group consecutive pairs by first-mate name so promotion has access to
+                        // every multimap for both mates at once. Primary and secondary alignments
+                        // of the same mate carry the same name, so exact equality suffices.
+                        // Input must be collated by read name.
+                        auto same_group_pair = [](const AlnPair& a, const AlnPair& b) {
+                            return a.first.name() == b.first.name();
+                        };
+                        vg::io::grouped_interleaved_for_each_parallel<Alignment>(in, process_group, same_group_pair);
+                    } else {
+                        // No promotion: use the standard consecutive-pair reader.
+                        vg::io::for_each_interleaved_pair_parallel<Alignment>(in, [&](Alignment& src1, Alignment& src2) {
+                            vector<AlnPair> group;
+                            group.emplace_back(std::move(src1), std::move(src2));
+                            process_group(group);
+                        });
+                    }
                 });
             } else {
+                // promote_secondary is disabled for GAF input so this effectively just surjects each pair by itself.
                 auto gaf_checking_lambda = [&](Alignment& src1, Alignment& src2) {
                     check_gaf_aln(src1);
                     check_gaf_aln(src2);
-                    return lambda(src1, src2);
+                    vector<AlnPair> group;
+                    group.emplace_back(std::move(src1), std::move(src2));
+                    process_group(group);
                 };
                 vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
             }
         } else {
-            // We can just surject each Alignment by itself.
             // TODO: We don't preserve order relationships (like primary/secondary).
-            function<void(Alignment&)> lambda = [&](Alignment& src) {
+            function<void(vector<Alignment>&)> process_group = [&](vector<Alignment>& group) {
+                if (group.empty()) {
+                    return;
+                }
                 try {
-                    set_crash_context(src.name());
+                    set_crash_context(group.front().name());
                     size_t thread_num = omp_get_thread_num();
                     if (watchdog) {
-                        watchdog->check_in(thread_num, src.name());
+                        watchdog->check_in(thread_num, group.front().name());
                     }
-                    if (validate) {
-                        ensure_alignment_is_for_graph(logger, src, *xgidx);
+                    vector<Alignment> surjected_group;
+                    for (auto& src : group) {
+                        if (validate) {
+                            ensure_alignment_is_for_graph(logger, src, *xgidx);
+                        }
+                        set_metadata(src);
+                        auto surjected = surjector.surject(src, paths, subpath_global, spliced);
+                        for (auto& s : surjected) {
+                            surjected_group.emplace_back(std::move(s));
+                        }
                     }
-                    
-                    // Preprocess read to set metadata before surjection
-                    set_metadata(src);
-                    
-                    // Surject and emit the single read.
-                    alignment_emitter->emit_singles(surjector.surject(src, paths, subpath_global, spliced));
-                    total_reads_surjected++;
+                    // No-op when promote_secondary_on_failed_surjection is false.
+                    surjector.promote_secondary_if_primary_unmapped(surjected_group);
+                    alignment_emitter->emit_singles(std::move(surjected_group));
+                    total_reads_surjected += group.size();
                     if (watchdog) {
                         watchdog->check_out(thread_num);
                     }
@@ -710,13 +809,21 @@ int main_surject(int argc, char** argv) {
                 }
             };
             if (input_format == "GAM") {
+                // Callback to determine if alignments should be grouped: if promote_secondary is enabled, we want to group by read name
+                // so we can access both primary and secondary alignments for a read. If promote_secondary is off, then we can just
+                // process each alignment independently and each 'group' will just be a single alignment.
+                // NOTE: In order for this to work, the input file must be collated by read name.
+                function<bool(const Alignment&, const Alignment&)> same_group = [promote_secondary](const Alignment& a, const Alignment& b) {
+                    return promote_secondary && a.name() == b.name();
+                };
                 get_input_file(file_name, [&](istream& in) {
-                    vg::io::for_each_parallel<Alignment>(in,lambda);
+                    vg::io::grouped_unpaired_for_each_parallel<Alignment>(in, process_group, same_group);
                 });
             } else {
                 auto gaf_checking_lambda = [&](Alignment& src) {
                     check_gaf_aln(src);
-                    return lambda(src);
+                    vector<Alignment> group{std::move(src)};
+                    process_group(group);
                 };
                 vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
             }
@@ -780,13 +887,13 @@ int main_surject(int argc, char** argv) {
                         // TODO: highly repetitive with the version above for Alignments
                         // surject and record path positions
                         vector<tuple<string, int64_t, bool>> positions1, positions2;
-                        auto surjected1 = surjector.surject(mp_src1, paths, positions1, subpath_global, spliced);
+                        auto alns1 = surjector.surject(mp_src1, paths, positions1, subpath_global, spliced);
                         auto surjected2 = surjector.surject(mp_src2, paths, positions2, subpath_global, spliced);
 
                         // pair up non-supplementary alignments
                         unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                        for (size_t i = 0; i < surjected1.size(); ++i) {
-                            if (!is_supplementary(surjected1[i])) {
+                        for (size_t i = 0; i < alns1.size(); ++i) {
+                            if (!is_supplementary(alns1[i])) {
                                 strand_idx1[make_pair(get<0>(positions1[i]), get<2>(positions1[i]))] = i;
                             }
                         }
@@ -796,11 +903,11 @@ int main_surject(int argc, char** argv) {
                             }
                         }
                         
-                        for (size_t i = 0; i < surjected1.size(); ++i) {
+                        for (size_t i = 0; i < alns1.size(); ++i) {
                             auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), !get<2>(positions1[i])));
-                            if (!is_supplementary(surjected1[i]) && it != strand_idx2.end() && get<1>(positions1[i]) >= 0) {
+                            if (!is_supplementary(alns1[i]) && it != strand_idx2.end() && get<1>(positions1[i]) >= 0) {
                                 // the alignments are paired on this strand
-                                surjected.emplace_back(std::move(surjected1[i]), std::move(surjected2[it->second]));
+                                surjected.emplace_back(std::move(alns1[i]), std::move(surjected2[it->second]));
                                 
                                 // reorder the positions to deal with the mismatch in the interfaces
                                 // note: we don't move() path names so we can check against them later
@@ -814,7 +921,7 @@ int main_surject(int argc, char** argv) {
                             }
                             else {
                                 // supplementary or unpaired
-                                if (is_supplementary(surjected1[i]) && !surjected1[i].has_annotation("mate_info")) {
+                                if (is_supplementary(alns1[i]) && !alns1[i].has_annotation("mate_info")) {
                                     string annotation;
                                     if (!strand_idx2.empty()) {
                                         size_t idx = it != strand_idx2.end() ? it->second : strand_idx2.begin()->second;
@@ -823,9 +930,9 @@ int main_surject(int argc, char** argv) {
                                     else {
                                         annotation = std::move(mate_info("", -1, false, false));
                                     }
-                                    surjected1[i].set_annotation("mate_info", annotation);
+                                    alns1[i].set_annotation("mate_info", annotation);
                                 }
-                                surjected_unpaired1.emplace_back(std::move(surjected1[i]));
+                                surjected_unpaired1.emplace_back(std::move(alns1[i]));
                                 
                                 // reorder the position to deal with the mismatch in the interfaces
                                 positions_unpaired1.emplace_back();

@@ -15,7 +15,7 @@ using namespace std;
 
 SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths,
     unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors, bool add_graph_alignment_tag, bool report_supplementary,
-    bool add_off_ref_position_tag, bool left_align) : surjector(graph), paths(paths), backing(std::move(backing)) {
+    bool add_off_ref_position_tag, bool left_align, bool promote_secondary) : surjector(graph), paths(paths), backing(std::move(backing)) {
     
     // Configure the surjector
     surjector.prune_suspicious_anchors = prune_suspicious_anchors;
@@ -23,6 +23,7 @@ SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleG
     surjector.report_supplementary = report_supplementary;
     surjector.annotate_off_reference_pos = add_off_ref_position_tag;
     surjector.left_align = left_align;
+    surjector.promote_secondary_on_failed_surjection = promote_secondary;
 }
 
 void SurjectingAlignmentEmitter::surject_alignments_in_place(vector<Alignment>& alns) const {
@@ -71,7 +72,7 @@ void SurjectingAlignmentEmitter::surject_paired_alignments_in_place(vector<Align
                                mate_info(primary_pos2.name(), primary_pos2.offset(), primary_pos2.is_reverse(), false));
             }
             for (size_t j = 0; j < surjected2.size(); ++j) {
-                if (j == primary_idx1) {
+                if (j == primary_idx2) {
                     continue;
                 }
                 supplementary_alns.emplace_back(std::move(surjected2[j]));
@@ -104,6 +105,10 @@ void SurjectingAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&&
     for (auto& mappings : alns_batch_caught) {
         // Surject all mappings in place
         surject_alignments_in_place(mappings);
+        // Each inner vector holds one read's whole multimapping (its primary
+        // followed by its secondaries), so this is the right granularity to
+        // promote a mapped secondary if the primary failed to surject.
+        surjector.promote_secondary_if_primary_unmapped(mappings);
     }
     // Forward it along
     backing->emit_mapped_singles(std::move(alns_batch_caught));
@@ -129,6 +134,11 @@ void SurjectingAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& a
     for (size_t i = 0; i < alns1_batch_caught.size(); ++i) {
         supplementary_batch.emplace_back();
         surject_paired_alignments_in_place(alns1_batch_caught[i], alns2_batch_caught[i], supplementary_batch.back());
+        // After surjection, alns1_batch_caught[i][k] and alns2_batch_caught[i][k]
+        // are the two mates of the same alignment pair (index 0 is the primary
+        // pair). If both mates of the primary pair failed to surject, promote
+        // the best surjectable secondary pair into its place.
+        surjector.promote_secondary_pair_if_primary_unmapped(alns1_batch_caught[i], alns2_batch_caught[i]);
     }
     // Forward it along
     backing->emit_mapped_pairs(std::move(alns1_batch_caught), std::move(alns2_batch_caught), std::move(tlen_limit_batch));
