@@ -489,146 +489,158 @@ using namespace std;
             }
         }
         
-        // choose which path strands we will output
-        vector<pair<path_handle_t, bool>> strands_to_output;
+        // Choose which alignments we will output, in what order.
+        // 
+        // The entries refer into aln_surjections by path-strand and then index
+        // in the vector for that path-strand.
+        vector<pair<pair<path_handle_t, bool>, size_t>> alignments_to_output;
         if (multimap_to_all_paths) {
-            vector<tuple<int32_t, path_handle_t, bool>> path_strands;
+            // We're going to output all the alignments, but we need to choose a good order.
+
+            // Collect all the alignments by score.
+            // TODO: Should we be deprioritizing alignments already flagged by is_supplementary()?
+            vector<tuple<int32_t, path_handle_t, bool, size_t>> sorted_alignments;
             if (source_aln) {
-                // give each path strand the alignment score if it is primary or 0 if it is supplementary (to deprioritize)
                 for (const auto& strand_surjections : aln_surjections) {
-                    bool all_supplementary = false;
-                    for (const auto& surjection : strand_surjections.second) {
-                        if (!is_supplementary(surjection.first)) {
-                            all_supplementary = false;
-                            path_strands.emplace_back(surjection.first.score(),
-                                                      strand_surjections.first.first, strand_surjections.first.second);
-                            break;
-                        }
-                    }
-                    if (all_supplementary) {
-                        path_strands.emplace_back(0, strand_surjections.first.first, strand_surjections.first.second);
+                    for (size_t i = 0; i < strand_surjections.second.size(); i++) {
+                        sorted_alignments.emplace_back(
+                            strand_surjections.second[i].first.score(),
+                            strand_surjections.first.first,
+                            strand_surjections.first.second,
+                            i
+                        );
                     }
                 }
-            }
-            else {
-                // give each path strand the primary alignment score if it is primary or 0 if it is supplementary (to deprioritize)
+            } else {
                 for (const auto& strand_surjections : mp_aln_surjections) {
-                    bool all_supplementary = false;
-                    for (const auto& surjection : strand_surjections.second) {
-                        if (!is_supplementary(surjection.first)) {
-                            all_supplementary = false;
-                            path_strands.emplace_back(optimal_alignment_score(surjection.first, allow_negative_scores),
-                                                      strand_surjections.first.first, strand_surjections.first.second);
-                            break;
-                        }
+                    for (size_t i = 0; i < strand_surjections.second.size(); i++) {
+                        sorted_alignments.emplace_back(
+                            optimal_alignment_score(strand_surjections.second[i].first, allow_negative_scores),
+                            strand_surjections.first.first,
+                            strand_surjections.first.second,
+                            i
+                        );
                     }
-                    if (all_supplementary) {
-                        path_strands.emplace_back(0, strand_surjections.first.first, strand_surjections.first.second);
-                    };
                 }
             }
-            sort(path_strands.begin(), path_strands.end(), greater<decltype(path_strands)::value_type>());
-            for (const auto& path_strand : path_strands) {
-                strands_to_output.emplace_back(get<1>(path_strand), get<2>(path_strand));
+            sort(sorted_alignments.begin(), sorted_alignments.end(), greater<decltype(sorted_alignments)::value_type>());
+            for (const auto& alignment : sorted_alignments) {
+                // Translate back to path-strand and index format
+                alignments_to_output.emplace_back(make_pair(get<1>(alignment), get<2>(alignment)), get<3>(alignment));
             }
         }
         else if (!report_supplementary) {
-            // choose which path surjection was best
+            // In this case, we're restricting all our surjections to be on the one best strand of a path.
+            // So our primary and all secondaries have to be on that strand of that path.
+            // TODO: This is a weird choice and probably we are going to get rid of this at some point?
+
+            // Choose which path strand looks the best.
             pair<path_handle_t, bool> best_path_strand;
+            // And get how many alignments it has.
+            size_t alignment_count;
             if (source_aln) {
                 best_path_strand = choose_primary_strand(aln_surjections);
+                alignment_count = aln_surjections[best_path_strand].size();
             }
             else {
                 best_path_strand = choose_primary_strand(mp_aln_surjections);
+                alignment_count = mp_aln_surjections[best_path_strand].size();
             }
-            strands_to_output.emplace_back(best_path_strand);
+
+            for (size_t i = 0; i < alignment_count; i++) {
+                // Output all the alignments on it
+                alignments_to_output.emplace_back(best_path_strand, i);
+            }
         }
         else {
             // choose a set of strands to output and one strand to be the primary strand
             if (source_aln) {
-                strands_to_output = std::move(supplementary_cover_strands(aln_surjections));
-                for (size_t i = 1; i < strands_to_output.size(); ++i) {
-                    for (auto& surjection : aln_surjections[strands_to_output[i]]) {
-                        set_annotation<bool>(surjection.first, "supplementary", true);
-                    }
+                alignments_to_output = std::move(supplementary_cover_alignments(aln_surjections));
+                for (size_t i = 1; i < alignments_to_output.size(); ++i) {
+                    // Set the supplementary flag on everything in the
+                    // supplementary cover other than the first alignment.
+
+                    // TODO: We really need to promote that lookup function for
+                    // these references into the surjections to be a real
+                    // function.
+                    auto& surjection = aln_surjections[alignments_to_output[i].first][alignments_to_output[i].second];
+                    set_annotation<bool>(surjection.first, "supplementary", true);
                 }
             }
             else {
-                strands_to_output = std::move(supplementary_cover_strands(mp_aln_surjections));
-                for (size_t i = 1; i < strands_to_output.size(); ++i) {
-                    for (auto& surjection : mp_aln_surjections[strands_to_output[i]]) {
-                        surjection.first.set_annotation("supplementary", true);
-                    }
+                alignments_to_output = std::move(supplementary_cover_alignments(mp_aln_surjections));
+                for (size_t i = 1; i < alignments_to_output.size(); ++i) {
+                    // Set the supplementary flag on everything in the
+                    // supplementary cover other than the first alignment.
+                    
+                    auto& surjection = mp_aln_surjections[alignments_to_output[i].first][alignments_to_output[i].second];
+                    surjection.first.set_annotation("supplementary", true);
                 }
             }
 #ifdef debug_anchored_surject
-            cerr << "constructed read cover of primary/supplementaries containing strands:" << endl;
-            for (auto strand : strands_to_output) {
-                cerr << "\t" << graph->get_path_name(strand.first) << (strand.second ? "-" : "+") << endl;
+            cerr << "constructed read cover of primary/supplementaries containing:" << endl;
+            for (auto ref : alignments_to_output) {
+                cerr << "\t" << graph->get_path_name(ref.first.first) << (ref.first.second ? "-" : "+") << " alignment " << ref.second << endl;
             }
 #endif
         }
         
-        for (size_t i = 0; i < strands_to_output.size(); ++i) {
-            const auto& path_strand = strands_to_output[i];
-            
-            // find the position along the path
-            size_t num_suppls = source_aln ? aln_surjections[path_strand].size() : mp_aln_surjections[path_strand].size();
-            for (size_t j = 0; j < num_suppls; ++j) {
+        for (size_t i = 0; i < alignments_to_output.size(); ++i) {
+            const pair<path_handle_t, bool>& path_strand = alignments_to_output[i].first;
+            const size_t& alignment_index = alignments_to_output[i].second;
                 
-                // retrieve the first/last positions of the best alignment and the corresponding
-                // path range
-                pair<step_handle_t, step_handle_t> path_range;
-                pos_t initial_pos, final_pos;
-                if (source_aln) {
-                    auto& surjection = aln_surjections[path_strand][j];
-                    initial_pos = initial_position(surjection.first.path());
-                    final_pos = final_position(surjection.first.path());
-                    path_range = surjection.second;
-                    alns_out->emplace_back(std::move(surjection.first));
-                    
-                    if (source_aln->is_secondary() || (i != 0 && !is_supplementary(alns_out->back()))) {
-                        alns_out->back().set_is_secondary(true);
-                    }
-                    
-                    if (annotate_with_all_path_scores) {
-                        set_annotation(alns_out->back(), "all_scores", annotation_string);
-                    }
-                }
-                else {
-                    auto& surjection = mp_aln_surjections[path_strand][j];
-                    initial_pos = initial_position(surjection.first.subpath().front().path());
-                    final_pos = final_position(surjection.first.subpath().back().path());
-                    path_range = surjection.second;
-                    mp_alns_out->emplace_back(std::move(surjection.first));
-                    
-                    if (source_mp_aln->has_annotation("secondary")) {
-                        auto annotation = source_mp_aln->get_annotation("secondary");
-                        assert(annotation.first == multipath_alignment_t::Bool);
-                        mp_alns_out->back().set_annotation("secondary", *((bool*) annotation.second));
-                    }
-                    else if (i != 0 && !is_supplementary(mp_alns_out->back())) {
-                        mp_alns_out->back().set_annotation("secondary", true);
-                    }
-                    
-                    if (annotate_with_all_path_scores) {
-                        mp_alns_out->back().set_annotation("all_scores", annotation_string);
-                    }
-#ifdef debug_anchored_surject
-                    cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
-#endif
+            // retrieve the first/last positions of the alignment and the corresponding
+            // path range
+            pair<step_handle_t, step_handle_t> path_range;
+            pos_t initial_pos, final_pos;
+            if (source_aln) {
+                auto& surjection = aln_surjections[path_strand][alignment_index];
+                initial_pos = initial_position(surjection.first.path());
+                final_pos = final_position(surjection.first.path());
+                path_range = surjection.second;
+                alns_out->emplace_back(std::move(surjection.first));
+                
+                if (source_aln->is_secondary() || (i != 0 && !is_supplementary(alns_out->back()))) {
+                    alns_out->back().set_is_secondary(true);
                 }
                 
-                // use this info to set the path position
-                positions_out.emplace_back();
-                set_path_position(&memoizing_graph, initial_pos, final_pos, path_range.first, path_range.second,
-                                  path_strand.second, get<0>(positions_out.back()), get<1>(positions_out.back()),
-                                  get<2>(positions_out.back()));
+                if (annotate_with_all_path_scores) {
+                    set_annotation(alns_out->back(), "all_scores", annotation_string);
+                }
+            }
+            else {
+                auto& surjection = mp_aln_surjections[path_strand][alignment_index];
+                initial_pos = initial_position(surjection.first.subpath().front().path());
+                final_pos = final_position(surjection.first.subpath().back().path());
+                path_range = surjection.second;
+                mp_alns_out->emplace_back(std::move(surjection.first));
                 
+                if (source_mp_aln->has_annotation("secondary")) {
+                    auto annotation = source_mp_aln->get_annotation("secondary");
+                    assert(annotation.first == multipath_alignment_t::Bool);
+                    mp_alns_out->back().set_annotation("secondary", *((bool*) annotation.second));
+                }
+                else if (i != 0 && !is_supplementary(mp_alns_out->back())) {
+                    mp_alns_out->back().set_annotation("secondary", true);
+                }
+                
+                if (annotate_with_all_path_scores) {
+                    mp_alns_out->back().set_annotation("all_scores", annotation_string);
+                }
 #ifdef debug_anchored_surject
-                cerr << "chose path " << get<0>(positions_out.back()) << " at position " << get<1>(positions_out.back()) << (get<2>(positions_out.back()) ? "-" : "+") << endl;
+                cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
 #endif
             }
+            
+            // use this info to set the path position
+            positions_out.emplace_back();
+            set_path_position(&memoizing_graph, initial_pos, final_pos, path_range.first, path_range.second,
+                              path_strand.second, get<0>(positions_out.back()), get<1>(positions_out.back()),
+                              get<2>(positions_out.back()));
+            
+#ifdef debug_anchored_surject
+            cerr << "chose path " << get<0>(positions_out.back()) << " at position " << get<1>(positions_out.back()) << (get<2>(positions_out.back()) ? "-" : "+") << endl;
+#endif
         }
     }
 
