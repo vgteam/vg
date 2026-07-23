@@ -546,7 +546,7 @@ using namespace std;
         else {
             // choose a set of strands to output and one strand to be the primary strand
             if (source_aln) {
-                strands_to_output = std::move(supplementary_cover(aln_surjections));
+                strands_to_output = std::move(supplementary_cover_strands(aln_surjections));
                 for (size_t i = 1; i < strands_to_output.size(); ++i) {
                     for (auto& surjection : aln_surjections[strands_to_output[i]]) {
                         set_annotation<bool>(surjection.first, "supplementary", true);
@@ -554,7 +554,7 @@ using namespace std;
                 }
             }
             else {
-                strands_to_output = std::move(supplementary_cover(mp_aln_surjections));
+                strands_to_output = std::move(supplementary_cover_strands(mp_aln_surjections));
                 for (size_t i = 1; i < strands_to_output.size(); ++i) {
                     for (auto& surjection : mp_aln_surjections[strands_to_output[i]]) {
                         surjection.first.set_annotation("supplementary", true);

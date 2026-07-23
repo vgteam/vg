@@ -364,10 +364,20 @@ using namespace std;
         template<class AlnType>
         int64_t total_overlap(const vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const;
         
-        // choose a primary strand, and if it is possible to cover the read with disjoint alignments, follow it with supplementary strands
+        /// Choose a primary strand, and if it is possible to cover the read
+        /// with disjoint alignments, follow it with supplementary strands
         template<class AlnType>
         vector<pair<path_handle_t, bool>> 
-        supplementary_cover(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
+        supplementary_cover_strands(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
+
+        /// Choose a primary alignment, and if it is possible to cover the read
+        /// with disjoint alignments, follow it with supplementary alignments.
+        ///
+        /// Returns a collection of references to path strands and then entries
+        /// in the input vector for that path strand.
+        template<class AlnType>
+        vector<pair<pair<path_handle_t, bool>, size_t>> 
+        supplementary_cover_alignments(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
         // identify the strand that has the best alignment to choose it as the primary, optionally restrict to a subset of strands
         template<class AlnType>
@@ -636,12 +646,17 @@ using namespace std;
     }
 
     template<class AlnType>
-    vector<pair<path_handle_t, bool>> 
-    Surjector::supplementary_cover(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& strand_surjections) const {
+    vector<pair<pair<path_handle_t, bool>, size_t>> 
+    Surjector::supplementary_cover_alignments(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& strand_surjections) const {
+
+        // We need to be able to look up our own alignment references.
+        auto lookup = [&](const pair<pair<path_handle_t, bool>, size_t>& ref) -> const AlnType& {
+            return strand_surjections.at(ref.first).at(ref.second).first; 
+        };
 
         int64_t read_len = strand_surjections.begin()->second.front().first.sequence().size();
 
-        // identify each strand with the interval of the read it aligns
+        // Go from aligned read interval to the strand and alignment(s) that cover it with this sorted list.
         vector<tuple<int64_t, int64_t, path_handle_t, bool, size_t>> intervals;
         for (const auto& strand_surjection : strand_surjections) {            
             for (size_t i = 0; i < strand_surjection.second.size(); ++i) {
@@ -652,10 +667,10 @@ using namespace std;
                 }
             }
         }
-
         sort(intervals.begin(), intervals.end());
         
-        // try to find a set of path strands that completely partition the read
+        // Try to find a set of alignments that completely partition the read,
+        // allowing for disjoint_interval_allowable_overlap overlap.
 
         // sparse DP structure, records of (end index -> (bases covered, interval idx, backpointer))
         map<int64_t, tuple<int64_t, size_t, int64_t>> dp;
@@ -690,20 +705,61 @@ using namespace std;
             }
         }
 
-        // traceback
-        // FIXME: unless we implement a system to select a subset of supplementaries from each strand, it's possible that
-        // we select non-disjoint alignment sets here
-        unordered_set<pair<path_handle_t, bool>> strands;
+        // Traceback to get the collection of alignments, identified by strand
+        // and index within strand's alignment list.
+        vector<pair<pair<path_handle_t, bool>, size_t>> alignments;
         if (opt != dp.end()) {
             auto here = opt;
             while (get<2>(here->second) >= 0) {
                 const auto& interval = intervals[get<1>(here->second)];
-                strands.emplace(get<2>(interval), get<3>(interval));
+                alignments.emplace_back(make_pair(get<2>(interval), get<3>(interval)), get<4>(interval));
                 here = dp.find(get<2>(here->second));
             }
         }
 
-        // convert into the output
+        if (alignments.empty()) {
+            return alignments;
+        }
+
+        // Pick the primary alignment just based on score.
+        size_t primary_alignment_index = 0;
+        auto primary_alignment_score = get_score(lookup(alignments[primary_alignment_index]));
+        for (size_t i = 1; i < alignments.size(); i++) {
+             auto new_score = get_score(lookup(alignments[i]));
+             // TODO: Do we need to deterministically randomly break ties here?
+             // Or does the full sort on intervals save us from an STL order
+             // dependency?
+             if (new_score > primary_alignment_score) {
+                primary_alignment_score = new_score;
+                primary_alignment_index = i;
+             }
+        }
+        if (primary_alignment_index != 0) {
+            // Put the highest-scoring single piece first
+            std::swap(alignments[0], alignments[primary_alignment_index]);
+        }
+
+        return alignments;
+    }
+
+
+    template<class AlnType>
+    vector<pair<path_handle_t, bool>> 
+    Surjector::supplementary_cover_strands(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& strand_surjections) const {
+
+        // Get the covering alignments
+        vector<pair<pair<path_handle_t, bool>, size_t>> alignment_cover = supplementary_cover_alignments(strand_surjections);
+        
+        // Alias them down so each brings in its strand.
+        // TODO: It's possible that we select non-disjoint alignment sets here,
+        // since we select everything on the strand, not just what we picked in
+        // the traceback.
+        unordered_set<pair<path_handle_t, bool>> strands;
+        for (auto& ref : alignment_cover) {
+            strands.insert(ref.first);
+        }
+
+        // Convert into the output, possibly picking a new primary strand
         vector<pair<path_handle_t, bool>> return_val;
         if (!strands.empty()) {
             return_val.insert(return_val.end(), strands.begin(), strands.end());
