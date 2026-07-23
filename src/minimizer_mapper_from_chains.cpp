@@ -1513,7 +1513,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             }
 
             for (size_t subchain_i = 0; subchain_i < subchain_groups.back().subchains.size(); subchain_i++) {
-                // For each result
+                // For each subchain
                 vector<size_t>& subchain = subchain_groups.back().subchains[subchain_i];
 #ifdef debug_rec
                 if (true)
@@ -1569,7 +1569,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // Count how many of each minimizer is in each chain produced
                 minimizer_kept_chain_count.emplace_back(minimizers.size(), 0);
 
-                // Translate chains into seed numbers and not local anchor numbers.
+                // Translate subchains into seed numbers and not local anchor numbers.
                 vector<size_t> seed_nums;
                 seed_nums.reserve(subchain.size() * 2);
 
@@ -3002,7 +3002,8 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             cerr << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
 #endif
             // Calculate base-level alignment for this connection
-            vector<size_t> edge = {extra_edge.first, extra_edge.second};
+            vector<size_t> edge = {subchain_groups.subchains[extra_edge.first].back(),
+                                   subchain_groups.subchains[extra_edge.second].back()};
             ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
 
             if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
