@@ -2382,7 +2382,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Aligned" << tail_side << "tail length " << tail_length << std::endl;
+            cerr << log_name() << "Aligned " << tail_side << " tail length " << tail_length << std::endl;
         }
     }
 
@@ -2732,6 +2732,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
         output.score = link_aln.score();
     }
 
+#ifdef debug_chain_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2740,6 +2741,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
                  << link_alignment_source << " with score of " << output.score << std::endl;
         }
     }
+#endif
     return output;
 }
 
@@ -2878,37 +2880,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
         output.score += here_alignment.score;
     }
 
-    if (next_it == chain.end()) {
-        // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
-    
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
-            }
-        }
-#endif
-    
-        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
-
-#ifdef debug_chain_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "\tScore " << here_alignment.score << endl;
-            }
-        }
-#endif
-
-        here_alignment.check_lengths(gbwt_graph);
-    
-        // Do the final GaplessExtension itself (may be the first)
-        append_path(output.path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
-        output.score += here_alignment.score;
-    }
-
-    return make_pair(output, *next_it);
+    return make_pair(output, *here_it);
 }
 
 vector<Alignment> MinimizerMapper::do_base_level_alignment(
@@ -2972,6 +2944,9 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
         // Should this subchain get a left tail?
         if (!seen_as_sink[i]) {
+#ifdef debug_chain_alignment
+            cerr << "Doing left tail alignment for subchain " << i << endl;
+#endif
             ScoredPath left_tail = find_tail_alignment(aln, to_chain[grouped_anchors.subchains[i].front()], wfa_extender, true, stats);
             composed_path = left_tail.path;
             composed_score = left_tail.score;
@@ -2981,17 +2956,26 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Add in everything internal to the subchain
         ScoredPath inner_links;
         size_t last_anchor;
+#ifdef debug_chain_alignment
+        cerr << "Doing inner link alignment for subchain " << i << endl;
+#endif
         vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, grouped_anchors.subchains[i], wfa_extender, aligner, stats);
         append_path(composed_path, inner_links.path);
         composed_score += inner_links.score;
 
         if (last_anchor != grouped_anchors.subchains[i].back()) {
+#ifdef debug_chain_alignment
+            cerr << "Bailed out of subchain " << i << endl;
+#endif
             // Oh no, we bailed out of a too-long chain connection
             early_bail_subchains.emplace(i);
         }
 
         // Should this subchain get a right tail?
         if (!seen_as_source[i] || last_anchor != grouped_anchors.subchains[i].back()) {
+#ifdef debug_chain_alignment
+            cerr << "Doing right tail alignment for subchain " << i << endl;
+#endif
             ScoredPath right_tail = find_tail_alignment(aln, to_chain[last_anchor], wfa_extender, false, stats);
             append_path(composed_path, right_tail.path);
             composed_score += right_tail.score;
@@ -3013,6 +2997,9 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     for (const auto& extra_edge : grouped_anchors.connections) {
         // Only use edge if we didn't bail out of its source
         if (!early_bail_subchains.count(extra_edge.first)) {
+#ifdef debug_chain_alignment
+            cerr << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
+#endif
             // Calculate base-level alignment for this connection
             vector<size_t> edge = {extra_edge.first, extra_edge.second};
             ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
@@ -3038,7 +3025,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // Convert back to real alignments
     vector<Alignment> output;
     for (const auto& trace : tracebacks) {
-        output.emplace_back();
+        output.emplace_back(aln);
         // Keep track of total base-level results for this alignment
         Path composed_path = node_paths[trace.path().mapping(0).position().node_id()];
         size_t num_subchains = trace.path().mapping().size();
