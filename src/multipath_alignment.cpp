@@ -1288,8 +1288,16 @@ namespace vg {
             queue.push(end_queue.min());
             end_queue.pop_min();
             
-            // We shouldn't ever have the place we want to trace back from already used
-            assert(!subpath_is_used[queue.min().second.front()]);
+            if (subpath_is_used[queue.min().second.front()]) {
+                // We've visited this subpath before as part of a traceback
+                // (We try save possible ends greedily, i.e. if extending up
+                // by a single connection is score-negative, we avoid, even if
+                // extending by more than that ends up net positive)
+#ifdef debug_multiple_tracebacks
+                cerr << "Skip " << queue.min().second.front() << " because it was already emitted in a previous traceback" << endl;
+#endif
+                continue;
+            }
             
             // We also want to remember the lowest penalty with which each
             // subpath has been queued, so we can do a real Dijkstra traversal
