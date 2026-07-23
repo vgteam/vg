@@ -938,6 +938,7 @@ protected:
                                               const VectorView<algorithms::Anchor>& to_chain,
                                               const algorithms::SubchainGroup& subchain_groups,
                                               const size_t& max_chains,
+                                              Funnel& funnel,
                                               aligner_stats_t* stats = nullptr) const;
 
     // A bunch of helpers for do_base_level_alignment() that do bits and pieces

@@ -1802,7 +1802,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
-                    best_alignments = do_base_level_alignment(aln, seed_anchors, subchain_groups.at(processed_num), max_alignments, &alignment_stats);
+                    best_alignments = do_base_level_alignment(aln, seed_anchors, subchain_groups.at(processed_num), max_alignments, funnel, &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
@@ -2888,6 +2888,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     const VectorView<algorithms::Anchor>& to_chain,
     const algorithms::SubchainGroup& subchain_groups,
     const size_t& max_alignments,
+    Funnel& funnel,
     aligner_stats_t* stats
 ) const {
     
@@ -3026,7 +3027,15 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     vector<Alignment> output;
     for (const auto& trace : tracebacks) {
         output.emplace_back(aln);
-        // Keep track of total base-level results for this alignment
+
+        // Figure out which subchains were used
+        vector<size_t> subchains_used;
+        subchains_used.reserve(trace.path().mapping_size());
+        for (const auto& mapping : trace.path().mapping()) {
+            subchains_used.push_back(mapping.position().node_id());
+        }
+
+        // Build up total base-level results for this alignment
         Path composed_path = node_paths[trace.path().mapping(0).position().node_id()];
         size_t num_subchains = trace.path().mapping().size();
         for (size_t i = 1; i < num_subchains; i++) {
@@ -3035,6 +3044,14 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
                                                             trace.path().mapping(i).position().node_id())]);
             // Add path for current thing
             append_path(composed_path, node_paths[trace.path().mapping(i).position().node_id()]);
+        }
+
+        if (track_provenance) {
+            // Tell the funnel
+            funnel.introduce();
+            funnel.score(funnel.latest(), trace.score());
+            // We come from all the subchains directly
+            funnel.also_merge_group(1, subchains_used.begin(), subchains_used.end());
         }
 
         if (show_work) {
