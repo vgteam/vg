@@ -207,6 +207,55 @@ TEST_CASE("X with different length chains", "[chain_items]") {
     REQUIRE(result.connections.size() == 5);
 }
 
+TEST_CASE("Simple V case", "[chain_items]") {
+    vector<Alignment> tracebacks;
+    // 0-1-4 chain
+    tracebacks.push_back(Alignment());
+    tracebacks.back().set_score(15);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(0);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(1);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(4);
+    // 2-3 chain
+    tracebacks.push_back(Alignment());
+    tracebacks.back().set_score(10);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(2);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(3);
+    // 3 can also connect to 4
+    vector<pair<uint32_t, uint32_t>> alternatives = {make_pair(3, 4)};
+    algorithms::SubchainGroup result = algorithms::split_up_subchains(5, tracebacks, alternatives);
+    // We should see all possible paths
+    REQUIRE(result.subchains.size() == 3);
+    REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
+    REQUIRE(result.subchains[1] == std::vector<size_t>{2, 3});
+    REQUIRE(result.subchains[2] == std::vector<size_t>{4});
+    REQUIRE(result.connections.size() == 2);
+}
+
+TEST_CASE("Simple Y case", "[chain_items]") {
+    vector<Alignment> tracebacks;
+    // 0-1-4-5 chain
+    tracebacks.push_back(Alignment());
+    tracebacks.back().set_score(15);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(0);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(1);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(4);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(5);
+    // 2-3 chain
+    tracebacks.push_back(Alignment());
+    tracebacks.back().set_score(10);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(2);
+    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(3);
+    // 3 can also connect to 4
+    vector<pair<uint32_t, uint32_t>> alternatives = {make_pair(3, 4)};
+    algorithms::SubchainGroup result = algorithms::split_up_subchains(6, tracebacks, alternatives);
+    // We should see all possible paths
+    REQUIRE(result.subchains.size() == 3);
+    REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
+    REQUIRE(result.subchains[1] == std::vector<size_t>{2, 3});
+    REQUIRE(result.subchains[2] == std::vector<size_t>{4, 5});
+    REQUIRE(result.connections.size() == 2);
+}
+
 }
 
 }

@@ -632,8 +632,9 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
                                  const vector<pair<uint32_t, uint32_t>>& alternatives) {
     SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
-    // std::numeric_limits<size_t>::max() means the sink (i.e. it ends a chain)
     vector<vector<size_t>> outgoing_edges(anchor_count);
+    // For each anchor (by index), how many sources does it have?
+    vector<size_t> source_count(anchor_count, 0);
 
     // Where to search for subchains (we must guarantee they start in read order)
     priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
@@ -649,22 +650,33 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 #endif
         for (size_t i = 0; i < num_ids - 1; i++) {
             // Remember that this pair of anchors can connect
-            outgoing_edges[cur_trace.path().mapping(i).position().node_id()]\
-             .emplace_back(cur_trace.path().mapping(i+1).position().node_id());
+            size_t prev = cur_trace.path().mapping(i).position().node_id();
+            size_t next = cur_trace.path().mapping(i+1).position().node_id();
+            source_count[next]++;
+            outgoing_edges[prev].emplace_back(next);
         }
-        // Also remember the sink
-        outgoing_edges[cur_trace.path().mapping(num_ids - 1).position().node_id()]\
-         .emplace_back(std::numeric_limits<size_t>::max());
     }
 
     // Now check in on the extra edges.
     for (const auto& extra_edge : alternatives) {
-        if (!outgoing_edges[extra_edge.first].empty() && !outgoing_edges[extra_edge.second].empty()) {
+        if ((outgoing_edges[extra_edge.first].size() + source_count[extra_edge.first]) > 0
+            && (outgoing_edges[extra_edge.second].size() + source_count[extra_edge.second]) > 0) {
             // Both sides of this edge are used, so it must connect two different subchains
             // Add this as another possible next
             outgoing_edges[extra_edge.first].emplace_back(extra_edge.second);
+            source_count[extra_edge.second]++;
         }
     }
+
+#ifdef debug_chaining
+    for (size_t i = 0; i < anchor_count; i++) {
+        cerr << i << " has " << source_count[i] << " sources, and outgoing edges to ";
+        for (const auto& next : outgoing_edges[i]) {
+            cerr << next << " ";
+        }
+        cerr << endl;
+    }
+#endif
 
     // Set up the subchains
     // For each anchor (by index), which subchain did it end up in?
@@ -687,24 +699,23 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 #ifdef debug_chaining
         cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
 #endif
-        while (true) {
-            // If this is the end of the subchain, just stop
-            if (outgoing_edges[cur_anchor_id].front() == std::numeric_limits<size_t>::max()) {
-                break;
-            }
 
+        while (true) { 
+            if (outgoing_edges[cur_anchor_id].empty()) {
+                // This anchor can't trace outwards at all
+                break;
+            }           
             // If we've reached a decision point, then save all next edges
             // We have reached the end of one subchain
             if (outgoing_edges[cur_anchor_id].size() > 1 
-                || outgoing_edges[outgoing_edges[cur_anchor_id].front()].size() > 1) {
+                || outgoing_edges[outgoing_edges[cur_anchor_id].front()].size() > 1
+                || source_count[outgoing_edges[cur_anchor_id].front()] > 1) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
                     // We need to start a new trace from here
-                    if (next != std::numeric_limits<size_t>::max()) {
 #ifdef debug_chaining
-                        cerr << "Chain traceforwards may start from " << next << endl;
+                    cerr << "Chain traceforwards may start from " << next << endl;
 #endif
-                        trace_from.emplace(next);
-                    }
+                    trace_from.emplace(next);
                 }
                 break;
             }
