@@ -364,12 +364,6 @@ using namespace std;
         template<class AlnType>
         int64_t total_overlap(const vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const;
         
-        /// Choose a primary strand, and if it is possible to cover the read
-        /// with disjoint alignments, follow it with supplementary strands
-        template<class AlnType>
-        vector<pair<path_handle_t, bool>> 
-        supplementary_cover_strands(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
-
         /// Choose a primary alignment, and if it is possible to cover the read
         /// with disjoint alignments, follow it with supplementary alignments.
         ///
@@ -741,39 +735,6 @@ using namespace std;
 
         return alignments;
     }
-
-
-    template<class AlnType>
-    vector<pair<path_handle_t, bool>> 
-    Surjector::supplementary_cover_strands(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& strand_surjections) const {
-
-        // Get the covering alignments
-        vector<pair<pair<path_handle_t, bool>, size_t>> alignment_cover = supplementary_cover_alignments(strand_surjections);
-        
-        // Alias them down so each brings in its strand.
-        // TODO: It's possible that we select non-disjoint alignment sets here,
-        // since we select everything on the strand, not just what we picked in
-        // the traceback.
-        unordered_set<pair<path_handle_t, bool>> strands;
-        for (auto& ref : alignment_cover) {
-            strands.insert(ref.first);
-        }
-
-        // Convert into the output, possibly picking a new primary strand
-        vector<pair<path_handle_t, bool>> return_val;
-        if (!strands.empty()) {
-            return_val.insert(return_val.end(), strands.begin(), strands.end());
-            sort(return_val.begin(), return_val.end());
-            auto primary = choose_primary_strand(strand_surjections, &strands);
-            auto it = find(return_val.begin(), return_val.end(), primary);
-            std::swap(*it, return_val.front());
-        }
-        else {
-            return_val.emplace_back(choose_primary_strand(strand_surjections));
-        }
-        return return_val;
-    }
-
 }
 
 #endif
