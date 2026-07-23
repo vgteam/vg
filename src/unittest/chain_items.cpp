@@ -144,7 +144,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     REQUIRE(result.anchors == std::vector<size_t>{0, 1, 2, 3});
 }
 
-TEST_CASE("find_best_chain gets edge case possibility for X", "[chain_items]") {
+TEST_CASE("Simple X case", "[chain_items]") {
     // Set up graph fixture
     HashGraph graph = make_disconnected_graph(5, 10);
     // 1-3-5 diagonal
@@ -171,7 +171,7 @@ TEST_CASE("find_best_chain gets edge case possibility for X", "[chain_items]") {
     auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
-    REQUIRE(result.connections.size() == 4);
+    REQUIRE(result.connections.size() == 6);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {
@@ -204,7 +204,7 @@ TEST_CASE("X with different length chains", "[chain_items]") {
     auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
-    REQUIRE(result.connections.size() == 4);
+    REQUIRE(result.connections.size() == 6);
 }
 
 }

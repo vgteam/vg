@@ -628,29 +628,32 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
 }
 
 SubchainGroup split_up_subchains(const size_t& anchor_count,
-                                      const vector<Alignment>& tracebacks,
-                                      const vector<pair<uint32_t, uint32_t>>& alternatives) {
+                                 const vector<Alignment>& tracebacks,
+                                 const vector<pair<uint32_t, uint32_t>>& alternatives) {
     SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
     // std::numeric_limits<size_t>::max() means the sink (i.e. it ends a chain)
     vector<vector<size_t>> outgoing_edges(anchor_count);
 
     // Where to search for subchains (we must guarantee they start in read order)
-    priority_queue<size_t, vector<size_t>, std::greater<size_t> > trace_from;
+    priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
     
     // Extract raw lists of anchors from the tracebacks
-    for (size_t i = 0; i < tracebacks.size(); i++) {
+    for (const auto& cur_trace : tracebacks) {
         // Loop over all "subpaths" (anchor IDs) in the traceback
-        size_t num_ids = tracebacks[i].path().mapping().size();
+        size_t num_ids = cur_trace.path().mapping().size();
         // This will start a chain trace
-        trace_from.emplace(tracebacks[i].path().mapping(0).position().node_id());
-        for (size_t j = 0; j < num_ids - 1; j++) {
+        trace_from.emplace(cur_trace.path().mapping(0).position().node_id());
+#ifdef debug_chaining
+        cerr << "Chain traceforwards may start from " << cur_trace.path().mapping(0).position().node_id() << endl;
+#endif
+        for (size_t i = 0; i < num_ids - 1; i++) {
             // Remember that this pair of anchors can connect
-            outgoing_edges[tracebacks[i].path().mapping(j).position().node_id()]\
-             .emplace_back(tracebacks[i].path().mapping(j+1).position().node_id());
+            outgoing_edges[cur_trace.path().mapping(i).position().node_id()]\
+             .emplace_back(cur_trace.path().mapping(i+1).position().node_id());
         }
         // Also remember the sink
-        outgoing_edges[tracebacks[i].path().mapping(num_ids - 1).position().node_id()]\
+        outgoing_edges[cur_trace.path().mapping(num_ids - 1).position().node_id()]\
          .emplace_back(std::numeric_limits<size_t>::max());
     }
 
@@ -665,17 +668,22 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 
     // Set up the subchains
     // For each anchor (by index), which subchain did it end up in?
-    vector<size_t> subchain_id(anchor_count);
+    vector<size_t> subchain_id(anchor_count, std::numeric_limits<size_t>::max());
     while (!trace_from.empty()) {
-        // Create a new subchain to trace into
-        size_t cur_subchain_id = output.subchains.size();
-        output.subchains.emplace_back();
-
         // Start trace for this subchain, until we hit into an endpoint
         size_t cur_anchor_id = trace_from.top();
         trace_from.pop();
+        if (subchain_id[cur_anchor_id] != std::numeric_limits<size_t>::max()) {
+            // This one was already put as part of an earlier subchain
+            continue;
+        }
+
+        // Create a new subchain to trace into
+        size_t cur_subchain_id = output.subchains.size();
+        output.subchains.emplace_back();
         output.subchains.back().emplace_back(cur_anchor_id);
         subchain_id[cur_anchor_id] = cur_subchain_id;
+
 #ifdef debug_chaining
         cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
 #endif
@@ -684,7 +692,11 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
             // We have reached the end of one subchain
             if (outgoing_edges[cur_anchor_id].size() > 1) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
+                    // We need to start a new trace from here
                     if (next != std::numeric_limits<size_t>::max()) {
+#ifdef debug_chaining
+                        cerr << "Chain traceforwards may start from " << next << endl;
+#endif
                         trace_from.emplace(next);
                     }
                 }
@@ -721,13 +733,13 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 }
 
 SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
-                                    const SnarlDistanceIndex& distance_index,
-                                    const HandleGraph& graph,
-                                    const ChainScoringScheme& scheme,
-                                    size_t max_chains,
-                                    const transition_iterator& for_each_transition,
-                                    size_t max_indel_bases,
-                                    bool show_work) {
+                               const SnarlDistanceIndex& distance_index,
+                               const HandleGraph& graph,
+                               const ChainScoringScheme& scheme,
+                               size_t max_chains,
+                               const transition_iterator& for_each_transition,
+                               size_t max_indel_bases,
+                               bool show_work) {
 
     if (to_chain.empty()) {
         // Nothing to chain
