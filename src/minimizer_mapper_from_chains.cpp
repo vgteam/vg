@@ -54,7 +54,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-//#define debug_chain_alignment
+//#define debug_base_level_alignment
 
 namespace vg {
 
@@ -2287,7 +2287,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     if (tail_wfa_aln) {
         tail_wfa_aln.check_lengths(this->gbwt_graph);
             
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2303,7 +2303,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
 
     // Is the tail too long to align?
     if (tail_length > this->max_tail_dp_length) {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         #pragma omp critical (cerr)
         {
             cerr << "warning[MinimizerMapper::find_tail_alignment]: Refusing to align "
@@ -2321,7 +2321,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
 
     // ---- Fall back on alignment against graph ----
             
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2399,7 +2399,7 @@ void MinimizerMapper::find_next_non_overlapping(
         // Try and find a next thing to connect to
         if (algorithms::get_read_distance(*here, *(&to_chain[*next_it])) == std::numeric_limits<size_t>::max()) {
             // There's overlap between these items. Keep here and skip next.
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -2450,7 +2450,7 @@ void MinimizerMapper::find_next_to_skip_to(
         if (skip_to->is_skippable() && skip_to_it+1 != chain.end() && 
             total_graph_distance + cur_graph_distance < this->max_skipped_bases) {
             // This anchor is repetitive and the next one is close enough to connect
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -2470,7 +2470,7 @@ void MinimizerMapper::find_next_to_skip_to(
         } else {
             // skip_to is either not skippable or too far away so stop
             if (gap_lengths > this->min_indel_avoid_bases) {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
@@ -2482,7 +2482,7 @@ void MinimizerMapper::find_next_to_skip_to(
                 // If there was a big gap
                 next_it = skip_to_it;
             } else {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
@@ -2511,7 +2511,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
     const algorithms::Anchor* here = &to_chain[*here_it];
     const algorithms::Anchor* next = &to_chain[*next_it];
 
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2539,7 +2539,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
     std::chrono::high_resolution_clock::time_point start_time;
     std::chrono::high_resolution_clock::time_point stop_time;
         
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2560,7 +2560,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
         // an empty graph region.
         // TODO: We can be leaving the GBWT's space here!
         
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2602,7 +2602,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
                 // Try falling back to a pure insertion.
                 // TODO: We can be leaving the GBWT's space here!
                 // TODO: What if this is forcing an insertion that could also be in the graph already?
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
@@ -2631,7 +2631,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
     if (link_alignment) {
         // We found a link alignment
         
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2646,7 +2646,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
         // Then the link (possibly empty)
         output.path = link_alignment.to_path(this->gbwt_graph, aln.sequence());
         output.score = link_alignment.score;
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2732,7 +2732,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
         output.score = link_aln.score();
     }
 
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2764,7 +2764,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
     // right score for the perfect-match alignment it represents.
     const algorithms::Anchor* here = &to_chain[*here_it];
 
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2796,7 +2796,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
         // We have something to connect to! Make an alignment
         const algorithms::Anchor* next = &to_chain[*next_it];
             
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2809,7 +2809,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
         // concatenate it in.
         WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
 
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2821,7 +2821,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
         append_path(output.path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
         output.score += here_alignment.score;
         
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2853,7 +2853,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
     if (next_it == chain.end()) {
         // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
     
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2864,7 +2864,7 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
     
         WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
 
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2945,7 +2945,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
         // Should this subchain get a left tail?
         if (!seen_as_sink[i]) {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
             cerr << "Doing left tail alignment for subchain " << i << endl;
 #endif
             ScoredPath left_tail = find_tail_alignment(aln, to_chain[subchain_groups.subchains[i].front()], wfa_extender, true, stats);
@@ -2957,7 +2957,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Add in everything internal to the subchain
         ScoredPath inner_links;
         size_t last_anchor;
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
         cerr << "Doing inner link alignment for subchain " << i << endl;
 #endif
         vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, subchain_groups.subchains[i], wfa_extender, aligner, stats);
@@ -2965,7 +2965,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         composed_score += inner_links.score;
 
         if (last_anchor != subchain_groups.subchains[i].back()) {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
             cerr << "Bailed out of subchain " << i << endl;
 #endif
             // Oh no, we bailed out of a too-long chain connection
@@ -2974,7 +2974,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
         // Should this subchain get a right tail?
         if (!seen_as_source[i] || last_anchor != subchain_groups.subchains[i].back()) {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
             cerr << "Doing right tail alignment for subchain " << i << endl;
 #endif
             ScoredPath right_tail = find_tail_alignment(aln, to_chain[last_anchor], wfa_extender, false, stats);
@@ -2998,7 +2998,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     for (const auto& extra_edge : subchain_groups.connections) {
         // Only use edge if we didn't bail out of its source
         if (!early_bail_subchains.count(extra_edge.first)) {
-#ifdef debug_chain_alignment
+#ifdef debug_base_level_alignment
             cerr << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
 #endif
             // Calculate base-level alignment for this connection
