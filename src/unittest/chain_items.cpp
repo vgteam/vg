@@ -171,7 +171,7 @@ TEST_CASE("Simple X case", "[chain_items]") {
     auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
-    REQUIRE(result.connections.size() == 6);
+    REQUIRE(result.connections.size() == 5);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {
@@ -204,7 +204,7 @@ TEST_CASE("X with different length chains", "[chain_items]") {
     auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
-    REQUIRE(result.connections.size() == 6);
+    REQUIRE(result.connections.size() == 5);
 }
 
 }

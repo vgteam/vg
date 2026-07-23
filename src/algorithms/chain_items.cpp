@@ -688,9 +688,15 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
         cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
 #endif
         while (true) {
-            // If this is a decision point, then save all next edges
+            // If this is the end of the subchain, just stop
+            if (outgoing_edges[cur_anchor_id].front() == std::numeric_limits<size_t>::max()) {
+                break;
+            }
+
+            // If we've reached a decision point, then save all next edges
             // We have reached the end of one subchain
-            if (outgoing_edges[cur_anchor_id].size() > 1) {
+            if (outgoing_edges[cur_anchor_id].size() > 1 
+                || outgoing_edges[outgoing_edges[cur_anchor_id].front()].size() > 1) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
                     // We need to start a new trace from here
                     if (next != std::numeric_limits<size_t>::max()) {
@@ -702,10 +708,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
                 }
                 break;
             }
-            // If this is the end of the subchain, just stop
-            if (outgoing_edges[cur_anchor_id].front() == std::numeric_limits<size_t>::max()) {
-                break;
-            }
+            
             // Otherwise, trace into the next edge
             cur_anchor_id = outgoing_edges[cur_anchor_id].front();
             output.subchains.back().emplace_back(cur_anchor_id);

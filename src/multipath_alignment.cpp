@@ -1269,12 +1269,8 @@ namespace vg {
             }
         }
         
-        // Keep a bit vector of the subpaths that have been used, so we can reject
-        // them. TODO: We get the optimal alignment for each end, subject to
-        // the constraint, but any other subpath may be used in a suboptimal
-        // alignment for that subpath, and we may never see its optimal
-        // alignment.
-        vector<bool> subpath_is_used(multipath_aln.subpath_size(), false);
+        // Keep track of the penalty per subpath that is used in an alignment
+        vector<size_t> penalty_for_used_subpaths(multipath_aln.subpath_size(), numeric_limits<size_t>::max());
         
         while (!end_queue.empty() && to_return.size() < count) {
             // For each distinct ending subpath in the multipath
@@ -1288,7 +1284,7 @@ namespace vg {
             queue.push(end_queue.min());
             end_queue.pop_min();
             
-            if (subpath_is_used[queue.min().second.front()]) {
+            if (penalty_for_used_subpaths[queue.min().second.front()] != numeric_limits<size_t>::max()) {
                 // We've visited this subpath before as part of a traceback
                 // (We try save possible ends greedily, i.e. if extending up
                 // by a single connection is score-negative, we avoid, even if
@@ -1332,7 +1328,7 @@ namespace vg {
 #endif
 
                 // We already used this start and can't use it again. We shouldn't get here
-                assert(!subpath_is_used[basis.front()]);
+                assert(penalty_for_used_subpaths[basis.front()] == numeric_limits<size_t>::max());
                 
                 if (subpath_is_visited[basis.front()]) {
                     // We already processed this; this must be a higher cost version of the same thing.
@@ -1368,8 +1364,8 @@ namespace vg {
 #endif
 
                     for (auto& subpath : basis) {
-                        // Record the used-ness of all the subpaths
-                        subpath_is_used[subpath] = true;
+                        // Record the penalty of all the subpaths
+                        penalty_for_used_subpaths[subpath] = min_penalty_for_subpath[subpath];
                     }
 
                     if (alternatives != nullptr) {
@@ -1429,13 +1425,14 @@ namespace vg {
                             continue;
                         }
 
-                        if (subpath_is_used[prev.first]) {
+                        if (penalty_for_used_subpaths[prev.first] != numeric_limits<size_t>::max()) {
                             // This subpath has already been used in an emitted alignment, so we can't use it.
                             
 #ifdef debug_multiple_tracebacks
                             cerr << "\tSkip " << prev.first << " which is already used" << endl;
 #endif
-                            if (alternatives != nullptr) {
+                            // If taking this seems it would've allowed a reasonable chain
+                            if (alternatives != nullptr && additional_penalty <= penalty_for_used_subpaths[prev.first]) {
                                 alternatives->emplace_back(prev.first, here);
                             }
                             continue;
