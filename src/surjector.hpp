@@ -216,7 +216,7 @@ using namespace std;
             vector<tuple<size_t, size_t, int32_t>> connections;
             /// Transition edges from this path-strand to other path-strands.
             ///
-            /// Stored as a read position and the path-strand where a chunk on
+            /// Stored as a read position and the path-strands where a chunk on
             /// that path-strand could occur at that read position. Indexes
             /// chunks on other path-strands that could come after chunks on
             /// this one.
@@ -232,7 +232,7 @@ using namespace std;
             /// chunk, along the read.
             ///
             /// TODO: Turn that into code!
-            map<size_t, pair<path_handle_t, bool>> transitions; 
+            map<size_t, unordered_set<pair<path_handle_t, bool>>> transitions; 
         };
 
         /// Surject an alignment, defined by path_chunks and ref_chunks, to a

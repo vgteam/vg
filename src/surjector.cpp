@@ -23,6 +23,8 @@
 
 #include "bdsg/hash_graph.hpp"
 
+#include <handlegraph/util.hpp>
+
 #define debug_spliced_surject
 #define debug_anchored_surject
 // #define debug_multipath_surject
@@ -4124,153 +4126,115 @@ using namespace std;
         unordered_map<pair<path_handle_t, bool>, SurjectionRecord> to_return;
         
         const Path& path = source.path();
-        
-        // for each path that we're extending, the previous step and the strand we were at on it
-        // mapped to the index of that path chunk in the path's vector
-        // note: we also keep the path_handle_t instead of extracting it from the step because this operation
-        // is slow on GBZ
-        unordered_map<step_handle_t, pair<size_t, path_handle_t>> fwd_extending_steps, rev_extending_steps;
+
+        // We walk the read's alignment one mapping at a time and grow path
+        // chunks: maximal runs of consecutive read mappings that also run
+        // consecutively along a reference path we're surjecting onto. Between
+        // mappings we hold onto the reference-path traversals we are currently
+        // extending, each identified by the oriented step it currently sits on.
+        //
+        // We orient each step to face the way the read runs, so that advancing
+        // it with get_next_step follows the read whether the read agrees with
+        // the path's own direction or opposes it. That means one extension rule
+        // covers both strands, and the step's is-reverse-along-path flag is
+        // exactly the strand of the path we'll surject that chunk onto.
+        //
+        // The value is (index of the chunk this traversal is building within
+        // its path-strand's SurjectionRecord, path handle of the step). The
+        // path handle is recoverable from the step, but that is slow on GBZ, so
+        // we cache it here where we already have it.
+        unordered_map<oriented_step_handle_t, pair<size_t, path_handle_t>> extending_steps;
         int64_t through_to_length = 0;
-        
+
         for (size_t i = 0; i < path.mapping_size(); i++) {
-            
+
             int64_t before_to_length = through_to_length;
             through_to_length += mapping_to_length(path.mapping(i));
-            
+
             const Position& pos = path.mapping(i).position();
             handle_t handle = graph->get_handle(pos.node_id(), pos.is_reverse());
-            
+
 #ifdef debug_anchored_surject
             cerr << "looking for paths on mapping " << i << " at position " << make_pos_t(pos) << endl;
 #endif
-            
-            unordered_map<step_handle_t, pair<size_t, path_handle_t>> next_fwd_extending_steps, next_rev_extending_steps;
-            
-            for (const step_handle_t& step : graph->steps_of_handle(handle)) {
-                
+
+            // Every reference-path visit to this node, oriented to run the way
+            // the read does, is a step onto which a chunk might continue here.
+            unordered_map<oriented_step_handle_t, pair<size_t, path_handle_t>> next_extending_steps;
+
+            graph->for_each_oriented_step_on_handle(handle, [&](const oriented_step_handle_t& oriented_step) {
+
+                path_handle_t path_handle = graph->get_path_handle_of_oriented_step(oriented_step);
+
 #ifdef debug_anchored_surject
-                cerr << "found a step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+                cerr << "found a step on " << graph->get_path_name(path_handle) << ", rev along path? " << graph->get_is_reverse_along_path(oriented_step) << endl;
 #endif
-                
-                path_handle_t path_handle = graph->get_path_handle_of_step(step);
+
                 if (!surjection_paths.count(path_handle)) {
                     // we are not surjecting onto this path
 #ifdef debug_anchored_surject
                     cerr << "not surjecting to this path, skipping" << endl;
 #endif
-                    continue;
+                    return;
                 }
-                
-                // We always see paths on the forward strand, so we need to
-                // work out if the read is running along the path in the path's
-                // forward (false) or reverse (true) direction.
-                //
-                // If the read visits the node in a different orientation than
-                // the path does, then the read runs along the path in reverse.
-                bool path_strand = graph->get_is_reverse(handle) != graph->get_is_reverse(graph->get_handle_of_step(step));
-                
-#ifdef debug_anchored_surject
-                cerr << "path strand is rev? " << path_strand << endl;
-#endif
-                
-                auto& next_extending_steps = path_strand ? next_rev_extending_steps : next_fwd_extending_steps;
-                
-                next_extending_steps[step] = make_pair(numeric_limits<size_t>::max(), path_handle);
-            }
-            
-            // TODO: forward and reverse code is repetitive
-            
-            // extend forward strand steps
-            for (const auto& extending_step : fwd_extending_steps) {
+
+                next_extending_steps[oriented_step] = make_pair(numeric_limits<size_t>::max(), path_handle);
+            });
+
+            // Continue chunks from the previous mapping onto the step here that
+            // comes next along the read, if the read stays on the path.
+            for (const auto& extending_step : extending_steps) {
                 auto next_step = graph->get_next_step(extending_step.first);
-                auto it = next_fwd_extending_steps.find(next_step);
-                if (it != next_fwd_extending_steps.end()) {
+                auto it = next_extending_steps.find(next_step);
+                if (it != next_extending_steps.end()) {
                     it->second.first = extending_step.second.first;
-                    auto& surjection_record = to_return[make_pair(it->second.second, false)];
+                    bool path_strand = graph->get_is_reverse_along_path(it->first);
+                    auto& surjection_record = to_return[make_pair(it->second.second, path_strand)];
                     auto& aln_chunk = surjection_record.path_chunks[extending_step.second.first];
                     auto& ref_chunk = surjection_record.ref_chunks[extending_step.second.first];
-                    
-                    // extend the range of the path on the reference
-                    ref_chunk.second = it->first;
-                    // move the end of the sequence out
-                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    // add this mapping
-                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
-                }
-            }
-            // initialize new chunks for steps that did not extend
-            for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_fwd_extending_steps) {
-                if (extended_step.second.first == numeric_limits<size_t>::max()) {
-                    
-                    auto& surjection_record = to_return[make_pair(extended_step.second.second, false)];
-                    
-                    extended_step.second.first = surjection_record.path_chunks.size();
-                    
-                    surjection_record.path_chunks.emplace_back();
-                    surjection_record.ref_chunks.emplace_back();
-                    auto& aln_chunk = surjection_record.path_chunks.back();
-                    auto& ref_chunk = surjection_record.ref_chunks.back();
-                    // init the ref interval with the interval along the embedded path
-                    ref_chunk.first = extended_step.first;
-                    ref_chunk.second = extended_step.first;
-                    // init the new chunk with the sequence interval
-                    aln_chunk.first.first = source.sequence().begin() + before_to_length;
-                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    // and with the first mapping
-                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
-                    
-#ifdef debug_anchored_surject
-                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding forward chunk, so start new chunk " << surjection_record.path_chunks.size() - 1 << endl;
-#endif
-                }
-            }
-            for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_rev_extending_steps) {
-                
-                auto& surjection_record = to_return[make_pair(extended_step.second.second, true)];
-                
-                auto prev_step = graph->get_next_step(extended_step.first);
-                auto it = rev_extending_steps.find(prev_step);
-                if (it != rev_extending_steps.end()) {
-                    extended_step.second.first = it->second.first;
-                    auto& aln_chunk = surjection_record.path_chunks[extended_step.second.first];
-                    auto& ref_chunk = surjection_record.ref_chunks[extended_step.second.first];
-                    
-                    // extend the range of the path on the reference
-                    ref_chunk.second = extended_step.first;
-                    // move the end of the sequence out
-                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    // add this mapping
-                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
-                }
-                else {
-                    extended_step.second.first = surjection_record.path_chunks.size();
-                    
-                    surjection_record.path_chunks.emplace_back();
-                    surjection_record.ref_chunks.emplace_back();
-                    auto& aln_chunk = surjection_record.path_chunks.back();
-                    auto& ref_chunk = surjection_record.ref_chunks.back();
-                    // init the ref interval with the interval along the embedded path
-                    ref_chunk.first = extended_step.first;
-                    ref_chunk.second = extended_step.first;
-                    // init the new chunk with the sequence interval
-                    aln_chunk.first.first = source.sequence().begin() + before_to_length;
-                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    // and with the first mapping
-                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
-                    
-#ifdef debug_anchored_surject
-                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding reverse chunk, so start new chunk " << surjection_record.path_chunks.size() - 1 << endl;
-#endif
 
+                    // extend the range of the path on the reference
+                    ref_chunk.second = step_bool_packing::unpack_step(it->first);
+                    // move the end of the sequence out
+                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
+                    // add this mapping
+                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
                 }
             }
-            
+            // start a new chunk for any step here that no chunk continued onto
+            for (pair<const oriented_step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_extending_steps) {
+                if (extended_step.second.first == numeric_limits<size_t>::max()) {
+
+                    bool path_strand = graph->get_is_reverse_along_path(extended_step.first);
+                    auto& surjection_record = to_return[make_pair(extended_step.second.second, path_strand)];
+
+                    extended_step.second.first = surjection_record.path_chunks.size();
+
+                    surjection_record.path_chunks.emplace_back();
+                    surjection_record.ref_chunks.emplace_back();
+                    auto& aln_chunk = surjection_record.path_chunks.back();
+                    auto& ref_chunk = surjection_record.ref_chunks.back();
+                    step_handle_t step = step_bool_packing::unpack_step(extended_step.first);
+                    // init the ref interval with the interval along the embedded path
+                    ref_chunk.first = step;
+                    ref_chunk.second = step;
+                    // init the new chunk with the sequence interval
+                    aln_chunk.first.first = source.sequence().begin() + before_to_length;
+                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
+                    // and with the first mapping
+                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
+
+#ifdef debug_anchored_surject
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(step)) << ", pos " << graph->get_position_of_step(step) << " has no preceeding chunk on its strand, so start new chunk " << surjection_record.path_chunks.size() - 1 << endl;
+#endif
+                }
+            }
+
             // we've finished extending the steps from the previous mapping, so we replace them
             // with the steps we found in this iteration that we want to extend on the next one
-            fwd_extending_steps = std::move(next_fwd_extending_steps);
-            rev_extending_steps = std::move(next_rev_extending_steps);
+            extending_steps = std::move(next_extending_steps);
         }
-        
+
         return to_return;
     }
 
