@@ -4127,23 +4127,37 @@ using namespace std;
         
         const Path& path = source.path();
 
+        // This caches step-handle-to-path-handle lookups because those are
+        // slow on GBZ.
+        //
+        // We could keep this in the main map and save a lookup, but that
+        // really complicates the explanation.
+        unordered_map<step_handle_t, path_handle_t> path_cache;
+        auto get_path = [&](const oriented_step_handle_t& oriented_step_handle) {
+            // We do this lookup in terms of unoriented steps to potentially
+            // save half the queries.
+            step_handle_t step_handle = graph->get_step_handle_of_oriented_step(oriented_step_handle);
+            auto found = path_cache.find(step_handle);
+            if (found == path_cache.end()) {
+                // We need to do the lookup and cache it
+                path_handle_t result = graph->get_path_handle_of_step(step_handle);
+                found = path_cache.emplace_hint(found, step_handle, result);
+            }
+            return found->second;
+        };
+
         // We walk the read's alignment one mapping at a time and grow path
         // chunks: maximal runs of consecutive read mappings that also run
-        // consecutively along a reference path we're surjecting onto. Between
-        // mappings we hold onto the reference-path traversals we are currently
-        // extending, each identified by the oriented step it currently sits on.
+        // consecutively along a reference path we're surjecting onto.
         //
-        // We orient each step to face the way the read runs, so that advancing
-        // it with get_next_step follows the read whether the read agrees with
-        // the path's own direction or opposes it. That means one extension rule
-        // covers both strands, and the step's is-reverse-along-path flag is
-        // exactly the strand of the path we'll surject that chunk onto.
-        //
-        // The value is (index of the chunk this traversal is building within
-        // its path-strand's SurjectionRecord, path handle of the step). The
-        // path handle is recoverable from the step, but that is slow on GBZ, so
-        // we cache it here where we already have it.
-        unordered_map<oriented_step_handle_t, pair<size_t, path_handle_t>> extending_steps;
+        // We work with oriented steps along the paths, facing the way the read
+        // runs instead of whichever direction happens to be forward for that
+        // path.
+        
+        // This maps from the oriented step an in-progress path chunk ends with
+        // to the index in the corresponding path-strand's SurjectionRecord at
+        // which we're building its read and reference chunks.
+        unordered_map<oriented_step_handle_t, size_t> extending_steps;
         int64_t through_to_length = 0;
 
         for (size_t i = 0; i < path.mapping_size(); i++) {
@@ -4160,11 +4174,11 @@ using namespace std;
 
             // Every reference-path visit to this node, oriented to run the way
             // the read does, is a step onto which a chunk might continue here.
-            unordered_map<oriented_step_handle_t, pair<size_t, path_handle_t>> next_extending_steps;
+            unordered_map<oriented_step_handle_t, size_t> next_extending_steps;
 
             graph->for_each_oriented_step_on_handle(handle, [&](const oriented_step_handle_t& oriented_step) {
 
-                path_handle_t path_handle = graph->get_path_handle_of_oriented_step(oriented_step);
+                path_handle_t path_handle = get_path(oriented_step);
 
 #ifdef debug_anchored_surject
                 cerr << "found a step on " << graph->get_path_name(path_handle) << ", rev along path? " << graph->get_is_reverse_along_path(oriented_step) << endl;
