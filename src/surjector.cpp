@@ -25,8 +25,8 @@
 
 #include <handlegraph/util.hpp>
 
-#define debug_spliced_surject
-#define debug_anchored_surject
+// #define debug_spliced_surject
+// #define debug_anchored_surject
 // #define debug_multipath_surject
 // #define debug_constrictions
 // #define debug_prune_unconnectable
