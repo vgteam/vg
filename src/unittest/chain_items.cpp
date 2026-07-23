@@ -168,7 +168,7 @@ TEST_CASE("find_best_chain gets edge case possibility for X", "[chain_items]") {
                                   {21, h[5], 0, 5, 5}}, graph);
     
     /// Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 4);
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
     REQUIRE(result.connections.size() == 4);
@@ -201,7 +201,7 @@ TEST_CASE("X with different length chains", "[chain_items]") {
                                   {31, h[6], 0, 10, 10}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 4);
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
     REQUIRE(result.connections.size() == 4);

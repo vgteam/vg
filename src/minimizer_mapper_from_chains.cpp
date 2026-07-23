@@ -99,7 +99,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                         const std::vector<Seed>& seeds,
                                         const VectorView<Minimizer>& minimizers,
                                         const vector<algorithms::Anchor>& seed_anchors,
-                                        const std::vector<algorithms::ConnectedSubchains>& chain_results,
+                                        const std::vector<algorithms::SubchainGroup>& subchain_groups,
                                         const std::vector<size_t>& subchain_source_tree,
                                         const PathPositionHandleGraph* path_graph,
                                         bool haplotype_positions) {
@@ -109,8 +109,8 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
     }
 
     // Loop through all trees' chaining results
-    for (size_t group_num = 0; group_num < chain_results.size(); group_num++) {
-        for (size_t chain_num = 0; chain_num < chain_results.at(group_num).subchains.size(); chain_num++) {
+    for (size_t group_num = 0; group_num < subchain_groups.size(); group_num++) {
+        for (size_t chain_num = 0; chain_num < subchain_groups.at(group_num).subchains.size(); chain_num++) {
             // For each chain, create a separate TSV file
             std::string cur_name = std::to_string(group_num) + "chain" + std::to_string(chain_num);
 
@@ -125,7 +125,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
             // Start making a list of things to show.
             std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
             seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
-            seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chain_results[group_num].subchains.at(chain_num)});
+            seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{subchain_groups[group_num].subchains.at(chain_num)});
 
             // Sort everything in read order
             for (auto& seed_set : seed_sets) {
@@ -686,7 +686,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // For each initial chaining DP, we need:
     // The subchains and connections between them
-    std::vector<algorithms::ConnectedSubchains> chain_results;
+    std::vector<algorithms::SubchainGroup> subchain_groups;
     // The zip code tree it came from
     std::vector<size_t> subchain_source_tree;
     // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
@@ -695,7 +695,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> multiplicity_by_chain;
 
     do_chaining_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
-                         chain_results, subchain_source_tree,
+                         subchain_groups, subchain_source_tree,
                          minimizer_kept_chain_count, multiplicity_by_chain,
                          alignments, minimizer_explored, multiplicity_by_alignment,
                          rng, funnel);
@@ -709,8 +709,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchor_length = 0;
 
     // Dump all chains if requested (do this before alignments, while chains still exist)
-    if (show_work && !chain_results.empty() && this->path_graph != nullptr) {
-        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chain_results, subchain_source_tree, this->path_graph, this->haplotype_positions);
+    if (show_work && !subchain_groups.empty() && this->path_graph != nullptr) {
+        dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, subchain_groups, subchain_source_tree, this->path_graph, this->haplotype_positions);
     }
 
     if (show_work) {
@@ -730,10 +730,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // tracing back to minimizers for MAPQ. Can hold
     // numeric_limits<size_t>::max() for an unaligned alignment.
     vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(chain_results.size());
+    alignments_to_source.reserve(subchain_groups.size());
 
     if (alignments.size() == 0) {
-        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chain_results,
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, subchain_groups,
                                subchain_source_tree, multiplicity_by_chain,
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, rng, funnel);
@@ -981,7 +981,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     funnel.annotate_mapped_alignment(mappings[0], track_correctness);
     
     if (track_provenance && track_correctness) {
-        annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), chain_results.size(), funnel);
+        annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), subchain_groups.size(), funnel);
     }
 
     // Special chain statistics
@@ -1048,7 +1048,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest,
     const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
     const vector<algorithms::Anchor>& seed_anchors,
-    std::vector<algorithms::ConnectedSubchains>& chain_results, std::vector<size_t>& subchain_source_tree,
+    std::vector<algorithms::SubchainGroup>& subchain_groups, std::vector<size_t>& subchain_source_tree,
     std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
     std::vector<double>& multiplicity_by_chain,
     std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
@@ -1277,7 +1277,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                             if (track_provenance) {
                                 //We want to know which "chain" this came from
-                                alignment_source_chain.emplace_back(chain_results.size());
+                                alignment_source_chain.emplace_back(subchain_groups.size());
                             }
 
                             multiplicity_by_alignment.emplace_back(item_count);
@@ -1311,7 +1311,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                         //Add an entry to the list of chains so we know which chain num to give the alignments
                         //This is just so the funnel can track everything
-                        chain_results.emplace_back();
+                        subchain_groups.emplace_back();
 
                     }
                     return true;
@@ -1494,7 +1494,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
             };
-            chain_results.push_back(algorithms::find_best_chains(
+            subchain_groups.push_back(algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1507,14 +1507,14 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             if (show_work) {
                 #pragma omp critical (cerr)
                 cerr << log_name() << "\t[" << aln.name() << "] Found "
-                     << chain_results.back().subchains.size() << " subchain groups with "
-                     << chain_results.back().connections.size() << " inter-subchain connections in zip code tree " << item_num
+                     << subchain_groups.back().subchains.size() << " subchains with "
+                     << subchain_groups.back().connections.size() << " inter-subchain connections in zip code tree " << item_num
                      << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
-            for (size_t subchain_i = 0; subchain_i < chain_results.back().subchains.size(); subchain_i++) {
+            for (size_t subchain_i = 0; subchain_i < subchain_groups.back().subchains.size(); subchain_i++) {
                 // For each result
-                vector<size_t>& subchain = chain_results.back().subchains[subchain_i];
+                vector<size_t>& subchain = subchain_groups.back().subchains[subchain_i];
 #ifdef debug_rec
                 if (true)
 #else
@@ -1562,7 +1562,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         }
                     } else if (subchain_i == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (chain_results.back().subchains.size() - subchain_i) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (subchain_groups.back().subchains.size() - subchain_i) << " more chains>" << std::endl;
                     }
                 }
 
@@ -1690,7 +1690,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                              const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                              const vector<algorithms::Anchor>& seed_anchors,
-                                             const std::vector<algorithms::ConnectedSubchains>& chain_results, 
+                                             const std::vector<algorithms::SubchainGroup>& subchain_groups, 
                                              const std::vector<size_t>& subchain_source_tree,
                                              const std::vector<double>& multiplicity_by_chain,
                                              const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
@@ -1716,16 +1716,16 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Apply the max in chain score limit
     chain_min_score = std::min(chain_min_score, max_min_chain_score);
     vector<int> max_sparse_chain_scores;
-    for (const auto& group : chain_results) {
+    for (const auto& group : subchain_groups) {
         max_sparse_chain_scores.emplace_back(group.max_sparse_chain_score);
     }
 
     // Remember: we also have chain_score_threshold, which counts down from best chain score
     
-    // We need to be able to discard a ConnectedSubchains because its score isn't good enough.
+    // We need to be able to discard a SubchainGroup because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
     auto discard_chain_by_score = [&](size_t processed_num) -> void {
-        // This ConnectedSubchains is not good enough.
+        // This SubchainGroup is not good enough.
         if (track_provenance) {
             funnel.fail("min-chain-score-per-base||max-min-chain-score", processed_num, max_sparse_chain_scores[processed_num]);
         }
@@ -1802,7 +1802,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
-                    best_alignments = do_base_level_alignment(aln, seed_anchors, chain_results.at(processed_num), max_alignments, &alignment_stats);
+                    best_alignments = do_base_level_alignment(aln, seed_anchors, subchain_groups.at(processed_num), max_alignments, &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
@@ -2886,12 +2886,12 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
 vector<Alignment> MinimizerMapper::do_base_level_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
-    const algorithms::ConnectedSubchains& grouped_anchors,
+    const algorithms::SubchainGroup& subchain_groups,
     const size_t& max_alignments,
     aligner_stats_t* stats
 ) const {
     
-    if (grouped_anchors.subchains.empty()) {
+    if (subchain_groups.subchains.empty()) {
         throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
     }
     
@@ -2916,7 +2916,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // Used to figure out which subchains should get tail alignments
     vector<bool> seen_as_source(to_chain.size(), false);
     vector<bool> seen_as_sink(to_chain.size(), false);
-    for (const auto& extra_edge : grouped_anchors.connections) {
+    for (const auto& extra_edge : subchain_groups.connections) {
         seen_as_source[extra_edge.first] = true;
         seen_as_sink[extra_edge.second] = true;
     }
@@ -2926,18 +2926,18 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // The edges (connection_t) can't store Paths anyhow
     // and the nodes (subpath_t) require annoying conversion
     // We will piece the alignment back together with this memory
-    vector<Path> node_paths(grouped_anchors.subchains.size());
+    vector<Path> node_paths(subchain_groups.subchains.size());
     unordered_map<pair<size_t, size_t>, Path> edge_paths;
     // We want to annotate alignments with their tail lengths
     // so for any subchains with a tail, save their length
-    vector<double> left_tail_len(grouped_anchors.subchains.size());
-    vector<double> right_tail_len(grouped_anchors.subchains.size());
+    vector<double> left_tail_len(subchain_groups.subchains.size());
+    vector<double> right_tail_len(subchain_groups.subchains.size());
     // Subchains where we bailed out of link alignments
     // We will have to ignore any connections which start from them
     unordered_set<size_t> early_bail_subchains;
 
     // Set up pseudo-subpaths
-    for (size_t i = 0; i < grouped_anchors.subchains.size(); i++) {
+    for (size_t i = 0; i < subchain_groups.subchains.size(); i++) {
         // Keep track of total base-level results for this subchain
         Path composed_path;
         int composed_score = 0;
@@ -2947,7 +2947,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 #ifdef debug_chain_alignment
             cerr << "Doing left tail alignment for subchain " << i << endl;
 #endif
-            ScoredPath left_tail = find_tail_alignment(aln, to_chain[grouped_anchors.subchains[i].front()], wfa_extender, true, stats);
+            ScoredPath left_tail = find_tail_alignment(aln, to_chain[subchain_groups.subchains[i].front()], wfa_extender, true, stats);
             composed_path = left_tail.path;
             composed_score = left_tail.score;
             left_tail_len[i] = left_tail.path.length();
@@ -2959,11 +2959,11 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 #ifdef debug_chain_alignment
         cerr << "Doing inner link alignment for subchain " << i << endl;
 #endif
-        vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, grouped_anchors.subchains[i], wfa_extender, aligner, stats);
+        vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, subchain_groups.subchains[i], wfa_extender, aligner, stats);
         append_path(composed_path, inner_links.path);
         composed_score += inner_links.score;
 
-        if (last_anchor != grouped_anchors.subchains[i].back()) {
+        if (last_anchor != subchain_groups.subchains[i].back()) {
 #ifdef debug_chain_alignment
             cerr << "Bailed out of subchain " << i << endl;
 #endif
@@ -2972,7 +2972,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         }
 
         // Should this subchain get a right tail?
-        if (!seen_as_source[i] || last_anchor != grouped_anchors.subchains[i].back()) {
+        if (!seen_as_source[i] || last_anchor != subchain_groups.subchains[i].back()) {
 #ifdef debug_chain_alignment
             cerr << "Doing right tail alignment for subchain " << i << endl;
 #endif
@@ -2994,7 +2994,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     }
 
     // Set up connections between subpaths
-    for (const auto& extra_edge : grouped_anchors.connections) {
+    for (const auto& extra_edge : subchain_groups.connections) {
         // Only use edge if we didn't bail out of its source
         if (!early_bail_subchains.count(extra_edge.first)) {
 #ifdef debug_chain_alignment

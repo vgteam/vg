@@ -627,10 +627,10 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
     return multipath_aln;
 }
 
-ConnectedSubchains split_up_subchains(const size_t& anchor_count,
+SubchainGroup split_up_subchains(const size_t& anchor_count,
                                       const vector<Alignment>& tracebacks,
                                       const vector<pair<uint32_t, uint32_t>>& alternatives) {
-    ConnectedSubchains output;
+    SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
     // std::numeric_limits<size_t>::max() means the sink (i.e. it ends a chain)
     vector<vector<size_t>> outgoing_edges(anchor_count);
@@ -720,7 +720,7 @@ ConnectedSubchains split_up_subchains(const size_t& anchor_count,
     return output;
 }
 
-ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
+SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
                                     const SnarlDistanceIndex& distance_index,
                                     const HandleGraph& graph,
                                     const ChainScoringScheme& scheme,
@@ -731,7 +731,7 @@ ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
 
     if (to_chain.empty()) {
         // Nothing to chain
-        return ConnectedSubchains();
+        return SubchainGroup();
     }
         
     // First, we build the multipath alignment
@@ -748,10 +748,10 @@ ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
-        return ConnectedSubchains();
+        return SubchainGroup();
     }
 
-    ConnectedSubchains output = split_up_subchains(to_chain.size(), tracebacks, alternatives);
+    SubchainGroup output = split_up_subchains(to_chain.size(), tracebacks, alternatives);
     // Also remember its maximum score
     output.max_sparse_chain_score = tracebacks.front().score();
     return output;
@@ -763,27 +763,22 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const ChainScoringScheme& scheme,
                                   const transition_iterator& for_each_transition,
                                   size_t max_indel_bases) {
-                                                                 
-    if (to_chain.empty()) {
+    SubchainGroup group = find_best_chains(to_chain,
+                                           distance_index,
+                                           graph,
+                                           scheme,
+                                           1,
+                                           for_each_transition,
+                                           max_indel_bases);
+    if (group.subchains.empty()) {
+        // We got nothing
         return SparseAnchorChain();
     }
-    // First, we build the multipath alignment
-    multipath_alignment_t mp_aln = fill_in_mp_aln(to_chain,
-                                                  distance_index,
-                                                  graph,
-                                                  scheme,
-                                                  for_each_transition,
-                                                  max_indel_bases);
-    // Then find the top traceback
-    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, 1);
 
-    // Finally, convert back to anchor-space
     SparseAnchorChain output;
-    output.chain_score = tracebacks.front().score();
-    // Loop over all "subpaths" (anchor IDs) in the traceback
-    for (const auto& mapping : tracebacks.front().path().mapping()) {
-        output.anchors.emplace_back(mapping.position().node_id());
-    }
+    output.anchors = group.subchains.front();
+    output.chain_score = group.max_sparse_chain_score;
+    
     return output;
 }
 

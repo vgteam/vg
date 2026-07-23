@@ -426,7 +426,7 @@ struct SparseAnchorChain {
 
 /// Result of finding best chains: a list of subchains and how they
 /// connect to each other, ready to be put in a multipath alignment graph
-struct ConnectedSubchains {
+struct SubchainGroup {
     /// Subchains, each as a list of anchors
     std::vector<std::vector<size_t>> subchains;
     /// Connections between subchains, as (source index, sink index) pairs
@@ -531,9 +531,9 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
  * Save connections between subchains, pulling from edges in tracebacks
  * as well as alternative edges.
  */
-ConnectedSubchains split_up_subchains(const size_t& anchor_count,
-                                      const vector<Alignment>& tracebacks,
-                                      const vector<pair<uint32_t, uint32_t>>& alternatives);
+SubchainGroup split_up_subchains(const size_t& anchor_count,
+                                 const vector<Alignment>& tracebacks,
+                                 const vector<pair<uint32_t, uint32_t>>& alternatives);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -544,14 +544,14 @@ ConnectedSubchains split_up_subchains(const size_t& anchor_count,
  * Returns the scores and the list of indexes of items visited to achieve
  * that score, in order, with multiple tracebacks in descending score order.
  */
-ConnectedSubchains find_best_chains(const VectorView<Anchor>& to_chain,
-                                    const SnarlDistanceIndex& distance_index,
-                                    const HandleGraph& graph,
-                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                    size_t max_chains = 1,
-                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                    size_t max_indel_bases = 100,
-                                    bool show_work = false);
+SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
+                               const SnarlDistanceIndex& distance_index,
+                               const HandleGraph& graph,
+                               const ChainScoringScheme& scheme = ChainScoringScheme(),
+                               size_t max_chains = 1,
+                               const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                               size_t max_indel_bases = 100,
+                               bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and

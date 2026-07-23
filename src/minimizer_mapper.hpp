@@ -886,7 +886,7 @@ protected:
                               const std::vector<Seed>& seeds,
                               const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<algorithms::ConnectedSubchains>& chain_results,
+                              std::vector<algorithms::SubchainGroup>& subchain_groups,
                               std::vector<size_t>& subchain_source_tree,
                               std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
@@ -900,7 +900,7 @@ protected:
                                 const std::vector<Seed>& seeds, 
                                 const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                 const vector<algorithms::Anchor>& seed_anchors,
-                                const std::vector<algorithms::ConnectedSubchains>& chain_results, 
+                                const std::vector<algorithms::SubchainGroup>& subchain_groups, 
                                 const std::vector<size_t>& subchain_source_tree,
                                 const std::vector<double>& multiplicity_by_chain,
                                 const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
@@ -926,7 +926,7 @@ protected:
                                        LazyRNG& rng, Funnel& funnel) const;
 
     /**
-     * Take a ConnectedSubchains result and find Alignments within it
+     * Take a SubchainGroup result and find Alignments within it
      *
      * Uses a backing multipath_alignment_t with subpaths (subchains)
      * and edges (link alignments) scored based on actual base-level alignment.
@@ -936,7 +936,7 @@ protected:
      */
     vector<Alignment> do_base_level_alignment(const Alignment& aln, 
                                               const VectorView<algorithms::Anchor>& to_chain,
-                                              const algorithms::ConnectedSubchains& grouped_anchors,
+                                              const algorithms::SubchainGroup& subchain_groups,
                                               const size_t& max_chains,
                                               aligner_stats_t* stats = nullptr) const;
 
@@ -1553,7 +1553,7 @@ protected:
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
                                    const vector<algorithms::Anchor>& seed_anchors,
-                                   const std::vector<algorithms::ConnectedSubchains>& chain_results,
+                                   const std::vector<algorithms::SubchainGroup>& subchain_groups,
                                    const std::vector<size_t>& subchain_source_tree,
                                    const PathPositionHandleGraph* path_graph,
                                    bool haplotype_positions);
