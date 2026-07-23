@@ -52,3 +52,4 @@ debug_main.cpp
 /*.gfa
 .vscode/*
 .cache/*
+explanation_*
