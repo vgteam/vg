@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 92
+plan tests 93
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -395,6 +395,10 @@ vg convert tiny/tiny.gfaz -p -t 1 | vg convert -f - | sort > tiny.gfaz.roundtrip
 diff tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.auto.gfa
 is $? 0 "GFAZ input is auto-detected through the registry loader"
 
+cat tiny/tiny.gfaz | vg convert -p - -t 1 | vg convert -f - | sort > tiny.gfaz.roundtrip.stdin.gfa
+diff tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.stdin.gfa
+is $? 0 "GFAZ input is loaded directly from an unseekable stream"
+
 vg convert -g tiny/tiny.gfaz -p -t 4 | vg convert -f - | sort > tiny.gfaz.roundtrip.mt.gfa
 diff tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.mt.gfa
 is $? 0 "GFAZ roundtrip output is stable across thread counts"
@@ -436,7 +440,7 @@ is $(cat tiny.chop3.4.stderr | wc -l) 0 "No warnings given when input GFA file i
 
 rm -f tiny.roundtrip.gfa tiny.roundtrip2.gfa tiny.roundtrip3.gfa tiny.roundtrip4.gfa
 rm -f tiny.gfa.input.pg tiny.gfaz.input.pg
-rm -f tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.auto.gfa tiny.gfaz.roundtrip.mt.gfa
+rm -f tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.auto.gfa tiny.gfaz.roundtrip.stdin.gfa tiny.gfaz.roundtrip.mt.gfa
 rm -f tiny.gfaz.input.norm.gfa tiny.gfaz.input.xg tiny.gfaz.trans
 rm -f tiny.roundtrip3.stderr tiny.roundtrip4.stderr
 rm -f tiny.unsort.gfa
