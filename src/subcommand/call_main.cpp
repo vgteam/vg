@@ -579,7 +579,7 @@ int main_call(int argc, char** argv) {
 
     // Process path prefixes to find ref paths
     if (!ref_path_prefixes.empty()) {
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             // Never include alt paths in reference paths
             if (Paths::is_alt(path_name)) {
@@ -593,15 +593,19 @@ int main_call(int argc, char** argv) {
             }
         });
         if (ref_paths.empty()) {
-            logger.error() << "No REFERENCE or GENERIC paths (see vg paths -M) found matching prefix(es)\n"
-                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
+            logger.error() << "No non-alt paths found matching prefix(es) paths (see vg paths -M)" << endl;
         }
     }
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
-        set<string> ref_sample_names;
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        unordered_set<string> ref_sample_names;
+        unordered_set<PathSense> senses = {PathSense::REFERENCE, PathSense::GENERIC};
+        // If we're given a sample, treat its haplotypes as references
+        if (!ref_sample.empty()) {
+            senses.emplace(PathSense::HAPLOTYPE);
+        }
+        graph->for_each_path_of_sense(senses, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(name)) {
                     string sample_name = graph->get_sample_name(path_handle);
@@ -650,7 +654,7 @@ int main_call(int argc, char** argv) {
         for (const string& ref_path : ref_paths) {
             ref_path_set[ref_path] = false;
         }
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(name, &subrange);
@@ -679,7 +683,7 @@ int main_call(int argc, char** argv) {
         for (const auto& ref_path_used : ref_path_set) {
             if (!ref_path_used.second) {
                 logger.error() << "Path \"" << ref_path_used.first 
-                               << "\" not found in graph as REFERENCE or GENERIC sense (see vg paths -M)\n"
+                               << "\" not found in graph as a non-alt sense (see vg paths -M)\n"
                                << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
             }
         }
@@ -690,16 +694,20 @@ int main_call(int argc, char** argv) {
     // make sure we have some ref paths
     if (ref_paths.empty()) {
         if (!ref_sample.empty()) {
-            logger.error() << "No REFERENCE paths for \"" << ref_sample << "\" found.\n" 
+            logger.error() << "No REFERENCE or HAPLOTYPE paths for sample \"" << ref_sample << "\" found.\n"
+                           << "Use vg paths -M to check which paths exist in this graph\n" 
                            << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
         logger.error() << "No reference paths found. "
                        << "Paths must be REFERENCE or GENERIC sense (see vg paths -M)\n"
+                       << "Alternatively, use --ref-path, --path-prefix, or --ref-sample to force a HAPLOTYPE path to be treated as a reference\n"
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
     // build table of ploidys
     vector<int> ref_path_ploidies;
+    // Paths which aren't REFERENCE/GENERIC sense that we want to call against
+    unordered_set<string> pretend_ref_paths;
     for (const string& ref_path : ref_paths) {
         int path_ploidy = ploidy;
         for (auto& rule : ploidy_rules) {
@@ -709,7 +717,18 @@ int main_call(int argc, char** argv) {
             }
         }
         ref_path_ploidies.push_back(path_ploidy);
+
+        if (graph->get_sense(graph->get_path_handle(ref_path)) == PathSense::HAPLOTYPE) {
+            pretend_ref_paths.emplace(ref_path);
+        }
     }
+
+    // Use an overlay if needed
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    if (!pretend_ref_paths.empty()) {
+        if (show_progress) logger.info() << "Applying overlay to treat HAPLOTYPE paths as REFERENCE" << endl;
+        graph = overlay_helper.apply(graph, pretend_ref_paths);
+}
 
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    

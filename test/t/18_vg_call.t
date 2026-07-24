@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 98
+plan tests 95
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -21,40 +21,39 @@ vg call tiny_aug.xg -k tiny_aug.pack > tiny_aug.vcf
 
 is $(grep -v '#' tiny_aug.vcf | wc -l) 0 "calling empty gam gives empty VCF"
 
+rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam
+
 # No ref paths test
-grep -v CHM13 graphs/haplotypes.gfa > only_haps.gfa
-vg convert --gfa-in only_haps.gfa > only_haps.vg
-vg index only_haps.vg -x only_haps.xg
+vg convert --gfa-in graphs/three_samples.gfa > only_haps.vg
+vg sim --sample sample2 -n 20 -l 5 --align-out --random-seed 79 --xg-name only_haps.vg > sample2.gam
+vg augment only_haps.vg sample2.gam -A sample2.aug.gam > only_haps.aug.vg
+vg index only_haps.aug.vg -x only_haps.aug.xg
+vg pack -x only_haps.aug.xg -g sample2.aug.gam -o sample2.aug.pack
 
-vg call only_haps.xg -k tiny_aug.pack 2> error.txt
-is "$?" 1 "Must be a non-reference path to call against"
+vg call only_haps.aug.xg -k sample2.aug.pack 2> error.txt
+is "$?" 1 "If no path is specified, there must be a reference path to fall back to"
 grep "REFERENCE or GENERIC" error.txt
 is "$?" 0 "Problem is explained in some detail"
 grep "Changing-References" error.txt
 is "$?" 0 "Hint towards solution provided"
 
-vg call only_haps.xg -k tiny_aug.pack -p "KOLF2.1J#1#chr1_1#0" 2> error.txt
-is "$?" 1 "-p path must be a reference"
-grep "REFERENCE or GENERIC" error.txt
+vg call only_haps.aug.xg -k sample2.aug.pack -p "sample1#1#A#0" > sample2.vcf
+is $(fgrep -v "#" sample2.vcf | wc -l) 2 "can call against a HAPLOTYPE sense -p path"
+
+vg call only_haps.aug.xg -k sample2.aug.pack -P "sample1#1" > sample2.vcf
+is $(fgrep -v "#" sample2.vcf | wc -l) 2 "can call against HAPLOTYPE sense -P paths"
+
+vg call only_haps.aug.xg -k sample2.aug.pack -S "sample1" > sample2.vcf
+is $(fgrep -v "#" sample2.vcf | wc -l) 2 "can call against HAPLOTYPE sense -S paths"
+
+vg call only_haps.aug.xg -k sample2.aug.pack -S "missing" 2> error.txt
+is "$?" 1 "-S sample must have usable paths"
+grep "REFERENCE or HAPLOTYPE" error.txt
 is "$?" 0 "Problem is explained in some detail"
 grep "Changing-References" error.txt
 is "$?" 0 "Hint towards solution provided"
 
-vg call only_haps.xg -k tiny_aug.pack -P "KOLF2.1J" 2> error.txt
-is "$?" 1 "-P paths must be references"
-grep "REFERENCE or GENERIC" error.txt
-is "$?" 0 "Problem is explained in some detail"
-grep "Changing-References" error.txt
-is "$?" 0 "Hint towards solution provided"
-
-vg call only_haps.xg -k tiny_aug.pack -S "KOLF2.1J" 2> error.txt
-is "$?" 1 "-S sample must have reference paths"
-grep "REFERENCE" error.txt
-is "$?" 0 "Problem is explained in some detail"
-grep "Changing-References" error.txt
-is "$?" 0 "Hint towards solution provided"
-
-rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam only_haps.vg only_haps.xg error.txt
+rm -f only_haps.vg only_haps.xg error.txt sample2.gam sample2.vcf
 
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
