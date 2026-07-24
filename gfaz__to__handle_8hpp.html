@@ -74,13 +74,18 @@ $(function() {
 <div class="title">gfaz_to_handle.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
+<div class="textblock"><code>#include &lt;GFAz/compress/io/gfa_decoder.hpp&gt;</code><br />
+<code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
+<code>#include &lt;vector&gt;</code><br />
 <code>#include &quot;<a class="el" href="gfa__to__handle_8hpp.html">gfa_to_handle.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAzParser.html">vg::algorithms::GFAzParser</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAzParser_1_1PendingRGFAVisit.html">vg::algorithms::GFAzParser::PendingRGFAVisit</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -101,7 +106,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a3ed0f8e86c37a67a4e094086fca21f0f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3ed0f8e86c37a67a4e094086fca21f0f">vg::algorithms::load_gfa_or_gfaz_to_path_handle_graph</a> (const string &amp;filename, MutablePathMutableHandleGraph *graph, int64_t max_rgfa_rank, const string &amp;translation_filename, unordered_set&lt; PathSense &gt; *ignore_sense)</td></tr>
 <tr class="separator:a3ed0f8e86c37a67a4e094086fca21f0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Defines algorithms for copying data from GFAz files into handle graphs. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

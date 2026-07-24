@@ -503,7 +503,8 @@ $(function() {
 : <a class="el" href="structGBWTConfig.html#a218c5f96dd7101b89bdf8e64de3b9949">GBWTConfig</a>
 </li>
 <li>path_name
-: <a class="el" href="structvg_1_1FeatureSet_1_1Feature.html#a645900ed3044cc3359c18e109f7460a7">vg::FeatureSet::Feature</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFAzParser_1_1PendingRGFAVisit.html#aa55259eb91bcee37981318926dfaa989">vg::algorithms::GFAzParser::PendingRGFAVisit</a>
+, <a class="el" href="structvg_1_1FeatureSet_1_1Feature.html#a645900ed3044cc3359c18e109f7460a7">vg::FeatureSet::Feature</a>
 , <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#ad19c5f9cbb68abb1bcfe6e3a9fd65382">vg::GraphSynchronizer::Lock</a>
 , <a class="el" href="structvg_1_1SequenceDictionaryEntry.html#ab59a974b316d1e5b3201f182c6ff12ce">vg::SequenceDictionaryEntry</a>
 , <a class="el" href="classxg_1_1XG.html#adf5cee0fdfb7bac641cf0e7e10371f8a">xg::XG</a>
@@ -513,7 +514,6 @@ $(function() {
 </li>
 <li>path_names
 : <a class="el" href="structGBWTConfig.html#a96ccf4e2605d4dad1a32511169f51969">GBWTConfig</a>
-, <a class="el" href="structvg_1_1algorithms_1_1GFAzPathDecoder.html#a85bfa714dad7b09d948153062f14dcc9">vg::algorithms::GFAzPathDecoder</a>
 , <a class="el" href="classvg_1_1VariantAdder.html#a3f40d9f81c27adf5afffe04d551ac138">vg::VariantAdder</a>
 </li>
 <li>path_names_by_prefix()
@@ -525,14 +525,14 @@ $(function() {
 <li>path_offset
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a58b1c09d2f45e4942afd52d975c85b9a">vg::GraphSynchronizer::Lock</a>
 </li>
-<li>path_offsets
-: <a class="el" href="structvg_1_1algorithms_1_1GFAzPathDecoder.html#ad47196e50168b2e3ba1ec700aa7c6b44">vg::algorithms::GFAzPathDecoder</a>
-</li>
 <li>path_output
 : <a class="el" href="structGBWTConfig.html#a91e5194d120c0dbae060bdfe5c60667a">GBWTConfig</a>
 </li>
 <li>path_position_handle_graph
 : <a class="el" href="classvg_1_1MCMCCaller.html#a240741cadefa13b2b4d472f0b6e3b8d3">vg::MCMCCaller</a>
+</li>
+<li>path_rank
+: <a class="el" href="structvg_1_1algorithms_1_1GFAzParser_1_1PendingRGFAVisit.html#a1711c516046a30cfddee8eea2d4f2b8a">vg::algorithms::GFAzParser::PendingRGFAVisit</a>
 </li>
 <li>path_ranks_by_prefix()
 : <a class="el" href="classxg_1_1XG.html#a93b333ee3c02b8309a139401f1dc661f">xg::XG</a>
@@ -554,7 +554,7 @@ $(function() {
 : <a class="el" href="classvg_1_1PathSubgraphOverlay.html#aef82f75c24c686645b0255685bc4c6f2">vg::PathSubgraphOverlay</a>
 </li>
 <li>path_t()
-: <a class="el" href="classvg_1_1path__t.html#a75929a646a781440f67c3b374a6c9166">vg::path_t</a>
+: <a class="el" href="classvg_1_1path__t.html#ac49a26cfbfc0dc2d3bc16ec5b38fceda">vg::path_t</a>
 </li>
 <li>path_to_input_haplotype()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#acf88c54b278bcacae66383f2668970b2">haplo::linear_haplo_structure</a>
@@ -620,9 +620,6 @@ $(function() {
 <li>paths_flags_t
 : <a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a10a34c1dddda795b9e18f969cd66f3f8">vg::SnarlDistanceIndexClusterer</a>
 </li>
-<li>paths_flat
-: <a class="el" href="structvg_1_1algorithms_1_1GFAzPathDecoder.html#a51836a31ddf090cd90b8071bc31f2075">vg::algorithms::GFAzPathDecoder</a>
-</li>
 <li>paths_of_handle()
 : <a class="el" href="classxg_1_1XG.html#a519fa3151a3b49f5939277a14dced503">xg::XG</a>
 </li>
@@ -679,6 +676,9 @@ $(function() {
 </li>
 <li>penalties
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#af55d7f33177180d033e8e925cf20e5fd">haplo::linear_haplo_structure</a>
+</li>
+<li>pending_rgfa_visits
+: <a class="el" href="classvg_1_1algorithms_1_1GFAzParser.html#a08281985879b94981fd9b1b2af5fe3c9">vg::algorithms::GFAzParser</a>
 </li>
 <li>pending_traversals
 : <a class="el" href="classvg_1_1ZipCodeTree_1_1distance__iterator.html#af3fcb30414859be215c015b15b398ec8">vg::ZipCodeTree::distance_iterator</a>
@@ -752,7 +752,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimizerMapper.html#acfc088cc27b7bd6639eb61b523252987">vg::MinimizerMapper</a>
 </li>
 <li>Pictographs()
-: <a class="el" href="classvg_1_1Pictographs.html#a9784714a3a94bd173fecdd31655a770b">vg::Pictographs</a>
+: <a class="el" href="classvg_1_1Pictographs.html#a997d5ba6f6e9c5cbdb039ed9c51625e9">vg::Pictographs</a>
 </li>
 <li>pin_offset()
 : <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#aff4877147fc6b731179a8e89dfb99757">vg::MinimizerMapper::Minimizer</a>
@@ -930,6 +930,9 @@ $(function() {
 </li>
 <li>preload_progress()
 : <a class="el" href="classvg_1_1Progressive.html#a4eb5050eb36ed519cbfa398748ef183b">vg::Progressive</a>
+</li>
+<li>prepare_decode()
+: <a class="el" href="classvg_1_1algorithms_1_1GFAzParser.html#a47a41fb505abb3194da05027b9c4d258">vg::algorithms::GFAzParser</a>
 </li>
 <li>prepend_mapping()
 : <a class="el" href="classvg_1_1Paths.html#acd1f02b9d6d41036a24a9aee1a261dc3">vg::Paths</a>
@@ -1123,11 +1126,11 @@ $(function() {
 <li>prob_sampler
 : <a class="el" href="classvg_1_1NGSSimulator.html#a36ca291ed15a9a3942809d21d0574bc1">vg::NGSSimulator</a>
 </li>
-<li>problem
-: <a class="el" href="structvg_1_1AlignmentValidity.html#a1ca7f243aa52fe313bdfac808f4eba92">vg::AlignmentValidity</a>
-</li>
 <li>Problem
 : <a class="el" href="structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9">vg::AlignmentValidity</a>
+</li>
+<li>problem
+: <a class="el" href="structvg_1_1AlignmentValidity.html#a1ca7f243aa52fe313bdfac808f4eba92">vg::AlignmentValidity</a>
 </li>
 <li>ProblemDumpExplainer()
 : <a class="el" href="classvg_1_1ProblemDumpExplainer.html#adf8775736c7646ce19bd69c995bf7238">vg::ProblemDumpExplainer</a>
