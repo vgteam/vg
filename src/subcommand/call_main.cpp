@@ -724,11 +724,11 @@ int main_call(int argc, char** argv) {
     }
 
     // Use an overlay if needed
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!pretend_ref_paths.empty()) {
-        bdsg::ReferencePathOverlayHelper overlay_helper;
         if (show_progress) logger.info() << "Applying overlay to treat HAPLOTYPE paths as REFERENCE" << endl;
         graph = overlay_helper.apply(graph, pretend_ref_paths);
-    }
+}
 
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
