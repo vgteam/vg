@@ -968,8 +968,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
         .add_entry<size_t>("hard-hit-cap", 13614)
-        // Don't do gapless extension
-        .add_entry<size_t>("gapless-extension-limit", 0)
+        // Allow perfect gapless extension
+        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-extension-mismatches", 0)
         .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
@@ -993,6 +994,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
+        // Ignore alignments that overlap too much (consequence of multipath DP)
+        .add_entry<double>("min-unique-node-fraction", 0.1)
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
@@ -1030,8 +1033,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
         .add_entry<double>("zipcode-tree-scale", 2.0)
-        //Don't do gapless extension
-        .add_entry<size_t>("gapless-extension-limit", 0)
+        // Allow perfect gapless extension
+        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-extension-mismatches", 0)
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<size_t>("max-graph-lookback-bases", 20000)
@@ -1055,6 +1059,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
+        // Ignore alignments that overlap too much (consequence of multipath DP)
+        .add_entry<double>("min-unique-node-fraction", 0.1)
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
