@@ -6,15 +6,14 @@ When adding a new subcommand, add it to the appropriate section(s) in the descri
 
 # description
 
-vg is a toolkit for variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods.
+[vg](https://github.com/vgteam/vg) is a toolkit for variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods.
 
-For more in-depth explanations of tools and workflows, see the [vg wiki page](https://github.com/vgteam/vg/wiki).
+For more in-depth explanations of tools and workflows, see the [general wiki page](https://github.com/vgteam/vg/wiki).
 
 # synopsis
-This is an incomplete list of vg subcommands. For a complete list, run `vg help`.
 
 - **Graph construction and indexing**
-    See the [wiki page](https://github.com/vgteam/vg/wiki/Index-Types) for an overview of vg indexes.
+    See the [wiki page](https://github.com/vgteam/vg/wiki/Extra-details-on-vg-file-formats) for an overview of file types.
     - [`vg autoindex`](#autoindex): automatically construct a graph and indexes for a specific workflow (e.g. giraffe, rpvg). [wiki page](https://github.com/vgteam/vg/wiki/Automatic-indexing-for-read-mapping-and-downstream-inference)
     - [`vg construct`](#construct): manually construct a graph from a reference and variants. [wiki page](https://github.com/vgteam/vg/wiki/Construction)
     - [`vg index`](#index): manually build individual indexes (xg, distance, GCSA, etc). [wiki page](https://github.com/vgteam/vg/wiki/Index-Construction) 
