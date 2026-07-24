@@ -54,7 +54,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-#define debug_base_level_alignment
+//#define debug_base_level_alignment
 
 namespace vg {
 
@@ -1424,13 +1424,13 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                             }
 
                             // And if we take that anchor, we'll grab these underlying
-                            // seeds into the elaborating chain. Just use the bounding
-                            // seeds and connect between them where it is easy.
+                            // seeds into the elaborating chain (only non-overlapping)
                             extension_seed_sequences.push_back({anchor_seeds.front()});
-                            if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
-                                // There are multiple seeds in the extension and the last
-                                // one doesn't overlap the first, so take the last one too.
-                                extension_seed_sequences.back().push_back(anchor_seeds.back());
+                            for (const auto& cur_seed : anchor_seeds) {
+                                if (seed_anchors.at(extension_seed_sequences.back().back()).read_end() <= seed_anchors.at(cur_seed).read_start()) {
+                                    // This seed doesn't overlap the previous one
+                                    extension_seed_sequences.back().push_back(cur_seed);
+                                }
                             }
 
                             // Keep all the seeds that this anchor counts as using.
@@ -3003,7 +3003,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 #endif
             // Calculate base-level alignment for this connection
             vector<size_t> edge = {subchain_groups.subchains[extra_edge.first].back(),
-                                   subchain_groups.subchains[extra_edge.second].back()};
+                                   subchain_groups.subchains[extra_edge.second].front()};
             ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
 
             if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
@@ -3022,7 +3022,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     }
 
     // Do DP
-    vector<Alignment> tracebacks = optimal_alignments(mp_aln, max_alignments);
+    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_alignments);
 
     // Convert back to real alignments
     vector<Alignment> output;
