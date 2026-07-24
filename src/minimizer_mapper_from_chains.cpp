@@ -54,7 +54,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-//#define debug_base_level_alignment
+#define debug_base_level_alignment
 
 namespace vg {
 
@@ -3032,9 +3032,18 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Figure out which subchains were used
         vector<size_t> subchains_used;
         subchains_used.reserve(trace.path().mapping_size());
+#ifdef debug_base_level_alignment
+        cerr << "Alignment " << output.size() << " uses subchains: ";
+#endif
         for (const auto& mapping : trace.path().mapping()) {
             subchains_used.push_back(mapping.position().node_id());
+#ifdef debug_base_level_alignment
+            cerr << subchains_used.back() << " ";
+#endif
         }
+#ifdef debug_base_level_alignment
+        cerr << endl;
+#endif
 
         // Build up total base-level results for this alignment
         Path composed_path = node_paths[trace.path().mapping(0).position().node_id()];
