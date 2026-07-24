@@ -930,6 +930,29 @@ def check_subcommand_file(filepath: str) -> bool:
 
     return is_ok
 
+def is_subcommand_deprecated(filepath: str) -> bool:
+    """Check if a subcommand is deprecated.
+    
+    Deprecated subcommands has DEPRECATED in the
+    Subcommand declaration line.
+    
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to check.
+
+    Returns
+    -------
+    bool
+        True if deprecated, otherwise False.
+    """
+
+    with open(filepath) as file:
+        for line in file:
+            if "Subcommand" in line and "DEPRECATED" in line:
+                return True
+    return False
+
 def check_autocomplete_file(filepath: str, subcommands_truth: Set[str]) -> bool:
     """Check whether the autocompleted subcommands match the real list.
     
@@ -1024,7 +1047,8 @@ def check_manpage_header(filepath: str, subcommands_truth: Set[str]) -> bool:
     if seen_not_truth or truth_not_seen:
         # Something's off. Complain.
         for cmd in seen_not_truth:
-            print(f"{filepath}: vg {cmd} doesn't actually exist")
+            print(f"{filepath}: vg {cmd} doesn't actually exist "
+                   "or it's deprecated")
         for cmd in truth_not_seen:
             print(f"{filepath}: vg {cmd} exists but isn't here")
         return False
@@ -1072,7 +1096,8 @@ def check_manpage_maker(filepath: str, subcommands_truth: Set[str]) -> bool:
                 if seen_not_truth or truth_not_seen:
                     # Something's off. Complain.
                     for cmd in seen_not_truth:
-                        print(f"{filepath}: vg {cmd} doesn't actually exist")
+                        print(f"{filepath}: vg {cmd} doesn't actually exist "
+                              "or it's deprecated")
                     for cmd in truth_not_seen:
                         print(f"{filepath}: vg {cmd} exists but isn't here")
                     return False
@@ -1082,7 +1107,8 @@ def check_manpage_maker(filepath: str, subcommands_truth: Set[str]) -> bool:
 
 if __name__ == "__main__":
     is_ok = True
-    subcmds_truth = set()
+    non_dep_subcmds = set()
+    deprecated_subcmds = set()
 
     for base_file_name in os.listdir(SUBCMD_DIR):
         if not base_file_name.endswith(SUBCMD_END):
@@ -1090,19 +1116,23 @@ if __name__ == "__main__":
             continue
 
         subcmd_name = base_file_name.removesuffix(SUBCMD_END).replace('_', '-')
-        subcmds_truth.add(subcmd_name)
+        full_file_name = os.path.join(SUBCMD_DIR, base_file_name)
+        if is_subcommand_deprecated(full_file_name):
+            deprecated_subcmds.add(subcmd_name)
+        else:
+            non_dep_subcmds.add(subcmd_name)
 
         if subcmd_name in SKIP_SUBCMDS:
             # We don't check the command-line options for this file
             continue
 
-        full_name = os.path.join(SUBCMD_DIR, base_file_name)
-        is_ok = check_subcommand_file(full_name) and is_ok
-    
-    for file_name in AUTOCOMP_FILES:
-        is_ok = check_autocomplete_file(file_name, subcmds_truth) and is_ok
+        is_ok = check_subcommand_file(full_file_name) and is_ok
 
-    is_ok = check_manpage_header(MANPAGE_HEADER_FILE, subcmds_truth) and is_ok
-    is_ok = check_manpage_maker(MANPAGE_MAKER_FILE, subcmds_truth) and is_ok
+    all_subcmds = non_dep_subcmds | deprecated_subcmds
+    for file_name in AUTOCOMP_FILES:
+        is_ok = check_autocomplete_file(file_name, all_subcmds) and is_ok
+
+    is_ok = check_manpage_header(MANPAGE_HEADER_FILE, non_dep_subcmds) and is_ok
+    is_ok = check_manpage_maker(MANPAGE_MAKER_FILE, non_dep_subcmds) and is_ok
 
     sys.exit(0 if is_ok else 1)

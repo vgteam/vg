@@ -4,16 +4,15 @@ import subprocess
 
 # commands to include
 ######### If you add to this, also add it to the intro section of vgmandmd.desc.md
-cmds = ['add', 'align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
+cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
         'benchmark', 'call', 'chain', 'chains', 'chunk', 'circularize', 'clip',
-        'cluster', 'combine', 'concat', 'construct', 'convert', 'deconstruct',
-        'depth', 'describe', 'dotplot', 'filter', 'find', 'gamcompare',
-        'gampcompare', 'gamsort', 'gbwt', 'genotype', 'giraffe', 'haplotypes',
-        'help', 'ids', 'index', 'inject', 'kmers', 'map', 'mask', 'mcmc',
-        'minimizer', 'mod', 'mpmap', 'pack', 'paths', 'primers', 'prune', 'rna',
-        'sim', 'simplify', 'snarls', 'sort', 'stats', 'surject', 'test',
-        'trace', 'translate', 'validate', 'vectorize', 'version', 'view', 'viz',
-        'zipcode'
+        'cluster', 'combine', 'construct', 'convert', 'deconstruct', 'depth',
+        'describe', 'dotplot', 'filter', 'find', 'gamcompare', 'gampcompare',
+        'gamsort', 'gbwt', 'genotype', 'giraffe', 'haplotypes', 'help', 'ids',
+        'index', 'inject', 'map', 'mask', 'mcmc', 'minimizer', 'mod', 'mpmap',
+        'pack', 'paths', 'primers', 'prune', 'rna', 'sim', 'simplify', 'snarls',
+        'stats', 'surject', 'test', 'trace', 'validate', 'vectorize', 'version',
+        'view', 'viz', 'zipcode'
 ]
 cmds.sort()
 
