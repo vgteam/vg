@@ -601,10 +601,13 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
             // Case 1: Extend to the right.
             if (!curr.right_maximal) {
                 size_t num_extensions = 0;
-                // Always allow at least max_mismatches / 2 mismatches in the current flank.
-                uint32_t mismatch_limit = std::max(
-                    static_cast<uint32_t>(max_mismatches + 1),
-                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                uint32_t mismatch_limit = 0;
+                if (max_mismatches > 0) {
+                    // Always allow at least max_mismatches / 2 mismatches in the current flank.
+                    mismatch_limit = std::max(
+                        static_cast<uint32_t>(max_mismatches + 1),
+                        static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                }
                 cache->follow_paths(curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
                     GaplessExtension next {
@@ -645,10 +648,13 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
             // Case 2: Extend to the left.
             if (!curr.left_maximal) {
                 bool found_extension = false;
-                // Always allow at least max_mismatches / 2 mismatches in the current flank.
-                uint32_t mismatch_limit = std::max(
-                    static_cast<uint32_t>(max_mismatches + 1),
-                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                uint32_t mismatch_limit = 0;
+                if (max_mismatches > 0) {
+                    // Always allow at least max_mismatches / 2 mismatches in the current flank.
+                    mismatch_limit = std::max(
+                        static_cast<uint32_t>(max_mismatches + 1),
+                        static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                }
                 cache->follow_paths(curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
                     size_t node_length = cache->get_length(handle);
