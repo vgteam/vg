@@ -308,83 +308,90 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
          << candidate_paths.size() << " candidate paths" << endl;
 #endif
 
-    // Greedily walk through paths, creating intervals for contiguous uncovered sequences
-    for (const auto& name_path : candidate_paths) {
-        if (uncovered_nodes.empty()) {
-            break;
-        }
-
-        bool in_interval = false;
-        step_handle_t interval_start;
-        step_handle_t interval_end;
-        int64_t interval_length = 0;
-        unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
-        bool interval_reverse = false;  // orientation of current interval
-
-        // Helper to close the current interval and add it if long enough
-        auto close_interval = [&]() {
-            if (in_interval) {
-                if (interval_length >= minimum_length) {
-                    add_interval(this->gref_intervals, this->node_to_interval,
-                                 make_pair(interval_start, interval_end), true,
-                                 &this->interval_snarl_bounds, {0, 0});
-                    try_cross_path_merge(interval_start);
-                    for (nid_t nid : interval_nodes) {
-                        uncovered_nodes.erase(nid);
-                    }
-                }
-                in_interval = false;
+    // Greedily walk through paths, creating intervals for contiguous uncovered sequences.
+    // Two passes: the first one only takes nodes where the path walks them forwards, so a
+    // node is covered by a backwards-walking path only when no path walks it forwards.
+    // (The cover never flips a node -- changing topology is not its job -- so this is as
+    // close to a nodes-forward cover as the graph allows.)
+    for (int pass = 0; pass < 2; ++pass) {
+        bool forward_only = (pass == 0);
+        for (const auto& name_path : candidate_paths) {
+            if (uncovered_nodes.empty()) {
+                break;
             }
-        };
 
-        graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
-            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
-            bool is_reverse = graph->get_is_reverse(graph->get_handle_of_step(step));
+            bool in_interval = false;
+            step_handle_t interval_start;
+            step_handle_t interval_end;
+            int64_t interval_length = 0;
+            unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
+            bool interval_reverse = false;  // orientation of current interval
 
-            if (uncovered_nodes.count(node_id)) {
-                if (interval_nodes.count(node_id)) {
-                    // This node is already in the current interval — close to avoid cycle.
-                    // close_interval() will remove covered nodes from uncovered_nodes,
-                    // so we must re-check before adding the node to a new interval.
-                    close_interval();
+            // Helper to close the current interval and add it if long enough
+            auto close_interval = [&]() {
+                if (in_interval) {
+                    if (interval_length >= minimum_length) {
+                        add_interval(this->gref_intervals, this->node_to_interval,
+                                     make_pair(interval_start, interval_end), true,
+                                     &this->interval_snarl_bounds, {0, 0});
+                        try_cross_path_merge(interval_start);
+                        for (nid_t nid : interval_nodes) {
+                            uncovered_nodes.erase(nid);
+                        }
+                    }
+                    in_interval = false;
                 }
-                // Re-check: close_interval() may have just covered this node
-                if (!uncovered_nodes.count(node_id)) {
-                    // Node was covered by the interval we just closed — treat as covered
-                    close_interval();
-                } else if (in_interval && is_reverse != interval_reverse) {
-                    // Orientation changed — close current interval and start fresh
-                    close_interval();
-                    in_interval = true;
-                    interval_start = step;
-                    interval_length = 0;
-                    interval_nodes.clear();
-                    interval_reverse = is_reverse;
-                    interval_end = graph->get_next_step(step);
-                    interval_length += graph->get_length(graph->get_handle_of_step(step));
-                    interval_nodes.insert(node_id);
-                } else {
-                    if (!in_interval) {
-                        // Start a new interval
+            };
+
+            graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
+                nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+                bool is_reverse = graph->get_is_reverse(graph->get_handle_of_step(step));
+
+                if (uncovered_nodes.count(node_id) && !(forward_only && is_reverse)) {
+                    if (interval_nodes.count(node_id)) {
+                        // This node is already in the current interval — close to avoid cycle.
+                        // close_interval() will remove covered nodes from uncovered_nodes,
+                        // so we must re-check before adding the node to a new interval.
+                        close_interval();
+                    }
+                    // Re-check: close_interval() may have just covered this node
+                    if (!uncovered_nodes.count(node_id)) {
+                        // Node was covered by the interval we just closed — treat as covered
+                        close_interval();
+                    } else if (in_interval && is_reverse != interval_reverse) {
+                        // Orientation changed — close current interval and start fresh
+                        close_interval();
                         in_interval = true;
                         interval_start = step;
                         interval_length = 0;
                         interval_nodes.clear();
                         interval_reverse = is_reverse;
+                        interval_end = graph->get_next_step(step);
+                        interval_length += graph->get_length(graph->get_handle_of_step(step));
+                        interval_nodes.insert(node_id);
+                    } else {
+                        if (!in_interval) {
+                            // Start a new interval
+                            in_interval = true;
+                            interval_start = step;
+                            interval_length = 0;
+                            interval_nodes.clear();
+                            interval_reverse = is_reverse;
+                        }
+                        interval_end = graph->get_next_step(step);
+                        interval_length += graph->get_length(graph->get_handle_of_step(step));
+                        interval_nodes.insert(node_id);
                     }
-                    interval_end = graph->get_next_step(step);
-                    interval_length += graph->get_length(graph->get_handle_of_step(step));
-                    interval_nodes.insert(node_id);
+                } else {
+                    // This node is already covered — close current interval
+                    close_interval();
                 }
-            } else {
-                // This node is already covered — close current interval
-                close_interval();
-            }
-            return true;
-        });
+                return true;
+            });
 
-        // Don't forget to close any interval at the end of the path
-        close_interval();
+            // Don't forget to close any interval at the end of the path
+            close_interval();
+        }
     }
 
 #ifdef debug
@@ -687,30 +694,37 @@ void GrefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
         vector<pair<int64_t, int64_t>> uncovered_intervals = get_uncovered_intervals(trav, thread_node_to_interval);
 
         for (const auto& uncovered_interval : uncovered_intervals) {
-            unordered_set<nid_t> cycle_check;
-            bool cyclic = false;
-            bool mixed_orientation = false;
-            int64_t interval_length = 0;
-            int64_t fwd_count = 0, rev_count = 0;
-            for (int64_t i = uncovered_interval.first; i < uncovered_interval.second && !cyclic; ++i) {
-                handle_t handle = graph->get_handle_of_step(trav[i]);
-                interval_length += graph->get_length(handle);
-                nid_t node_id = graph->get_id(handle);
-                if (cycle_check.count(node_id)) {
-                    cyclic = true;
-                } else {
-                    cycle_check.insert(node_id);
+            // A fragment is written in one orientation, so a stretch that flips part way
+            // through cannot be used as it stands.  Split it at the flips rather than
+            // discarding it: at an inversion breakpoint the path that walks the inverted
+            // nodes *forwards* is exactly the one whose stretch spans the flip, so
+            // dropping it would leave only backwards-walking paths to cover them.
+            int64_t run_start = uncovered_interval.first;
+            while (run_start < uncovered_interval.second) {
+                bool run_reverse = graph->get_is_reverse(graph->get_handle_of_step(trav[run_start]));
+                int64_t run_end = run_start + 1;
+                while (run_end < uncovered_interval.second &&
+                       graph->get_is_reverse(graph->get_handle_of_step(trav[run_end])) == run_reverse) {
+                    ++run_end;
                 }
-                if (graph->get_is_reverse(handle)) {
-                    ++rev_count;
-                } else {
-                    ++fwd_count;
+
+                unordered_set<nid_t> cycle_check;
+                bool cyclic = false;
+                int64_t interval_length = 0;
+                for (int64_t i = run_start; i < run_end && !cyclic; ++i) {
+                    handle_t handle = graph->get_handle_of_step(trav[i]);
+                    interval_length += graph->get_length(handle);
+                    if (!cycle_check.insert(graph->get_id(handle)).second) {
+                        cyclic = true;
+                    }
                 }
-            }
-            mixed_orientation = fwd_count > 0 && rev_count > 0;
-            if (!cyclic && !mixed_orientation && interval_length >= minimum_length) {
-                int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, uncovered_interval);
-                ranked_trav_fragments.push_back({trav_coverage, &trav_names[trav_idx], trav_idx, uncovered_interval});
+                if (!cyclic && interval_length >= minimum_length) {
+                    pair<int64_t, int64_t> run = make_pair(run_start, run_end);
+                    int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, run);
+                    ranked_trav_fragments.push_back({trav_coverage, interval_length, run_reverse,
+                                                     &trav_names[trav_idx], trav_idx, run});
+                }
+                run_start = run_end;
             }
         }
     }
@@ -762,17 +776,16 @@ void GrefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
         if (chopped) {
             for (const pair<int64_t, int64_t>& chopped_interval : chopped_intervals) {
                 int64_t chopped_trav_length = 0;
-                bool chopped_mixed = false;
-                int64_t chopped_fwd = 0, chopped_rev = 0;
                 for (int64_t i = chopped_interval.first; i < chopped_interval.second; ++i) {
-                    handle_t h = graph->get_handle_of_step(trav[i]);
-                    chopped_trav_length += graph->get_length(h);
-                    if (graph->get_is_reverse(h)) { ++chopped_rev; } else { ++chopped_fwd; }
+                    chopped_trav_length += graph->get_length(graph->get_handle_of_step(trav[i]));
                 }
-                chopped_mixed = chopped_fwd > 0 && chopped_rev > 0;
-                if (!chopped_mixed && chopped_trav_length >= minimum_length) {
+                // candidates are single-orientation by construction, so a piece chopped
+                // out of one has its parent's orientation
+                if (chopped_trav_length >= minimum_length) {
                     int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, chopped_interval);
-                    ranked_trav_fragments.push_back({trav_coverage, best_stats_fragment.name, best_stats_fragment.trav_idx, chopped_interval});
+                    ranked_trav_fragments.push_back({trav_coverage, chopped_trav_length,
+                                                     best_stats_fragment.reverse, best_stats_fragment.name,
+                                                     best_stats_fragment.trav_idx, chopped_interval});
                     std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
                 }
             }

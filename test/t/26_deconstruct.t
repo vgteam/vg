@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 75
+plan tests 77
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -314,6 +314,22 @@ is $(grep -v "^#" default_ref.vcf | awk '$8 ~ /LV=0/ {print $1}') "x" "top-level
 is $(grep -v "^#" default_ref.vcf | grep -c "RC=x;") 2 "nested records point back at the base contig"
 
 rm -f default_ref.pg default_ref.vcf
+
+# The base/gref link has to be recognised even when the reference is haplotype sense --
+# any GFA without an RS header.  Going from a gref name back to the base path by dropping
+# the prefix cannot work there (the phase block is not recoverable), which left the base
+# sample in the VCF and inflated the counts.
+vg paths --compute-gref --min-gref-len 1 -x nesting/two_contig_gref_nors.gfa -Q GRCh38#0#chr1 > nors.pg
+vg deconstruct nors.pg -P gref_GRCh38#0#chr1 -a > nors.vcf
+is $(grep "^#CHROM" nors.vcf | cut -f10- | tr '\t' '\n' | grep -c "^GRCh38$") 0 "base reference is excluded even when it is haplotype sense"
+
+# ... and the sample set must not depend on whether the haplotypes come from a GBWT
+vg gbwt -E -x nors.pg -o nors.gbwt
+diff <(vg deconstruct nors.pg -P gref_GRCh38#0#chr1 -a | grep "^#CHROM") \
+     <(vg deconstruct nors.pg -g nors.gbwt -P gref_GRCh38#0#chr1 -a | grep "^#CHROM")
+is $? 0 "the gbwt sample scan excludes the other view of the reference too"
+
+rm -f nors.pg nors.vcf nors.gbwt
 
 # =============================================================================
 # RC, RS, RD tag tests (reference coordinate tags for nested snarls)

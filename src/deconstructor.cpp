@@ -1070,16 +1070,36 @@ string Deconstructor::get_vcf_header() {
     // asked to deconstruct against.  is_other_reference_view() catches those paths one by
     // one, but a sample also survives through its *other* contigs when only one contig's
     // reference is selected, and then it contributes an all-reference column.
+    // Ask the question in the direction that survives round-tripping.  Going the other
+    // way -- from a selected gref reference back to its base path by dropping the prefix
+    // -- does not work: make_gref_copy_name() drops the phase block (a reference-sense
+    // name cannot carry one), so gref_GRCh38#0#chr1 does not name GRCh38#0#chr1#0, which
+    // is what a GFA without an RS header gives you.
     other_ref_samples.clear();
-    for (const string& ref_path_name : ref_paths) {
-        string other_view = GrefCover::is_gref_derived(ref_path_name) ?
-            GrefCover::strip_gref_prefix(ref_path_name) :
-            GrefCover::make_gref_copy_name(ref_path_name);
-        if (other_view != ref_path_name && graph->has_path(other_view)) {
-            string other_sample = graph->get_sample_name(graph->get_path_handle(other_view));
-            if (other_sample != PathMetadata::NO_SAMPLE_NAME) {
-                other_ref_samples.insert(other_sample);
-            }
+    auto note_other_reference_view = [&](const string& path_name, const string& sample_name) {
+        if (!ref_paths.count(path_name) && sample_name != PathMetadata::NO_SAMPLE_NAME &&
+            is_other_reference_view(path_name)) {
+            other_ref_samples.insert(sample_name);
+        }
+    };
+    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+        note_other_reference_view(graph->get_path_name(path_handle),
+                                  graph->get_sample_name(path_handle));
+    });
+    if (gbwt) {
+        // The haplotypes are only visible through the GBWT here -- the overlay does not
+        // enumerate them -- and the base reference is one of them whenever it is
+        // haplotype sense, so this scan is the only thing that can spot it.
+        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
+            PathSense sense = gbwtgraph::get_path_sense(*gbwt, i, gbwt_reference_samples);
+            note_other_reference_view(PathMetadata::create_path_name(
+                                          sense,
+                                          gbwtgraph::get_path_sample_name(*gbwt, i, sense),
+                                          gbwtgraph::get_path_locus_name(*gbwt, i, sense),
+                                          gbwtgraph::get_path_haplotype(*gbwt, i, sense),
+                                          gbwtgraph::get_path_phase_block(*gbwt, i, sense),
+                                          gbwtgraph::get_path_subrange(*gbwt, i, sense)),
+                                      gbwtgraph::get_path_sample_name(*gbwt, i, sense));
         }
     }
 
@@ -1152,9 +1172,9 @@ string Deconstructor::get_vcf_header() {
                     gbwtgraph::get_path_haplotype(*gbwt, i, sense),
                     gbwtgraph::get_path_phase_block(*gbwt, i, sense),
                     gbwtgraph::get_path_subrange(*gbwt, i, sense));
-                if (!this->ref_paths.count(path_name)) {
+                if (!this->ref_paths.count(path_name) && !is_other_reference_view(path_name)) {
                     string sample_name = gbwtgraph::get_path_sample_name(*gbwt, i, sense);
-                    if (!ref_samples.count(sample_name)) {
+                    if (!ref_samples.count(sample_name) && !other_ref_samples.count(sample_name)) {
                         auto phase = gbwtgraph::get_path_haplotype(*gbwt, i, sense);
                         if (phase == PathMetadata::NO_HAPLOTYPE) {
                             // Default to 0.

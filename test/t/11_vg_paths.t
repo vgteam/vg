@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 87
+plan tests 90
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -289,6 +289,21 @@ is $(vg paths -x subranged_test.vg -L | grep -cE "^gref_GRCh38#0#chr1\[[0-9]+-[0
 is $(vg paths -x subranged_test.vg -L | grep -cE "^gref_GRCh38#0#chr1_[0-9]+_alt$") 2 "fragments off different subpaths get distinct names from the shared counter"
 
 rm -f subranged_test.vg
+
+# An inverted allele that another haplotype walks partly forward must still be covered in
+# one piece.  Preferring a forward fragment over a longer reverse one shatters it into two
+# sub-minimum pieces, and --min-gref-len then deletes both, so the sequence disappears from
+# the cover entirely -- and adding a haplotype to a graph would remove sequence from it.
+vg paths -x nesting/inverted_allele.gfa -Q GRCh38 --compute-gref --min-gref-len 50 > inverted_test.vg
+is $(vg paths -x inverted_test.vg -L | grep -c "_alt$") 1 "an inverted allele survives the length filter as one fragment"
+
+is "$(vg paths -x inverted_test.vg -E | grep "_alt" | cut -f2)" "60" "the whole inverted allele is covered, not just the part one haplotype walks forward"
+
+# Same graph with no length filter: still one piece, and every gref path is nodes-forward
+vg paths -x nesting/inverted_allele.gfa -Q GRCh38 --compute-gref --min-gref-len 1 > inverted_l1.vg
+is $(vg convert -f inverted_l1.vg 2>/dev/null | grep -E "^[PW]" | grep "gref_" | grep -c "<") 0 "gref paths never walk a node backwards"
+
+rm -f inverted_test.vg inverted_l1.vg
 
 rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
