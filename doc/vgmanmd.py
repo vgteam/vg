@@ -65,12 +65,6 @@ if 'synopsis' in desc:
     print(desc['synopsis'])
     print('\n\n')
 
-# table of contents
-#for cmd in cmds:
-#    print(' - [vg {cmd}](#{cmd})'.format(cmd=cmd))
-#
-#print('\n\n')
-
 print("COMMANDS")
 print("====")
 
