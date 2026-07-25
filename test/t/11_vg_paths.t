@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 90
+plan tests 111
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -304,6 +304,98 @@ vg paths -x nesting/inverted_allele.gfa -Q GRCh38 --compute-gref --min-gref-len 
 is $(vg convert -f inverted_l1.vg 2>/dev/null | grep -E "^[PW]" | grep "gref_" | grep -c "<") 0 "gref paths never walk a node backwards"
 
 rm -f inverted_test.vg inverted_l1.vg
+
+# --- Characterization tests -------------------------------------------------
+# These pin gref cover behaviour that previously existed only in code, ahead of
+# the interval-merging refactor (plan-gref-cover-refactor.md).  They are written
+# against the current implementation and must keep passing through it.
+
+# A cyclic reference path is a hard error, not a corrupt cover.  The cover
+# requires disjoint acyclic reference paths, and a path visiting a node twice
+# would give one node two rank-0 owners.
+vg paths -x nesting/cyclic_ref_multiple_variants.gfa -Q x --compute-gref --min-gref-len 1 > cyclic_ref.vg 2> cyclic_ref.err
+is $? 1 "a cyclic reference path is rejected rather than producing a bad cover"
+
+is $(grep -c "disjoint acyclic reference paths" cyclic_ref.err) 1 "the cyclic reference error explains the requirement"
+
+rm -f cyclic_ref.vg cyclic_ref.err
+
+# Recomputing the cover on a graph that already has one must reproduce it
+# exactly: clear() drops every gref path first, and gref paths are never used as
+# fragment sources.  Idempotence is what makes the cover safe to recompute.
+vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 1 > idem_1.vg
+vg paths -x idem_1.vg -Q x --compute-gref --min-gref-len 1 > idem_2.vg
+is $? 0 "recomputing a gref cover over an existing one succeeds"
+
+is $(vg paths -x idem_2.vg -L | grep -c "^gref_") $(vg paths -x idem_1.vg -L | grep -c "^gref_") "recomputing the cover does not accumulate gref paths"
+
+diff <(vg paths -x idem_1.vg -L | grep "^gref_" | sort) <(vg paths -x idem_2.vg -L | grep "^gref_" | sort)
+is $? 0 "recomputing the cover reproduces the same gref path names"
+
+diff <(vg paths -x idem_1.vg -E | grep "_alt" | cut -f2 | sort) <(vg paths -x idem_2.vg -E | grep "_alt" | cut -f2 | sort)
+is $? 0 "recomputing the cover reproduces the same fragment lengths"
+
+rm -f idem_1.vg idem_2.vg
+
+# A node on no path at all cannot be covered -- the cover only ever emits
+# substrings of existing paths.  It must warn and carry on, not crash or drop
+# the rest of the cover.
+vg paths -x nesting/unpathed_node.gfa -Q x --compute-gref --min-gref-len 1 > unpathed.vg 2> unpathed.err
+is $? 0 "a node on no path does not stop the cover"
+
+vg validate unpathed.vg
+is $? 0 "a graph with an unpathed node still produces a valid cover"
+
+is $(grep -c "not covered by gref paths" unpathed.err) 1 "an unpathed node is reported as uncovered"
+
+is $(vg paths -x unpathed.vg -L | grep -c "_alt$") 1 "the pathed off-reference node is still covered"
+
+rm -f unpathed.vg unpathed.err
+
+# Cross-path merging must be refused when the two paths diverge inside the
+# stretch being merged.  cross_path_merge.gfa covers the accept case; here
+# a#3#y2 reaches node 9 through 5,3 while the neighbouring fragment is 2,3, so
+# the backward extension mismatches at the second step and all three fragments
+# must stay separate.  Merging anyway would emit a path that is not a substring
+# of any haplotype.
+vg paths -x nesting/cross_path_merge_reject.gfa -Q x --compute-gref --min-gref-len 1 > reject_test.vg
+vg validate reject_test.vg
+is $? 0 "cross-path merge reject: gref computation produces valid graph"
+
+is $(vg paths -x reject_test.vg -L | grep -c "_alt$") 3 "a cross-path merge is refused when the paths diverge mid-stretch"
+
+is "$(vg paths -x reject_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "20" "refusing the merge still covers every off-reference node"
+
+rm -f reject_test.vg
+
+# A fragment that coalesces candidates from more than one snarl still gets one
+# segment line, with reference coordinates spanning the enclosing snarl.
+vg paths -x nesting/consecutive_nested.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs consec.segs > consec.vg
+is $(vg paths -x consec.vg -L | grep -c "_alt$") 1 "consecutive nested snarls are covered by a single fragment"
+
+is $(wc -l < consec.segs) 1 "a fragment spanning two nested snarls gets one segment line"
+
+is "$(cut -f5,6,7 consec.segs)" "$(printf 'x\t0\t2')" "the segment reference interval spans the enclosing snarl"
+
+rm -f consec.vg consec.segs
+
+# --compute-gref writes paths into the graph, so a read-only input has to say so
+# and say what to do about it, rather than reporting a generic failure.
+vg convert -p nesting/nested_snp_in_ins.gfa > gref_mut.pg
+vg gbwt -G nesting/nested_snp_in_ins.gfa --gbz-format -g gref_ro.gbz 2>/dev/null
+vg paths -x gref_ro.gbz -Q x --compute-gref --min-gref-len 1 > /dev/null 2> ro.err
+is $? 1 "--compute-gref refuses a read-only graph format"
+
+is $(grep -c "read-only format" ro.err) 1 "the read-only error names the problem"
+
+is $(grep -c "vg convert -p" ro.err) 1 "the read-only error says how to fix it"
+
+vg paths -x gref_mut.pg -o -Q x --compute-gref --min-gref-len 1 > /dev/null 2> ov.err
+is $? 1 "--compute-gref refuses -o/--overlay rather than blaming the input"
+
+is $(grep -c "overlay" ov.err) 1 "the overlay error names the overlay"
+
+rm -f gref_mut.pg gref_ro.gbz ro.err ov.err
 
 rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg

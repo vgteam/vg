@@ -479,9 +479,23 @@ int main_paths(int argc, char** argv) {
     
     // Handle gref computation before other operations
     if (compute_gref && graph) {
+        if (overlay) {
+            // The overlay wrapper is read-only, so -o would otherwise defeat
+            // --compute-gref and report it as a problem with the input file.
+            logger.error() << "--compute-gref cannot be combined with -o/--overlay,"
+                           << " which wraps the graph in a read-only overlay" << std::endl;
+            return 1;
+        }
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
         if (!mutable_graph) {
-            logger.error() << "graph cannot be modified for gref computation" << std::endl;
+            // --compute-gref writes new paths into the graph, so read-only formats
+            // (GBZ, XG) cannot be used directly no matter how they were loaded.
+            logger.error() << "--compute-gref writes paths into the graph, but " << graph_file
+                           << " is in a read-only format (such as GBZ or XG)." << std::endl
+                           << "         Convert it to a mutable format first, for example:"
+                           << std::endl
+                           << "           vg convert -p " << graph_file << " > graph.pg" << std::endl
+                           << "           vg paths -x graph.pg --compute-gref ..." << std::endl;
             return 1;
         }
 
