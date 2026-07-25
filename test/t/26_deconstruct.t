@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 69
+plan tests 75
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -284,6 +284,36 @@ is $(grep -v "^#" base_ref.vcf | grep -c "AN=3") 1 "base-reference vcf allele co
 is $(grep -v "^#" gref_ref.vcf | grep -c "AN=3") 2 "gref vcf allele counts are not inflated by the base reference"
 
 rm -f base_and_gref.pg base_ref.vcf gref_ref.vcf
+
+# A subranged reference must survive into the gref VCF with its coordinates: every region
+# deconstructed, at the same POS as the base VCF.
+vg paths --compute-gref --min-gref-len 1 -x nesting/subranged_ref.gfa -Q GRCh38 > subranged.pg
+vg deconstruct subranged.pg -P GRCh38 -a | grep -v "^#" | cut -f2,4,5 > subranged_base.tsv
+vg deconstruct subranged.pg -P gref_GRCh38 -a | grep -v "^#" | cut -f2,4,5 > subranged_gref.tsv
+is $(cat subranged_gref.tsv | wc -l) 2 "every subpath of a subranged reference is deconstructed in the gref vcf"
+diff subranged_base.tsv subranged_gref.tsv
+is $? 0 "gref vcf keeps the subrange offsets, so positions match the base vcf"
+
+rm -f subranged.pg subranged_base.tsv subranged_gref.tsv
+
+# Selecting one contig's gref reference must not let the base sample back in through its
+# other contigs: it would contribute an all-reference column and inflate AN.
+vg paths --compute-gref --min-gref-len 1 -x nesting/two_contig_gref.gfa -Q GRCh38 > two_contig.pg
+vg deconstruct two_contig.pg -P gref_GRCh38#0#chr1 -a > one_contig.vcf
+is $(grep "^#CHROM" one_contig.vcf | cut -f10- | tr '\t' '\n' | grep -c "^GRCh38$") 0 "base reference is not a sample when only its gref contig is selected"
+is $(grep -v "^#" one_contig.vcf | grep -c "AN=2") 1 "allele counts are not inflated when only one gref contig is selected"
+
+rm -f two_contig.pg one_contig.vcf
+
+# With no -p/-P, every reference-sense path is a reference, including both views of the
+# gref pair.  The record belongs on the base contig: a gref name sorts before the path it
+# was copied from (gref_x < x), so name order alone would put the derived name on it.
+vg paths --compute-gref --min-gref-len 1 -x nesting/nested_snp_in_ins.gfa -Q x > default_ref.pg
+vg deconstruct default_ref.pg -a > default_ref.vcf
+is $(grep -v "^#" default_ref.vcf | awk '$8 ~ /LV=0/ {print $1}') "x" "top-level record goes on the base contig, not its gref copy"
+is $(grep -v "^#" default_ref.vcf | grep -c "RC=x;") 2 "nested records point back at the base contig"
+
+rm -f default_ref.pg default_ref.vcf
 
 # =============================================================================
 # RC, RS, RD tag tests (reference coordinate tags for nested snarls)

@@ -437,34 +437,37 @@ void GrefCover::load(const PathHandleGraph* graph,
     });
 }
 
-string GrefCover::make_gref_base_name(const string& path_name) {
+string GrefCover::make_gref_copy_name(const string& path_name) {
     PathSense sense;
     string sample, locus;
     size_t haplotype, phase_block;
     subrange_t subrange;
     PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
 
-    // make_gref_name() appends "_{N}_alt", so the name has to end in the locus.  A
-    // trailing phase block would turn SAMPLE#HAP#CONTIG#0 into SAMPLE#HAP#CONTIG#0_1_alt,
-    // which no longer parses as a path name at all: it comes back GENERIC, with no sample
-    // and a '#' inside the locus.  Rebuilding as a reference-sense name drops the phase
-    // block and the subrange together.  Names with no sample have no structure to rebuild
-    // from, so they just lose the subrange.
+    // The phase block has to go: make_gref_name() appends "_{N}_alt" to the base name
+    // derived from this one, and a trailing phase block would turn SAMPLE#HAP#CONTIG#0
+    // into SAMPLE#HAP#CONTIG#0_1_alt, which no longer parses as a path name at all (it
+    // comes back GENERIC, with no sample and a '#' inside the locus).  The subrange
+    // stays: it is what keeps subpaths of one contig distinct, and dropping it here
+    // would collapse them onto one name.
     bool structured = sample != PathMetadata::NO_SAMPLE_NAME && locus != PathMetadata::NO_LOCUS_NAME;
-    string base_name;
-    if (structured) {
-        base_name = PathMetadata::create_path_name(PathSense::REFERENCE, sample, locus, haplotype,
-                                                   PathMetadata::NO_PHASE_BLOCK, PathMetadata::NO_SUBRANGE);
-    } else {
-        subrange_t stripped_subrange;
-        base_name = Paths::strip_subrange(path_name, &stripped_subrange);
-    }
+    string copy_name = structured ?
+        PathMetadata::create_path_name(PathSense::REFERENCE, sample, locus, haplotype,
+                                       PathMetadata::NO_PHASE_BLOCK, subrange) :
+        path_name;
 
     // Everything the cover writes lives in the gref namespace.  For a PanSN name the
     // prefix lands on the sample (GRCh38#0#chr1 -> gref_GRCh38#0#chr1), so the gref
     // paths form their own sample and both directions of the base <-> gref link stay
     // recoverable from the name alone.
-    return gref_prefix + base_name;
+    return gref_prefix + copy_name;
+}
+
+string GrefCover::make_gref_base_name(const string& path_name) {
+    // A fragment name is this plus "_{N}_alt", which has to land on the locus, so the
+    // subrange comes off here (and only here).
+    subrange_t subrange;
+    return Paths::strip_subrange(make_gref_copy_name(path_name), &subrange);
 }
 
 void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
@@ -1441,16 +1444,19 @@ void GrefCover::copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_g
     for (const path_handle_t& ref_path : reference_paths) {
         string ref_name = mutable_graph->get_path_name(ref_path);
 
-        // Same naming rule the fragments use, so a fragment and the contig it hangs
-        // off always agree on their base name.
-        string new_name = make_gref_base_name(ref_name);
+        // Same naming rule the fragments use, minus the subrange strip, so a fragment
+        // and the contig it hangs off always agree on their base name while subpaths of
+        // one contig stay distinct.
+        string new_name = make_gref_copy_name(ref_name);
 
-        // Check if path already exists
+        // Two reference paths mapping to one gref name would mean silently publishing
+        // only one of them, so refuse rather than drop sequence on the floor.
         if (mutable_graph->has_path(new_name)) {
-#ifdef debug
-            cerr << "[gref] copy_base_paths_to_gref: path " << new_name << " already exists, skipping" << endl;
-#endif
-            continue;
+            cerr << "[gref] error: reference path " << ref_name << " maps to gref path "
+                 << new_name << ", which already exists. Reference paths must have distinct"
+                 << " gref names; run vg paths --compute-gref on a graph with no gref paths"
+                 << " in it." << endl;
+            exit(1);
         }
 
         // Create the new path with same sense as original

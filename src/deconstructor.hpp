@@ -64,6 +64,9 @@ private:
     // not a sample: it would genotype as all-reference and inflate AC/AF/AN/NS.
     bool is_other_reference_view(const string& path_name) const;
 
+    // Samples that exist only as the other view (base or gref) of a selected reference.
+    set<string> other_ref_samples;
+
     // the header needs to be initialized *before* construction for vcflib
     // but we don't know all the non-ref contigs (in nested mode) until *after*
     // construction.  end result: this hacky function to patch them in before printing

@@ -323,7 +323,11 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             phase = 0;
         }
         gbwt_phases[i] = (int)phase;
-        if (sample_names.count(sample_name)) {
+        // is_other_reference_view() drops these paths per-path from the header scan, but
+        // sample identity is per-sample: when only one contig's gref reference is
+        // selected, the base sample survives via its other contigs, and this traversal
+        // would be re-attached to it and inflate AC/AF/AN/NS.
+        if (sample_names.count(sample_name) && !is_other_reference_view(names[i])) {
             sample_to_traversals[sample_name].push_back(i);
         }
     }
@@ -667,8 +671,17 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         }
 #endif
         bool ref_path_check = ref_paths.count(path_trav_name);
-        if (ref_path_check &&
-            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+        // Prefer a base reference over its gref copy when both are selected: they carry
+        // the same sequence, but a gref name sorts before the path it was copied from
+        // (gref_x < x), so name order alone would put the derived name on the record.
+        bool better_ref = ref_trav_name.empty();
+        if (!better_ref) {
+            bool best_is_gref = GrefCover::is_gref_derived(ref_trav_name);
+            bool this_is_gref = GrefCover::is_gref_derived(path_trav_name);
+            better_ref = best_is_gref != this_is_gref ? best_is_gref
+                                                      : path_trav_name < ref_trav_name;
+        }
+        if (ref_path_check && better_ref) {
             ref_trav_name = path_trav_name;
 #ifdef debug
 #pragma omp critical (cerr)
@@ -1039,7 +1052,7 @@ bool Deconstructor::is_other_reference_view(const string& path_name) const {
     // A base path whose gref copy is one of our references, so we're deconstructing
     // against the gref reference.  Other assemblies don't have a gref copy and so stay
     // samples.
-    return this->ref_paths.count(GrefCover::make_gref_base_name(path_name)) > 0;
+    return this->ref_paths.count(GrefCover::make_gref_copy_name(path_name)) > 0;
 }
 
 string Deconstructor::get_vcf_header() {
@@ -1053,6 +1066,23 @@ string Deconstructor::get_vcf_header() {
     if (!long_ref_contig) {
         long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
     }
+    // Samples that only exist in this graph as the other view of a reference we were
+    // asked to deconstruct against.  is_other_reference_view() catches those paths one by
+    // one, but a sample also survives through its *other* contigs when only one contig's
+    // reference is selected, and then it contributes an all-reference column.
+    other_ref_samples.clear();
+    for (const string& ref_path_name : ref_paths) {
+        string other_view = GrefCover::is_gref_derived(ref_path_name) ?
+            GrefCover::strip_gref_prefix(ref_path_name) :
+            GrefCover::make_gref_copy_name(ref_path_name);
+        if (other_view != ref_path_name && graph->has_path(other_view)) {
+            string other_sample = graph->get_sample_name(graph->get_path_handle(other_view));
+            if (other_sample != PathMetadata::NO_SAMPLE_NAME) {
+                other_ref_samples.insert(other_sample);
+            }
+        }
+    }
+
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
@@ -1086,6 +1116,10 @@ string Deconstructor::get_vcf_header() {
             }
 
             string sample_name = graph->get_sample_name(path_handle);
+            if (other_ref_samples.count(sample_name)) {
+                // Another contig of a sample that is the other view of our reference.
+                return;
+            }
             // for backward compatibility
             if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
                 sample_name = path_name;

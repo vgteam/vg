@@ -45,13 +45,20 @@ public:
     // The suffix used to identify gref fragments
     static const string gref_suffix;  // "_alt"
 
-    // Move a path name into the gref namespace.  Drops any phase block and subrange
-    // first, so that the "_{N}_alt" suffix a fragment adds always lands on the locus.
-    // Example: make_gref_base_name("CHM13#0#chr1") -> "gref_CHM13#0#chr1"
-    // For PanSN names the prefix renames the sample, which is what makes
-    // "is this path a gref path" and "which base path is it derived from"
-    // answerable from the name alone.  Everything that writes or recognizes gref
-    // names goes through here, including callers outside this class.
+    // Name of the gref copy of a path: the same name moved into the gref namespace,
+    // keeping its subrange so that subpaths of one contig stay distinct and keep their
+    // coordinates.  Example: make_gref_copy_name("CHM13#0#chr1[100-200]")
+    //                        -> "gref_CHM13#0#chr1[100-200]"
+    // For PanSN names the prefix renames the sample, which is what makes "is this path
+    // a gref path" and "which base path is it derived from" answerable from the name
+    // alone.  Anything matching a base path against its gref copy must use this.
+    static string make_gref_copy_name(const string& path_name);
+
+    // Name a fragment's gref base is built from: make_gref_copy_name() with the subrange
+    // dropped as well, since make_gref_name() appends "_{N}_alt" and that has to land on
+    // the locus.  Fragments off different subpaths of one contig therefore share a base
+    // name; the per-base counter keeps their full names distinct.
+    // Example: make_gref_base_name("CHM13#0#chr1[100-200]") -> "gref_CHM13#0#chr1"
     static string make_gref_base_name(const string& base_path_name);
 
     // Test if a name is in the gref namespace. Works on path names and, because

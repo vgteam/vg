@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 84
+plan tests 87
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -275,6 +275,20 @@ vg paths -x nesting/haplotype_sense_ref.gfa -Q GRCh38 --compute-gref --min-gref-
 is $(vg paths -x hap_sense_test.vg -L | grep -c "^gref_GRCh38#0#chr1_[0-9]*_alt$") 2 "gref names off a haplotype-sense reference drop the phase block"
 
 is $(vg paths -x hap_sense_test.vg -M | grep "_alt" | cut -f2 | sort -u) "REFERENCE" "gref paths off a haplotype-sense reference are reference sense"
+
+# Subpaths of one contig must stay distinct in the gref namespace.  The fragment base
+# name drops the subrange (the "_{N}_alt" suffix has to land on the locus), but the copy
+# keeps it: collapsing the copies would publish only one subpath and silently drop the
+# other one's sequence.
+vg paths -x nesting/subranged_ref.gfa -Q GRCh38 --compute-gref --min-gref-len 1 > subranged_test.vg
+vg validate subranged_test.vg
+is $? 0 "subranged reference: gref computation produces valid graph"
+
+is $(vg paths -x subranged_test.vg -L | grep -cE "^gref_GRCh38#0#chr1\[[0-9]+-[0-9]+\]$") 2 "each reference subpath gets its own gref copy"
+
+is $(vg paths -x subranged_test.vg -L | grep -cE "^gref_GRCh38#0#chr1_[0-9]+_alt$") 2 "fragments off different subpaths get distinct names from the shared counter"
+
+rm -f subranged_test.vg
 
 rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
