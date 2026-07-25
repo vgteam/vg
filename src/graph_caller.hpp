@@ -140,7 +140,8 @@ protected:
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                       const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
-                      function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
+                      function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr,
+                      const vector<pair<string, string>>& info_tags = {});
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
