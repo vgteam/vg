@@ -1030,7 +1030,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Two sides of nested snp unordered along read") {
-            // 0: [[1+0 3 {1  inf  3  inf  inf  17  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
+            // 0: [[1+0 3 {1  inf  3  inf  inf  inf  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
             // 1: [5+5 5+5]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -1064,8 +1064,8 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Traverse nested chain forwards but the orientation of the chain is backwards in the snarl tree") {
-            // [1+0 5 1+5 7 {1  inf  3  inf  0  inf  inf  7  3  0  inf
-            //     [4+0rev 0 (1  4  0  0 [3+0rev]) 4 2+0rev]} 0 5+0 4 5+4]
+            // [1+0 5 1+5 >21 7 {1  inf  3  inf  0  inf  inf  7  3  0  inf
+            //     [4+0rev 0 (1  4  0  0 [3+0rev]) 4 2+0rev]} 0 7< 5+0 4 5+4]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(1, false, 5);
@@ -1077,6 +1077,51 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                cerr << "Loop around inversion test didn't run because chain is reverse" << endl;
+            } else {
+                // Loop for 1+5
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 21);
+                REQUIRE(!zip_tree.get_item_at_index(4).get_is_reversed());
+                // Loop for 5+0
+                REQUIRE(zip_tree.get_item_at_index(35).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(35).get_value() == 7);
+                REQUIRE(zip_tree.get_item_at_index(35).get_is_reversed());
+            }
+        }
+        SECTION("Use a loop") {
+            // [7< 5+0 17 5-0rev]
+            vector<pos_t> positions;
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(5, true, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 2);
+                if (!zip_forest.trees[0].get_item_at_index(2).get_is_reversed()) {
+                    // 5+0 R->L can see 5-0
+                    REQUIRE(reverse_views.count({0, false}));
+                    REQUIRE(reverse_views[{0, false}].size() == 1);
+                    REQUIRE(reverse_views[{0, false}][0].seed == 1);
+                    REQUIRE(reverse_views[{0, false}][0].distance == 24);
+                    REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+
+                    // 5-0rev can see 5+0
+                    REQUIRE(reverse_views.count({1, true}));
+                    REQUIRE(reverse_views[{1, true}].size() == 1);
+                    REQUIRE(reverse_views[{1, true}][0].seed == 0);
+                    REQUIRE(reverse_views[{1, true}][0].distance == 24);
+                    REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
+                } else {
+                    cerr << "Not testing reverse views in 'Use a loop'" << endl;
+                }
+            }
         }
     }
     TEST_CASE("zip tree bubble nested in cyclic snarl", "[zip_tree]") {
@@ -1102,7 +1147,7 @@ namespace unittest {
 
         SECTION("Traverse nested chain forwards but the orientation of the chain is backwards in the snarl tree") {
             // [1+0 5 1+5 7 {1  inf  0  inf  inf  inf  inf  0  inf  3  inf
-            //     [2+0 4 (1  0  0  4 [3+0]) 0 4+0]} 0 5+0 4 5+4]
+            //     [2+0 4 (1  0  0  4 [3+0]) 0 4+0]} 0 0< 5+0 4 5+4]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(1, false, 5);
@@ -1137,8 +1182,8 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Traverse 3 backwards") {
-            // [1+0 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf
-            //     2  inf  inf  8  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 1 5+1]
+            // [1+0 >18 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf
+            //     2  inf  inf  8  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 1 8< 5+1]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(4, false, 0);
@@ -1148,6 +1193,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
 
             bool chain_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
             if (chain_is_reversed) {
@@ -1155,33 +1201,41 @@ namespace unittest {
             } else {
                 // Check some random elements
 
+                // First loop
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 18);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
                 // First seed
-                REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
+                REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
                 // Chain count
-                REQUIRE(zip_forest.trees[0].get_item_at_index(4).get_type() == ZipCodeTree::CHAIN_COUNT);
+                REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::CHAIN_COUNT);
                 // Chain start
-                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_tree.get_item_at_index(27).get_type() == ZipCodeTree::CHAIN_START);
                 // Second seed (4)
-                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_type() == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_value() == 1);
+                REQUIRE(zip_tree.get_item_at_index(28).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(28).get_value() == 1);
                 // Third seed (3-1)
-                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(31).get_type() == ZipCodeTree::SEED);
                 // Second chain within snarl may be reversed
-                if (zip_forest.trees[0].get_item_at_index(30).get_value() == 2) {
-                    REQUIRE(!zip_forest.trees[0].get_item_at_index(30).get_is_reversed());
+                if (zip_tree.get_item_at_index(31).get_value() == 2) {
+                    REQUIRE(!zip_tree.get_item_at_index(31).get_is_reversed());
                 } else {
-                    REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_is_reversed());
-                    REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_value() == 3);
+                    REQUIRE(zip_tree.get_item_at_index(31).get_is_reversed());
+                    REQUIRE(zip_tree.get_item_at_index(31).get_value() == 3);
                 }
+                // Final loop
+                REQUIRE(zip_tree.get_item_at_index(37).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(37).get_value() == 8);
+                REQUIRE(zip_tree.get_item_at_index(37).get_is_reversed());
             }
 
             SECTION("Check iterator") {
                 // For each seed, what seeds and distances do we see in reverse from it?
                 auto reverse_views = get_reverse_views(zip_forest);
                 // All five seeds go R->L,
-                // and the three in the cyclic snarl also go L->R
-                REQUIRE(reverse_views.size() == 8);
+                // and the three in the cyclic snarl & 1+0 also go L->R
+                REQUIRE(reverse_views.size() == 9);
                 if (!chain_is_reversed) {
                     // 4+0 R->L can only leave the snarl; it skips all chains
                     REQUIRE(reverse_views.count({1, false}));
@@ -1716,7 +1770,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Make the zip tree with a seed on each node") {
-            // [1+0 3 {2  inf  0  inf  6  inf  inf  0  inf  inf  inf  6  inf  6  inf
+            // [1+0 >12 3 {2  inf  0  inf  6  inf  inf  0  inf  inf  inf  6  inf  6  inf
             //     inf  3  inf  3  inf  3  inf [3+0][2+0]} 0 4+0 3 (1  0  0  3 [5+0]) 0 6+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -1788,8 +1842,7 @@ namespace unittest {
         Node* n2 = graph.create_node("GCA");
         Node* n3 = graph.create_node("GCA");
         Node* n4 = graph.create_node("GCA");
-        Node* n5 = graph.create_node("GAC");
-        Node* n6 = graph.create_node("AAAAAAAAAAAAAAAGCA");
+        Node* n5 = graph.create_node("AAAAAAAAAAAAAAAGCA");
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n4, false, true);
@@ -1799,15 +1852,14 @@ namespace unittest {
         Edge* e6 = graph.create_edge(n3, n4);
         Edge* e7 = graph.create_edge(n3, n4, true, false);
         Edge* e8 = graph.create_edge(n4, n5);
-        Edge* e9 = graph.create_edge(n5, n6);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Go forward through the inversions") {
-            // [1+0 3 {1  inf  3  inf  0  inf  inf  9  3  0  inf [4+0rev 0
-            //     {1  inf  0  inf  2  inf  inf  3  0  2  inf [3+0 1 3+1]} 3 2+0rev]} 0 5+0 3 6+0]
+            // [1+0 >15 3 {1  inf  3  inf  0  inf  inf  9  3  0  inf [4+0rev >3 0
+            //     {1  inf  0  inf  2  inf  inf  3  0  2  inf [3+0 1 3+1]} 3 9< 2+0rev]} 0 9< 5+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -1815,13 +1867,34 @@ namespace unittest {
             positions.emplace_back(3, false, 1);
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
-            positions.emplace_back(6, false, 0);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
-            assert(zip_tree.get_tree_size() == 45);
+            REQUIRE(zip_tree.get_tree_size() == 47);
+
+            bool chain_is_reversed = zip_tree.get_item_at_index(1).get_is_reversed();
+            if (!chain_is_reversed) {
+                // Check loops
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 15);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                
+                REQUIRE(zip_tree.get_item_at_index(18).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(18).get_value() == 3);
+                REQUIRE(!zip_tree.get_item_at_index(18).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(39).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(39).get_value() == 9);
+                REQUIRE(zip_tree.get_item_at_index(39).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(44).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(44).get_value() == 9);
+                REQUIRE(zip_tree.get_item_at_index(44).get_is_reversed());
+            } else {
+                cerr << "Part of 'Go forward through the inversions' not run" << endl;
+            }
 
             SECTION("Count dags") {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
@@ -1832,8 +1905,8 @@ namespace unittest {
             SECTION("Check iterator") {
                 // For each seed, what seeds and distances do we see in reverse from it?
                 auto reverse_views = get_reverse_views(zip_forest);
-                // All seven seeds go R->L,
-                // and the four in the cyclic snarl also go L->R
+                // All six seeds go R->L,
+                // and the four in the cyclic snarl & 1+0 also go L->R
                 REQUIRE(reverse_views.size() == 11);
                 // 3+0 R->L can see 2+0 inside & 1+0 outside
                 REQUIRE(reverse_views.count({2, false}));
@@ -1849,8 +1922,8 @@ namespace unittest {
             }
         }
         SECTION("Reverse both inversions") {
-            // [1+0 3 {1  inf  0  inf  3  inf  inf  9  0  3  inf [4-0 3
-            //     {1  inf  0  inf  2  inf  inf  3  0  2  inf [3+0 1 3+1]} 0 2-0]} 0 5+0 3 6+0]
+            // [1+0 >15 3 {1  inf  0  inf  3  inf  inf  9  0  3  inf [4-0 >9 3
+            //     {1  inf  0  inf  2  inf  inf  3  0  2  inf [3+0 1 3+1]} 0 3< 2-0]} 0 9< 5+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(4, true, 0);
@@ -1858,7 +1931,6 @@ namespace unittest {
             positions.emplace_back(3, false, 1);
             positions.emplace_back(2, true, 0);
             positions.emplace_back(5, false, 0);
-            positions.emplace_back(6, false, 0);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
@@ -1868,6 +1940,236 @@ namespace unittest {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
+            }
+        }
+    }
+    TEST_CASE("zip tree neighboring inversions", "[zip_tree]") {
+        VG graph;
+ 
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("GT");
+        Node* n4 = graph.create_node("CTGAA");
+        Node* n5 = graph.create_node("GCA");
+ 
+        // Inversion 1-3 and 3-5
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n2, false, true);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n3, true, false);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n4, false, true);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n4, n5, true, false);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("Seed on every node") {
+            // [1+0 >7 3 {1  inf  0  9  1  10  11  1  0  1  inf [2+0]} 
+            //     0 1< 3+0 >9 2 
+            //     {1  inf  0  5  5  10  15  5  0  5  inf [4+0]} 0 5< 5+0]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 45);
+
+            bool chain_is_reversed = zip_tree.get_item_at_index(1).get_is_reversed();
+            if (!chain_is_reversed) {
+                // Check loops
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 7);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                
+                REQUIRE(zip_tree.get_item_at_index(21).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(21).get_value() == 1);
+                REQUIRE(zip_tree.get_item_at_index(21).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(23).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(23).get_value() == 9);
+                REQUIRE(!zip_tree.get_item_at_index(23).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(42).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(42).get_value() == 5);
+                REQUIRE(zip_tree.get_item_at_index(42).get_is_reversed());
+            } else {
+                cerr << "Part of 'zip tree neighboring inversions' not run" << endl;
+            }
+        }
+        SECTION("Cut off between nodes") {
+            // 0: [1+0 >7]
+            // 1: [{1  inf  0  9  1  10  11  1  0  1  inf [2+0]} 0 1< 3+0 >9]
+            // 2: [5< {1  inf  0  5  5  10  15  5  0  5  inf [4+0]} 0 5< 5+0]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 1);
+            REQUIRE(zip_forest.trees.size() == 3);
+            REQUIRE(zip_forest.trees[0].get_tree_size() == 4);
+            REQUIRE(zip_forest.trees[1].get_tree_size() == 22);
+            REQUIRE(zip_forest.trees[2].get_tree_size() == 22);
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                // All five seeds go R->L,
+                // and the two in the inversions & 1+0 & 3+0 also go L->R
+                REQUIRE(reverse_views.size() == 9);
+                // Bounce back and forth to see 3+0 from itself
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].size() == 1);
+                // Edge to 3+0
+                REQUIRE(reverse_views[{2, false}][0].seed == 2);
+                REQUIRE(reverse_views[{2, false}][0].distance == 10);
+                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+            }
+        }
+        SECTION("Inversions have no seeds") {
+            // [1+0 >7 4 1< 3+0 >9 7 5< 5+0]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(5, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 11);
+
+            bool chain_is_reversed = zip_tree.get_item_at_index(1).get_is_reversed();
+            if (!chain_is_reversed) {
+                // Check loops
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 7);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 1);
+                REQUIRE(zip_tree.get_item_at_index(4).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(6).get_value() == 9);
+                REQUIRE(!zip_tree.get_item_at_index(6).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(8).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(8).get_value() == 5);
+                REQUIRE(zip_tree.get_item_at_index(8).get_is_reversed());
+            } else {
+                cerr << "Part of 'zip tree neighboring inversions' not run" << endl;
+            }
+        }
+        SECTION("First inversion missing") {
+            // [5< {1  inf  0  5  5  10  15  5  0  5  inf [4+0]} 0 5< 5+0]
+            vector<pos_t> positions;
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 22);
+
+            bool chain_is_reversed = zip_tree.get_item_at_index(20).get_is_reversed();
+            if (!chain_is_reversed) {
+                // Check loops
+                REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 5);
+                REQUIRE(zip_tree.get_item_at_index(1).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(19).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(19).get_value() == 5);
+                REQUIRE(zip_tree.get_item_at_index(19).get_is_reversed());
+            } else {
+                cerr << "Part of 'zip tree neighboring inversions' not run" << endl;
+            }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 3);
+                // 5+0 can't see anything, even with the loop
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].empty());
+            }
+        }
+        SECTION("Snip out second inversion") {
+            // [4+2]
+            vector<pos_t> positions;
+            positions.emplace_back(4, false, 2);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 1);
+            REQUIRE(zip_forest.trees.size() == 1);
+            REQUIRE(zip_forest.trees[0].get_tree_size() == 3);
+        }
+        SECTION("Second inversion missing") {
+            // [1+0 3 1-0rev >1 0 {1  inf  0  inf  1  inf  inf  1  0  1  inf [2+0]} >9]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(1, true, 0);
+            positions.emplace_back(2, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 24);
+
+            bool chain_is_reversed = zip_tree.get_item_at_index(1).get_is_reversed();
+            if (!chain_is_reversed) {
+                // Check loops
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 1);
+                REQUIRE(!zip_tree.get_item_at_index(4).get_is_reversed());
+
+                REQUIRE(zip_tree.get_item_at_index(22).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(22).get_value() == 9);
+                REQUIRE(!zip_tree.get_item_at_index(22).get_is_reversed());
+            } else {
+                cerr << "Part of 'zip tree neighboring inversions' not run" << endl;
+            }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                // All seeds can see in both directions
+                REQUIRE(reverse_views.size() == 6);
+                // 1-0rev can take the loop to see 1+0
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].size() == 1);
+                REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                REQUIRE(reverse_views[{1, false}][0].distance == 4);
+                REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].size() == 1);
+                // 2+0 can simply exit the snarl's left side to see 1+0...
+                REQUIRE(reverse_views[{2, false}][0].seed == 0);
+                REQUIRE(reverse_views[{2, false}][0].distance == 3);
+                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+                // ... or exit the right side, take the loop, and go back to 1+0
+                // Except it won't do that becuase the distance is worse
+
+                REQUIRE(reverse_views.count({2, true}));
+                REQUIRE(reverse_views[{2, true}].size() == 2);
+                // 2+0rev can do similarly, but with the loop option first
+                REQUIRE(reverse_views[{2, true}][0].seed == 1);
+                REQUIRE(reverse_views[{2, true}][0].distance == 11);
+                REQUIRE(reverse_views[{2, true}][0].is_reversed == true);
+                // And since the loop is worse, we'll find the seed again
+                REQUIRE(reverse_views[{2, true}][1].seed == 1);
+                REQUIRE(reverse_views[{2, true}][1].distance == 1);
+                REQUIRE(reverse_views[{2, true}][1].is_reversed == true);
             }
         }
     }
@@ -1896,7 +2198,7 @@ namespace unittest {
             //     inf  inf  inf  inf  inf  inf  inf  inf  inf  inf  8  inf  2
             //     inf  4  inf  inf  12  inf  6  0  8  0  8  inf
             //     [4+4rev 4+4rev 2 4+2rev 4+2rev 2 4+0rev 4+0rev]
-            //     [3+0 3+0 2 3+2 3+2 2 3+4 3+4][2+0 2+0 2 2+2 2+2 2 2+4 2+4]}
+            //     [3+0 3+0 2 3+2 3+2 2 3+4 3+4][2+0 2+0 2 2+2 2+2 2 2+4 2+4]} 24 60< 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2004,10 +2306,10 @@ namespace unittest {
     TEST_CASE("zip tree self loops", "[zip_tree]") {
         VG graph;
 
-        Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAA");
-        Node* n2 = graph.create_node("AAAGCAAAAAA");
-        Node* n3 = graph.create_node("TT");
-        Node* n4 = graph.create_node("GACAAAAAAAAAAAAAAAAAAAA");
+        Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAA"); // length 24
+        Node* n2 = graph.create_node("AAAGCAAAAAA"); // length 11
+        Node* n3 = graph.create_node("TT"); // length 2
+        Node* n4 = graph.create_node("GACAAAAAAAAAAAAAAAAAAAA"); // length 23
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n2, n2, true, false);
@@ -2052,8 +2354,8 @@ namespace unittest {
             }
         }
         SECTION("Cyclic snarl with seeds on either side") {
-            // [4+0rev 0 {1  inf  0  0  22  22  20  24  0  22  inf 
-            //     [2+0 0 2-11rev 1 2+1 0 2-10rev 1 2+2 0 2-9rev]} 24 1+0rev]
+            // [4+0rev >24 0 {1  inf  0  0  22  22  20  24  0  22  inf 
+            //     [2+0 0 2-11rev 1 2+1 0 2-10rev 1 2+2 0 2-9rev]} 24 72< 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2066,14 +2368,51 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+
+            if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                // Loop for 4+0rev
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 24);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                // Loop for 1+0rev
+                REQUIRE(zip_tree.get_item_at_index(31).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(31).get_value() == 72);
+                REQUIRE(zip_tree.get_item_at_index(31).get_is_reversed());
+            } else {
+                cerr << "Loop existance test didn't run because chain is forward" << endl;
+            }
 
             // Check self-loop distances
             // c1_left -> c1_left
-            REQUIRE(zip_forest.trees[0].get_item_at_index(7).get_value() == 0);
+            REQUIRE(zip_tree.get_item_at_index(8).get_value() == 0);
             // c1_left -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(9).get_value() == 22);
+            REQUIRE(zip_tree.get_item_at_index(10).get_value() == 22);
             // c1_right -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 20);
+            REQUIRE(zip_tree.get_item_at_index(11).get_value() == 20);
+        }
+        SECTION("Seeds with - pos on either side of cyclic snarl") {
+            // [4-0 >70 47 24< 1-0]
+            vector<pos_t> positions;
+            positions.emplace_back(1, true, 0);
+            positions.emplace_back(4, true, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+
+            if (!zip_tree.get_item_at_index(1).get_is_reversed()) {
+                // Loop for 4-0
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 70);
+                REQUIRE(!zip_tree.get_item_at_index(2).get_is_reversed());
+                // Loop for 1+0rev
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::LOOP);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 24);
+                REQUIRE(zip_tree.get_item_at_index(4).get_is_reversed());
+            } else {
+                cerr << "Loop existance test didn't run because chain is reversed" << endl;
+            }
         }
         SECTION("Duplicate seed with reversed in between") {
             // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 2+0 0 2-11rev]}]
@@ -2248,9 +2587,9 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Five buckets") {
-            // 0: [1+0 3 1+3 2 1+5 2 {1  inf  0  inf  inf  inf  inf  22  0  inf  inf [2+0]}]
+            // 0: [1+0 3 1+3 2 1+5 >26 2 {1  inf  0  inf  inf  inf  inf  22  0  inf  inf [2+0]}]
             // 1: [2+7 2 2+9 1 2+10]
-            // 2: [3-3rev]
+            // 2: [44< 3-3rev]
             // 3: [5+0]
             // 4: [4+0]
             vector<pos_t> positions;
@@ -2693,14 +3032,14 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed outside inversion") {
-            // [{1  inf  7  9  4  6  3  6  2  11  inf [4+0rev]}]
+            // [{1  inf  7  9  4  6  3  6  2  11  inf [4+0rev >3]}]
             vector<pos_t> positions;
             positions.emplace_back(4, false, 0);
 
             make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed inside and one seed outside inversion") {
-            // [{1  inf  7  9  1  6  9  6  2  8  inf [4+0rev 0
+            // [{1  inf  7  9  1  6  9  6  2  8  inf [4+0rev >3 0
             //     {1  inf  0  3  3  6  9  3  0  3  inf [3+0]}]}]
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
@@ -2711,7 +3050,7 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on either side of inversion") {
-            // [{1  inf  7  9  0  2  7  6  2  7  inf [4+0rev 4 2+0rev]}]
+            // [{1  inf  7  9  0  2  7  6  2  7  inf [4+0rev >3 4 5< 2+0rev]}]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
             positions.emplace_back(4, false, 0);
@@ -2721,8 +3060,8 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on each node") {
-            // [1+0 3 {1  inf  7  9  0  2  7  6  2  7  inf [4+0rev 0
-            //     {1  inf  0  3  3  6  9  3  0  3  inf [3+0]} 1 2+0rev]} 0 5+0]
+            // [1+0 >11 3 {1  inf  7  9  0  2  7  6  2  7  inf [4+0rev >3 0
+            //     {1  inf  0  3  3  6  9  3  0  3  inf [3+0]} 1 5< 2+0rev]} 0 7< 5+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2793,7 +3132,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("One seed in inner duplication") {
-            // [{1  inf  1  inf  inf  0  inf  6  inf  2  inf
+            // [{1  inf  1  inf  inf  3  inf  6  inf  2  inf
             //     [{1  inf  0  inf  inf  3  inf  3  inf  3  inf [3+0]}]}]
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
@@ -3022,9 +3361,9 @@ namespace unittest {
             REQUIRE(zip_forest.trees[0].get_item_at_index(18).get_value() == 1);
         }
         SECTION("One seed on each node") {
-            // [7+0rev 0 {2  inf  1  2  2  inf  inf  6  0  inf  inf  1  2  inf  
+            // [7+0rev >7 0 {2  inf  1  2  2  inf  inf  6  0  inf  inf  1  2  inf  
             //     inf  2  1  2  2  0  2  inf [3+0 3 (2  0  0  1  1  1  1 [4+0][5+0]) 
-            //     0 6+0][2+0]} 13 1+0rev]
+            //     0 6+0][2+0]} 13 28< 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -3079,6 +3418,87 @@ namespace unittest {
             positions.emplace_back(14, false, 0);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+        }
+    }
+    TEST_CASE("Regular snarl to left of inversion", "[zip_tree]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("AAAAAAAAAAAAA");
+        Node* n2 = graph.create_node("TATAT");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("CAT");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("AAAAAAAAAAAA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n5, n6);
+        Edge* e7 = graph.create_edge(n4, n5, false, true);
+        Edge* e8 = graph.create_edge(n5, n6, true, false);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed in cyclic snarl") {
+            // [(1  0  1  5 [2+0]) >7]
+            vector<pos_t> positions;
+            positions.emplace_back(2, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 12);
+            
+            // Check loop
+            REQUIRE(zip_tree.get_item_at_index(10).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(10).get_value() == 7);
+            REQUIRE(!zip_tree.get_item_at_index(10).get_is_reversed());
+        }
+        SECTION("One seed on each node") {
+            // [1+0 13 (2  0  0  inf  1  5  1 [2+0][3+0]) 0 4+0 >7 3 
+            //     {1  inf  0  inf  1  inf  inf  1  0  1  inf [5+0]} 0 1< 6+0]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 42);
+
+            // Check loops
+            REQUIRE(zip_tree.get_item_at_index(20).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(20).get_value() == 7);
+            REQUIRE(!zip_tree.get_item_at_index(20).get_is_reversed());
+
+            REQUIRE(zip_tree.get_item_at_index(39).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_tree.get_item_at_index(39).get_value() == 1);
+            REQUIRE(zip_tree.get_item_at_index(39).get_is_reversed());
+        }
+        SECTION("Snip out snarl which has a forward loop") {
+            // 0: [1+0 >35]
+            // 1: [2+2]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 2);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 1);
+            REQUIRE(zip_forest.trees.size() == 2);
+            REQUIRE(zip_forest.trees[0].get_tree_size() == 4);
+            REQUIRE(zip_forest.trees[1].get_tree_size() == 3);
+
+            // Check loop
+            REQUIRE(zip_forest.trees[0].get_item_at_index(2).get_type() == ZipCodeTree::LOOP);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(2).get_value() == 35);
+            REQUIRE(!zip_forest.trees[0].get_item_at_index(2).get_is_reversed());
         }
     }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {

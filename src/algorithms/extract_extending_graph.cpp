@@ -16,7 +16,7 @@ namespace algorithms {
 using namespace structures;
 
 unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, DeletableHandleGraph* into, int64_t max_dist, pos_t pos,
-                                                  bool backward, bool preserve_cycles_on_src_node) {
+                                                  bool backward, bool preserve_cycles_on_src_node, nid_t* new_tip_id) {
     
     if (into->get_node_count()) {
         cerr << "error:[extract_extending_graph] must extract into an empty graph" << endl;
@@ -223,10 +223,17 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
     if (is_rev(pos) == backward) {
         into->destroy_handle(halves.first);
         id_trans[into->get_id(halves.second)] = id(pos);
+        // Memory for where the end is
+        if (new_tip_id != nullptr) {
+            *new_tip_id = into->get_id(halves.second);
+        }
     }
     else {
         into->destroy_handle(halves.second);
         id_trans[into->get_id(halves.first)] = id(pos);
+        if (new_tip_id != nullptr) {
+            *new_tip_id = into->get_id(halves.first);
+        }
     }
     
     crash_unless(id_trans.size() == into->get_node_count());

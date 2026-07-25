@@ -19,7 +19,10 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                                                    DeletableHandleGraph* into,
                                                    int64_t max_len,
                                                    pos_t pos_1, pos_t pos_2,
-                                                   bool strict_max_len) {
+                                                   bool strict_max_len,
+                                                   bool preserve_cycles_on_src_nodes,
+                                                   nid_t* new_start_id,
+                                                   nid_t* new_end_id) {
 #ifdef debug_vg_algorithms
     cerr << "[extract_connecting_graph] max len: " << max_len << ", pos 1: " << pos_1 << ", pos 2: " << pos_2 << endl;
 #endif
@@ -111,6 +114,9 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // the max length of the part of a path preceding the final node in each direction
     int64_t forward_max_len = max_len - last_traversal_length;
     int64_t backward_max_len = max_len - first_traversal_length;
+
+    bool seen_pos_1_both_ways = false;
+    bool seen_pos_2_both_ways = false;
     
     // STEP 1: FORWARD SEARCH (TO EXTRACT SUBGRAPH)
     // separately handle (common) edge case that both positions are on the same node
@@ -159,7 +165,9 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                     << source->get_id(trav.handle) << " " << source->get_is_reverse(trav.handle)
                     << " -> " << next_id << " " << next_rev << endl;
 #endif
-                found_target = found_target || (next_id == id(pos_2) && next_rev == is_rev(pos_2));
+                found_target |= (next_id == id(pos_2) && next_rev == is_rev(pos_2));
+                seen_pos_1_both_ways |= (next_id == id(pos_1) && next_rev != is_rev(pos_1));
+                seen_pos_2_both_ways |= (next_id == id(pos_2) && next_rev != is_rev(pos_2));
                 max_id = max(max_id, next_id);
                 
                 // make sure the node is in
@@ -282,14 +290,27 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     switch (colocation) {
         case SeparateNodes:
         {
-            // split the node, update the IDs, and clean up the other side
-            cut_handle_1 = into->truncate_handle(into_handle_1, true, offset(pos_1));
-            id_trans.erase(id(pos_1));
+            if (seen_pos_1_both_ways && preserve_cycles_on_src_nodes) {
+                // make a new node which will preserve edges on right
+                handle_t dup_node = duplicate_node(into_handle_1, false, true);
+                cut_handle_1 = into->truncate_handle(dup_node, true, offset(pos_1));
+            } else {
+                // split the node, update the IDs, and clean up the other side
+                cut_handle_1 = into->truncate_handle(into_handle_1, true, offset(pos_1));
+                id_trans.erase(id(pos_1));
+            }
             id_trans[into->get_id(cut_handle_1)] = id(pos_1);
             
             // repeat for the second position
-            cut_handle_2 = into->truncate_handle(into_handle_2, false, offset(pos_2));
-            id_trans.erase(id(pos_2));
+            if (seen_pos_2_both_ways && preserve_cycles_on_src_nodes) {
+                // make a new node which will preserve edges on left
+                handle_t dup_node = duplicate_node(into_handle_2, true, false);
+                cut_handle_2 = into->truncate_handle(dup_node, false, offset(pos_2));
+            } else {
+                // split the node, update the IDs, and clean up the other side
+                cut_handle_2 = into->truncate_handle(into_handle_2, false, offset(pos_2));
+                id_trans.erase(id(pos_2));
+            }
             id_trans[into->get_id(cut_handle_2)] = id(pos_2);
             
             break;
@@ -522,6 +543,13 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // on the first node being offset (however this information is fully contained in the arguments of
     // the function, which are obviously available in the environment that calls it)
     crash_unless(id_trans.size() == into->get_node_count());
+    // Remembere where the edge nodes ended up
+    if (new_start_id != nullptr) {
+        *new_start_id = into->get_id(cut_handle_1);
+    }
+    if (new_end_id != nullptr) {
+        *new_end_id = into->get_id(cut_handle_2);
+    }
     return id_trans;
 }
 
