@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 61
+plan tests 81
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -204,9 +204,77 @@ is $? 0 "cross-path right merge: gref computation produces valid graph"
 # Cross-path merge should combine dangling [9] + snarl interval [2,3,4] into one path on hap3
 is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path right merge reduces gref path count"
 
+# A haplotype that walks the whole reference path with extra sequence before it must not
+# be able to swallow the rank-0 reference interval during cross-path merging.  When it
+# did, the reference slot was taken over by the haplotype: fragments got named after it
+# (a#1#y0#0_1_alt) and the extra sequence lost its cover entirely.
+vg paths -x nesting/hap_extends_ref_start.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs ref_start.segs > ref_start_test.vg
+vg validate ref_start_test.vg
+is $? 0 "haplotype extending past reference start: gref computation produces valid graph"
+
+is $(vg paths -x ref_start_test.vg -L | grep "_alt$" | wc -l) 2 "haplotype extending past reference start covers both off-reference nodes"
+
+is $(vg paths -x ref_start_test.vg -L | grep -cE "^x_[0-9]+_alt$") 2 "gref paths stay named after the reference, not the haplotype that spans it"
+
+is "$(vg paths -x ref_start_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "16" "gref cover includes the sequence before the reference start"
+
+is $(cut -f5 ref_start.segs | grep -c "^x$") 2 "gref-segs reference column stays on the reference path"
+
+# Same, with the extra sequence after the reference path's last node (the other merge branch)
+vg paths -x nesting/hap_extends_ref_end.gfa -Q x --compute-gref --min-gref-len 1 > ref_end_test.vg
+vg validate ref_end_test.vg
+is $? 0 "haplotype extending past reference end: gref computation produces valid graph"
+
+is $(vg paths -x ref_end_test.vg -L | grep "_alt$" | wc -l) 2 "haplotype extending past reference end covers both off-reference nodes"
+
+is $(vg paths -x ref_end_test.vg -L | grep -cE "^x_[0-9]+_alt$") 2 "gref paths after reference end stay named after the reference"
+
+# 16bp = the two off-reference nodes only.  A gref path that had absorbed the reference
+# interval would span it too and come to 24bp.
+is "$(vg paths -x ref_end_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "16" "gref paths do not absorb the reference path itself"
+
+# Intervals that abut across an orientation flip must not be merged: the result would be a
+# mixed-orientation interval, which apply() and write_gref_segments() both skip, silently
+# dropping sequence that the cover still counts as covered.
+vg paths -x nesting/orientation_flip.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs flip.segs > flip_test.vg
+vg validate flip_test.vg
+is $? 0 "orientation flip: gref computation produces valid graph"
+
+is $(vg paths -x flip_test.vg -L | grep "_alt$" | wc -l) 2 "intervals on either side of an orientation flip are kept separate"
+
+is "$(vg paths -x flip_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "32" "no sequence is dropped at an orientation flip"
+
+is $(wc -l < flip.segs) 2 "gref-segs describes every emitted fragment at an orientation flip"
+
+# Fragments in a component with no reference path get named after their source path.  The
+# name still has to be a valid path name: the "_{N}_alt" suffix must land on the locus, not
+# after a phase block, or the result parses as GENERIC with a '#' inside the locus and drops
+# out of the gref sample entirely.
+vg paths -x nesting/unanchored_component.gfa -Q GRCh38 --compute-gref --min-gref-len 1 --gref-sample GREF --gref-segs unanchored.segs > unanchored_test.vg
+vg validate unanchored_test.vg
+is $? 0 "reference-disconnected component: gref computation produces valid graph"
+
+is $(vg paths -x unanchored_test.vg -M | grep "_alt" | cut -f2 | sort -u) "REFERENCE" "gref paths in a reference-disconnected component are still reference sense"
+
+is $(vg paths -x unanchored_test.vg -M | grep "_alt" | cut -f5 | grep -c "#") 0 "gref path names never leave a separator inside the locus"
+
+is $(vg paths -x unanchored_test.vg -S GREF -L | grep -c "_alt") 3 "every gref path is selectable by the gref sample"
+
+diff <(cut -f4 unanchored.segs | sort) <(vg paths -x unanchored_test.vg -L | grep "_alt" | sort)
+is $? 0 "gref-segs names match the gref paths that were created"
+
+# A PanSN reference read from a GFA without an RS header comes in as haplotype sense, so its
+# name carries a phase block (GRCh38#0#chr1#0) that must not survive into the gref name.
+vg paths -x nesting/haplotype_sense_ref.gfa -Q GRCh38 --compute-gref --min-gref-len 1 > hap_sense_test.vg
+is $(vg paths -x hap_sense_test.vg -L | grep -c "^GRCh38#0#chr1_[0-9]*_alt$") 2 "gref names off a haplotype-sense reference drop the phase block"
+
+is $(vg paths -x hap_sense_test.vg -M | grep "_alt" | cut -f2 | sort -u) "REFERENCE" "gref paths off a haplotype-sense reference are reference sense"
+
 rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
 rm -f cross_merge_test.vg cross_merge_right_test.vg
+rm -f ref_start_test.vg ref_start.segs ref_end_test.vg flip_test.vg flip.segs
+rm -f unanchored_test.vg unanchored.segs hap_sense_test.vg
 
 
 

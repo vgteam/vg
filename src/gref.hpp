@@ -110,6 +110,14 @@ public:
 
 protected:
 
+    // Resolve the base name that a fragment's gref name is built from, given the path
+    // the fragment is named after (the reference it hangs off, or its source path when
+    // there is no reference to reach).  Drops the phase block and subrange so that the
+    // "_{N}_alt" suffix always lands on the locus, and re-homes the name under
+    // gref_sample_name when one is set.  apply() and write_gref_segments() must both use
+    // this, or the names in the segment table stop matching the paths that get created.
+    string resolve_base_path_name(const string& path_name) const;
+
     // Compute the cover for the given snarl, by greedily finding the covered paths through it.
     // The cover is added to the two "thread_" structures.
     // top_snarl_start/end are the boundary node IDs of the top-level snarl containing this snarl.
@@ -151,8 +159,9 @@ protected:
     optional<step_handle_t> try_extend_forward(step_handle_t start_step, path_handle_t path,
                                                 const pair<step_handle_t, step_handle_t>& other_interval);
 
-    // Collect other_interval's node IDs + orientations into a vector (forward walk).
-    // Then walk backward from start_step on path, comparing in reverse.
+    // Walk backward from start_step on path, comparing each node ID + orientation
+    // against other_interval's steps in reverse order.  Both sides are walked
+    // lazily, so a mismatch costs only the steps actually compared.
     // Returns the first matching step if all match, nullopt otherwise.
     optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
                                                  const pair<step_handle_t, step_handle_t>& other_interval);
