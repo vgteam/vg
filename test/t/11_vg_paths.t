@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 81
+plan tests 84
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -142,8 +142,10 @@ is $(vg paths -x gref_test.vg -L | grep "_alt$" | wc -l) 2 "gref computation cre
 
 is $(vg paths -x gref_test.vg -L | grep "^x$" | wc -l) 1 "original reference path is preserved after gref computation"
 
-# Test gref naming convention matches pattern x_{N}_alt
-is $(vg paths -x gref_test.vg -L | grep -E "^x_[0-9]+_alt$" | wc -l) 2 "gref paths follow naming convention path_{N}_alt"
+is $(vg paths -x gref_test.vg -L | grep -c "^gref_x$") 1 "reference path is copied into the gref namespace"
+
+# Test gref naming convention matches pattern gref_x_{N}_alt
+is $(vg paths -x gref_test.vg -L | grep -E "^gref_x_[0-9]+_alt$" | wc -l) 2 "gref paths follow naming convention gref_{path}_{N}_alt"
 
 # Test with triple_nested.gfa which has more complex structure
 vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 1 > triple_gref.vg
@@ -173,7 +175,7 @@ is $? 0 "gref-segs option produces no error"
 
 is $(wc -l < gref_test.segs) 2 "gref-segs produces correct number of lines"
 
-is $(cut -f4 gref_test.segs | grep -c "x_.*_alt") 2 "gref-segs contains gref path names"
+is $(cut -f4 gref_test.segs | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref-segs contains gref path names"
 
 is $(cut -f1 gref_test.segs | grep -c "#") 2 "gref-segs contains source path names with metadata"
 
@@ -183,9 +185,11 @@ is $(cut -f5 gref_test.segs | grep -c "^x$") 2 "gref-segs contains reference pat
 vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --gref-segs gref_test.segs 2>&1 | grep -q "requires --compute-gref"
 is $? 0 "gref-segs requires compute-gref option"
 
-# Test gref-segs with gref-sample option
-vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 --gref-sample TESTSAMPLE --gref-segs gref_sample_test.segs > gref_sample_test.vg
-is $(cut -f4 gref_sample_test.segs | grep -c "TESTSAMPLE") 2 "gref-segs uses gref-sample for path names"
+# The gref namespace is a convention, not an option: --compute-gref always writes it
+vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs gref_sample_test.segs > gref_sample_test.vg
+is $(cut -f4 gref_sample_test.segs | grep -c "^gref_") 2 "gref-segs names are all in the gref namespace"
+
+is $(vg paths -x gref_sample_test.vg -L | grep -c "^gref_") 3 "compute-gref writes the base copy and its fragments together"
 
 # Test cross-path interval merging (left merge: new interval absorbs previous from different path)
 vg paths -x nesting/cross_path_merge.gfa -Q x --compute-gref --min-gref-len 1 > cross_merge_test.vg
@@ -214,7 +218,7 @@ is $? 0 "haplotype extending past reference start: gref computation produces val
 
 is $(vg paths -x ref_start_test.vg -L | grep "_alt$" | wc -l) 2 "haplotype extending past reference start covers both off-reference nodes"
 
-is $(vg paths -x ref_start_test.vg -L | grep -cE "^x_[0-9]+_alt$") 2 "gref paths stay named after the reference, not the haplotype that spans it"
+is $(vg paths -x ref_start_test.vg -L | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref paths stay named after the reference, not the haplotype that spans it"
 
 is "$(vg paths -x ref_start_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "16" "gref cover includes the sequence before the reference start"
 
@@ -227,7 +231,7 @@ is $? 0 "haplotype extending past reference end: gref computation produces valid
 
 is $(vg paths -x ref_end_test.vg -L | grep "_alt$" | wc -l) 2 "haplotype extending past reference end covers both off-reference nodes"
 
-is $(vg paths -x ref_end_test.vg -L | grep -cE "^x_[0-9]+_alt$") 2 "gref paths after reference end stay named after the reference"
+is $(vg paths -x ref_end_test.vg -L | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref paths after reference end stay named after the reference"
 
 # 16bp = the two off-reference nodes only.  A gref path that had absorbed the reference
 # interval would span it too and come to 24bp.
@@ -250,7 +254,7 @@ is $(wc -l < flip.segs) 2 "gref-segs describes every emitted fragment at an orie
 # name still has to be a valid path name: the "_{N}_alt" suffix must land on the locus, not
 # after a phase block, or the result parses as GENERIC with a '#' inside the locus and drops
 # out of the gref sample entirely.
-vg paths -x nesting/unanchored_component.gfa -Q GRCh38 --compute-gref --min-gref-len 1 --gref-sample GREF --gref-segs unanchored.segs > unanchored_test.vg
+vg paths -x nesting/unanchored_component.gfa -Q GRCh38 --compute-gref --min-gref-len 1 --gref-segs unanchored.segs > unanchored_test.vg
 vg validate unanchored_test.vg
 is $? 0 "reference-disconnected component: gref computation produces valid graph"
 
@@ -258,7 +262,9 @@ is $(vg paths -x unanchored_test.vg -M | grep "_alt" | cut -f2 | sort -u) "REFER
 
 is $(vg paths -x unanchored_test.vg -M | grep "_alt" | cut -f5 | grep -c "#") 0 "gref path names never leave a separator inside the locus"
 
-is $(vg paths -x unanchored_test.vg -S GREF -L | grep -c "_alt") 3 "every gref path is selectable by the gref sample"
+is $(vg paths -x unanchored_test.vg -S gref_GRCh38 -L | wc -l) 2 "the anchored fragment and its base copy share the reference's gref sample"
+
+is $(vg paths -x unanchored_test.vg -L | grep -cE "^gref_HG[12]#1#ctgZ_[0-9]+_alt$") 2 "fragments with no reference to reach are namespaced under the path they came from"
 
 diff <(cut -f4 unanchored.segs | sort) <(vg paths -x unanchored_test.vg -L | grep "_alt" | sort)
 is $? 0 "gref-segs names match the gref paths that were created"
@@ -266,7 +272,7 @@ is $? 0 "gref-segs names match the gref paths that were created"
 # A PanSN reference read from a GFA without an RS header comes in as haplotype sense, so its
 # name carries a phase block (GRCh38#0#chr1#0) that must not survive into the gref name.
 vg paths -x nesting/haplotype_sense_ref.gfa -Q GRCh38 --compute-gref --min-gref-len 1 > hap_sense_test.vg
-is $(vg paths -x hap_sense_test.vg -L | grep -c "^GRCh38#0#chr1_[0-9]*_alt$") 2 "gref names off a haplotype-sense reference drop the phase block"
+is $(vg paths -x hap_sense_test.vg -L | grep -c "^gref_GRCh38#0#chr1_[0-9]*_alt$") 2 "gref names off a haplotype-sense reference drop the phase block"
 
 is $(vg paths -x hap_sense_test.vg -M | grep "_alt" | cut -f2 | sort -u) "REFERENCE" "gref paths off a haplotype-sense reference are reference sense"
 

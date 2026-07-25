@@ -383,7 +383,7 @@ vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/triple_nested.gfa > tnq
 vg sim -x tnq_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 51 > tnq.gam
 vg sim -x tnq_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 52 >> tnq.gam
 vg pack -x tnq_ap.gfa -g tnq.gam -o tnq.pack
-vg call tnq_ap.gfa -k tnq.pack --top-down -P x 2>/dev/null > tnq.vcf
+vg call tnq_ap.gfa -k tnq.pack --top-down -P gref_x 2>/dev/null > tnq.vcf
 
 # All variant lines should have non-zero QUAL
 TNQ_ZERO_QUAL=$(grep -v "^#" tnq.vcf | awk -F'\t' '$6 == "0" || $6 == "."' | wc -l)
@@ -446,13 +446,13 @@ rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
 # NOTE: ref path x bypasses the nested snarl, so we need gref covers to call nested variants
 # =============================================================================
 
-# Compute gref cover first (creates x_1_alt, x_2_alt, etc. covering nodes not on x)
+# Compute gref cover first (creates gref_x plus gref_x_1_alt, gref_x_2_alt, ... covering nodes not on x)
 vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/nested_snp_in_ins.gfa > ni_ap.gfa
 
 # Test 0/0: homozygous reference - reads only from x path (short ref)
 vg sim -x ni_ap.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
 vg pack -x ni_ap.gfa -g ni_00.gam -o ni_00.pack
-vg call ni_ap.gfa -k ni_00.pack --top-down -P x 2>/dev/null > ni_00.vcf
+vg call ni_ap.gfa -k ni_00.pack --top-down -P gref_x 2>/dev/null > ni_00.vcf
 # 0/0 should produce no non-ref variants (or only ref calls)
 NI_00_NONREF=$(grep -v "^#" ni_00.vcf | grep -v "0/0" | wc -l)
 is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-ref variants"
@@ -462,7 +462,7 @@ is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-re
 vg sim -x ni_ap.gfa -P x -n 50 -l 2 -a -s 71 > ni_01.gam
 vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 72 >> ni_01.gam
 vg pack -x ni_ap.gfa -g ni_01.gam -o ni_01.pack
-vg call ni_ap.gfa -k ni_01.pack --top-down -P x 2>/dev/null > ni_01.vcf
+vg call ni_ap.gfa -k ni_01.pack --top-down -P gref_x 2>/dev/null > ni_01.vcf
 # With gref paths: both top-level and nested variants emitted
 NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l)
 is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and nested variants with gref paths"
@@ -470,7 +470,7 @@ is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and
 # Test 1/1: homozygous insertion - reads only from y1 path
 vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 73 > ni_11.gam
 vg pack -x ni_ap.gfa -g ni_11.gam -o ni_11.pack
-vg call ni_ap.gfa -k ni_11.pack --top-down -P x 2>/dev/null > ni_11.vcf
+vg call ni_ap.gfa -k ni_11.pack --top-down -P gref_x 2>/dev/null > ni_11.vcf
 # With gref paths: both top-level and nested variants emitted
 NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l)
 is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level and nested variants with gref paths"
@@ -478,7 +478,7 @@ is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level 
 # Test 1/2: het between two insertion alleles - reads from both y0 and y1
 vg sim -x ni_ap.gfa -m a -n 200 -l 2 -a -s 74 > ni_12.gam
 vg pack -x ni_ap.gfa -g ni_12.gam -o ni_12.pack
-vg call ni_ap.gfa -k ni_12.pack --top-down -P x 2>/dev/null > ni_12.vcf
+vg call ni_ap.gfa -k ni_12.pack --top-down -P gref_x 2>/dev/null > ni_12.vcf
 # With gref paths: both top-level and nested variants emitted
 NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l)
 is "$NI_12_COUNT" "2" "nested_snp_in_ins 1/2: het ins/ins produces top-level and nested variants with gref paths"
@@ -497,13 +497,13 @@ rm -f ni_11.gam ni_11.pack ni_11.vcf ni_12.gam ni_12.pack ni_12.vcf
 # NOTE: ref path x bypasses all nesting, so we need gref covers to call nested variants
 # =============================================================================
 
-# Compute gref cover first (creates x_1_alt, x_2_alt, etc. covering nested nodes)
+# Compute gref cover first (creates gref_x plus gref_x_1_alt, gref_x_2_alt, ... covering nested nodes)
 vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/triple_nested.gfa > tn_ap.gfa
 
 # Test 0/0: homozygous reference - reads only from x path
 vg sim -x tn_ap.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
 vg pack -x tn_ap.gfa -g tn_00.gam -o tn_00.pack
-vg call tn_ap.gfa -k tn_00.pack --top-down -P x 2>/dev/null > tn_00.vcf
+vg call tn_ap.gfa -k tn_00.pack --top-down -P gref_x 2>/dev/null > tn_00.vcf
 TN_00_NONREF=$(grep -v "^#" tn_00.vcf | grep -v "0/0" | wc -l)
 is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref variants"
 
@@ -512,7 +512,7 @@ is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref va
 vg sim -x tn_ap.gfa -P x -n 50 -l 2 -a -s 81 > tn_01.gam
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 82 >> tn_01.gam
 vg pack -x tn_ap.gfa -g tn_01.gam -o tn_01.pack
-vg call tn_ap.gfa -k tn_01.pack --top-down -P x 2>/dev/null > tn_01.vcf
+vg call tn_ap.gfa -k tn_01.pack --top-down -P gref_x 2>/dev/null > tn_01.vcf
 # With gref paths: all 5 nesting levels can be emitted
 TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l)
 is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting level variants with gref paths"
@@ -520,10 +520,10 @@ is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting lev
 # Test 1/1: homozygous insertion - reads only from y0 path
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 83 > tn_11.gam
 vg pack -x tn_ap.gfa -g tn_11.gam -o tn_11.pack
-vg call tn_ap.gfa -k tn_11.pack --top-down -P x 2>/dev/null > tn_11.vcf
+vg call tn_ap.gfa -k tn_11.pack --top-down -P gref_x 2>/dev/null > tn_11.vcf
 # With gref paths: 1 variant emitted (top-level insertion only)
-# All nested snarls are 0/0 because y0 matches x_1_alt reference at all levels
-# (y0 goes through 313, and x_1_alt also goes through 313)
+# All nested snarls are 0/0 because y0 matches gref_x_1_alt reference at all levels
+# (y0 goes through 313, and gref_x_1_alt also goes through 313)
 TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l)
 is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces only top-level variant"
 
@@ -531,7 +531,7 @@ is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces only top-level
 vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 84 > tn_12.gam
 vg sim -x tn_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 85 >> tn_12.gam
 vg pack -x tn_ap.gfa -g tn_12.gam -o tn_12.pack
-vg call tn_ap.gfa -k tn_12.pack --top-down -P x 2>/dev/null > tn_12.vcf
+vg call tn_ap.gfa -k tn_12.pack --top-down -P gref_x 2>/dev/null > tn_12.vcf
 # With gref paths: all 5 nesting levels can be emitted
 TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l)
 is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting level variants with gref paths"
@@ -542,15 +542,15 @@ rm -f tn_11.gam tn_11.pack tn_11.vcf tn_12.gam tn_12.pack tn_12.vcf
 # =============================================================================
 # Multi-level SNP test (triple_nested_multisnp.gfa)
 # This graph has SNPs at multiple nesting levels:
-# - y0 matches x_1_alt at all levels (will be chosen as gref reference)
-# - y1 differs from x_1_alt at all nested levels
+# - y0 matches gref_x_1_alt at all levels (will be chosen as gref reference)
+# - y1 differs from gref_x_1_alt at all nested levels
 # When simulating from y1, we should get variants at all 4 nesting levels
 # =============================================================================
 
 vg paths -x nesting/triple_nested_multisnp.gfa -Q x --compute-gref --min-gref-len 1 > tn_ms_ap.gfa
 vg sim -x tn_ms_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 100 > tn_ms.gam
 vg pack -x tn_ms_ap.gfa -g tn_ms.gam -o tn_ms.pack
-vg call tn_ms_ap.gfa -k tn_ms.pack --top-down -P x 2>/dev/null > tn_ms.vcf
+vg call tn_ms_ap.gfa -k tn_ms.pack --top-down -P gref_x 2>/dev/null > tn_ms.vcf
 # Should get 4 variants: top-level + 3 nested SNPs (all at 1/1)
 TN_MS_COUNT=$(grep -v "^#" tn_ms.vcf | wc -l)
 is "$TN_MS_COUNT" "4" "triple_nested_multisnp 1/1: homozygous alt produces variants at all 4 nesting levels"
@@ -571,11 +571,11 @@ rm -f tn_ms_ap.gfa tn_ms.gam tn_ms.pack tn_ms.vcf
 # =============================================================================
 
 # Test nested_snp_in_nested_ins.gfa - ref bypasses all nested structures
-# Compute gref cover first (creates x_1_alt, etc. covering nested nodes)
+# Compute gref cover first (creates gref_x plus gref_x_1_alt, ... covering nested nodes)
 vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/nested_snp_in_nested_ins.gfa > bypass_ap.gfa
 vg sim -x bypass_ap.gfa -m a -n 100 -l 2 -a -s 60 > bypass.gam
 vg pack -x bypass_ap.gfa -g bypass.gam -o bypass.pack
-vg call bypass_ap.gfa -k bypass.pack --top-down -P x 2>/dev/null > bypass.vcf
+vg call bypass_ap.gfa -k bypass.pack --top-down -P gref_x 2>/dev/null > bypass.vcf
 BYPASS_EXIT=$?
 is "$BYPASS_EXIT" "0" "nested_snp_in_nested_ins: vg call handles short-ref nested graph with gref paths without crashing"
 
@@ -611,7 +611,7 @@ rm -f na_del.gam na_del.pack na_del.vcf
 vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/nested_snp_in_ins.gfa > na_ins_ap.gfa 2>/dev/null
 vg sim -x na_ins_ap.gfa -P x -n 100 -l 2 -a -s 200 > na_ins_00.gam
 vg pack -x na_ins_ap.gfa -g na_ins_00.gam -o na_ins_00.pack
-vg call na_ins_ap.gfa -k na_ins_00.pack --top-down -a -P x 2>/dev/null > na_ins_00.vcf
+vg call na_ins_ap.gfa -k na_ins_00.pack --top-down -a -P gref_x 2>/dev/null > na_ins_00.vcf
 
 # Count variant lines (should be 1: only top-level, nested not emitted)
 NA_INS_00_COUNT=$(grep -v "^#" na_ins_00.vcf | wc -l)
@@ -624,7 +624,7 @@ rm -f na_ins_00.gam na_ins_00.pack na_ins_00.vcf
 vg sim -x na_ins_ap.gfa -P x -n 50 -l 2 -a -s 200 > na_ins_01.gam
 vg sim -x na_ins_ap.gfa -P "a#1#y0#0" -n 100 -l 2 -a -s 201 >> na_ins_01.gam
 vg pack -x na_ins_ap.gfa -g na_ins_01.gam -o na_ins_01.pack
-vg call na_ins_ap.gfa -k na_ins_01.pack --top-down -a -P x 2>/dev/null > na_ins_01.vcf
+vg call na_ins_ap.gfa -k na_ins_01.pack --top-down -a -P gref_x 2>/dev/null > na_ins_01.vcf
 
 # Count variant lines (should be 2: top-level + nested)
 NA_INS_01_COUNT=$(grep -v "^#" na_ins_01.vcf | wc -l)
@@ -642,7 +642,7 @@ rm -f na_ins_ap.gfa na_ins_01.gam na_ins_01.pack na_ins_01.vcf
 vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/triple_nested.gfa > na_tn_ap.gfa 2>/dev/null
 vg sim -x na_tn_ap.gfa -P x -n 100 -l 2 -a -s 210 > na_tn_00.gam
 vg pack -x na_tn_ap.gfa -g na_tn_00.gam -o na_tn_00.pack
-vg call na_tn_ap.gfa -k na_tn_00.pack --top-down -a -P x 2>/dev/null > na_tn_00.vcf
+vg call na_tn_ap.gfa -k na_tn_00.pack --top-down -a -P gref_x 2>/dev/null > na_tn_00.vcf
 
 # Count variant lines (should be 1: only top-level, nested not emitted since ref spans them)
 NA_TN_00_COUNT=$(grep -v "^#" na_tn_00.vcf | wc -l)
@@ -659,7 +659,7 @@ rm -f na_tn_00.gam na_tn_00.pack na_tn_00.vcf
 vg sim -x na_tn_ap.gfa -P x -n 50 -l 2 -a -s 211 > na_tn_01.gam
 vg sim -x na_tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 212 >> na_tn_01.gam
 vg pack -x na_tn_ap.gfa -g na_tn_01.gam -o na_tn_01.pack
-vg call na_tn_ap.gfa -k na_tn_01.pack --top-down -a -P x 2>/dev/null > na_tn_01.vcf
+vg call na_tn_ap.gfa -k na_tn_01.pack --top-down -a -P gref_x 2>/dev/null > na_tn_01.vcf
 
 # Count variant lines (should be 5: all nesting levels emitted with -a)
 NA_TN_01_COUNT=$(grep -v "^#" na_tn_01.vcf | wc -l)
@@ -734,7 +734,7 @@ vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/triple_nested.gfa > as_
 vg sim -x as_triple.gfa -P "a#1#y0#0" -n 200 -l 2 -a -s 302 > as_triple.gam
 vg sim -x as_triple.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 303 >> as_triple.gam
 vg pack -x as_triple.gfa -g as_triple.gam -o as_triple.pack
-vg call as_triple.gfa -k as_triple.pack -A -P x > as_triple.vcf 2>/dev/null
+vg call as_triple.gfa -k as_triple.pack -A -P gref_x > as_triple.vcf 2>/dev/null
 
 # Should produce variants at multiple nesting levels
 AS_TRIPLE_COUNT=$(grep -v "^#" as_triple.vcf | wc -l)
@@ -761,7 +761,7 @@ vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/triple_nested.gfa > rc_
 vg sim -x rc_test.gfa -P "a#1#y0#0" -n 100 -l 2 -a -s 400 > rc_test.gam 2>/dev/null
 vg sim -x rc_test.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 401 >> rc_test.gam 2>/dev/null
 vg pack -x rc_test.gfa -g rc_test.gam -o rc_test.pack 2>/dev/null
-vg call rc_test.gfa -k rc_test.pack --top-down -P x > rc_test.vcf 2>/dev/null
+vg call rc_test.gfa -k rc_test.pack --top-down -P gref_x > rc_test.vcf 2>/dev/null
 
 # Check for RC, RS, RD headers
 RC_HEADER=$(grep -c "##INFO=<ID=RC" rc_test.vcf)
@@ -790,8 +790,8 @@ TOP_CHROM=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/ {print $1}')
 is "$TOP_RC" "$TOP_CHROM" "Top-level variant RC equals its own CHROM"
 
 # Check that nested variants point to top-level's coordinates
-# All nested variants should have RC=x (the top-level reference)
-NESTED_RC_X=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
+# All nested variants should have RC=gref_x (the top-level reference)
+NESTED_RC_X=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=gref_x")
 NESTED_COUNT=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
 is "$NESTED_RC_X" "$NESTED_COUNT" "All nested variants have RC=x (top-level contig)"
 

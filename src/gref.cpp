@@ -12,7 +12,19 @@ namespace vg {
 
 using namespace std;
 
+const string GrefCover::gref_prefix = "gref_";
 const string GrefCover::gref_suffix = "_alt";
+
+bool GrefCover::is_gref_derived(const string& name) {
+    return name.compare(0, gref_prefix.length(), gref_prefix) == 0;
+}
+
+string GrefCover::strip_gref_prefix(const string& name) {
+    if (!is_gref_derived(name)) {
+        return name;
+    }
+    return name.substr(gref_prefix.length());
+}
 
 string GrefCover::make_gref_name(const string& base_path_name, int64_t gref_index) {
     // New naming convention: {base}_{N}_alt
@@ -63,14 +75,6 @@ int64_t GrefCover::parse_gref_index(const string& gref_name) {
     return stoll(gref_name.substr(underscore_pos + 1, alt_pos - underscore_pos - 1));
 }
 
-void GrefCover::set_gref_sample(const string& sample_name) {
-    this->gref_sample_name = sample_name;
-}
-
-const string& GrefCover::get_gref_sample() const {
-    return this->gref_sample_name;
-}
-
 void GrefCover::set_verbose(bool verbose) {
     this->verbose = verbose;
 }
@@ -80,9 +84,12 @@ bool GrefCover::get_verbose() const {
 }
 
 void GrefCover::clear(MutablePathMutableHandleGraph* graph) {
+    // Everything in the gref namespace goes, copied base contigs included: a
+    // recomputed cover replaces all of it, and leaving stale copies behind would
+    // let them outlive the reference they were copied from.
     vector<path_handle_t> gref_paths_to_remove;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
-        if (is_gref_name(graph->get_path_name(path_handle))) {
+        if (is_gref_derived(graph->get_path_name(path_handle))) {
             gref_paths_to_remove.push_back(path_handle);
         }
     });
@@ -430,7 +437,7 @@ void GrefCover::load(const PathHandleGraph* graph,
     });
 }
 
-string GrefCover::resolve_base_path_name(const string& path_name) const {
+string GrefCover::make_gref_base_name(const string& path_name) {
     PathSense sense;
     string sample, locus;
     size_t haplotype, phase_block;
@@ -453,17 +460,11 @@ string GrefCover::resolve_base_path_name(const string& path_name) const {
         base_name = Paths::strip_subrange(path_name, &stripped_subrange);
     }
 
-    if (!gref_sample_name.empty()) {
-        // Re-home the fragment under the gref sample.
-        if (structured) {
-            base_name = PathMetadata::create_path_name(PathSense::REFERENCE, gref_sample_name, locus, haplotype,
-                                                       PathMetadata::NO_PHASE_BLOCK, PathMetadata::NO_SUBRANGE);
-        } else {
-            base_name = gref_sample_name + "#0#" + base_name;
-        }
-    }
-
-    return base_name;
+    // Everything the cover writes lives in the gref namespace.  For a PanSN name the
+    // prefix lands on the sample (GRCh38#0#chr1 -> gref_GRCh38#0#chr1), so the gref
+    // paths form their own sample and both directions of the base <-> gref link stay
+    // recoverable from the name alone.
+    return gref_prefix + base_name;
 }
 
 void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
@@ -476,14 +477,16 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
          << " and " << this->gref_intervals.size() << " total intervals" << endl;
 #endif
 
-    // If gref_sample_name is set, first copy base reference paths to the new sample
-    if (!gref_sample_name.empty()) {
+    // Copy the base reference paths into the gref namespace first, so the gref
+    // reference is complete: the copies carry the reference sequence and the
+    // fragments hang off them.
+    {
         // Collect reference path handles from the reference intervals
         unordered_set<path_handle_t> reference_paths;
         for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
             reference_paths.insert(graph->get_path_handle_of_step(gref_intervals[i].first));
         }
-        copy_base_paths_to_sample(mutable_graph, reference_paths);
+        copy_base_paths_to_gref(mutable_graph, reference_paths);
     }
 
     // Reset gref counters for each base path
@@ -526,13 +529,13 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
             nid_t ref_node_id = ref_nodes.at(0).second;
             int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
             path_handle_t ref_path_handle = graph->get_path_handle_of_step(gref_intervals[ref_interval_idx].first);
-            base_path_name = resolve_base_path_name(graph->get_path_name(ref_path_handle));
+            base_path_name = make_gref_base_name(graph->get_path_name(ref_path_handle));
         } else {
             // Nothing to trace back to: this fragment is in a component with no reference
             // path in it, which get_reference_nodes() notes is expected after clipping.
             // Name it after the path it was taken from instead.
             path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(gref_intervals[i].first);
-            base_path_name = resolve_base_path_name(graph->get_path_name(source_path_handle));
+            base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
         }
 
         // Check if this interval is all-reverse (needs to be flipped when writing)
@@ -1433,37 +1436,19 @@ void GrefCover::verify_cover(int64_t minimum_length) const {
     }
 }
 
-void GrefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
-                                              const unordered_set<path_handle_t>& reference_paths) {
-    if (gref_sample_name.empty()) {
-        return;
-    }
-
+void GrefCover::copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_graph,
+                                            const unordered_set<path_handle_t>& reference_paths) {
     for (const path_handle_t& ref_path : reference_paths) {
         string ref_name = mutable_graph->get_path_name(ref_path);
 
-        // Parse the path name to extract components
-        // rGFA format: SAMPLE#HAPLOTYPE#CONTIG or just CONTIG
-        PathSense sense;
-        string sample, locus;
-        size_t haplotype, phase_block;
-        subrange_t subrange;
-        PathMetadata::parse_path_name(ref_name, sense, sample, locus, haplotype, phase_block, subrange);
-
-        // Create new path name with gref sample
-        string new_name;
-        if (sample.empty()) {
-            // Simple path name (no sample info) - prepend gref sample
-            new_name = gref_sample_name + "#0#" + ref_name;
-        } else {
-            // Replace sample with gref sample
-            new_name = PathMetadata::create_path_name(sense, gref_sample_name, locus, haplotype, phase_block, subrange);
-        }
+        // Same naming rule the fragments use, so a fragment and the contig it hangs
+        // off always agree on their base name.
+        string new_name = make_gref_base_name(ref_name);
 
         // Check if path already exists
         if (mutable_graph->has_path(new_name)) {
 #ifdef debug
-            cerr << "[gref] copy_base_paths_to_sample: path " << new_name << " already exists, skipping" << endl;
+            cerr << "[gref] copy_base_paths_to_gref: path " << new_name << " already exists, skipping" << endl;
 #endif
             continue;
         }
@@ -1478,7 +1463,7 @@ void GrefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable
         });
 
 #ifdef debug
-        cerr << "[gref] copy_base_paths_to_sample: copied " << ref_name << " -> " << new_name << endl;
+        cerr << "[gref] copy_base_paths_to_gref: copied " << ref_name << " -> " << new_name << endl;
 #endif
     }
 }
@@ -1610,7 +1595,7 @@ void GrefCover::write_gref_segments(ostream& os) {
             ref_end = max(left_end, right_end);
 
             // Get base path name from the reference path
-            base_path_name = resolve_base_path_name(ref_path_name);
+            base_path_name = make_gref_base_name(ref_path_name);
         } else {
             // Fallback to BFS-based get_reference_nodes() for sentinel intervals
             nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
@@ -1621,7 +1606,7 @@ void GrefCover::write_gref_segments(ostream& os) {
                 int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
                 path_handle_t ref_path_handle = graph->get_path_handle_of_step(gref_intervals[ref_interval_idx].first);
                 ref_path_name = graph->get_path_name(ref_path_handle);
-                base_path_name = resolve_base_path_name(ref_path_name);
+                base_path_name = make_gref_base_name(ref_path_name);
 
                 // Find the offset of ref_node_id in the reference path
                 if (ref_node_positions.count(ref_node_id)) {
@@ -1631,7 +1616,7 @@ void GrefCover::write_gref_segments(ostream& os) {
             } else {
                 // No reference to hang off: name the fragment after its source path,
                 // matching apply().
-                base_path_name = resolve_base_path_name(graph->get_path_name(source_path_handle));
+                base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
             }
         }
 

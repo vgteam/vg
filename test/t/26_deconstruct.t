@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 63
+plan tests 69
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -172,11 +172,11 @@ rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_
 
 # Nesting tests now use a two-step process:
 # 1. Compute gref cover with vg paths
-# 2. Run vg deconstruct with -a to use the pre-computed gref paths
+# 2. Run vg deconstruct against the gref reference with -a to use the gref paths
 
 # Test: SNP inside deletion
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_del.gfa -Q x > nested_snp_in_del.gref.pg
-vg deconstruct nested_snp_in_del.gref.pg -p x -a > nested_snp_in_del.vcf
+vg deconstruct nested_snp_in_del.gref.pg -P gref_x -a > nested_snp_in_del.vcf
 grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
 printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
 printf "T\tA\t1|.\n" >> nested_snp_in_del_truth.tsv
@@ -187,10 +187,10 @@ rm -f nested_snp_in_del.gref.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nest
 
 # Test: SNP inside insertion with LV field checks
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > nested_snp_in_ins.gref.pg
-vg deconstruct nested_snp_in_ins.gref.pg -P x -a > nested_snp_in_ins.vcf
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a > nested_snp_in_ins.vcf
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
-# With -P x, nested variants are on gref contigs (x_1_alt), parent on x
-# So order is: insertion (on x) then SNP (on x_1_alt)
+# With -P gref_x, nested variants are on gref contigs (gref_x_1_alt), parent on gref_x
+# So order is: insertion (on gref_x) then SNP (on gref_x_1_alt)
 printf "C\tCAAG,CATG\t1|2\n" > nested_snp_in_ins_truth.tsv
 printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
@@ -199,7 +199,7 @@ is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
 is $(grep LV=0 nested_snp_in_ins.vcf | wc -l) 1 "LV=0 set for base allele of nested insertion"
 is $(grep LV=1 nested_snp_in_ins.vcf | wc -l) 1 "LV=1 set for nested allele of nested insertion"
 
-# With -P x, we get multiple contigs (x, x_1_alt, x_2_alt)
+# With -P gref_x, we get multiple contigs (gref_x, gref_x_1_alt, gref_x_2_alt)
 is $(grep -c "^##contig" nested_snp_in_ins.vcf) 3 "nested deconstruction gets all reference contigs in vcf header"
 
 rm -f nested_snp_in_ins.gref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
@@ -208,7 +208,7 @@ rm -f nested_snp_in_ins.gref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nest
 for thread_opt in "-t 1" "-t 2" ""; do
     thread_label=${thread_opt:- default}
     vg paths --compute-gref --min-gref-len 0 $thread_opt -x nesting/nested_snp_in_nested_ins.gfa -Q x > nested_snp_in_nested_ins.gref.pg
-    vg deconstruct nested_snp_in_nested_ins.gref.pg -P x -a > nested_snp_in_nested_ins.vcf
+    vg deconstruct nested_snp_in_nested_ins.gref.pg -P gref_x -a > nested_snp_in_nested_ins.vcf
     is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP ($thread_label)"
     is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP ($thread_label)"
     is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP ($thread_label)"
@@ -217,15 +217,15 @@ done
 
 # Test: Nested site with cycle
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins_cycle.gfa -Q x > nested_snp_in_ins_cycle.gref.pg
-vg deconstruct nested_snp_in_ins_cycle.gref.pg -P x -a > nested_snp_in_ins_cycle.vcf
+vg deconstruct nested_snp_in_ins_cycle.gref.pg -P gref_x -a > nested_snp_in_ins_cycle.vcf
 is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=0 | wc -l) 1 "level 0 found in nested cycle"
 is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=1 | wc -l) 1 "level 1 found in nested cycle"
 rm -f nested_snp_in_ins_cycle.gref.pg nested_snp_in_ins_cycle.vcf
 
 # Test: MNP handling
 vg paths --compute-gref --min-gref-len 0 -x nesting/mnp.gfa -Q x > mnp.gref.pg
-vg deconstruct mnp.gref.pg -p x -a > mnp.vcf
-printf "x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
+vg deconstruct mnp.gref.pg -P gref_x -a > mnp.vcf
+printf "gref_x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
 grep -v ^# mnp.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > mnp.tsv
 diff  mnp_truth.tsv mnp.tsv
 is "$?" 0 "nested deconstruction handles mnp"
@@ -234,7 +234,7 @@ rm -f mnp.gref.pg mnp.vcf mnp_truth.tsv mnp.tsv
 
 # Test 1: Deep nesting (3+ levels) - triple nested SNP
 vg paths --compute-gref --min-gref-len 0 -x nesting/triple_nested.gfa -Q x > triple_nested.gref.pg
-vg deconstruct triple_nested.gref.pg -P x -a > triple_nested.vcf
+vg deconstruct triple_nested.gref.pg -P gref_x -a > triple_nested.vcf
 is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 5 "all nested sites found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
@@ -244,20 +244,20 @@ rm -f triple_nested.gref.pg triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
 vg paths --compute-gref --min-gref-len 0 -x nesting/insertion_with_three_snps.gfa -Q x > insertion_with_three_snps.gref.pg
-vg deconstruct insertion_with_three_snps.gref.pg -P x -a > multi_child.vcf
+vg deconstruct insertion_with_three_snps.gref.pg -P gref_x -a > multi_child.vcf
 is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l) 3 "expected number of sites with LV field"
 is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
 rm -f insertion_with_three_snps.gref.pg multi_child.vcf
 
 # Test 3: NestingInfo field propagation - verify LV field
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > field_check.gref.pg
-vg deconstruct field_check.gref.pg -P x -a > field_check.vcf
+vg deconstruct field_check.gref.pg -P gref_x -a > field_check.vcf
 is $(grep "LV=0" field_check.vcf | wc -l) 1 "LV=0 field present for top-level site"
 rm -f field_check.gref.pg field_check.vcf
 
 # Test 4: Multiple reference traversals with nesting (should reduce to one)
 vg paths --compute-gref --min-gref-len 0 -x nesting/cyclic_ref_nested.gfa -Q x > cyclic_ref_nested.gref.pg
-vg deconstruct cyclic_ref_nested.gref.pg -p x -a > cyclic_ref_nested.vcf
+vg deconstruct cyclic_ref_nested.gref.pg -P gref_x -a > cyclic_ref_nested.vcf
 is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
 rm -f cyclic_ref_nested.gref.pg cyclic_ref_nested.vcf
 
@@ -268,13 +268,30 @@ vg deconstruct nesting/cyclic_ref_multiple_variants.gfa -p x -a -c 0 > cyclic_re
 is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
 rm -f cyclic_ref_multi.vcf
 
+# A gref cover writes the reference twice: under its own name and in the gref
+# namespace.  Whichever of the two you deconstruct against, the other one is not a
+# sample -- it is the same sequence, and genotyping it inflates AC/AF/AN/NS.  A second
+# reference assembly (CHM13 here) has no gref copy and must survive in both.
+vg paths --compute-gref --min-gref-len 1 -x nesting/base_and_gref.gfa -Q GRCh38 > base_and_gref.pg
+vg deconstruct base_and_gref.pg -P GRCh38 -a > base_ref.vcf
+vg deconstruct base_and_gref.pg -P gref_GRCh38 -a > gref_ref.vcf
+
+is $(grep "^#CHROM" base_ref.vcf | cut -f10- | tr '\t' '\n' | grep -c "^gref_") 0 "base-reference vcf has no gref sample columns"
+is $(grep "^#CHROM" gref_ref.vcf | cut -f10- | tr '\t' '\n' | grep -c "^GRCh38") 0 "gref vcf has no base-reference sample column"
+is $(grep "^#CHROM" base_ref.vcf | cut -f10- | wc -w) 3 "base-reference vcf keeps every genuine sample"
+is $(grep "^#CHROM" gref_ref.vcf | cut -f10- | wc -w) 3 "gref vcf keeps every genuine sample"
+is $(grep -v "^#" base_ref.vcf | grep -c "AN=3") 1 "base-reference vcf allele counts are not inflated by the gref copy"
+is $(grep -v "^#" gref_ref.vcf | grep -c "AN=3") 2 "gref vcf allele counts are not inflated by the base reference"
+
+rm -f base_and_gref.pg base_ref.vcf gref_ref.vcf
+
 # =============================================================================
 # RC, RS, RD tag tests (reference coordinate tags for nested snarls)
 # =============================================================================
 
 # Test: RC, RS, RD headers and tags in deconstruct output
 vg paths --compute-gref --min-gref-len 0 -x nesting/triple_nested.gfa -Q x > rc_decon_test.gref.pg
-vg deconstruct rc_decon_test.gref.pg -P x -a > rc_decon_test.vcf
+vg deconstruct rc_decon_test.gref.pg -P gref_x -a > rc_decon_test.vcf
 
 # Check for RC, RS, RD headers
 is $(grep -c "##INFO=<ID=RC" rc_decon_test.vcf) 1 "deconstruct: RC header is present in VCF"
@@ -295,8 +312,8 @@ RD_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RD=")
 is "$RD_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RD tag"
 
 # Check that nested variants point to top-level's contig
-NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
+NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=gref_x")
 NESTED_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "")
-is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=x (top-level contig)"
+is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=gref_x (top-level contig)"
 
 rm -f rc_decon_test.gref.pg rc_decon_test.vcf

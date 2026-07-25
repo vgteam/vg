@@ -1027,6 +1027,21 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     return true;
 }
 
+bool Deconstructor::is_other_reference_view(const string& path_name) const {
+    // A gref cover writes the reference twice: once under its own name and once in the
+    // gref_ namespace, plus the gref fragments.  Whichever of the two we were asked to
+    // deconstruct against, the other one is not a sample -- it's the same sequence.
+    // The naming convention makes both directions a lookup:
+    if (GrefCover::is_gref_derived(path_name)) {
+        // A gref path, and we're deconstructing against the base reference.
+        return true;
+    }
+    // A base path whose gref copy is one of our references, so we're deconstructing
+    // against the gref reference.  Other assemblies don't have a gref copy and so stay
+    // samples.
+    return this->ref_paths.count(GrefCover::make_gref_base_name(path_name)) > 0;
+}
+
 string Deconstructor::get_vcf_header() {
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     ref_samples.clear();
@@ -1062,6 +1077,13 @@ string Deconstructor::get_vcf_header() {
         if (!this->ref_paths.count(path_name)) {
             // This isn't a designated decosntruction reference path.
             // Note that we allow alt paths through here.
+
+            if (is_other_reference_view(path_name)) {
+                // It's the same reference we're deconstructing against, seen through the
+                // other of the base/gref pair.  It would genotype as all-reference and
+                // inflate AC/AF/AN/NS, so it isn't a sample.
+                return;
+            }
 
             string sample_name = graph->get_sample_name(path_handle);
             // for backward compatibility
