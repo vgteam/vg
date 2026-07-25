@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 111
+plan tests 122
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -396,6 +396,67 @@ is $? 1 "--compute-gref refuses -o/--overlay rather than blaming the input"
 is $(grep -c "overlay" ov.err) 1 "the overlay error names the overlay"
 
 rm -f gref_mut.pg gref_ro.gbz ro.err ov.err
+
+# --- Thread determinism -----------------------------------------------------
+# The cover is computed by an OMP task loop over top-level snarls
+# (SnarlManager::for_each_top_level_snarl_parallel), so which thread sees which
+# snarl is picked by the runtime task scheduler and varies between thread counts
+# *and* between runs at a fixed thread count.  The per-thread interval lists
+# therefore reach the fold in a different order every time, and the sort at the
+# top of the fold in GrefCover::compute() is the only thing that makes the
+# result canonical.  apply() then numbers the fragments in fold order, so a
+# broken sort renames every fragment -- it does not fail quietly.
+#
+# thread_determinism.gfa exists because none of the fixtures above can catch
+# that.  They have one or two top-level snarls, so there is nothing to spread
+# over threads; a graph built from small/x.vcf.gz has 70, but each is an
+# isolated bubble contributing one interval, so its cover comes out the same
+# whatever order the fold sees.  This graph chains 32 star clusters (three
+# competing traversals each, every other one inverted) along a reference that
+# skips all of them, giving 32 independently scheduled snarls whose intervals
+# do compete.  Neutering the sort comparator to a constant leaves the graph from
+# x.vcf.gz byte-identical at every thread count; this graph then comes out
+# differently at nearly every thread count, and differently between runs at the
+# same one.
+vg paths -x nesting/thread_determinism.gfa -Q x --compute-gref --min-gref-len 1 -t 1 --gref-segs det_t1.segs > det_t1.vg 2>/dev/null
+vg validate det_t1.vg
+is $? 0 "the thread determinism graph produces a valid cover"
+
+is $(vg paths -x det_t1.vg -L | grep -c "_alt$") 112 "the thread determinism graph covers enough snarls to schedule across threads"
+
+# The same binary on the same input at a different thread count has to write the
+# same bytes, so compare the serialized graphs directly.  That covers fragment
+# contents, fragment names, and the order they were added to the graph in one
+# shot, and it stays honest under refactoring: a change to the cover shifts every
+# thread count together, only a thread-order dependence splits them apart.
+for t in 2 4 8; do
+    vg paths -x nesting/thread_determinism.gfa -Q x --compute-gref --min-gref-len 1 -t $t --gref-segs det_t$t.segs > det_t$t.vg 2>/dev/null
+
+    cmp -s det_t1.vg det_t$t.vg
+    is $? 0 "the gref cover at -t $t is identical to the one at -t 1"
+
+    cmp -s det_t1.segs det_t$t.segs
+    is $? 0 "the gref segments at -t $t are identical to those at -t 1"
+done
+
+# If the byte comparison above ever fails, this one says which fragment moved
+# instead of just that some byte did.
+diff <(vg convert -f det_t1.vg 2>/dev/null | awk '$1=="P"||$1=="W"' | grep gref_ | sort) \
+     <(vg convert -f det_t8.vg 2>/dev/null | awk '$1=="P"||$1=="W"' | grep gref_ | sort)
+is $? 0 "every gref path at -t 8 walks the same nodes as its -t 1 counterpart"
+
+# Same thread count, run again.  OMP hands the snarl tasks out afresh on every
+# run, so this catches order dependence that a fixed thread count would hide.
+vg paths -x nesting/thread_determinism.gfa -Q x --compute-gref --min-gref-len 1 -t 8 --gref-segs det_rep.segs > det_rep.vg 2>/dev/null
+
+cmp -s det_t8.vg det_rep.vg
+is $? 0 "repeating the same -t 8 run reproduces the cover exactly"
+
+cmp -s det_t8.segs det_rep.segs
+is $? 0 "repeating the same -t 8 run reproduces the same segments"
+
+rm -f det_t1.vg det_t2.vg det_t4.vg det_t8.vg det_rep.vg
+rm -f det_t1.segs det_t2.segs det_t4.segs det_t8.segs det_rep.segs
 
 rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gbwt x.gbz
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
