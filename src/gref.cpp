@@ -1,4 +1,5 @@
 #include "gref.hpp"
+#include <cassert>
 #include <sstream>
 #include <algorithm>
 #include <functional>
@@ -11,7 +12,19 @@ namespace vg {
 
 using namespace std;
 
+const string GrefCover::gref_prefix = "gref_";
 const string GrefCover::gref_suffix = "_alt";
+
+bool GrefCover::is_gref_derived(const string& name) {
+    return name.compare(0, gref_prefix.length(), gref_prefix) == 0;
+}
+
+string GrefCover::strip_gref_prefix(const string& name) {
+    if (!is_gref_derived(name)) {
+        return name;
+    }
+    return name.substr(gref_prefix.length());
+}
 
 string GrefCover::make_gref_name(const string& base_path_name, int64_t gref_index) {
     // New naming convention: {base}_{N}_alt
@@ -62,14 +75,6 @@ int64_t GrefCover::parse_gref_index(const string& gref_name) {
     return stoll(gref_name.substr(underscore_pos + 1, alt_pos - underscore_pos - 1));
 }
 
-void GrefCover::set_gref_sample(const string& sample_name) {
-    this->gref_sample_name = sample_name;
-}
-
-const string& GrefCover::get_gref_sample() const {
-    return this->gref_sample_name;
-}
-
 void GrefCover::set_verbose(bool verbose) {
     this->verbose = verbose;
 }
@@ -79,9 +84,12 @@ bool GrefCover::get_verbose() const {
 }
 
 void GrefCover::clear(MutablePathMutableHandleGraph* graph) {
+    // Everything in the gref namespace goes, copied base contigs included: a
+    // recomputed cover replaces all of it, and leaving stale copies behind would
+    // let them outlive the reference they were copied from.
     vector<path_handle_t> gref_paths_to_remove;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
-        if (is_gref_name(graph->get_path_name(path_handle))) {
+        if (is_gref_derived(graph->get_path_name(path_handle))) {
             gref_paths_to_remove.push_back(path_handle);
         }
     });
@@ -300,83 +308,90 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
          << candidate_paths.size() << " candidate paths" << endl;
 #endif
 
-    // Greedily walk through paths, creating intervals for contiguous uncovered sequences
-    for (const auto& name_path : candidate_paths) {
-        if (uncovered_nodes.empty()) {
-            break;
-        }
-
-        bool in_interval = false;
-        step_handle_t interval_start;
-        step_handle_t interval_end;
-        int64_t interval_length = 0;
-        unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
-        bool interval_reverse = false;  // orientation of current interval
-
-        // Helper to close the current interval and add it if long enough
-        auto close_interval = [&]() {
-            if (in_interval) {
-                if (interval_length >= minimum_length) {
-                    add_interval(this->gref_intervals, this->node_to_interval,
-                                 make_pair(interval_start, interval_end), true,
-                                 &this->interval_snarl_bounds, {0, 0});
-                    try_cross_path_merge(interval_start);
-                    for (nid_t nid : interval_nodes) {
-                        uncovered_nodes.erase(nid);
-                    }
-                }
-                in_interval = false;
+    // Greedily walk through paths, creating intervals for contiguous uncovered sequences.
+    // Two passes: the first one only takes nodes where the path walks them forwards, so a
+    // node is covered by a backwards-walking path only when no path walks it forwards.
+    // (The cover never flips a node -- changing topology is not its job -- so this is as
+    // close to a nodes-forward cover as the graph allows.)
+    for (int pass = 0; pass < 2; ++pass) {
+        bool forward_only = (pass == 0);
+        for (const auto& name_path : candidate_paths) {
+            if (uncovered_nodes.empty()) {
+                break;
             }
-        };
 
-        graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
-            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
-            bool is_reverse = graph->get_is_reverse(graph->get_handle_of_step(step));
+            bool in_interval = false;
+            step_handle_t interval_start;
+            step_handle_t interval_end;
+            int64_t interval_length = 0;
+            unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
+            bool interval_reverse = false;  // orientation of current interval
 
-            if (uncovered_nodes.count(node_id)) {
-                if (interval_nodes.count(node_id)) {
-                    // This node is already in the current interval — close to avoid cycle.
-                    // close_interval() will remove covered nodes from uncovered_nodes,
-                    // so we must re-check before adding the node to a new interval.
-                    close_interval();
+            // Helper to close the current interval and add it if long enough
+            auto close_interval = [&]() {
+                if (in_interval) {
+                    if (interval_length >= minimum_length) {
+                        add_interval(this->gref_intervals, this->node_to_interval,
+                                     make_pair(interval_start, interval_end), true,
+                                     &this->interval_snarl_bounds, {0, 0});
+                        try_cross_path_merge(interval_start);
+                        for (nid_t nid : interval_nodes) {
+                            uncovered_nodes.erase(nid);
+                        }
+                    }
+                    in_interval = false;
                 }
-                // Re-check: close_interval() may have just covered this node
-                if (!uncovered_nodes.count(node_id)) {
-                    // Node was covered by the interval we just closed — treat as covered
-                    close_interval();
-                } else if (in_interval && is_reverse != interval_reverse) {
-                    // Orientation changed — close current interval and start fresh
-                    close_interval();
-                    in_interval = true;
-                    interval_start = step;
-                    interval_length = 0;
-                    interval_nodes.clear();
-                    interval_reverse = is_reverse;
-                    interval_end = graph->get_next_step(step);
-                    interval_length += graph->get_length(graph->get_handle_of_step(step));
-                    interval_nodes.insert(node_id);
-                } else {
-                    if (!in_interval) {
-                        // Start a new interval
+            };
+
+            graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
+                nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+                bool is_reverse = graph->get_is_reverse(graph->get_handle_of_step(step));
+
+                if (uncovered_nodes.count(node_id) && !(forward_only && is_reverse)) {
+                    if (interval_nodes.count(node_id)) {
+                        // This node is already in the current interval — close to avoid cycle.
+                        // close_interval() will remove covered nodes from uncovered_nodes,
+                        // so we must re-check before adding the node to a new interval.
+                        close_interval();
+                    }
+                    // Re-check: close_interval() may have just covered this node
+                    if (!uncovered_nodes.count(node_id)) {
+                        // Node was covered by the interval we just closed — treat as covered
+                        close_interval();
+                    } else if (in_interval && is_reverse != interval_reverse) {
+                        // Orientation changed — close current interval and start fresh
+                        close_interval();
                         in_interval = true;
                         interval_start = step;
                         interval_length = 0;
                         interval_nodes.clear();
                         interval_reverse = is_reverse;
+                        interval_end = graph->get_next_step(step);
+                        interval_length += graph->get_length(graph->get_handle_of_step(step));
+                        interval_nodes.insert(node_id);
+                    } else {
+                        if (!in_interval) {
+                            // Start a new interval
+                            in_interval = true;
+                            interval_start = step;
+                            interval_length = 0;
+                            interval_nodes.clear();
+                            interval_reverse = is_reverse;
+                        }
+                        interval_end = graph->get_next_step(step);
+                        interval_length += graph->get_length(graph->get_handle_of_step(step));
+                        interval_nodes.insert(node_id);
                     }
-                    interval_end = graph->get_next_step(step);
-                    interval_length += graph->get_length(graph->get_handle_of_step(step));
-                    interval_nodes.insert(node_id);
+                } else {
+                    // This node is already covered — close current interval
+                    close_interval();
                 }
-            } else {
-                // This node is already covered — close current interval
-                close_interval();
-            }
-            return true;
-        });
+                return true;
+            });
 
-        // Don't forget to close any interval at the end of the path
-        close_interval();
+            // Don't forget to close any interval at the end of the path
+            close_interval();
+        }
     }
 
 #ifdef debug
@@ -429,6 +444,39 @@ void GrefCover::load(const PathHandleGraph* graph,
     });
 }
 
+string GrefCover::make_gref_copy_name(const string& path_name) {
+    PathSense sense;
+    string sample, locus;
+    size_t haplotype, phase_block;
+    subrange_t subrange;
+    PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
+
+    // The phase block has to go: make_gref_name() appends "_{N}_alt" to the base name
+    // derived from this one, and a trailing phase block would turn SAMPLE#HAP#CONTIG#0
+    // into SAMPLE#HAP#CONTIG#0_1_alt, which no longer parses as a path name at all (it
+    // comes back GENERIC, with no sample and a '#' inside the locus).  The subrange
+    // stays: it is what keeps subpaths of one contig distinct, and dropping it here
+    // would collapse them onto one name.
+    bool structured = sample != PathMetadata::NO_SAMPLE_NAME && locus != PathMetadata::NO_LOCUS_NAME;
+    string copy_name = structured ?
+        PathMetadata::create_path_name(PathSense::REFERENCE, sample, locus, haplotype,
+                                       PathMetadata::NO_PHASE_BLOCK, subrange) :
+        path_name;
+
+    // Everything the cover writes lives in the gref namespace.  For a PanSN name the
+    // prefix lands on the sample (GRCh38#0#chr1 -> gref_GRCh38#0#chr1), so the gref
+    // paths form their own sample and both directions of the base <-> gref link stay
+    // recoverable from the name alone.
+    return gref_prefix + copy_name;
+}
+
+string GrefCover::make_gref_base_name(const string& path_name) {
+    // A fragment name is this plus "_{N}_alt", which has to land on the locus, so the
+    // subrange comes off here (and only here).
+    subrange_t subrange;
+    return Paths::strip_subrange(make_gref_copy_name(path_name), &subrange);
+}
+
 void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     if (this->graph != static_cast<const PathHandleGraph*>(mutable_graph)) {
         cerr << "[gref] error: apply() called with a different graph than compute()/load()" << endl;
@@ -439,14 +487,16 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
          << " and " << this->gref_intervals.size() << " total intervals" << endl;
 #endif
 
-    // If gref_sample_name is set, first copy base reference paths to the new sample
-    if (!gref_sample_name.empty()) {
+    // Copy the base reference paths into the gref namespace first, so the gref
+    // reference is complete: the copies carry the reference sequence and the
+    // fragments hang off them.
+    {
         // Collect reference path handles from the reference intervals
         unordered_set<path_handle_t> reference_paths;
         for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
             reference_paths.insert(graph->get_path_handle_of_step(gref_intervals[i].first));
         }
-        copy_base_paths_to_sample(mutable_graph, reference_paths);
+        copy_base_paths_to_gref(mutable_graph, reference_paths);
     }
 
     // Reset gref counters for each base path
@@ -489,33 +539,13 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
             nid_t ref_node_id = ref_nodes.at(0).second;
             int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
             path_handle_t ref_path_handle = graph->get_path_handle_of_step(gref_intervals[ref_interval_idx].first);
-            base_path_name = graph->get_path_name(ref_path_handle);
-            // Strip any subrange from the reference path name
-            subrange_t subrange;
-            base_path_name = Paths::strip_subrange(base_path_name, &subrange);
+            base_path_name = make_gref_base_name(graph->get_path_name(ref_path_handle));
         } else {
-            // Fallback to source path if no reference found (shouldn't happen)
+            // Nothing to trace back to: this fragment is in a component with no reference
+            // path in it, which get_reference_nodes() notes is expected after clipping.
+            // Name it after the path it was taken from instead.
             path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(gref_intervals[i].first);
-            base_path_name = graph->get_path_name(source_path_handle);
-            subrange_t subrange;
-            base_path_name = Paths::strip_subrange(base_path_name, &subrange);
-        }
-
-        // If gref_sample_name is set, replace the sample in base_path_name
-        if (!gref_sample_name.empty()) {
-            PathSense sense;
-            string sample, locus;
-            size_t haplotype, phase_block;
-            subrange_t subrange;
-            PathMetadata::parse_path_name(base_path_name, sense, sample, locus, haplotype, phase_block, subrange);
-
-            if (sample.empty()) {
-                // Simple path name - prepend gref sample
-                base_path_name = gref_sample_name + "#0#" + base_path_name;
-            } else {
-                // Replace sample with gref sample
-                base_path_name = PathMetadata::create_path_name(sense, gref_sample_name, locus, haplotype, phase_block, subrange);
-            }
+            base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
         }
 
         // Check if this interval is all-reverse (needs to be flipped when writing)
@@ -664,30 +694,37 @@ void GrefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
         vector<pair<int64_t, int64_t>> uncovered_intervals = get_uncovered_intervals(trav, thread_node_to_interval);
 
         for (const auto& uncovered_interval : uncovered_intervals) {
-            unordered_set<nid_t> cycle_check;
-            bool cyclic = false;
-            bool mixed_orientation = false;
-            int64_t interval_length = 0;
-            int64_t fwd_count = 0, rev_count = 0;
-            for (int64_t i = uncovered_interval.first; i < uncovered_interval.second && !cyclic; ++i) {
-                handle_t handle = graph->get_handle_of_step(trav[i]);
-                interval_length += graph->get_length(handle);
-                nid_t node_id = graph->get_id(handle);
-                if (cycle_check.count(node_id)) {
-                    cyclic = true;
-                } else {
-                    cycle_check.insert(node_id);
+            // A fragment is written in one orientation, so a stretch that flips part way
+            // through cannot be used as it stands.  Split it at the flips rather than
+            // discarding it: at an inversion breakpoint the path that walks the inverted
+            // nodes *forwards* is exactly the one whose stretch spans the flip, so
+            // dropping it would leave only backwards-walking paths to cover them.
+            int64_t run_start = uncovered_interval.first;
+            while (run_start < uncovered_interval.second) {
+                bool run_reverse = graph->get_is_reverse(graph->get_handle_of_step(trav[run_start]));
+                int64_t run_end = run_start + 1;
+                while (run_end < uncovered_interval.second &&
+                       graph->get_is_reverse(graph->get_handle_of_step(trav[run_end])) == run_reverse) {
+                    ++run_end;
                 }
-                if (graph->get_is_reverse(handle)) {
-                    ++rev_count;
-                } else {
-                    ++fwd_count;
+
+                unordered_set<nid_t> cycle_check;
+                bool cyclic = false;
+                int64_t interval_length = 0;
+                for (int64_t i = run_start; i < run_end && !cyclic; ++i) {
+                    handle_t handle = graph->get_handle_of_step(trav[i]);
+                    interval_length += graph->get_length(handle);
+                    if (!cycle_check.insert(graph->get_id(handle)).second) {
+                        cyclic = true;
+                    }
                 }
-            }
-            mixed_orientation = fwd_count > 0 && rev_count > 0;
-            if (!cyclic && !mixed_orientation && interval_length >= minimum_length) {
-                int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, uncovered_interval);
-                ranked_trav_fragments.push_back({trav_coverage, &trav_names[trav_idx], trav_idx, uncovered_interval});
+                if (!cyclic && interval_length >= minimum_length) {
+                    pair<int64_t, int64_t> run = make_pair(run_start, run_end);
+                    int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, run);
+                    ranked_trav_fragments.push_back({trav_coverage, interval_length, run_reverse,
+                                                     &trav_names[trav_idx], trav_idx, run});
+                }
+                run_start = run_end;
             }
         }
     }
@@ -739,17 +776,16 @@ void GrefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
         if (chopped) {
             for (const pair<int64_t, int64_t>& chopped_interval : chopped_intervals) {
                 int64_t chopped_trav_length = 0;
-                bool chopped_mixed = false;
-                int64_t chopped_fwd = 0, chopped_rev = 0;
                 for (int64_t i = chopped_interval.first; i < chopped_interval.second; ++i) {
-                    handle_t h = graph->get_handle_of_step(trav[i]);
-                    chopped_trav_length += graph->get_length(h);
-                    if (graph->get_is_reverse(h)) { ++chopped_rev; } else { ++chopped_fwd; }
+                    chopped_trav_length += graph->get_length(graph->get_handle_of_step(trav[i]));
                 }
-                chopped_mixed = chopped_fwd > 0 && chopped_rev > 0;
-                if (!chopped_mixed && chopped_trav_length >= minimum_length) {
+                // candidates are single-orientation by construction, so a piece chopped
+                // out of one has its parent's orientation
+                if (chopped_trav_length >= minimum_length) {
                     int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, chopped_interval);
-                    ranked_trav_fragments.push_back({trav_coverage, best_stats_fragment.name, best_stats_fragment.trav_idx, chopped_interval});
+                    ranked_trav_fragments.push_back({trav_coverage, chopped_trav_length,
+                                                     best_stats_fragment.reverse, best_stats_fragment.name,
+                                                     best_stats_fragment.trav_idx, chopped_interval});
                     std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
                 }
             }
@@ -818,28 +854,37 @@ optional<step_handle_t> GrefCover::try_extend_forward(step_handle_t start_step, 
 
 optional<step_handle_t> GrefCover::try_extend_backward(step_handle_t start_step, path_handle_t path,
                                                           const pair<step_handle_t, step_handle_t>& other_interval) {
-    // Collect other_interval's node IDs + orientations into a vector
-    vector<pair<nid_t, bool>> other_steps;
-    for (step_handle_t s = other_interval.first; s != other_interval.second; s = graph->get_next_step(s)) {
-        handle_t h = graph->get_handle_of_step(s);
-        other_steps.push_back({graph->get_id(h), graph->get_is_reverse(h)});
-    }
-    if (other_steps.empty()) {
+    if (other_interval.first == other_interval.second) {
         return nullopt;
     }
+    // Walk both sides backward in lockstep so a mismatch costs only the steps
+    // actually compared.  Materializing other_interval up front would cost
+    // O(|other_interval|) even when the very first comparison fails, and the
+    // neighbour here can be a whole chromosome-length path.
+    path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
+    // The interval end is exclusive, and path_end can't be decremented in every
+    // implementation, so take the last step from the path when we're there.
+    step_handle_t other_step = other_interval.second == graph->path_end(other_path) ?
+        graph->path_back(other_path) : graph->get_previous_step(other_interval.second);
+
     // Walk backward from start_step on path, comparing in reverse order
     step_handle_t path_front_end = graph->path_front_end(path);
     step_handle_t cur = start_step;
-    for (int64_t i = (int64_t)other_steps.size() - 1; i >= 0; --i) {
+    while (true) {
         if (cur == path_front_end) {
             return nullopt;
         }
         handle_t cur_handle = graph->get_handle_of_step(cur);
-        if (graph->get_id(cur_handle) != other_steps[i].first ||
-            graph->get_is_reverse(cur_handle) != other_steps[i].second) {
+        handle_t other_handle = graph->get_handle_of_step(other_step);
+        if (graph->get_id(cur_handle) != graph->get_id(other_handle) ||
+            graph->get_is_reverse(cur_handle) != graph->get_is_reverse(other_handle)) {
             return nullopt;
         }
         cur = graph->get_previous_step(cur);
+        if (other_step == other_interval.first) {
+            break;
+        }
+        other_step = graph->get_previous_step(other_step);
     }
     // Return the step of the first matching node (one forward from where we stopped)
     // If cur is path_front_end (walked back to before the first step), return path_begin
@@ -1067,6 +1112,14 @@ void GrefCover::try_cross_path_merge(step_handle_t ref_step) {
         return;
     }
     int64_t my_idx = it->second;
+    // The rank-0 reference intervals are fixed points of the cover: they must never
+    // be extended onto off-reference nodes, nor decommissioned.  Keeping them out of
+    // the merging also preserves the invariant that gref_intervals[0, num_ref_intervals)
+    // are the reference paths, which defragment_intervals() relies on to stay in step
+    // with num_ref_intervals.
+    if (my_idx < this->num_ref_intervals) {
+        return;
+    }
     pair<step_handle_t, step_handle_t>& my_interval = this->gref_intervals[my_idx];
     path_handle_t my_path = graph->get_path_handle_of_step(my_interval.first);
 
@@ -1074,6 +1127,26 @@ void GrefCover::try_cross_path_merge(step_handle_t ref_step) {
     if (my_interval.first == graph->path_end(my_path)) {
         return;
     }
+
+    // A neighbour is a merge candidate only if it's a non-reference interval on a
+    // different path running in the same orientation.  Both extensions copy the
+    // *other* interval's step orientations, so merging across an orientation flip
+    // would build a mixed-orientation interval, which apply() and
+    // write_gref_segments() then silently skip -- dropping sequence that
+    // node_to_interval still counts as covered.  add_interval() makes the same
+    // check for its same-path merges.
+    auto is_merge_candidate = [&](int64_t other_idx) {
+        if (other_idx < this->num_ref_intervals) {
+            return false;
+        }
+        const pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
+        if (graph->get_path_handle_of_step(other_interval.first) == my_path) {
+            // Same-path merging is add_interval()'s job.
+            return false;
+        }
+        return graph->get_is_reverse(graph->get_handle_of_step(my_interval.first)) ==
+               graph->get_is_reverse(graph->get_handle_of_step(other_interval.first));
+    };
 
     // Helper: decommission an interval (set to sentinels, clear snarl bounds).
     auto decommission = [&](int64_t idx) {
@@ -1099,10 +1172,9 @@ void GrefCover::try_cross_path_merge(step_handle_t ref_step) {
         auto prev_it = this->node_to_interval.find(prev_nid);
         if (prev_it != this->node_to_interval.end()) {
             int64_t other_idx = prev_it->second;
-            pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
-            path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
-            // Only cross-path: skip if same path.
-            if (other_path != my_path) {
+            if (is_merge_candidate(other_idx)) {
+                pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
+                path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
                 // Boundary check: verify the junction node is the last node of other_interval.
                 step_handle_t other_last = graph->get_previous_step(other_interval.second);
                 if (graph->get_id(graph->get_handle_of_step(other_last)) == prev_nid) {
@@ -1152,10 +1224,9 @@ void GrefCover::try_cross_path_merge(step_handle_t ref_step) {
         auto next_it = this->node_to_interval.find(next_nid);
         if (next_it != this->node_to_interval.end()) {
             int64_t other_idx = next_it->second;
-            pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
-            path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
-            // Only cross-path: skip if same path.
-            if (other_path != my_path) {
+            if (is_merge_candidate(other_idx)) {
+                pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
+                path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
                 // Boundary check: verify next_nid is the first node of other_interval.
                 if (graph->get_id(graph->get_handle_of_step(other_interval.first)) == next_nid) {
                     // Try 1: extend other_interval backward on its path to cover my_interval's nodes.
@@ -1200,6 +1271,12 @@ void GrefCover::defragment_intervals() {
         if (interval.first != graph->path_end(path_handle)) {
             new_intervals.push_back(interval);
             new_snarl_bounds.push_back(this->interval_snarl_bounds[i]);
+        } else {
+            // Dropping one of the first num_ref_intervals entries would shift a
+            // non-reference interval into the reference block, silently making every
+            // "idx < num_ref_intervals" test wrong from here on.  Nothing may
+            // decommission a reference interval.
+            assert(i >= this->num_ref_intervals);
         }
     }
     this->gref_intervals = std::move(new_intervals);
@@ -1375,39 +1452,24 @@ void GrefCover::verify_cover(int64_t minimum_length) const {
     }
 }
 
-void GrefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
-                                              const unordered_set<path_handle_t>& reference_paths) {
-    if (gref_sample_name.empty()) {
-        return;
-    }
-
+void GrefCover::copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_graph,
+                                            const unordered_set<path_handle_t>& reference_paths) {
     for (const path_handle_t& ref_path : reference_paths) {
         string ref_name = mutable_graph->get_path_name(ref_path);
 
-        // Parse the path name to extract components
-        // rGFA format: SAMPLE#HAPLOTYPE#CONTIG or just CONTIG
-        PathSense sense;
-        string sample, locus;
-        size_t haplotype, phase_block;
-        subrange_t subrange;
-        PathMetadata::parse_path_name(ref_name, sense, sample, locus, haplotype, phase_block, subrange);
+        // Same naming rule the fragments use, minus the subrange strip, so a fragment
+        // and the contig it hangs off always agree on their base name while subpaths of
+        // one contig stay distinct.
+        string new_name = make_gref_copy_name(ref_name);
 
-        // Create new path name with gref sample
-        string new_name;
-        if (sample.empty()) {
-            // Simple path name (no sample info) - prepend gref sample
-            new_name = gref_sample_name + "#0#" + ref_name;
-        } else {
-            // Replace sample with gref sample
-            new_name = PathMetadata::create_path_name(sense, gref_sample_name, locus, haplotype, phase_block, subrange);
-        }
-
-        // Check if path already exists
+        // Two reference paths mapping to one gref name would mean silently publishing
+        // only one of them, so refuse rather than drop sequence on the floor.
         if (mutable_graph->has_path(new_name)) {
-#ifdef debug
-            cerr << "[gref] copy_base_paths_to_sample: path " << new_name << " already exists, skipping" << endl;
-#endif
-            continue;
+            cerr << "[gref] error: reference path " << ref_name << " maps to gref path "
+                 << new_name << ", which already exists. Reference paths must have distinct"
+                 << " gref names; run vg paths --compute-gref on a graph with no gref paths"
+                 << " in it." << endl;
+            exit(1);
         }
 
         // Create the new path with same sense as original
@@ -1420,7 +1482,7 @@ void GrefCover::copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable
         });
 
 #ifdef debug
-        cerr << "[gref] copy_base_paths_to_sample: copied " << ref_name << " -> " << new_name << endl;
+        cerr << "[gref] copy_base_paths_to_gref: copied " << ref_name << " -> " << new_name << endl;
 #endif
     }
 }
@@ -1552,9 +1614,7 @@ void GrefCover::write_gref_segments(ostream& os) {
             ref_end = max(left_end, right_end);
 
             // Get base path name from the reference path
-            base_path_name = ref_path_name;
-            subrange_t subrange;
-            base_path_name = Paths::strip_subrange(base_path_name, &subrange);
+            base_path_name = make_gref_base_name(ref_path_name);
         } else {
             // Fallback to BFS-based get_reference_nodes() for sentinel intervals
             nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
@@ -1564,11 +1624,8 @@ void GrefCover::write_gref_segments(ostream& os) {
                 nid_t ref_node_id = ref_nodes.at(0).second;
                 int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
                 path_handle_t ref_path_handle = graph->get_path_handle_of_step(gref_intervals[ref_interval_idx].first);
-                base_path_name = graph->get_path_name(ref_path_handle);
-                subrange_t subrange;
-                base_path_name = Paths::strip_subrange(base_path_name, &subrange);
-
                 ref_path_name = graph->get_path_name(ref_path_handle);
+                base_path_name = make_gref_base_name(ref_path_name);
 
                 // Find the offset of ref_node_id in the reference path
                 if (ref_node_positions.count(ref_node_id)) {
@@ -1576,25 +1633,9 @@ void GrefCover::write_gref_segments(ostream& os) {
                     ref_end = ref_start + graph->get_length(graph->get_handle(ref_node_id));
                 }
             } else {
-                // Fallback to source path
-                string source_path_name = graph->get_path_name(source_path_handle);
-                subrange_t subrange;
-                base_path_name = Paths::strip_subrange(source_path_name, &subrange);
-            }
-        }
-
-        // If gref_sample_name is set, replace sample in base_path_name
-        if (!gref_sample_name.empty()) {
-            PathSense sense;
-            string sample, locus;
-            size_t haplotype, phase_block;
-            subrange_t subrange;
-            PathMetadata::parse_path_name(base_path_name, sense, sample, locus, haplotype, phase_block, subrange);
-
-            if (sample.empty()) {
-                base_path_name = gref_sample_name + "#0#" + base_path_name;
-            } else {
-                base_path_name = PathMetadata::create_path_name(sense, gref_sample_name, locus, haplotype, phase_block, subrange);
+                // No reference to hang off: name the fragment after its source path,
+                // matching apply().
+                base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
             }
         }
 

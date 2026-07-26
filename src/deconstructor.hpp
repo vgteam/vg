@@ -58,6 +58,15 @@ private:
     // initialize the vcf and get the header 
     string get_vcf_header();
 
+    // Test if a path is the reference we're deconstructing against, seen through the
+    // other half of the base/gref pair (a gref path when deconstructing against the
+    // base reference, or the base path of a selected gref reference).  Such a path is
+    // not a sample: it would genotype as all-reference and inflate AC/AF/AN/NS.
+    bool is_other_reference_view(const string& path_name) const;
+
+    // Samples that exist only as the other view (base or gref) of a selected reference.
+    set<string> other_ref_samples;
+
     // the header needs to be initialized *before* construction for vcflib
     // but we don't know all the non-ref contigs (in nested mode) until *after*
     // construction.  end result: this hacky function to patch them in before printing
