@@ -127,6 +127,8 @@ Public Member Functions</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a6c14aa01fabc63b945bc69550335408b"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a6c14aa01fabc63b945bc69550335408b">get_vcf_header</a> ()</td></tr>
 <tr class="separator:a6c14aa01fabc63b945bc69550335408b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac5dd799920cc44c417f3c8dd8511b970"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ac5dd799920cc44c417f3c8dd8511b970">is_other_reference_view</a> (const string &amp;path_name) const</td></tr>
+<tr class="separator:ac5dd799920cc44c417f3c8dd8511b970"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b32d4a11d7945c680274ef7ce23cbdd"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a2b32d4a11d7945c680274ef7ce23cbdd">add_contigs_to_vcf_header</a> (const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#aeb9a75eed0ba2a369439abddf1ac3f65">vcf_header</a>) const</td></tr>
 <tr class="separator:a2b32d4a11d7945c680274ef7ce23cbdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b35a006fe649bbd6e2ee8c7ca0fefd8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a2b35a006fe649bbd6e2ee8c7ca0fefd8">deconstruct_graph</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarl_manager)</td></tr>
@@ -150,6 +152,8 @@ Private Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
+<tr class="memitem:a6c2045fb7e41ea53f2effa6d4f15c88d"><td class="memItemLeft" align="right" valign="top">set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a6c2045fb7e41ea53f2effa6d4f15c88d">other_ref_samples</a></td></tr>
+<tr class="separator:a6c2045fb7e41ea53f2effa6d4f15c88d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74cd5fde9496dcc1865ed74fda2c4ae4"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a74cd5fde9496dcc1865ed74fda2c4ae4">graph</a></td></tr>
 <tr class="separator:a74cd5fde9496dcc1865ed74fda2c4ae4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52b3fcd3d7357f5dd3624d9caa56539f"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a52b3fcd3d7357f5dd3624d9caa56539f">gbwt</a></td></tr>
@@ -838,6 +842,32 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="ac5dd799920cc44c417f3c8dd8511b970"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5dd799920cc44c417f3c8dd8511b970">&#9670;&nbsp;</a></span>is_other_reference_view()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Deconstructor::is_other_reference_view </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="ab5fb25348677279c4da57583e5704af2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab5fb25348677279c4da57583e5704af2">&#9670;&nbsp;</a></span>cluster_min_allele_len</h2>
@@ -1026,6 +1056,28 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::Deconstructor::long_ref_contig = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6c2045fb7e41ea53f2effa6d4f15c88d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c2045fb7e41ea53f2effa6d4f15c88d">&#9670;&nbsp;</a></span>other_ref_samples</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">set&lt;string&gt; vg::Deconstructor::other_ref_samples</td>
         </tr>
       </table>
   </td>

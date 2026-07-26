@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['a_35',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
-  ['a_36',['A',['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution']]],
+  ['a_35',['A',['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution']]],
+  ['a_36',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
   ['absent_37',['absent',['../namespacehaplotypes__defaults.html#a201800ce4570c0eb29f0279035dcaf48',1,'haplotypes_defaults::absent()'],['../classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa38113783fd68477aac0ec616b4ed4fb9',1,'vg::Recombinator::absent()']]],
   ['absent_5fscore_38',['ABSENT_SCORE',['../classvg_1_1Recombinator.html#a872b059f8fdd67afccec2767ff6ce058',1,'vg::Recombinator']]],
   ['absent_5fscore_39',['absent_score',['../structvg_1_1Recombinator_1_1Parameters.html#a3c21dd67f19f0646632968d3068a677a',1,'vg::Recombinator::Parameters']]],
@@ -323,8 +323,8 @@ var searchData=
   ['approx_5fpath_5fdistance_2ecpp_355',['approx_path_distance.cpp',['../approx__path__distance_8cpp.html',1,'']]],
   ['approx_5fpath_5fdistance_2ehpp_356',['approx_path_distance.hpp',['../approx__path__distance_8hpp.html',1,'']]],
   ['approx_5fposition_357',['approx_position',['../classvg_1_1Mapper.html#accd2bd6b8ec2db952fd79e0742f1a548',1,'vg::Mapper']]],
-  ['approximate_5fjobs_358',['APPROXIMATE_JOBS',['../classvg_1_1HaplotypePartitioner.html#a0ef19f69054a8df7277e7afd2a5de83f',1,'vg::HaplotypePartitioner']]],
-  ['approximate_5fjobs_359',['approximate_jobs',['../structvg_1_1HaplotypePartitioner_1_1Parameters.html#a306ad539729c5e6e0649da847666dcc9',1,'vg::HaplotypePartitioner::Parameters']]],
+  ['approximate_5fjobs_358',['approximate_jobs',['../structvg_1_1HaplotypePartitioner_1_1Parameters.html#a306ad539729c5e6e0649da847666dcc9',1,'vg::HaplotypePartitioner::Parameters']]],
+  ['approximate_5fjobs_359',['APPROXIMATE_JOBS',['../classvg_1_1HaplotypePartitioner.html#a0ef19f69054a8df7277e7afd2a5de83f',1,'vg::HaplotypePartitioner']]],
   ['are_5fconsecutive_5fnodes_5fin_5fpath_360',['are_consecutive_nodes_in_path',['../classvg_1_1Paths.html#a9562c903db44e7328f82c30afea6c643',1,'vg::Paths']]],
   ['are_5fconsistent_361',['are_consistent',['../classvg_1_1MultipathMapper.html#a0080de005fe755313ddd6bf3b41620b4',1,'vg::MultipathMapper']]],
   ['are_5fequivalent_362',['are_equivalent',['../namespacehandlegraph_1_1algorithms.html#a3a3110dde9b4be48c07966ca05f07ce3',1,'handlegraph::algorithms']]],

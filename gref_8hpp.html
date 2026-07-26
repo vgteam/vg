@@ -92,12 +92,14 @@ Namespaces</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Interface for computing and querying graph reference path covers.</p>
-<p>An gref cover is a set of path fragments (stored as separate paths) in the graph. They are always relative to an existing reference sample (ie GRCh38 or CHM13). Unlike rGFA paths which use complex metadata embedding, gref paths use a simple naming scheme: {base_path_name}_{N}_alt</p>
-<p>For example, if the reference path is "CHM13#0#chr1", gref paths would be named:</p><ul>
-<li>CHM13#0#chr1_1_alt</li>
-<li>CHM13#0#chr1_2_alt</li>
+<p>An gref cover is a set of path fragments (stored as separate paths) in the graph. They are always relative to an existing reference sample (ie GRCh38 or CHM13). Unlike rGFA paths which use complex metadata embedding, gref paths use a simple naming scheme: the base reference path name moved into the "gref_" namespace, with the fragments numbered off it as {gref_base_path_name}_{N}_alt</p>
+<p>For example, if the reference path is "CHM13#0#chr1", the cover is written as:</p><ul>
+<li>gref_CHM13#0#chr1 (a copy of the reference path itself)</li>
+<li>gref_CHM13#0#chr1_1_alt (fragments hanging off it)</li>
+<li>gref_CHM13#0#chr1_2_alt</li>
 <li>etc.</li>
 </ul>
+<p>The naming is a convention, not an option: because the prefix lands on the sample, a graph carries both references at once, "is this a gref path/sample" is a prefix test, and the base path a gref path came from is recoverable by dropping the prefix.</p>
 <p>The data structures used in this class are always relative to the original paths in the graph. The REFERENCE-sense fragments that are used to serialize the cover can be created and loaded, but they are not used beyond that. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
