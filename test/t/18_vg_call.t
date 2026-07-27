@@ -558,10 +558,10 @@ is "$TN_MS_COUNT" "4" "triple_nested_multisnp 1/1: homozygous alt produces varia
 TN_MS_HOM=$(grep -v "^#" tn_ms.vcf | cut -f10 | cut -d: -f1 | grep -c "1/1")
 is "$TN_MS_HOM" "4" "triple_nested_multisnp 1/1: all 4 variants are homozygous alt"
 # Verify LV tags span levels 0-3
-TN_MS_LV0=$(grep -v "^#" tn_ms.vcf | grep -c "LV=0")
-TN_MS_LV123=$(grep -v "^#" tn_ms.vcf | grep -c "LV=[123]")
-is "$TN_MS_LV0" "1" "triple_nested_multisnp: one top-level variant (LV=0)"
-is "$TN_MS_LV123" "3" "triple_nested_multisnp: three nested variants (LV=1,2,3)"
+TN_MS_AL0=$(grep -v "^#" tn_ms.vcf | grep -c "AL=0")
+TN_MS_AL123=$(grep -v "^#" tn_ms.vcf | grep -c "AL=[123]")
+is "$TN_MS_AL0" "1" "triple_nested_multisnp: one top-level variant (AL=0)"
+is "$TN_MS_AL123" "3" "triple_nested_multisnp: three nested variants (AL=1,2,3)"
 
 rm -f tn_ms_ap.gfa tn_ms.gam tn_ms.pack tn_ms.vcf
 
@@ -785,8 +785,8 @@ RD_TAG_COUNT=$(grep -v "^#" rc_test.vcf | grep -c "RD=")
 is "$RD_TAG_COUNT" "$RC_COUNT" "All variants have RD tag"
 
 # Check that top-level variant has RC pointing to its own contig
-TOP_RC=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/' | grep -o "RC=[^;]*" | cut -d= -f2)
-TOP_CHROM=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/ {print $1}')
+TOP_RC=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /AL=0/' | grep -o "RC=[^;]*" | cut -d= -f2)
+TOP_CHROM=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /AL=0/ {print $1}')
 is "$TOP_RC" "$TOP_CHROM" "Top-level variant RC equals its own CHROM"
 
 # Check that nested variants point to top-level's coordinates
