@@ -266,15 +266,29 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         update_nesting_info_tags(snarl_manager);
     }
     vector<pair<pair<string, size_t>, string>> all_variants;
+    // Reserve once: doing it inside the loop below reallocates per thread buffer.
+    size_t total_variants = 0;
     for (const auto& buf : output_variants) {
-        all_variants.reserve(all_variants.size() + buf.size());
+        total_variants += buf.size();
+    }
+    all_variants.reserve(total_variants);
+    // `buf` must not be const: std::move() over const_iterators silently degrades to a copy,
+    // which duplicated every compressed record at the one point where the whole VCF is in
+    // memory at once.  Free the buffer as we go for the same reason.
+    //
+    // This makes write_variants() single-use, which it already effectively was -- a real move
+    // leaves the buffers empty either way.  All three callers (deconstructor.cpp,
+    // call_main.cpp, mcmc_main.cpp) call it exactly once.
+    for (auto& buf : output_variants) {
         std::move(buf.begin(), buf.end(), std::back_inserter(all_variants));
+        buf.clear();
+        buf.shrink_to_fit();
     }
     std::sort(all_variants.begin(), all_variants.end(), [](const pair<pair<string, size_t>, string>& v1,
                                                            const pair<pair<string, size_t>, string>& v2) {
             return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
         });
-    for (auto v : all_variants) {
+    for (const auto& v : all_variants) {
         string dest;
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
