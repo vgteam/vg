@@ -391,10 +391,6 @@ void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
 }
 
-void VCFOutputCaller::set_prune_contigs(bool prune_contigs) {
-    this->prune_contigs = prune_contigs;
-}
-
 unordered_set<string> VCFOutputCaller::get_output_contigs() const {
     unordered_set<string> contigs;
     // The sort key is (sequenceName, position) (see add_variant), so the contig is right
@@ -409,20 +405,24 @@ unordered_set<string> VCFOutputCaller::get_output_contigs() const {
 
 string VCFOutputCaller::prune_header_contigs(const string& header,
                                              const unordered_set<string>& keep) const {
-    if (!prune_contigs) {
-        return header;
-    }
     static const string contig_prefix = "##contig=<ID=";
     stringstream pruned;
     vector<string> lines = split_delims(header, "\n");
     for (const string& line : lines) {
         if (line.compare(0, contig_prefix.size(), contig_prefix) == 0) {
-            // ##contig=<ID=NAME,length=N>  -- NAME runs to the first ',' or the closing '>'.
-            // Contig names can contain '#' and '[]' (PanSN, subranges) but not ','.
+            // Parse the ID back out the same way it was written, rather than scanning for a
+            // delimiter: contig names are path names and nothing stops one containing ',' or
+            // '>'.  Both producers emit exactly ##contig=<ID=NAME,length=N> -- vcf_header()
+            // above and Deconstructor::add_contigs_to_vcf_header().
+            static const string contig_suffix = ",length=";
             size_t id_start = contig_prefix.size();
-            size_t id_end = line.find_first_of(",>", id_start);
-            string id = line.substr(id_start, id_end == string::npos ? string::npos
-                                                                     : id_end - id_start);
+            size_t id_end = line.rfind(contig_suffix);
+            if (id_end == string::npos || id_end < id_start) {
+                // not a shape we wrote; leave it alone rather than guess
+                pruned << line << "\n";
+                continue;
+            }
+            string id = line.substr(id_start, id_end - id_start);
             if (!keep.count(id)) {
                 continue;
             }

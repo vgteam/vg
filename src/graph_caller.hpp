@@ -122,16 +122,14 @@ public:
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
 
-    /// Drop ##contig header lines for reference contigs that ended up with no records.
-    void set_prune_contigs(bool prune_contigs);
-
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the
     /// output buffer, so it costs nothing (no decompression) and does not need the snarl tree.
     /// Only meaningful once calling is finished and before write_variants() drains the buffer.
     unordered_set<string> get_output_contigs() const;
 
     /// Remove ##contig lines whose ID is not in keep, leaving every other line alone.
-    /// A no-op unless set_prune_contigs(true) was called, so callers can apply it blindly.
+    /// A reference contig that produced no record is not worth declaring: with a gref cover
+    /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
 protected:
@@ -203,9 +201,6 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
-
-    // drop ##contig lines for reference contigs with no records
-    bool prune_contigs = false;
 
     // prevent giant variants
     static const int64_t max_vcf_line_length = 2000000000;

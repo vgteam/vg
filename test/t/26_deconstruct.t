@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 89
+plan tests 87
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -217,25 +217,16 @@ is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "CH=1") 1 "the nested allele is 
 # popped bubbles is keyed on it, and it is the only in-VCF link back to the base site.
 is $(grep -v ^# nested_snp_in_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=1/ && $8 ~ /PS=/' | wc -l) 1 "a per-contig top-level site on a gref contig still carries PS"
 
-# With -P gref_x, we get multiple contigs (gref_x, gref_x_1_alt, gref_x_2_alt)
-is $(grep -c "^##contig" nested_snp_in_ins.vcf) 3 "nested deconstruction gets all reference contigs in vcf header"
-
-# --prune-contigs drops header lines for contigs that ended up with no records.  Here
-# gref_x_2_alt is covered by the gref cover but carries no variant, so it goes.
-vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a > nested_snp_in_ins.pruned.vcf
-is $(grep -c "^##contig" nested_snp_in_ins.pruned.vcf) 3 "without --prune-contigs every reference contig is in the header"
-vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a --prune-contigs > nested_snp_in_ins.pruned.vcf
-is $(grep -c "^##contig" nested_snp_in_ins.pruned.vcf) 2 "--prune-contigs drops the contig with no records"
-is $(grep -c "^##contig=<ID=gref_x_2_alt," nested_snp_in_ins.pruned.vcf) 0 "the dropped contig is the one with no records"
-# the records themselves must be untouched
-vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a | grep -v "^#" > pruned_off.tsv
-grep -v "^#" nested_snp_in_ins.pruned.vcf > pruned_on.tsv
-diff pruned_off.tsv pruned_on.tsv
-is "$?" 0 "--prune-contigs changes only the header, not the records"
-# it does not depend on nesting output: the contig set comes from the records, not the snarl tree
-vg deconstruct nested_snp_in_ins.gref.pg -P gref_x --prune-contigs > nested_snp_in_ins.flat.vcf
-is $(grep -c "^##contig" nested_snp_in_ins.flat.vcf) 1 "--prune-contigs works without -a"
-rm -f nested_snp_in_ins.pruned.vcf nested_snp_in_ins.flat.vcf pruned_off.tsv pruned_on.tsv
+# The cover selects three contigs here (gref_x, gref_x_1_alt, gref_x_2_alt) but
+# gref_x_2_alt carries no variant, and a reference contig that produced no record is not
+# worth declaring.  So the header has two.
+is $(grep -c "^##contig" nested_snp_in_ins.vcf) 2 "contigs with no records are not declared"
+is $(grep -c "^##contig=<ID=gref_x_2_alt," nested_snp_in_ins.vcf) 0 "the undeclared contig is the one with no records"
+is $(grep -v "^#" nested_snp_in_ins.vcf | cut -f1 | sort -u | wc -l) 2 "every declared contig has records, and every contig with records is declared"
+# The contig set comes from the records, not the snarl tree, so it does not need -a.
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x > nested_snp_in_ins.flat.vcf
+is $(grep -c "^##contig" nested_snp_in_ins.flat.vcf) 1 "pruning works without -a"
+rm -f nested_snp_in_ins.flat.vcf
 
 rm -f nested_snp_in_ins.gref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
 

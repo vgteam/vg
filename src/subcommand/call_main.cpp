@@ -85,8 +85,6 @@ void help_call(char** argv) {
          << "      --top-down            top-down nested calling with genotype propagation" << endl
          << "                            from parent to child snarls (writes LV/PS tags)" << endl
          << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
-         << "      --prune-contigs       omit ##contig lines for reference contigs" << endl
-         << "                            with no records" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
          << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
@@ -131,7 +129,6 @@ int main_call(int argc, char** argv) {
 
     bool traversals_only = false;
     bool gaf_output = false;
-    bool prune_contigs = false;
     size_t trav_padding = 0;
     bool genotype_snarls = false;
     bool top_down = false;
@@ -162,7 +159,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_TOP_DOWN = 1006;
-    constexpr int OPT_PRUNE_CONTIGS = 1007;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -199,7 +195,6 @@ int main_call(int argc, char** argv) {
             {"legacy", no_argument, 0, OPT_LEGACY},
             {"top-down", no_argument, 0, OPT_TOP_DOWN},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
-            {"prune-contigs", no_argument, 0, OPT_PRUNE_CONTIGS},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
@@ -334,9 +329,6 @@ int main_call(int argc, char** argv) {
             break;
         case 'I':
             call_chains = true;
-            break;
-        case OPT_PRUNE_CONTIGS:
-            prune_contigs = true;
             break;
         case OPT_CLUSTER_POST:
             cluster_post_genotype = true;
@@ -545,13 +537,6 @@ int main_call(int argc, char** argv) {
     int nested_mode_count = (all_snarls ? 1 : 0) + (top_down ? 1 : 0) + (bottom_up ? 1 : 0);
     if (nested_mode_count > 1) {
         logger.error() << "-A, --top-down, and --bottom-up are mutually exclusive" << endl;
-    }
-
-    // --gaf never reaches write_variants, so there is no VCF header to prune and the flag
-    // would do nothing at all.
-    if (prune_contigs && gaf_output) {
-        logger.error() << "--prune-contigs has no effect with -G/--gaf, which writes no VCF header"
-                       << endl;
     }
 
     // Validation for nested calling options
@@ -956,7 +941,6 @@ int main_call(int argc, char** argv) {
         assert(vcf_caller != nullptr);
         // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
         vcf_caller->set_nested(all_snarls || top_down || bottom_up);
-        vcf_caller->set_prune_contigs(prune_contigs);
         vcf_caller->set_translation(translation.get());
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
