@@ -1141,7 +1141,13 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         size_t pos;
         size_t ref_len;
     };
-    unordered_map<string, RefInfo> top_level_ref_info;
+    // Keyed by snarl name, then by (chrom, pos), because a snarl ID can carry more than one
+    // record: a cyclic reference emits two, both with the same ID (see
+    // nesting/cyclic_ref_multiple_variants.gfa, which gives two <5<1 records at POS 20 and 44).
+    // A plain name -> RefInfo map was last-write-wins, so both records were handed the
+    // surviving one's interval and the record at POS 20 reported RS=44.  The inner map is
+    // ordered so that picking begin() is deterministic regardless of thread scheduling.
+    unordered_map<string, map<pair<string, size_t>, size_t>> top_level_ref_info;
 
     // Helper to check if a snarl is top-level (no ancestors in VCF)
     auto is_top_level = [&](const string& name) -> bool {
@@ -1167,7 +1173,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             vector<string> toks = split_delims(output_variant_string, "\t", 5);
             const string& name = toks[2];
             if (is_top_level(name)) {
-                top_level_ref_info[name] = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+                top_level_ref_info[name][make_pair(toks[0], static_cast<size_t>(stoul(toks[1])))] =
+                    toks[3].length();
             }
         }
     }
@@ -1288,7 +1295,25 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             }
 
             // Add RC, RS, RD tags (reference info from top-level snarl)
-            const RefInfo& top_ref = top_level_ref_info.at(top_level_name);
+            RefInfo top_ref;
+            if (top_level_name == name) {
+                // We are our own top-level site, so the answer is our own interval.  Looking
+                // it up by name would risk picking a different record that shares our ID.
+                top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+            } else {
+                const auto& candidates = top_level_ref_info.at(top_level_name);
+                // If the ancestor produced several records, prefer one on our own contig;
+                // failing that take the smallest (chrom, pos).  Which one is "right" is
+                // genuinely ambiguous, so pick deterministically rather than by chance.
+                auto chosen = candidates.begin();
+                for (auto it = candidates.begin(); it != candidates.end(); ++it) {
+                    if (it->first.first == toks[0]) {
+                        chosen = it;
+                        break;
+                    }
+                }
+                top_ref = {chosen->first.first, chosen->first.second, chosen->second};
+            }
             nesting_tags += ";RC=" + top_ref.chrom;
             nesting_tags += ";RS=" + std::to_string(top_ref.pos);
             nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
