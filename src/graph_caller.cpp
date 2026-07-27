@@ -232,7 +232,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
     if (include_nested) {
-        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
         ss << "##INFO=<ID=AL,Number=1,Type=Integer,Description=\"Absolute level in the snarl tree: number of ancestors present in the VCF, counted across all reference contigs\">" << endl;
         ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence. AL minus CH is the number of nesting steps that stayed within one contig\">" << endl;
         ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
@@ -1256,12 +1256,20 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
             auto [contig_level, ancestor_count, contig_hops, parent_name, top_level_name] =
                 get_nesting_tags(name, toks[0]);
-            // LV keeps its historical meaning here; contig_level is computed but not yet used.
-            string nesting_tags = ";LV=" + std::to_string(ancestor_count);
+            // LV is the level within this record's own reference contig.  It used to be the
+            // absolute count, which is now AL: for a VCF with a single reference contig the
+            // two are identical, but once gref fragments give the insides of insertions their
+            // own contigs, the absolute count is not what a level filter wants.  No
+            // gref-contig record was ever at LV=0 under the old definition, so `vcfbub -l 0`
+            // deleted every one of them.
+            string nesting_tags = ";LV=" + std::to_string(contig_level);
             nesting_tags += ";AL=" + std::to_string(ancestor_count);
             nesting_tags += ";CH=" + std::to_string(contig_hops);
-            if (ancestor_count != 0) {
-                assert(!parent_name.empty());
+            if (!parent_name.empty()) {
+                // Not "if (lv != 0)": those were equivalent only while LV was the absolute
+                // count.  A record can now legitimately be at LV=0 and still have a parent on
+                // another contig, and it must keep PS -- vcfbub's rescue of the children of
+                // popped bubbles is keyed on it.
                 nesting_tags += ";PS=" + parent_name;
             }
 

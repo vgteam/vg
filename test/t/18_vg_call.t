@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 98
+plan tests 99
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -430,9 +430,14 @@ is "$TNQ_ALL_LV" "0" "triple nested calls all have LV tag"
 TNQ_NESTED_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 !~ /PS=/' | wc -l)
 is "$TNQ_NESTED_NO_PS" "0" "nested calls (LV>0) all have PS tag"
 
-# Top-level variants (LV=0) should NOT have PS tag
-TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /PS=/' | wc -l)
-is "$TNQ_TOPLEVEL_HAS_PS" "0" "top-level calls (LV=0) do not have PS tag"
+# Absolute top-level variants (AL=0) have no parent anywhere, so no PS tag.
+TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /AL=0/ && $8 ~ /PS=/' | wc -l)
+is "$TNQ_TOPLEVEL_HAS_PS" "0" "absolute top-level calls (AL=0) do not have PS tag"
+
+# But a record top-level on its OWN contig (LV=0) while nested in the snarl tree (AL>0) MUST
+# keep PS.  It is the only in-VCF link back to the enclosing base-contig site.
+TNQ_PERCONTIG_TOP_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /AL=0/ && $8 !~ /PS=/' | wc -l)
+is "$TNQ_PERCONTIG_TOP_NO_PS" "0" "per-contig top-level calls nested in the tree still carry PS"
 
 rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
 
