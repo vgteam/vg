@@ -647,14 +647,21 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
         trace_from.emplace(cur_trace.path().mapping(0).position().node_id());
 #ifdef debug_chaining
         cerr << "Chain traceforwards may start from " << cur_trace.path().mapping(0).position().node_id() << endl;
+        cerr << "Chain: " << cur_trace.path().mapping(0).position().node_id();
 #endif
         for (size_t i = 0; i < num_ids - 1; i++) {
             // Remember that this pair of anchors can connect
             size_t prev = cur_trace.path().mapping(i).position().node_id();
             size_t next = cur_trace.path().mapping(i+1).position().node_id();
+#ifdef debug_chaining
+            cerr << " " << next;
+#endif
             source_count[next]++;
             outgoing_edges[prev].emplace_back(next);
         }
+#ifdef debug_chaining
+        cerr << endl;
+#endif
     }
 
     // Now check in on the extra edges.
@@ -708,7 +715,6 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
             // If we've reached a decision point, then save all next edges
             // We have reached the end of one subchain
             if (outgoing_edges[cur_anchor_id].size() > 1 
-                || outgoing_edges[outgoing_edges[cur_anchor_id].front()].size() > 1
                 || source_count[outgoing_edges[cur_anchor_id].front()] > 1) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
                     // We need to start a new trace from here
