@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 82
+plan tests 89
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -183,11 +183,21 @@ printf "T\tA\t1|.\n" >> nested_snp_in_del_truth.tsv
 diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside deletion"
 
+# The other half of the CH story.  The reference allele of the deletion spells out the
+# deleted sequence, so the nested SNP has coordinates on the same contig: it stays at LV=1
+# and takes no contig hop.  nested_snp_in_ins below is the same SNP inside an insertion,
+# where it lands on a gref contig at LV=0 with CH=1.  Nothing else distinguishes the two.
+is "$(grep -v ^# nested_snp_in_del.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=1 " "a SNP inside a deletion stays nested on its own contig"
+is "$(grep -v ^# nested_snp_in_del.vcf | grep -o 'CH=[0-9]*' | tr '\n' ' ')" "CH=0 CH=0 " "a SNP inside a deletion takes no contig hop"
+is $(grep -v ^# nested_snp_in_del.vcf | cut -f1 | sort -u | wc -l) 1 "both records are on the base contig"
+
 rm -f nested_snp_in_del.gref.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
 # Test: SNP inside insertion with LV field checks
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > nested_snp_in_ins.gref.pg
 vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a > nested_snp_in_ins.vcf
+is $(grep -c "^##INFO=<ID=LV," nested_snp_in_ins.vcf) 1 "LV is declared in the header"
+is $(grep -c "^##INFO=<ID=CH," nested_snp_in_ins.vcf) 1 "CH is declared in the header"
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
 # With -P gref_x, nested variants are on gref contigs (gref_x_1_alt), parent on gref_x
 # So order is: insertion (on gref_x) then SNP (on gref_x_1_alt)
@@ -291,6 +301,11 @@ rm -f cyclic_ref_nested.gref.pg cyclic_ref_nested.vcf
 # With -c 0 to disable context-jaccard (which doesn't work well on tiny graphs), we should get 2 variants
 vg deconstruct nesting/cyclic_ref_multiple_variants.gfa -p x -a -c 0 > cyclic_ref_multi.vcf
 is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
+# Both records share the snarl ID, because the ID names the snarl and not the traversal of
+# it.  Each must still report its own reference interval; a name-keyed lookup used to hand
+# both of them whichever one was written last.
+is "$(grep -v ^# cyclic_ref_multi.vcf | cut -f3 | sort -u | wc -l)" "1" "the two records share one snarl ID"
+is "$(grep -v ^# cyclic_ref_multi.vcf | grep -o 'RS=[0-9]*' | tr '\n' ' ')" "RS=20 RS=44 " "each record keeps its own RS, not the other's"
 rm -f cyclic_ref_multi.vcf
 
 # A gref cover writes the reference twice: under its own name and in the gref

@@ -448,7 +448,7 @@ is "$?" 1 "vg call --prune-contigs is rejected with -G/--gaf, where it would be 
 rm -f tnq_pruned.vcf tnq_recs.tsv tnq_pruned_recs.tsv
 
 # But a record that is top-level on its OWN contig (LV=0) while being nested in the snarl
-# tree (AL>0) MUST keep PS.  It is the only in-VCF link back to the enclosing base-contig
+# tree (CH>0) MUST keep PS.  It is the only in-VCF link back to the enclosing base-contig
 # site, and vcfbub's rescue of the children of popped bubbles is keyed on it.
 TNQ_PERCONTIG_TOP_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /CH=0/ && $8 !~ /PS=/' | wc -l)
 is "$TNQ_PERCONTIG_TOP_HAS_PS" "0" "per-contig top-level calls nested in the tree still carry PS"

@@ -233,7 +233,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     }
     if (include_nested) {
         ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence. a record with CH=0 is in the coordinate system of the reference it is called against\">" << endl;
+        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
         ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
         ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
         ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
@@ -1278,12 +1278,12 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
             auto [contig_level, contig_hops, parent_name, top_level_name] =
                 get_nesting_tags(name, toks[0]);
-            // LV is the level within this record's own reference contig.  It used to be the
-            // absolute count, which is now AL: for a VCF with a single reference contig the
-            // two are identical, but once gref fragments give the insides of insertions their
-            // own contigs, the absolute count is not what a level filter wants.  No
-            // gref-contig record was ever at LV=0 under the old definition, so `vcfbub -l 0`
-            // deleted every one of them.
+            // LV is the level within this record's own reference contig.  It used to count
+            // ancestors across every contig: for a VCF with a single reference contig the two
+            // are identical, but once gref fragments give the insides of insertions their own
+            // contigs, the whole-file count is not what a level filter wants.  No gref-contig
+            // record was ever at LV=0 under the old definition, so `vcfbub -l 0` deleted every
+            // one of them.
             string nesting_tags = ";LV=" + std::to_string(contig_level);
             nesting_tags += ";CH=" + std::to_string(contig_hops);
             if (!parent_name.empty()) {
