@@ -392,6 +392,52 @@ void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
 }
 
+void VCFOutputCaller::set_prune_contigs(bool prune_contigs) {
+    this->prune_contigs = prune_contigs;
+}
+
+unordered_set<string> VCFOutputCaller::get_output_contigs() const {
+    unordered_set<string> contigs;
+    // The sort key is (sequenceName, position) (see add_variant), so the contig is right
+    // there and nothing has to be decompressed.
+    for (const auto& thread_buf : output_variants) {
+        for (const auto& output_variant_record : thread_buf) {
+            contigs.insert(output_variant_record.first.first);
+        }
+    }
+    return contigs;
+}
+
+string VCFOutputCaller::prune_header_contigs(const string& header,
+                                             const unordered_set<string>& keep) const {
+    if (!prune_contigs) {
+        return header;
+    }
+    static const string contig_prefix = "##contig=<ID=";
+    stringstream pruned;
+    vector<string> lines = split_delims(header, "\n");
+    for (const string& line : lines) {
+        if (line.compare(0, contig_prefix.size(), contig_prefix) == 0) {
+            // ##contig=<ID=NAME,length=N>  -- NAME runs to the first ',' or the closing '>'.
+            // Contig names can contain '#' and '[]' (PanSN, subranges) but not ','.
+            size_t id_start = contig_prefix.size();
+            size_t id_end = line.find_first_of(",>", id_start);
+            string id = line.substr(id_start, id_end == string::npos ? string::npos
+                                                                     : id_end - id_start);
+            if (!keep.count(id)) {
+                continue;
+            }
+        }
+        pruned << line << "\n";
+    }
+    string result = pruned.str();
+    if (!header.empty() && header.back() != '\n' && !result.empty()) {
+        // input had no trailing newline, so don't invent one
+        result.pop_back();
+    }
+    return result;
+}
+
 void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
                                               bool reversed, bool one_based) const {
     SnarlTraversal proto_trav;

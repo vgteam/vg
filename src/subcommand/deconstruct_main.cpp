@@ -53,6 +53,8 @@ void help_deconstruct(char** argv) {
          << "  -a, --all-snarls         process all snarls, including nested snarls" << endl
          << "                           (by default only top-level snarls reported)." << endl
          << "                           Uses hierarchical processing and writes LV/PS tags." << endl
+         << "      --prune-contigs      omit ##contig lines for reference contigs" << endl
+         << "                           with no records" << endl
          << "  -c, --context-jaccard N  set context mapping size used to disambiguate alleles" << endl
          << "                           at sites with multiple reference traversals [10000]" << endl
          << "  -u, --untangle-travs     use context mapping for reference-relative positions" << endl
@@ -91,6 +93,7 @@ int main_deconstruct(int argc, char** argv) {
     bool path_restricted_traversals = false;
     bool show_progress = false;
     bool all_snarls = false;
+    bool prune_contigs = false;
     bool keep_conflicted = false;
     bool strict_conflicts = false;
     int context_jaccard_window = 10000;
@@ -101,6 +104,7 @@ int main_deconstruct(int argc, char** argv) {
     bool star_allele = false;
 
     constexpr int OPT_CLUSTER_MIN_LEN = 1000;
+    constexpr int OPT_PRUNE_CONTIGS = 1001;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -120,6 +124,7 @@ int main_deconstruct(int argc, char** argv) {
                 {"context-jaccard", required_argument, 0, 'c'},
                 {"untangle-travs", no_argument, 0, 'u'},
                 {"all-snarls", no_argument, 0, 'a'},
+                {"prune-contigs", no_argument, 0, OPT_PRUNE_CONTIGS},
                 {"keep-conflicted", no_argument, 0, 'K'},
                 {"strict-conflicts", no_argument, 0, 'S'},
                 {"contig-only-ref", no_argument, 0, 'C'},
@@ -176,6 +181,9 @@ int main_deconstruct(int argc, char** argv) {
             break;
         case 'a':
             all_snarls = true;
+            break;
+        case OPT_PRUNE_CONTIGS:
+            prune_contigs = true;
             break;
         case 'K':
             keep_conflicted = true;
@@ -431,6 +439,7 @@ int main_deconstruct(int argc, char** argv) {
     }
     dd.set_translation(translation.get());
     dd.set_nested(all_snarls);
+    dd.set_prune_contigs(prune_contigs);
     dd.deconstruct(refpaths, graph, snarl_manager.get(),
                    all_snarls,
                    context_jaccard_window,

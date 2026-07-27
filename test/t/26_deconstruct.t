@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 84
+plan tests 87
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -196,23 +196,38 @@ printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
 
+# A SNP inside an insertion has no coordinates on the base contig at all, so its record
+# lands on a gref contig.  LV counts only ancestors on the record's own contig, so the SNP
+# is top-level where it lives (LV=0) even though it is one level down in the snarl tree
+# (AL=1).  CH=1 says that step crossed into non-reference sequence.  Compare with
+# nested_snp_in_del below, where the same SNP stays on the base contig and keeps LV=1.
 is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "AL=0") 1 "AL=0 set for base allele of nested insertion"
 is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "AL=1") 1 "AL=1 set for nested allele of nested insertion"
-# A SNP inside an insertion has no coordinates on the base contig, so its record lands on a
-# gref contig: CH=1.  A SNP inside a deletion stays on the base contig: CH=0.  LV cannot tell
-# those apart today, which is what the next commit fixes.
-is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "CH=1") 1 "the nested allele is one contig hop from the base reference"
-# LV counts only ancestors on the record's own contig, so the SNP inside the insertion is
-# top-level where it lives even though it is one level down in the snarl tree.  Compare with
-# nested_snp_in_del, where the same SNP stays on the base contig and keeps LV=1.
 is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "LV=0") 2 "both sites are top-level on their own contig"
-is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "LV=1") 0 "no site is nested within its own contig here"
-# The LV=0 record on the gref contig must keep PS: vcfbub's rescue of the children of popped
-# bubbles is keyed on it, and it is the only in-VCF link back to the enclosing base site.
+is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "CH=1") 1 "the nested allele is one contig hop from the base reference"
+# The LV=0 record on the gref contig must keep PS: vcfbub's rescue of the children of
+# popped bubbles is keyed on it, and it is the only in-VCF link back to the base site.
 is $(grep -v ^# nested_snp_in_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=1/ && $8 ~ /PS=/' | wc -l) 1 "a per-contig top-level site on a gref contig still carries PS"
 
 # With -P gref_x, we get multiple contigs (gref_x, gref_x_1_alt, gref_x_2_alt)
 is $(grep -c "^##contig" nested_snp_in_ins.vcf) 3 "nested deconstruction gets all reference contigs in vcf header"
+
+# --prune-contigs drops header lines for contigs that ended up with no records.  Here
+# gref_x_2_alt is covered by the gref cover but carries no variant, so it goes.
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a > nested_snp_in_ins.pruned.vcf
+is $(grep -c "^##contig" nested_snp_in_ins.pruned.vcf) 3 "without --prune-contigs every reference contig is in the header"
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a --prune-contigs > nested_snp_in_ins.pruned.vcf
+is $(grep -c "^##contig" nested_snp_in_ins.pruned.vcf) 2 "--prune-contigs drops the contig with no records"
+is $(grep -c "^##contig=<ID=gref_x_2_alt," nested_snp_in_ins.pruned.vcf) 0 "the dropped contig is the one with no records"
+# the records themselves must be untouched
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a | grep -v "^#" > pruned_off.tsv
+grep -v "^#" nested_snp_in_ins.pruned.vcf > pruned_on.tsv
+diff pruned_off.tsv pruned_on.tsv
+is "$?" 0 "--prune-contigs changes only the header, not the records"
+# it does not depend on nesting output: the contig set comes from the records, not the snarl tree
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x --prune-contigs > nested_snp_in_ins.flat.vcf
+is $(grep -c "^##contig" nested_snp_in_ins.flat.vcf) 1 "--prune-contigs works without -a"
+rm -f nested_snp_in_ins.pruned.vcf nested_snp_in_ins.flat.vcf pruned_off.tsv pruned_on.tsv
 
 rm -f nested_snp_in_ins.gref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
 
@@ -252,11 +267,10 @@ is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 5 "all nested sites foun
 is $(grep -v ^# triple_nested.vcf | grep AL=2 | wc -l) 1 "level 2 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep AL=3 | wc -l) 1 "level 3 site found in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep AL=4 | wc -l) 1 "level 4 site found in triple nested"
-# The whole chain sits on one gref contig after a single hop into the insertion, so CH is 1
-# throughout and AL-CH counts the same-contig nesting: 0 0 1 2 3.
+# The whole chain sits on one gref contig after a single hop, so LV is AL-1 throughout and
+# AL-CH counts the same-contig nesting: 0 0 1 2 3.
+is "$(grep -v ^# triple_nested.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=0 LV=1 LV=2 LV=3 " "LV is the per-contig level in triple nested"
 is "$(grep -v ^# triple_nested.vcf | grep -o 'CH=[0-9]*' | tr '\n' ' ')" "CH=0 CH=1 CH=1 CH=1 CH=1 " "CH counts steps into non-reference sequence"
-is "$(grep -v ^# triple_nested.vcf | awk '{match($8,/AL=[0-9]+/); a=substr($8,RSTART+3,RLENGTH-3); match($8,/CH=[0-9]+/); h=substr($8,RSTART+3,RLENGTH-3); printf "%d ", a-h}')" "0 0 1 2 3 " "AL-CH counts same-contig nesting"
-is "$(grep -v ^# triple_nested.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=0 LV=1 LV=2 LV=3 " "LV is the per-contig level"
 rm -f triple_nested.gref.pg triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
@@ -327,7 +341,6 @@ rm -f two_contig.pg one_contig.vcf
 # was copied from (gref_x < x), so name order alone would put the derived name on it.
 vg paths --compute-gref --min-gref-len 1 -x nesting/nested_snp_in_ins.gfa -Q x > default_ref.pg
 vg deconstruct default_ref.pg -a > default_ref.vcf
-# AL=0, not LV=0: under per-contig LV there is more than one top-level record here.
 is $(grep -v "^#" default_ref.vcf | awk '$8 ~ /AL=0/ {print $1}') "x" "top-level record goes on the base contig, not its gref copy"
 is $(grep -v "^#" default_ref.vcf | grep -c "RC=x;") 2 "nested records point back at the base contig"
 

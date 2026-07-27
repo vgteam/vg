@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 99
+plan tests 103
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -434,10 +434,24 @@ is "$TNQ_NESTED_NO_PS" "0" "nested calls (LV>0) all have PS tag"
 TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /AL=0/ && $8 ~ /PS=/' | wc -l)
 is "$TNQ_TOPLEVEL_HAS_PS" "0" "absolute top-level calls (AL=0) do not have PS tag"
 
-# But a record top-level on its OWN contig (LV=0) while nested in the snarl tree (AL>0) MUST
-# keep PS.  It is the only in-VCF link back to the enclosing base-contig site.
-TNQ_PERCONTIG_TOP_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /AL=0/ && $8 !~ /PS=/' | wc -l)
-is "$TNQ_PERCONTIG_TOP_NO_PS" "0" "per-contig top-level calls nested in the tree still carry PS"
+# --prune-contigs drops header lines for reference contigs with no records, and touches
+# nothing else.  gref_x_2_alt is in the cover but carries no call.
+vg call tnq_ap.gfa -k tnq.pack --top-down -P gref_x --prune-contigs 2>/dev/null > tnq_pruned.vcf
+is $(grep -c "^##contig" tnq.vcf) 3 "vg call without --prune-contigs keeps every reference contig"
+is $(grep -c "^##contig" tnq_pruned.vcf) 2 "vg call --prune-contigs drops the contig with no records"
+grep -v "^#" tnq.vcf > tnq_recs.tsv
+grep -v "^#" tnq_pruned.vcf > tnq_pruned_recs.tsv
+diff tnq_recs.tsv tnq_pruned_recs.tsv
+is "$?" 0 "vg call --prune-contigs changes only the header"
+vg call tnq_ap.gfa -k tnq.pack -G --prune-contigs > /dev/null 2>/dev/null
+is "$?" 1 "vg call --prune-contigs is rejected with -G/--gaf, where it would be inert"
+rm -f tnq_pruned.vcf tnq_recs.tsv tnq_pruned_recs.tsv
+
+# But a record that is top-level on its OWN contig (LV=0) while being nested in the snarl
+# tree (AL>0) MUST keep PS.  It is the only in-VCF link back to the enclosing base-contig
+# site, and vcfbub's rescue of the children of popped bubbles is keyed on it.
+TNQ_PERCONTIG_TOP_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /AL=0/ && $8 !~ /PS=/' | wc -l)
+is "$TNQ_PERCONTIG_TOP_HAS_PS" "0" "per-contig top-level calls nested in the tree still carry PS"
 
 rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
 

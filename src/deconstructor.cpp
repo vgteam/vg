@@ -1445,7 +1445,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         deconstruct_graph(snarl_manager);
     }
 
+    // Prune after add_contigs_to_vcf_header, which is what emits the ##contig lines, and
+    // before write_variants, which drains the buffer get_output_contigs() reads.
     string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
+    patched_header = this->prune_header_contigs(patched_header, this->get_output_contigs());
     cout << patched_header << endl;
 
     // write variants in sorted order
