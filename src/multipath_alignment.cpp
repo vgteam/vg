@@ -1400,6 +1400,11 @@ namespace vg {
                     
                     // To compute the additional score difference, we need to know what our optimal prefix score was.
                     auto& best_prefix_score = problem.prefix_score[here];
+
+                    // Things we might save in "alternatives" as (total penalty, predecessor)
+                    vector<pair<size_t, uint32_t>> possible_alternatives;
+                    // Penalty for the optimal predecessor
+                    size_t best_prev_total_penalty = numeric_limits<size_t>::max();
                     
                     for (auto& prev : prev_subpaths[here]) {
                         // For each candidate previous subpath
@@ -1431,9 +1436,9 @@ namespace vg {
 #ifdef debug_multiple_tracebacks
                             cerr << "\tSkip " << prev.first << " which is already used" << endl;
 #endif
-                            // If taking this seems it would've allowed a reasonable chain
+                            // Remember that we could've taken this
                             if (alternatives != nullptr && additional_penalty <= penalty_for_used_subpaths[prev.first]) {
-                                alternatives->emplace_back(prev.first, here);
+                                possible_alternatives.emplace_back(total_penalty, prev.first);
                             }
                             continue;
                         }
@@ -1447,11 +1452,20 @@ namespace vg {
 #ifdef debug_multiple_tracebacks
                         cerr << "\tAugment with " << prev.first << " to penalty " << total_penalty << endl;
 #endif
+                        best_prev_total_penalty = std::min((size_t) total_penalty, best_prev_total_penalty);
                         
                         // Put them in the priority queue
                         queue.push(make_pair(total_penalty, extended_path));
                     }
                     
+                    if (alternatives != nullptr) {
+                        // Use any of those alternatives if they would actually help
+                        for (const auto& extra_edge : possible_alternatives) {
+                            if (extra_edge.first <= best_prev_total_penalty) {
+                                alternatives->emplace_back(extra_edge.second, here);
+                            }
+                        }
+                    }
                     
                 }
             }
