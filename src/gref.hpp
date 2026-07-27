@@ -134,7 +134,19 @@ public:
 
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_path_name,
-    //                     ref_path, ref_start, ref_end
+    //                     ref_path, ref_start, ref_end, level, parent
+    //
+    // "level" is how many gref hops separate this fragment from a base reference path:
+    // 1 means it hangs directly off the reference, 2 that it is only reachable across
+    // another fragment, and so on.  It is the same number the VCF reports as INFO/CH.
+    // "parent" names the path it hangs off -- a gref copy of a reference path, or another
+    // fragment -- so the two columns form a forest and level is derivable by chasing parent.
+    // Both are "." for a fragment in a component with no reference path.
+    //
+    // Note "level" is a hop count over interval adjacency, not snarl containment: it says
+    // how far the fragment is from the reference, not how deeply nested it is.  The two
+    // agree at level 1, which is the case worth filtering on.
+    //
     // Must be called after compute() and knows what gref path names will be used.
     void write_gref_segments(ostream& os);
 
@@ -221,6 +233,17 @@ protected:
     // This handles nodes that are outside of snarls or in complex regions
     // where the traversal finder couldn't find good coverage.
     void fill_uncovered_nodes(int64_t minimum_length);
+
+    // For every interval, how many intervals must be crossed to reach a rank-0 reference
+    // interval, and which interval it was reached from.  Reference intervals are (0, -1);
+    // an interval in a component with no reference path is (-1, -1).
+    //
+    // One breadth-first sweep from all the reference intervals at once, rather than a
+    // search per fragment: uncovered nodes are shared conduits, so a per-fragment search
+    // re-walks them once per fragment and cannot terminate at all in a component with no
+    // reference.  Uses each interval's own two ends, which also sidesteps node_to_interval
+    // being last-write-wins where intervals overlap.
+    vector<pair<int64_t, int64_t>> compute_interval_levels() const;
 
     // Search back to the reference and return <distance, node_id> when found.
     // (here distance is the number of intervals crossed, aka rank)

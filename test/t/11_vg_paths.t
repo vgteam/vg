@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 122
+plan tests 130
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -180,6 +180,28 @@ is $(cut -f4 gref_test.segs | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref-segs conta
 is $(cut -f1 gref_test.segs | grep -c "#") 2 "gref-segs contains source path names with metadata"
 
 is $(cut -f5 gref_test.segs | grep -c "^x$") 2 "gref-segs contains reference path name"
+
+# level (col 8) and parent (col 9): gref_x_1_alt covers the insertion and hangs directly off
+# the reference; gref_x_2_alt sits inside it and is one hop further out.
+is $(awk -F'\t' '$4 == "gref_x_1_alt" {print $8}' gref_test.segs) 1 "gref-segs reports level 1 for a fragment off the reference"
+is $(awk -F'\t' '$4 == "gref_x_1_alt" {print $9}' gref_test.segs) "gref_x" "gref-segs names the reference copy as the parent"
+is $(awk -F'\t' '$4 == "gref_x_2_alt" {print $8}' gref_test.segs) 2 "gref-segs reports level 2 for a fragment behind another fragment"
+is $(awk -F'\t' '$4 == "gref_x_2_alt" {print $9}' gref_test.segs) "gref_x_1_alt" "gref-segs names the enclosing fragment as the parent"
+# The whole point of the columns: select first-level contigs and pull their sequence out.
+awk -F'\t' '$8 == 1 {print $4}' gref_test.segs > gref_level1.txt
+is $(wc -l < gref_level1.txt) 1 "exactly one first-level gref contig here"
+vg paths -x gref_segs_test.vg -p gref_level1.txt -F > gref_level1.fa
+is $(grep -c "^>" gref_level1.fa) 1 "every parent/level name resolves to a real path, so -F works on the filtered list"
+rm -f gref_level1.txt gref_level1.fa
+
+# A parent name must keep its subrange, or it names a path that does not exist.
+vg paths -x nesting/subranged_ref.gfa -Q GRCh38 --compute-gref --min-gref-len 1 --gref-segs gref_sub.segs > gref_sub.vg
+is $(cut -f9 gref_sub.segs | grep -c "^gref_GRCh38#0#chr1\[") 2 "gref-segs parent keeps the reference subrange"
+cut -f9 gref_sub.segs | sort -u > gref_sub_parents.txt
+vg paths -x gref_sub.vg -p gref_sub_parents.txt -L | sort -u > gref_sub_found.txt
+diff gref_sub_parents.txt gref_sub_found.txt
+is $? 0 "every parent named in gref-segs is a path in the output graph"
+rm -f gref_sub.segs gref_sub.vg gref_sub_parents.txt gref_sub_found.txt
 
 # Test that gref-segs requires compute-gref
 vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --gref-segs gref_test.segs 2>&1 | grep -q "requires --compute-gref"
