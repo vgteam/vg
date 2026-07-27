@@ -1487,127 +1487,6 @@ void GrefCover::copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_g
     }
 }
 
-vector<pair<int64_t, int64_t>> GrefCover::compute_interval_levels() const {
-
-    int64_t num_intervals = (int64_t)this->gref_intervals.size();
-    // (level, parent interval index); -1 means "no reference path is reachable"
-    vector<pair<int64_t, int64_t>> levels(num_intervals, make_pair((int64_t)-1, (int64_t)-1));
-
-    // The adjacency get_reference_nodes() walks is asymmetric: you LEAVE an interval through
-    // one of its two ends, but you ARRIVE at an interval by touching any of its nodes.  So a
-    // fragment reaches the reference through its own ends, while the reference is reachable
-    // all along its length.  That is why this cannot be a plain sweep outward from the
-    // reference -- a reference interval's own ends point off the ends of the chromosome.
-    //
-    // Build the "exits into" relation explicitly, then walk it backwards from the reference.
-
-    // Mirrors get_reference_nodes(): the end sentinel cannot be decremented on gbwtgraph.
-    auto last_step_of = [&](int64_t idx) {
-        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[idx];
-        path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
-        if (interval.second == graph->path_end(path_handle)) {
-            return graph->path_back(path_handle);
-        }
-        return graph->get_previous_step(interval.second);
-    };
-    auto is_live = [&](int64_t idx) {
-        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[idx];
-        return interval.first != graph->path_end(graph->get_path_handle_of_step(interval.first));
-    };
-
-    // Step 1: nodes in no interval are free conduits.  Group them into connected components
-    // once, recording which intervals each component touches, so a component shared by many
-    // fragments is walked a single time rather than once per fragment.
-    unordered_map<nid_t, int64_t> component_of;
-    vector<vector<int64_t>> component_intervals;
-    graph->for_each_handle([&](handle_t start_handle) {
-        nid_t start_id = graph->get_id(start_handle);
-        if (this->node_to_interval.count(start_id) || component_of.count(start_id)) {
-            return;
-        }
-        int64_t component = (int64_t)component_intervals.size();
-        component_intervals.emplace_back();
-        unordered_set<int64_t> touched;
-        vector<nid_t> stack = {start_id};
-        component_of[start_id] = component;
-        while (!stack.empty()) {
-            nid_t cur = stack.back();
-            stack.pop_back();
-            handle_t handle = graph->get_handle(cur);
-            auto step_out = [&](handle_t neighbour) {
-                nid_t neighbour_id = graph->get_id(neighbour);
-                auto interval_it = this->node_to_interval.find(neighbour_id);
-                if (interval_it != this->node_to_interval.end()) {
-                    touched.insert(interval_it->second);
-                } else if (component_of.emplace(neighbour_id, component).second) {
-                    stack.push_back(neighbour_id);
-                }
-            };
-            graph->follow_edges(handle, false, step_out);
-            graph->follow_edges(handle, true, step_out);
-        }
-        component_intervals[component].assign(touched.begin(), touched.end());
-        // Sorted so the parent chosen below does not depend on hash order.
-        std::sort(component_intervals[component].begin(), component_intervals[component].end());
-    });
-
-    // Step 2: which intervals each interval exits into, stored reversed.
-    vector<vector<int64_t>> reached_by(num_intervals);
-    for (int64_t i = 0; i < num_intervals; ++i) {
-        if (!is_live(i)) {
-            continue;
-        }
-        unordered_set<int64_t> exits;
-        auto step_out = [&](handle_t neighbour) {
-            nid_t neighbour_id = graph->get_id(neighbour);
-            auto interval_it = this->node_to_interval.find(neighbour_id);
-            if (interval_it != this->node_to_interval.end()) {
-                exits.insert(interval_it->second);
-            } else {
-                auto component_it = component_of.find(neighbour_id);
-                if (component_it != component_of.end()) {
-                    for (int64_t touched : component_intervals[component_it->second]) {
-                        exits.insert(touched);
-                    }
-                }
-            }
-        };
-        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
-        graph->follow_edges(graph->get_handle_of_step(interval.first), true, step_out);
-        graph->follow_edges(graph->get_handle_of_step(last_step_of(i)), false, step_out);
-        exits.erase(i);
-        for (int64_t exit_idx : exits) {
-            reached_by[exit_idx].push_back(i);
-        }
-    }
-    // Sorted so the parent is the smallest-indexed candidate at the previous level, which
-    // keeps the column independent of follow_edges() iteration order.
-    for (vector<int64_t>& sources : reached_by) {
-        std::sort(sources.begin(), sources.end());
-    }
-
-    // Step 3: walk the relation backwards from the reference.  FIFO, so intervals come off in
-    // non-decreasing level order and the first level assigned to one is its smallest.
-    vector<int64_t> queue;
-    int64_t queue_head = 0;
-    for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
-        levels[i] = make_pair((int64_t)0, (int64_t)-1);
-        queue.push_back(i);
-    }
-    while (queue_head < (int64_t)queue.size()) {
-        int64_t cur = queue[queue_head++];
-        int64_t child_level = levels[cur].first + 1;
-        for (int64_t source : reached_by[cur]) {
-            if (levels[source].first < 0) {
-                levels[source] = make_pair(child_level, cur);
-                queue.push_back(source);
-            }
-        }
-    }
-
-    return levels;
-}
-
 void GrefCover::write_gref_segments(ostream& os) {
     // Track gref counters to predict path names (same logic as apply())
     unordered_map<string, int64_t> local_gref_counter;
@@ -1676,25 +1555,6 @@ void GrefCover::write_gref_segments(ostream& os) {
     // repeated parse_path_name/create_path_name per interval.
     // Stores (display_name, subrange_offset) per source path.
     unordered_map<path_handle_t, pair<string, int64_t>> source_display_cache;
-
-    // How far each interval is from a reference path, and what it hangs off.  Computed once
-    // for the whole cover, before any names exist.
-    vector<pair<int64_t, int64_t>> interval_levels = compute_interval_levels();
-
-    // A fragment's parent can be an interval with a HIGHER index, so every name has to be
-    // minted before any line is written.  Collect the rows first, then print.
-    vector<string> interval_name(this->gref_intervals.size());
-    struct SegRow {
-        int64_t interval_idx;
-        string source_name;
-        int64_t source_start;
-        int64_t source_end;
-        string gref_name;
-        string ref_path_name;
-        int64_t ref_start;
-        int64_t ref_end;
-    };
-    vector<SegRow> rows;
 
     // Write each gref interval
     for (int64_t i = this->num_ref_intervals; i < this->gref_intervals.size(); ++i) {
@@ -1782,7 +1642,6 @@ void GrefCover::write_gref_segments(ostream& os) {
         // Get next gref index for this base path
         int64_t gref_index = ++local_gref_counter[base_path_name];
         string gref_name = make_gref_name(base_path_name, gref_index);
-        interval_name[i] = gref_name;
 
         // Resolve source path name to full-path coordinates using cached result.
         // Parses path name once per source path to extract subrange offset and
@@ -1807,38 +1666,14 @@ void GrefCover::write_gref_segments(ostream& os) {
         int64_t display_source_start = source_start + cache_it->second.second;
         int64_t display_source_end = source_end + cache_it->second.second;
 
-        rows.push_back({i, display_source_name, display_source_start, display_source_end,
-                        gref_name, ref_path_name, ref_start, ref_end});
-    }
-
-    // Now every name exists, so parent can be resolved.
-    for (const SegRow& row : rows) {
-        const pair<int64_t, int64_t>& level_parent = interval_levels[row.interval_idx];
-        string level_field = ".";
-        string parent_field = ".";
-        if (level_parent.first > 0) {
-            level_field = std::to_string(level_parent.first);
-            int64_t parent_idx = level_parent.second;
-            if (parent_idx >= 0 && parent_idx < this->num_ref_intervals) {
-                // hangs off a base reference path: name its gref copy, keeping any subrange,
-                // so that the name is one that exists in the output graph
-                path_handle_t parent_path =
-                    graph->get_path_handle_of_step(this->gref_intervals[parent_idx].first);
-                parent_field = make_gref_copy_name(graph->get_path_name(parent_path));
-            } else if (parent_idx >= 0 && !interval_name[parent_idx].empty()) {
-                parent_field = interval_name[parent_idx];
-            }
-        }
-
-        os << row.source_name << "\t"
-           << row.source_start << "\t"
-           << row.source_end << "\t"
-           << row.gref_name << "\t"
-           << row.ref_path_name << "\t"
-           << row.ref_start << "\t"
-           << row.ref_end << "\t"
-           << level_field << "\t"
-           << parent_field << "\n";
+        // Output the BED line
+        os << display_source_name << "\t"
+           << display_source_start << "\t"
+           << display_source_end << "\t"
+           << gref_name << "\t"
+           << ref_path_name << "\t"
+           << ref_start << "\t"
+           << ref_end << "\n";
     }
 }
 
