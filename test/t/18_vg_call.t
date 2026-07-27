@@ -430,9 +430,9 @@ is "$TNQ_ALL_LV" "0" "triple nested calls all have LV tag"
 TNQ_NESTED_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 !~ /PS=/' | wc -l)
 is "$TNQ_NESTED_NO_PS" "0" "nested calls (LV>0) all have PS tag"
 
-# Absolute top-level variants (AL=0) have no parent anywhere, so no PS tag.
-TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /AL=0/ && $8 ~ /PS=/' | wc -l)
-is "$TNQ_TOPLEVEL_HAS_PS" "0" "absolute top-level calls (AL=0) do not have PS tag"
+# A record with no ancestor anywhere is LV=0 with no contig hop, and has no PS tag.
+TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/ && $8 ~ /PS=/' | wc -l)
+is "$TNQ_TOPLEVEL_HAS_PS" "0" "calls with no ancestor at all (LV=0, CH=0) do not have PS tag"
 
 # --prune-contigs drops header lines for reference contigs with no records, and touches
 # nothing else.  gref_x_2_alt is in the cover but carries no call.
@@ -450,7 +450,7 @@ rm -f tnq_pruned.vcf tnq_recs.tsv tnq_pruned_recs.tsv
 # But a record that is top-level on its OWN contig (LV=0) while being nested in the snarl
 # tree (AL>0) MUST keep PS.  It is the only in-VCF link back to the enclosing base-contig
 # site, and vcfbub's rescue of the children of popped bubbles is keyed on it.
-TNQ_PERCONTIG_TOP_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /AL=0/ && $8 !~ /PS=/' | wc -l)
+TNQ_PERCONTIG_TOP_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /CH=0/ && $8 !~ /PS=/' | wc -l)
 is "$TNQ_PERCONTIG_TOP_HAS_PS" "0" "per-contig top-level calls nested in the tree still carry PS"
 
 rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
@@ -577,10 +577,10 @@ is "$TN_MS_COUNT" "4" "triple_nested_multisnp 1/1: homozygous alt produces varia
 TN_MS_HOM=$(grep -v "^#" tn_ms.vcf | cut -f10 | cut -d: -f1 | grep -c "1/1")
 is "$TN_MS_HOM" "4" "triple_nested_multisnp 1/1: all 4 variants are homozygous alt"
 # Verify LV tags span levels 0-3
-TN_MS_AL0=$(grep -v "^#" tn_ms.vcf | grep -c "AL=0")
-TN_MS_AL123=$(grep -v "^#" tn_ms.vcf | grep -c "AL=[123]")
-is "$TN_MS_AL0" "1" "triple_nested_multisnp: one top-level variant (AL=0)"
-is "$TN_MS_AL123" "3" "triple_nested_multisnp: three nested variants (AL=1,2,3)"
+TN_MS_TOP=$(grep -v "^#" tn_ms.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l)
+TN_MS_NESTED=$(grep -v "^#" tn_ms.vcf | awk -F'\t' '$8 !~ /LV=0/ || $8 !~ /CH=0/' | wc -l)
+is "$TN_MS_TOP" "1" "triple_nested_multisnp: one variant with no ancestor at all"
+is "$TN_MS_NESTED" "3" "triple_nested_multisnp: three nested variants"
 
 rm -f tn_ms_ap.gfa tn_ms.gam tn_ms.pack tn_ms.vcf
 
@@ -804,8 +804,8 @@ RD_TAG_COUNT=$(grep -v "^#" rc_test.vcf | grep -c "RD=")
 is "$RD_TAG_COUNT" "$RC_COUNT" "All variants have RD tag"
 
 # Check that top-level variant has RC pointing to its own contig
-TOP_RC=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /AL=0/' | grep -o "RC=[^;]*" | cut -d= -f2)
-TOP_CHROM=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /AL=0/ {print $1}')
+TOP_RC=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | grep -o "RC=[^;]*" | cut -d= -f2)
+TOP_CHROM=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/ {print $1}')
 is "$TOP_RC" "$TOP_CHROM" "Top-level variant RC equals its own CHROM"
 
 # Check that nested variants point to top-level's coordinates
