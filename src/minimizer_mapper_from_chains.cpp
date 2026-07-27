@@ -1499,7 +1499,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 *distance_index,
                 gbwt_graph,
                 scheme,
-                this->max_alignments,
+                this->max_chains_per_tree,
                 for_each_transition,
                 indel_limit,
                 show_work
@@ -3022,7 +3022,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     }
 
     // Do DP
-    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_alignments);
+    vector<Alignment> tracebacks = optimal_alignments(mp_aln, max_alignments);
 
     // Convert back to real alignments
     vector<Alignment> output;

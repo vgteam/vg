@@ -968,9 +968,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
         .add_entry<size_t>("hard-hit-cap", 13614)
-        // Allow perfect gapless extension
-        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-extension-mismatches", 0)
+        // Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
@@ -989,7 +988,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
-        .add_entry<size_t>("max-chains-per-tree", 3)
+        .add_entry<size_t>("max-chains-per-tree", 2)
         .add_entry<int>("max-min-chain-score", 46)
         .add_entry<size_t>("min-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
@@ -1033,9 +1032,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
         .add_entry<double>("zipcode-tree-scale", 2.0)
-        // Allow perfect gapless extension
-        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-extension-mismatches", 0)
+        // Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<size_t>("max-graph-lookback-bases", 20000)
@@ -1050,7 +1048,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("rec-consistency-bonus", 13)
         .add_entry<double>("chain-score-threshold", 160.0)
         .add_entry<int>("min-chains", 2)
-        .add_entry<size_t>("max-chains-per-tree", 3)
+        .add_entry<size_t>("max-chains-per-tree", 2)
         // Lowering this can reduce wrong reads in mapping experiments, but
         // seems to *increase* miscalls; see
         // https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1779202719223779?thread_ts=1779127572.303779&cid=CJ2EHEH1A
