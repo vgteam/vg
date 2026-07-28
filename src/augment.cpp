@@ -302,6 +302,10 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
                                              added_nodes, orig_node_sizes);
 
+            if (aln.name() == "") {
+                cerr << "warning[augment] embedding a path with no name; downstream operations may fail." << endl;
+            }
+
             // Copy over the name
             *added.mutable_name() = aln.name();
 
