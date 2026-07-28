@@ -593,7 +593,7 @@ int main_call(int argc, char** argv) {
             }
         });
         if (ref_paths.empty()) {
-            logger.error() << "No non-alt paths found matching prefix(es) paths (see vg paths -M)" << endl;
+            logger.error() << "No non-alt paths found matching prefix(es) (see vg paths --list)" << endl;
         }
     }
 
