@@ -1010,7 +1010,9 @@ int main_call(int argc, char** argv) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        cout << header << flush;
+        // Prune here rather than where the header string was built: the contig set is only
+        // known once calling is done, and write_variants below drains the buffer it reads.
+        cout << vcf_caller->prune_header_contigs(header, vcf_caller->get_output_contigs()) << flush;
         if (show_progress) logger.info() << "Writing VCF Variants" << endl;
         vcf_caller->write_variants(cout, snarl_manager.get());
         if (show_progress) logger.info() << "VCF complete" << endl;        
