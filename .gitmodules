@@ -130,3 +130,6 @@
 [submodule "deps/pixman"]
 	path = deps/pixman
 	url = git://anongit.freedesktop.org/git/pixman
+[submodule "deps/elfutils"]
+	path = deps/elfutils
+	url = https://github.com/vgteam/elfutils.git
