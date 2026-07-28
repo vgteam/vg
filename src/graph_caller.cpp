@@ -232,7 +232,8 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
     if (include_nested) {
-        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
+        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
         ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
         ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
         ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
@@ -264,15 +265,29 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         update_nesting_info_tags(snarl_manager);
     }
     vector<pair<pair<string, size_t>, string>> all_variants;
+    // Reserve once: doing it inside the loop below reallocates per thread buffer.
+    size_t total_variants = 0;
     for (const auto& buf : output_variants) {
-        all_variants.reserve(all_variants.size() + buf.size());
+        total_variants += buf.size();
+    }
+    all_variants.reserve(total_variants);
+    // `buf` must not be const: std::move() over const_iterators silently degrades to a copy,
+    // which duplicated every compressed record at the one point where the whole VCF is in
+    // memory at once.  Free the buffer as we go for the same reason.
+    //
+    // This makes write_variants() single-use, which it already effectively was -- a real move
+    // leaves the buffers empty either way.  All three callers (deconstructor.cpp,
+    // call_main.cpp, mcmc_main.cpp) call it exactly once.
+    for (auto& buf : output_variants) {
         std::move(buf.begin(), buf.end(), std::back_inserter(all_variants));
+        buf.clear();
+        buf.shrink_to_fit();
     }
     std::sort(all_variants.begin(), all_variants.end(), [](const pair<pair<string, size_t>, string>& v1,
                                                            const pair<pair<string, size_t>, string>& v2) {
             return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
         });
-    for (auto v : all_variants) {
+    for (const auto& v : all_variants) {
         string dest;
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
@@ -374,6 +389,52 @@ void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<string, si
 
 void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
+}
+
+unordered_set<string> VCFOutputCaller::get_output_contigs() const {
+    unordered_set<string> contigs;
+    // The sort key is (sequenceName, position) (see add_variant), so the contig is right
+    // there and nothing has to be decompressed.
+    for (const auto& thread_buf : output_variants) {
+        for (const auto& output_variant_record : thread_buf) {
+            contigs.insert(output_variant_record.first.first);
+        }
+    }
+    return contigs;
+}
+
+string VCFOutputCaller::prune_header_contigs(const string& header,
+                                             const unordered_set<string>& keep) const {
+    static const string contig_prefix = "##contig=<ID=";
+    stringstream pruned;
+    vector<string> lines = split_delims(header, "\n");
+    for (const string& line : lines) {
+        if (line.compare(0, contig_prefix.size(), contig_prefix) == 0) {
+            // Parse the ID back out the same way it was written, rather than scanning for a
+            // delimiter: contig names are path names and nothing stops one containing ',' or
+            // '>'.  Both producers emit exactly ##contig=<ID=NAME,length=N> -- vcf_header()
+            // above and Deconstructor::add_contigs_to_vcf_header().
+            static const string contig_suffix = ",length=";
+            size_t id_start = contig_prefix.size();
+            size_t id_end = line.rfind(contig_suffix);
+            if (id_end == string::npos || id_end < id_start) {
+                // not a shape we wrote; leave it alone rather than guess
+                pruned << line << "\n";
+                continue;
+            }
+            string id = line.substr(id_start, id_end - id_start);
+            if (!keep.count(id)) {
+                continue;
+            }
+        }
+        pruned << line << "\n";
+    }
+    string result = pruned.str();
+    if (!header.empty() && header.back() != '\n' && !result.empty()) {
+        // input had no trailing newline, so don't invent one
+        result.pop_back();
+    }
+    return result;
 }
 
 void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
@@ -1064,14 +1125,30 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
     // pass 1) index sites in vcf
     // (todo: this could be done more quickly upstream)
-    unordered_set<string> names_in_vcf;
+    //
+    // One index, not two: presence in chrom_of_name IS "this snarl name is in the VCF", and
+    // the value is which reference contig its record landed on.  Keeping a separate
+    // names_in_vcf set alongside would store all 400k snarl-ID strings twice, which measured
+    // as +70 MB of peak RSS on chr22 -- the keys, not the values, are what costs.
+    //
+    // Contig names are interned rather than stored per record for the same reason: there are
+    // at most a few thousand distinct ones, and all we ever ask is whether two are the same.
+    unordered_map<string, uint32_t> chrom_index;
+    auto intern_chrom = [&](const string& chrom) -> uint32_t {
+        return chrom_index.emplace(chrom, (uint32_t)chrom_index.size()).first->second;
+    };
+    // One entry per snarl name.  A snarl ID is not unique -- a cyclic reference path that
+    // traverses the same snarl twice emits two records with the same ID (see
+    // nesting/cyclic_ref_multiple_variants.gfa) -- but both occurrences are traversals of one
+    // path, so they are on the same contig and it does not matter which one wins here.
+    unordered_map<string, uint32_t> chrom_of_name;
     for (auto& thread_buf : output_variants) {
         for (auto& output_variant_record : thread_buf) {
             string output_variant_string;
             int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
             assert(ret == 0);
             vector<string> toks = split_delims(output_variant_string, "\t", 4);
-            names_in_vcf.insert(toks[2]);
+            chrom_of_name.emplace(toks[2], intern_chrom(toks[0]));
         }
     }
 
@@ -1082,7 +1159,13 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         size_t pos;
         size_t ref_len;
     };
-    unordered_map<string, RefInfo> top_level_ref_info;
+    // Keyed by snarl name, then by (chrom, pos), because a snarl ID can carry more than one
+    // record: a cyclic reference emits two, both with the same ID (see
+    // nesting/cyclic_ref_multiple_variants.gfa, which gives two <5<1 records at POS 20 and 44).
+    // A plain name -> RefInfo map was last-write-wins, so both records were handed the
+    // surviving one's interval and the record at POS 20 reported RS=44.  The inner map is
+    // ordered so that picking begin() is deterministic regardless of thread scheduling.
+    unordered_map<string, map<pair<string, size_t>, size_t>> top_level_ref_info;
 
     // Helper to check if a snarl is top-level (no ancestors in VCF)
     auto is_top_level = [&](const string& name) -> bool {
@@ -1092,7 +1175,7 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         while ((snarl = snarl_manager->parent_of(snarl))) {
             string cur_name = print_snarl(*snarl);
             string flipped_name = print_flipped_snarl(*snarl);
-            if (names_in_vcf.count(cur_name) || names_in_vcf.count(flipped_name)) {
+            if (chrom_of_name.count(cur_name) || chrom_of_name.count(flipped_name)) {
                 return false; // has ancestor in VCF
             }
         }
@@ -1108,17 +1191,37 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             vector<string> toks = split_delims(output_variant_string, "\t", 5);
             const string& name = toks[2];
             if (is_top_level(name)) {
-                top_level_ref_info[name] = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+                top_level_ref_info[name][make_pair(toks[0], static_cast<size_t>(stoul(toks[1])))] =
+                    toks[3].length();
             }
         }
     }
 
     // determine the tags from the index
-    // Returns: (lv, parent_name, top_level_name)
-    function<tuple<size_t, string, string>(const string&)> get_nesting_tags = [&](const string& name) {
+    //
+    // There are exactly two ways a snarl can nest inside its parent's record, and they need
+    // to be told apart.  A site inside a *deletion* is covered by its parent contig's own
+    // reference allele, so it has coordinates on that contig and its record's CHROM is the
+    // same.  A site inside an *insertion* has no path of the parent's contig through it at
+    // all, so it is only callable once some other reference (a gref fragment) covers the
+    // inserted allele -- and its record's CHROM is therefore different.  So:
+    //
+    //   contig_level    ancestors whose record is on this record's own CHROM, i.e. how deep
+    //                   the site is in its own coordinate system
+    //   contig_hops     steps in the chain where CHROM changed, i.e. how many insertions deep
+    //                   the site is
+    //
+    // Returns: (contig_level, contig_hops, parent_name, top_level_name)
+    function<tuple<size_t, size_t, string, string>(const string&, const string&)> get_nesting_tags =
+        [&](const string& name, const string& my_chrom) {
         string parent_name;
-        string top_level_name = name;  // default to self (for LV=0 case)
-        size_t ancestor_count = 0;
+        string top_level_name = name;  // default to self (for the top-level case)
+        size_t contig_level = 0;
+        size_t contig_hops = 0;
+        // Our own contig, and the contig of the previously visited link in the chain.
+        // chrom_index is complete after pass 1, so this lookup always hits.
+        uint32_t my_chrom_id = chrom_index.at(my_chrom);
+        uint32_t prev_chrom_id = my_chrom_id;
         const Snarl* snarl = name_to_snarl.at(name);
 
         assert(snarl != nullptr);
@@ -1128,25 +1231,37 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
             // Since it is possible that the snarl is actually flipped in the vcf, check for the flipped version too
             string flipped_name = print_flipped_snarl(*snarl);
-            if (names_in_vcf.count(cur_name)) {
+            const string* hit = nullptr;
+            if (chrom_of_name.count(cur_name)) {
                 // only count snarls that are in the vcf
-                ++ancestor_count;
-                if (parent_name.empty()) {
-                    // remember the first parent
-                    parent_name = cur_name;
-                }
-                // keep updating top_level to find the topmost ancestor in VCF
-                top_level_name = cur_name;
-            } else if (names_in_vcf.count(flipped_name)) {
+                hit = &cur_name;
+            } else if (chrom_of_name.count(flipped_name)) {
                 // snarl is in vcf under flipped orientation
-                ++ancestor_count;
-                if (parent_name.empty()) {
-                    parent_name = flipped_name;
-                }
-                top_level_name = flipped_name;
+                hit = &flipped_name;
             }
+            if (hit == nullptr) {
+                continue;
+            }
+
+            auto chrom_it = chrom_of_name.find(*hit);
+            uint32_t anc_chrom_id = chrom_it == chrom_of_name.end() ? my_chrom_id
+                                                                    : chrom_it->second;
+            if (anc_chrom_id == my_chrom_id) {
+                ++contig_level;
+            }
+            if (anc_chrom_id != prev_chrom_id) {
+                ++contig_hops;
+            }
+            prev_chrom_id = anc_chrom_id;
+
+            if (parent_name.empty()) {
+                // remember the first parent
+                parent_name = *hit;
+            }
+            // keep updating top_level to find the topmost ancestor in VCF
+            top_level_name = *hit;
         }
-        return make_tuple(ancestor_count, parent_name, top_level_name);
+        return make_tuple(contig_level, contig_hops, parent_name, top_level_name);
     };
 
     // pass 3) add the LV, PS, RC, RS, RD tags
@@ -1161,15 +1276,44 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
 
-            auto [lv, parent_name, top_level_name] = get_nesting_tags(name);
-            string nesting_tags = ";LV=" + std::to_string(lv);
-            if (lv != 0) {
-                assert(!parent_name.empty());
+            auto [contig_level, contig_hops, parent_name, top_level_name] =
+                get_nesting_tags(name, toks[0]);
+            // LV is the level within this record's own reference contig.  It used to count
+            // ancestors across every contig: for a VCF with a single reference contig the two
+            // are identical, but once gref fragments give the insides of insertions their own
+            // contigs, the whole-file count is not what a level filter wants.  No gref-contig
+            // record was ever at LV=0 under the old definition, so `vcfbub -l 0` deleted every
+            // one of them.
+            string nesting_tags = ";LV=" + std::to_string(contig_level);
+            nesting_tags += ";CH=" + std::to_string(contig_hops);
+            if (!parent_name.empty()) {
+                // Not "if (lv != 0)": those were equivalent only while LV was the absolute
+                // count.  A record can now legitimately be at LV=0 and still have a parent on
+                // another contig, and it must keep PS -- vcfbub's rescue of the children of
+                // popped bubbles is keyed on it.
                 nesting_tags += ";PS=" + parent_name;
             }
 
             // Add RC, RS, RD tags (reference info from top-level snarl)
-            const RefInfo& top_ref = top_level_ref_info.at(top_level_name);
+            RefInfo top_ref;
+            if (top_level_name == name) {
+                // We are our own top-level site, so the answer is our own interval.  Looking
+                // it up by name would risk picking a different record that shares our ID.
+                top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+            } else {
+                const auto& candidates = top_level_ref_info.at(top_level_name);
+                // If the ancestor produced several records, prefer one on our own contig;
+                // failing that take the smallest (chrom, pos).  Which one is "right" is
+                // genuinely ambiguous, so pick deterministically rather than by chance.
+                auto chosen = candidates.begin();
+                for (auto it = candidates.begin(); it != candidates.end(); ++it) {
+                    if (it->first.first == toks[0]) {
+                        chosen = it;
+                        break;
+                    }
+                }
+                top_ref = {chosen->first.first, chosen->first.second, chosen->second};
+            }
             nesting_tags += ";RC=" + top_ref.chrom;
             nesting_tags += ";RS=" + std::to_string(top_ref.pos);
             nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
