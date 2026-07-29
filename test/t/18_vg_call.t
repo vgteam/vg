@@ -53,7 +53,7 @@ is "$?" 0 "Problem is explained in some detail"
 grep "Changing-References" error.txt
 is "$?" 0 "Hint towards solution provided"
 
-rm -f only_haps.vg only_haps.xg error.txt sample2.gam sample2.vcf
+rm -f only_haps.vg only_haps.xg only_haps.aug.vg only_haps.aug.xg error.txt sample2.gam sample2.vcf sample2.aug.gam sample2.aug.pack
 
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
