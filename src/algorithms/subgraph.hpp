@@ -3,7 +3,6 @@
 #include "../handle.hpp"
 //#include "../subgraph.hpp"
 #include "../types.hpp"
-#include "shortest_cycle.hpp"
 #include <unordered_map>
 
 namespace vg {

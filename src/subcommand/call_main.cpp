@@ -17,7 +17,7 @@
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
-#include "../augref.hpp"
+#include "../gref.hpp"
 #include "../traversal_clusters.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -593,7 +593,8 @@ int main_call(int argc, char** argv) {
             }
         });
         if (ref_paths.empty()) {
-            logger.error() << "No paths found matching prefix(es)" << endl;
+            logger.error() << "No REFERENCE or GENERIC paths (see vg paths -M) found matching prefix(es)\n"
+                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
     }
 
@@ -677,8 +678,9 @@ int main_call(int argc, char** argv) {
         // Check our paths
         for (const auto& ref_path_used : ref_path_set) {
             if (!ref_path_used.second) {
-                logger.error() << "Reference path \"" << ref_path_used.first 
-                               << "\" not found in graph" << endl;
+                logger.error() << "Path \"" << ref_path_used.first 
+                               << "\" not found in graph as REFERENCE or GENERIC sense (see vg paths -M)\n"
+                               << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
             }
         }
         
@@ -688,10 +690,12 @@ int main_call(int argc, char** argv) {
     // make sure we have some ref paths
     if (ref_paths.empty()) {
         if (!ref_sample.empty()) {
-            logger.error() << "No paths with selected reference sample \"" << ref_sample << "\" found." 
-                           << "Try using vg paths -M to see which samples are in your graph" << endl;
+            logger.error() << "No REFERENCE paths for \"" << ref_sample << "\" found.\n" 
+                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
-        logger.error() << "No reference paths found" << endl;
+        logger.error() << "No reference paths found. "
+                       << "Paths must be REFERENCE or GENERIC sense (see vg paths -M)\n"
+                       << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
     // build table of ploidys
@@ -720,7 +724,7 @@ int main_call(int argc, char** argv) {
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : ref_paths) {
             // Skip altpaths (they shouldn't influence snarl decomposition)
-            if (AugRefCover::is_augref_name(refpath_name)) {
+            if (GrefCover::is_gref_name(refpath_name)) {
                 continue;
             }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
@@ -801,7 +805,7 @@ int main_call(int argc, char** argv) {
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
     if (gaf_output) {
-        alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
+        alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, vg::get_thread_count(), graph);
         // TODO: There should be a general function for emitting headers. See giraffe_main.cpp.
         io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(alignment_emitter.get());
         if (gbz_graph.get() != nullptr && gaf_emitter != nullptr) {
@@ -987,7 +991,9 @@ int main_call(int argc, char** argv) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        cout << header << flush;
+        // Prune here rather than where the header string was built: the contig set is only
+        // known once calling is done, and write_variants below drains the buffer it reads.
+        cout << vcf_caller->prune_header_contigs(header, vcf_caller->get_output_contigs()) << flush;
         if (show_progress) logger.info() << "Writing VCF Variants" << endl;
         vcf_caller->write_variants(cout, snarl_manager.get());
         if (show_progress) logger.info() << "VCF complete" << endl;        

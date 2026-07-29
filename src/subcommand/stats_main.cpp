@@ -57,7 +57,7 @@ void help_stats(char** argv) {
          << "  -A, --is-acyclic         print if the graph is acyclic or not" << endl
          << "  -n, --node ID            consider node with the given id" << endl
          << "  -d, --to-head            show distance to head for each provided node" << endl
-         << "  -t, --to-tail            show distance to head for each provided node" << endl
+         << "  -t, --to-tail            show distance to tail for each provided node" << endl
          << "  -a, --alignments FILE    compute stats for reads aligned to the graph" << endl
          << "  -r, --node-id-range      X:Y where X and Y are the smallest and largest" << endl
          << "                           node id in the graph, respectively" << endl
@@ -67,7 +67,7 @@ void help_stats(char** argv) {
          << "  -O, --overlap-all        print overlap table for cartesian product of paths" << endl
          << "  -R, --snarls             print statistics for each snarl" << endl
          << "      --snarl-contents     print table of <snarl, depth, parent, node ids>" << endl
-         << "      --snarl-sample NAME  print out reference coordinates on given sample" << endl
+         << "      --snarl-sample NAME  print BED-like reference coordinates on given sample" << endl
          << "  -C, --chains             print statistics for each chain" << endl
          << "  -F, --format             graph type {VG-Protobuf, PackedGraph, HashGraph, XG}" << endl
          << "                           Can't detect Protobuf if graph read from stdin" << endl
@@ -1119,13 +1119,13 @@ int main_stats(int argc, char** argv) {
         }
         cout << "Matches: " << combined.total_matched_bases << " bp";
         if (combined.total_alignments > 0) {
-            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_aligned) << " bp/aligned)";
         }
         cout << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp";
         if (combined.total_alignments > 0) {
             cout << " (" << 100 * combined.total_softclipped_bases / static_cast<double>(combined.total_bases) << "% of bases, "
-                 << combined.total_softclipped_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+                 << combined.total_softclipped_bases / static_cast<double>(combined.total_aligned) << " bp/aligned)";
         } 
         cout << " in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
@@ -1179,30 +1179,38 @@ int main_stats(int argc, char** argv) {
         std::unordered_map<nid_t, size_t> extra_node_weight;
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         
+        // Collect paths in our assigned snarl coordinate sample
+        std::vector<std::string> ref_path_names;
+        if (snarl_stats && !snarl_sample.empty()) {
+            graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
+                ref_path_names.push_back(graph->get_path_name(path_handle));
+            });
+            if (ref_path_names.empty()) {
+                logger.error() << "unable to find any paths of --snarl-sample " << snarl_sample << endl;
+            }
+        }
+
+        // Turn them into an unordered_set so we can make sure they're all positionally indexed
+        std::unordered_set<std::string> target_paths(ref_path_names.begin(), ref_path_names.end());
+        
         // additional indexes only needed when finding --snarl-sample coordinates
         unique_ptr<PathTraversalFinder> path_trav_finder;
         bdsg::PathPositionOverlayHelper overlay_helper;
-        PathPositionHandleGraph* pp_graph = dynamic_cast<PathPositionHandleGraph*>(graph);;
-        unordered_map<const Snarl*, PathInterval> snarl_to_ref;
+        PathPositionHandleGraph* pp_graph = dynamic_cast<PathPositionHandleGraph*>(graph);
+        if (pp_graph == nullptr) {
+            pp_graph = overlay_helper.apply(graph, target_paths);
+        }
 
         if (snarl_stats) {
             // TSV header
             if (!snarl_sample.empty()) {
                 // optionally prefix with BED-like refpath coordinates if --snarl-sample given
                 cout <<"Contig\tStartPos\tEndPos\t";
-                
-                if (pp_graph == nullptr) {
-                    pp_graph = overlay_helper.apply(graph);
-                }
-                vector<string> ref_path_names;
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
-                    ref_path_names.push_back(graph->get_path_name(path_handle));
+                    // Try and pin down the tips of the sample
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)))] += EXTRA_WEIGHT;
                     extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(path_handle)))] += EXTRA_WEIGHT;
                 });
-                if (ref_path_names.empty()) {
-                    logger.error() << "unable to find any paths of --snarl-sample" << endl;
-                }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }
             cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes"
@@ -1212,6 +1220,8 @@ int main_stats(int argc, char** argv) {
 
         // First compute the snarls
         manager = IntegratedSnarlFinder(*graph, extra_node_weight).find_snarls_parallel();
+
+        std::unordered_map<const Snarl*, PathInterval> snarl_to_ref;
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
@@ -1293,7 +1303,12 @@ int main_stats(int argc, char** argv) {
                             travs.push_back(make_pair(end_steps.begin()->second.front(), end_steps.begin()->second.front()));
                         }
                     }
-                    if (travs.empty()) {
+                    if (travs.empty() || travs.front().first == travs.front().second) {
+                        // either we found nothing on the reference at all, or only one end of the snarl
+                        // reached it, in which case the fallback above paired a step with itself.  a lone
+                        // anchor tells us which node the snarl hangs off but not which side of that node
+                        // it attaches to, so there is no interval to report.  say so, rather than invent
+                        // one that would be indistinguishable from a genuinely empty snarl.
                         cout << ".\t.\t.\t";
                     } else {
                         // note: in case of a cycle, we're just taking the first found
@@ -1303,19 +1318,23 @@ int main_stats(int argc, char** argv) {
                         int64_t end_pos = pp_graph->get_position_of_step(end_step);
                         if (end_pos < start_pos) {
                             swap(start_pos, end_pos);
-                            swap(start_step, end_step);                            
+                            swap(start_step, end_step);
                         }
-                        // we don't want the boundaries counting toward the snarl length
-                        // so if the start step is forward in the traversal, then subtract its lefnth
-                        if (!graph->get_is_reverse(graph->get_handle_of_step(start_step))) {
-                            start_pos += graph->get_length(graph->get_handle_of_step(start_step));
-                        }
-                        // and if the last step is backwards in the traversal, subtract its length
-                        if (graph->get_is_reverse(graph->get_handle_of_step(end_step))) {
-                            end_pos -= graph->get_length(graph->get_handle_of_step(end_step));
-                        }
-                        cout << graph->get_path_name(pp_graph->get_path_handle_of_step(start_step)) << "\t" << start_pos << "\t"
-                             << end_pos << "\t";
+                        // we don't want the boundaries counting toward the snarl length.  the two steps
+                        // are distinct and so occupy disjoint stretches of the path, and
+                        // get_position_of_step always gives the leftmost base of a step's visit whatever
+                        // its orientation.  so the interior runs from one past the end of the leftmost
+                        // boundary node up to (but not including) the first base of the rightmost one,
+                        // giving a 0-based, half-open (BED-like) interval.  note that on a cyclic path
+                        // the traversal can wrap past the path origin, in which case the two steps don't
+                        // bracket the interior and the interval isn't meaningful.
+                        start_pos += graph->get_length(graph->get_handle_of_step(start_step));
+                        // report against the base path, so that coordinates on a subpath are still
+                        // relative to the full contig rather than to the start of the subrange
+                        path_handle_t ref_path = pp_graph->get_path_handle_of_step(start_step);
+                        int64_t base_offset = get_path_base_offset(*pp_graph, ref_path);
+                        cout << get_path_base_name(*pp_graph, ref_path) << "\t" << (start_pos + base_offset) << "\t"
+                             << (end_pos + base_offset) << "\t";
 
                         // use this interval for off-reference children
                         snarl_to_ref[snarl] = travs.front();

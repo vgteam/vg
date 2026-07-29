@@ -514,9 +514,9 @@ public:
                 // This might happen due to race conditions added
                 // with the save-and-reload behavior
                 if (pos.right_to_left) {
-                    --pos.index;
+                    shift_index_by(-1);
                 } else {
-                    ++pos.index;
+                    shift_index_by(1);
                 }
             }
             if (done() && !pending_traversals.empty()) {
@@ -597,6 +597,8 @@ public:
         };
         /// The iterator's current position (state, direction, stack, etc.)
         iteration_position pos;
+        /// Cheap lookup for the item at that position
+        vector<tree_item_t>::const_iterator current_item;
         /// Starting positions of other traversals that we will do later
         /// When the current traversal can no longer go on,
         /// we pop one of these and set the current position to it
@@ -608,6 +610,18 @@ public:
         /// Save a traversal exiting a cyclic snarl in the opposite direction
         /// as the current one, e.g. using an edge C1_R -> SNARL_START
         void save_opposite_cyclic_snarl_exit(size_t chain_num);
+
+        /// Shift the current index & item
+        inline void shift_index_by(int shift) {
+            current_item += shift;
+            pos.index += shift;
+        }
+
+        /// Teleport the current index
+        inline void change_index_to(int new_index) {
+            current_item += new_index - pos.index;
+            pos.index = new_index;
+        }
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.
@@ -666,26 +680,23 @@ public:
         /// Throw a domain_error that the current state/symbol combo is unimplemented.
         void unimplemented_error();
 
-        /// What item does index point to?
-        inline tree_item_t current_item() const { return zip_code_tree->at(pos. index); }
-
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
         inline bool entered_snarl() const {
-            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END)
-                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START);
+            return (pos.right_to_left && (*current_item).get_type() == ZipCodeTree::SNARL_END)
+                    || (!pos.right_to_left && (*current_item).get_type() == ZipCodeTree::SNARL_START);
         }
         inline bool exited_snarl() const {
-            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START)
-                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END);
+            return (pos.right_to_left && (*current_item).get_type() == ZipCodeTree::SNARL_START)
+                    || (!pos.right_to_left && (*current_item).get_type() == ZipCodeTree::SNARL_END);
         }
         inline bool entered_chain() const {
-            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END)
-                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START);
+            return (pos.right_to_left && (*current_item).get_type() == ZipCodeTree::CHAIN_END)
+                    || (!pos.right_to_left && (*current_item).get_type() == ZipCodeTree::CHAIN_START);
         }
         inline bool exited_chain() const {
-            return (pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START)
-                    || (!pos.right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END);
+            return (pos.right_to_left && (*current_item).get_type() == ZipCodeTree::CHAIN_START)
+                    || (!pos.right_to_left && (*current_item).get_type() == ZipCodeTree::CHAIN_END);
         }
 
         /// Skip the current chain, jumping to the matching end
@@ -1161,6 +1172,12 @@ class ZipCodeForest {
     /// the chain to get the distance to the ends of the chain
     void sort_one_interval(forest_growing_state_t& forest_state, 
                            const interval_state_t& interval) const;
+
+    /// Helper for sort_one_interval() to set up sort_value_t for a chain child
+    /// Takes the seed and what depth to look at
+    /// This avoids paging through the same information multiple times
+    /// node_offset is only needed for nodes
+    void get_chain_child_sort_info(sort_value_t& chain_child, const Seed& seed, const size_t& depth) const;
 
     /// Helper function for sort_one_interval() to sort seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order,

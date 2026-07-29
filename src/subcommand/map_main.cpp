@@ -132,8 +132,6 @@ void help_map(char** argv) {
          << "      --ref-paths FILE             ordered list of paths in graph, one per line" << endl
          << "                                   or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "      --ref-name NAME              reference assembly in graph for HTSlib output" << endl
-         << "  -9, --buffer-size INT            buffer this many alignments together" << endl
-         << "                                   before outputting in GAM [512]" << endl
          << "  -X, --compare                    realign -G GAM input, writing alignment with" << endl
          << "                                   \"correct\" field set to overlap with input" << endl
          << "  -v, --refpos-table               for efficient testing output a table of" << endl
@@ -203,7 +201,6 @@ int main_map(int argc, char** argv) {
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
-    int buffer_size = 512;
     int8_t match = default_match;
     int8_t mismatch = default_mismatch;
     int8_t gap_open = default_gap_open;
@@ -535,7 +532,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '9':
-            buffer_size = parse<int>(optarg);
+            logger.warn() << "--buffer-size is deprecated; emitter now has a fixed buffer size" << endl;
             break;
 
         case 'q':

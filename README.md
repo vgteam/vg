@@ -11,7 +11,7 @@
 
 _Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
 
-* _nodes_, which are labeled by sequences and ids
+* _nodes_, which are labeled by sequences and IDs
 * _edges_, which connect two nodes via either of their respective ends
 * _paths_, which describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
@@ -36,7 +36,7 @@ Please cite:
 * [The GBZ Paper](https://doi.org/10.1093/bioinformatics/btac656) when using GBZ
 * [The HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x) when using `vg deconstruct`
 * [The Snarls Paper](https://doi.org/10.1089/cmb.2017.0251) when using `vg snarls`
-* [The Personalized Pangenome Paper](https://doi.org/10.1101/2023.12.13.571553) when using `vg haplotypes` and/or `vg giraffe --haplotype-name`
+* [The Personalized Pangenome Paper](https://doi.org/10.1038/s41592-024-02407-2) when using `vg haplotypes` and/or `vg giraffe --haplotype-name`
 
 ## Support 
 
@@ -71,7 +71,7 @@ Then, install VG's dependencies. You'll need the Protobuf and Jansson developmen
 * `hexdump` and `column` from `bsdmainutils`
 * [`npm` for testing documentation examples](https://github.com/anko/txm).
 
-On Ubuntu 22.04, you should be able to do:
+On Ubuntu 22.04 or 26.04, you should be able to do:
 
     make get-deps
 
@@ -86,14 +86,21 @@ If you get a bunch of errors like `E: Unable to locate package build-essential`,
     
 On other distros, or if you do not have root access, you will need to perform the equivalent of:
 
-    sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
-                         protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
-                         npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
-                         liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
-                         libzstd-dev pybind11-dev python3-pybind11 libssl-dev kmc
+    sudo apt-get install \
+    make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
+    libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
+    samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
+    raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
+    libffi-dev libfontconfig-dev libfreetype-dev libglib2.0-dev libpcre2-dev libpng-dev \
+    libprotobuf-dev libboost-all-dev tabix bcftools libzstd-dev pybind11-dev \
+    python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc meson
                          
-At present, you will need GCC version 9 or greater, with support for C++17, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.4.0 is supported.
+To build vg's bundled Cairo and pixman (currently 1.3.0 or newer is required), so you may also need to do the equivalent of:
+
+    sudo apt-get install pipx
+    pipx install meson
+
+At present, you will need GCC version 10 or greater, with support for C++20, to compile vg. (Check your version with `gcc --version`.) GCC up to 15.2.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 
@@ -196,13 +203,13 @@ So, after migrating to an ARM Mac using e.g. Apple's migration tools:
 1. Uninstall MacPorts and its packages, if they were migrated from the old machine. Only an ARM MacPorts install can be used to provide dependencies for vg on ARM.
 2. Uninstall Homebrew and its packages, if they were migrated. Similarly, only an ARM Homebrew install will work.
 3. Reinstall one of MacPorts or Homebrew. Make sure to use the M1 or ARM version.
-4. Use the package manager you installed to install system dependencies of vg, such as CMake, [as documented above](#install-dependencies).
-5. Clean vg with `make clean`. This *should* remove all build artefacts.
+4. Use the package manager you installed to install system dependencies of vg, such as CMake, [as documented above](#mac-install-dependencies).
+5. Clean vg with `make clean`.
 6. Build vg again with `make`.
 
-If you still experience build problems after this, delete the whole checkout and check out the code again; `make clean` is not under CI test and is not always up to date with the rest of the build system.
+If you still experience build problems after this, delete the whole checkout and check out the code again.
 
-Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build or fix `make clean`.
+Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build.
 
 ## Usage
 
@@ -228,7 +235,7 @@ You can also build a graph (and indexes for mapping with vg) from a set of genom
 
 ### Importing and exporting different graph formats
 
-`vg` supports [many formats](https://github.com/vgteam/vg/wiki/File-Formats), the three most important are:
+`vg` supports [many formats](https://github.com/vgteam/vg/wiki/File-Types), the three most important are:
 
 * `PackedGraph (.vg)` : This is `vg`'s native format. It supports edits of all kinds (to topology and paths), but can be inefficient at large scales, especially with many paths.
 * `GFA (.gfa)` : [GFA](https://github.com/GFA-spec/GFA-spec) is a standard text-based format and usually the best way to exchange graphs between `vg` and other pangenome tools. `vg` can also operate on (**uncompressed**) GFA files directly, by way of using a `PackedGraph` representation in memory (and therefore sharing that format's scaling concerns and edit-ability).
@@ -443,16 +450,13 @@ Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on d
 
 Infer variants from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
 
-<!-- !test check MSGA and deconstruct -->
+<!-- !test check deconstruct -->
 ```sh
-# create a graph from a multiple alignment of HLA haplotypes (from vg/test directory)
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
+# convert a GFA to vg's xg file format (from vg/test directory)
+vg convert --gfa-in graphs/cactus-BRCA2.gfa --xg-out > cactus-BRCA2.xg
 
-# index it
-vg index hla.vg -x hla.xg
-
-# generate a VCF using gi|568815592:29791752-29792749 as the reference contig.  The other paths will be considered as haploid samples
-vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
+# generate a VCF using "13" as the reference contig.  The other paths will be considered as haploid samples
+vg deconstruct cactus-BRCA2.xg -e -p "13" > BRCA2.vcf
 ```
 
 Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g`, respectively.
@@ -481,7 +485,7 @@ RNA-seq reads can be mapped to the spliced pangenome graph using `vg mpmap` with
 vg mpmap -n rna -t 4 -x vg_rna.spliced.xg -g vg_rna.spliced.gcsa -d vg_rna.spliced.dist -f small/x_rna_1.fq -f small/x_rna_2.fq > mpmap.gamp
 ```
 
-This will produce alignments in the multipath format. For more information on the multipath alignment format and `vg mpmap` see the [wiki page on mpmap](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap). Running the two commands on the small example data using 4 threads should on most machines take less than a minute.  
+This will produce alignments in the multipath format. The wiki has more information on the [multipath alignment GAMP format](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-the-GAMP-format) and [`vg mpmap`](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap). Running the two commands on the small example data using 4 threads should on most machines take less than a minute.  
 
 ### Alignment
 
@@ -525,10 +529,10 @@ A variety of commands are available:
 - *prune*: prune graphs to restrict their path complexity
 - *snarls*: find bubble-like motifs in a graph
 - *mod*: various graph transformations
-- *filter*: filter reads out of an alignment
+- *filter*: filter reads out of an alignment, or general plaintext per-read metrics
 - *deconstruct*: create a VCF from variation in a graph
 - *paths*: traverse paths in a graph
-- *stats*: metrics describing graph properties
+- *stats*: metrics describing graph or alignment properties
 
 ## Implementation notes
 

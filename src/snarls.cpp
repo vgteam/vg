@@ -10,6 +10,7 @@
 #include "snarls.hpp"
 #include "vg/io/json2pb.h"
 #include "subgraph_overlay.hpp"
+#include "crash.hpp"
 
 namespace vg {
 
@@ -20,7 +21,7 @@ SnarlManager SnarlFinder::find_snarls_parallel() {
 }
 
 HandleGraphSnarlFinder::HandleGraphSnarlFinder(const HandleGraph* graph) : graph(graph) {
-    // Nothing to do!
+    crash_unless(graph != nullptr);
 }
 
 SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {

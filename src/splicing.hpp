@@ -21,6 +21,9 @@ using namespace std;
  * Object that represents:
  * 1. A table of the acceptable splice motifs and their scores
  * 2. A distribution of intron lengths and their scores
+ *
+ * TODO: This object works with a GSSWAligner, but could probably be reworked
+ * to take just the EditAlignmentScorer instead.
  */
 class SpliceStats {
 public:
@@ -30,7 +33,7 @@ public:
     // - GC-AG: 0.0069
     // - AT-AC: 0.0005
     // and a default intron length distribution trained on GENCODE v.29.
-    SpliceStats(const GSSWAligner& scorer);
+    SpliceStats(const GSSWAligner& aligner);
     
     // Construct with triples of (5' dinucleotide, 3' dinucleotide, frequency).
     // Frequencies may sum to < 1.0, but may not sum to > 1.0.
@@ -38,7 +41,7 @@ public:
     SpliceStats(const vector<tuple<string, string, double>>& motifs,
                 const vector<double>& lognormal_mixture_weights,
                 const vector<pair<double, double>>& lognormal_component_params,
-                const GSSWAligner& scorer);
+                const GSSWAligner& aligner);
     
     // the number of splicing motifs
     size_t motif_size() const;
@@ -58,20 +61,20 @@ public:
     int32_t intron_length_score(int64_t length) const;
     // change the motifs
     void update_motifs(const vector<tuple<string, string, double>>& motifs,
-                       const GSSWAligner& scorer);
+                       const GSSWAligner& aligner);
     // change the intron distribution
     void update_intron_length_distribution(const vector<double>& lognormal_mixture_weights,
                                            const vector<pair<double, double>>& lognormal_component_params,
-                                           const GSSWAligner& scorer);
+                                           const GSSWAligner& aligner);
     // must be called if scoring parameters are changed
-    void update_scoring(const GSSWAligner& scorer);
+    void update_scoring(const GSSWAligner& aligner);
 private:
     
     // internal function for the constructor
     void init(const vector<tuple<string, string, double>>& motifs,
               const vector<double>& lognormal_mixture_weights,
               const vector<pair<double, double>>& lognormal_component_params,
-              const GSSWAligner& scorer);
+              const GSSWAligner& aligner);
     
     double intron_length_log_likelihood(int64_t length) const;
     
@@ -260,7 +263,7 @@ private:
 
 multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& graph,
                                const pos_t& hit_pos, const MaximalExactMatch& mem,
-                               const GSSWAligner& scorer);
+                               const GSSWAligner& aligner);
 
 // return the position of the base when trimming a given length from either the start
 // or the end of the alignment. softclips do not contributed to the total, and extra
@@ -282,7 +285,7 @@ bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_i
 multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
                                                 multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
                                                 int64_t left_bridge_point, const Alignment& splice_segment,
-                                                int64_t splice_junction_idx, int32_t splice_score, const GSSWAligner& scorer,
+                                                int64_t splice_junction_idx, int32_t splice_score, const GSSWAligner& aligner,
                                                 const HandleGraph& graph);  
 
 }

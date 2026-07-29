@@ -323,7 +323,11 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             phase = 0;
         }
         gbwt_phases[i] = (int)phase;
-        if (sample_names.count(sample_name)) {
+        // is_other_reference_view() drops these paths per-path from the header scan, but
+        // sample identity is per-sample: when only one contig's gref reference is
+        // selected, the base sample survives via its other contigs, and this traversal
+        // would be re-attached to it and inflate AC/AF/AN/NS.
+        if (sample_names.count(sample_name) && !is_other_reference_view(names[i])) {
             sample_to_traversals[sample_name].push_back(i);
         }
     }
@@ -667,8 +671,17 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         }
 #endif
         bool ref_path_check = ref_paths.count(path_trav_name);
-        if (ref_path_check &&
-            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+        // Prefer a base reference over its gref copy when both are selected: they carry
+        // the same sequence, but a gref name sorts before the path it was copied from
+        // (gref_x < x), so name order alone would put the derived name on the record.
+        bool better_ref = ref_trav_name.empty();
+        if (!better_ref) {
+            bool best_is_gref = GrefCover::is_gref_derived(ref_trav_name);
+            bool this_is_gref = GrefCover::is_gref_derived(path_trav_name);
+            better_ref = best_is_gref != this_is_gref ? best_is_gref
+                                                      : path_trav_name < ref_trav_name;
+        }
+        if (ref_path_check && better_ref) {
             ref_trav_name = path_trav_name;
 #ifdef debug
 #pragma omp critical (cerr)
@@ -859,11 +872,46 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // jaccard clustering (using handles for now) on traversals
         vector<pair<double, int64_t>> trav_cluster_info;
         vector<int> unused_child_snarl_mapping;
-        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs,
-                                                               vector<pair<handle_t, handle_t>>(),
-                                                               cluster_threshold,
-                                                               trav_cluster_info,
-                                                               unused_child_snarl_mapping);
+        vector<vector<int>> trav_clusters;
+
+        // If a minimum-allele-length gate is set, skip clustering at sites
+        // where every used traversal's interior (non-boundary) sequence is
+        // shorter than the threshold.  This lets the clustering be SV-only
+        // (setting it to 50bp matches the standard SV size cutoff) while
+        // leaving small variants represented exactly as they are.
+        bool do_clustering = true;
+        if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
+            // We only need to know if some used traversal is long enough, so
+            // stop measuring as soon as we find one.
+            do_clustering = false;
+            for (size_t i = 0; i < travs.size() && !do_clustering; ++i) {
+                if (!use_trav[i]) {
+                    continue;
+                }
+                const Traversal& t = travs[i];
+                int64_t len = 0;
+                for (size_t k = 1; k + 1 < t.size() && !do_clustering; ++k) {
+                    len += graph->get_length(t[k]);
+                    do_clustering = len >= cluster_min_allele_len;
+                }
+            }
+        }
+
+        if (do_clustering) {
+            trav_clusters = cluster_traversals(graph, travs, sorted_travs,
+                                               vector<pair<handle_t, handle_t>>(),
+                                               cluster_threshold,
+                                               trav_cluster_info,
+                                               unused_child_snarl_mapping);
+        } else {
+            // Trivial clusters (one per used traversal) in sorted_travs order.
+            // Mirrors what cluster_traversals would return when nothing collapses.
+            trav_cluster_info.assign(travs.size(), make_pair(-1.0, (int64_t)0));
+            for (int idx : sorted_travs) {
+                trav_clusters.push_back({idx});
+                trav_cluster_info[idx] = make_pair(1.0, (int64_t)0);
+            }
+        }
 
 #ifdef debug
         cerr << "cluster priority";
@@ -992,6 +1040,21 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     return true;
 }
 
+bool Deconstructor::is_other_reference_view(const string& path_name) const {
+    // A gref cover writes the reference twice: once under its own name and once in the
+    // gref_ namespace, plus the gref fragments.  Whichever of the two we were asked to
+    // deconstruct against, the other one is not a sample -- it's the same sequence.
+    // The naming convention makes both directions a lookup:
+    if (GrefCover::is_gref_derived(path_name)) {
+        // A gref path, and we're deconstructing against the base reference.
+        return true;
+    }
+    // A base path whose gref copy is one of our references, so we're deconstructing
+    // against the gref reference.  Other assemblies don't have a gref copy and so stay
+    // samples.
+    return this->ref_paths.count(GrefCover::make_gref_copy_name(path_name)) > 0;
+}
+
 string Deconstructor::get_vcf_header() {
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     ref_samples.clear();
@@ -1003,6 +1066,43 @@ string Deconstructor::get_vcf_header() {
     if (!long_ref_contig) {
         long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
     }
+    // Samples that only exist in this graph as the other view of a reference we were
+    // asked to deconstruct against.  is_other_reference_view() catches those paths one by
+    // one, but a sample also survives through its *other* contigs when only one contig's
+    // reference is selected, and then it contributes an all-reference column.
+    // Ask the question in the direction that survives round-tripping.  Going the other
+    // way -- from a selected gref reference back to its base path by dropping the prefix
+    // -- does not work: make_gref_copy_name() drops the phase block (a reference-sense
+    // name cannot carry one), so gref_GRCh38#0#chr1 does not name GRCh38#0#chr1#0, which
+    // is what a GFA without an RS header gives you.
+    other_ref_samples.clear();
+    auto note_other_reference_view = [&](const string& path_name, const string& sample_name) {
+        if (!ref_paths.count(path_name) && sample_name != PathMetadata::NO_SAMPLE_NAME &&
+            is_other_reference_view(path_name)) {
+            other_ref_samples.insert(sample_name);
+        }
+    };
+    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+        note_other_reference_view(graph->get_path_name(path_handle),
+                                  graph->get_sample_name(path_handle));
+    });
+    if (gbwt) {
+        // The haplotypes are only visible through the GBWT here -- the overlay does not
+        // enumerate them -- and the base reference is one of them whenever it is
+        // haplotype sense, so this scan is the only thing that can spot it.
+        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
+            PathSense sense = gbwtgraph::get_path_sense(*gbwt, i, gbwt_reference_samples);
+            note_other_reference_view(PathMetadata::create_path_name(
+                                          sense,
+                                          gbwtgraph::get_path_sample_name(*gbwt, i, sense),
+                                          gbwtgraph::get_path_locus_name(*gbwt, i, sense),
+                                          gbwtgraph::get_path_haplotype(*gbwt, i, sense),
+                                          gbwtgraph::get_path_phase_block(*gbwt, i, sense),
+                                          gbwtgraph::get_path_subrange(*gbwt, i, sense)),
+                                      gbwtgraph::get_path_sample_name(*gbwt, i, sense));
+        }
+    }
+
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
@@ -1028,7 +1128,18 @@ string Deconstructor::get_vcf_header() {
             // This isn't a designated decosntruction reference path.
             // Note that we allow alt paths through here.
 
+            if (is_other_reference_view(path_name)) {
+                // It's the same reference we're deconstructing against, seen through the
+                // other of the base/gref pair.  It would genotype as all-reference and
+                // inflate AC/AF/AN/NS, so it isn't a sample.
+                return;
+            }
+
             string sample_name = graph->get_sample_name(path_handle);
+            if (other_ref_samples.count(sample_name)) {
+                // Another contig of a sample that is the other view of our reference.
+                return;
+            }
             // for backward compatibility
             if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
                 sample_name = path_name;
@@ -1061,9 +1172,9 @@ string Deconstructor::get_vcf_header() {
                     gbwtgraph::get_path_haplotype(*gbwt, i, sense),
                     gbwtgraph::get_path_phase_block(*gbwt, i, sense),
                     gbwtgraph::get_path_subrange(*gbwt, i, sense));
-                if (!this->ref_paths.count(path_name)) {
+                if (!this->ref_paths.count(path_name) && !is_other_reference_view(path_name)) {
                     string sample_name = gbwtgraph::get_path_sample_name(*gbwt, i, sense);
-                    if (!ref_samples.count(sample_name)) {
+                    if (!ref_samples.count(sample_name) && !other_ref_samples.count(sample_name)) {
                         auto phase = gbwtgraph::get_path_haplotype(*gbwt, i, sense);
                         if (phase == PathMetadata::NO_HAPLOTYPE) {
                             // Default to 0.
@@ -1123,7 +1234,8 @@ string Deconstructor::get_vcf_header() {
     stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
     stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
     if (include_nested) {
-        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
+        stream << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
         stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
         stream << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
@@ -1286,6 +1398,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool strict_conflicts,
                                 bool long_ref_contig,
                                 double cluster_threshold,
+                                int64_t cluster_min_allele_len,
                                 gbwt::GBWT* gbwt,
                                 bool star_allele) {
 
@@ -1301,6 +1414,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
     }
     this->cluster_threshold = cluster_threshold;
+    this->cluster_min_allele_len = cluster_min_allele_len;
     this->gbwt = gbwt;
     this->star_allele = star_allele;
 
@@ -1330,7 +1444,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         deconstruct_graph(snarl_manager);
     }
 
+    // Prune after add_contigs_to_vcf_header, which is what emits the ##contig lines, and
+    // before write_variants, which drains the buffer get_output_contigs() reads.
     string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
+    patched_header = this->prune_header_contigs(patched_header, this->get_output_contigs());
     cout << patched_header << endl;
 
     // write variants in sorted order

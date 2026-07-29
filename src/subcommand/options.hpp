@@ -150,7 +150,7 @@ protected:
     /// May not delegate to a different item.
     virtual bool tick_along_chain();
 
-    /// Reset along the chain, makign this item and all parents take on their
+    /// Reset along the chain, making this item and all parents take on their
     /// initial values.
     virtual void reset_along_chain();
 };
@@ -883,7 +883,7 @@ struct BaseOptionGroup : public TickChainLink {
     /// otherwies.
     virtual bool set(const BaseValuation& entry) = 0;
     
-    /// Fill in entry with the value of the correspondign option, if we have
+    /// Fill in entry with the value of the corresponding option, if we have
     /// that option. If so, return true.
     virtual bool query(BaseValuation& entry) const = 0;
     

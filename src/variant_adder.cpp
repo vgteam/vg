@@ -28,7 +28,7 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
     show_progress = graph.show_progress;
     
     // Configure the aligner to use a full length bonus
-    aligner.full_length_bonus = 5;
+    aligner.scorer->full_length_bonus = 5;
 }
 
 const VG& VariantAdder::get_graph() const {
@@ -647,18 +647,18 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Turn N/N subs into matches and score the alignments without end bonuses.
         align_ns(left_subgraph, aln_left);
-        aln_left.set_score(aligner.score_contiguous_alignment(aln_left, false, false));
+        aln_left.set_score(aligner.scorer->score_contiguous_alignment(aln_left, false, false));
         align_ns(right_subgraph, aln_right);
-        aln_right.set_score(aligner.score_contiguous_alignment(aln_right, false, false));
+        aln_right.set_score(aligner.scorer->score_contiguous_alignment(aln_right, false, false));
         
         
 #ifdef debug
-        cerr << "\t\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.match * min_score_factor
-            << ", " << aln_right.score() << "/" << right_tail.size() * aligner.match * min_score_factor << endl;
+        cerr << "\t\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.scorer->match * min_score_factor
+            << ", " << aln_right.score() << "/" << right_tail.size() * aligner.scorer->match * min_score_factor << endl;
 #endif
         
-        if (aln_left.score() > left_tail.size() * aligner.match * min_score_factor &&
-            aln_right.score() > right_tail.size() * aligner.match * min_score_factor) {
+        if (aln_left.score() > left_tail.size() * aligner.scorer->match * min_score_factor &&
+            aln_right.score() > right_tail.size() * aligner.scorer->match * min_score_factor) {
         
             // Aligning the two tails suggests that the whole string might be in
             // the graph already.
@@ -698,15 +698,15 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_contiguous_alignment(aln, false, false));
+                aln.set_score(aligner.scorer->score_contiguous_alignment(aln, false, false));
 
 #ifdef debug                
                 if (aligned_in_band) {
-                    cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor) << endl;
+                    cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.scorer->match * min_score_factor) << endl;
                 }
 #endif
                 
-                if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
+                if (aligned_in_band && aln.score() > to_align.size() * aligner.scorer->match * min_score_factor) {
                     // If we get a good score, use that alignment
 #ifdef debug
                     cerr << "\tFound sufficiently good restricted banded alignment" << endl;
@@ -758,8 +758,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 // Make the Mapper
                 Mapper mapper(&xg_index, gcsa_index, lcp_index);
                 // Copy over alignment scores
-                mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension,
-                                            aligner.full_length_bonus);
+                mapper.set_alignment_scores(aligner.scorer->match, aligner.scorer->mismatch, aligner.scorer->gap_open, aligner.scorer->gap_extension,
+                                            aligner.scorer->full_length_bonus);
                 
                 // Map. Will invoke the banded aligner if the read is long, and
                 // the normal index-based aligner otherwise.
@@ -812,14 +812,14 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_contiguous_alignment(aln, false, false));
+                aln.set_score(aligner.scorer->score_contiguous_alignment(aln, false, false));
                 
 #ifdef debug
-                cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)
+                cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.scorer->match * min_score_factor)
                     << " with " << discontinuities << " breaks" << endl;
 #endif
                 
-                if (aln.score() > to_align.size() * aligner.match * min_score_factor && discontinuities == 0) {
+                if (aln.score() > to_align.size() * aligner.scorer->match * min_score_factor && discontinuities == 0) {
                     // This alignment looks good.
                     
                     return aln;

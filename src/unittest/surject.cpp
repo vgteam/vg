@@ -71,7 +71,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     }
     read.set_sequence(seq);
     
-    read.set_score(Aligner().score_contiguous_alignment(read));
+    read.set_score(Aligner().scorer->score_contiguous_alignment(read));
     
     unordered_set<path_handle_t> paths{p};
     vector<Alignment> surjected_alns = surjector.surject(read, paths, true, true);
@@ -88,7 +88,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     }
     
     // should not penalize long deletions (assumed to be splices)
-    REQUIRE(surjected.score() == read.score() - Aligner().mismatch - Aligner().match);
+    REQUIRE(surjected.score() == read.score() - Aligner().scorer->mismatch - Aligner().scorer->match);
     REQUIRE(surjected.refpos_size() == 1);
     REQUIRE(surjected.refpos(0).name() == graph.get_path_name(p));
     REQUIRE(surjected.refpos(0).offset() == 0);
@@ -110,7 +110,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
         e->set_to_length(pos_graph.get_length(h));
     }
     
-    rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
+    rev_read.set_score(Aligner().scorer->score_contiguous_alignment(rev_read));
     
     vector<Alignment> rev_surjected_alns = surjector.surject(rev_read, paths, true, true);
     REQUIRE(rev_surjected_alns.size() == 1);
@@ -124,7 +124,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     }
     
     // should not penalize long deletions (assumed to be splices)
-    REQUIRE(rev_surjected.score() == read.score() - Aligner().mismatch - Aligner().match);
+    REQUIRE(rev_surjected.score() == read.score() - Aligner().scorer->mismatch - Aligner().scorer->match);
     REQUIRE(rev_surjected.refpos_size() == 1);
     REQUIRE(rev_surjected.refpos(0).name() == graph.get_path_name(p));
     REQUIRE(rev_surjected.refpos(0).offset() == 0);
@@ -177,7 +177,7 @@ TEST_CASE( "Spliced surject algorithm works when a read touches the same path in
     }
     read.set_sequence(seq);
     
-    read.set_score(Aligner().score_contiguous_alignment(read));
+    read.set_score(Aligner().scorer->score_contiguous_alignment(read));
     
     unordered_set<path_handle_t> paths{p};
     vector<Alignment> surjected_alns = surjector.surject(read, paths, true, true);
@@ -208,7 +208,7 @@ TEST_CASE( "Spliced surject algorithm works when a read touches the same path in
         e->set_to_length(pos_graph.get_length(h));
     }
     
-    rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
+    rev_read.set_score(Aligner().scorer->score_contiguous_alignment(rev_read));
     
     vector<Alignment> rev_surjected_alns = surjector.surject(rev_read, paths, true, true);
     REQUIRE(rev_surjected_alns.size() == 1);
@@ -866,7 +866,7 @@ TEST_CASE("Supplementary alignments can be generated", "[surject]") {
             }
             read.set_sequence(seq);
             
-            read.set_score(Aligner().score_contiguous_alignment(read));
+            read.set_score(Aligner().scorer->score_contiguous_alignment(read));
             
             vector<Alignment> surjected_alns = surjector.surject(read, paths, true, false);
         

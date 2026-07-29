@@ -161,8 +161,8 @@ struct VGIndexes {
     static vector<IndexName> get_default_short_giraffe_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe on long reads
     static vector<IndexName> get_default_long_giraffe_indexes();
-    /// A list of the identifiers of the default indexes to run vg giraffe on long reads with path minimizers
-    static vector<IndexName> get_default_long_path_giraffe_indexes();
+    /// A list of the identifiers of the default indexes to run vg haplotypes
+    static vector<IndexName> get_default_haplotype_sampling_indexes();
 };
 
 /**
@@ -329,6 +329,13 @@ public:
     /// Return true if the given index is available and can be require()'d, and
     /// false otherwise.
     bool available(const IndexName& identifier) const;
+    
+    /// For two available indexes, returns true if the modification times
+    /// on the eariler index are no later than those on the later index.
+    ///
+    /// Useful for enforcing that downstream indexes haven't had their upstream
+    /// indexes overwritten.
+    bool predates(const IndexName& earlier, const IndexName& later) const;
 
     /// Get the possible filename(s) associated with the given index with the given prefix.
     /// TODO: Get this to account for sample-scoped indexes.

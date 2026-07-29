@@ -7,6 +7,13 @@
 namespace vg {
 namespace algorithms {
 
+// Senses included when counting path steps for coverage.  HAPLOTYPE is
+// included so haplotype paths stored in GBZ/GBWT contribute — without it,
+// vg depth reports zero coverage from haplotype threads on a GBZ.
+static const std::unordered_set<PathSense> coverage_senses{
+    PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE
+};
+
 void packed_depths(const Packer& packer, const string& path_name, size_t min_coverage, ostream& out_stream) {
     const PathHandleGraph& graph = dynamic_cast<const PathHandleGraph&>(*packer.get_graph());
     path_handle_t path_handle = graph.get_path_handle(path_name);
@@ -308,9 +315,9 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
 
     graph.for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
             unordered_set<string> path_set;
-            size_t step_count = 0;            
+            size_t step_count = 0;
             handle_t handle = graph.get_handle_of_step(step_handle);
-            graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle_2) {
+            graph.for_each_step_of_sense(handle, coverage_senses, [&](step_handle_t step_handle_2) {
                     if (count_cycles) {
                         ++step_count;
                     } else {
@@ -356,7 +363,7 @@ pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
 
         unordered_set<string> path_set;
         size_t step_count = 0;
-        graph.for_each_step_on_handle(cur_handle, [&](step_handle_t step_handle) {
+        graph.for_each_step_of_sense(cur_handle, coverage_senses, [&](step_handle_t step_handle) {
                 if (count_cycles) {
                     ++step_count;
                 } else {
@@ -368,7 +375,7 @@ pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
                             it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
                         }
                         path_set.insert(it->second);
-                }                    
+                }
             });
         size_t coverage = (count_cycles ? step_count : path_set.size()) - 1;        
 

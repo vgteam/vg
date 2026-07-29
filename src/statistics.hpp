@@ -52,7 +52,7 @@ SummaryStatistics summary_statistics(const std::map<Number, size_t>& values) {
     double sum_of_values = 0.0;
     size_t max_freq = 0;
     for (auto iter = values.begin(); iter != values.end(); ++iter) {
-        sum_of_values += iter->first * iter->second;
+        sum_of_values += iter->first * (std::int64_t) iter->second;
         result.number_of_values += iter->second;
         if (iter->second > max_freq) {
             result.mode = iter->first; max_freq = iter->second;
@@ -66,7 +66,7 @@ SummaryStatistics summary_statistics(const std::map<Number, size_t>& values) {
     double accumulator = 0.0;
     for (auto iter = values.begin(); iter != values.end(); ++iter) {
         double value = iter->first - result.mean;
-        accumulator += value * value * iter->second;
+        accumulator += value * value * (std::int64_t) iter->second;
     }
     result.stdev = std::sqrt(accumulator / result.number_of_values);
 

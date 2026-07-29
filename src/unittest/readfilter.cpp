@@ -5,6 +5,9 @@
 #include "catch.hpp"
 #include "readfilter.hpp"
 #include "xg.hpp"
+#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -44,13 +47,13 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
     
     )";
     
-    // Load it into Protobuf
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    
+    // Load the graph
+    bdsg::HashGraph chunk;
+    vg::io::json2graph(graph_json, &chunk);
+
     // Pass it over to XG
     xg::XG index;
-    index.from_path_handle_graph(VG(chunk));
+    index.from_path_handle_graph(chunk);
     
     // Make a ReadFilter;
     ReadFilter<Alignment> filter;
