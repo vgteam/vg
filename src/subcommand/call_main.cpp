@@ -701,7 +701,6 @@ int main_call(int argc, char** argv) {
 
     // make sure we have some ref paths
     if (ref_paths.empty()) {
-        
         logger.error() << "No reference paths found. "
                        << "Paths must be REFERENCE or GENERIC sense (see vg paths -M)\n"
                        << "Alternatively, use --ref-path, --path-prefix, or --ref-sample to force a HAPLOTYPE path to be treated as a reference\n"
@@ -710,6 +709,8 @@ int main_call(int argc, char** argv) {
 
     // build table of ploidys
     vector<int> ref_path_ploidies;
+    // Paths which aren't REFERENCE/GENERIC sense that we want to call against
+    unordered_set<string> pretend_ref_paths;
     for (const string& ref_path : ref_paths) {
         int path_ploidy = ploidy;
         for (auto& rule : ploidy_rules) {
@@ -719,11 +720,18 @@ int main_call(int argc, char** argv) {
             }
         }
         ref_path_ploidies.push_back(path_ploidy);
+
+        if (graph->get_sense(graph->get_path_handle(ref_path)) == PathSense::HAPLOTYPE) {
+            pretend_ref_paths.emplace(ref_path);
+        }
     }
 
     // Use an overlay so that all ref paths are treated as refs
     bdsg::ReferencePathOverlayHelper overlay_helper;
-    graph = overlay_helper.apply(graph, unordered_set<string>{ref_paths.begin(), ref_paths.end()});
+    if (!pretend_ref_paths.empty()) {
+        if (show_progress) logger.info() << "Applying overlay to treat HAPLOTYPE paths as REFERENCE" << endl;
+        graph = overlay_helper.apply(graph, pretend_ref_paths);
+    }
 
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
