@@ -139,6 +139,9 @@ using namespace std;
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
         bool prune_suspicious_anchors = false;
+        /// Remove anchors contained entirely within mapper-declared read tails.
+        /// Tail coordinates are relative to the stored read sequence.
+        bool prune_tail_region_anchors = false;
         int64_t max_tail_anchor_prune = 4;
         static constexpr int64_t DEFAULT_MAX_SLIDE = 6;
         /// Declare an anchor suspicious if it appears again at any offset up
@@ -243,7 +246,8 @@ using namespace std;
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
-                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges) const;
+                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges,
+                                    size_t left_tail_length = 0, size_t right_tail_length = 0) const;
         
         /// Compute the widest end-inclusive interval of path positions that
         /// the realigned sequence could align to, or an interval where start >
