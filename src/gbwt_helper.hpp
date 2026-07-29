@@ -5,6 +5,7 @@
  * Utility classes and functions for working with GBWT.
  */
 
+#include <unordered_set>
 #include <vector>
 
 #include "position.hpp"
@@ -266,6 +267,31 @@ void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination);
 void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination);
 
 //------------------------------------------------------------------------------
+
+/// Concatenate `path` with itself, creating a self-loop that spans the origin.
+/// The last node becomes adjacent to the first, wrapping a circular haplotype
+/// fragment so that its end connects back to its start.
+void double_origin_fragment(gbwt::vector_type& path);
+
+/// Rebuild `source` into a new GBWT in which every haplotype path with count 0
+/// on one of the named `contigs` is doubled (see `double_origin_fragment`),
+/// creating an origin-spanning wrap edge. All other paths are copied verbatim,
+/// and the metadata and the reference sample tag are preserved.
+///
+/// Origin selection uses count 0 because that is the one invariant shared by
+/// both construction pathways. VCF-built GBWTs store a dense 0-based fragment
+/// identifier in the count field, while GFA W-line GBWTs store the genomic start
+/// offset, but in both cases the origin fragment (the one containing contig
+/// position 0) has count 0. If a named contig has haplotype paths whose origin
+/// fragment is missing (the start was truncated out of the graph), this is an
+/// error, as there is no origin node to wrap onto.
+///
+/// The tail of each wrapped haplotype is assumed to be the true contig end.
+/// A truncated end cannot be detected, because the metadata stores no path end
+/// coordinate (the GFA W-line end is recomputed as count + length when writing).
+/// If the end was truncated, the wrap edge connects the last remaining node to
+/// the origin.
+gbwt::GBWT wrap_haplotype_paths(const gbwt::GBWT& source, const std::unordered_set<std::string>& contigs);
 
 /// Transform the paths into a GBWT index. Primarily for testing.
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);

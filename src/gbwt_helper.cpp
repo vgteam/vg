@@ -611,6 +611,85 @@ void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destinati
 
 //------------------------------------------------------------------------------
 
+void double_origin_fragment(gbwt::vector_type& path) {
+    if (path.empty()) {
+        return;
+    }
+    // We copy the path first, as inserting from its own iterators would be
+    // unsafe if the insertion reallocates the vector.
+    gbwt::vector_type copy = path;
+    path.insert(path.end(), copy.begin(), copy.end());
+}
+
+gbwt::GBWT wrap_haplotype_paths(const gbwt::GBWT& source, const std::unordered_set<std::string>& contigs) {
+
+    if (contigs.empty()) {
+        return source;
+    }
+    if (!source.hasMetadata() || !source.metadata.hasPathNames() || !source.metadata.hasContigNames()) {
+        throw std::runtime_error("wrap_haplotype_paths(): the GBWT does not have the metadata for identifying haplotype fragments");
+    }
+
+    gbwtgraph::sample_name_set reference_samples = gbwtgraph::parse_reference_samples_tag(source);
+
+    // Determine which paths are origin fragments (count 0) of a haplotype on one
+    // of the named contigs. We also record, for each haplotype chain on a named
+    // contig, whether we saw its origin fragment, so that we can reject chains
+    // whose start was truncated out of the graph. A chain is identified by
+    // (contig, (sample, phase)).
+    gbwt::size_type path_count = source.metadata.paths();
+    std::vector<bool> should_double(path_count, false);
+    typedef std::pair<gbwt::size_type, std::pair<gbwt::size_type, gbwt::size_type>> chain_type;
+    std::map<chain_type, bool> chain_has_origin;
+    for (gbwt::size_type path_id = 0; path_id < path_count; path_id++) {
+        const gbwt::PathName& path_name = source.metadata.path(path_id);
+        gbwtgraph::PathSense sense = gbwtgraph::get_path_sense(source.metadata, path_name, reference_samples);
+        if (sense != gbwtgraph::PathSense::HAPLOTYPE) {
+            continue;
+        }
+        const std::string& contig_name = source.metadata.contig(path_name.contig);
+        if (contigs.find(contig_name) == contigs.end()) {
+            continue;
+        }
+        chain_type chain(path_name.contig, std::make_pair(path_name.sample, path_name.phase));
+        bool is_origin = (path_name.count == 0);
+        chain_has_origin[chain] = chain_has_origin[chain] || is_origin;
+        if (is_origin) {
+            should_double[path_id] = true;
+        }
+    }
+
+    // Every haplotype chain on a named contig must have an origin fragment.
+    for (auto& chain : chain_has_origin) {
+        if (!chain.second) {
+            const std::string& contig_name = source.metadata.contig(chain.first.first);
+            const std::string& sample_name = source.metadata.sample(chain.first.second.first);
+            throw std::runtime_error("wrap_haplotype_paths(): haplotype " + sample_name + " on contig " + contig_name + " has no origin fragment and cannot be wrapped");
+        }
+    }
+
+    // Rebuild the index, doubling the origin fragments and copying the other
+    // paths verbatim.
+    gbwt::size_type node_width = sdsl::bits::length(source.sigma() - 1);
+    gbwt::GBWTBuilder builder(node_width, gbwt::DynamicGBWT::INSERT_BATCH_SIZE, gbwt::DynamicGBWT::SAMPLE_INTERVAL);
+    for (gbwt::size_type path_id = 0; path_id < path_count; path_id++) {
+        gbwt::size_type sequence_id = source.bidirectional() ? gbwt::Path::encode(path_id, false) : path_id;
+        gbwt::vector_type path = source.extract(sequence_id);
+        if (should_double[path_id]) {
+            double_origin_fragment(path);
+        }
+        builder.insert(path, true);
+    }
+    builder.finish();
+
+    gbwt::GBWT result(builder.index);
+    result.addMetadata();
+    result.metadata = source.metadata;
+    copy_reference_samples(source, result);
+
+    return result;
+}
+
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
     gbwt::size_type node_width = 1, total_length = 0;
     for (auto& path : paths) {

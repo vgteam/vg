@@ -1196,6 +1196,10 @@ struct RecombinatorHaplotype {
     // Contig name in GBWT metadata.
     const std::string& contig_name;
 
+    // Whether the origin (first) fragment of this haplotype should be doubled
+    // to create an origin-spanning wrap edge (for circular contigs).
+    bool wrap;
+
     // Haplotype identifier in GBWT metadata.
     size_t id;
 
@@ -1219,11 +1223,11 @@ struct RecombinatorHaplotype {
     RecombinatorHaplotype(
         const Recombinator& recombinator,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
-        const std::string& contig_name, size_t id
+        const std::string& contig_name, bool wrap, size_t id
     ) :
         recombinator(recombinator),
         builder(builder), metadata(metadata),
-        contig_name(contig_name), id(id), fragment(0),
+        contig_name(contig_name), wrap(wrap), id(id), fragment(0),
         sequence_id(gbwt::invalid_sequence()), position(gbwt::invalid_edge()) {}
 
     /*
@@ -1403,6 +1407,10 @@ void RecombinatorHaplotype::suffix() {
 void RecombinatorHaplotype::insert() {
     std::string sample_name = "recombination"; // TODO: Make this a static class variable.
     this->metadata.add_haplotype(sample_name, this->contig_name, this->id, this->fragment);
+    if (this->wrap && this->fragment == 0) {
+        // Double the origin fragment so its end wraps back onto its start.
+        double_origin_fragment(this->path);
+    }
     this->builder.insert(this->path, true);
 }
 
@@ -1576,6 +1584,17 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     if (this->include_reference) {
         out << "- include reference paths" << std::endl;
     }
+    if (!this->high_coverage_chains.empty()) {
+        out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("
+            << this->high_coverage_num_haplotypes << " haplotypes each)" << std::endl;
+    }
+    if (!this->half_coverage_chains.empty()) {
+        out << "- " << this->half_coverage_chains.size() << " half-coverage chains ("
+            << this->half_coverage_num_haplotypes << " haplotypes each)" << std::endl;
+    }
+    if (!this->excluded_chains.empty()) {
+        out << "- " << this->excluded_chains.size() << " chains excluded from personalization" << std::endl;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1622,6 +1641,32 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
     if (parameters.absent_score < 0.0) {
         std::string msg = "validate_recombinator_parameters(): absent score must be non-negative";
         throw std::runtime_error(msg);
+    }
+    if (!parameters.high_coverage_chains.empty() && parameters.high_coverage_num_haplotypes == 0) {
+        std::string msg = "validate_recombinator_parameters(): number of high-coverage haplotypes cannot be 0";
+        throw std::runtime_error(msg);
+    }
+    if (!parameters.half_coverage_chains.empty() && parameters.half_coverage_num_haplotypes == 0) {
+        std::string msg = "validate_recombinator_parameters(): number of half-coverage haplotypes cannot be 0";
+        throw std::runtime_error(msg);
+    }
+    // A chain may be assigned to at most one of the excluded / high-coverage /
+    // half-coverage sets.
+    for (size_t chain_id : parameters.high_coverage_chains) {
+        if (parameters.half_coverage_chains.find(chain_id) != parameters.half_coverage_chains.end()) {
+            std::string msg = "validate_recombinator_parameters(): a chain cannot be both high-coverage and half-coverage";
+            throw std::runtime_error(msg);
+        }
+        if (parameters.excluded_chains.find(chain_id) != parameters.excluded_chains.end()) {
+            std::string msg = "validate_recombinator_parameters(): a chain cannot be both high-coverage and excluded";
+            throw std::runtime_error(msg);
+        }
+    }
+    for (size_t chain_id : parameters.half_coverage_chains) {
+        if (parameters.excluded_chains.find(chain_id) != parameters.excluded_chains.end()) {
+            std::string msg = "validate_recombinator_parameters(): a chain cannot be both half-coverage and excluded";
+            throw std::runtime_error(msg);
+        }
     }
 }
 
@@ -1725,13 +1770,25 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
         }
     }
 
+    // Paths crossing excluded chains are copied through by copy_chain(), so we
+    // must not add them again as reference paths.
+    std::unordered_set<gbwt::size_type> excluded_path_ids;
+    for (size_t chain_id : parameters.excluded_chains) {
+        for (const Haplotypes::Subchain& subchain : this->haplotypes.chains[chain_id].subchains) {
+            for (const Haplotypes::compact_sequence_type& sequence : subchain.sequences) {
+                excluded_path_ids.insert(gbwt::Path::id(sequence.first));
+            }
+        }
+    }
+
     // Figure out GBWT path ids for reference paths in each job.
     std::vector<std::vector<gbwt::size_type>> reference_paths(this->haplotypes.jobs());
     if (parameters.include_reference) {
         for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
             size_t job_id = this->jobs_for_cached_paths[i];
-            if (job_id < this->haplotypes.jobs()) {
-                reference_paths[job_id].push_back(this->gbz.graph.named_paths[i].id);
+            gbwt::size_type path_id = this->gbz.graph.named_paths[i].id;
+            if (job_id < this->haplotypes.jobs() && excluded_path_ids.find(path_id) == excluded_path_ids.end()) {
+                reference_paths[job_id].push_back(path_id);
             }
         }
     }
@@ -1758,9 +1815,36 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
         // Add haplotypes for each chain.
         for (auto chain_id : jobs[job]) {
             try {
-                Statistics chain_statistics = this->generate_haplotypes(
-                    this->haplotypes.chains[chain_id], counts, builder, metadata, parameters, coverage
-                );
+                Statistics chain_statistics;
+                if (parameters.excluded_chains.find(chain_id) != parameters.excluded_chains.end()) {
+                    // Excluded chains are copied through verbatim instead of
+                    // personalizing them. This takes precedence over the scoring
+                    // models.
+                    chain_statistics = this->copy_chain(
+                        this->haplotypes.chains[chain_id], builder, metadata
+                    );
+                } else {
+                    // High- and half-coverage chains use their own scoring model,
+                    // no diploid sampling, and their own haplotype count.
+                    const Parameters* chain_parameters = &parameters;
+                    Parameters chain_parameters_override;
+                    if (parameters.high_coverage_chains.find(chain_id) != parameters.high_coverage_chains.end()) {
+                        chain_parameters_override = parameters;
+                        chain_parameters_override.scoring_model = Parameters::high_coverage_scoring;
+                        chain_parameters_override.diploid_sampling = false;
+                        chain_parameters_override.num_haplotypes = parameters.high_coverage_num_haplotypes;
+                        chain_parameters = &chain_parameters_override;
+                    } else if (parameters.half_coverage_chains.find(chain_id) != parameters.half_coverage_chains.end()) {
+                        chain_parameters_override = parameters;
+                        chain_parameters_override.scoring_model = Parameters::half_coverage_scoring;
+                        chain_parameters_override.diploid_sampling = false;
+                        chain_parameters_override.num_haplotypes = parameters.half_coverage_num_haplotypes;
+                        chain_parameters = &chain_parameters_override;
+                    }
+                    chain_statistics = this->generate_haplotypes(
+                        this->haplotypes.chains[chain_id], counts, builder, metadata, *chain_parameters, coverage
+                    );
+                }
                 job_statistics.combine(chain_statistics);
             } catch (const std::runtime_error& e) {
                 std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
@@ -1791,7 +1875,9 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
         std::cerr << "Merging the partial indexes" << std::endl;
     }
     gbwt::GBWT merged(indexes);
-    if (parameters.include_reference) {
+    if (parameters.include_reference || !parameters.excluded_chains.empty()) {
+        // Excluded chains are copied through verbatim and may contain reference
+        // paths, so preserve the reference sample tag in that case as well.
         copy_reference_samples(this->gbz.index, merged);
     }
     if (this->verbosity >= Haplotypes::verbosity_basic) {
@@ -1830,17 +1916,51 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     size_t selected_kmers = 0;
     for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
         double count = kmer_counts.at(subchain.kmers[kmer_id]);
-        if (count < absent_threshold) {
-            kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+        switch (parameters.scoring_model) {
+        case Recombinator::Parameters::high_coverage_scoring:
+            // High-coverage model: the frequent component is the true signal,
+            // while everything below it is contamination. Reward presence of
+            // frequent kmers and penalize presence of all others.
+            if (count >= homozygous_threshold) {
+                kmer_types.push_back({ Recombinator::present, 1.0 });
+            } else {
+                kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+            }
             selected_kmers++;
-        } else if (count < heterozygous_threshold) {
-            kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
+            break;
+        case Recombinator::Parameters::half_coverage_scoring:
+            // Half-coverage model for heterogametic allosomes: the single true
+            // copy sits at ~cov/2, i.e. the band the standard model calls
+            // heterozygous, so reward that band as present. There is no real
+            // heterozygous component outside the PAR. The homozygous (~cov) band
+            // and above is paralog / contamination in the body and
+            // non-discriminative backbone in the PAR, so it is treated as
+            // uninformative (like the frequent band): the selected haplotype
+            // still emits that sequence, we just don't let it steer selection.
+            if (count < absent_threshold) {
+                kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+            } else if (count < heterozygous_threshold) {
+                kmer_types.push_back({ Recombinator::present, 1.0 });
+            } else {
+                kmer_types.push_back({ Recombinator::frequent, 0.0 });
+            }
             selected_kmers++;
-        } else if (count < homozygous_threshold) {
-            kmer_types.push_back({ Recombinator::present, 1.0 });
-            selected_kmers++;
-        } else {
-            kmer_types.push_back({ Recombinator::frequent, 0.0 });
+            break;
+        default:
+            // Standard scoring model.
+            if (count < absent_threshold) {
+                kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+                selected_kmers++;
+            } else if (count < heterozygous_threshold) {
+                kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
+                selected_kmers++;
+            } else if (count < homozygous_threshold) {
+                kmer_types.push_back({ Recombinator::present, 1.0 });
+                selected_kmers++;
+            } else {
+                kmer_types.push_back({ Recombinator::frequent, 0.0 });
+            }
+            break;
         }
     }
     if (statistics != nullptr) {
@@ -2026,9 +2146,10 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     double coverage
 ) const {
     size_t final_haplotypes = (parameters.diploid_sampling ? 2 : parameters.num_haplotypes);
+    bool wrap = (parameters.wrap_contigs.find(chain.contig_name) != parameters.wrap_contigs.end());
     std::vector<RecombinatorHaplotype> haplotypes;
     for (size_t i = 0; i < final_haplotypes; i++) {
-        haplotypes.emplace_back(*this, builder, metadata, chain.contig_name, i + 1);
+        haplotypes.emplace_back(*this, builder, metadata, chain.contig_name, wrap, i + 1);
     }
 
     Statistics statistics;
@@ -2141,6 +2262,32 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
         for (const RecombinatorFragment& fragment : extra_fragments) {
             statistics.extra_fragments += fragment.generate(this->gbz.index, fragment_map, builder, metadata, chain.contig_name);
         }
+    }
+
+    return statistics;
+}
+
+//------------------------------------------------------------------------------
+
+Recombinator::Statistics Recombinator::copy_chain(const Haplotypes::TopLevelChain& chain,
+    gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata
+) const {
+    // Collect the distinct paths crossing the chain. Each GBWT sequence in a
+    // subchain corresponds to a path; the same path may appear in multiple
+    // subchains and in either orientation.
+    std::unordered_set<gbwt::size_type> path_ids;
+    for (const Haplotypes::Subchain& subchain : chain.subchains) {
+        for (const Haplotypes::compact_sequence_type& sequence : subchain.sequences) {
+            path_ids.insert(gbwt::Path::id(sequence.first));
+        }
+    }
+
+    // Copy each path through verbatim, preserving its metadata.
+    Statistics statistics;
+    statistics.chains = 1;
+    for (gbwt::size_type path_id : path_ids) {
+        add_path(this->gbz.index, path_id, builder, metadata);
+        statistics.ref_paths++;
     }
 
     return statistics;
