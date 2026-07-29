@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 101
+plan tests 108
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -140,6 +140,38 @@ LESS_THREE=$(if (( $DIFF_COUNT < 3 )); then echo 1; else echo 0; fi)
 is "${LESS_THREE}" "1" "Fewer than 3 differences between allales called via traversals or directly"
 
 rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt HGSVC1.vcf HGSVC2.vcf HGSVC_travs.gaf.gz HGSVC_travs.gbwt HGSVC_travs.vcf HGSVC_direct.vcf baseline_gts1.txt gts1.txt gts-travs.txt gts-direct.txt calls-travs.txt calls-direct.txt
+
+## Read-level genotyping (--read-likelihood)
+# Uses the same HGSVC fixture: the GAM is already present, so no new test data.
+vg index call/HGSVC_chr22_17119590_17880307.vg -x HGSVC_rl.xg
+vg pack -x HGSVC_rl.xg -g call/HGSVC_chr22_17119590_17880307.gam -o HGSVC_rl.pack
+
+# The default path must be untouched by the feature existing.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack -t 1 > HGSVC_rl_default.vcf 2>/dev/null
+is "$?" "0" "vg call default path still works with read-likelihood support compiled in"
+
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > HGSVC_rl.vcf 2>/dev/null
+is "$?" "0" "vg call --read-likelihood runs"
+
+is $(grep -v "^#" HGSVC_rl.vcf | wc -l | tr -d ' ') $(grep -v "^#" HGSVC_rl.vcf | grep -c "GT:DP:GL:GQ:GP") "every read-likelihood record carries GL/GQ/GP"
+
+# GL must have exactly one entry per genotype of the emitted alleles, or the
+# field is silently mislabelled.
+GL_BAD=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{n=split($5,alts,","); na=n+1; ng=na*(na+1)/2; split($10,f,":"); ngl=split(f[3],gl,","); if (ngl != ng) print}' | wc -l | tr -d ' ')
+is "${GL_BAD}" "0" "every GL field has the VCF-required number of entries"
+
+# The called genotype must be the one GL says is most likely.
+# A tie makes the argmax genuinely ambiguous (a flat likelihood means the reads
+# say nothing), so require only that no OTHER genotype is strictly more likely.
+GT_MISMATCH=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{split($10,f,":"); gt=f[1]; ngl=split(f[3],gl,","); sub("/","|",gt); split(gt,a,"|"); lo=(a[1]<a[2]?a[1]:a[2]); hi=(a[1]<a[2]?a[2]:a[1]); idx=hi*(hi+1)/2+lo+1; if (idx<1 || idx>ngl) {print; next} for(i=1;i<=ngl;i++) if (gl[i]+0 > gl[idx]+0 + 1e-9) {print; next}}' | wc -l | tr -d ' ')
+is "${GT_MISMATCH}" "0" "no genotype is strictly more likely than the one called"
+
+# --read-likelihood without reads must fail loudly rather than genotype with none.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -t 1 > /dev/null 2> rl_err.txt
+is "$?" "1" "--read-likelihood without --gam/--gaf is an error"
+is $(grep -c "requires reads" rl_err.txt) "1" "the error explains that reads are required"
+
+rm -f HGSVC_rl.xg HGSVC_rl.pack HGSVC_rl.vcf HGSVC_rl_default.vcf rl_err.txt
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L
