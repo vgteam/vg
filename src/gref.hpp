@@ -271,23 +271,19 @@ protected:
         int64_t trav_idx;
         pair<int64_t, int64_t> fragment;
         bool operator<(const RankedFragment& f2) const {
-            // Max-heap, so this is "worse than".  Longest first, because a short fragment
-            // that displaces part of a longer one leaves both halves to be filtered away
-            // by --min-gref-len -- which loses the sequence altogether.  Orientation only
-            // breaks ties between runs of equal length: a fragment taken from a path that
-            // walks it backwards has to be flipped to be written, so prefer one that does
-            // not, but never at the cost of covering less in one piece.
+            // Max-heap, so this is "worse than".  Rank by source path name.
+            //
+            // This looks arbitrary and is not: name order is *stable across snarls*.  The
+            // same path wins in adjacent snarls, so add_interval()'s same-path merge joins
+            // their intervals into one long fragment.  Ranking by run length instead is
+            // locally optimal and globally destructive -- each snarl independently picks
+            // whichever path happens to have the longest run just there, neighbours end up
+            // on different paths, and nothing can merge them: try_cross_path_merge() only
+            // consolidates paths that walk the stretch identically, which two paths taking
+            // different traversals of a bubble by definition do not.
+            //
             // note: name comparison is flipped because we want to select high coverage / low name
-            if (this->coverage != f2.coverage) {
-                return this->coverage < f2.coverage;
-            }
-            if (this->length != f2.length) {
-                return this->length < f2.length;
-            }
-            if (this->reverse != f2.reverse) {
-                return this->reverse;
-            }
-            return *this->name > *f2.name;
+            return this->coverage < f2.coverage || (this->coverage == f2.coverage && *this->name > *f2.name);
         }
     };
 };
