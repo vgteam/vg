@@ -290,14 +290,17 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
-                                          max_read_lookback_bases, to_chain,
+                                          max_indel_bases, max_read_lookback_bases, to_chain,
                                           seed_to_starting, seed_to_ending);
 
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
         std::sort(all_transitions.begin(), all_transitions.end(), 
             [&](const transition_info& a, const transition_info& b) {
             // Return true if a's destination seed is before b's in the read, and false otherwise.
-            return to_chain[a.to_anchor].read_start() < to_chain[b.to_anchor].read_start();
+            // Break ties by indel size (smaller = better)
+            return to_chain[a.to_anchor].read_start() < to_chain[b.to_anchor].read_start()
+                   || (to_chain[a.to_anchor].read_start() == to_chain[b.to_anchor].read_start()
+                       && a.indel_size < b.indel_size);
         });
 
         for (auto& transition : all_transitions) {
@@ -311,6 +314,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
+    size_t max_indel_bases,
     const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending) {
@@ -377,9 +381,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
                         std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
                                   << " to #" << cur_dest_anchor.second << std::endl;
 #endif
-                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
-                                                found_source_anchor->second, cur_dest_anchor.second, 
-                                                source_seed.distance);
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases,
+                                                max_indel_bases, found_source_anchor->second,
+                                                cur_dest_anchor.second, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -400,8 +404,8 @@ std::vector<transition_info> generate_zip_tree_transitions(
                                   << found_source_anchor->second << std::endl;
 #endif
                         add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
-                                                cur_dest_anchor.second, found_source_anchor->second,
-                                                source_seed.distance);
+                                                max_indel_bases, cur_dest_anchor.second,
+                                                found_source_anchor->second, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -419,8 +423,8 @@ std::vector<transition_info> generate_zip_tree_transitions(
     return all_transitions;
 }
 
-void add_transition_if_legal(vector<transition_info>& transitions, 
-                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
+                             size_t max_read_lookback_bases, size_t max_indel_bases,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance) {
     auto& source_anchor = to_chain[from_anchor];
     auto& dest_anchor = to_chain[to_anchor];
@@ -487,11 +491,21 @@ void add_transition_if_legal(vector<transition_info>& transitions,
     // Consume the length. 
     graph_distance -= distance_to_remove;
 
+    size_t indel_size = (read_distance > graph_distance) ? read_distance - graph_distance 
+                                                         : graph_distance - read_distance;
+
+    if (indel_size > max_indel_bases) {
+#ifdef debug_transition
+        std::cerr << "\tIndel size " << indel_size << " over max of " << max_indel_bases << std::endl;
+        return;
+#endif 
+    }
 #ifdef debug_transition
     std::cerr << "\tZip code tree sees " << source_anchor << " and "
-              << dest_anchor << " as " << graph_distance << " apart" << std::endl;
+              << dest_anchor << " as " << graph_distance << " apart; "
+              << indel_size << " indel" << std::endl;
 #endif
-    transitions.emplace_back(from_anchor, to_anchor, graph_distance, read_distance);
+    transitions.emplace_back(from_anchor, to_anchor, indel_size);
 }
 
 /// Compute a gap score like minimap2.
@@ -581,7 +595,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         if (show_work) {
 #ifdef debug_dp
             cerr << "DP: " << transition.from_anchor << "->" << transition.to_anchor 
-                 << " rd " << transition.read_distance << " gd " << transition.graph_distance << endl;
+                 << " indel " << transition.indel_size << endl;
 #endif
         }
         
@@ -624,20 +638,14 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         // Don't allow the transition if it seems like we're going the long
         // way around an inversion and needing a huge indel.
         int jump_points;
-            
-        // Decide how much length changed
-        size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
-                                                                                     : transition.graph_distance - transition.read_distance;
         
         if (show_work) {
 #ifdef debug_dp
-            cerr << "\t\t\tFor read distance " << transition.read_distance << " and graph distance " << transition.graph_distance
-                 << " an indel of length " << indel_length
-                 << ((transition.read_distance > transition.graph_distance) ? " seems plausible" : " would be required") << endl;
+            cerr << "\t\t\tIndel of length " << transition.indel_size << " would be required" << endl;
 #endif
         }
 
-        if (indel_length > max_indel_bases) {
+        if (transition.indel_size > max_indel_bases) {
             // Don't allow an indel this long
             jump_points = std::numeric_limits<int>::min();
         } else {
@@ -664,7 +672,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
+            jump_points = -score_chain_gap(transition.indel_size, base_seed_length) * scheme.gap_scale;
 
             // add recombination penalty if necessary
             jump_points -= check_recombination(chain_scores[transition.from_anchor].front(), here) * scheme.recombination_penalty;
