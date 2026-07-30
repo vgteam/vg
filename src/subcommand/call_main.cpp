@@ -19,6 +19,8 @@
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
 #include "../traversal_clusters.hpp"
+#include "../read_likelihood_caller.hpp"
+#include "../site_read_source.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -40,6 +42,13 @@ void help_call(char** argv) {
          << "                            and large (Y) variants [0.005,0.01]" << endl
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
+         << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
+         << "                            instead of aggregate depth (needs --gam/--gaf-reads)" << endl
+         << "      --gam FILE            read alignments for --read-likelihood" << endl
+         << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
+         << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
+         << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
          << "                            more support than the next best allele [6,6]" << endl
          << "GAF options:" << endl
@@ -144,6 +153,15 @@ int main_call(int argc, char** argv) {
     bool cluster_post_genotype = false;  // false = cluster before, true = cluster after
     bool star_allele = false;
 
+    // Read-level genotyping options. Opt-in: without --read-likelihood none of
+    // this code runs and the default caller is unchanged.
+    bool read_likelihood = false;
+    string gam_filename;
+    string gaf_filename;
+    string dump_likelihoods_filename;
+    bool no_mismap_term = false;
+    int read_min_mapq = 0;
+
     // constants
     const size_t avg_trav_threshold = 50;
     const size_t avg_node_threshold = 50;
@@ -159,6 +177,12 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_TOP_DOWN = 1006;
+    constexpr int OPT_READ_LIKELIHOOD = 1007;
+    constexpr int OPT_GAM = 1008;
+    constexpr int OPT_GAF = 1009;
+    constexpr int OPT_DUMP_LIKELIHOODS = 1010;
+    constexpr int OPT_NO_MISMAP_TERM = 1011;
+    constexpr int OPT_READ_MIN_MAPQ = 1012;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -195,6 +219,12 @@ int main_call(int argc, char** argv) {
             {"legacy", no_argument, 0, OPT_LEGACY},
             {"top-down", no_argument, 0, OPT_TOP_DOWN},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+            {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
+            {"gam", required_argument, 0, OPT_GAM},
+            {"gaf-reads", required_argument, 0, OPT_GAF},
+            {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
+            {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
+            {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
@@ -326,6 +356,24 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
+            break;
+        case OPT_READ_LIKELIHOOD:
+            read_likelihood = true;
+            break;
+        case OPT_GAM:
+            gam_filename = optarg;
+            break;
+        case OPT_GAF:
+            gaf_filename = optarg;
+            break;
+        case OPT_DUMP_LIKELIHOODS:
+            dump_likelihoods_filename = optarg;
+            break;
+        case OPT_NO_MISMAP_TERM:
+            no_mismap_term = true;
+            break;
+        case OPT_READ_MIN_MAPQ:
+            read_min_mapq = parse<int>(optarg);
             break;
         case 'I':
             call_chains = true;
@@ -531,6 +579,26 @@ int main_call(int argc, char** argv) {
     }
     if (gbz_paths && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
+    }
+
+    // Validation: --read-likelihood needs reads, and cannot be combined with the
+    // support-based model selection flags. Failing here rather than later keeps a
+    // read-free "read-level" genotyping run from silently happening.
+    if (read_likelihood) {
+        if (gam_filename.empty() && gaf_filename.empty()) {
+            logger.error() << "--read-likelihood requires reads: pass --gam or --gaf-reads" << endl;
+        }
+        if (!gam_filename.empty() && !gaf_filename.empty()) {
+            logger.error() << "--gam and --gaf-reads are mutually exclusive" << endl;
+        }
+        if (ratio_caller) {
+            logger.error() << "--read-likelihood and -B/--bias-mode are mutually exclusive" << endl;
+        }
+        if (legacy) {
+            logger.error() << "--read-likelihood cannot be used with --legacy" << endl;
+        }
+    } else if (!gam_filename.empty() || !gaf_filename.empty()) {
+        logger.error() << "--gam/--gaf-reads are only used with --read-likelihood" << endl;
     }
 
     // Validation: -A, --top-down, and --bottom-up are mutually exclusive
@@ -742,18 +810,38 @@ int main_call(int argc, char** argv) {
 
     unique_ptr<Packer> packer;
     unique_ptr<TraversalSupportFinder> support_finder;
-    if (!pack_filename.empty()) {        
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
-        if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
-        packer->load_from_file(pack_filename);
-        if (show_progress) logger.info() << "Loaded pack file" << endl;
-        if (bottom_up) {
-            // Make a nested packed traversal support finder (required by NestedFlowCaller)
-            support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+    // Only used by --read-likelihood, but declared out here so they outlive the
+    // caller, which holds references to them.
+    unique_ptr<SiteReadSource> read_source;
+    unique_ptr<EditAlignmentScorer> qual_scorer;
+    unique_ptr<EditAlignmentScorer> plain_scorer;
+    unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
+    unique_ptr<ofstream> likelihood_dump;
+    // Read-level genotyping can run without a pack file, but only when allele
+    // enumeration does not need support either. GBWTTraversalFinder enumerates from
+    // recorded haplotypes, so it needs none; FlowTraversalFinder is driven entirely
+    // by node and edge weights, so it does.
+    bool gbwt_enumeration = !gbwt_filename.empty() || gbz_paths;
+    bool support_free = read_likelihood && pack_filename.empty();
+
+    if (!pack_filename.empty() || support_free) {
+        if (support_free) {
+            // Nothing downstream will consult support: stand in a finder that
+            // reports none rather than requiring a pack file for its own sake.
+            support_finder.reset(new NullTraversalSupportFinder(*graph, *snarl_manager));
         } else {
-            // Make a packed traversal support finder (using cached version important for poisson caller)
-            support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            // Load our packed supports (they must have come from vg pack on graph)
+            packer = unique_ptr<Packer>(new Packer(graph));
+            if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
+            packer->load_from_file(pack_filename);
+            if (show_progress) logger.info() << "Loaded pack file" << endl;
+            if (bottom_up) {
+                // Make a nested packed traversal support finder (required by NestedFlowCaller)
+                support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            } else {
+                // Make a packed traversal support finder (using cached version important for poisson caller)
+                support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            }
         }
                 
         // need to use average support when genotyping as small differences in between sample and graph
@@ -767,7 +855,58 @@ int main_call(int argc, char** argv) {
         
         SupportBasedSnarlCaller* packed_caller = nullptr;
 
-        if (ratio_caller == false) {
+        if (read_likelihood) {
+            // Read-level genotyping. The pack file is still required, but only so
+            // FlowTraversalFinder has node/edge weights to *enumerate* alleles
+            // with; the genotyping itself uses no support at all.
+            if (show_progress) logger.info() << "Loading reads for read-level genotyping" << endl;
+
+            auto in_memory_source = new InMemorySiteReadSource();
+            read_source.reset(in_memory_source);
+            SiteReadFilter read_filter;
+            read_filter.min_mapq = read_min_mapq;
+            if (!gam_filename.empty()) {
+                in_memory_source->load_gam(gam_filename, read_filter);
+            } else {
+                in_memory_source->load_gaf(*graph, gaf_filename, read_filter);
+            }
+            if (show_progress) {
+                logger.info() << "Loaded " << in_memory_source->get_read_count()
+                              << " reads (" << in_memory_source->get_filtered_count()
+                              << " filtered out)" << endl;
+            }
+
+            // Two scorers: quality-adjusted for reads that have base qualities,
+            // plain for reads that do not. Picking per read avoids either
+            // fabricating qualities or mis-scoring.
+            qual_scorer.reset(new QualAdjAlignmentScorer());
+            plain_scorer.reset(new MatrixAlignmentScorer());
+
+            AlleleLikelihoodParams likelihood_params;
+            likelihood_params.use_mismap_term = !no_mismap_term;
+
+            likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
+                *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,
+                likelihood_params));
+
+            auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *snarl_manager, *support_finder,
+                                                           *likelihood_calculator);
+
+            if (!dump_likelihoods_filename.empty()) {
+                likelihood_dump.reset(new ofstream(dump_likelihoods_filename));
+                if (!(*likelihood_dump)) {
+                    logger.error() << "could not open " << dump_likelihoods_filename
+                                   << " for writing" << endl;
+                }
+                rl_caller->set_likelihood_dump(likelihood_dump.get());
+            }
+
+            // Without a pack file the support finder reports zero for everything, so
+            // the caller must not prune alleles on support.
+            rl_caller->set_support_available(!support_free);
+
+            packed_caller = rl_caller;
+        } else if (ratio_caller == false) {
             // Make a depth index
             if (show_progress) logger.info() << "Computing coverage statistics" << endl;
             depth_index = vg::algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
@@ -801,6 +940,24 @@ int main_call(int argc, char** argv) {
 
     if (!snarl_caller) {
         logger.error() << "pack file (-k) is required" << endl;
+    }
+
+    // Guard the pack-free path: it is only sound where nothing consults support.
+    if (support_free) {
+        if (!gbwt_enumeration) {
+            logger.error() << "--read-likelihood without -k/--pack requires haplotype-based allele "
+                           << "enumeration (-g/--gbwt or -z/--gbz); otherwise a pack file is needed "
+                           << "for the flow traversal finder's node and edge weights" << endl;
+        }
+        if (!vcf_filename.empty()) {
+            // VCFTraversalFinder prunes alt paths on support before its brute-force
+            // enumeration, so -v genuinely needs a pack file.
+            logger.error() << "-v/--vcf with --read-likelihood requires -k/--pack" << endl;
+        }
+        if (bottom_up) {
+            // NestedFlowCaller downcasts the support finder to a nested packed one.
+            logger.error() << "--bottom-up with --read-likelihood requires -k/--pack" << endl;
+        }
     }
 
     unique_ptr<AlignmentEmitter> alignment_emitter;

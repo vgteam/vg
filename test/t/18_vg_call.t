@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 101
+plan tests 123
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -141,6 +141,38 @@ is "${LESS_THREE}" "1" "Fewer than 3 differences between allales called via trav
 
 rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt HGSVC1.vcf HGSVC2.vcf HGSVC_travs.gaf.gz HGSVC_travs.gbwt HGSVC_travs.vcf HGSVC_direct.vcf baseline_gts1.txt gts1.txt gts-travs.txt gts-direct.txt calls-travs.txt calls-direct.txt
 
+## Read-level genotyping (--read-likelihood)
+# Uses the same HGSVC fixture: the GAM is already present, so no new test data.
+vg index call/HGSVC_chr22_17119590_17880307.vg -x HGSVC_rl.xg
+vg pack -x HGSVC_rl.xg -g call/HGSVC_chr22_17119590_17880307.gam -o HGSVC_rl.pack
+
+# The default path must be untouched by the feature existing.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack -t 1 > HGSVC_rl_default.vcf 2>/dev/null
+is "$?" "0" "vg call default path still works with read-likelihood support compiled in"
+
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > HGSVC_rl.vcf 2>/dev/null
+is "$?" "0" "vg call --read-likelihood runs"
+
+is $(grep -v "^#" HGSVC_rl.vcf | wc -l | tr -d ' ') $(grep -v "^#" HGSVC_rl.vcf | grep -c "GT:DP:GL:GQ:GP") "every read-likelihood record carries GL/GQ/GP"
+
+# GL must have exactly one entry per genotype of the emitted alleles, or the
+# field is silently mislabelled.
+GL_BAD=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{n=split($5,alts,","); na=n+1; ng=na*(na+1)/2; split($10,f,":"); ngl=split(f[3],gl,","); if (ngl != ng) print}' | wc -l | tr -d ' ')
+is "${GL_BAD}" "0" "every GL field has the VCF-required number of entries"
+
+# The called genotype must be the one GL says is most likely.
+# A tie makes the argmax genuinely ambiguous (a flat likelihood means the reads
+# say nothing), so require only that no OTHER genotype is strictly more likely.
+GT_MISMATCH=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{split($10,f,":"); gt=f[1]; ngl=split(f[3],gl,","); sub("/","|",gt); split(gt,a,"|"); lo=(a[1]<a[2]?a[1]:a[2]); hi=(a[1]<a[2]?a[2]:a[1]); idx=hi*(hi+1)/2+lo+1; if (idx<1 || idx>ngl) {print; next} for(i=1;i<=ngl;i++) if (gl[i]+0 > gl[idx]+0 + 1e-9) {print; next}}' | wc -l | tr -d ' ')
+is "${GT_MISMATCH}" "0" "no genotype is strictly more likely than the one called"
+
+# --read-likelihood without reads must fail loudly rather than genotype with none.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -t 1 > /dev/null 2> rl_err.txt
+is "$?" "1" "--read-likelihood without --gam/--gaf is an error"
+is $(grep -c "requires reads" rl_err.txt) "1" "the error explains that reads are required"
+
+rm -f HGSVC_rl.xg HGSVC_rl.pack HGSVC_rl.vcf HGSVC_rl_default.vcf rl_err.txt
+
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L
 vg sim -s 1 -n 1000 -l 150 -x x.xg -a > sim.gam
@@ -198,7 +230,31 @@ cat callz.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}'
 diff callg.6 callz.6
 is $? 0 "call produces same output with gbwt and gbz"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6
+# Read-level genotyping needs no pack file when alleles come from a haplotype
+# index: GBWTTraversalFinder enumerates from recorded haplotypes rather than from
+# support, so nothing in that path consults the pack.
+vg call x.vg --read-likelihood --gam sim.gam -g x.gbwt > callrl_nopack.vcf 2>/dev/null
+is "$?" "0" "--read-likelihood works with -g and no pack file"
+is $(grep -c "^#CHROM" callrl_nopack.vcf) "1" "pack-free read-likelihood output is a valid VCF"
+is $(if [ $(grep -v "^#" callrl_nopack.vcf | wc -l) -gt 0 ]; then echo 1; else echo 0; fi) "1" "pack-free read-likelihood emits variants"
+
+# Same via GBZ.
+vg call x.gbz --read-likelihood --gam sim.gam -z > callrl_nopack_z.vcf 2>/dev/null
+is "$?" "0" "--read-likelihood works with -z and no pack file"
+
+# The real assertion: since nothing on the GBWT path consults support, supplying a
+# pack file must make no difference whatsoever to the calls.
+vg call x.vg -k x.pack --read-likelihood --gam sim.gam -g x.gbwt > callrl_withpack.vcf 2>/dev/null
+diff <(grep -v "^#" callrl_withpack.vcf) <(grep -v "^#" callrl_nopack.vcf) > /dev/null
+is "$?" "0" "pack-free read-likelihood calls are identical to those made with a pack file"
+
+# But the flow traversal finder is driven entirely by node/edge weights, so
+# dropping the pack file there has to be refused rather than silently genotyped
+# against zero support.
+vg call x.vg --read-likelihood --gam sim.gam > /dev/null 2> nopack_err.txt
+is $(grep -c "requires haplotype-based allele enumeration" nopack_err.txt) "1" "--read-likelihood without -k and without -g/-z is refused"
+
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt
 
 
 # subpath test
@@ -262,6 +318,54 @@ NESTED_LINE_COUNT=$(grep -v "^#" nested_snp.vcf | wc -l)
 is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl variants"
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
+
+## Read-level genotyping over a nested site with a star allele
+# nested_snp_in_del.gfa: x = 1>2>3>5>6, y0 = 1>2>4>5>6, y1 = 1>6 (deletes the
+# region holding the nested SNP). Reads from x and y1 only, so the top-level site
+# is a het deletion and the nested site is traversed by one haplotype.
+vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
+vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> ns_het.gam 2>/dev/null
+vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
+vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --gam ns_het.gam 2>/dev/null > ns_rl.vcf
+
+is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
+
+# Regression: reads traversing the deletion edge touch only the snarl's boundary
+# nodes. A node-based informativeness test discarded them, which left the parent
+# with reference-supporting reads only, called it hom-ref, and dropped the record
+# entirely. The deletion must be called, and its DP must include those reads.
+is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "the parent deletion is called from boundary-to-boundary reads"
+is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG"{split($10,f,":"); print f[2]}') "300" "deletion-spanning reads are counted, not discarded"
+
+# Regression: half these reads are reverse strand. Failing to flip them meant they
+# anchored on nothing and scored against the wrong allele, which turned the nested
+# site into a spurious het SNP instead of a star allele.
+is $(grep -v "^#" ns_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele, not a strand-artefact het SNP"
+
+# Independent nested calling (-A): every snarl genotyped on its own reads, with no
+# parent restriction and no phase propagation.
+vg call ns.vg -k ns_het.pack -A -p x --read-likelihood --gam ns_het.gam 2>/dev/null > ns_rl_a.vcf
+is "$?" "0" "--read-likelihood works with -A independent nested calling"
+is $(grep -v "^#" ns_rl_a.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "-A independent calling finds the deletion"
+is $(grep -c "PS=" ns_rl_a.vcf | tr -d ' ') "0" "-A emits no PS tags, since it does not propagate phase"
+
+# Effective ploidy at a nested site only one parent haplotype traverses.
+# Reads: 100 from x (ref SNP), 30 from y0 (alt SNP), 100 from y1 (deletion). The
+# child site is reached by one haplotype only, so it must be genotyped haploid.
+# Genotyping it as diploid lets a spurious heterozygote absorb the 30 minority
+# reads for free, which shows up as a badly depressed GQ (38 rather than 256).
+vg sim -x ns.vg -P x -n 100 -l 4 -a -s 11 > ns_mix.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#1#y0#0' -n 30 -l 4 -a -s 12 >> ns_mix.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#2#y1#0' -n 100 -l 4 -a -s 13 >> ns_mix.gam 2>/dev/null
+vg pack -x ns.vg -g ns_mix.gam -o ns_mix.pack 2>/dev/null
+vg call ns.vg -k ns_mix.pack --top-down -Y -p x --read-likelihood --gam ns_mix.gam 2>/dev/null > ns_mix.vcf
+
+is $(grep -v "^#" ns_mix.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "mixed-read nested site still yields a star allele"
+STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk '$5=="*"{split($10,f,":"); print f[3]}')
+is $(if [ "${STAR_GQ}" -gt 100 ]; then echo 1; else echo 0; fi) "1" "a singly-traversed nested site is genotyped at its own ploidy, not diluted by a spurious het"
+
+rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_mix.gam ns_mix.pack ns_mix.vcf
 
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
