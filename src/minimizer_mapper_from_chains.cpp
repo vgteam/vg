@@ -1713,7 +1713,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
     // Compute lower limit on chain score to actually investigate
     int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
-    // Apply the max in chain score limit
+    // Apply the max min chain score limit
     chain_min_score = std::min(chain_min_score, max_min_chain_score);
     vector<int> max_sparse_chain_scores;
     for (const auto& group : subchain_groups) {
