@@ -309,10 +309,16 @@ public:
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
-    void max_in(const vector<TracedScore>& options, size_t option_number);
+    void max_in(const vector<vector<TracedScore>>& options, size_t option_number);
     
     /// Get a score from a table of scores and record provenance in it.
-    static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
+    static TracedScore score_from(const vector<vector<TracedScore>>& options, size_t option_number);
+
+    /// Put self into this sorted list of TracedScores, if its score justifies
+    /// Will not change size of "current", but will just shift things around
+    /// Use the eval_bonuses to look up evaluation bonuses for the current winners
+    /// Return whether we are put as the first (i.e. top winner) of the vector
+    bool insert_self(vector<TracedScore>& current, const vector<int> eval_bonuses, int my_eval_bonus, int nowhere_eval_bonus);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
@@ -430,6 +436,8 @@ struct SubchainGroup {
     /// Subchains, each as a list of anchors
     std::vector<std::vector<size_t>> subchains;
     /// Connections between subchains, as (source index, sink index) pairs
+    /// For a finished SubchainGroup, these are subchain indexes
+    /// For one in progress it may still be anchor indexes
     std::vector<pair<size_t, size_t>> connections;
     /// The maximum score of any chain
     int max_sparse_chain_score = 0;
@@ -508,32 +516,70 @@ void add_transition_if_legal(vector<transition_info>& transitions,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
- * Create a multipath_alignment_t to represent a chaining problem.
- * 
- * Anchors become "subpath_t" whose fake mappings have node ID of to anchor ID.
- * They are scored as the sum of the general item bonus and the anchor's score.
- * 
- * Transitions become "connection_t" between anchors. They are scored via the
- * jump distance (i.e. indels).
+ * Fill in the given DP table for the explored chain scores ending with each
+ * item. Returns the top max_predecessors by observed score overall, with
+ * provenance to its location in the table, if tracked in the type. Assumes
+ * some items exist.
+ *
+ * We keep many options to allow us to do multiple tracebacks and find
+ * multiple good (ideally disjoint) chains.
+ *
+ * Input items must be sorted by start position in the read.
+ *
+ * Uses the given scoring scheme to score chains.
+ *
+ * Uses a transition iterator to enumerate where we can come from to reach an
+ * item. 
+ *
+ * Limits transitions to those involving indels of the given size or less, to
+ * avoid very bad transitions.
  */
-multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
-                                     const SnarlDistanceIndex& distance_index,
-                                     const HandleGraph& graph,
-                                     const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                     const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                                     size_t max_indel_bases = 100,
-                                     bool show_work = false);
+TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+                           const VectorView<Anchor>& to_chain,
+                           const SnarlDistanceIndex& distance_index,
+                           const HandleGraph& graph,
+                           size_t max_predecessors = 5,
+                           const ChainScoringScheme& scheme = ChainScoringScheme(),
+                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
+                           size_t max_indel_bases = 100,
+                           bool show_work = false
+                           );
 
 /**
- * Generate subchains from multipath_alignment_t tracebacks.
+ * Count the number of recombination events forced by this chain.
+ * 
+ * Used for rescoring purposes.
+ */
+size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor>& to_chain);
+
+/**
+ * Trace back through in the given DP table from the best chain score.
+ *
+ * Returns tracebacks that visit disjoint sets of items, in score order, along
+ * with their scores. The best_past_ending_score_ever is *not* always the source
+ * of the first traceback, if there is a tie.
+ *
+ * Tracebacks are constrained to be nonoverlapping by stopping each traceback
+ * when the optimum place to come from has already been used. If the best
+ * predecessor was already used, the other stored predecessors will be tried.
+ * 
+ * Note that the SubchainGroup has "connections" using anchor indexes,
+ * not subchain indexes; its "subchains" are actually the full chains
+ */
+SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                                    const VectorView<Anchor>& to_chain,
+                                    const TracedScore& best_past_ending_score_ever,
+                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                    size_t max_tracebacks = 1);
+
+/**
+ * Generate subchains from multiple tracebacks.
  * 
  * Split up tracebacks when possible inter-chain alternatives exist.
  * Save connections between subchains, pulling from edges in tracebacks
  * as well as alternative edges.
  */
-SubchainGroup split_up_subchains(const size_t& anchor_count,
-                                 const vector<Alignment>& tracebacks,
-                                 const vector<pair<uint32_t, uint32_t>>& alternatives);
+SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup& original_tracebacks);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -573,6 +619,11 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
 /// This produces a penalty (positive number).
 int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
+
+/// Determine if adding the new anchor would cause a recombination event
+/// with respect to the old anchor, given their supported paths.
+/// Returns 0 if no recombination, or 1 if there is a recombination.
+int check_recombination(const Anchor& from, const Anchor& to);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());

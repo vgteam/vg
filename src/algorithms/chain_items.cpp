@@ -45,8 +45,8 @@ ostream& operator<<(ostream& out, const TracedScore& value) {
 }
 
 
-void TracedScore::max_in(const vector<TracedScore>& options, size_t option_number) {
-    auto& option = options[option_number];
+void TracedScore::max_in(const vector<vector<TracedScore>>& options, size_t option_number) {
+    auto& option = options[option_number].front();
     if (option.score > this->score || this->source == nowhere()) {
         // This is the new winner.
         this->score = option.score;
@@ -56,16 +56,55 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
     }
 }
 
-TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
-    TracedScore got = options[option_number];
+TracedScore TracedScore::score_from(const vector<vector<TracedScore>>& options, size_t option_number) {
+    TracedScore got = options[option_number].front();
     got.source = option_number;
-    got.paths = options[option_number].paths;
-    got.rec_num = options[option_number].rec_num;
     return got;
 }
 
 TracedScore TracedScore::add_points(int adjustment) const {
     return {this->score + adjustment, this->source, this->paths, this->rec_num};
+}
+
+bool TracedScore::insert_self(vector<TracedScore>& current, const vector<int> eval_bonuses,
+                              int my_eval_bonus, int nowhere_eval_bonus) {
+    // Figure out which index to insert this element at
+    size_t insert_index = 0;
+    while (insert_index < current.size()) {
+        TracedScore& item = current.at(insert_index);
+        int other_eval_bonus = item.source == TracedScore::nowhere() ? nowhere_eval_bonus
+                                                                     : eval_bonuses[item.source];
+        if (item.score + other_eval_bonus < this->score + my_eval_bonus) {
+            // We beat this item by evaluation score; insert at its index
+            break;
+        } else if (item.score + other_eval_bonus == this->score + my_eval_bonus && item < *this) {
+            // We beat this item by non-evaluation score tiebreak
+            break;
+        }
+        insert_index++;
+    }
+
+    // This item shouldn't be used at all
+    if (insert_index == current.size()) {
+        return false;
+    }
+
+    // Build new vector as a concatenation
+    vector<TracedScore> new_preds;
+    new_preds.reserve(current.size());
+    // Elements that go before the new element
+    if (insert_index > 0) {
+        new_preds.insert(new_preds.end(), current.begin(), current.begin() + insert_index);
+    }
+    new_preds.push_back(*this);
+    // Elements that go after the new element
+    if (insert_index < current.size() - 1) {
+        new_preds.insert(new_preds.end(), current.begin() + insert_index, current.end() - 1);
+    }
+    // Overwrite
+    current = new_preds;
+    // Did we insert at the front?
+    return insert_index == 0;
 }
 
 TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {
@@ -484,13 +523,25 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     }
 }
 
-multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
-                                     const SnarlDistanceIndex& distance_index,
-                                     const HandleGraph& graph,
-                                     const ChainScoringScheme& scheme,
-                                     const transition_iterator& for_each_transition,
-                                     size_t max_indel_bases,
-                                     bool show_work) {
+/// If the current anchor does not share paths with the chain, pay a penalty.
+/// Returns a positive value (gap penalty)
+int check_recombination(const TracedScore& from, const Anchor& to) {
+    if ((from.paths & to.anchor_start_paths()) == 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+                           const VectorView<Anchor>& to_chain,
+                           const SnarlDistanceIndex& distance_index,
+                           const HandleGraph& graph,
+                           size_t max_predecessors,
+                           const ChainScoringScheme& scheme,
+                           const transition_iterator& for_each_transition,
+                           size_t max_indel_bases,
+                           bool show_work) {
 
     DiagramExplainer diagram(show_work);
     TSVExplainer dump(show_work, "chaindump");
@@ -505,26 +556,36 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
     crash_unless(scheme.recombination_penalty >= 0);
     crash_unless(scheme.consistency_bonus >= 0);
 
-    // This is what we will build up
-    multipath_alignment_t multipath_aln;
 
     // Compute a base seed average length.
     // TODO: Weight anchors differently?
     // TODO: Will this always be the same for all anchors in practice?
     size_t base_seed_length = 0;
-    for (size_t i = 0; i < to_chain.size(); i++) {
-        base_seed_length += to_chain[i].base_seed_length();
-        // "subpaths" are just what we use to represent anchors
-        subpath_t* subpath = multipath_aln.add_subpath();
-        // How many points this anchor is worth to collect
-        subpath->set_score(to_chain[i].score() + scheme.item_bonus);
-        // Add a fake position to this subpath to store the anchor ID
-        position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
-        position->set_node_id(i);
-        position->set_is_reverse(false);
-        position->set_offset(0);
+    for (auto& anchor : to_chain) {
+        base_seed_length += anchor.base_seed_length();
     }
     base_seed_length /= to_chain.size();
+
+    chain_scores.resize(to_chain.size());
+
+    // We want to prefer to come from seeds where the transition preserves
+    // access to matching haplotypes, because we don't want to back ourselves
+    // into a corner where we need a recombination when we don't really have
+    // to. So we cheat on the dynamic programming by adding an "evaluation
+    // bonus" to the scores of the different DP options when comparing them. We
+    // keep this bonus out of the actual recorded scores because we don't want
+    // it raising the scores we actually get the more transitions we take.
+    //
+    // We store the bonus used to select the current winning predecessor for
+    // each seed in this vector, which runs alongside the DP table.
+    //
+    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
+    std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        // Set up DP table so we can start anywhere with that item's score, with bonus applied.
+        chain_scores[i] = std::vector<TracedScore>(max_predecessors,
+            {to_chain[i].score() + scheme.item_bonus, TracedScore::nowhere(), to_chain[i].anchor_end_paths()});
+    }
 
     // We will run this over every transition in a good DP order.
     auto iteratee = [&](const transition_info& transition) {
@@ -535,17 +596,45 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
 #endif
         }
         
+        crash_unless(chain_scores.size() > transition.to_anchor);
+        crash_unless(chain_scores.size() > transition.from_anchor);
+        
         // For each item
         auto& here = to_chain[transition.to_anchor];
+        
+        // How many points is it worth to collect?
+        auto item_points = here.score() + scheme.item_bonus;
+        
+        std::string here_gvnode;
+        if (diagram) {
+            here_gvnode = "i" + std::to_string(transition.to_anchor);
+        }
+        
+        // If we come from nowhere, we get those points.
+        // This also has full path conservation (bonus = scheme.consistency_bonus).
+        {
+            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
+            int nowhere_bonus = scheme.consistency_bonus;
+            if (from_nowhere.insert_self(chain_scores[transition.to_anchor], eval_bonuses, nowhere_bonus, nowhere_bonus)) {
+                eval_bonuses[transition.to_anchor] = nowhere_bonus;
+            }
+        }
         
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
             
         if (show_work) {
 #ifdef debug_dp
-            cerr << "\t\tCome from " << source << " to " << here << endl;
+            cerr << "\t\tCome from score " << chain_scores[transition.from_anchor]
+                << " across " << source << " to " << here << endl;
 #endif
         }
+            
+        // How much does it pay (+) or cost (-) to make the jump from there
+        // to here?
+        // Don't allow the transition if it seems like we're going the long
+        // way around an inversion and needing a huge indel.
+        int jump_points;
             
         // Decide how much length changed
         size_t indel_length = (transition.read_distance > transition.graph_distance) ? transition.read_distance - transition.graph_distance 
@@ -558,8 +647,11 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                  << ((transition.read_distance > transition.graph_distance) ? " seems plausible" : " would be required") << endl;
 #endif
         }
-            
-        if (indel_length <= max_indel_bases) {
+
+        if (indel_length > max_indel_bases) {
+            // Don't allow an indel this long
+            jump_points = std::numeric_limits<int>::min();
+        } else {
             // Assign points for the assumed matches in the transition, and charge for the indel.
             //
             // The Minimap2 paper
@@ -583,22 +675,62 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            int jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
+            jump_points = -score_chain_gap(indel_length, base_seed_length) * scheme.gap_scale;
 
-            // Penalize transitions which force a recombination
-            if (source.anchor_end_paths() & here.anchor_start_paths() == 0) {
-                jump_points -= scheme.recombination_penalty;
+            // add recombination penalty if necessary
+            jump_points -= check_recombination(chain_scores[transition.from_anchor].front(), here) * scheme.recombination_penalty;
+        }
+            
+        if (jump_points != numeric_limits<int>::min()) {
+            // Get the score we are coming from
+            TracedScore source_score = TracedScore::score_from(chain_scores, transition.from_anchor);
+            
+            // And the score with the transition and the points from the item
+            TracedScore from_source_score = source_score.add_points(jump_points + item_points)
+                                                        .set_shared_paths(here.anchor_paths());
+            
+            // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
+            // Bonus = fraction of conserved paths * scheme.consistency_bonus.
+            // Bonus is 0 when recombination occurs (no shared paths).
+            int eval_bonus_from = 0;
+            if (scheme.consistency_bonus > 0) {
+                int pre_count = __builtin_popcountll(source_score.paths);
+                if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
+                    // No recombination: bonus = fraction of paths conserved * penalty
+                    int post_count = __builtin_popcountll(from_source_score.paths);
+                    eval_bonus_from = (scheme.consistency_bonus * post_count) / pre_count;
+                }
+                // Recombination case (no shared paths): bonus stays 0
             }
 
-            // Connect these anchors
-            connection_t* connection = multipath_aln.mutable_subpath(transition.from_anchor)->add_connection();
-            connection->set_score(jump_points);
-            connection->set_next(transition.to_anchor);
+            if (from_source_score.insert_self(chain_scores[transition.to_anchor], eval_bonuses, 
+                                              eval_bonus_from, scheme.consistency_bonus)) {
+                eval_bonuses[transition.to_anchor] = eval_bonus_from;
+            }
+                                           
+            if (show_work) {
+#ifdef debug_dp
+                cerr << "\t\tWe can reach #" << transition.to_anchor << " with " << source_score << " + " << jump_points
+                     << " from transition + " << item_points << " from item = " << from_source_score << endl;
+#endif
+            }
             
-            /// TODO: Consistency bonus
-            
+            if (diagram) {
+                if (from_source_score.score > 0) {
+                    // Only explain edges that were actual candidates since we
+                    // won't let local score go negative
+                    
+                    std::string source_gvnode = "i" + std::to_string(transition.from_anchor);
+                    // Suggest that we have an edge, where the edges that are
+                    // the best routes here are the most likely to actually show up.
+                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
+                        {"label", std::to_string(jump_points)},
+                        {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
+                    });
+                }
+            }
             if (dump) {
-                // Dump a TSV of source anchor description, dest anchor description, and score of edge.
+                // Dump a TSV of source anchor description, dest anchor description, and score achieved.
                 dump.line();
                 std::stringstream source_stream;
                 source_stream << source;
@@ -606,7 +738,7 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                 std::stringstream here_stream;
                 here_stream << here;
                 dump.field(here_stream.str());
-                dump.field(jump_points);
+                dump.field(from_source_score.score);
             }
         } else {
             if (show_work) {
@@ -623,13 +755,231 @@ multipath_alignment_t fill_in_mp_aln(const VectorView<Anchor>& to_chain,
                         graph,
                         max_indel_bases,
                         iteratee);
+        
+   
+    TracedScore best_score = TracedScore::unset();
 
-    return multipath_aln;
+    for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
+        // For each destination anchor, now that it is finished, see if it is the winner.
+        auto& here = to_chain[to_anchor];
+
+        if (show_work) {
+            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
+                 << " is " << chain_scores[to_anchor].front() << "\n"
+                 << "\t\tbut you can also do: ";
+            for (size_t alt_i = 1; alt_i < chain_scores[to_anchor].size(); alt_i++) {
+                cerr << chain_scores[to_anchor][alt_i] << " ";
+            }
+            cerr << endl;
+        }
+        
+        if (diagram) {
+            // Draw the item in the diagram
+            auto item_points = here.score() + scheme.item_bonus;
+            std::string here_gvnode = "i" + std::to_string(to_anchor);
+            std::stringstream label_stream;
+            label_stream << "#" << to_anchor << " " << here << " = " << item_points
+                         << "/" << chain_scores[to_anchor].front().score;
+            diagram.add_node(here_gvnode, {
+                {"label", label_stream.str()}
+            });
+            auto graph_start = here.graph_start();
+            std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode, {
+                {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // Show the item as connected to its source graph node
+            diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+            // Make the next graph node along the same strand
+            std::string graph_gvnode2 = ("n" + std::to_string(id(graph_start) 
+                                         + (is_rev(graph_start) ? -1 : 1))
+                                         + (is_rev(graph_start) ? "r" : "f"));
+            diagram.ensure_node(graph_gvnode2, {
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) 
+                                         + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // And show them as connected. 
+            diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        }
+        
+        // See if this is the best overall
+        best_score.max_in(chain_scores, to_anchor);
+        
+        if (show_work) {
+#ifdef debug_dp
+            cerr << "\tBest chain end so far: " << best_score << endl;
+#endif
+        }
+        
+    }
+    
+    return best_score;
 }
 
-SubchainGroup split_up_subchains(const size_t& anchor_count,
-                                 const vector<Alignment>& tracebacks,
-                                 const vector<pair<uint32_t, uint32_t>>& alternatives) {
+size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor>& to_chain) {
+    size_t rec_count = 0;
+
+    TracedScore current;
+    current.paths = to_chain[chain.front()].anchor_start_paths();
+    for (size_t i = 1; i < chain.size(); i++) {
+        const Anchor& here = to_chain[chain.at(i)];
+        // Recombination between anchors
+        rec_count += check_recombination(current, here);
+        if (here.anchor_start_paths() != here.anchor_end_paths()) {
+            // Internally recombinant anchor
+            rec_count++;
+        }
+        current = current.set_shared_paths(here.anchor_paths());
+    }
+
+    return rec_count;
+}
+
+SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                                    const VectorView<Anchor>& to_chain,
+                                    const TracedScore& best_past_ending_score_ever,
+                                    const ChainScoringScheme& scheme,
+                                    size_t max_tracebacks) {
+    SubchainGroup output;
+    output.max_sparse_chain_score = best_past_ending_score_ever.score;
+
+    // We will fill this in with all the tracebacks, and then sort and truncate.
+    vector<SparseAnchorChain> tracebacks;
+    tracebacks.reserve(chain_scores.size());
+    
+    // Get all of the places to start tracebacks, in score order.
+    std::vector<size_t> starts_in_score_order;
+    starts_in_score_order.resize(chain_scores.size());
+    for (size_t i = 0; i < starts_in_score_order.size(); i++) {
+        starts_in_score_order[i] = i;
+    }
+    std::sort(starts_in_score_order.begin(), starts_in_score_order.end(), [&](const size_t& a, const size_t& b) {
+        // Return true if item a has a better score than item b and should come first.
+        return chain_scores[a] > chain_scores[b];
+    });
+    
+    // To see if an item is used we have this bit vector.
+    vector<bool> item_is_used(chain_scores.size(), false);
+    
+    for (auto& trace_from : starts_in_score_order) {
+        if (item_is_used[trace_from]) {
+            continue;
+        }
+        // Will we have to run a score recalcuation for this traceback?
+        // This is relevant for when we use an alternative edge,
+        // whose scores will not take into account the correct recombinations
+        bool recalc_required = false;
+        // For each unused item in score order, start a traceback stack (in reverse order)
+        tracebacks.emplace_back();
+        tracebacks.back().chain_score = chain_scores[trace_from].front().score;
+        vector<size_t> cur_anchors = {trace_from};
+        size_t here = trace_from;
+#ifdef debug_chaining
+        std::cerr << "[REC INFO] Starting traceback at item #" << here
+                  << " with recs: " << chain_scores[here].front().rec_num
+                  << " score: " << chain_scores[here].front().score << std::endl;
+#endif
+        while (here != TracedScore::nowhere()) {
+#ifdef debug_chaining
+            std::cerr << "\trecs: " << chain_scores[here].front().rec_num
+                      << " paths:\t" << std::bitset<64>(chain_scores[here].front().paths) << std::endl;
+            std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
+#endif
+            // Mark here as used. Happens once per item, and so limits runtime.
+            item_is_used[here] = true;
+            size_t next = chain_scores[here].front().source;
+            if (next != TracedScore::nowhere()) {
+                if (item_is_used[next]) {
+                    // Save this extra edge we tried to use
+                    output.connections.emplace_back(next, here);
+
+                    // Try to find a legal predecessor
+                    bool found_alt = false;
+                    for (size_t alt_i = 1; alt_i < chain_scores[here].size(); alt_i++) {
+                        // Try to use the other saved predecessors
+                        if (chain_scores[here][alt_i].source != TracedScore::nowhere()) {
+                            next = chain_scores[here][alt_i].source;
+                            if (!item_is_used[next]) {
+#ifdef debug_chaining
+                                cerr << "Using alternative predecessor " << next << endl;
+#endif
+                                // We're going with this alternative predecessor
+                                found_alt = true;
+                                recalc_required = true;
+                                cur_anchors.push_back(next);
+                                break;
+                            } else {
+                                // Save this extra edge we tried to use
+                                output.connections.emplace_back(next, here);
+                            }
+                        }
+                    }
+
+                    // We couldn't find anything at all to trace back to
+                    if (!found_alt) {
+                        // We need to stop early and accrue an extra penalty.
+                        // Take away all the points we got for coming from there and being ourselves.
+                        tracebacks.back().chain_score -= chain_scores[here].front().score;
+                        // But then re-add our score for just us
+                        tracebacks.back().chain_score += (to_chain[here].score() + scheme.item_bonus);
+                        // TODO: Score this more simply.
+                        // TODO: find the edge to nowhere???
+                        break;
+                    }
+                } else {
+                    // Add to the traceback
+                    cur_anchors.push_back(next);
+                }
+            }
+            here = next;
+        }
+
+        if (recalc_required) {
+            // We need to recalculate recombination penalties
+            // First, find the original chain
+            vector<size_t> orig_anchors = {trace_from};
+            here = trace_from;
+            while (here != TracedScore::nowhere()) {
+                size_t next = chain_scores[here].front().source;
+                if (next != TracedScore::nowhere()) {
+                    orig_anchors.push_back(next);
+                }
+                here = next;
+            }
+            int old_rec_num = count_recombinations(orig_anchors, to_chain);
+            int new_rec_num = count_recombinations(cur_anchors, to_chain);
+            // Update score for new recombination-ness
+            tracebacks.back().chain_score -= new_rec_num * scheme.recombination_penalty;
+            tracebacks.back().chain_score += old_rec_num * scheme.recombination_penalty;
+        }
+
+        // Make sure to order the steps left to right, and not right to left as we generated them.
+        std::copy(cur_anchors.rbegin(), cur_anchors.rend(),
+                  std::back_inserter(tracebacks.back().anchors));
+    }
+    
+    // Sort the tracebacks by score
+    std::sort(tracebacks.begin(), tracebacks.end(), 
+    [](const SparseAnchorChain& a, const SparseAnchorChain& b) {
+        // Return true if a has the larger score and belongs first
+        return a.chain_score > b.chain_score;
+    });
+    
+    if (tracebacks.size() > max_tracebacks) {
+        // Limit to requested number
+        tracebacks.resize(max_tracebacks);
+    }
+
+    for (size_t i = 0; i < tracebacks.size() && i < max_tracebacks; i++) {
+        output.subchains.push_back(tracebacks[i].anchors);
+    }
+
+    return output;
+}
+
+SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup& original_tracebacks) {
     SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
     vector<vector<size_t>> outgoing_edges(anchor_count);
@@ -639,20 +989,18 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
     // Where to search for subchains (we must guarantee they start in read order)
     priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
     
-    // Extract raw lists of anchors from the tracebacks
-    for (const auto& cur_trace : tracebacks) {
-        // Loop over all "subpaths" (anchor IDs) in the traceback
-        size_t num_ids = cur_trace.path().mapping().size();
+    // Save edges that are part of an original traceback
+    for (const auto& cur_trace : original_tracebacks.subchains) {
         // This will start a chain trace
-        trace_from.emplace(cur_trace.path().mapping(0).position().node_id());
+        trace_from.emplace(cur_trace.front());
 #ifdef debug_chaining
-        cerr << "Chain traceforwards may start from " << cur_trace.path().mapping(0).position().node_id() << endl;
-        cerr << "Chain: " << cur_trace.path().mapping(0).position().node_id();
+        cerr << "Chain traceforwards may start from " << cur_trace.front() << endl;
+        cerr << "Chain: " << cur_trace.front();
 #endif
-        for (size_t i = 0; i < num_ids - 1; i++) {
+        for (size_t i = 0; i < cur_trace.size() - 1; i++) {
             // Remember that this pair of anchors can connect
-            size_t prev = cur_trace.path().mapping(i).position().node_id();
-            size_t next = cur_trace.path().mapping(i+1).position().node_id();
+            size_t prev = cur_trace[i];
+            size_t next = cur_trace[i+1];
 #ifdef debug_chaining
             cerr << " " << next;
 #endif
@@ -665,7 +1013,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
     }
 
     // Now check in on the extra edges.
-    for (const auto& extra_edge : alternatives) {
+    for (const auto& extra_edge : original_tracebacks.connections) {
         if ((outgoing_edges[extra_edge.first].size() + source_count[extra_edge.first]) > 0
             && (outgoing_edges[extra_edge.second].size() + source_count[extra_edge.second]) > 0) {
             // Both sides of this edge are used, so it must connect two different subchains
@@ -749,6 +1097,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
         }
     }
 
+    output.max_sparse_chain_score = original_tracebacks.max_sparse_chain_score;
     return output;
 }
 
@@ -766,26 +1115,33 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
         return SubchainGroup();
     }
         
-    // First, we build the multipath alignment
-    multipath_alignment_t mp_aln = fill_in_mp_aln(to_chain,
-                                                  distance_index,
-                                                  graph,
-                                                  scheme,
-                                                  for_each_transition,
-                                                  max_indel_bases,
-                                                  show_work);
+    // We actually need to do DP
+    vector<vector<TracedScore>> chain_scores;
+    TracedScore best_past_ending_score_ever = chain_items_dp(chain_scores,
+                                                             to_chain,
+                                                             distance_index,
+                                                             graph,
+                                                             5, /// TODO: make into a param
+                                                             scheme,
+                                                             for_each_transition,
+                                                             max_indel_bases,
+                                                             show_work);
+#ifdef debug_chaining
+    std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
+#endif
     // Then do the tracebacks
-    vector<pair<uint32_t, uint32_t>> alternatives;
-    vector<Alignment> tracebacks = optimal_alignments_with_disjoint_subpaths(mp_aln, max_chains, &alternatives);
+    SubchainGroup tracebacks = chain_items_traceback(
+        chain_scores, to_chain, best_past_ending_score_ever, scheme, max_chains);
     
-    if (tracebacks.empty()) {
+    if (tracebacks.subchains.empty()) {
         // Somehow we got nothing
         return SubchainGroup();
     }
 
-    SubchainGroup output = split_up_subchains(to_chain.size(), tracebacks, alternatives);
-    // Also remember its maximum score
-    output.max_sparse_chain_score = tracebacks.front().score();
+    SubchainGroup output = split_up_subchains(to_chain.size(), tracebacks);
+
+    /// TODO: add recombination annotations?
+
     return output;
 }
 

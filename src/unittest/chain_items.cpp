@@ -146,13 +146,15 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
 
 TEST_CASE("Simple X case", "[chain_items]") {
     // Set up graph fixture
-    HashGraph graph = make_disconnected_graph(5, 10);
-    // 1-3-5 diagonal
+    HashGraph graph = make_disconnected_graph(7, 10);
+    // 1-3-5-6 diagonal
     graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
-    // 2-3-4 diagonal
+    graph.create_edge(graph.get_handle(5, false), graph.get_handle(6, false));
+    // 2-3-4-7 diagonal
     graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
+    graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
     auto h = get_handles(graph);
     
     IntegratedSnarlFinder snarl_finder(graph);
@@ -165,10 +167,15 @@ TEST_CASE("Simple X case", "[chain_items]") {
                                   {1, h[2], 0, 5, 5},
                                   {11, h[3], 0, 5, 5},
                                   {21, h[4], 0, 5, 5},
-                                  {21, h[5], 0, 5, 5}}, graph);
+                                  {21, h[5], 0, 5, 5},
+                                  {31, h[6], 0, 10, 10},
+                                  {31, h[7], 0, 10, 10}}, graph);
     
     /// Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
+    algorithms::ChainScoringScheme scheme;
+    scheme.consistency_bonus = 0;
+    scheme.recombination_penalty = 0;
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, scheme, 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
     REQUIRE(result.connections.size() == 5);
@@ -201,28 +208,20 @@ TEST_CASE("X with different length chains", "[chain_items]") {
                                   {31, h[6], 0, 10, 10}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, algorithms::ChainScoringScheme(), 2);
+    algorithms::ChainScoringScheme scheme;
+    scheme.consistency_bonus = 0;
+    scheme.recombination_penalty = 0;
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, scheme, 2);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 5);
     REQUIRE(result.connections.size() == 5);
 }
 
 TEST_CASE("Simple V case", "[chain_items]") {
-    vector<Alignment> tracebacks;
-    // 0-1-4 chain
-    tracebacks.push_back(Alignment());
-    tracebacks.back().set_score(15);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(0);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(1);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(4);
-    // 2-3 chain
-    tracebacks.push_back(Alignment());
-    tracebacks.back().set_score(10);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(2);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(3);
-    // 3 can also connect to 4
-    vector<pair<uint32_t, uint32_t>> alternatives = {make_pair(3, 4)};
-    algorithms::SubchainGroup result = algorithms::split_up_subchains(5, tracebacks, alternatives);
+    algorithms::SubchainGroup tracebacks;
+    tracebacks.subchains = {{0, 1, 4}, {2, 3}};
+    tracebacks.connections = {make_pair(3, 4)};
+    algorithms::SubchainGroup result = algorithms::split_up_subchains(5, tracebacks);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 3);
     REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
@@ -232,22 +231,10 @@ TEST_CASE("Simple V case", "[chain_items]") {
 }
 
 TEST_CASE("Simple Y case", "[chain_items]") {
-    vector<Alignment> tracebacks;
-    // 0-1-4-5 chain
-    tracebacks.push_back(Alignment());
-    tracebacks.back().set_score(15);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(0);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(1);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(4);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(5);
-    // 2-3 chain
-    tracebacks.push_back(Alignment());
-    tracebacks.back().set_score(10);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(2);
-    tracebacks.back().mutable_path()->add_mapping()->mutable_position()->set_node_id(3);
-    // 3 can also connect to 4
-    vector<pair<uint32_t, uint32_t>> alternatives = {make_pair(3, 4)};
-    algorithms::SubchainGroup result = algorithms::split_up_subchains(6, tracebacks, alternatives);
+    algorithms::SubchainGroup tracebacks;
+    tracebacks.subchains = {{0, 1, 4, 5}, {2, 3}};
+    tracebacks.connections = {make_pair(3, 4)};
+    algorithms::SubchainGroup result = algorithms::split_up_subchains(6, tracebacks);
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 3);
     REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
