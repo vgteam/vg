@@ -305,20 +305,14 @@ public:
     /// What's the default value for an empty table cell?
     /// Use a function instead of a constant because that's easier when we're just a header.
     inline static TracedScore unset() {
-        return {0, nowhere(), 0};
+        return {0, nowhere(), unordered_set<size_t>(), 0};
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
-    void max_in(const vector<vector<TracedScore>>& options, size_t option_number);
+    void max_in(const vector<TracedScore>& options, size_t option_number);
     
     /// Get a score from a table of scores and record provenance in it.
-    static TracedScore score_from(const vector<vector<TracedScore>>& options, size_t option_number);
-
-    /// Put self into this sorted list of TracedScores, if its score justifies
-    /// Will not change size of "current", but will just shift things around
-    /// Use the eval_bonuses to look up evaluation bonuses for the current winners
-    /// Return whether we are put as the first (i.e. top winner) of the vector
-    bool insert_self(vector<TracedScore>& current, const vector<int> eval_bonuses, int my_eval_bonus, int nowhere_eval_bonus);
+    static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
@@ -355,6 +349,8 @@ public:
     int score;
     // Index of source score among possibilities/traceback pointer
     size_t source;
+    // Indexes of other sources scoring identically
+    unordered_set<size_t> alt_sources;
     /// Supported paths
     path_flags_t paths;
     size_t rec_num=0;
@@ -520,7 +516,7 @@ void add_transition_if_legal(vector<transition_info>& transitions,
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
- * item. Returns the top max_predecessors by observed score overall, with
+ * item. Returns the top tied predecessors by observed score overall, with
  * provenance to its location in the table, if tracked in the type. Assumes
  * some items exist.
  *
@@ -537,11 +533,10 @@ void add_transition_if_legal(vector<transition_info>& transitions,
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
-                           size_t max_predecessors = 5,
                            const ChainScoringScheme& scheme = ChainScoringScheme(),
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            size_t max_indel_bases = 100,
@@ -569,7 +564,7 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
  * Note that the SubchainGroup has "connections" using anchor indexes,
  * not subchain indexes; its "subchains" are actually the full chains
  */
-SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+SubchainGroup chain_items_traceback(const vector<TracedScore>& chain_scores,
                                     const VectorView<Anchor>& to_chain,
                                     const TracedScore& best_past_ending_score_ever,
                                     const ChainScoringScheme& scheme = ChainScoringScheme(),
