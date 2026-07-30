@@ -87,9 +87,11 @@ void help_surject(char** argv) {
          << "                            of the pre-surjected graph alignment in GR tag" << endl
          << "      --off-ref-position    annotate SAM records that become unmapped during" << endl
          << "                            surject with the nearest ref. position in the NR tag" << endl
-         << "      --promote-secondary   if a read's primary fails to surject, promote its best" << endl
-         << "                            surjectable secondary to primary instead of emitting an" << endl
-         << "                            unmapped primary (input must be collated by read name)" << endl
+         << "      --rescue-secondary   in HTSlib output, tag the best secondary alignment" << endl
+         << "                            (tag with YF:i:1) when primary alignment is not" << endl
+         << "                            surjectable; downstream tools may treat secondary" << endl
+         << "                            alignments tagged with YF:i:1 as if they were primary" << endl
+         << "                            (input must be collated by read name)" << endl
          << "  -C, --compression N       level for compression [0-9]" << endl
          << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
          << "                            against the provided graph" << endl
@@ -153,7 +155,7 @@ int main_surject(int argc, char** argv) {
 
     constexpr int OPT_NO_PRUNE_LOW_CPLX = 1000;
     constexpr int OPT_OFF_REF_POS = 1001;
-    constexpr int OPT_PROMOTE_SECONDARY = 1002;
+    constexpr int OPT_RESCUE_SECONDARY = 1002;
 
     if (argc == 2) {
         help_surject(argv);
@@ -192,7 +194,7 @@ int main_surject(int argc, char** argv) {
     bool validate = true;
     bool show_progress = false;
     bool left_align = false;
-    bool promote_secondary = false;
+    bool rescue_secondary = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -219,7 +221,7 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"supplementary", no_argument, 0, 'u'},
             {"off-ref-position", no_argument, 0, OPT_OFF_REF_POS},
-            {"promote-secondary", no_argument, 0, OPT_PROMOTE_SECONDARY},
+            {"rescue-secondary", no_argument, 0, OPT_RESCUE_SECONDARY},
             {"left-align", no_argument, 0, 'B'},
             {"read-length", required_argument, 0, 'D'},
             {"spliced", no_argument, 0, 'S'},
@@ -393,8 +395,8 @@ int main_surject(int argc, char** argv) {
             annotate_off_reference_pos = true;
             break;
 
-        case OPT_PROMOTE_SECONDARY:
-            promote_secondary = true;
+        case OPT_RESCUE_SECONDARY:
+            rescue_secondary = true;
             break;
 
         case 'h':
@@ -515,21 +517,21 @@ int main_surject(int argc, char** argv) {
     surjector.report_supplementary = report_supplementary;
     surjector.left_align = left_align;
     surjector.multimap_to_all_paths = multimap;
-    surjector.promote_secondary_on_failed_surjection = promote_secondary;
+    surjector.rescue_secondary_on_failed_surjection = rescue_secondary;
     surjector.warn_about_input_collation = true;
 
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
-    if (promote_secondary && !hts_output) {
-        logger.warn() << "--promote-secondary has no effect unless output is SAM, BAM, or CRAM; "
+    if (rescue_secondary && !hts_output) {
+        logger.warn() << "--rescue-secondary has no effect unless output is SAM, BAM, or CRAM; "
                       << "ignoring." << endl;
-        promote_secondary = false;
-        surjector.promote_secondary_on_failed_surjection = false;
+        rescue_secondary = false;
+        surjector.rescue_secondary_on_failed_surjection = false;
     }
-    if (promote_secondary && input_format == "GAF") {
-        logger.warn() << "--promote-secondary is not supported with GAF input because GAF does not "
+    if (rescue_secondary && input_format == "GAF") {
+        logger.warn() << "--rescue-secondary is not supported with GAF input because GAF does not "
                       << "distinguish primary and secondary alignments; ignoring." << endl;
-        promote_secondary = false;
-        surjector.promote_secondary_on_failed_surjection = false;
+        rescue_secondary = false;
+        surjector.rescue_secondary_on_failed_surjection = false;
     }
 
     // Count our threads
@@ -662,8 +664,8 @@ int main_surject(int argc, char** argv) {
                         alns2.emplace_back(k2 >= 0 ? std::move(surjected2[k2]) : make_placeholder(src2));
                     }
 
-                    // No-op when promote_secondary_on_failed_surjection is false.
-                    surjector.promote_secondary_pair_if_primary_unmapped(alns1, alns2);
+                    // No-op when rescue_secondary_on_failed_surjection is false.
+                    surjector.rescue_secondary_pair_if_primary_unmapped(alns1, alns2);
 
                     // Append back the supplementary alignments to the end of each vector
                     // now that secondary promotion is done.
@@ -744,7 +746,7 @@ int main_surject(int argc, char** argv) {
             };
             if (input_format == "GAM") {
                 get_input_file(file_name, [&](istream& in) {
-                    if (promote_secondary) {
+                    if (rescue_secondary) {
                         // Group consecutive pairs by first-mate name so promotion has access to
                         // every multimap for both mates at once. Primary and secondary alignments
                         // of the same mate carry the same name, so exact equality suffices.
@@ -763,7 +765,7 @@ int main_surject(int argc, char** argv) {
                     }
                 });
             } else {
-                // promote_secondary is disabled for GAF input so this effectively just surjects each pair by itself.
+                // rescue_secondary is disabled for GAF input so this effectively just surjects each pair by itself.
                 auto gaf_checking_lambda = [&](Alignment& src1, Alignment& src2) {
                     check_gaf_aln(src1);
                     check_gaf_aln(src2);
@@ -796,8 +798,8 @@ int main_surject(int argc, char** argv) {
                             surjected_group.emplace_back(std::move(s));
                         }
                     }
-                    // No-op when promote_secondary_on_failed_surjection is false.
-                    surjector.promote_secondary_if_primary_unmapped(surjected_group);
+                    // No-op when rescue_secondary_on_failed_surjection is false.
+                    surjector.rescue_secondary_if_primary_unmapped(surjected_group);
                     alignment_emitter->emit_singles(std::move(surjected_group));
                     total_reads_surjected += group.size();
                     if (watchdog) {
@@ -809,12 +811,12 @@ int main_surject(int argc, char** argv) {
                 }
             };
             if (input_format == "GAM") {
-                // Callback to determine if alignments should be grouped: if promote_secondary is enabled, we want to group by read name
-                // so we can access both primary and secondary alignments for a read. If promote_secondary is off, then we can just
+                // Callback to determine if alignments should be grouped: if rescue_secondary is enabled, we want to group by read name
+                // so we can access both primary and secondary alignments for a read. If rescue_secondary is off, then we can just
                 // process each alignment independently and each 'group' will just be a single alignment.
                 // NOTE: In order for this to work, the input file must be collated by read name.
-                function<bool(const Alignment&, const Alignment&)> same_group = [promote_secondary](const Alignment& a, const Alignment& b) {
-                    return promote_secondary && a.name() == b.name();
+                function<bool(const Alignment&, const Alignment&)> same_group = [rescue_secondary](const Alignment& a, const Alignment& b) {
+                    return rescue_secondary && a.name() == b.name();
                 };
                 get_input_file(file_name, [&](istream& in) {
                     vg::io::grouped_unpaired_for_each_parallel<Alignment>(in, process_group, same_group);

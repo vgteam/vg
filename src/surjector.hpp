@@ -139,9 +139,9 @@ using namespace std;
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
 
         /// Have we already warned that a read's primary failed to surject and no
-        /// mapped secondary was available to promote? Used to emit that warning
+        /// mapped secondary was available to rescue? Used to emit that warning
         /// only once across all threads.
-        mutable atomic_flag warned_about_no_promotable_secondary = ATOMIC_FLAG_INIT;
+        mutable atomic_flag warned_about_no_rescuable_secondary = ATOMIC_FLAG_INIT;
         
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
@@ -192,32 +192,30 @@ using namespace std;
         size_t off_reference_pos_search_limit = 20000;
 
         /// If a read's primary alignment fails to surject (becomes unmapped),
-        /// promote the best-scoring secondary alignment that does successfully
-        /// surject to be the new primary in its place. This avoids emitting
-        /// secondary alignments alongside an unmapped primary, which violates
-        /// the SAM/BAM spec. Only secondary alignments already present in the
-        /// input are considered; no realignment is ever performed.
-        bool promote_secondary_on_failed_surjection = false;
+        /// tag the best-scoring secondary alignment that does successfully
+        /// surject with YF:i:1, so downstream tools may treat it as primary.
+        /// The secondary flag is not changed. Only secondary alignments already
+        /// present in the input are considered; no realignment is ever performed.
+        bool rescue_secondary_on_failed_surjection = false;
 
-        /// If true, the one-time "no promotable secondary" warning includes a
+        /// If true, the one-time "no rescuable secondary" warning includes a
         /// note that the input may not be collated by read name. Set this only
         /// for standalone vg surject; alignment subcommands (giraffe, map,
         /// mpmap) always deliver a read's full multimapping together.
         bool warn_about_input_collation = false;
 
-        /// If the primary in surjected_group is unmapped, promote the highest-scoring
-        /// mapped, non-supplementary secondary to primary. No realignment is performed.
-        /// Requires promote_secondary_on_failed_surjection. Emits a one-time warning
-        /// if no promotable secondary exists. Returns true iff a promotion occurred.
-        bool promote_secondary_if_primary_unmapped(vector<Alignment>& surjected_group) const;
+        /// If the primary in surjected_group is unmapped, tag the highest-scoring
+        /// mapped, non-supplementary secondary with YF:i:1. No realignment is performed.
+        /// Requires rescue_secondary_on_failed_surjection. Emits a one-time warning
+        /// if no rescuable secondary exists. Returns true iff a secondary was tagged.
+        bool rescue_secondary_if_primary_unmapped(vector<Alignment>& surjected_group) const;
 
-        /// Paired-end counterpart of promote_secondary_if_primary_unmapped.
+        /// Paired-end counterpart of rescue_secondary_if_primary_unmapped.
         /// surjected1[k] and surjected2[k] are the two mates of the same alignment
         /// pair (index 0 = primary, k > 0 = secondaries). Acts only when both mates
-        /// of the primary pair are unmapped; promotes the secondary pair with the
-        /// highest summed score. The two vectors remain the same length and
-        /// index-aligned. Returns true iff a promotion occurred.
-        bool promote_secondary_pair_if_primary_unmapped(vector<Alignment>& surjected1,
+        /// of the primary pair are unmapped; tags the secondary pair with the highest
+        /// summed score with YF:i:1. Returns true iff a secondary pair was tagged.
+        bool rescue_secondary_pair_if_primary_unmapped(vector<Alignment>& surjected1,
                                                         vector<Alignment>& surjected2) const;
 
     protected:

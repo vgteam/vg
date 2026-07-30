@@ -588,9 +588,7 @@ using namespace std;
                     
                     if (source_aln->is_secondary() || (i != 0 && !is_supplementary(alns_out->back()))) {
                         alns_out->back().set_is_secondary(true);
-                        // Non-promoted secondaries get mapq 0 in surjected output;
-                        // promote_secondary_if_primary_unmapped restores mapq on the
-                        // winner if promotion occurs.
+                        // Secondaries get mapq 0 in surjected output.
                         alns_out->back().set_mapping_quality(0);
                     }
                     
@@ -5315,9 +5313,9 @@ using namespace std;
         }
     }
     
-    bool Surjector::promote_secondary_if_primary_unmapped(vector<Alignment>& surjected_group) const {
+    bool Surjector::rescue_secondary_if_primary_unmapped(vector<Alignment>& surjected_group) const {
 
-        if (!promote_secondary_on_failed_surjection) {
+        if (!rescue_secondary_on_failed_surjection) {
             return false;
         }
 
@@ -5345,7 +5343,7 @@ using namespace std;
         }
 
         // The primary is unmapped: look for the best-scoring mapped secondary to
-        // promote. Supplementary alignments are never eligible to become primary.
+        // rescue. Supplementary alignments are never eligible.
         int64_t best_idx = -1;
         int32_t best_score = numeric_limits<int32_t>::min();
         for (size_t i = 0; i < surjected_group.size(); ++i) {
@@ -5371,13 +5369,12 @@ using namespace std;
         }
 
         if (best_idx < 0) {
-            // No mapped secondary could be promoted. Warn once so the user knows
-            // why an expected promotion didn't happen.
-            if (!warned_about_no_promotable_secondary.test_and_set()) {
+            // No mapped secondary could be tagged. Warn once.
+            if (!warned_about_no_rescuable_secondary.test_and_set()) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning:[Surjector] --promote-secondary: cannot find a surjectable "
-                         << "secondary alignment for read \""
+                    cerr << "warning:[Surjector] --rescue-secondary: cannot find a surjectable "
+                         << "secondary alignment to tag for read \""
                          << surjected_group[primary_idx].name()
                          << "\" with an unsurjectable primary alignment.";
                     if (warn_about_input_collation) {
@@ -5390,29 +5387,17 @@ using namespace std;
             return false;
         }
 
-        // Promote the chosen secondary in place of the unmapped primary.
-        Alignment promoted = std::move(surjected_group[best_idx]);
-        promoted.set_is_secondary(false);
-        // Record provenance so downstream consumers can tell this happened.
-        set_annotation<bool>(promoted, "promoted_from_secondary", true);
-
-        // Remove the old unmapped primary and the now-redundant secondary copy.
-        // Erase the higher index first so the lower index stays valid.
-        size_t hi = (size_t) max<int64_t>(primary_idx, best_idx);
-        size_t lo = (size_t) min<int64_t>(primary_idx, best_idx);
-        surjected_group.erase(surjected_group.begin() + hi);
-        surjected_group.erase(surjected_group.begin() + lo);
-
-        // Place the promoted alignment at the front as the new primary.
-        surjected_group.insert(surjected_group.begin(), std::move(promoted));
+        // Tag the best secondary so downstream tools can treat it as primary
+        // if they choose; the secondary flag itself is left unchanged.
+        set_annotation<bool>(surjected_group[best_idx], "rescued_secondary", true);
 
         return true;
     }
 
-    bool Surjector::promote_secondary_pair_if_primary_unmapped(vector<Alignment>& surjected1,
+    bool Surjector::rescue_secondary_pair_if_primary_unmapped(vector<Alignment>& surjected1,
                                                               vector<Alignment>& surjected2) const {
 
-        if (!promote_secondary_on_failed_surjection) {
+        if (!rescue_secondary_on_failed_surjection) {
             return false;
         }
 
@@ -5434,7 +5419,7 @@ using namespace std;
             return false;
         }
 
-        // Find the best secondary pair to promote. A candidate is eligible if at
+        // Find the best secondary pair to rescue. A candidate is eligible if at
         // least one of its mates surjected. Rank by summed mapped-mate score;
         // break ties toward fully-mapped pairs, then toward higher summed
         // mapping quality, for determinism.
@@ -5473,13 +5458,13 @@ using namespace std;
         }
 
         if (best_idx < 0) {
-            // No secondary pair could be promoted. Warn once (shared with the
+            // No secondary pair could be tagged. Warn once (shared with the
             // single-end path's flag).
-            if (!warned_about_no_promotable_secondary.test_and_set()) {
+            if (!warned_about_no_rescuable_secondary.test_and_set()) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning:[Surjector] --promote-secondary: cannot find a surjectable "
-                         << "secondary alignment for read pair \""
+                    cerr << "warning:[Surjector] --rescue-secondary: cannot find a surjectable "
+                         << "secondary alignment to tag for read pair \""
                          << surjected1[0].name()
                          << "\" with an unsurjectable primary alignment.";
                     if (warn_about_input_collation) {
@@ -5492,18 +5477,10 @@ using namespace std;
             return false;
         }
 
-        // Promote: swap the chosen secondary pair into the primary slot for both
-        // mates, keeping the two vectors index-aligned. Update is_secondary
-        // flags: the promoted pair becomes primary, the demoted pair becomes
-        // secondary. Record provenance on the promoted mates.
-        surjected1[best_idx].set_is_secondary(false);
-        surjected2[best_idx].set_is_secondary(false);
-        surjected1[0].set_is_secondary(true);
-        surjected2[0].set_is_secondary(true);
-        set_annotation<bool>(surjected1[best_idx], "promoted_from_secondary", true);
-        set_annotation<bool>(surjected2[best_idx], "promoted_from_secondary", true);
-        std::swap(surjected1[0], surjected1[best_idx]);
-        std::swap(surjected2[0], surjected2[best_idx]);
+        // Tag the best secondary pair so downstream tools can treat them as
+        // primary if they choose; secondary flags and ordering are unchanged.
+        set_annotation<bool>(surjected1[best_idx], "rescued_secondary", true);
+        set_annotation<bool>(surjected2[best_idx], "rescued_secondary", true);
 
         return true;
     }

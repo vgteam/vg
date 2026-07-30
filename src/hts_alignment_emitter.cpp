@@ -65,7 +65,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY,
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_OFF_REF_POSITION,
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN,
-                flags & ALIGNMENT_EMITTER_FLAG_HTS_PROMOTE_SECONDARY);
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_RESCUE_SECONDARY);
         }
     
     } else {
