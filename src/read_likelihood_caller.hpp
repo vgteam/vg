@@ -92,6 +92,29 @@ public:
 
     virtual void update_vcf_header(string& header) const;
 
+    /**
+     * Never skip an allele.
+     *
+     * The inherited support-based version prunes any allele whose read support is
+     * below a threshold, which exists to stop VCFTraversalFinder's brute-force
+     * enumeration exploding at dense multi-allelic sites. Two reasons to drop it
+     * here:
+     *
+     * - Scoring is DP-free, so the tractability argument for pruning is gone. We
+     *   can afford to genotype against every enumerated traversal, including the
+     *   long tail a support prefilter would have discarded.
+     * - When there is no pack file the support finder reports zero everywhere, so
+     *   the inherited version would prune *every* allele at *every* site.
+     *
+     * Only takes effect when support is unavailable, so behaviour with a pack file
+     * is unchanged.
+     */
+    virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
+
+    /// Tell the caller that its support finder reports nothing real, so anything
+    /// support-derived must be skipped rather than believed.
+    void set_support_available(bool available);
+
     /// Write the matrix for every site to this stream as TSV. Not owned.
     void set_likelihood_dump(ostream* dump_stream);
 
@@ -105,6 +128,10 @@ protected:
 
     /// Optional TSV dump of every site's matrix, for development.
     ostream* dump_stream = nullptr;
+
+    /// False when running without a pack file, so the support finder is a
+    /// NullTraversalSupportFinder and reports zero for everything.
+    bool support_available = true;
 };
 
 }

@@ -817,18 +817,31 @@ int main_call(int argc, char** argv) {
     unique_ptr<EditAlignmentScorer> plain_scorer;
     unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
     unique_ptr<ofstream> likelihood_dump;
-    if (!pack_filename.empty()) {
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
-        if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
-        packer->load_from_file(pack_filename);
-        if (show_progress) logger.info() << "Loaded pack file" << endl;
-        if (bottom_up) {
-            // Make a nested packed traversal support finder (required by NestedFlowCaller)
-            support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+    // Read-level genotyping can run without a pack file, but only when allele
+    // enumeration does not need support either. GBWTTraversalFinder enumerates from
+    // recorded haplotypes, so it needs none; FlowTraversalFinder is driven entirely
+    // by node and edge weights, so it does.
+    bool gbwt_enumeration = !gbwt_filename.empty() || gbz_paths;
+    bool support_free = read_likelihood && pack_filename.empty();
+
+    if (!pack_filename.empty() || support_free) {
+        if (support_free) {
+            // Nothing downstream will consult support: stand in a finder that
+            // reports none rather than requiring a pack file for its own sake.
+            support_finder.reset(new NullTraversalSupportFinder(*graph, *snarl_manager));
         } else {
-            // Make a packed traversal support finder (using cached version important for poisson caller)
-            support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            // Load our packed supports (they must have come from vg pack on graph)
+            packer = unique_ptr<Packer>(new Packer(graph));
+            if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
+            packer->load_from_file(pack_filename);
+            if (show_progress) logger.info() << "Loaded pack file" << endl;
+            if (bottom_up) {
+                // Make a nested packed traversal support finder (required by NestedFlowCaller)
+                support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            } else {
+                // Make a packed traversal support finder (using cached version important for poisson caller)
+                support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            }
         }
                 
         // need to use average support when genotyping as small differences in between sample and graph
@@ -888,6 +901,10 @@ int main_call(int argc, char** argv) {
                 rl_caller->set_likelihood_dump(likelihood_dump.get());
             }
 
+            // Without a pack file the support finder reports zero for everything, so
+            // the caller must not prune alleles on support.
+            rl_caller->set_support_available(!support_free);
+
             packed_caller = rl_caller;
         } else if (ratio_caller == false) {
             // Make a depth index
@@ -923,6 +940,24 @@ int main_call(int argc, char** argv) {
 
     if (!snarl_caller) {
         logger.error() << "pack file (-k) is required" << endl;
+    }
+
+    // Guard the pack-free path: it is only sound where nothing consults support.
+    if (support_free) {
+        if (!gbwt_enumeration) {
+            logger.error() << "--read-likelihood without -k/--pack requires haplotype-based allele "
+                           << "enumeration (-g/--gbwt or -z/--gbz); otherwise a pack file is needed "
+                           << "for the flow traversal finder's node and edge weights" << endl;
+        }
+        if (!vcf_filename.empty()) {
+            // VCFTraversalFinder prunes alt paths on support before its brute-force
+            // enumeration, so -v genuinely needs a pack file.
+            logger.error() << "-v/--vcf with --read-likelihood requires -k/--pack" << endl;
+        }
+        if (bottom_up) {
+            // NestedFlowCaller downcasts the support finder to a nested packed one.
+            logger.error() << "--bottom-up with --read-likelihood requires -k/--pack" << endl;
+        }
     }
 
     unique_ptr<AlignmentEmitter> alignment_emitter;

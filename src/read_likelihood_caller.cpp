@@ -26,6 +26,20 @@ void ReadLikelihoodSnarlCaller::set_likelihood_dump(ostream* dump_stream) {
     this->dump_stream = dump_stream;
 }
 
+void ReadLikelihoodSnarlCaller::set_support_available(bool available) {
+    this->support_available = available;
+}
+
+function<bool(const SnarlTraversal&, int)> ReadLikelihoodSnarlCaller::get_skip_allele_fn() const {
+    if (support_available) {
+        // A pack file is present, so keep the established pruning behaviour.
+        return SupportBasedSnarlCaller::get_skip_allele_fn();
+    }
+    // No real support to prune on. Note this must not fall through to
+    // SnarlCaller::get_skip_allele_fn(), whose default asserts.
+    return [](const SnarlTraversal&, int) { return false; };
+}
+
 bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a, const SnarlTraversal& b) {
     if (a.visit_size() != b.visit_size()) {
         return false;

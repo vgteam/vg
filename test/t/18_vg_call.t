@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 108
+plan tests 114
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -230,7 +230,31 @@ cat callz.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}'
 diff callg.6 callz.6
 is $? 0 "call produces same output with gbwt and gbz"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6
+# Read-level genotyping needs no pack file when alleles come from a haplotype
+# index: GBWTTraversalFinder enumerates from recorded haplotypes rather than from
+# support, so nothing in that path consults the pack.
+vg call x.vg --read-likelihood --gam sim.gam -g x.gbwt > callrl_nopack.vcf 2>/dev/null
+is "$?" "0" "--read-likelihood works with -g and no pack file"
+is $(grep -c "^#CHROM" callrl_nopack.vcf) "1" "pack-free read-likelihood output is a valid VCF"
+is $(if [ $(grep -v "^#" callrl_nopack.vcf | wc -l) -gt 0 ]; then echo 1; else echo 0; fi) "1" "pack-free read-likelihood emits variants"
+
+# Same via GBZ.
+vg call x.gbz --read-likelihood --gam sim.gam -z > callrl_nopack_z.vcf 2>/dev/null
+is "$?" "0" "--read-likelihood works with -z and no pack file"
+
+# The real assertion: since nothing on the GBWT path consults support, supplying a
+# pack file must make no difference whatsoever to the calls.
+vg call x.vg -k x.pack --read-likelihood --gam sim.gam -g x.gbwt > callrl_withpack.vcf 2>/dev/null
+diff <(grep -v "^#" callrl_withpack.vcf) <(grep -v "^#" callrl_nopack.vcf) > /dev/null
+is "$?" "0" "pack-free read-likelihood calls are identical to those made with a pack file"
+
+# But the flow traversal finder is driven entirely by node/edge weights, so
+# dropping the pack file there has to be refused rather than silently genotyped
+# against zero support.
+vg call x.vg --read-likelihood --gam sim.gam > /dev/null 2> nopack_err.txt
+is $(grep -c "requires haplotype-based allele enumeration" nopack_err.txt) "1" "--read-likelihood without -k and without -g/-z is refused"
+
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt
 
 
 # subpath test
