@@ -205,7 +205,16 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
         }
     }
 
-    if (all_mapped && info->ploidy >= 1) {
+    // A genotype carrying a star or missing allele was called at a lower ploidy
+    // than the record reports: in nested mode only some parent haplotypes traverse
+    // the child, so GT has an entry per parent haplotype while the likelihoods were
+    // computed over the traversing ones only. Emitting GL here would give a vector
+    // whose length disagrees with the ploidy GT implies, which is worse than
+    // omitting it.
+    bool genotype_has_marker =
+        any_of(genotype.begin(), genotype.end(), [](int a) { return a < 0; });
+
+    if (all_mapped && !genotype_has_marker && info->ploidy >= 1) {
         vector<string> gl_strings;
         bool complete = true;
 

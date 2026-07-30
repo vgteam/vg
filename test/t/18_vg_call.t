@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 118
+plan tests 123
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -343,7 +343,29 @@ is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG"{split($10,f,":"); print f[2]}') "3
 # site into a spurious het SNP instead of a star allele.
 is $(grep -v "^#" ns_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele, not a strand-artefact het SNP"
 
-rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf
+# Independent nested calling (-A): every snarl genotyped on its own reads, with no
+# parent restriction and no phase propagation.
+vg call ns.vg -k ns_het.pack -A -p x --read-likelihood --gam ns_het.gam 2>/dev/null > ns_rl_a.vcf
+is "$?" "0" "--read-likelihood works with -A independent nested calling"
+is $(grep -v "^#" ns_rl_a.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "-A independent calling finds the deletion"
+is $(grep -c "PS=" ns_rl_a.vcf | tr -d ' ') "0" "-A emits no PS tags, since it does not propagate phase"
+
+# Effective ploidy at a nested site only one parent haplotype traverses.
+# Reads: 100 from x (ref SNP), 30 from y0 (alt SNP), 100 from y1 (deletion). The
+# child site is reached by one haplotype only, so it must be genotyped haploid.
+# Genotyping it as diploid lets a spurious heterozygote absorb the 30 minority
+# reads for free, which shows up as a badly depressed GQ (38 rather than 256).
+vg sim -x ns.vg -P x -n 100 -l 4 -a -s 11 > ns_mix.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#1#y0#0' -n 30 -l 4 -a -s 12 >> ns_mix.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#2#y1#0' -n 100 -l 4 -a -s 13 >> ns_mix.gam 2>/dev/null
+vg pack -x ns.vg -g ns_mix.gam -o ns_mix.pack 2>/dev/null
+vg call ns.vg -k ns_mix.pack --top-down -Y -p x --read-likelihood --gam ns_mix.gam 2>/dev/null > ns_mix.vcf
+
+is $(grep -v "^#" ns_mix.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "mixed-read nested site still yields a star allele"
+STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk '$5=="*"{split($10,f,":"); print f[3]}')
+is $(if [ "${STAR_GQ}" -gt 100 ]; then echo 1; else echo 0; fi) "1" "a singly-traversed nested site is genotyped at its own ploidy, not diluted by a spurious het"
+
+rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_mix.gam ns_mix.pack ns_mix.vcf
 
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
