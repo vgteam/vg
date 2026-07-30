@@ -69,42 +69,31 @@ TracedScore TracedScore::add_points(int adjustment) const {
 bool TracedScore::insert_self(vector<TracedScore>& current, const vector<int> eval_bonuses,
                               int my_eval_bonus, int nowhere_eval_bonus) {
     // Figure out which index to insert this element at
-    size_t insert_index = 0;
-    while (insert_index < current.size()) {
-        TracedScore& item = current.at(insert_index);
-        int other_eval_bonus = item.source == TracedScore::nowhere() ? nowhere_eval_bonus
-                                                                     : eval_bonuses[item.source];
-        if (item.score + other_eval_bonus < this->score + my_eval_bonus) {
-            // We beat this item by evaluation score; insert at its index
-            break;
-        } else if (item.score + other_eval_bonus == this->score + my_eval_bonus && item < *this) {
-            // We beat this item by non-evaluation score tiebreak
+    int insert_after_index = current.size() - 1;
+    while (insert_after_index >= 0) {
+        TracedScore& item = current[insert_after_index];
+        int other_eval = (item.source == TracedScore::nowhere()) ? item.score + nowhere_eval_bonus
+                                                                 : item.score + eval_bonuses[item.source];
+        if (other_eval > this->score + my_eval_bonus
+            || (other_eval == this->score + my_eval_bonus && item > *this)) {
+            // This item beats me, so we need to insert after it
             break;
         }
-        insert_index++;
+        // We beat this item, so shift things over
+        if (insert_after_index > 0) {
+            current[insert_after_index] = current[insert_after_index-1];
+        }
+        insert_after_index--;
     }
 
-    // This item shouldn't be used at all
-    if (insert_index == current.size()) {
+    if (insert_after_index == current.size() - 1) {
+        // This item shouldn't be used at all
         return false;
     }
 
-    // Build new vector as a concatenation
-    vector<TracedScore> new_preds;
-    new_preds.reserve(current.size());
-    // Elements that go before the new element
-    if (insert_index > 0) {
-        new_preds.insert(new_preds.end(), current.begin(), current.begin() + insert_index);
-    }
-    new_preds.push_back(*this);
-    // Elements that go after the new element
-    if (insert_index < current.size() - 1) {
-        new_preds.insert(new_preds.end(), current.begin() + insert_index, current.end() - 1);
-    }
-    // Overwrite
-    current = new_preds;
+    current[insert_after_index+1] = *this;
     // Did we insert at the front?
-    return insert_index == 0;
+    return insert_after_index == -1;
 }
 
 TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {
@@ -1121,7 +1110,7 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
                                                              to_chain,
                                                              distance_index,
                                                              graph,
-                                                             5, /// TODO: make into a param
+                                                             3, /// TODO: make into a param
                                                              scheme,
                                                              for_each_transition,
                                                              max_indel_bases,
