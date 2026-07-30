@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 
+#include "alignment.hpp"
 #include "path.hpp"
 #include "statistics.hpp"
 
@@ -255,14 +256,68 @@ bool GraphAlignedAlleleLikelihoodCalculator::get_read_steps(
         read_offset += to_length;
     }
 
-    if (steps_out.empty() || !touches_interior) {
-        // No informative overlap. Note this is deliberately not the same as
-        // failing to place on some allele, which is informative.
+    if (steps_out.empty()) {
+        return false;
+    }
+
+    // A read is informative if it can discriminate between alleles at all.
+    //
+    // Touching an interior node does it, but that is NOT the only way, and
+    // assuming it was silently destroyed deletion genotyping: a read that
+    // traverses straight from one boundary node to the other uses the deletion
+    // edge, touches no interior node, and is the *only* direct evidence the
+    // deletion allele ever gets. The discriminating signal there is in the edge,
+    // not in the node set.
+    //
+    // So: informative if it touches an interior node, or if it moves between two
+    // distinct nodes inside the site (which for a boundary-to-boundary read means
+    // it used an edge no reference traversal has). A read sitting entirely within
+    // one boundary node has neither and genuinely cannot discriminate.
+    bool uses_internal_edge = false;
+    for (size_t i = 1; i < steps_out.size(); ++i) {
+        if (steps_out[i].node_id != steps_out[i - 1].node_id) {
+            uses_internal_edge = true;
+            break;
+        }
+    }
+
+    if (!touches_interior && !uses_internal_edge) {
+        // Genuinely uninformative: contributes an identical constant to every
+        // allele. Note this is deliberately not the same as failing to place on
+        // some allele, which is informative and must be kept.
         steps_out.clear();
         return false;
     }
 
     return true;
+}
+
+bool GraphAlignedAlleleLikelihoodCalculator::read_is_reverse_of_alleles(
+    const vector<ReadStep>& read_steps,
+    const unordered_map<nid_t, bool>& allele_orientations) const {
+
+    // Alleles all run from the snarl's start to its end, so they impose a reading
+    // direction on the site. A read aligned to the opposite strand visits the same
+    // nodes with the opposite orientation flag, and would fail to anchor against
+    // any of them -- which silently mis-scored every reverse-strand read, roughly
+    // half of all reads, against the wrong allele.
+    //
+    // Decide by vote rather than from a single step, so a node that different
+    // alleles visit in different orientations cannot flip the whole read.
+    size_t agree = 0;
+    size_t disagree = 0;
+    for (const ReadStep& step : read_steps) {
+        auto found = allele_orientations.find(step.node_id);
+        if (found == allele_orientations.end()) {
+            continue;
+        }
+        if (found->second == step.backward) {
+            ++agree;
+        } else {
+            ++disagree;
+        }
+    }
+    return disagree > agree;
 }
 
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_shared_node(
@@ -483,6 +538,31 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         allele_steps.push_back(get_allele_steps(traversal));
     }
 
+    // The orientation each allele visits each node in, so a read aligned to the
+    // opposite strand can be flipped into the alleles' reading direction before
+    // being compared to them. A node different alleles disagree about is left out
+    // rather than allowed to cast a vote.
+    unordered_map<nid_t, bool> allele_orientations;
+    unordered_set<nid_t> ambiguous_orientation;
+    for (const auto& steps : allele_steps) {
+        for (const AlleleStep& step : steps) {
+            auto found = allele_orientations.find(step.node_id);
+            if (found == allele_orientations.end()) {
+                allele_orientations[step.node_id] = step.backward;
+            } else if (found->second != step.backward) {
+                ambiguous_orientation.insert(step.node_id);
+            }
+        }
+    }
+    for (nid_t node_id : ambiguous_orientation) {
+        allele_orientations.erase(node_id);
+    }
+
+    // Node lengths for reverse-complementing a read's alignment.
+    function<int64_t(nid_t)> node_length = [&](nid_t node_id) {
+        return (int64_t)graph.get_length(graph.get_handle(node_id));
+    };
+
     vector<ReadStep> read_steps;
     vector<double> row(traversals.size());
 
@@ -494,16 +574,32 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             return;
         }
 
+        // Flip a reverse-strand read into the alleles' reading direction. Without
+        // this it anchors on nothing, falls through to the substitution path, and
+        // is scored against the wrong allele entirely.
+        Alignment flipped;
+        const Alignment* scored_aln = &aln;
+        if (read_is_reverse_of_alleles(read_steps, allele_orientations)) {
+            flipped = reverse_complement_alignment(aln, node_length);
+            scored_aln = &flipped;
+            if (!get_read_steps(flipped, site_nodes, boundary_nodes, read_steps)) {
+                // Should not happen: flipping preserves which nodes are touched.
+                ++last_site_uninformative;
+                return;
+            }
+        }
+
         // Pick the scorer this read can actually support. A read with no base
         // qualities cannot be scored by a quality-adjusted scorer without
         // inventing data.
-        const EditAlignmentScorer& read_scorer = aln.quality().empty() ? plain_scorer : qual_scorer;
+        const EditAlignmentScorer& read_scorer =
+            scored_aln->quality().empty() ? plain_scorer : qual_scorer;
         double log_base = read_scorer.get_log_base();
 
         for (size_t a = 0; a < traversals.size(); ++a) {
             bool placed = false;
-            int32_t score =
-                score_read_against_allele(aln, read_steps, allele_steps[a], read_scorer, placed);
+            int32_t score = score_read_against_allele(*scored_aln, read_steps, allele_steps[a],
+                                                      read_scorer, placed);
             row[a] = placed ? log_base * (double)score : -numeric_limits<double>::infinity();
         }
 

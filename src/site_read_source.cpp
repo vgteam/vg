@@ -57,6 +57,10 @@ void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter
     }
 }
 
+void InMemorySiteReadSource::add(const Alignment& aln, const Filter& filter) {
+    add_read(aln, filter);
+}
+
 void InMemorySiteReadSource::load_gam(const string& filename, const Filter& filter) {
     // Deliberately serial rather than for_each_parallel: bucketing into a
     // shared map would need a mutex, and this runs once at startup where

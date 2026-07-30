@@ -107,6 +107,11 @@ public:
     /// Stream a GAF. Needs the graph to turn GAF into Alignments.
     void load_gaf(const HandleGraph& graph, const string& filename, const Filter& filter = Filter());
 
+    /// Retain a single read directly, applying the same filter as loading would.
+    /// Lets callers assemble a source without going through a file, which is what
+    /// makes the scoring unit-testable.
+    void add(const Alignment& aln, const Filter& filter = Filter());
+
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                        const function<void(const Alignment&)>& iteratee) const;
 

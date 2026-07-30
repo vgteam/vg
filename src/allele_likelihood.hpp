@@ -16,6 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -321,6 +322,12 @@ protected:
     bool get_read_steps(const Alignment& aln, const unordered_set<nid_t>& site_nodes,
                         const unordered_set<nid_t>& boundary_nodes,
                         vector<ReadStep>& steps_out) const;
+
+    /// True if the read traverses the site against the direction the alleles read
+    /// in, so it must be reverse-complemented before being compared to them.
+    /// Decided by vote over shared nodes rather than from a single step.
+    bool read_is_reverse_of_alleles(const vector<ReadStep>& read_steps,
+                                   const unordered_map<nid_t, bool>& allele_orientations) const;
 
     /// Score the read's own edits on a node the read and the allele share.
     int32_t score_shared_node(const Alignment& aln, const ReadStep& step,

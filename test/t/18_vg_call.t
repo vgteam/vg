@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 114
+plan tests 118
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -318,6 +318,32 @@ NESTED_LINE_COUNT=$(grep -v "^#" nested_snp.vcf | wc -l)
 is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl variants"
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
+
+## Read-level genotyping over a nested site with a star allele
+# nested_snp_in_del.gfa: x = 1>2>3>5>6, y0 = 1>2>4>5>6, y1 = 1>6 (deletes the
+# region holding the nested SNP). Reads from x and y1 only, so the top-level site
+# is a het deletion and the nested site is traversed by one haplotype.
+vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
+vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> ns_het.gam 2>/dev/null
+vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
+vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --gam ns_het.gam 2>/dev/null > ns_rl.vcf
+
+is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
+
+# Regression: reads traversing the deletion edge touch only the snarl's boundary
+# nodes. A node-based informativeness test discarded them, which left the parent
+# with reference-supporting reads only, called it hom-ref, and dropped the record
+# entirely. The deletion must be called, and its DP must include those reads.
+is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "the parent deletion is called from boundary-to-boundary reads"
+is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG"{split($10,f,":"); print f[2]}') "300" "deletion-spanning reads are counted, not discarded"
+
+# Regression: half these reads are reverse strand. Failing to flip them meant they
+# anchored on nothing and scored against the wrong allele, which turned the nested
+# site into a spurious het SNP instead of a star allele.
+is $(grep -v "^#" ns_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele, not a strand-artefact het SNP"
+
+rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf
 
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
