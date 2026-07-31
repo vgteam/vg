@@ -527,11 +527,6 @@ int main_paths(int argc, char** argv) {
         // bias the snarl tree can root arbitrarily, producing backward-oriented
         // top-level snarls that don't align with the reference.
         //
-        // Only when the cover actually wants snarl traversals as candidates.  It is the
-        // most expensive thing this subcommand does -- on chrY it is 43% of the wall time
-        // and it alone sets the peak RSS -- so building one the cover will not read is
-        // worth avoiding rather than tidying up later.
-        unique_ptr<SnarlManager> snarl_manager;
         std::unordered_map<nid_t, size_t> extra_node_weight;
         {
             constexpr size_t EXTRA_WEIGHT = 10000000000;
@@ -542,15 +537,10 @@ int main_paths(int argc, char** argv) {
                 }
             }
         }
-        if (GrefCover::use_snarl_candidates) {
-            IntegratedSnarlFinder finder(*graph, extra_node_weight);
-            snarl_manager = make_unique<SnarlManager>(std::move(finder.find_snarls_parallel()));
-        }
-
         // The decomposition the cover is mapped onto: a distance index built with no
         // distances at all, which is exactly the snarl decomposition and nothing more.
-        // This is the API new code should use -- the protobuf SnarlManager above is on its
-        // way out -- and on chrY it is also cheaper (27 s vs 38 s for `vg snarls -T`).
+        // This is the API new code should use -- the protobuf SnarlManager is on its way
+        // out -- and on chrY it is also cheaper (27 s vs 38 s for `vg snarls -T`).
         //
         // The same reference-endpoint weight bias is handed to the finder here.  Without it
         // IntegratedSnarlFinder picks its chain spine on topology alone, which on graphs
@@ -575,7 +565,7 @@ int main_paths(int argc, char** argv) {
         GrefCover cover;
         cover.set_verbose(progress);
         cover.clear(mutable_graph);
-        cover.compute(graph, snarl_manager.get(), &distance_index, ref_paths, min_gref_length);
+        cover.compute(graph, &distance_index, ref_paths, min_gref_length);
 
         // Write gref segment table if requested
         if (!gref_segments_file.empty()) {

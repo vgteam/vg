@@ -41,16 +41,6 @@ using namespace std;
 
 class GrefCover {
 public:
-    // Whether the cover draws candidates from snarl traversals as well as from whole-path
-    // runs.  A snarl traversal is bounded by its bubble, so it cannot offer a candidate
-    // longer than one snarl; fill_uncovered_nodes() enumerates maximal runs along whole
-    // source paths and covers everything on its own.  See the comment in compute().
-    //
-    // Public because compute() then has no use for its SnarlManager, and building one is
-    // the single largest cost of `vg paths -u` in both time and peak memory.  Callers test
-    // this to decide whether to build one at all: when it is false, compute() accepts
-    // nullptr.  Keeping the two decisions on one constant is what stops them drifting.
-    static constexpr bool use_snarl_candidates = false;
 
     // The prefix every gref path name carries
     static const string gref_prefix;  // "gref_"
@@ -114,7 +104,6 @@ public:
     // same graph.  It is not used to build the cover; it is used afterwards to map each
     // fragment to the top-level snarl containing it (see assign_top_level_snarls()).
     void compute(const PathHandleGraph* graph,
-                 SnarlManager* snarl_manager,
                  const bdsg::SnarlDistanceIndex* distance_index,
                  const unordered_set<path_handle_t>& reference_paths,
                  int64_t minimum_length);
@@ -231,86 +220,23 @@ public:
 
 protected:
 
-    // Compute the cover for the given snarl, by greedily finding the covered paths through it.
-    // The cover is added to the two "thread_" structures.
-    // top_snarl_start/end are the boundary node IDs of the top-level snarl containing this snarl.
-    void compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
-                       vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
-                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
-                       nid_t top_snarl_start, nid_t top_snarl_end,
-                       vector<pair<nid_t, nid_t>>& thread_snarl_bounds);
-
-    // Get intervals in traversal that are not covered according to this->node_to_interval or
-    // the thread_node_to_interval parameter.
-    vector<pair<int64_t, int64_t>> get_uncovered_intervals(const vector<step_handle_t>& trav,
-                                                           const unordered_map<nid_t, int64_t>& thread_node_to_interval);
-
-    // Add a new interval into the gref_intervals vector and update the node_to_interval map.
-    // If the interval can be merged into an existing, contiguous interval, do that instead.
-    // Returns true if a new interval was added, false if an existing interval was updated.
-    bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
+    // Record an interval and assign it every node it walks.  Nothing merges or extends:
+    // candidates are maximal runs of uncovered nodes, so a new interval can neither abut nor
+    // overlap an existing one.  See the body for the measurement that established this.
+    void add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
                       const pair<step_handle_t, step_handle_t>& new_interval,
-                      bool global = false,
                       vector<pair<nid_t, nid_t>>* snarl_bounds_vec = nullptr,
                       pair<nid_t, nid_t> snarl_bounds = {0, 0});
 
-    // add_interval() can delete an existing interval. This requires a full update at the end.
+    // Rebuild node_to_interval after intervals have been removed.
     void defragment_intervals();
 
-    // Post-insertion cross-path merge: tries to consolidate the interval containing
-    // ref_step with any cross-path neighbor at its left or right boundary.
-    // Operates on this->gref_intervals and this->node_to_interval.
-    void try_cross_path_merge(step_handle_t ref_step);
-
     // Remove non-reference intervals shorter than minimum_length, then defragment.
-    // Called after all merging is complete so short intervals have had a chance to merge.
     void filter_short_intervals(int64_t minimum_length);
 
-    // Walk forward from start_step on path, comparing each node ID + orientation
-    // against other_interval's steps. Returns the new end step if all match, nullopt otherwise.
-    optional<step_handle_t> try_extend_forward(step_handle_t start_step, path_handle_t path,
-                                                const pair<step_handle_t, step_handle_t>& other_interval);
-
-    // Walk backward from start_step on path, comparing each node ID + orientation
-    // against other_interval's steps in reverse order.  Both sides are walked
-    // lazily, so a mismatch costs only the steps actually compared.
-    // Returns the first matching step if all match, nullopt otherwise.
-    optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
-                                                 const pair<step_handle_t, step_handle_t>& other_interval);
-
-    // Check if merging two adjacent/overlapping step ranges on the same path
-    // would produce a duplicate node ID.  Walks [interval_a.first, interval_b.second).
-    bool merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
-                                    const pair<step_handle_t, step_handle_t>& interval_b) const;
-
-    // Fast duplicate check for global fold: walks [ext_start, ext_end) and
-    // checks whether any node ID in that range already belongs to
-    // target_interval_idx in nti.  The caller is responsible for pre-trimming
-    // any shared boundary step (overlap-by-one) from the walk range so that
-    // boundary nodes owned by the target are not flagged as duplicates.
-    bool extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
-                                        int64_t target_interval_idx,
-                                        step_handle_t ext_start, step_handle_t ext_end) const;
-
-    // Unified duplicate-node check: dispatches to extension_would_duplicate_node
-    // (O(extension_length)) when global=true, or merge_would_duplicate_node
-    // (O(combined_length)) otherwise.  Callers must pre-trim shared boundary
-    // steps from [ext_start, ext_end); merge_would_duplicate_node handles the
-    // shared boundary naturally via its combined walk.
-    bool would_duplicate_node(bool global,
-                              const unordered_map<nid_t, int64_t>& nti,
-                              int64_t target_idx,
-                              step_handle_t ext_start, step_handle_t ext_end,
-                              const pair<step_handle_t, step_handle_t>& interval_a,
-                              const pair<step_handle_t, step_handle_t>& interval_b) const;
-
-    // Get the total coverage of a traversal (sum of step lengths * path count).
-    int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
-
-    // Second pass: greedily cover any nodes not covered by snarl traversals.
-    // This handles nodes that are outside of snarls or in complex regions
-    // where the traversal finder couldn't find good coverage.
+    // Build the cover: enumerate the maximal runs of uncovered nodes along every candidate
+    // source path, then claim them longest-first.  This is the whole cover.
     void fill_uncovered_nodes(int64_t minimum_length);
 
     // Search back to the reference and return <distance, node_id> when found.
@@ -389,39 +315,11 @@ protected:
     // Whether to print verbose output (coverage summary, etc.)
     bool verbose = false;
 
-    // When true, rank traversal fragments by name only (ignore coverage).
-    // This ensures deterministic output regardless of thread count.
-    bool rank_by_name = false;
-
     // Copy the base reference paths into the gref namespace.
     // Creates new paths like "gref_CHM13#0#chr1" from "CHM13#0#chr1".
     void copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_graph,
                                  const unordered_set<path_handle_t>& reference_paths);
 
-    // Used when selecting traversals to make the greedy cover.
-    struct RankedFragment {
-        int64_t coverage;
-        int64_t length;
-        bool reverse;
-        const string* name;
-        int64_t trav_idx;
-        pair<int64_t, int64_t> fragment;
-        bool operator<(const RankedFragment& f2) const {
-            // Max-heap, so this is "worse than".  Rank by source path name.
-            //
-            // This looks arbitrary and is not: name order is *stable across snarls*.  The
-            // same path wins in adjacent snarls, so add_interval()'s same-path merge joins
-            // their intervals into one long fragment.  Ranking by run length instead is
-            // locally optimal and globally destructive -- each snarl independently picks
-            // whichever path happens to have the longest run just there, neighbours end up
-            // on different paths, and nothing can merge them: try_cross_path_merge() only
-            // consolidates paths that walk the stretch identically, which two paths taking
-            // different traversals of a bubble by definition do not.
-            //
-            // note: name comparison is flipped because we want to select high coverage / low name
-            return this->coverage < f2.coverage || (this->coverage == f2.coverage && *this->name > *f2.name);
-        }
-    };
 };
 
 }

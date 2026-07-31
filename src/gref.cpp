@@ -99,7 +99,6 @@ void GrefCover::clear(MutablePathMutableHandleGraph* graph) {
 }
 
 void GrefCover::compute(const PathHandleGraph* graph,
-                            SnarlManager* snarl_manager,
                             const bdsg::SnarlDistanceIndex* distance_index,
                             const unordered_set<path_handle_t>& reference_paths,
                             int64_t minimum_length) {
@@ -112,14 +111,6 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // Rank by name only (ignoring coverage) produces fewer, longer intervals
     // in practice: adjacent snarls tend to pick the same path, so same-path
     // merging succeeds more often during the fold.
-    // Correctness requires each top-level snarl's interval choices to be
-    // based only on its own traversals (the node-to-interval map is local
-    // to each snarl iteration below).  Determinism is ensured by sorting
-    // longest intervals first and skipping fully-covered intervals in the
-    // fold, which selects a single canonical cover regardless of thread
-    // count or scheduling.
-    this->rank_by_name = true;
-
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
         this->gref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
@@ -153,149 +144,31 @@ void GrefCover::compute(const PathHandleGraph* graph,
         enforce_top_level_anchoring(*distance_index);
     }
 
-    // we use the path traversal finder for everything
-    PathTraversalFinder path_trav_finder(*graph);
-
-    // we collect the gref cover in parallel as a list of path fragments
-    size_t thread_count = get_thread_count();
-    vector<vector<pair<step_handle_t, step_handle_t>>> gref_intervals_vector(thread_count);
-    vector<vector<pair<nid_t, nid_t>>> snarl_bounds_vector(thread_count);
-
-    // Candidates come from whole source paths, not from snarl traversals.
+    // The whole cover comes from fill_uncovered_nodes(): maximal runs of uncovered nodes
+    // along each source path.  There is no snarl-traversal phase and no fold, because there
+    // is nothing for them to add.
     //
-    // A snarl traversal is bounded by its bubble, so the longest run any candidate can offer
-    // stops at the next boundary -- however far the haplotype actually agrees with the graph.
-    // The cover then has to reassemble those pieces afterwards, and only manages it when
-    // adjacent snarls happen to have selected the same source path.  That reassembly is what
-    // broke when ranking changed in 8c42f5b54, and it is fragile even when it works.
+    // A snarl traversal is bounded by its bubble, so it could never offer a candidate longer
+    // than one snarl however far the haplotype actually agreed with the graph, and the cover
+    // then had to reassemble the pieces afterwards -- which only worked when the same source
+    // path happened to win every adjacent snarl.  That reassembly is what broke when ranking
+    // changed in 8c42f5b54 (+36% fragments genome-wide).  Whole-path runs are maximal by
+    // construction, so nothing needs reassembling.
     //
-    // fill_uncovered_nodes() below already enumerates the thing we actually want: maximal
-    // runs of uncovered nodes along each source path, unbounded by snarls.  Letting it do the
-    // whole cover produces long fragments by construction rather than by successful merging.
-    //
-    // Nothing here writes interval_snarl_bounds any more.  assign_top_level_snarls() fills
-    // it in at the end from the distance index instead, with the top-level snarl containing
-    // each fragment -- which is a different and much coarser thing than the enclosing bubble
-    // this loop used to record, so write_gref_segments() no longer takes its reference
-    // window from it.  See the comment there.
-    //
-    // use_snarl_candidates is declared in the header so callers can skip building the
-    // SnarlManager entirely; snarl_manager is null whenever it is false.
-    if (use_snarl_candidates) snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
-        // per-thread output (intervals and snarl bounds accumulate across snarls)
-        vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals = gref_intervals_vector[omp_get_thread_num()];
-        vector<pair<nid_t, nid_t>>& thread_snarl_bounds = snarl_bounds_vector[omp_get_thread_num()];
-        // scratch: maps node IDs to interval indices within this snarl only
-        unordered_map<nid_t, int64_t> thread_node_to_interval;
+    // That also makes the candidate set complete rather than merely large: every admissible
+    // fragment is contiguous on one source path, single-orientation, free of repeated node
+    // ids and free of reference nodes, which is exactly what a maximal run is maximal under.
+    // So every admissible fragment is a sub-run of exactly one enumerated run, and no other
+    // candidate generator can beat it.
 
-        // capture the top-level snarl boundary node IDs
-        nid_t top_snarl_start = snarl->start().node_id();
-        nid_t top_snarl_end = snarl->end().node_id();
-
-        vector<const Snarl*> queue = {snarl};
-
-        while(!queue.empty()) {
-            const Snarl* cur_snarl = queue.back();
-            queue.pop_back();
-
-            // get the snarl cover
-            compute_snarl(*cur_snarl, path_trav_finder, 1 /*defer length filter to post-merge*/,
-                          thread_gref_intervals,
-                          thread_node_to_interval,
-                          top_snarl_start, top_snarl_end,
-                          thread_snarl_bounds);
-
-            // recurse on the children
-            const vector<const Snarl*>& children = snarl_manager->children_of(cur_snarl);
-            for (const Snarl* child_snarl : children) {
-                queue.push_back(child_snarl);
-            }
-        }
-    });
-
-    // Collect all thread intervals into a single vector, then sort into a
-    // deterministic order so that the fold result is independent of which
-    // thread computed each snarl.
-    struct FoldEntry {
-        pair<step_handle_t, step_handle_t> interval;
-        pair<nid_t, nid_t> snarl_bounds;
-        int64_t node_span;   // |last_node_id - first_node_id| + 1: O(1) proxy for length
-        string path_name;
-    };
-    vector<FoldEntry> all_intervals;
-    for (int64_t t = 0; t < thread_count; ++t) {
-        for (int64_t j = 0; j < gref_intervals_vector[t].size(); ++j) {
-            const auto& interval = gref_intervals_vector[t][j];
-            if (interval.first != graph->path_end(graph->get_path_handle_of_step(interval.first))) {
-                nid_t first_id = graph->get_id(graph->get_handle_of_step(interval.first));
-                nid_t last_id = graph->get_id(graph->get_handle_of_step(
-                    graph->get_previous_step(interval.second)));
-                int64_t span = std::abs((int64_t)last_id - (int64_t)first_id) + 1;
-                all_intervals.push_back({interval, snarl_bounds_vector[t][j], span,
-                                         graph->get_path_name(graph->get_path_handle_of_step(interval.first))});
-            }
-        }
-        gref_intervals_vector[t].clear();
-        snarl_bounds_vector[t].clear();
-    }
-    std::sort(all_intervals.begin(), all_intervals.end(), [&](const FoldEntry& a, const FoldEntry& b) {
-        // primary: longer intervals first (by node-ID span, an O(1) proxy
-        // for step count in topologically-sorted graphs)
-        if (a.node_span != b.node_span) return a.node_span > b.node_span;
-        // secondary: snarl boundary nodes (groups intervals from the same snarl)
-        if (a.snarl_bounds != b.snarl_bounds) return a.snarl_bounds < b.snarl_bounds;
-        // tertiary: path name (precomputed to avoid repeated allocation)
-        if (a.path_name != b.path_name) return a.path_name < b.path_name;
-        // final tiebreaker: start node id
-        return graph->get_id(graph->get_handle_of_step(a.interval.first)) <
-               graph->get_id(graph->get_handle_of_step(b.interval.first));
-    });
-
-    // Fold sorted intervals into the global cover.  Different snarls may
-    // produce overlapping intervals, so skip any interval whose nodes are
-    // already fully covered.  Partially overlapping intervals may still be
-    // added and temporarily reassign some nodes in node_to_interval;
-    // defragment_intervals() below rebuilds the index from scratch to
-    // resolve any such inconsistencies.
-    for (auto& entry : all_intervals) {
-        // Quick check: if the first node is already covered, do a full scan.
-        // With longest-first ordering, most fully-covered intervals have a
-        // covered first node, so this O(1) test avoids the full walk in the
-        // common case where the interval has at least one uncovered node.
-        nid_t first_nid = graph->get_id(graph->get_handle_of_step(entry.interval.first));
-        if (this->node_to_interval.count(first_nid)) {
-            bool all_covered = true;
-            for (step_handle_t s = entry.interval.first; s != entry.interval.second;
-                 s = graph->get_next_step(s)) {
-                if (!this->node_to_interval.count(graph->get_id(graph->get_handle_of_step(s)))) {
-                    all_covered = false;
-                    break;
-                }
-            }
-            if (all_covered) {
-                continue;
-            }
-        }
-        add_interval(this->gref_intervals, this->node_to_interval, entry.interval, true,
-                     &this->interval_snarl_bounds, entry.snarl_bounds);
-        try_cross_path_merge(entry.interval.first);
-    }
-
-    // remove any intervals that were made redundant by add_interval
-    defragment_intervals();
-
-    // first length filter: remove tiny snarl intervals so their nodes become
-    // uncovered and fill_uncovered_nodes can pick them up as part of longer stretches
-    filter_short_intervals(minimum_length);
-
-    // second pass: greedily cover any nodes not covered by snarl traversals
-    // (including nodes freed by the length filter above)
-    fill_uncovered_nodes(1 /*defer length filter to post-merge*/);
+    // Build the cover.  minimum_length is deferred: a run that is too short on its own may
+    // still be the longest thing available for its nodes, and filtering before selection
+    // would free those nodes back into competition for no gain.
+    fill_uncovered_nodes(1);
 
     // debug: verify all nodes are covered
     verify_cover(minimum_length);
 
-    // second length filter: remove any tiny intervals from fill_uncovered_nodes
     filter_short_intervals(minimum_length);
 
     // the cover is final here: nothing below adds, merges or extends an interval
@@ -491,9 +364,8 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
 
         for (const FillRun& piece : pieces) {
             add_interval(this->gref_intervals, this->node_to_interval,
-                         make_pair(piece.start, piece.end), true,
+                         make_pair(piece.start, piece.end),
                          &this->interval_snarl_bounds, {0, 0});
-            try_cross_path_merge(piece.start);
             for (step_handle_t step = piece.start; step != piece.end;
                  step = graph->get_next_step(step)) {
                 uncovered_nodes.erase(graph->get_id(graph->get_handle_of_step(step)));
@@ -719,639 +591,35 @@ int64_t GrefCover::get_num_ref_intervals() const {
     return this->num_ref_intervals;
 }
 
-void GrefCover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav_finder, int64_t minimum_length,
-                                  vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
-                                  unordered_map<nid_t, int64_t>& thread_node_to_interval,
-                                  nid_t top_snarl_start, nid_t top_snarl_end,
-                                  vector<pair<nid_t, nid_t>>& thread_snarl_bounds) {
 
-    // start by finding the path traversals through the snarl
-    vector<vector<step_handle_t>> travs;
-    vector<string> trav_names;
-    {
-        pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs = path_trav_finder.find_path_traversals(snarl);
-        travs.reserve(path_travs.first.size());
 
-        // reduce protobuf usage by going back to vector of steps instead of keeping SnarlTraversals around
-        for (int64_t i = 0; i < path_travs.first.size(); ++i) {
-            string trav_path_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
-            if (is_gref_name(trav_path_name)) {
-                // we ignore existing (off-reference) gref paths
-#ifdef debug
-                cerr << "Warning : skipping existing gref traversal " << trav_path_name << endl;
-#endif
-                continue;
-            }
-            bool reversed = false;
-            if (graph->get_is_reverse(graph->get_handle_of_step(path_travs.second[i].first)) != snarl.start().backward()) {
-                reversed = true;
-            }
-            assert((graph->get_is_reverse(graph->get_handle_of_step(path_travs.second[i].second)) != snarl.end().backward()) == reversed);
-            vector<step_handle_t> trav;
-            trav.reserve(path_travs.first[i].visit_size());
-            bool done = false;
-            function<step_handle_t(step_handle_t)> visit_next_step = [&](step_handle_t step_handle) {
-                return reversed ? graph->get_previous_step(step_handle) : graph->get_next_step(step_handle);
-            };
-            for (step_handle_t step_handle = path_travs.second[i].first; !done; step_handle = visit_next_step(step_handle)) {
-                trav.push_back(step_handle);
-                if (step_handle == path_travs.second[i].second) {
-                    done = true;
-                }
-            }
-            if (reversed) {
-                std::reverse(trav.begin(), trav.end());
-            }
-            travs.push_back(trav);
-            trav_names.push_back(trav_path_name);
-        }
+
+
+
+
+
+void GrefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
+                             unordered_map<nid_t, int64_t>& thread_node_to_interval,
+                             const pair<step_handle_t, step_handle_t>& new_interval,
+                             vector<pair<nid_t, nid_t>>* snarl_bounds_vec,
+                             pair<nid_t, nid_t> snarl_bounds) {
+    // Record the interval and give it every node it walks.  Nothing merges, extends or
+    // decommissions: candidates are maximal runs of *uncovered* nodes, so a new interval
+    // can never abut an existing one on the same path (the node between them would have to
+    // be both covered and uncovered), and can never share a node with one.  Measured before
+    // the merging code was removed: 708,097 add_interval calls on chrY produced 0 merges of
+    // any kind, and 0 across all 60 nesting-fixture configurations.
+    int64_t interval_idx = (int64_t)thread_gref_intervals.size();
+    thread_gref_intervals.push_back(new_interval);
+    if (snarl_bounds_vec != nullptr) {
+        snarl_bounds_vec->push_back(snarl_bounds);
     }
-#ifdef debug
-#pragma omp critical(cerr)
-    cerr << "doing snarl " << pb2json(snarl.start()) << "-" << pb2json(snarl.end()) << " with " << travs.size() << " travs" << endl;
-#endif
-
-    // build an initial ranked list of candidate traversal fragments
-    vector<RankedFragment> ranked_trav_fragments;
-    for (int64_t trav_idx = 0; trav_idx < travs.size(); ++trav_idx) {
-        // only a reference traversal (or deletion that we don't need to consider)
-        // will have its first two nodes covered
-        if (travs[trav_idx].size() >= 2 &&
-            this->node_to_interval.count(graph->get_id(graph->get_handle_of_step(travs[trav_idx][0]))) &&
-            this->node_to_interval.count(graph->get_id(graph->get_handle_of_step(travs[trav_idx][1])))) {
-            continue;
-        }
-
-        const vector<step_handle_t>& trav = travs.at(trav_idx);
-        vector<pair<int64_t, int64_t>> uncovered_intervals = get_uncovered_intervals(trav, thread_node_to_interval);
-
-        for (const auto& uncovered_interval : uncovered_intervals) {
-            // A fragment is written in one orientation, so a stretch that flips part way
-            // through cannot be used as it stands.  Split it at the flips rather than
-            // discarding it: at an inversion breakpoint the path that walks the inverted
-            // nodes *forwards* is exactly the one whose stretch spans the flip, so
-            // dropping it would leave only backwards-walking paths to cover them.
-            int64_t run_start = uncovered_interval.first;
-            while (run_start < uncovered_interval.second) {
-                bool run_reverse = graph->get_is_reverse(graph->get_handle_of_step(trav[run_start]));
-                int64_t run_end = run_start + 1;
-                while (run_end < uncovered_interval.second &&
-                       graph->get_is_reverse(graph->get_handle_of_step(trav[run_end])) == run_reverse) {
-                    ++run_end;
-                }
-
-                unordered_set<nid_t> cycle_check;
-                bool cyclic = false;
-                int64_t interval_length = 0;
-                for (int64_t i = run_start; i < run_end && !cyclic; ++i) {
-                    handle_t handle = graph->get_handle_of_step(trav[i]);
-                    interval_length += graph->get_length(handle);
-                    if (!cycle_check.insert(graph->get_id(handle)).second) {
-                        cyclic = true;
-                    }
-                }
-                if (!cyclic && interval_length >= minimum_length) {
-                    pair<int64_t, int64_t> run = make_pair(run_start, run_end);
-                    int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, run);
-                    ranked_trav_fragments.push_back({trav_coverage, interval_length, run_reverse,
-                                                     &trav_names[trav_idx], trav_idx, run});
-                }
-                run_start = run_end;
-            }
-        }
-    }
-
-    // put the fragments into a max heap
-    std::make_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
-
-    // now greedily pull out traversal intervals from the ranked list until none are left
-    while (!ranked_trav_fragments.empty()) {
-
-        // get the best scoring (max) fragment from heap
-        auto best_stats_fragment = ranked_trav_fragments.front();
-        std::pop_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
-        ranked_trav_fragments.pop_back();
-
-        const vector<step_handle_t>& trav = travs.at(best_stats_fragment.trav_idx);
-        const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.fragment;
-
-#ifdef debug
-#pragma omp critical(cerr)
-        {
-        cerr << "best trav: ";
-        for (auto xx : trav) cerr << " " << graph->get_id(graph->get_handle_of_step(xx));
-        cerr << endl << "uncovered interval [" << uncovered_interval.first << "," << uncovered_interval.second << "]" <<endl;
-        }
-#endif
-
-        // our traversal may have been partially covered by a different iteration, if so, we need to break it up
-        // and continue
-        vector<pair<int64_t, int64_t>> chopped_intervals;
-        int64_t cur_start = -1;
-        bool chopped = false;
-        for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
-            nid_t node_id = graph->get_id(graph->get_handle_of_step(trav[i]));
-            bool covered = this->node_to_interval.count(node_id) || thread_node_to_interval.count(node_id);
-            if (!covered && cur_start == -1) {
-                cur_start = i;
-            } else if (covered) {
-                chopped = true;
-                if (cur_start != -1) {
-                    chopped_intervals.push_back(make_pair(cur_start, i));
-                    cur_start = -1;
-                }
-            }
-        }
-        if (cur_start != -1) {
-            chopped_intervals.push_back(make_pair(cur_start, uncovered_interval.second));
-        }
-        if (chopped) {
-            for (const pair<int64_t, int64_t>& chopped_interval : chopped_intervals) {
-                int64_t chopped_trav_length = 0;
-                for (int64_t i = chopped_interval.first; i < chopped_interval.second; ++i) {
-                    chopped_trav_length += graph->get_length(graph->get_handle_of_step(trav[i]));
-                }
-                // candidates are single-orientation by construction, so a piece chopped
-                // out of one has its parent's orientation
-                if (chopped_trav_length >= minimum_length) {
-                    int64_t trav_coverage = rank_by_name ? 0 : get_coverage(trav, chopped_interval);
-                    ranked_trav_fragments.push_back({trav_coverage, chopped_trav_length,
-                                                     best_stats_fragment.reverse, best_stats_fragment.name,
-                                                     best_stats_fragment.trav_idx, chopped_interval});
-                    std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
-                }
-            }
-            continue;
-        }
-        pair<step_handle_t, step_handle_t> new_interval = make_pair(trav.at(uncovered_interval.first),
-                                                                    graph->get_next_step(trav.at(uncovered_interval.second - 1)));
-#ifdef debug
-        int64_t interval_length = uncovered_interval.second - uncovered_interval.first;
-#pragma omp critical(cerr)
-        cerr << "adding interval with length " << interval_length << endl;
-#endif
-        add_interval(thread_gref_intervals, thread_node_to_interval, new_interval, false,
-                     &thread_snarl_bounds, {top_snarl_start, top_snarl_end});
+    for (step_handle_t step = new_interval.first; step != new_interval.second;
+         step = graph->get_next_step(step)) {
+        thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = interval_idx;
     }
 }
 
-vector<pair<int64_t, int64_t>> GrefCover::get_uncovered_intervals(const vector<step_handle_t>& trav,
-                                                                      const unordered_map<nid_t, int64_t>& thread_node_to_interval) {
-
-    vector<pair<int64_t, int64_t>> intervals;
-    int64_t start = -1;
-    unordered_set<nid_t> dupe_check;
-    for (size_t i = 0; i < trav.size(); ++i) {
-        nid_t node_id = graph->get_id(graph->get_handle_of_step(trav[i]));
-        bool covered = this->node_to_interval.count(node_id) || thread_node_to_interval.count(node_id);
-        // we break at dupes even if uncovered -- never want same id twice in an interval
-        bool dupe = !covered && dupe_check.count(node_id);
-        dupe_check.insert(node_id);
-        if (covered || dupe) {
-            if (start != -1) {
-                intervals.push_back(make_pair(start, i));
-            }
-            start = dupe ? i : -1;
-        } else {
-            if (start == -1) {
-                start = i;
-            }
-        }
-    }
-    if (start != -1) {
-        intervals.push_back(make_pair(start, trav.size()));
-    }
-    return intervals;
-}
-
-optional<step_handle_t> GrefCover::try_extend_forward(step_handle_t start_step, path_handle_t path,
-                                                         const pair<step_handle_t, step_handle_t>& other_interval) {
-    step_handle_t path_end = graph->path_end(path);
-    step_handle_t cur = start_step;
-    for (step_handle_t other_step = other_interval.first; other_step != other_interval.second;
-         other_step = graph->get_next_step(other_step)) {
-        if (cur == path_end) {
-            return nullopt;
-        }
-        handle_t cur_handle = graph->get_handle_of_step(cur);
-        handle_t other_handle = graph->get_handle_of_step(other_step);
-        if (graph->get_id(cur_handle) != graph->get_id(other_handle) ||
-            graph->get_is_reverse(cur_handle) != graph->get_is_reverse(other_handle)) {
-            return nullopt;
-        }
-        cur = graph->get_next_step(cur);
-    }
-    return cur; // new end step (one past last matching)
-}
-
-optional<step_handle_t> GrefCover::try_extend_backward(step_handle_t start_step, path_handle_t path,
-                                                          const pair<step_handle_t, step_handle_t>& other_interval) {
-    if (other_interval.first == other_interval.second) {
-        return nullopt;
-    }
-    // Walk both sides backward in lockstep so a mismatch costs only the steps
-    // actually compared.  Materializing other_interval up front would cost
-    // O(|other_interval|) even when the very first comparison fails, and the
-    // neighbour here can be a whole chromosome-length path.
-    path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
-    // The interval end is exclusive, and path_end can't be decremented in every
-    // implementation, so take the last step from the path when we're there.
-    step_handle_t other_step = other_interval.second == graph->path_end(other_path) ?
-        graph->path_back(other_path) : graph->get_previous_step(other_interval.second);
-
-    // Walk backward from start_step on path, comparing in reverse order
-    step_handle_t path_front_end = graph->path_front_end(path);
-    step_handle_t cur = start_step;
-    while (true) {
-        if (cur == path_front_end) {
-            return nullopt;
-        }
-        handle_t cur_handle = graph->get_handle_of_step(cur);
-        handle_t other_handle = graph->get_handle_of_step(other_step);
-        if (graph->get_id(cur_handle) != graph->get_id(other_handle) ||
-            graph->get_is_reverse(cur_handle) != graph->get_is_reverse(other_handle)) {
-            return nullopt;
-        }
-        cur = graph->get_previous_step(cur);
-        if (other_step == other_interval.first) {
-            break;
-        }
-        other_step = graph->get_previous_step(other_step);
-    }
-    // Return the step of the first matching node (one forward from where we stopped)
-    // If cur is path_front_end (walked back to before the first step), return path_begin
-    // directly since get_next_step is not valid on the path_front_end sentinel in bdsg.
-    if (cur == path_front_end) {
-        return graph->path_begin(path);
-    }
-    return graph->get_next_step(cur);
-}
-
-bool GrefCover::merge_would_duplicate_node(const pair<step_handle_t, step_handle_t>& interval_a,
-                                              const pair<step_handle_t, step_handle_t>& interval_b) const {
-    // Walk the combined range [interval_a.first, interval_b.second) and check for
-    // any node ID appearing twice.  This correctly handles both exact adjacency
-    // and 1-node overlap (global merges where intervals share a boundary node),
-    // since the shared node is visited only once in the walk.
-    unordered_set<nid_t> seen;
-    for (step_handle_t step = interval_a.first; step != interval_b.second; step = graph->get_next_step(step)) {
-        if (!seen.insert(graph->get_id(graph->get_handle_of_step(step))).second) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool GrefCover::extension_would_duplicate_node(const unordered_map<nid_t, int64_t>& nti,
-                                                  int64_t target_interval_idx,
-                                                  step_handle_t ext_start, step_handle_t ext_end) const {
-    // Walk only the new/extension steps and check if any node already belongs
-    // to the interval being merged into.  O(extension_length) instead of
-    // O(combined_length), which is critical when intervals grow through merging.
-    for (step_handle_t step = ext_start; step != ext_end; step = graph->get_next_step(step)) {
-        nid_t nid = graph->get_id(graph->get_handle_of_step(step));
-        auto it = nti.find(nid);
-        if (it != nti.end() && it->second == target_interval_idx) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool GrefCover::would_duplicate_node(bool global,
-                                        const unordered_map<nid_t, int64_t>& nti,
-                                        int64_t target_idx,
-                                        step_handle_t ext_start, step_handle_t ext_end,
-                                        const pair<step_handle_t, step_handle_t>& interval_a,
-                                        const pair<step_handle_t, step_handle_t>& interval_b) const {
-    if (global) {
-        return extension_would_duplicate_node(nti, target_idx, ext_start, ext_end);
-    } else {
-        return merge_would_duplicate_node(interval_a, interval_b);
-    }
-}
-
-bool GrefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals,
-                                 unordered_map<nid_t, int64_t>& thread_node_to_interval,
-                                 const pair<step_handle_t, step_handle_t>& new_interval,
-                                 bool global,
-                                 vector<pair<nid_t, nid_t>>* snarl_bounds_vec,
-                                 pair<nid_t, nid_t> snarl_bounds) {
-
-#ifdef debug
-#pragma omp critical(cerr)
-    cerr << "adding interval " << graph->get_path_name(graph->get_path_handle_of_step(new_interval.first))
-         << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.first)) ? "<" : ">")
-         << ":" << graph->get_id(graph->get_handle_of_step(new_interval.first));
-    if (new_interval.second == graph->path_end(graph->get_path_handle_of_step(new_interval.first))) {
-        cerr << "PATH_END" << endl;
-    }  else {
-        cerr << "-" << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.second)) ? "<" : ">")
-             << graph->get_id(graph->get_handle_of_step(new_interval.second)) << endl;
-    }
-#endif
-    bool merged = false;
-    int64_t merged_interval_idx = -1;
-    path_handle_t path_handle = graph->get_path_handle_of_step(new_interval.first);
-    // Index of a single decommissioned interval (three-way same-path merge only).
-    int64_t decom_idx = -1;
-    step_handle_t decom_saved_first, decom_saved_second;
-
-    // --- Left neighbor merge ---
-    // If the node immediately before new_interval belongs to an existing interval
-    // on the same path, try to merge.
-    step_handle_t before_first_step = graph->get_previous_step(new_interval.first);
-    if (before_first_step != graph->path_front_end(graph->get_path_handle_of_step(before_first_step))) {
-        nid_t prev_node_id = graph->get_id(graph->get_handle_of_step(before_first_step));
-        if (thread_node_to_interval.count(prev_node_id)) {
-            int64_t prev_idx = thread_node_to_interval[prev_node_id];
-            pair<step_handle_t, step_handle_t>& prev_interval = thread_gref_intervals[prev_idx];
-            if (graph->get_path_handle_of_step(prev_interval.first) == path_handle) {
-                // Same-path left merge: only merge if orientations are consistent
-                bool orientations_match = graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ==
-                                          graph->get_is_reverse(graph->get_handle_of_step(new_interval.first));
-                if (orientations_match &&
-                    (prev_interval.second == new_interval.first ||
-                    (global && graph->get_previous_step(prev_interval.second) == new_interval.first))) {
-                    // Check for duplicate nodes before merging.
-                    // Shared boundary (overlap_by_one) is the FIRST step of new_interval.
-                    bool overlap_by_one = prev_interval.second != new_interval.first;
-                    step_handle_t walk_start = overlap_by_one ? graph->get_next_step(new_interval.first)
-                                                              : new_interval.first;
-                    if (!would_duplicate_node(global, thread_node_to_interval, prev_idx,
-                                              walk_start, new_interval.second,
-                                              prev_interval, new_interval)) {
-#ifdef debug
-#pragma omp critical(cerr)
-                        cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
-                             << ":" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ? "<" : ">")
-                             << graph->get_id(graph->get_handle_of_step(prev_interval.first));
-                        if (prev_interval.second == graph->path_end(graph->get_path_handle_of_step(prev_interval.first))) {
-                            cerr << "PATH_END" << endl;
-                        } else {
-                             cerr << "-" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.second)) ? "<" : ">")
-                                  << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
-                        }
-#endif
-                        prev_interval.second = new_interval.second;
-                        merged = true;
-                        merged_interval_idx = prev_idx;
-                    }
-                }
-            }
-        }
-    }
-
-    // --- Right neighbor merge ---
-    // If the node at new_interval's end belongs to an existing interval
-    // on the same path, try to merge.
-    if (new_interval.second != graph->path_end(graph->get_path_handle_of_step(new_interval.second))) {
-        nid_t next_node_id = graph->get_id(graph->get_handle_of_step(new_interval.second));
-        if (thread_node_to_interval.count(next_node_id)) {
-            int64_t next_idx = thread_node_to_interval[next_node_id];
-            pair<step_handle_t, step_handle_t>& next_interval = thread_gref_intervals[next_idx];
-            path_handle_t next_path = graph->get_path_handle_of_step(next_interval.first);
-            if (graph->get_path_handle_of_step(next_interval.first) == path_handle) {
-                // Same-path right merge: only merge if orientations are consistent
-                bool orientations_match = graph->get_is_reverse(graph->get_handle_of_step(new_interval.first)) ==
-                                          graph->get_is_reverse(graph->get_handle_of_step(next_interval.first));
-                if (orientations_match &&
-                    (next_interval.first == new_interval.second ||
-                    (global && next_interval.first == graph->get_previous_step(new_interval.second)))) {
-                    // Check for duplicate nodes before merging: use the already-merged
-                    // interval for the both-sided case, or new_interval for right-only.
-                    // The shared boundary (right_overlap) sits at different ends of the
-                    // two possible walks, so each branch trims it from its own side.
-                    bool right_overlap = next_interval.first != new_interval.second;
-                    bool no_dup;
-                    if (merged) {
-                        // Walk next_interval against the merged left interval.
-                        // Shared boundary is the FIRST step of next_interval.
-                        step_handle_t walk_start = right_overlap ? graph->get_next_step(next_interval.first)
-                                                                 : next_interval.first;
-                        no_dup = !would_duplicate_node(global, thread_node_to_interval, merged_interval_idx,
-                                                       walk_start, next_interval.second,
-                                                       thread_gref_intervals[merged_interval_idx], next_interval);
-                    } else {
-                        // Walk new_interval against next_interval.
-                        // Shared boundary is the LAST step of new_interval.
-                        step_handle_t walk_end = right_overlap ? graph->get_previous_step(new_interval.second)
-                                                               : new_interval.second;
-                        no_dup = !would_duplicate_node(global, thread_node_to_interval, next_idx,
-                                                       new_interval.first, walk_end,
-                                                       new_interval, next_interval);
-                    }
-                    if (no_dup) {
-#ifdef debug
-#pragma omp critical(cerr)
-                        cerr << "next interval found" << graph->get_path_name(graph->get_path_handle_of_step(next_interval.first))
-                             << ":" << graph->get_id(graph->get_handle_of_step(next_interval.first));
-                        if (next_interval.second == graph->path_end(graph->get_path_handle_of_step(next_interval.second))) {
-                            cerr << "PATH_END" << endl;
-                        } else {
-                            cerr << "-" << graph->get_id(graph->get_handle_of_step(next_interval.second)) << endl;
-                        }
-#endif
-                        if (merged == true) {
-                            // Three-way merge: decommission next_interval
-                            decom_idx = next_idx;
-                            decom_saved_first = next_interval.first;
-                            decom_saved_second = next_interval.second;
-                            next_interval.first = graph->path_end(next_path);
-                            next_interval.second = graph->path_front_end(next_path);
-                            if (snarl_bounds_vec) {
-                                (*snarl_bounds_vec)[next_idx] = {0, 0};
-                            }
-                            // extend the merged interval right to cover new_interval + decommissioned next_interval
-                            thread_gref_intervals[merged_interval_idx].second = decom_saved_second;
-                        } else {
-                            // extend next_interval left
-                            next_interval.first = new_interval.first;
-                            merged = true;
-                            merged_interval_idx = next_idx;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // --- Commit: apply the merge result ---
-    if (!merged) {
-        merged_interval_idx = thread_gref_intervals.size();
-        thread_gref_intervals.push_back(new_interval);
-        if (snarl_bounds_vec) {
-            snarl_bounds_vec->push_back(snarl_bounds);
-        }
-    }
-    for (step_handle_t step = new_interval.first; step != new_interval.second; step = graph->get_next_step(step)) {
-        thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
-    }
-    // Remap nodes from the decommissioned interval (three-way merge) to the merged interval.
-    if (decom_idx >= 0) {
-        for (step_handle_t step = decom_saved_first; step != decom_saved_second; step = graph->get_next_step(step)) {
-            thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
-        }
-    }
-    return !merged;
-}
-
-void GrefCover::try_cross_path_merge(step_handle_t ref_step) {
-    // Find which interval owns the node at ref_step.
-    nid_t ref_nid = graph->get_id(graph->get_handle_of_step(ref_step));
-    auto it = this->node_to_interval.find(ref_nid);
-    if (it == this->node_to_interval.end()) {
-        return;
-    }
-    int64_t my_idx = it->second;
-    // The rank-0 reference intervals are fixed points of the cover: they must never
-    // be extended onto off-reference nodes, nor decommissioned.  Keeping them out of
-    // the merging also preserves the invariant that gref_intervals[0, num_ref_intervals)
-    // are the reference paths, which defragment_intervals() relies on to stay in step
-    // with num_ref_intervals.
-    if (my_idx < this->num_ref_intervals) {
-        return;
-    }
-    pair<step_handle_t, step_handle_t>& my_interval = this->gref_intervals[my_idx];
-    path_handle_t my_path = graph->get_path_handle_of_step(my_interval.first);
-
-    // Check if interval is already decommissioned.
-    if (my_interval.first == graph->path_end(my_path)) {
-        return;
-    }
-
-    // A neighbour is a merge candidate only if it's a non-reference interval on a
-    // different path running in the same orientation.  Both extensions copy the
-    // *other* interval's step orientations, so merging across an orientation flip
-    // would build a mixed-orientation interval, which apply() and
-    // write_gref_segments() then silently skip -- dropping sequence that
-    // node_to_interval still counts as covered.  add_interval() makes the same
-    // check for its same-path merges.
-    auto is_merge_candidate = [&](int64_t other_idx) {
-        if (other_idx < this->num_ref_intervals) {
-            return false;
-        }
-        const pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
-        if (graph->get_path_handle_of_step(other_interval.first) == my_path) {
-            // Same-path merging is add_interval()'s job.
-            return false;
-        }
-        return graph->get_is_reverse(graph->get_handle_of_step(my_interval.first)) ==
-               graph->get_is_reverse(graph->get_handle_of_step(other_interval.first));
-    };
-
-    // Helper: decommission an interval (set to sentinels, clear snarl bounds).
-    auto decommission = [&](int64_t idx) {
-        pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[idx];
-        path_handle_t path = graph->get_path_handle_of_step(interval.first);
-        interval.first = graph->path_end(path);
-        interval.second = graph->path_front_end(path);
-        this->interval_snarl_bounds[idx] = {0, 0};
-    };
-
-    // Helper: remap nodes in [start, end) to point to target_idx in node_to_interval.
-    auto remap_nodes = [&](step_handle_t start, step_handle_t end, int64_t target_idx) {
-        for (step_handle_t s = start; s != end; s = graph->get_next_step(s)) {
-            this->node_to_interval[graph->get_id(graph->get_handle_of_step(s))] = target_idx;
-        }
-    };
-
-    // --- Left boundary cross-path merge ---
-    // Find the node before the interval's first step.
-    step_handle_t before_first = graph->get_previous_step(my_interval.first);
-    if (before_first != graph->path_front_end(graph->get_path_handle_of_step(before_first))) {
-        nid_t prev_nid = graph->get_id(graph->get_handle_of_step(before_first));
-        auto prev_it = this->node_to_interval.find(prev_nid);
-        if (prev_it != this->node_to_interval.end()) {
-            int64_t other_idx = prev_it->second;
-            if (is_merge_candidate(other_idx)) {
-                pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
-                path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
-                // Boundary check: verify the junction node is the last node of other_interval.
-                step_handle_t other_last = graph->get_previous_step(other_interval.second);
-                if (graph->get_id(graph->get_handle_of_step(other_last)) == prev_nid) {
-                    // Try 1: extend other_interval forward on its path to cover my_interval's nodes.
-                    auto ext_fwd = try_extend_forward(other_interval.second, other_path, my_interval);
-                    if (ext_fwd &&
-                        !extension_would_duplicate_node(this->node_to_interval, other_idx,
-                                                        other_interval.second, *ext_fwd)) {
-                        step_handle_t saved_second = other_interval.second;
-                        other_interval.second = *ext_fwd;
-                        // Remap the newly extended steps to other_idx.
-                        remap_nodes(saved_second, *ext_fwd, other_idx);
-                        // Decommission my_interval — it has been absorbed.
-                        decommission(my_idx);
-                        // The target interval is dead; return immediately.
-                        return;
-                    } else if (!ext_fwd) {
-                        // Try 2: extend my_interval backward on its path to absorb other_interval.
-                        auto ext_bwd = try_extend_backward(before_first, my_path, other_interval);
-                        if (ext_bwd &&
-                            !merge_would_duplicate_node({*ext_bwd, my_interval.first}, my_interval)) {
-                            step_handle_t saved_first = my_interval.first;
-                            my_interval.first = *ext_bwd;
-                            // Remap the newly extended steps to my_idx.
-                            remap_nodes(*ext_bwd, saved_first, my_idx);
-                            // Decommission other_interval.
-                            decommission(other_idx);
-                            // Also remap other_interval's old nodes to my_idx.
-                            // (They share node IDs with the extension, so this is
-                            // usually redundant, but necessary if the maps differ.)
-                            remap_nodes(*ext_bwd, saved_first, my_idx);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Re-check: my_interval may have been decommissioned by left try-1 (handled above with early return),
-    // but we also need to re-fetch in case left try-2 modified it.
-    // (Left try-1 returns early, so if we're here, my_interval is still alive.)
-
-    // --- Right boundary cross-path merge ---
-    // Find the node at the interval's end step.
-    if (my_interval.second != graph->path_end(my_path)) {
-        nid_t next_nid = graph->get_id(graph->get_handle_of_step(my_interval.second));
-        auto next_it = this->node_to_interval.find(next_nid);
-        if (next_it != this->node_to_interval.end()) {
-            int64_t other_idx = next_it->second;
-            if (is_merge_candidate(other_idx)) {
-                pair<step_handle_t, step_handle_t>& other_interval = this->gref_intervals[other_idx];
-                path_handle_t other_path = graph->get_path_handle_of_step(other_interval.first);
-                // Boundary check: verify next_nid is the first node of other_interval.
-                if (graph->get_id(graph->get_handle_of_step(other_interval.first)) == next_nid) {
-                    // Try 1: extend other_interval backward on its path to cover my_interval's nodes.
-                    step_handle_t other_pred = graph->get_previous_step(other_interval.first);
-                    auto ext_bwd = try_extend_backward(other_pred, other_path, my_interval);
-                    if (ext_bwd &&
-                        !extension_would_duplicate_node(this->node_to_interval, other_idx,
-                                                        *ext_bwd, other_interval.first)) {
-                        step_handle_t saved_first = other_interval.first;
-                        other_interval.first = *ext_bwd;
-                        // Remap the newly extended steps to other_idx.
-                        remap_nodes(*ext_bwd, saved_first, other_idx);
-                        // Decommission my_interval — it has been absorbed.
-                        decommission(my_idx);
-                        return;
-                    } else if (!ext_bwd) {
-                        // Try 2: extend my_interval forward on its path to absorb other_interval.
-                        auto ext_fwd = try_extend_forward(my_interval.second, my_path, other_interval);
-                        if (ext_fwd &&
-                            !merge_would_duplicate_node(my_interval, {my_interval.second, *ext_fwd})) {
-                            step_handle_t saved_second = my_interval.second;
-                            my_interval.second = *ext_fwd;
-                            // Remap the newly extended steps to my_idx.
-                            remap_nodes(saved_second, *ext_fwd, my_idx);
-                            // Decommission other_interval.
-                            decommission(other_idx);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 void GrefCover::defragment_intervals() {
     vector<pair<step_handle_t, step_handle_t>> new_intervals;
@@ -1405,23 +673,6 @@ void GrefCover::filter_short_intervals(int64_t minimum_length) {
     defragment_intervals();
 }
 
-int64_t GrefCover::get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval) {
-    int64_t coverage = 0;
-
-    for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
-        const step_handle_t& step = trav[i];
-        handle_t handle = graph->get_handle_of_step(step);
-        int64_t step_count = 0;
-        graph->for_each_step_on_handle(handle, [&](step_handle_t) {
-            ++step_count;
-            return true;
-        });
-        int64_t length = graph->get_length(handle);
-        coverage += length * step_count;
-    }
-
-    return coverage;
-}
 
 
 string GrefCover::resolve_base_path_name(int64_t interval_index,
