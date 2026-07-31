@@ -126,11 +126,6 @@ public:
         int64_t spine_nodes = 0;             // node children of top-level chains
         int64_t unexpected_chain_children = 0;  // neither snarl nor node: should be 0
 
-        // Reference-anchoring conditions
-        int64_t unanchored_snarls = 0;       // top-level snarls with a non-reference bound
-        int64_t non_reference_spine_nodes = 0;
-        int64_t non_reference_spine_bp = 0;
-
         // Where the fragments landed
         int64_t fragments = 0;
         int64_t fragments_in_one_snarl = 0;     // wholly inside a single top-level snarl

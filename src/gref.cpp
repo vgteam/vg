@@ -1111,10 +1111,6 @@ void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance
         auto found = this->node_to_interval.find(node_id);
         return found == this->node_to_interval.end() ? (int64_t)-1 : found->second;
     };
-    auto is_reference_node = [&](nid_t node_id) {
-        int64_t idx = interval_of(node_id);
-        return idx >= 0 && idx < this->num_ref_intervals;
-    };
     auto is_fragment_node = [&](nid_t node_id) {
         return interval_of(node_id) >= this->num_ref_intervals;
     };
@@ -1153,23 +1149,17 @@ void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance
             // The bounds are sentinels belonging to the parent chain, so they are spine
             // nodes: node_id() is valid on them even though is_node() is not.  That is what
             // makes "anchored" mean "both bounds are pre-assigned reference nodes", and
-            // therefore uncrossable by any fragment.
+            // therefore uncrossable by any fragment.  Whether they are is checked and
+            // reported by enforce_top_level_anchoring(), before the cover is built.
             nid_t start_id = distance_index.node_id(distance_index.get_bound(child, false, true));
             nid_t end_id = distance_index.node_id(distance_index.get_bound(child, true, false));
             int64_t unit = (int64_t)snarl_bounds.size();
             snarl_bounds.push_back({start_id, end_id});
             ++stats.top_level_snarls;
-            if (!is_reference_node(start_id) || !is_reference_node(end_id)) {
-                ++stats.unanchored_snarls;
-            }
             claim(child, unit);
         } else if (distance_index.is_node(child)) {
             nid_t node_id = distance_index.node_id(child);
             ++stats.spine_nodes;
-            if (!is_reference_node(node_id)) {
-                ++stats.non_reference_spine_nodes;
-                stats.non_reference_spine_bp += graph->get_length(graph->get_handle(node_id));
-            }
             if (is_fragment_node(node_id)) {
                 place(node_id, next_spine_unit);
             }
