@@ -864,6 +864,12 @@ SubchainGroup chain_items_traceback(const vector<TracedScore>& chain_scores,
     
     for (auto& trace_from : starts_in_score_order) {
         if (item_is_used[trace_from]) {
+            for (const auto& alt : chain_scores[trace_from].alt_sources) {
+                if (item_is_used[alt]) {
+                    // Save this extra edge between chains
+                    output.connections.emplace_back(alt, trace_from);
+                }
+            }
             continue;
         }
         // Will we have to run a score recalcuation for this traceback?
@@ -926,8 +932,6 @@ SubchainGroup chain_items_traceback(const vector<TracedScore>& chain_scores,
                                 // We're going with this alternative predecessor
                                 found_alt = true;
                                 recalc_required = true;
-                                // It counts as an extra edge
-                                output.connections.emplace_back(alt, next);
                                 next = alt;
                                 cur_anchors.push_back(alt);
                                 break;
