@@ -1,4 +1,5 @@
 #include "gref.hpp"
+#include "path.hpp"
 #include <cassert>
 #include <sstream>
 #include <algorithm>

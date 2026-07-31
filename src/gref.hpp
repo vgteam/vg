@@ -22,18 +22,14 @@
  * a graph carries both references at once, "is this a gref path/sample" is a prefix
  * test, and the base path a gref path came from is recoverable by dropping the prefix.
  *
- * The data structures used in this class are always relative to the original paths
- * in the graph. The REFERENCE-sense fragments that are used to serialize the
- * cover can be created and loaded, but they are not used beyond that.
+ * The data structures used in this class are always relative to the original paths in the
+ * graph.  The REFERENCE-sense fragments the cover is written as are output only; nothing
+ * reads them back.
  */
-
-#include <optional>
 
 #include <bdsg/snarl_distance_index.hpp>
 
 #include "handle.hpp"
-#include "snarls.hpp"
-#include "traversal_finder.hpp"
 
 namespace vg {
 
