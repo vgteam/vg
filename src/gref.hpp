@@ -227,6 +227,24 @@ protected:
     // "first" toggles returning the first interval found vs all of them.
     vector<pair<int64_t, nid_t>> get_reference_nodes(nid_t node_id, bool first) const;
 
+    // Resolve the gref base path name a fragment interval gets named after: the reference
+    // path it traces back to, or its own source path when there is no reference in its
+    // component.
+    //
+    // apply() and write_gref_segments() must agree here.  Both number fragments by
+    // incrementing a per-base-name counter over the same interval sequence, and
+    // write_gref_segments() runs first, so it cannot read the names apply() picks -- it has
+    // to predict them.  A single disagreement does not just mislabel one row: it renumbers
+    // every later fragment on both of the names involved.  So the prediction is not a
+    // reimplementation, it is this same call.
+    //
+    // When the interval traces back to a reference, *out_ref_path and *out_ref_node are set
+    // to the reference path and the reference node the trace landed on.  When it does not,
+    // both are left untouched, so initialise out_ref_node to 0 to detect that case.
+    string resolve_base_path_name(int64_t interval_index,
+                                  path_handle_t* out_ref_path = nullptr,
+                                  nid_t* out_ref_node = nullptr) const;
+
     // Debug function: verify that every node in the graph is covered by the gref cover.
     // Prints a summary of coverage statistics to stderr.
     void verify_cover(int64_t minimum_length) const;

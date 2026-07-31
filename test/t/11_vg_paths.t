@@ -365,9 +365,11 @@ vg validate reject_test.vg
 is $? 0 "cross-path merge reject: gref computation produces valid graph"
 
 is $(vg paths -x reject_test.vg -L | grep -c "_alt$") 2 "diverging paths are covered by whole runs, not spliced together"
-# The real invariant: every fragment is a contiguous walk of one source path.  5,3,9 is
-# a#3#y2 exactly; a fragment containing both 2 and 5 would be the splice this guards against.
-is $(vg convert -f reject_test.vg 2>/dev/null | grep -E "^[PW]" | grep "_alt" | grep -c "2+.*5+\|5+.*2+") 0 "no fragment splices the two divergent routes together"
+# The real invariant: every fragment is a contiguous walk of one source path.  5+,3+,9+ is
+# a#3#y2's own walk and 2+ is a#1#y0's remainder; a fragment holding both 2 and 5 would be
+# the splice this guards against.  Pin the walks exactly -- a count of splices would pass
+# vacuously if the fragments ever stopped being emitted at all.
+is "$(vg convert -f reject_test.vg 2>/dev/null | grep "^P" | grep "_alt" | cut -f3 | sort | tr '\n' ' ')" "2+ 5+,3+,9+ " "each fragment is one contiguous walk of a single source path"
 
 is "$(vg paths -x reject_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "20" "refusing the merge still covers every off-reference node"
 

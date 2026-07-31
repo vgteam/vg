@@ -163,10 +163,11 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // runs of uncovered nodes along each source path, unbounded by snarls.  Letting it do the
     // whole cover produces long fragments by construction rather than by successful merging.
     //
-    // Cost: interval_snarl_bounds stays {0,0} throughout, so --gref-segs columns 5-7 fall back
-    // to the get_reference_nodes() BFS, which reports the nearest single reference node rather
-    // than an enclosing snarl interval.  Consumers of those columns need a flanking-anchor
-    // computation before this is shippable.
+    // Cost: interval_snarl_bounds stays {0,0} throughout, so --gref-segs columns 5-7 can no
+    // longer report the enclosing snarl.  write_gref_segments() derives the reference window
+    // from the source path's own reference anchors instead -- see the anchor branch there.
+    // That window is an approximation of the snarl interval, not the same thing: where a
+    // haplotype leaves the reference and rejoins it far away, it can be much wider.
     const bool use_snarl_candidates = false;
     if (use_snarl_candidates) snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output (intervals and snarl bounds accumulate across snarls)
@@ -601,24 +602,9 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
             continue;
         }
 
-        // Find the reference path this gref path extends from by tracing back to reference
-        nid_t first_node = graph->get_id(graph->get_handle_of_step(gref_intervals[i].first));
-        vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
-
-        // Get the reference path name from the reference node
-        string base_path_name;
-        if (!ref_nodes.empty()) {
-            nid_t ref_node_id = ref_nodes.at(0).second;
-            int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
-            path_handle_t ref_path_handle = graph->get_path_handle_of_step(gref_intervals[ref_interval_idx].first);
-            base_path_name = make_gref_base_name(graph->get_path_name(ref_path_handle));
-        } else {
-            // Nothing to trace back to: this fragment is in a component with no reference
-            // path in it, which get_reference_nodes() notes is expected after clipping.
-            // Name it after the path it was taken from instead.
-            path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(gref_intervals[i].first);
-            base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
-        }
+        // Find the reference path this gref path extends from.  write_gref_segments() has
+        // already predicted this name using the same call; see resolve_base_path_name().
+        string base_path_name = this->resolve_base_path_name(i);
 
         // Check if this interval is all-reverse (needs to be flipped when writing)
         bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(gref_intervals[i].first));
@@ -1404,6 +1390,36 @@ int64_t GrefCover::get_coverage(const vector<step_handle_t>& trav, const pair<in
 }
 
 
+string GrefCover::resolve_base_path_name(int64_t interval_index,
+                                         path_handle_t* out_ref_path,
+                                         nid_t* out_ref_node) const {
+    // Trace back to the nearest reference node and name the fragment after the reference
+    // path that node sits on.
+    nid_t first_node = graph->get_id(graph->get_handle_of_step(this->gref_intervals[interval_index].first));
+    vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
+
+    if (!ref_nodes.empty()) {
+        nid_t ref_node_id = ref_nodes.at(0).second;
+        int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
+        path_handle_t ref_path_handle =
+            graph->get_path_handle_of_step(this->gref_intervals[ref_interval_idx].first);
+        if (out_ref_path != nullptr) {
+            *out_ref_path = ref_path_handle;
+        }
+        if (out_ref_node != nullptr) {
+            *out_ref_node = ref_node_id;
+        }
+        return make_gref_base_name(graph->get_path_name(ref_path_handle));
+    }
+
+    // Nothing to trace back to: this fragment is in a component with no reference path in
+    // it, which get_reference_nodes() notes is expected after clipping.  Name it after the
+    // path it was taken from instead, and leave the out-parameters alone.
+    path_handle_t source_path_handle =
+        graph->get_path_handle_of_step(this->gref_intervals[interval_index].first);
+    return make_gref_base_name(graph->get_path_name(source_path_handle));
+}
+
 vector<pair<int64_t, nid_t>> GrefCover::get_reference_nodes(nid_t node_id, bool first) const {
 
     // search back to reference in order to find the rank.
@@ -1667,97 +1683,81 @@ void GrefCover::write_gref_segments(ostream& os) {
         int64_t source_start = step_offset_cache.at(interval.first);
         int64_t source_end = step_offset_cache.at(interval.second);
 
-        // Find reference coordinates using snarl bounds or fallback to BFS
-        string base_path_name;
+        // Name the fragment with the same call apply() will use, so the two agree by
+        // construction rather than by two implementations happening to match.  Only the
+        // reference *window* below varies with what information is available; the contig it
+        // is measured on is always the one named in the gref path name.
         string ref_path_name = ".";
         int64_t ref_start = 0;
         int64_t ref_end = 0;
+        path_handle_t ref_path_handle;
+        nid_t traced_ref_node = 0;
+        string base_path_name = this->resolve_base_path_name(i, &ref_path_handle, &traced_ref_node);
 
-        const pair<nid_t, nid_t>& snarl_bounds = this->interval_snarl_bounds[i];
-
-        if (snarl_bounds.first != 0 && snarl_bounds.second != 0 &&
-            ref_node_positions.count(snarl_bounds.first) && ref_node_positions.count(snarl_bounds.second)) {
-            // Use snarl boundary nodes for reference coordinates
-            auto& left_pos = ref_node_positions[snarl_bounds.first];
-            auto& right_pos = ref_node_positions[snarl_bounds.second];
-
-            // Both boundary nodes should be on the same reference path
-            path_handle_t ref_path_handle = left_pos.first;
+        if (traced_ref_node != 0) {
             ref_path_name = graph->get_path_name(ref_path_handle);
 
-            int64_t left_node_len = graph->get_length(graph->get_handle(snarl_bounds.first));
-            int64_t right_node_len = graph->get_length(graph->get_handle(snarl_bounds.second));
+            // Narrowest honest window: the single reference node the trace landed on.  The
+            // two branches below widen it when they can.
+            ref_start = ref_node_positions[traced_ref_node].second;
+            ref_end = ref_start + graph->get_length(graph->get_handle(traced_ref_node));
 
-            int64_t left_start = left_pos.second;
-            int64_t left_end = left_start + left_node_len;
-            int64_t right_start = right_pos.second;
-            int64_t right_end = right_start + right_node_len;
+            const pair<nid_t, nid_t>& snarl_bounds = this->interval_snarl_bounds[i];
 
-            ref_start = min(left_start, right_start);
-            ref_end = max(left_end, right_end);
+            if (snarl_bounds.first != 0 && snarl_bounds.second != 0 &&
+                ref_node_positions.count(snarl_bounds.first) &&
+                ref_node_positions.count(snarl_bounds.second) &&
+                ref_node_positions[snarl_bounds.first].first == ref_path_handle &&
+                ref_node_positions[snarl_bounds.second].first == ref_path_handle) {
+                // Snarl bounds available: the bubble this fragment is an allele of.  Only
+                // set when the cover was built from snarl traversals.
+                auto& left_pos = ref_node_positions[snarl_bounds.first];
+                auto& right_pos = ref_node_positions[snarl_bounds.second];
 
-            // Get base path name from the reference path
-            base_path_name = make_gref_base_name(ref_path_name);
-        } else {
-            // No snarl bounds: take the reference window from this fragment's own source
-            // path -- the last reference node it visits before the fragment and the first
-            // after it.  Reporting only the single nearest reference node, as the BFS
-            // fallback below does, collapses the window to one node and loses the span the
-            // fragment is an alternative to.
-            const vector<pair<int64_t, nid_t>>& anchors = ref_anchors[source_path_handle];
-            auto after_start = std::lower_bound(anchors.begin(), anchors.end(),
+                int64_t left_start = left_pos.second;
+                int64_t left_end = left_start + graph->get_length(graph->get_handle(snarl_bounds.first));
+                int64_t right_start = right_pos.second;
+                int64_t right_end = right_start + graph->get_length(graph->get_handle(snarl_bounds.second));
+
+                ref_start = min(left_start, right_start);
+                ref_end = max(left_end, right_end);
+            } else {
+                // No snarl bounds: take the window from this fragment's own source path --
+                // the last place it touches this reference contig before the fragment and
+                // the first at or after it.  Anchors on any other contig are skipped: the
+                // window has to be measured on the contig named in column 4.
+                const vector<pair<int64_t, nid_t>>& anchors = ref_anchors[source_path_handle];
+                const pair<int64_t, nid_t>* left_anchor = nullptr;
+                const pair<int64_t, nid_t>* right_anchor = nullptr;
+                for (auto it = std::lower_bound(anchors.begin(), anchors.end(),
                                                 make_pair(source_start, (nid_t)0));
-            const pair<int64_t, nid_t>* left_anchor =
-                after_start == anchors.begin() ? nullptr : &*(after_start - 1);
-            auto at_or_after_end = std::lower_bound(anchors.begin(), anchors.end(),
-                                                    make_pair(source_end, (nid_t)0));
-            const pair<int64_t, nid_t>* right_anchor =
-                at_or_after_end == anchors.end() ? nullptr : &*at_or_after_end;
-
-            auto anchor_span = [&](const pair<int64_t, nid_t>* a) {
-                const auto& pos = ref_node_positions[a->second];
-                return make_pair(pos.second, pos.second + graph->get_length(graph->get_handle(a->second)));
-            };
-            if (left_anchor != nullptr &&
-                (right_anchor == nullptr ||
-                 ref_node_positions[left_anchor->second].first ==
-                 ref_node_positions[right_anchor->second].first)) {
-                path_handle_t ref_path_handle = ref_node_positions[left_anchor->second].first;
-                ref_path_name = graph->get_path_name(ref_path_handle);
-                base_path_name = make_gref_base_name(ref_path_name);
-                auto l = anchor_span(left_anchor);
-                auto r = right_anchor != nullptr ? anchor_span(right_anchor) : l;
-                ref_start = min(l.first, r.first);
-                ref_end = max(l.second, r.second);
-            } else if (right_anchor != nullptr) {
-                path_handle_t ref_path_handle = ref_node_positions[right_anchor->second].first;
-                ref_path_name = graph->get_path_name(ref_path_handle);
-                base_path_name = make_gref_base_name(ref_path_name);
-                auto r = anchor_span(right_anchor);
-                ref_start = r.first;
-                ref_end = r.second;
-            } else {
-            // The source path never touches the reference; fall back to searching the graph.
-            nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
-            vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
-
-            if (!ref_nodes.empty()) {
-                nid_t ref_node_id = ref_nodes.at(0).second;
-                int64_t ref_interval_idx = this->node_to_interval.at(ref_node_id);
-                path_handle_t ref_path_handle = graph->get_path_handle_of_step(gref_intervals[ref_interval_idx].first);
-                ref_path_name = graph->get_path_name(ref_path_handle);
-                base_path_name = make_gref_base_name(ref_path_name);
-
-                // Find the offset of ref_node_id in the reference path
-                if (ref_node_positions.count(ref_node_id)) {
-                    ref_start = ref_node_positions[ref_node_id].second;
-                    ref_end = ref_start + graph->get_length(graph->get_handle(ref_node_id));
+                     it != anchors.begin(); ) {
+                    --it;
+                    if (ref_node_positions[it->second].first == ref_path_handle) {
+                        left_anchor = &*it;
+                        break;
+                    }
                 }
-            } else {
-                // No reference to hang off: name the fragment after its source path,
-                // matching apply().
-                base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
-            }
+                for (auto it = std::lower_bound(anchors.begin(), anchors.end(),
+                                                make_pair(source_end, (nid_t)0));
+                     it != anchors.end(); ++it) {
+                    if (ref_node_positions[it->second].first == ref_path_handle) {
+                        right_anchor = &*it;
+                        break;
+                    }
+                }
+
+                auto anchor_span = [&](const pair<int64_t, nid_t>* a) {
+                    const auto& pos = ref_node_positions[a->second];
+                    return make_pair(pos.second,
+                                     pos.second + graph->get_length(graph->get_handle(a->second)));
+                };
+                if (left_anchor != nullptr || right_anchor != nullptr) {
+                    auto l = anchor_span(left_anchor != nullptr ? left_anchor : right_anchor);
+                    auto r = anchor_span(right_anchor != nullptr ? right_anchor : left_anchor);
+                    ref_start = min(l.first, r.first);
+                    ref_end = max(l.second, r.second);
+                }
             }
         }
 
