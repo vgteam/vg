@@ -577,9 +577,9 @@ int main_call(int argc, char** argv) {
         }
     };
 
-    // Process path prefixes to find ref paths
+    // Prefix given: find all paths matching it
     if (!ref_path_prefixes.empty()) {
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             // Never include alt paths in reference paths
             if (Paths::is_alt(path_name)) {
@@ -593,37 +593,49 @@ int main_call(int argc, char** argv) {
             }
         });
         if (ref_paths.empty()) {
-            logger.error() << "No REFERENCE or GENERIC paths (see vg paths -M) found matching prefix(es)\n"
+            logger.error() << "No non-alt paths found matching prefix(es) (see vg paths --list)" << endl;
+        }
+    }
+
+    // Sample given: find all non-alt paths matching it
+    if (!ref_sample.empty()) {
+        graph->for_each_path_of_sample({ref_sample}, [&](path_handle_t path_handle) {
+            const string& name = graph->get_path_name(path_handle);
+            if (!Paths::is_alt(name)) {
+                ref_paths.push_back(name);
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "No REFERENCE or HAPLOTYPE paths for sample \"" << ref_sample << "\" found.\n"
+                           << "Use vg paths -M to check which paths exist in this graph\n" 
                            << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
     }
 
-    // No paths specified: use them all
+    // No paths specified: use all reference/generic
     if (ref_paths.empty()) {
-        set<string> ref_sample_names;
+        unordered_set<string> ref_sample_names;
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(name)) {
-                    string sample_name = graph->get_sample_name(path_handle);
-                    if (ref_sample.empty() || sample_name == ref_sample) {                        
-                        ref_paths.push_back(name);
-                        // keep track of length best we can using maximum coordinate in event of subpaths
-                        
-                        // TODO: We can get the subrange from the graph but not
-                        // the base path name yet, so we do this from the path
-                        // name.
-                        subrange_t subrange;
-                        string base_name = Paths::strip_subrange(name, &subrange);
-                        size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-                        size_t& cur_len = basepath_length_map[base_name];
-                        cur_len = max(cur_len, compute_path_length(path_handle) + offset);
-                        if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
-                            ref_sample_names.insert(sample_name);
-                        }
+                    string sample_name = graph->get_sample_name(path_handle);                   
+                    ref_paths.push_back(name);
+                    // keep track of length best we can using maximum coordinate in event of subpaths
+                    
+                    // TODO: We can get the subrange from the graph but not
+                    // the base path name yet, so we do this from the path
+                    // name.
+                    subrange_t subrange;
+                    string base_name = Paths::strip_subrange(name, &subrange);
+                    size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+                    size_t& cur_len = basepath_length_map[base_name];
+                    cur_len = max(cur_len, compute_path_length(path_handle) + offset);
+                    if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
+                        ref_sample_names.insert(sample_name);
                     }
                 }
             });
-        if (ref_sample_names.size() > 1 && ref_sample.empty()) {
+        if (ref_sample_names.size() > 1) {
             auto err_msg = logger.error();
             err_msg << "Multiple reference samples detected: [";
             size_t count = 0;
@@ -650,7 +662,7 @@ int main_call(int argc, char** argv) {
         for (const string& ref_path : ref_paths) {
             ref_path_set[ref_path] = false;
         }
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(name, &subrange);
@@ -679,7 +691,7 @@ int main_call(int argc, char** argv) {
         for (const auto& ref_path_used : ref_path_set) {
             if (!ref_path_used.second) {
                 logger.error() << "Path \"" << ref_path_used.first 
-                               << "\" not found in graph as REFERENCE or GENERIC sense (see vg paths -M)\n"
+                               << "\" not found in graph as a non-alt sense (see vg paths -M)\n"
                                << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
             }
         }
@@ -689,17 +701,16 @@ int main_call(int argc, char** argv) {
 
     // make sure we have some ref paths
     if (ref_paths.empty()) {
-        if (!ref_sample.empty()) {
-            logger.error() << "No REFERENCE paths for \"" << ref_sample << "\" found.\n" 
-                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
-        }
         logger.error() << "No reference paths found. "
                        << "Paths must be REFERENCE or GENERIC sense (see vg paths -M)\n"
+                       << "Alternatively, use --ref-path, --path-prefix, or --ref-sample to force a HAPLOTYPE path to be treated as a reference\n"
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
     // build table of ploidys
     vector<int> ref_path_ploidies;
+    // Paths which aren't REFERENCE/GENERIC sense that we want to call against
+    unordered_set<string> pretend_ref_paths;
     for (const string& ref_path : ref_paths) {
         int path_ploidy = ploidy;
         for (auto& rule : ploidy_rules) {
@@ -709,6 +720,17 @@ int main_call(int argc, char** argv) {
             }
         }
         ref_path_ploidies.push_back(path_ploidy);
+
+        if (graph->get_sense(graph->get_path_handle(ref_path)) == PathSense::HAPLOTYPE) {
+            pretend_ref_paths.emplace(ref_path);
+        }
+    }
+
+    // Use an overlay so that all ref paths are treated as refs
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    if (!pretend_ref_paths.empty()) {
+        if (show_progress) logger.info() << "Applying overlay to treat HAPLOTYPE paths as REFERENCE" << endl;
+        graph = overlay_helper.apply(graph, pretend_ref_paths);
     }
 
     // Load or compute the snarls
