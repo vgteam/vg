@@ -100,6 +100,7 @@ void GrefCover::clear(MutablePathMutableHandleGraph* graph) {
 
 void GrefCover::compute(const PathHandleGraph* graph,
                             SnarlManager* snarl_manager,
+                            const bdsg::SnarlDistanceIndex* distance_index,
                             const unordered_set<path_handle_t>& reference_paths,
                             int64_t minimum_length) {
 
@@ -163,11 +164,11 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // runs of uncovered nodes along each source path, unbounded by snarls.  Letting it do the
     // whole cover produces long fragments by construction rather than by successful merging.
     //
-    // Cost: interval_snarl_bounds stays {0,0} throughout, so --gref-segs columns 5-7 can no
-    // longer report the enclosing snarl.  write_gref_segments() derives the reference window
-    // from the source path's own reference anchors instead -- see the anchor branch there.
-    // That window is an approximation of the snarl interval, not the same thing: where a
-    // haplotype leaves the reference and rejoins it far away, it can be much wider.
+    // Nothing here writes interval_snarl_bounds any more.  assign_top_level_snarls() fills
+    // it in at the end from the distance index instead, with the top-level snarl containing
+    // each fragment -- which is a different and much coarser thing than the enclosing bubble
+    // this loop used to record, so write_gref_segments() no longer takes its reference
+    // window from it.  See the comment there.
     //
     // use_snarl_candidates is declared in the header so callers can skip building the
     // SnarlManager entirely; snarl_manager is null whenever it is false.
@@ -290,6 +291,11 @@ void GrefCover::compute(const PathHandleGraph* graph,
 
     // the cover is final here: nothing below adds, merges or extends an interval
     verify_disjoint();
+
+    // With the cover final, record where each fragment sits in the top-level decomposition.
+    if (distance_index != nullptr) {
+        assign_top_level_snarls(*distance_index);
+    }
 
     if (verbose) {
         int64_t final_alt = gref_intervals.size() - num_ref_intervals;
@@ -1584,6 +1590,266 @@ void GrefCover::verify_disjoint() const {
     }
 }
 
+const GrefCover::TopLevelSnarlStats& GrefCover::get_top_level_snarl_stats() const {
+    return this->top_level_snarl_stats;
+}
+
+pair<nid_t, nid_t> GrefCover::get_top_level_snarl(int64_t interval_index) const {
+    return this->interval_snarl_bounds.at(interval_index);
+}
+
+void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance_index) {
+    // The unit of the top-level decomposition is a child of a top-level chain: either a
+    // top-level snarl or a bare node of the chain (the spine).  Every node of the graph is
+    // in exactly one unit.  A fragment can be processed independently of every other
+    // fragment exactly when all of its nodes are in one unit -- that is the property this
+    // measures, and the containing snarl it records is only meaningful when it holds.
+    //
+    // Spine nodes get one unit each rather than sharing a "spine" bucket, because two
+    // distinct spine nodes are as separable as two snarls: whatever lies between them on
+    // the chain is a top-level snarl a fragment would have had to cross to touch both.
+    using handlegraph::net_handle_t;
+    auto start_time = std::chrono::steady_clock::now();
+    TopLevelSnarlStats stats;
+
+    // unit >= 0 indexes snarl_bounds; unit <= -2 is a spine node.
+    vector<pair<nid_t, nid_t>> snarl_bounds;
+    int64_t next_spine_unit = -2;
+
+    // Node -> unit, kept only for the nodes a fragment owns.  Reference nodes are
+    // pre-assigned and verify_disjoint() forbids a fragment from holding one, so skipping
+    // them loses nothing and holds the map to the size of the alt cover rather than the
+    // graph (388k entries instead of 2.2M on chrY).
+    unordered_map<nid_t, int64_t> node_unit;
+
+    auto interval_of = [&](nid_t node_id) {
+        auto found = this->node_to_interval.find(node_id);
+        return found == this->node_to_interval.end() ? (int64_t)-1 : found->second;
+    };
+    auto is_reference_node = [&](nid_t node_id) {
+        int64_t idx = interval_of(node_id);
+        return idx >= 0 && idx < this->num_ref_intervals;
+    };
+    auto is_fragment_node = [&](nid_t node_id) {
+        return interval_of(node_id) >= this->num_ref_intervals;
+    };
+
+    // Record node -> unit, flagging any node two units both claim.  The decomposition is a
+    // partition, so that cannot happen; if it did, every count below would be meaningless,
+    // so it is counted rather than assumed.
+    auto place = [&](nid_t node_id, int64_t unit) {
+        auto placed = node_unit.emplace(node_id, unit);
+        if (!placed.second && placed.first->second != unit) {
+            ++stats.nodes_claimed_twice;
+            placed.first->second = unit;
+        }
+    };
+
+    // Claim every node beneath net for unit.  Top-down descent, not a per-node climb:
+    // measured 10x cheaper, and it produces the node -> unit grouping directly.
+    std::function<void(const net_handle_t&, int64_t)> claim =
+        [&](const net_handle_t& net, int64_t unit) {
+        if (distance_index.is_node(net)) {
+            nid_t node_id = distance_index.node_id(net);
+            if (is_fragment_node(node_id)) {
+                place(node_id, unit);
+            }
+            return;
+        }
+        distance_index.for_each_child(net, [&](net_handle_t child) {
+            claim(child, unit);
+            return true;
+        });
+    };
+
+    // One child of a top-level chain.
+    auto handle_chain_child = [&](const net_handle_t& child) {
+        if (distance_index.is_snarl(child)) {
+            // The bounds are sentinels belonging to the parent chain, so they are spine
+            // nodes: node_id() is valid on them even though is_node() is not.  That is what
+            // makes "anchored" mean "both bounds are pre-assigned reference nodes", and
+            // therefore uncrossable by any fragment.
+            nid_t start_id = distance_index.node_id(distance_index.get_bound(child, false, true));
+            nid_t end_id = distance_index.node_id(distance_index.get_bound(child, true, false));
+            int64_t unit = (int64_t)snarl_bounds.size();
+            snarl_bounds.push_back({start_id, end_id});
+            ++stats.top_level_snarls;
+            if (!is_reference_node(start_id) || !is_reference_node(end_id)) {
+                ++stats.unanchored_snarls;
+            }
+            claim(child, unit);
+        } else if (distance_index.is_node(child)) {
+            nid_t node_id = distance_index.node_id(child);
+            ++stats.spine_nodes;
+            if (!is_reference_node(node_id)) {
+                ++stats.non_reference_spine_nodes;
+                stats.non_reference_spine_bp += graph->get_length(graph->get_handle(node_id));
+            }
+            if (is_fragment_node(node_id)) {
+                place(node_id, next_spine_unit);
+            }
+            --next_spine_unit;
+        } else {
+            // Not observed on any graph tested.  Give it a unit of its own so the
+            // per-fragment test stays total, and count it so it cannot pass unnoticed.
+            ++stats.unexpected_chain_children;
+            claim(child, next_spine_unit--);
+        }
+    };
+
+    // Top-level chains are the children of the root, except that disconnected components
+    // joined in the root hang one level deeper, under a root snarl.
+    net_handle_t root = distance_index.get_root();
+    distance_index.for_each_child(root, [&](net_handle_t child) {
+        if (distance_index.is_root_snarl(child)) {
+            distance_index.for_each_child(child, [&](net_handle_t grandchild) {
+                if (distance_index.is_chain(grandchild)) {
+                    ++stats.top_level_chains;
+                    distance_index.for_each_child(grandchild, [&](net_handle_t c) {
+                        handle_chain_child(c);
+                        return true;
+                    });
+                } else {
+                    handle_chain_child(grandchild);
+                }
+                return true;
+            });
+        } else if (distance_index.is_chain(child)) {
+            ++stats.top_level_chains;
+            distance_index.for_each_child(child, [&](net_handle_t c) {
+                handle_chain_child(c);
+                return true;
+            });
+        } else {
+            handle_chain_child(child);
+        }
+        return true;
+    });
+
+    // Now test every fragment against the partition.
+    const int64_t max_reported = 10;
+    vector<string> reports;
+    unordered_set<int64_t> units;
+    unordered_set<int64_t> occupied_snarls;
+
+    for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+        this->interval_snarl_bounds[i] = {0, 0};
+        if (interval.first == graph->path_end(graph->get_path_handle_of_step(interval.first))) {
+            // decommissioned: apply() skips it, so it is not a fragment
+            continue;
+        }
+        ++stats.fragments;
+
+        units.clear();
+        int64_t unmapped = 0;
+        nid_t first_node = 0;
+        nid_t last_node = 0;
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+            if (first_node == 0) {
+                first_node = node_id;
+            }
+            last_node = node_id;
+            auto found = node_unit.find(node_id);
+            if (found == node_unit.end()) {
+                ++unmapped;
+            } else {
+                units.insert(found->second);
+            }
+        }
+
+        int64_t snarl_units = 0;
+        int64_t only_snarl_unit = -1;
+        for (int64_t unit : units) {
+            if (unit >= 0) {
+                ++snarl_units;
+                only_snarl_unit = unit;
+            }
+        }
+        stats.max_snarls_in_one_fragment = max(stats.max_snarls_in_one_fragment, snarl_units);
+        stats.max_units_in_one_fragment = max(stats.max_units_in_one_fragment,
+                                              (int64_t)units.size());
+        if (unmapped > 0) {
+            ++stats.fragments_with_unmapped_nodes;
+        }
+        if ((int64_t)units.size() > snarl_units) {
+            ++stats.fragments_touching_spine;
+        }
+        if (snarl_units >= 2) {
+            ++stats.fragments_spanning_snarls;
+        }
+        if ((int64_t)units.size() >= 2) {
+            ++stats.fragments_spanning_units;
+        }
+
+        if (units.size() == 1 && unmapped == 0) {
+            if (snarl_units == 1) {
+                ++stats.fragments_in_one_snarl;
+                occupied_snarls.insert(only_snarl_unit);
+                // The only case where a containing top-level snarl exists.
+                this->interval_snarl_bounds[i] = snarl_bounds[only_snarl_unit];
+            } else {
+                ++stats.fragments_on_one_spine_node;
+            }
+        } else if ((int64_t)reports.size() < max_reported) {
+            reports.push_back("interval " + std::to_string(i) + " on "
+                              + graph->get_path_name(graph->get_path_handle_of_step(interval.first))
+                              + " nodes " + std::to_string(first_node) + ".." + std::to_string(last_node)
+                              + " touches " + std::to_string(snarl_units) + " top-level snarl(s), "
+                              + std::to_string((int64_t)units.size() - snarl_units) + " spine node(s), "
+                              + std::to_string(unmapped) + " unplaced node(s)");
+        }
+    }
+
+    stats.distinct_snarls_with_fragments = (int64_t)occupied_snarls.size();
+    this->top_level_snarl_stats = stats;
+
+    if (verbose) {
+        double seconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - start_time).count();
+        cerr << "[gref] Mapped the cover onto the top-level decomposition in "
+             << std::fixed << std::setprecision(2) << seconds << " s" << endl;
+        cerr << "[gref] Top-level decomposition: " << stats.top_level_chains << " chains, "
+             << stats.top_level_snarls << " top-level snarls, " << stats.spine_nodes
+             << " spine nodes" << endl
+             << "[gref]   reference anchoring: " << stats.unanchored_snarls
+             << " top-level snarls have a non-reference bound; "
+             << stats.non_reference_spine_nodes << " spine nodes ("
+             << stats.non_reference_spine_bp << " bp) are not reference" << endl
+             << "[gref]   fragments: " << stats.fragments << " total, "
+             << stats.fragments_in_one_snarl << " wholly inside one top-level snarl ("
+             << stats.distinct_snarls_with_fragments << " distinct snarls), "
+             << stats.fragments_on_one_spine_node << " on a single spine node" << endl
+             << "[gref]   fragments spanning >1 top-level snarl: "
+             << stats.fragments_spanning_snarls << " (max " << stats.max_snarls_in_one_fragment
+             << " snarls in one fragment)" << endl
+             << "[gref]   fragments spanning >1 unit: " << stats.fragments_spanning_units
+             << " (max " << stats.max_units_in_one_fragment << " units); "
+             << stats.fragments_touching_spine << " touch the spine; "
+             << stats.fragments_with_unmapped_nodes << " have unplaced nodes" << endl;
+        if (stats.unexpected_chain_children > 0) {
+            cerr << "[gref]   warning: " << stats.unexpected_chain_children
+                 << " top-level chain children were neither a snarl nor a node" << endl;
+        }
+        if (stats.nodes_claimed_twice > 0) {
+            cerr << "[gref]   warning: " << stats.nodes_claimed_twice
+                 << " nodes were placed in two different top-level units" << endl;
+        }
+        for (const string& report : reports) {
+            cerr << "[gref]   " << report << endl;
+        }
+        if (stats.fragments - stats.fragments_in_one_snarl - stats.fragments_on_one_spine_node
+            > (int64_t)reports.size()) {
+            cerr << "[gref]   ... and "
+                 << (stats.fragments - stats.fragments_in_one_snarl
+                     - stats.fragments_on_one_spine_node - (int64_t)reports.size())
+                 << " more not contained in a single unit" << endl;
+        }
+    }
+}
+
 void GrefCover::verify_cover(int64_t minimum_length) const {
     // Check that every node in the graph is covered by the gref cover.
     // Uncovered nodes are expected when minimum_length > 1 (short intervals
@@ -1795,62 +2061,51 @@ void GrefCover::write_gref_segments(ostream& os) {
             ref_start = ref_node_positions[traced_ref_node].second;
             ref_end = ref_start + graph->get_length(graph->get_handle(traced_ref_node));
 
-            const pair<nid_t, nid_t>& snarl_bounds = this->interval_snarl_bounds[i];
-
-            if (snarl_bounds.first != 0 && snarl_bounds.second != 0 &&
-                ref_node_positions.count(snarl_bounds.first) &&
-                ref_node_positions.count(snarl_bounds.second) &&
-                ref_node_positions[snarl_bounds.first].first == ref_path_handle &&
-                ref_node_positions[snarl_bounds.second].first == ref_path_handle) {
-                // Snarl bounds available: the bubble this fragment is an allele of.  Only
-                // set when the cover was built from snarl traversals.
-                auto& left_pos = ref_node_positions[snarl_bounds.first];
-                auto& right_pos = ref_node_positions[snarl_bounds.second];
-
-                int64_t left_start = left_pos.second;
-                int64_t left_end = left_start + graph->get_length(graph->get_handle(snarl_bounds.first));
-                int64_t right_start = right_pos.second;
-                int64_t right_end = right_start + graph->get_length(graph->get_handle(snarl_bounds.second));
-
-                ref_start = min(left_start, right_start);
-                ref_end = max(left_end, right_end);
-            } else {
-                // No snarl bounds: take the window from this fragment's own source path --
-                // the last place it touches this reference contig before the fragment and
-                // the first at or after it.  Anchors on any other contig are skipped: the
-                // window has to be measured on the contig named in column 4.
-                const vector<pair<int64_t, nid_t>>& anchors = ref_anchors[source_path_handle];
-                const pair<int64_t, nid_t>* left_anchor = nullptr;
-                const pair<int64_t, nid_t>* right_anchor = nullptr;
-                for (auto it = std::lower_bound(anchors.begin(), anchors.end(),
-                                                make_pair(source_start, (nid_t)0));
-                     it != anchors.begin(); ) {
-                    --it;
-                    if (ref_node_positions[it->second].first == ref_path_handle) {
-                        left_anchor = &*it;
-                        break;
-                    }
+            // The window comes from this fragment's own source path: the last place it
+            // touches this reference contig before the fragment and the first at or after
+            // it.  Anchors on any other contig are skipped -- the window has to be measured
+            // on the contig named in column 4.
+            //
+            // interval_snarl_bounds now holds the containing top-level snarl, and it is
+            // deliberately NOT used here.  A top-level snarl is a child of the top-level
+            // chain, not a bubble: on chrY the median one spans 185 kb of CHM13 and the
+            // largest holds a quarter of the graph, because 77% of reference nodes live
+            // *inside* top-level snarls rather than on the chain.  Measured over the 2,742
+            // chrY fragments, taking the window from the snarl bounds instead of the anchors
+            // moves the median window from 111 bp to 185,051 bp, the mean from 7.1 kb to
+            // 425 kb, and the share of rows whose window is indistinguishable from another
+            // row's from 41% to 83%.  It is a correct containment window and a useless one.
+            const vector<pair<int64_t, nid_t>>& anchors = ref_anchors[source_path_handle];
+            const pair<int64_t, nid_t>* left_anchor = nullptr;
+            const pair<int64_t, nid_t>* right_anchor = nullptr;
+            for (auto it = std::lower_bound(anchors.begin(), anchors.end(),
+                                            make_pair(source_start, (nid_t)0));
+                 it != anchors.begin(); ) {
+                --it;
+                if (ref_node_positions[it->second].first == ref_path_handle) {
+                    left_anchor = &*it;
+                    break;
                 }
-                for (auto it = std::lower_bound(anchors.begin(), anchors.end(),
-                                                make_pair(source_end, (nid_t)0));
-                     it != anchors.end(); ++it) {
-                    if (ref_node_positions[it->second].first == ref_path_handle) {
-                        right_anchor = &*it;
-                        break;
-                    }
+            }
+            for (auto it = std::lower_bound(anchors.begin(), anchors.end(),
+                                            make_pair(source_end, (nid_t)0));
+                 it != anchors.end(); ++it) {
+                if (ref_node_positions[it->second].first == ref_path_handle) {
+                    right_anchor = &*it;
+                    break;
                 }
+            }
 
-                auto anchor_span = [&](const pair<int64_t, nid_t>* a) {
-                    const auto& pos = ref_node_positions[a->second];
-                    return make_pair(pos.second,
-                                     pos.second + graph->get_length(graph->get_handle(a->second)));
-                };
-                if (left_anchor != nullptr || right_anchor != nullptr) {
-                    auto l = anchor_span(left_anchor != nullptr ? left_anchor : right_anchor);
-                    auto r = anchor_span(right_anchor != nullptr ? right_anchor : left_anchor);
-                    ref_start = min(l.first, r.first);
-                    ref_end = max(l.second, r.second);
-                }
+            auto anchor_span = [&](const pair<int64_t, nid_t>* a) {
+                const auto& pos = ref_node_positions[a->second];
+                return make_pair(pos.second,
+                                 pos.second + graph->get_length(graph->get_handle(a->second)));
+            };
+            if (left_anchor != nullptr || right_anchor != nullptr) {
+                auto l = anchor_span(left_anchor != nullptr ? left_anchor : right_anchor);
+                auto r = anchor_span(right_anchor != nullptr ? right_anchor : left_anchor);
+                ref_start = min(l.first, r.first);
+                ref_end = max(l.second, r.second);
             }
         }
 

@@ -29,6 +29,8 @@
 
 #include <optional>
 
+#include <bdsg/snarl_distance_index.hpp>
+
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
@@ -107,8 +109,13 @@ public:
     void clear(MutablePathMutableHandleGraph* graph);
 
     // Compute the gref cover from the graph, starting with a given set of reference paths.
+    //
+    // distance_index, when non-null, is a decomposition-only snarl distance index over the
+    // same graph.  It is not used to build the cover; it is used afterwards to map each
+    // fragment to the top-level snarl containing it (see assign_top_level_snarls()).
     void compute(const PathHandleGraph* graph,
                  SnarlManager* snarl_manager,
+                 const bdsg::SnarlDistanceIndex* distance_index,
                  const unordered_set<path_handle_t>& reference_paths,
                  int64_t minimum_length);
 
@@ -142,6 +149,58 @@ public:
 
     // Get the number of reference intervals (rank-0).
     int64_t get_num_ref_intervals() const;
+
+    // Summary of how the final cover sits inside the top-level snarl decomposition.
+    // Filled in by assign_top_level_snarls(); all zero when no distance index was supplied.
+    //
+    // The unit of the decomposition is a child of a top-level chain: either a top-level
+    // snarl (a bubble hanging off the spine) or a bare spine node.  A fragment is
+    // independently processable exactly when all of its nodes sit in one unit.
+    struct TopLevelSnarlStats {
+        // Shape of the decomposition
+        int64_t top_level_chains = 0;
+        int64_t top_level_snarls = 0;
+        int64_t spine_nodes = 0;             // node children of top-level chains
+        int64_t unexpected_chain_children = 0;  // neither snarl nor node: should be 0
+
+        // Reference-anchoring conditions
+        int64_t unanchored_snarls = 0;       // top-level snarls with a non-reference bound
+        int64_t non_reference_spine_nodes = 0;
+        int64_t non_reference_spine_bp = 0;
+
+        // Where the fragments landed
+        int64_t fragments = 0;
+        int64_t fragments_in_one_snarl = 0;     // wholly inside a single top-level snarl
+        int64_t fragments_on_one_spine_node = 0;
+        int64_t fragments_spanning_snarls = 0;  // touch >= 2 top-level snarls: THE CLAIM
+        int64_t fragments_touching_spine = 0;   // contain at least one spine node
+        int64_t fragments_spanning_units = 0;   // touch >= 2 units of any kind
+        int64_t fragments_with_unmapped_nodes = 0;  // decomposition did not place a node
+        int64_t max_snarls_in_one_fragment = 0;
+        int64_t max_units_in_one_fragment = 0;
+        // How many distinct top-level snarls the fragments landed in.  Equal to
+        // fragments_in_one_snarl when no two fragments share a snarl; far below it would
+        // mean the decomposition is coarse, and 1 would mean the mapping is degenerate.
+        int64_t distinct_snarls_with_fragments = 0;
+        // Nodes the descent placed in two different units.  The decomposition is a
+        // partition, so this must be 0; a non-zero value would mean the unit assignment is
+        // ambiguous and every count above it is meaningless.
+        int64_t nodes_claimed_twice = 0;
+    };
+
+    // Map every fragment onto the top-level snarl decomposition carried by distance_index.
+    // Fills interval_snarl_bounds with the boundary nodes of the containing top-level snarl
+    // for every fragment that lies wholly inside one, leaves {0,0} for the rest, and records
+    // the summary returned by get_top_level_snarl_stats().
+    void assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance_index);
+
+    // Summary from the last assign_top_level_snarls() call.
+    const TopLevelSnarlStats& get_top_level_snarl_stats() const;
+
+    // The boundary nodes of the top-level snarl containing the given interval, or {0, 0}
+    // when the interval is a reference path, when no distance index was supplied, or when
+    // the interval is not wholly inside one top-level snarl.  Index is into get_intervals().
+    pair<nid_t, nid_t> get_top_level_snarl(int64_t interval_index) const;
 
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_path_name,
@@ -283,8 +342,12 @@ protected:
     vector<pair<step_handle_t, step_handle_t>> gref_intervals;
 
     // Top-level snarl boundary nodes for each interval, parallel to gref_intervals.
-    // (0, 0) sentinel for reference intervals and fill_uncovered_nodes intervals.
+    // (0, 0) sentinel for reference intervals, and for any fragment that is not wholly
+    // contained in one top-level snarl (or that was computed without a distance index).
     vector<pair<nid_t, nid_t>> interval_snarl_bounds;
+
+    // Summary from assign_top_level_snarls().
+    TopLevelSnarlStats top_level_snarl_stats;
 
     // gref_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
     int64_t num_ref_intervals = 0;
