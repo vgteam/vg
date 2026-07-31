@@ -70,10 +70,6 @@ public:
     //          is_gref_derived("gref_CHM13") -> true
     static bool is_gref_derived(const string& name);
 
-    // Take a name back out of the gref namespace. Returns the input unchanged
-    // if it isn't in it.
-    // Example: strip_gref_prefix("gref_CHM13#0#chr1") -> "CHM13#0#chr1"
-    static string strip_gref_prefix(const string& name);
 
     // Create an gref path name from a base reference path name and an index.
     // Example: make_gref_name("gref_CHM13#0#chr1", 1) -> "gref_CHM13#0#chr1_1_alt"
@@ -108,10 +104,6 @@ public:
                  const unordered_set<path_handle_t>& reference_paths,
                  int64_t minimum_length);
 
-    // Load existing gref paths from the graph, assuming they've been computed already.
-    // The reference_paths should be the rank-0 paths the gref paths extend from.
-    void load(const PathHandleGraph* graph,
-              const unordered_set<path_handle_t>& reference_paths);
 
     // Apply the gref cover to a graph (must have been computed first).  Everything
     // lands in the gref namespace:
@@ -124,20 +116,6 @@ public:
     // Enable verbose output (coverage summary, etc.)
     void set_verbose(bool verbose);
 
-    // Check if verbose output is enabled.
-    bool get_verbose() const;
-
-    // Get the rank (level) of a given node (0 if on a reference path).
-    int64_t get_rank(nid_t node_id) const;
-
-    // Get all computed intervals.
-    const vector<pair<step_handle_t, step_handle_t>>& get_intervals() const;
-
-    // Get an interval from a node. Returns nullptr if node not in an interval.
-    const pair<step_handle_t, step_handle_t>* get_interval(nid_t node_id) const;
-
-    // Get the number of reference intervals (rank-0).
-    int64_t get_num_ref_intervals() const;
 
     // Summary of how the final cover sits inside the top-level snarl decomposition.
     // Filled in by assign_top_level_snarls(); all zero when no distance index was supplied.
@@ -204,13 +182,6 @@ public:
     // the summary returned by get_top_level_snarl_stats().
     void assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance_index);
 
-    // Summary from the last assign_top_level_snarls() call.
-    const TopLevelSnarlStats& get_top_level_snarl_stats() const;
-
-    // The boundary nodes of the top-level snarl containing the given interval, or {0, 0}
-    // when the interval is a reference path, when no distance index was supplied, or when
-    // the interval is not wholly inside one top-level snarl.  Index is into get_intervals().
-    pair<nid_t, nid_t> get_top_level_snarl(int64_t interval_index) const;
 
     // Work out, for every fragment, which gref contig supplies the coordinates its VCF records
     // will be reported against, and how many such contigs lie between it and the base

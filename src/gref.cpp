@@ -20,12 +20,6 @@ bool GrefCover::is_gref_derived(const string& name) {
     return name.compare(0, gref_prefix.length(), gref_prefix) == 0;
 }
 
-string GrefCover::strip_gref_prefix(const string& name) {
-    if (!is_gref_derived(name)) {
-        return name;
-    }
-    return name.substr(gref_prefix.length());
-}
 
 string GrefCover::make_gref_name(const string& base_path_name, int64_t gref_index) {
     // New naming convention: {base}_{N}_alt
@@ -80,9 +74,6 @@ void GrefCover::set_verbose(bool verbose) {
     this->verbose = verbose;
 }
 
-bool GrefCover::get_verbose() const {
-    return this->verbose;
-}
 
 void GrefCover::clear(MutablePathMutableHandleGraph* graph) {
     // Everything in the gref namespace goes, copied base contigs included: a
@@ -382,49 +373,6 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
 #endif
 }
 
-void GrefCover::load(const PathHandleGraph* graph,
-                         const unordered_set<path_handle_t>& reference_paths) {
-    // start from scratch
-    this->gref_intervals.clear();
-    this->interval_snarl_bounds.clear();
-    this->node_to_interval.clear();
-    this->graph = graph;
-
-    // start with the reference paths
-    for (const path_handle_t& ref_path_handle : reference_paths) {
-        graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
-            nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
-            if (graph->get_is_reverse(graph->get_handle_of_step(step_handle))) {
-                cerr << "[gref] error: Reversed step " << node_id << " found in rank-0 reference "
-                     << graph->get_path_name(ref_path_handle) << ". All gref fragments must be forward-only." << endl;
-                exit(1);
-            }
-            if (node_to_interval.count(node_id)) {
-                cerr << "[gref] error: Cycle found on node " << node_id << " in rank-0 reference "
-                     << graph->get_path_name(ref_path_handle) << ". All gref fragments must be acyclic." << endl;
-                exit(1);
-            }
-            node_to_interval[node_id] = gref_intervals.size();
-        });
-        this->gref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
-                                                    graph->path_end(ref_path_handle)));
-        this->interval_snarl_bounds.push_back({0, 0});
-    }
-    this->num_ref_intervals = this->gref_intervals.size();
-
-    // load existing gref paths from the graph
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
-        string path_name = graph->get_path_name(path_handle);
-        if (is_gref_name(path_name)) {
-            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-                node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = gref_intervals.size();
-            });
-            this->gref_intervals.push_back(make_pair(graph->path_begin(path_handle),
-                                                        graph->path_end(path_handle)));
-            this->interval_snarl_bounds.push_back({0, 0});
-        }
-    });
-}
 
 string GrefCover::make_gref_copy_name(const string& path_name) {
     PathSense sense;
@@ -572,27 +520,9 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 #endif
 }
 
-int64_t GrefCover::get_rank(nid_t node_id) const {
-    // search back to reference in order to find the rank.
-    vector<pair<int64_t, nid_t>> ref_steps = this->get_reference_nodes(node_id, true);
-    // Return -1 if node is in a disconnected component that can't reach reference
-    return ref_steps.empty() ? -1 : ref_steps.at(0).first;
-}
 
-const vector<pair<step_handle_t, step_handle_t>>& GrefCover::get_intervals() const {
-    return this->gref_intervals;
-}
 
-const pair<step_handle_t, step_handle_t>* GrefCover::get_interval(nid_t node_id) const {
-    if (this->node_to_interval.count(node_id)) {
-        return &this->gref_intervals.at(node_to_interval.at(node_id));
-    }
-    return nullptr;
-}
 
-int64_t GrefCover::get_num_ref_intervals() const {
-    return this->num_ref_intervals;
-}
 
 
 
@@ -855,13 +785,7 @@ void GrefCover::verify_disjoint() const {
     }
 }
 
-const GrefCover::TopLevelSnarlStats& GrefCover::get_top_level_snarl_stats() const {
-    return this->top_level_snarl_stats;
-}
 
-pair<nid_t, nid_t> GrefCover::get_top_level_snarl(int64_t interval_index) const {
-    return this->interval_snarl_bounds.at(interval_index);
-}
 
 void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& distance_index) {
     using handlegraph::net_handle_t;
