@@ -988,7 +988,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
-        .add_entry<size_t>("max-chains-per-tree", 2)
+        .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<int>("max-min-chain-score", 46)
         .add_entry<size_t>("min-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
@@ -1048,7 +1048,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("rec-consistency-bonus", 13)
         .add_entry<double>("chain-score-threshold", 160.0)
         .add_entry<int>("min-chains", 2)
-        .add_entry<size_t>("max-chains-per-tree", 2)
+        .add_entry<size_t>("max-chains-per-tree", 3)
         // Lowering this can reduce wrong reads in mapping experiments, but
         // seems to *increase* miscalls; see
         // https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1779202719223779?thread_ts=1779127572.303779&cid=CJ2EHEH1A
