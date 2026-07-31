@@ -217,6 +217,18 @@ public:
     //                     ref_path, ref_start, ref_end,
     //                     top_snarl_start, top_snarl_end
     //
+    // Headerless, deliberately and temporarily.  A '#' header would make nine unlabelled
+    // columns self-describing, but cactus's merge_gref_segs() concatenates the per-chromosome
+    // files line by line without skipping headers -- its docstring claims it skips duplicates
+    // and the code does not -- so a header here would put one line per chromosome into the
+    // merged table.  Add the header once that is fixed; until then `vg paths --help` carries
+    // the column list.
+    //
+    // ref_path is derivable from gref_path_name and is emitted anyway.  Recovering it means
+    // finding the last '_' before the '_alt' suffix, and reference contig names contain
+    // underscores (gref_GRCh38#0#chr4_GL000008v2_random_1_alt), so leaving it to the consumer
+    // invites an off-by-one-underscore bug for no saving worth having.
+    //
     // The last two are the boundary node ids of the top-level snarl the fragment lies in --
     // the site it is an allele of.  Both are reference nodes on ref_path, so fragments that
     // are alleles of the same site share the pair, and grouping the table on it groups the

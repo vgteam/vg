@@ -75,7 +75,15 @@ void help_paths(char** argv) {
          << "                            gref_GRCh38#0#chr1, gref_GRCh38#0#chr1_1_alt...)" << endl
          << "                            (use -Q to select reference paths)" << endl
          << "  -l, --min-gref-len N      minimum gref fragment length [50]" << endl
-         << "      --gref-segs FILE      write gref segment table to FILE" << endl
+         << "      --gref-segs FILE      write gref segment table to FILE: one headerless" << endl
+         << "                            tab-separated row per gref fragment, with columns" << endl
+         << "                            source_path, source_start, source_end, gref_contig," << endl
+         << "                            ref_contig, ref_start, ref_end, site_start_node," << endl
+         << "                            site_end_node.  Columns 1-3 are a BED interval on" << endl
+         << "                            the haplotype the fragment came from; 5-7 locate it" << endl
+         << "                            on the reference; 8-9 are the boundary nodes of the" << endl
+         << "                            top-level snarl it is an allele of, shared by every" << endl
+         << "                            fragment at the same site" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
