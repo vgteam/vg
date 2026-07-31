@@ -925,7 +925,12 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
     // parent chain with a cycle on chr22, because a fragment could resolve to a parent that
     // was really nested inside it. Depth is what makes ancestry well founded, so it is
     // computed for the whole fragment and a parent must be strictly shallower.
-    vector<int64_t> depth(n, std::numeric_limits<int64_t>::max());
+    // Reference intervals are the outermost thing in their component by definition, so they
+    // need no walk; only fragments have a depth worth measuring.
+    vector<int64_t> depth(n, 0);
+    for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+        depth[i] = std::numeric_limits<int64_t>::max();
+    }
     for (int64_t i = this->num_ref_intervals; i < n; ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
@@ -941,11 +946,17 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
         }
     }
 
-    // Pass 1: each fragment's parent.  Climb until a snarl whose bounds are owned by a gref
-    // interval that is strictly shallower -- that interval's path is the one a caller reports
-    // this fragment's enclosing site against.  Reference intervals are shallower than any
-    // fragment by construction, so they always qualify.
-    for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+    // Pass 1: each interval's parent.  Climb until a snarl whose bounds are owned by a gref
+    // interval that can enclose this one -- that interval's path is the one a caller reports
+    // this one's enclosing site against.
+    //
+    // Reference intervals are included, not assumed to be at the top.  A reference contig can
+    // itself sit inside a top-level snarl of another one: on chrOther-v2.1,
+    // chrUn_KI270442v1 is nested in chr16_KI270728v1_random, and deconstruct reports it at
+    // CH=1 accordingly.  Treating every reference contig as level 0 made the column disagree
+    // with CH on 8 of 25 chrOther contigs while agreeing perfectly on every single-contig
+    // chromosome, which is why the chr22/chr14/chrY gates could not see it.
+    for (int64_t i = 0; i < n; ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
         if (interval.first == graph->path_end(interval_path)) {
@@ -958,6 +969,11 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
             }
             if (owner < this->num_ref_intervals) {
                 return true;
+            }
+            // A reference contig is never inside a fragment: fragments are off-reference
+            // sequence by construction, so only another reference contig can enclose one.
+            if (i < this->num_ref_intervals) {
+                return false;
             }
             // Two runs of the same haplotype are separated by sequence one of them does not
             // hold, so neither can contain the other.  Measured on chr22: 10 of 48 wrong
@@ -1042,10 +1058,11 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
     // snarl tree is a tree so one cannot arise, but a wrong parent would otherwise hang here
     // rather than produce a visibly wrong number.
     const int64_t IN_PROGRESS = -1;
+    // level is the length of the parent chain, uniformly: an outermost reference contig is 0,
+    // a reference contig nested in another is 1, a fragment hanging off the base reference is
+    // 1, one inside a level-1 fragment is 2.  That makes it equal to INFO/CH for every record
+    // on the contig, which is the whole point of the column.
     std::function<int64_t(int64_t)> level_of = [&](int64_t i) -> int64_t {
-        if (i < this->num_ref_intervals) {
-            return 0;
-        }
         if (this->interval_level[i] == IN_PROGRESS) {
             cerr << "[gref error]: nesting cycle at interval " << i
                  << "; the parent chain is not a tree" << endl;
@@ -1056,11 +1073,11 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
         }
         this->interval_level[i] = IN_PROGRESS;
         int64_t parent = this->interval_parent[i];
-        int64_t level = parent < 0 ? 1 : level_of(parent) + 1;
+        int64_t level = parent < 0 ? 0 : level_of(parent) + 1;
         this->interval_level[i] = level;
         return level;
     };
-    for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+    for (int64_t i = 0; i < n; ++i) {
         level_of(i);
     }
 
@@ -1447,6 +1464,8 @@ void GrefCover::write_gref_segments(ostream& os) {
     // repeated parse_path_name/create_path_name per interval.
     // Stores (display_name, subrange_offset) per source path.
     unordered_map<path_handle_t, pair<string, int64_t>> source_display_cache;
+    // Subrange offset of each reference path, for columns 6-7.
+    unordered_map<path_handle_t, int64_t> ref_offset_cache;
 
     // Name every interval before emitting any, because a fragment's parent may sit at a
     // higher index than the fragment itself and the parent column needs its name.
@@ -1617,6 +1636,26 @@ void GrefCover::write_gref_segments(ostream& os) {
         int64_t display_source_start = source_start + cache_it->second.second;
         int64_t display_source_end = source_end + cache_it->second.second;
 
+        // Reference coordinates carry the reference path's own subrange offset, for the same
+        // reason the source coordinates above carry the source path's: ref_node_positions is
+        // built by walking the reference interval from zero, so on a graph whose reference is
+        // a subpath (GRCh38#0#chr1[1000-1260]) the offsets are relative to the subpath while
+        // both vg deconstruct and vg call add the offset to POS.  Without this, columns 6-7
+        // are shifted by the offset against every coordinate in the VCF they are meant to be
+        // read beside.  No current corpus has subranged reference paths, so this changes
+        // nothing today and prevents a silent shift the first time one does.
+        int64_t ref_offset = 0;
+        if (traced_ref_node != 0) {
+            auto ref_cache_it = ref_offset_cache.find(ref_path_handle);
+            if (ref_cache_it == ref_offset_cache.end()) {
+                subrange_t ref_subrange = graph->get_subrange(ref_path_handle);
+                ref_cache_it = ref_offset_cache.emplace(
+                    ref_path_handle,
+                    ref_subrange != PathMetadata::NO_SUBRANGE ? (int64_t)ref_subrange.first : 0).first;
+            }
+            ref_offset = ref_cache_it->second;
+        }
+
         // The top-level snarl this fragment sits in, as its two boundary node ids.  Both are
         // reference nodes on one contig (enforce_top_level_anchoring), so the pair names the
         // site the fragment is an allele of, and every fragment inside that snarl carries the
@@ -1642,12 +1681,19 @@ void GrefCover::write_gref_segments(ostream& os) {
            << display_source_end << "\t"
            << gref_name << "\t"
            << ref_path_name << "\t"
-           << ref_start << "\t"
-           << ref_end << "\t"
+           << (ref_start + ref_offset) << "\t"
+           << (ref_end + ref_offset) << "\t"
            << top_snarl.first << "\t"
            << top_snarl.second << "\t"
            << (this->interval_level.empty() ? 0 : this->interval_level[i]) << "\t"
-           << parent_name_of(i) << "\n";
+           << parent_name_of(i) << "\t"
+           // Strand of the fragment against columns 1-3.  apply() reverse-complements an
+           // all-reverse run so the emitted contig always reads forward, which means the
+           // sequence at source_path[source_start:source_end] is the REVERSE COMPLEMENT of
+           // the gref contig for these.  26 of 2137 chr22 fragments.  Without this column
+           // cols 1-3 are a BED interval whose sequence silently disagrees with the VCF's
+           // REF/ALT, and nothing else in the table or the VCF reveals it.
+           << (all_reverse ? '-' : '+') << "\n";
     }
 }
 

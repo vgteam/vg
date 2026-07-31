@@ -198,7 +198,7 @@ public:
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_path_name,
     //                     ref_path, ref_start, ref_end,
-    //                     top_snarl_start, top_snarl_end
+    //                     top_snarl_start, top_snarl_end, level, parent_contig, strand
     //
     // Headerless, deliberately and temporarily.  A '#' header would make nine unlabelled
     // columns self-describing, but cactus's merge_gref_segs() concatenates the per-chromosome
@@ -217,7 +217,19 @@ public:
     // are alleles of the same site share the pair, and grouping the table on it groups the
     // cover by site.  0 0 when no decomposition was supplied.
     //
-    // Note this is a different thing from ref_start/ref_end, which is the reference interval
+    // level equals INFO/CH of every record on the contig -- NOT INFO/LV, which counts only
+    // ancestors on the same CHROM and is a different number.  parent_contig equals the CHROM
+    // of the record that a LV==0 record's PS points at; records with LV>0 point at a parent on
+    // their own contig, so a join against all records rather than the LV==0 ones scores about
+    // 69% and looks like a table bug.
+    //
+    // strand is '-' when apply() reverse-complemented the run, so the sequence at
+    // source_path[source_start:source_end] is the reverse complement of the gref contig.  26
+    // of 2137 chr22 fragments; without it a samtools faidx on columns 1-3 silently disagrees
+    // with the VCF's REF/ALT.
+    //
+    // Note ref_start/ref_end is a different thing from the site in columns 8-9: it is the
+    // reference interval
     // the fragment's own source path brackets it with.  A top-level snarl is much coarser --
     // 77% of chrY's reference nodes are inside one -- so it identifies the site but does not
     // localise the fragment on the reference.

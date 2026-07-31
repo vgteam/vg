@@ -85,7 +85,8 @@ void help_paths(char** argv) {
          << "                            top-level snarl it is an allele of, shared by every" << endl
          << "                            fragment at the same site; 10-11 are its nesting" << endl
          << "                            level (1 = directly off the base reference) and the" << endl
-         << "                            gref contig supplying its coordinates" << endl
+         << "                            gref contig supplying its coordinates; 12 is the" << endl
+         << "                            strand of columns 1-3 against the emitted contig" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
