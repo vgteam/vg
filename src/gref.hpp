@@ -236,8 +236,6 @@ protected:
                       vector<pair<nid_t, nid_t>>* snarl_bounds_vec = nullptr,
                       pair<nid_t, nid_t> snarl_bounds = {0, 0});
 
-    // Rebuild node_to_interval after intervals have been removed.
-    void defragment_intervals();
 
     // Remove non-reference intervals shorter than minimum_length, then defragment.
     void filter_short_intervals(int64_t minimum_length);

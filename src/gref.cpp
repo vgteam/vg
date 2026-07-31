@@ -562,56 +562,50 @@ void GrefCover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
 }
 
 
-void GrefCover::defragment_intervals() {
-    vector<pair<step_handle_t, step_handle_t>> new_intervals;
-    vector<pair<nid_t, nid_t>> new_snarl_bounds;
-    this->node_to_interval.clear();
-    for (int64_t i = 0; i < this->gref_intervals.size(); ++i) {
-        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
-        path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
-        if (interval.first != graph->path_end(path_handle)) {
-            new_intervals.push_back(interval);
-            new_snarl_bounds.push_back(this->interval_snarl_bounds[i]);
-        } else {
-            // Dropping one of the first num_ref_intervals entries would shift a
-            // non-reference interval into the reference block, silently making every
-            // "idx < num_ref_intervals" test wrong from here on.  Nothing may
-            // decommission a reference interval.
-            assert(i >= this->num_ref_intervals);
-        }
-    }
-    this->gref_intervals = std::move(new_intervals);
-    this->interval_snarl_bounds = std::move(new_snarl_bounds);
-    for (int64_t i = 0; i < this->gref_intervals.size(); ++i) {
-        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
-        for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
-            this->node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = i;
-        }
-    }
-}
-
 void GrefCover::filter_short_intervals(int64_t minimum_length) {
     if (minimum_length <= 1) {
         return;
     }
-    for (int64_t i = num_ref_intervals; i < gref_intervals.size(); ++i) {
-        auto& interval = gref_intervals[i];
-        path_handle_t ph = graph->get_path_handle_of_step(interval.first);
-        if (interval.first == graph->path_end(ph)) {
-            continue;  // already decommissioned
-        }
+    // Build the surviving cover directly.  This used to decommission an interval by writing
+    // path_end/path_front_end sentinels into it and then compact the sentinels away in a
+    // second pass (defragment_intervals(), whose only caller this was).  The sentinel
+    // protocol dated from when merging could retire an interval mid-computation; nothing
+    // retires one now, so there is no state between the two passes worth having.
+    vector<pair<step_handle_t, step_handle_t>> kept;
+    vector<pair<nid_t, nid_t>> kept_bounds;
+    kept.reserve(this->gref_intervals.size());
+    kept_bounds.reserve(this->gref_intervals.size());
+
+    // Reference intervals are never filtered: dropping one would shift a fragment into the
+    // reference block and silently make every "idx < num_ref_intervals" test wrong.
+    for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
+        kept.push_back(this->gref_intervals[i]);
+        kept_bounds.push_back(this->interval_snarl_bounds[i]);
+    }
+    for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         int64_t length = 0;
-        for (step_handle_t s = interval.first; s != interval.second; s = graph->get_next_step(s)) {
-            length += graph->get_length(graph->get_handle_of_step(s));
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            length += graph->get_length(graph->get_handle_of_step(step));
         }
-        if (length < minimum_length) {
-            // decommission
-            interval.first = graph->path_end(ph);
-            interval.second = graph->path_front_end(ph);
+        if (length >= minimum_length) {
+            kept.push_back(interval);
+            kept_bounds.push_back(this->interval_snarl_bounds[i]);
         }
     }
-    // rebuild node_to_interval without the removed intervals
-    defragment_intervals();
+
+    this->gref_intervals = std::move(kept);
+    this->interval_snarl_bounds = std::move(kept_bounds);
+
+    this->node_to_interval.clear();
+    for (int64_t i = 0; i < (int64_t)this->gref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            this->node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = i;
+        }
+    }
 }
 
 
