@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 39
+plan tests 41
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -48,6 +48,11 @@ rm -f tiny.vg
 vg construct -m 1000 -r tiny/tiny.fa >t.vg
 vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
 
+vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i > /dev/null 2> error.txt
+is $? 1 "not allowed to augment with a nameless path"
+grep "attempting to embed a path with no name" error.txt
+is $? 0 "problem is explained"
+
 is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
 
 is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i -m 2 | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment has a SNP but doesnt meet the coverage threshold"
@@ -64,7 +69,7 @@ is $(vg map --seq-name seq -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCT
 is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
 
 rm t.vg
-rm -rf t.idx.xg t.idx.gcsa read_aug.gam
+rm -rf t.idx.xg t.idx.gcsa read_aug.gam error.txt
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 vg align --seq-name seq -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
