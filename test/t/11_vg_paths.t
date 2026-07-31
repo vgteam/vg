@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 127
+plan tests 129
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -288,6 +288,18 @@ is $(grep -c "GRCh38#0#chrB#0 .. GRCh38#0#chrA#0" bridged.err) 1 "the warning na
 is $(vg paths -x bridged_test.vg -L | grep -c "_alt$") 0 "sequence inside a bridging snarl is withheld from the cover"
 
 rm -f bridged_test.vg bridged.err
+
+# A reference contig whose gref copy would itself be a fragment name.  apply() and
+# write_gref_segments() used to each scan for the highest existing gref index, on opposite
+# sides of copy_base_paths_to_gref(), so the segments table named the base copy while the
+# graph held the fragment under a different name.  Both scans are gone; this is refused up
+# front instead.
+vg paths -x nesting/gref_name_collision.gfa -Q CHM13 --compute-gref --min-gref-len 1 > collision_test.vg 2> collision.err
+is $? 1 "a reference contig named like a gref fragment is refused"
+
+is $(grep -c "would be copied to gref_CHM13#0#chr1_1_alt" collision.err) 1 "the error names the colliding gref path"
+
+rm -f collision_test.vg collision.err
 
 # A PanSN reference read from a GFA without an RS header comes in as haplotype sense, so its
 # name carries a phase block (GRCh38#0#chr1#0) that must not survive into the gref name.

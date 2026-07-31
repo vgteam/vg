@@ -105,6 +105,26 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // merging succeeds more often during the fold.
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
+        // A reference contig whose own name ends in _{N}_alt puts its gref copy into the same
+        // name space as the fragments: copy_base_paths_to_gref() would create
+        // gref_CHM13#0#chr1_1_alt as a base copy while a fragment off CHM13#0#chr1 wants that
+        // same name.  Refuse rather than let the two collide, which is what the per-base index
+        // scans in apply() and write_gref_segments() used to paper over -- and they papered
+        // over it inconsistently, because one ran before the base copies existed and one after,
+        // so the segments table named a path holding entirely different sequence.
+        // Test the copy name, not the path name: a PanSN path read from a GFA with no RS
+        // header carries a phase block (CHM13#0#chr1_1_alt#0), which does not end in _alt even
+        // though the copy made from it does.
+        string ref_name = graph->get_path_name(ref_path_handle);
+        string copy_name = make_gref_copy_name(ref_name);
+        if (is_gref_name(copy_name)) {
+            cerr << "[gref error]: reference path " << ref_name << " would be copied to "
+                 << copy_name << ", which is a gref fragment name (_{N}_alt), so it would"
+                 << " collide with the fragments hanging off "
+                 << parse_base_path(copy_name) << ". Rename the contig, or select reference"
+                 << " paths that are not in the gref namespace." << endl;
+            exit(1);
+        }
         this->gref_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                     graph->path_end(ref_path_handle)));
         this->interval_snarl_bounds.push_back({0, 0});
@@ -429,23 +449,10 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         copy_base_paths_to_gref(mutable_graph, reference_paths);
     }
 
-    // Reset gref counters for each base path
+    // Fragments are numbered from scratch.  clear() removes every gref path before the cover
+    // is computed, and a reference path can no longer be named like a fragment, so there is
+    // never a pre-existing index to continue from.
     base_path_gref_counter.clear();
-
-    // First pass: determine the maximum existing gref index for each base path
-    // This ensures we don't overwrite existing gref paths
-    mutable_graph->for_each_path_handle([&](path_handle_t path_handle) {
-        string path_name = mutable_graph->get_path_name(path_handle);
-        if (is_gref_name(path_name)) {
-            string base = parse_base_path(path_name);
-            int64_t idx = parse_gref_index(path_name);
-            if (base_path_gref_counter.count(base)) {
-                base_path_gref_counter[base] = max(base_path_gref_counter[base], idx);
-            } else {
-                base_path_gref_counter[base] = idx;
-            }
-        }
-    });
 
     // write the gref paths
     int64_t written_intervals = 0;
@@ -1412,22 +1419,7 @@ void GrefCover::copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_g
 }
 
 void GrefCover::write_gref_segments(ostream& os) {
-    // Track gref counters to predict path names (same logic as apply())
-    unordered_map<string, int64_t> local_gref_counter;
-
-    // First pass: find maximum existing gref index for each base path
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
-        string path_name = graph->get_path_name(path_handle);
-        if (is_gref_name(path_name)) {
-            string base = parse_base_path(path_name);
-            int64_t idx = parse_gref_index(path_name);
-            if (local_gref_counter.count(base)) {
-                local_gref_counter[base] = max(local_gref_counter[base], idx);
-            } else {
-                local_gref_counter[base] = idx;
-            }
-        }
-    });
+    // Numbering starts from scratch, exactly as apply() does; see the note there.
 
     // Pre-compute reference node positions by walking all reference intervals once.
     // Maps node ID -> (ref_path_handle, offset of node start on ref path)
@@ -1497,7 +1489,7 @@ void GrefCover::write_gref_segments(ostream& os) {
     // therefore every later name -- drifts.
     vector<string> interval_name(this->gref_intervals.size());
     {
-        unordered_map<string, int64_t> counter = local_gref_counter;
+        unordered_map<string, int64_t> counter;
         for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
             const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
             path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
