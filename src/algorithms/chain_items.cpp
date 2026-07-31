@@ -1160,6 +1160,11 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
         return SubchainGroup();
     }
 
+    if (tracebacks.connections.empty()) {
+        // No need to split up subchains
+        return tracebacks;
+    }
+
     SubchainGroup output = split_up_subchains(to_chain.size(), tracebacks);
 
     /// TODO: add recombination annotations?
