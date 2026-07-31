@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 123
+plan tests 127
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -268,6 +268,26 @@ is $(vg paths -x unanchored_test.vg -L | grep -cE "^gref_HG[12]#1#ctgZ_[0-9]+_al
 
 diff <(cut -f4 unanchored.segs | sort) <(vg paths -x unanchored_test.vg -L | grep "_alt" | sort)
 is $? 0 "gref-segs names match the gref paths that were created"
+
+rm -f unanchored_test.vg unanchored.segs
+
+# A top-level snarl whose two bounds are on DIFFERENT reference contigs.  Both bounds are
+# reference nodes, so requiring merely "anchored on the reference" would accept it; only the
+# same-contig requirement rejects it.  Sequence inside such a snarl has no well-defined
+# containing contig, so it is withheld from the cover rather than assigned to one arbitrarily.
+# Observed for real on chrOther-v2.1, where unplaced contigs are joined through shared rDNA
+# and segmental duplication (GL000220/KI270733, the two chr17 randoms).
+vg paths -x nesting/bridged_ref_contigs.gfa -Q GRCh38 --compute-gref --min-gref-len 1 > bridged_test.vg 2> bridged.err
+is $? 0 "a snarl bridging two reference contigs does not abort the cover"
+
+is $(grep -c "bridge two reference contigs" bridged.err) 1 "the bridging snarl is reported"
+
+is $(grep -c "GRCh38#0#chrB#0 .. GRCh38#0#chrA#0" bridged.err) 1 "the warning names both contigs it bridges"
+
+# Would be 1 if the sequence were covered anyway, so this fails if enforcement stops working.
+is $(vg paths -x bridged_test.vg -L | grep -c "_alt$") 0 "sequence inside a bridging snarl is withheld from the cover"
+
+rm -f bridged_test.vg bridged.err
 
 # A PanSN reference read from a GFA without an RS header comes in as haplotype sense, so its
 # name carries a phase block (GRCh38#0#chr1#0) that must not survive into the gref name.
