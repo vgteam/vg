@@ -46,9 +46,10 @@ void help_snarl(char** argv) {
          << "                            haplotypes downstream" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl
-         << "traversals output options (inspect with vg view -Ej):" << endl
-         << "note that these have no effect on the stdout .pb file"
+         << "traversals output options (note that these have no effect on the " << endl
+         << "stdout .pb file):" << endl
          << "  -r, --traversals FILE     output SnarlTraversals for ultrabubbles" << endl
+         << "                            to FILE (inspect with vg view -Ej)" << endl
          << "  -e, --path-traversals     only consider traversals that correspond to paths in" << endl
          << "                            the graph (-m ignored)" << endl
          << "  -l, --leaf-only           limit --traversals output to leaf ultrabubbles" << endl
