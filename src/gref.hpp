@@ -39,6 +39,17 @@ using namespace std;
 
 class GrefCover {
 public:
+    // Whether the cover draws candidates from snarl traversals as well as from whole-path
+    // runs.  A snarl traversal is bounded by its bubble, so it cannot offer a candidate
+    // longer than one snarl; fill_uncovered_nodes() enumerates maximal runs along whole
+    // source paths and covers everything on its own.  See the comment in compute().
+    //
+    // Public because compute() then has no use for its SnarlManager, and building one is
+    // the single largest cost of `vg paths -u` in both time and peak memory.  Callers test
+    // this to decide whether to build one at all: when it is false, compute() accepts
+    // nullptr.  Keeping the two decisions on one constant is what stops them drifting.
+    static constexpr bool use_snarl_candidates = false;
+
     // The prefix every gref path name carries
     static const string gref_prefix;  // "gref_"
 

@@ -168,7 +168,9 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // from the source path's own reference anchors instead -- see the anchor branch there.
     // That window is an approximation of the snarl interval, not the same thing: where a
     // haplotype leaves the reference and rejoins it far away, it can be much wider.
-    const bool use_snarl_candidates = false;
+    //
+    // use_snarl_candidates is declared in the header so callers can skip building the
+    // SnarlManager entirely; snarl_manager is null whenever it is false.
     if (use_snarl_candidates) snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output (intervals and snarl bounds accumulate across snarls)
         vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals = gref_intervals_vector[omp_get_thread_num()];
@@ -359,11 +361,19 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         step_handle_t run_end;
 
         auto close_run = [&]() {
-            if (in_run && run_length >= minimum_length) {
-                out.push_back({run_length, run_reverse, &path_name, run_start, run_end});
+            if (in_run) {
+                if (run_length >= minimum_length) {
+                    out.push_back({run_length, run_reverse, &path_name, run_start, run_end});
+                }
+                // Guarded: this is called for every already-covered step, which on a
+                // haplotype means every reference node it walks.  clear() memsets the whole
+                // bucket array and the table never shrinks, so an unguarded clear costs
+                // O(largest run this path has produced) on each of those steps.  run_nodes
+                // only ever gains entries on the path that also sets in_run, so in_run is
+                // false exactly when the set is already empty.
+                run_nodes.clear();
             }
             in_run = false;
-            run_nodes.clear();
             run_length = 0;
         };
 
@@ -413,11 +423,15 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         unordered_set<nid_t> piece_nodes;
         vector<FillRun> pieces;
         auto close_piece = [&]() {
-            if (in_piece && piece_length >= minimum_length) {
-                pieces.push_back({piece_length, best.reverse, best.name, piece_start, piece_end});
+            if (in_piece) {
+                if (piece_length >= minimum_length) {
+                    pieces.push_back({piece_length, best.reverse, best.name, piece_start, piece_end});
+                }
+                // Guarded for the same reason as close_run() above: called once per
+                // already-claimed step, and an unguarded clear() is O(bucket count).
+                piece_nodes.clear();
             }
             in_piece = false;
-            piece_nodes.clear();
             piece_length = 0;
         };
         for (step_handle_t step = best.start; step != best.end; step = graph->get_next_step(step)) {

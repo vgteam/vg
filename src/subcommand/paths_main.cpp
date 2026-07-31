@@ -525,22 +525,30 @@ int main_paths(int argc, char** argv) {
         // reference path endpoints (matching snarls_main.cpp).  Without this
         // bias the snarl tree can root arbitrarily, producing backward-oriented
         // top-level snarls that don't align with the reference.
-        std::unordered_map<nid_t, size_t> extra_node_weight;
-        constexpr size_t EXTRA_WEIGHT = 10000000000;
-        for (const path_handle_t& ph : ref_paths) {
-            if (!graph->is_empty(ph)) {
-                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(ph)))] += EXTRA_WEIGHT;
-                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(ph)))] += EXTRA_WEIGHT;
+        //
+        // Only when the cover actually wants snarl traversals as candidates.  It is the
+        // most expensive thing this subcommand does -- on chrY it is 43% of the wall time
+        // and it alone sets the peak RSS -- so building one the cover will not read is
+        // worth avoiding rather than tidying up later.
+        unique_ptr<SnarlManager> snarl_manager;
+        if (GrefCover::use_snarl_candidates) {
+            std::unordered_map<nid_t, size_t> extra_node_weight;
+            constexpr size_t EXTRA_WEIGHT = 10000000000;
+            for (const path_handle_t& ph : ref_paths) {
+                if (!graph->is_empty(ph)) {
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(ph)))] += EXTRA_WEIGHT;
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(ph)))] += EXTRA_WEIGHT;
+                }
             }
+            IntegratedSnarlFinder finder(*graph, extra_node_weight);
+            snarl_manager = make_unique<SnarlManager>(std::move(finder.find_snarls_parallel()));
         }
-        IntegratedSnarlFinder finder(*graph, extra_node_weight);
-        SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
 
         // Compute and apply gref cover
         GrefCover cover;
         cover.set_verbose(progress);
         cover.clear(mutable_graph);
-        cover.compute(graph, &snarl_manager, ref_paths, min_gref_length);
+        cover.compute(graph, snarl_manager.get(), ref_paths, min_gref_length);
 
         // Write gref segment table if requested
         if (!gref_segments_file.empty()) {
