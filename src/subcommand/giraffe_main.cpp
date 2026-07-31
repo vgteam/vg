@@ -986,7 +986,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
         .add_entry<double>("chain-score-threshold", 234.0)
-        .add_entry<int>("min-chains", 1)
+        .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 2)
         .add_entry<int>("max-min-chain-score", 46)
@@ -1047,7 +1047,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 13)
         .add_entry<double>("chain-score-threshold", 160.0)
-        .add_entry<int>("min-chains", 1)
+        .add_entry<int>("min-chains", 2)
         .add_entry<size_t>("max-chains-per-tree", 2)
         // Lowering this can reduce wrong reads in mapping experiments, but
         // seems to *increase* miscalls; see
@@ -1112,7 +1112,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.01)
         .add_entry<int>("max-min-chain-score", 200.0)
         .add_entry<int>("item-bonus", 0)
-        .add_entry<int>("min-chains", 2)
+        .add_entry<int>("min-chains", 3)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 4)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
