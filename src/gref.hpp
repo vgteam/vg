@@ -260,6 +260,23 @@ protected:
     // Prints a summary of coverage statistics to stderr.
     void verify_cover(int64_t minimum_length) const;
 
+    // Enforce node-disjointness: no two gref intervals may share a node, and no fragment
+    // may claim a node belonging to a reference interval.
+    //
+    // This is a hard invariant, not a quality measure.  Every gref path becomes its own
+    // reference contig with its own coordinate space, so a node owned by two of them is the
+    // same sequence at two different coordinates -- downstream that is not a worse cover,
+    // it is an incoherent one.  node_to_interval cannot enforce it on its own: it maps each
+    // node to ONE interval index, so an interval that overwrites another's entry silently
+    // wins the index while the loser keeps the step in its own range and still gets written
+    // by apply().  Only walking the intervals themselves can detect that, which is what
+    // this does.
+    //
+    // Called at the end of compute() over the final cover, so it holds whatever route the
+    // intervals took to get there.  Exits non-zero on violation rather than warning: a
+    // cover that violates this should never reach a downstream tool.
+    void verify_disjoint() const;
+
     const PathHandleGraph* graph = nullptr;
 
     // Intervals are end-exclusive (like BED).

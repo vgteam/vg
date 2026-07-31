@@ -288,6 +288,9 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // second length filter: remove any tiny intervals from fill_uncovered_nodes
     filter_short_intervals(minimum_length);
 
+    // the cover is final here: nothing below adds, merges or extends an interval
+    verify_disjoint();
+
     if (verbose) {
         int64_t final_alt = gref_intervals.size() - num_ref_intervals;
         cerr << "[gref] After length filter (min " << minimum_length << " bp): "
@@ -1503,6 +1506,82 @@ vector<pair<int64_t, nid_t>> GrefCover::get_reference_nodes(nid_t node_id, bool 
     // Note: output_reference_nodes may be empty if the node is in a disconnected
     // component that cannot trace back to any reference interval (e.g., after clipping)
     return output_reference_nodes;
+}
+
+void GrefCover::verify_disjoint() const {
+    // One owner per node, established by walking the intervals rather than by trusting
+    // node_to_interval -- see the header comment for why that map cannot detect this.
+    unordered_map<nid_t, int64_t> owner;
+    owner.reserve(this->node_to_interval.size());
+
+    int64_t shared_nodes = 0;
+    int64_t repeated_nodes = 0;
+    // Report a bounded sample: on a whole chromosome an unbounded list would bury the count.
+    const int64_t max_reported = 10;
+    vector<string> reports;
+
+    auto describe = [&](int64_t interval_idx) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals.at(interval_idx);
+        path_handle_t path = graph->get_path_handle_of_step(interval.first);
+        string kind = interval_idx < this->num_ref_intervals ? "reference" : "fragment";
+        return kind + " interval " + std::to_string(interval_idx) + " on " + graph->get_path_name(path);
+    };
+
+    for (int64_t i = 0; i < (int64_t)this->gref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+        path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
+        // Decommissioned intervals are empty and are skipped by apply(); skip them here too.
+        if (interval.first == graph->path_end(interval_path)) {
+            continue;
+        }
+        unordered_set<nid_t> seen_in_interval;
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+
+            // A3: no interval contains the same node twice.
+            if (!seen_in_interval.insert(node_id).second) {
+                ++repeated_nodes;
+                if ((int64_t)reports.size() < max_reported) {
+                    reports.push_back("node " + std::to_string(node_id) + " appears twice in "
+                                      + describe(i));
+                }
+                continue;
+            }
+
+            auto found = owner.find(node_id);
+            if (found == owner.end()) {
+                owner.emplace(node_id, i);
+            } else {
+                ++shared_nodes;
+                if ((int64_t)reports.size() < max_reported) {
+                    reports.push_back("node " + std::to_string(node_id) + " is claimed by both "
+                                      + describe(found->second) + " and " + describe(i));
+                }
+            }
+        }
+    }
+
+    if (shared_nodes > 0 || repeated_nodes > 0) {
+        cerr << "[gref error]: the cover is not node-disjoint: "
+             << shared_nodes << " nodes claimed by more than one gref interval, "
+             << repeated_nodes << " nodes repeated within one interval" << endl;
+        for (const string& report : reports) {
+            cerr << "[gref error]:   " << report << endl;
+        }
+        if (shared_nodes + repeated_nodes > (int64_t)reports.size()) {
+            cerr << "[gref error]:   ... and "
+                 << (shared_nodes + repeated_nodes - (int64_t)reports.size())
+                 << " more" << endl;
+        }
+        exit(1);
+    }
+
+    if (verbose) {
+        cerr << "[gref] Node-disjointness verified: " << owner.size()
+             << " nodes, each claimed by exactly one of " << this->gref_intervals.size()
+             << " intervals" << endl;
+    }
 }
 
 void GrefCover::verify_cover(int64_t minimum_length) const {
