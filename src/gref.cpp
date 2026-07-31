@@ -896,6 +896,9 @@ void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& dist
     int64_t snarls_seen = 0;
     int64_t spine_nodes_seen = 0;
     int64_t non_reference_spine_nodes = 0;
+    int64_t bridging_snarls = 0;
+    vector<string> failures;
+    const int64_t max_reported_failures = 5;
     net_handle_t root = distance_index.get_root();
     distance_index.for_each_child(root, [&](net_handle_t top_chain) {
         distance_index.for_each_child(top_chain, [&](net_handle_t child) {
@@ -909,6 +912,24 @@ void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& dist
                 int64_t end_contig = reference_contig_of(end_id);
                 if (start_contig < 0 || end_contig < 0 || start_contig != end_contig) {
                     ++this->excluded_units;
+                    // Name what failed and how.  "Bridges two contigs" and "has a bound off
+                    // the reference" are different problems with different causes, and a bare
+                    // count cannot be acted on.
+                    if ((int64_t)failures.size() < max_reported_failures) {
+                        auto describe = [&](nid_t node_id, int64_t contig) {
+                            if (contig < 0) {
+                                return string("node ") + std::to_string(node_id) + " (off-reference)";
+                            }
+                            path_handle_t ref_path = graph->get_path_handle_of_step(
+                                this->gref_intervals.at(contig).first);
+                            return graph->get_path_name(ref_path);
+                        };
+                        failures.push_back(describe(start_id, start_contig) + " .. "
+                                           + describe(end_id, end_contig));
+                    }
+                    if (start_contig >= 0 && end_contig >= 0) {
+                        ++bridging_snarls;
+                    }
                     withhold(child);
                 }
             } else if (distance_index.is_node(child)) {
@@ -939,9 +960,17 @@ void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& dist
         cerr << "[gref] warning: " << this->excluded_units << " of " << snarls_seen
              << " top-level snarls do not have both bounds on one reference contig;"
              << " withholding " << this->excluded_nodes.size() << " nodes ("
-             << this->excluded_bp << " bp) from the cover.  A snarl fails this when the"
-             << " reference is clipped or subranged, or when it sits in a component with no"
-             << " reference in it." << endl;
+             << this->excluded_bp << " bp) from the cover." << endl;
+        cerr << "[gref] warning:   " << bridging_snarls << " bridge two reference contigs, "
+             << (this->excluded_units - bridging_snarls)
+             << " have a bound off the reference" << endl;
+        for (const string& failure : failures) {
+            cerr << "[gref] warning:   " << failure << endl;
+        }
+        if (this->excluded_units > (int64_t)failures.size()) {
+            cerr << "[gref] warning:   ... and "
+                 << (this->excluded_units - (int64_t)failures.size()) << " more" << endl;
+        }
     } else if (verbose) {
         cerr << "[gref] Top-level anchoring: all " << snarls_seen
              << " snarls have both bounds on one reference contig ("
