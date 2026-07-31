@@ -34,7 +34,6 @@ void help_snarl(char** argv) {
          << "       By default, a list of protobuf Snarls is written" << endl
          << "general options:" << endl
          << "  -A, --algorithm NAME      snarl algorithm {cactus/integrated} [integrated]" << endl
-         << "  -p, --pathnames           output variant paths as SnarlTraversals to stdout" << endl
          << "  -n, --named-coordinates   produce all outputs in named-segment (GFA) space" << endl
          << "  -T, --include-trivial     report snarls that consist of a single edge" << endl
          << "  -s, --sort-snarls         return snarls in sorted order by node ID" << endl
@@ -48,8 +47,8 @@ void help_snarl(char** argv) {
          << "  -h, --help                print this help message to stderr and exit" << endl
          << "traversals output options (note that these have no effect on the " << endl
          << "stdout .pb file):" << endl
-         << "  -r, --traversals FILE     output SnarlTraversals for ultrabubbles" << endl
-         << "                            to FILE (inspect with vg view -Ej)" << endl
+         << "  -r, --traversals OUTFILE  output SnarlTraversals for ultrabubbles" << endl
+         << "                            to OUTFILE (inspect with vg view -Ej)" << endl
          << "  -e, --path-traversals     only consider traversals that correspond to paths in" << endl
          << "                            the graph (-m ignored)" << endl
          << "  -l, --leaf-only           limit --traversals output to leaf ultrabubbles" << endl
@@ -83,7 +82,6 @@ int main_snarl(int argc, char** argv) {
     bool named_coordinates = false;
     bool filter_trivial_snarls = true;
     bool sort_snarls = false;
-    bool fill_path_names = false;
     string vcf_filename;
     string ref_fasta_filename;
     string ins_fasta_filename;
@@ -169,7 +167,7 @@ int main_snarl(int argc, char** argv) {
             sort_snarls = true;
             break;
         case 'p':
-            fill_path_names = true;
+            logger.error() << "vg snarls --pathnames has been removed" << endl;
             break;
         case 'v':
             vcf_filename = require_exists(logger, optarg);
@@ -331,30 +329,6 @@ int main_snarl(int argc, char** argv) {
             snarl_roots.push_back(here->first);
         }
     });
-    
-    if (fill_path_names){
-        // This finder needs a vg::VG
-        trav_finder.reset(new PathBasedTraversalFinder(*graph, snarl_manager));
-        for (const Snarl* snarl : snarl_roots ){
-            if (filter_trivial_snarls) {
-                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
-                if (contents.first.empty()) {
-                    // Nothing but the boundary nodes in this snarl
-                    continue;
-                }
-            }
-            vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-            if (translation) {
-                for (auto& trav : travs) {
-                    // Bring all the output traversals into named segment space.
-                    vg::algorithms::back_translate_in_place(translation, trav);
-                }
-            }
-            vg::io::write_buffered(cout, travs, 0);
-        }
-
-        exit(0);
-    }
 
     if (path_traversals) {
         // Limit traversals to embedded paths
