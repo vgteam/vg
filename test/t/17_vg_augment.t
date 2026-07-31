@@ -12,19 +12,19 @@ vg view -J -v pileup/tiny.json > tiny.vg
 
 # Make sure well-supported edits are augmented in
 vg view -J -a -G pileup/edits.json > edits.gam
-vg augment -a direct tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
+vg augment tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
 
 # We want 3 edits with no sequence per read, and we have 12 reads in this file.
 is "$(vg view -aj edits-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds reads fully for well-supported SNPs"
 is "$(vg stats -N augmented.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes"
 
 # Run again but with packed logic.  output should be identical with min threshold of 1
-vg augment -a direct tiny.vg edits.gam -A edits-embedded.gam -m 1 > augmented.m1.vg
+vg augment tiny.vg edits.gam -A edits-embedded.gam -m 1 > augmented.m1.vg
 is "$(vg stats -N augmented.m1.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes with -m 1"
 
 # run again but with GAF
 vg convert tiny.vg -G edits.gam > edits.gaf
-vg augment -a direct tiny.vg edits.gaf -F -A edits-embedded.gaf > augmented.gaf.vg
+vg augment tiny.vg edits.gaf -F -A edits-embedded.gaf > augmented.gaf.vg
 vg convert augmented.gaf.vg -F edits-embedded.gaf > edits-embedded.gaf.gam
 is "$(vg view -aj edits-embedded.gaf.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds with GAF reads fully for well-supported SNPs"
 is "$(vg stats -N augmented.gaf.vg)" "18" "adding a well-supported SNP by direct augmentation with GAF adds 3 more nodes"
@@ -33,7 +33,7 @@ rm -f edits.gam edits-embedded.gam augmented.vg augmented.m1.vg edits.gaf edits-
 
 # Make sure every edit is augmented in
 vg view -J -a -G pileup/edit.json > edit.gam
-vg augment -a direct tiny.vg edit.gam -A edit-embedded.gam > augmented.vg
+vg augment tiny.vg edit.gam -A edit-embedded.gam > augmented.vg
 
 # This file only has one read.
 is "$(vg view -aj edit-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "3" "direct augmentation embeds reads fully for probable errors"
