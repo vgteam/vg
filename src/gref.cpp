@@ -144,6 +144,15 @@ void GrefCover::compute(const PathHandleGraph* graph,
     cerr << "[gref] Selected " << gref_intervals.size() << " rank=0 reference paths" << endl;
 #endif
 
+    // Reference nodes are now claimed, which is what makes the anchoring test meaningful, and
+    // nothing has been covered yet, which is what makes withholding possible.
+    this->excluded_nodes.clear();
+    this->excluded_units = 0;
+    this->excluded_bp = 0;
+    if (distance_index != nullptr) {
+        enforce_top_level_anchoring(*distance_index);
+    }
+
     // we use the path traversal finder for everything
     PathTraversalFinder path_trav_finder(*graph);
 
@@ -311,7 +320,9 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
 
     graph->for_each_handle([&](handle_t handle) {
         nid_t node_id = graph->get_id(handle);
-        if (!node_to_interval.count(node_id)) {
+        // Withheld nodes are never offered as candidates, so no run can enter one and no
+        // fragment can be built from one.  See enforce_top_level_anchoring().
+        if (!node_to_interval.count(node_id) && !this->excluded_nodes.count(node_id)) {
             uncovered_nodes.insert(node_id);
             graph->for_each_step_on_handle(handle, [&](step_handle_t step) {
                 path_handle_t path_handle = graph->get_path_handle_of_step(step);
@@ -1596,6 +1607,96 @@ const GrefCover::TopLevelSnarlStats& GrefCover::get_top_level_snarl_stats() cons
 
 pair<nid_t, nid_t> GrefCover::get_top_level_snarl(int64_t interval_index) const {
     return this->interval_snarl_bounds.at(interval_index);
+}
+
+void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& distance_index) {
+    using handlegraph::net_handle_t;
+    this->excluded_nodes.clear();
+    this->excluded_units = 0;
+    this->excluded_bp = 0;
+
+    auto interval_of = [&](nid_t node_id) {
+        auto found = this->node_to_interval.find(node_id);
+        return found == this->node_to_interval.end() ? (int64_t)-1 : found->second;
+    };
+    // Reference intervals are gref_intervals[0, num_ref_intervals), one per reference path,
+    // so the interval index doubles as the identity of the reference contig.
+    auto reference_contig_of = [&](nid_t node_id) {
+        int64_t idx = interval_of(node_id);
+        return (idx >= 0 && idx < this->num_ref_intervals) ? idx : (int64_t)-1;
+    };
+
+    // Withhold every node beneath net.  Reference nodes are already claimed and can never be
+    // taken by a fragment, so excluding them would be meaningless; only alt sequence counts.
+    std::function<void(const net_handle_t&)> withhold = [&](const net_handle_t& net) {
+        if (distance_index.is_node(net)) {
+            nid_t node_id = distance_index.node_id(net);
+            if (reference_contig_of(node_id) < 0 && this->excluded_nodes.insert(node_id).second) {
+                this->excluded_bp += graph->get_length(graph->get_handle(node_id));
+            }
+            return;
+        }
+        distance_index.for_each_child(net, [&](net_handle_t child) {
+            withhold(child);
+            return true;
+        });
+    };
+
+    int64_t snarls_seen = 0;
+    int64_t spine_nodes_seen = 0;
+    int64_t non_reference_spine_nodes = 0;
+    net_handle_t root = distance_index.get_root();
+    distance_index.for_each_child(root, [&](net_handle_t top_chain) {
+        distance_index.for_each_child(top_chain, [&](net_handle_t child) {
+            if (distance_index.is_snarl(child)) {
+                ++snarls_seen;
+                // The bounds are sentinels owned by the parent chain, so node_id() is valid
+                // on them even though is_node() is not.
+                nid_t start_id = distance_index.node_id(distance_index.get_bound(child, false, true));
+                nid_t end_id = distance_index.node_id(distance_index.get_bound(child, true, false));
+                int64_t start_contig = reference_contig_of(start_id);
+                int64_t end_contig = reference_contig_of(end_id);
+                if (start_contig < 0 || end_contig < 0 || start_contig != end_contig) {
+                    ++this->excluded_units;
+                    withhold(child);
+                }
+            } else if (distance_index.is_node(child)) {
+                ++spine_nodes_seen;
+                // A bare chain node is linear spine sequence, not a site.  A non-reference one
+                // does mean the spine is discontinuous here, but it costs nothing: a run of
+                // spine nodes is covered by a single fragment, so there is no second fragment
+                // to merge it with.  What has to be excluded is a snarl a fragment could cross
+                // INTO, and that is handled above.  Measured: dangling_node, hap_extends_ref_-
+                // start/end and unpathed_node each carry a non-reference spine node and
+                // produce zero fragments spanning two units.  Withholding these would drop
+                // sequence past a reference contig end for no gain.
+                if (reference_contig_of(distance_index.node_id(child)) < 0) {
+                    ++non_reference_spine_nodes;
+                }
+            } else {
+                // Neither snarl nor node: not observed on any graph tested.  Withhold it
+                // rather than assume it is safe.
+                ++this->excluded_units;
+                withhold(child);
+            }
+            return true;
+        });
+        return true;
+    });
+
+    if (this->excluded_units > 0) {
+        cerr << "[gref] warning: " << this->excluded_units << " of " << snarls_seen
+             << " top-level snarls do not have both bounds on one reference contig;"
+             << " withholding " << this->excluded_nodes.size() << " nodes ("
+             << this->excluded_bp << " bp) from the cover.  A snarl fails this when the"
+             << " reference is clipped or subranged, or when it sits in a component with no"
+             << " reference in it." << endl;
+    } else if (verbose) {
+        cerr << "[gref] Top-level anchoring: all " << snarls_seen
+             << " snarls have both bounds on one reference contig ("
+             << spine_nodes_seen << " spine nodes, " << non_reference_spine_nodes
+             << " off-reference)" << endl;
+    }
 }
 
 void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance_index) {

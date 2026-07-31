@@ -188,6 +188,27 @@ public:
         int64_t nodes_claimed_twice = 0;
     };
 
+    // Require every top-level snarl to be anchored on the reference, and take the sequence
+    // of any that is not out of the cover entirely.
+    //
+    // Anchored means both bounds of the snarl are nodes of the SAME reference contig.  Both
+    // halves matter.  Reference nodes are pre-assigned before any candidate is considered, so
+    // a fragment can never contain one; a snarl with both bounds on one reference contig is
+    // therefore uncrossable, and everything inside it is reachable only through those two
+    // nodes.  That is what makes each top-level snarl an independent problem, and it is why
+    // no fragment can ever need to be merged with one from another snarl.  Requiring the SAME
+    // contig, not merely two reference nodes, is what rules out a snarl bridging two contigs,
+    // which is exactly the case where "inside" stops being well defined.
+    //
+    // A snarl that fails is not repaired and is not covered: its nodes are withheld from the
+    // cover and reported.  Withholding sequence is a real cost, so it is counted in nodes and
+    // bp and warned about unconditionally -- never silently.  On a graph whose reference is
+    // full-length nothing is withheld; the failures are clipped or subranged references, where
+    // the spine is not continuous and the guarantee genuinely does not hold.
+    //
+    // Must run after the reference paths are pre-assigned and before any fragment is claimed.
+    void enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& distance_index);
+
     // Map every fragment onto the top-level snarl decomposition carried by distance_index.
     // Fills interval_snarl_bounds with the boundary nodes of the containing top-level snarl
     // for every fragment that lies wholly inside one, leaves {0,0} for the rest, and records
@@ -348,6 +369,12 @@ protected:
 
     // Summary from assign_top_level_snarls().
     TopLevelSnarlStats top_level_snarl_stats;
+
+    // Nodes inside a top-level unit that failed the reference-anchoring requirement, and so
+    // are withheld from the cover.  Empty unless enforce_top_level_anchoring() ran.
+    unordered_set<nid_t> excluded_nodes;
+    int64_t excluded_units = 0;
+    int64_t excluded_bp = 0;
 
     // gref_intervals[0, num_ref_intervals-1] are all rank-0 reference intervals.
     int64_t num_ref_intervals = 0;
