@@ -109,12 +109,14 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
     }
 
     // Loop through all trees' chaining results
+    size_t overall_index = 0;
     for (size_t group_num = 0; group_num < subchain_groups.size(); group_num++) {
         for (size_t chain_num = 0; chain_num < subchain_groups.at(group_num).subchains.size(); chain_num++) {
             // For each chain, create a separate TSV file
             std::string cur_name = std::to_string(group_num) + "chain" + std::to_string(chain_num);
 
-            auto& tree_num = subchain_source_tree.at(chain_num);
+            auto& tree_num = subchain_source_tree.at(overall_index);
+            overall_index++;
 
             // Find all the seeds in its zip tree
             vector<size_t> involved_seeds;
@@ -1911,8 +1913,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Produced alignment from chain " << processed_num
-                            << " with score " << alignments.back().score() << ": " << log_alignment(alignments.back()) << endl;
+                        cerr << log_name() << "Produced alignment from chain group " << processed_num
+                             << " with score " << alignments.back().score() << ": " << log_alignment(alignments.back()) << endl;
                     }
                 }
             };
