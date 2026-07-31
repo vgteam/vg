@@ -1121,6 +1121,10 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
         }
     }
 
+    // Vector always sorted from small to large
+    // not multiset because not long enough to matter
+    vector<int> passing_scores(min_chains, 0);
+
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
@@ -1425,6 +1429,32 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             // And what seeds should count as explored when we take an anchor
             const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
 
+            // See if we can fail the tree even before chaining
+            if (subchain_groups.size() > min_chains) {
+                // Score we would get if we took literally every seed with no penalties
+                size_t max_tree_score = 0;
+                for (const auto& seed : zip_code_forest.trees[item_num].get_all_seeds()) {
+                    max_tree_score += seed_anchors[seed.seed].score() + this->item_bonus;
+                }
+                if (max_tree_score < *passing_scores.begin()) {
+                    // There's no way we would ever use this chain
+                    if (show_work) {
+                        cerr << log_name() << "Not bothering to chain tree " << item_num
+                             << " because its theoretical maximum chaining score " << max_tree_score
+                             << " is below " << *passing_scores.begin()
+                             << " and thus would not proceed to alignment" << endl;
+                    }
+                    if (track_provenance) {
+                        funnel.fail("zipcode-tree-theoretical-max-chain-score-threshold", item_num, max_tree_score);
+                    }
+                    return false;
+                }
+            }
+
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-theoretical-max-chain-score-threshold", item_num);
+            }
+
             if (track_provenance) {
                 funnel.substage("chain");
             }
@@ -1467,7 +1497,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
             };
-            subchain_groups.push_back(algorithms::find_best_chains(
+            algorithms::SubchainGroup new_group = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1475,19 +1505,55 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 this->max_chains_per_tree,
                 for_each_transition,
                 indel_limit,
-                show_work
-            ));
+                show_work);
+
             if (show_work) {
                 #pragma omp critical (cerr)
                 cerr << log_name() << "\t[" << aln.name() << "] Found "
-                     << subchain_groups.back().subchains.size() << " subchains with "
-                     << subchain_groups.back().connections.size() << " inter-subchain connections in zip code tree " << item_num
+                     << new_group.subchains.size() << " subchains with "
+                     << new_group.connections.size() << " inter-subchain connections in zip code tree " << item_num
                      << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
             }
 
-            for (size_t subchain_i = 0; subchain_i < subchain_groups.back().subchains.size(); subchain_i++) {
+            if (new_group.max_sparse_chain_score < *passing_scores.begin()) {
+                // There's no way we would ever use this chain
+                if (show_work) {
+                    cerr << log_name() << "Not bothering to save subchain group " << item_num
+                         << " because its maximum chaining score " << new_group.max_sparse_chain_score
+                         << " is below " << *passing_scores.begin()
+                         << " and thus would not proceed to alignment" << endl;
+                    }
+                if (track_provenance) {
+                    funnel.fail("zipcode-tree-actual-max-chain-score-threshold", item_num, new_group.max_sparse_chain_score);
+                }
+                return false;
+            }
+
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-actual-max-chain-score-threshold", item_num);
+            }
+
+            // Okay, we're using this chain
+            subchain_groups.push_back(new_group);
+            if (new_group.max_sparse_chain_score > *passing_scores.begin()) {
+                // We need to update the passing score list
+                passing_scores[0] = new_group.max_sparse_chain_score;
+                // Swap along until we get to the right spot
+                for (size_t i = 1; i < passing_scores.size(); i++) {
+                    if (passing_scores[i] >= new_group.max_sparse_chain_score) {
+                        // Shouldn't swap things any further
+                        break;
+                    } else {
+                        // Bump this one down
+                        passing_scores[i-1] = passing_scores[i];
+                        passing_scores[i] = new_group.max_sparse_chain_score;
+                    }
+                }
+            }
+
+            for (size_t subchain_i = 0; subchain_i < new_group.subchains.size(); subchain_i++) {
                 // For each subchain
-                vector<size_t>& subchain = subchain_groups.back().subchains[subchain_i];
+                vector<size_t>& subchain = new_group.subchains[subchain_i];
 #ifdef debug_rec
                 if (true)
 #else
@@ -1535,7 +1601,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         }
                     } else if (subchain_i == MANY_LIMIT) {
                         #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (subchain_groups.back().subchains.size() - subchain_i) << " more chains>" << std::endl;
+                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (new_group.subchains.size() - subchain_i) << " more chains>" << std::endl;
                     }
                 }
 
