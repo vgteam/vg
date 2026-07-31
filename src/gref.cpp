@@ -1488,6 +1488,25 @@ void GrefCover::write_gref_segments(ostream& os) {
         int64_t display_source_start = source_start + cache_it->second.second;
         int64_t display_source_end = source_end + cache_it->second.second;
 
+        // The top-level snarl this fragment sits in, as its two boundary node ids.  Both are
+        // reference nodes on one contig (enforce_top_level_anchoring), so the pair names the
+        // site the fragment is an allele of, and every fragment inside that snarl carries the
+        // same pair.  0 0 when no decomposition was supplied.
+        //
+        // Emitted in reference order.  The decomposition reports the bounds in the
+        // orientation it traversed the chain, which can be either way round; ordering them by
+        // where they sit on the reference makes the pair mean the same thing on every row.
+        pair<nid_t, nid_t> top_snarl = this->interval_snarl_bounds[i];
+        if (top_snarl.first != 0 && top_snarl.second != 0) {
+            auto left = ref_node_positions.find(top_snarl.first);
+            auto right = ref_node_positions.find(top_snarl.second);
+            if (left != ref_node_positions.end() && right != ref_node_positions.end() &&
+                left->second.first == right->second.first &&
+                right->second.second < left->second.second) {
+                std::swap(top_snarl.first, top_snarl.second);
+            }
+        }
+
         // Output the BED line
         os << display_source_name << "\t"
            << display_source_start << "\t"
@@ -1495,7 +1514,9 @@ void GrefCover::write_gref_segments(ostream& os) {
            << gref_name << "\t"
            << ref_path_name << "\t"
            << ref_start << "\t"
-           << ref_end << "\n";
+           << ref_end << "\t"
+           << top_snarl.first << "\t"
+           << top_snarl.second << "\n";
     }
 }
 

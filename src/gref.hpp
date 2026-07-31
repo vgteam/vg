@@ -214,7 +214,19 @@ public:
 
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_path_name,
-    //                     ref_path, ref_start, ref_end
+    //                     ref_path, ref_start, ref_end,
+    //                     top_snarl_start, top_snarl_end
+    //
+    // The last two are the boundary node ids of the top-level snarl the fragment lies in --
+    // the site it is an allele of.  Both are reference nodes on ref_path, so fragments that
+    // are alleles of the same site share the pair, and grouping the table on it groups the
+    // cover by site.  0 0 when no decomposition was supplied.
+    //
+    // Note this is a different thing from ref_start/ref_end, which is the reference interval
+    // the fragment's own source path brackets it with.  A top-level snarl is much coarser --
+    // 77% of chrY's reference nodes are inside one -- so it identifies the site but does not
+    // localise the fragment on the reference.
+    //
     // Must be called after compute() and knows what gref path names will be used.
     void write_gref_segments(ostream& os);
 
