@@ -97,7 +97,8 @@ void apply_blat_preset(MinimizerMapper& m) {
     m.max_indel_bases = 5000;
     m.max_indel_bases_per_base = 2.45;
     m.item_bonus = 20;
-    m.item_scale = 1.0;
+    // item_scale removed upstream (chaining no longer scales item scores); it
+    // was set to its default of 1.0 here, so dropping it is behavior-neutral.
     m.gap_scale = 0.2;
     m.max_min_chain_score = 100;
     m.max_skipped_bases = 1000;
@@ -451,7 +452,7 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
         std::unordered_set<string> extras(config.surjection_target_paths.begin(),
                                           config.surjection_target_paths.end());
         position_overlay = make_unique<bdsg::ReferencePathOverlay>(
-            &gbz->graph, extras, /*all_paths=*/false);
+            &gbz->graph, /*all_paths=*/false, extras);
         surjector = make_unique<HaplotypeSurjector>(*gbz, *position_overlay);
     }
 

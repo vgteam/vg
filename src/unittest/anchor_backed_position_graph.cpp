@@ -356,8 +356,8 @@ TEST_CASE("Surject(adapter) == Surject(overlay) on the same alignment",
 
     // Ground truth: real reference-path overlay over y.
     bdsg::ReferencePathOverlay overlay(&t.graph,
-                                      std::unordered_set<std::string>{ "y" },
-                                      /*all_paths=*/false);
+                                      /*all_paths=*/false,
+                                      std::unordered_set<std::string>{ "y" });
 
     // Adapter: AnchorBackedPositionGraph with dense anchors covering y.
     std::vector<PrecomputedAnchor> anchors;
@@ -419,6 +419,102 @@ TEST_CASE("Surject(adapter) == Surject(overlay) on the same alignment",
             REQUIRE(google::protobuf::util::MessageDifferencer::Equals(
                 results_overlay[i].path(), results_adapter[i].path()));
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests for the two performance bugs fixed in this graph.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("AnchorBackedPositionGraph: get_position_of_step walks O(gap) to the "
+          "nearest known step, not O(path) from the start [regression]",
+          "[surject][anchors][anchor_backed_graph][regression]") {
+
+    // Bug: get_position_of_step re-walked FORWARD from path_begin on every cache
+    // miss, so a query near the end of a long path cost O(path) — and K such
+    // queries cost O(path^2). The fix walks BACKWARD from the queried step to the
+    // nearest known position and backfills. With an anchor at step 5, querying
+    // step 6 must take exactly one hop (6 -> 5), not six (begin -> 6).
+    TestGraph t = build_test_graph();
+
+    std::vector<PrecomputedAnchor> anchors;
+    anchors.push_back(anchor_for_step(t.y_steps[0], t.y_positions[0]));   // base 0
+    anchors.push_back(anchor_for_step(t.y_steps[5], t.y_positions[5]));   // base 13, adjacent to step 6
+    AnchorBackedPositionGraph adapter(&t.graph, anchors, t.y, t.y_total_length);
+
+    SECTION("interior query walks backward only to the nearest known step") {
+        g_anchor_graph_stats = {};
+        REQUIRE(adapter.get_position_of_step(t.y_steps[6]) == t.y_positions[6]);
+        REQUIRE(g_anchor_graph_stats.pos_of_step_calls == 1);
+        REQUIRE(g_anchor_graph_stats.pos_of_step_walk == 1);   // 6 -> 5, not begin -> 6
+    }
+
+    SECTION("a repeated query is served from the memoized backfill (0 walk)") {
+        adapter.get_position_of_step(t.y_steps[6]);            // memoizes step 6
+        g_anchor_graph_stats = {};
+        REQUIRE(adapter.get_position_of_step(t.y_steps[6]) == t.y_positions[6]);
+        REQUIRE(g_anchor_graph_stats.pos_of_step_walk == 0);
+    }
+}
+
+TEST_CASE("AnchorBackedPositionGraph: for_each_step_on_handle returns only the "
+          "target path's steps, not every haplotype's [regression]",
+          "[surject][anchors][anchor_backed_graph][regression]") {
+
+    // Bug: for_each_step_on_handle delegated to the base graph, enumerating EVERY
+    // path's steps on a node (O(#haplotypes) per node) — the 12s surjection. The
+    // fix returns only the target path's steps over the read's overlap region.
+    // Here n1 is visited by y (twice) and by a second path x; the adapter must
+    // return exactly y's two visits and none of x's.
+    TestGraph t = build_test_graph();
+
+    path_handle_t x = t.graph.create_path_handle("x");
+    t.graph.append_step(x, t.n2);
+    t.graph.append_step(x, t.n1);   // x also visits n1
+    t.graph.append_step(x, t.n4);   // ...and n4
+
+    // One anchor spanning the whole of y, so the target region covers every y node.
+    PrecomputedAnchor whole;
+    whole.step_begin = t.y_steps.front();
+    whole.step_end   = t.y_steps.back();
+    whole.path_offset_step_begin = t.y_positions.front();
+    whole.path_offset_step_end   = t.y_positions.back();
+    AnchorBackedPositionGraph adapter(&t.graph, {whole}, t.y, t.y_total_length);
+
+    SECTION("base graph sees all paths on n1; adapter sees only the target's") {
+        size_t base_count = 0;
+        t.graph.for_each_step_on_handle(t.n1, [&](const step_handle_t&) {
+            base_count++; return true; });
+        REQUIRE(base_count == 3);   // y@step0, y@step3, x
+
+        std::vector<step_handle_t> got;
+        adapter.for_each_step_on_handle(t.n1, [&](const step_handle_t& s) {
+            got.push_back(s); return true; });
+        REQUIRE(got.size() == 2);          // only y's two visits
+        REQUIRE(got.size() < base_count);  // proves the all-haplotype enumeration is gone
+    }
+
+    SECTION("returned steps are all on the target path; a repeat node yields both visits") {
+        std::vector<step_handle_t> got;
+        adapter.for_each_step_on_handle(t.n1, [&](const step_handle_t& s) {
+            got.push_back(s); return true; });
+        for (const step_handle_t& s : got) {
+            REQUIRE(adapter.get_path_handle_of_step(s) == t.y);
+        }
+        bool has0 = false, has3 = false;
+        for (const step_handle_t& s : got) {
+            if (s == t.y_steps[0]) has0 = true;
+            if (s == t.y_steps[3]) has3 = true;
+        }
+        REQUIRE(has0);
+        REQUIRE(has3);
+    }
+
+    SECTION("a node not in the target region yields nothing") {
+        std::vector<step_handle_t> got;
+        adapter.for_each_step_on_handle(t.n5, [&](const step_handle_t& s) {
+            got.push_back(s); return true; });   // n5 is on no path here
+        REQUIRE(got.empty());
     }
 }
 
