@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <limits>
 #include <iomanip>
 
 //#define debug
@@ -174,9 +175,11 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // the cover is final here: nothing below adds, merges or extends an interval
     verify_disjoint();
 
-    // With the cover final, record where each fragment sits in the top-level decomposition.
+    // With the cover final, record where each fragment sits in the top-level decomposition,
+    // and how deeply it is nested inside other fragments.
     if (distance_index != nullptr) {
         assign_top_level_snarls(*distance_index);
+        assign_nesting(*distance_index);
     }
 
     if (verbose) {
@@ -979,6 +982,175 @@ void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& dist
     }
 }
 
+void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
+    using handlegraph::net_handle_t;
+    int64_t n = (int64_t)this->gref_intervals.size();
+    this->interval_parent.assign(n, -1);
+    this->interval_level.assign(n, 0);
+
+    auto owner_of = [&](nid_t node_id) {
+        auto found = this->node_to_interval.find(node_id);
+        return found == this->node_to_interval.end() ? (int64_t)-1 : found->second;
+    };
+
+    // Each fragment's depth in the snarl tree: the shallowest depth any of its nodes sits at.
+    // A fragment is a run of nodes and they need not all be at one depth, so taking the first
+    // node's depth as the fragment's would be arbitrary -- and it was: doing that produced a
+    // parent chain with a cycle on chr22, because a fragment could resolve to a parent that
+    // was really nested inside it. Depth is what makes ancestry well founded, so it is
+    // computed for the whole fragment and a parent must be strictly shallower.
+    vector<int64_t> depth(n, std::numeric_limits<int64_t>::max());
+    for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+        path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
+        if (interval.first == graph->path_end(interval_path)) {
+            continue;
+        }
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
+            int64_t node_depth =
+                (int64_t)distance_index.get_depth(distance_index.get_node_net_handle(node_id));
+            depth[i] = min(depth[i], node_depth);
+        }
+    }
+
+    // Pass 1: each fragment's parent.  Climb until a snarl whose bounds are owned by a gref
+    // interval that is strictly shallower -- that interval's path is the one a caller reports
+    // this fragment's enclosing site against.  Reference intervals are shallower than any
+    // fragment by construction, so they always qualify.
+    for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+        path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
+        if (interval.first == graph->path_end(interval_path)) {
+            continue;
+        }
+        path_handle_t my_source = graph->get_path_handle_of_step(interval.first);
+        auto qualifies = [&](int64_t owner) {
+            if (owner < 0 || owner == i) {
+                return false;
+            }
+            if (owner < this->num_ref_intervals) {
+                return true;
+            }
+            // Two runs of the same haplotype are separated by sequence one of them does not
+            // hold, so neither can contain the other.  Measured on chr22: 10 of 48 wrong
+            // parents were the fragment's own source path, and 0 of 127 correct ones were.
+            if (graph->get_path_handle_of_step(this->gref_intervals[owner].first) == my_source) {
+                return false;
+            }
+            return depth[owner] < depth[i];
+        };
+        // A snarl counts as lying inside a fragment only when that fragment owns BOTH of its
+        // boundary nodes.  Owning one is satisfied by a sibling allele that merely touches the
+        // boundary, and a sibling is not an ancestor: on chr22 all 48 wrong parents shared a
+        // top-level snarl with the fragment they were wrongly given.
+        auto owner_of_snarl = [&](const net_handle_t& snarl) -> int64_t {
+            nid_t s = distance_index.node_id(distance_index.get_bound(snarl, false, true));
+            nid_t e = distance_index.node_id(distance_index.get_bound(snarl, true, false));
+            int64_t so = owner_of(s), eo = owner_of(e);
+            return (so == eo && qualifies(so)) ? so : (int64_t)-1;
+        };
+
+        // Start from the smallest net_handle containing the WHOLE fragment, not from its
+        // first node.  A fragment is an allele of one site, and that site is the common
+        // ancestor of all its nodes.  Climbing from the first node instead finds the first
+        // ancestor bounded by any owned node, which can be a SIBLING allele that happens to
+        // touch that boundary -- measured on chr22, that made chr22_1002_alt a child of
+        // chr22_1756_alt when the VCF has both at CH=1 with the same PS, two alleles of one
+        // site.
+        nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
+        vector<net_handle_t> lineage;
+        unordered_map<size_t, int64_t> lineage_pos;
+        for (net_handle_t up = distance_index.get_node_net_handle(first_node); ;
+             up = distance_index.get_parent(up)) {
+            lineage_pos[handlegraph::as_integer(up)] = (int64_t)lineage.size();
+            lineage.push_back(up);
+            if (distance_index.is_root(up)) {
+                break;
+            }
+        }
+        int64_t common = 0;
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            net_handle_t up = distance_index.get_node_net_handle(
+                graph->get_id(graph->get_handle_of_step(step)));
+            while (lineage_pos.find(handlegraph::as_integer(up)) == lineage_pos.end()) {
+                if (distance_index.is_root(up)) {
+                    break;
+                }
+                up = distance_index.get_parent(up);
+            }
+            auto found = lineage_pos.find(handlegraph::as_integer(up));
+            if (found != lineage_pos.end()) {
+                common = max(common, found->second);
+            }
+        }
+
+        net_handle_t net = lineage[common];
+        // The common ancestor may itself be the site.
+        if (distance_index.is_snarl(net) && !distance_index.is_root(net)) {
+            int64_t owner = owner_of_snarl(net);
+            if (owner >= 0) {
+                this->interval_parent[i] = owner;
+                continue;
+            }
+        }
+        while (!distance_index.is_root(net)) {
+            net_handle_t up = distance_index.get_parent(net);
+            if (distance_index.is_root(up)) {
+                break;
+            }
+            if (distance_index.is_snarl(up)) {
+                int64_t owner = owner_of_snarl(up);
+                if (owner >= 0) {
+                    this->interval_parent[i] = owner;
+                    break;
+                }
+            }
+            net = up;
+        }
+    }
+
+    // Pass 2: levels, from the parent chain.  Memoised, and guarded against a cycle -- the
+    // snarl tree is a tree so one cannot arise, but a wrong parent would otherwise hang here
+    // rather than produce a visibly wrong number.
+    const int64_t IN_PROGRESS = -1;
+    std::function<int64_t(int64_t)> level_of = [&](int64_t i) -> int64_t {
+        if (i < this->num_ref_intervals) {
+            return 0;
+        }
+        if (this->interval_level[i] == IN_PROGRESS) {
+            cerr << "[gref error]: nesting cycle at interval " << i
+                 << "; the parent chain is not a tree" << endl;
+            exit(1);
+        }
+        if (this->interval_level[i] != 0) {
+            return this->interval_level[i];
+        }
+        this->interval_level[i] = IN_PROGRESS;
+        int64_t parent = this->interval_parent[i];
+        int64_t level = parent < 0 ? 1 : level_of(parent) + 1;
+        this->interval_level[i] = level;
+        return level;
+    };
+    for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+        level_of(i);
+    }
+
+    if (verbose) {
+        map<int64_t, int64_t> histogram;
+        for (int64_t i = this->num_ref_intervals; i < n; ++i) {
+            ++histogram[this->interval_level[i]];
+        }
+        cerr << "[gref] Nesting levels:";
+        for (const auto& level_count : histogram) {
+            cerr << " " << level_count.first << ":" << level_count.second;
+        }
+        cerr << endl;
+    }
+}
+
 void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance_index) {
     // The unit of the top-level decomposition is a child of a top-level chain: either a
     // top-level snarl or a bare node of the chain (the spine).  Every node of the graph is
@@ -1395,6 +1567,54 @@ void GrefCover::write_gref_segments(ostream& os) {
     // Stores (display_name, subrange_offset) per source path.
     unordered_map<path_handle_t, pair<string, int64_t>> source_display_cache;
 
+    // Name every interval before emitting any, because a fragment's parent may sit at a
+    // higher index than the fragment itself and the parent column needs its name.
+    // The skip conditions must match the emit loop below exactly, or the counter -- and
+    // therefore every later name -- drifts.
+    vector<string> interval_name(this->gref_intervals.size());
+    {
+        unordered_map<string, int64_t> counter = local_gref_counter;
+        for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
+            const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+            path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
+            if (interval.first == graph->path_end(interval_path)) {
+                continue;
+            }
+            bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
+            bool mixed = false;
+            for (step_handle_t step = interval.first; step != interval.second;
+                 step = graph->get_next_step(step)) {
+                if (graph->get_is_reverse(graph->get_handle_of_step(step)) != all_reverse) {
+                    mixed = true;
+                    break;
+                }
+            }
+            if (mixed) {
+                continue;
+            }
+            string base = this->resolve_base_path_name(i);
+            interval_name[i] = make_gref_name(base, ++counter[base]);
+        }
+    }
+
+    // The gref contig a fragment's coordinates are reported against: another fragment when it
+    // is nested inside one, otherwise the gref copy of the reference path it hangs off.
+    auto parent_name_of = [&](int64_t i) -> string {
+        if (this->interval_parent.empty() || i >= (int64_t)this->interval_parent.size()) {
+            return ".";
+        }
+        int64_t parent = this->interval_parent[i];
+        if (parent < 0) {
+            return ".";
+        }
+        if (parent < this->num_ref_intervals) {
+            path_handle_t ref_path =
+                graph->get_path_handle_of_step(this->gref_intervals[parent].first);
+            return make_gref_copy_name(graph->get_path_name(ref_path));
+        }
+        return interval_name[parent].empty() ? "." : interval_name[parent];
+    };
+
     // Write each gref interval
     for (int64_t i = this->num_ref_intervals; i < this->gref_intervals.size(); ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
@@ -1490,9 +1710,8 @@ void GrefCover::write_gref_segments(ostream& os) {
             }
         }
 
-        // Get next gref index for this base path
-        int64_t gref_index = ++local_gref_counter[base_path_name];
-        string gref_name = make_gref_name(base_path_name, gref_index);
+        // Named in the pass above, which had to run first so parents could be looked up.
+        const string& gref_name = interval_name[i];
 
         // Resolve source path name to full-path coordinates using cached result.
         // Parses path name once per source path to extract subrange offset and
@@ -1545,7 +1764,9 @@ void GrefCover::write_gref_segments(ostream& os) {
            << ref_start << "\t"
            << ref_end << "\t"
            << top_snarl.first << "\t"
-           << top_snarl.second << "\n";
+           << top_snarl.second << "\t"
+           << (this->interval_level.empty() ? 0 : this->interval_level[i]) << "\t"
+           << parent_name_of(i) << "\n";
     }
 }
 

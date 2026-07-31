@@ -212,6 +212,27 @@ public:
     // the interval is not wholly inside one top-level snarl.  Index is into get_intervals().
     pair<nid_t, nid_t> get_top_level_snarl(int64_t interval_index) const;
 
+    // Work out, for every fragment, which gref contig supplies the coordinates its VCF records
+    // will be reported against, and how many such contigs lie between it and the base
+    // reference.  Fills interval_parent and interval_level.
+    //
+    // The rule follows the caller rather than the graph.  Walk up the snarl tree from the
+    // fragment until reaching a snarl whose boundary nodes are owned by some gref interval;
+    // that interval is the parent, because a snarl's records are reported against whichever
+    // gref path traverses its boundaries.  A fragment whose enclosing snarl is bounded by
+    // reference nodes is level 1 -- one coordinate-system change from the base reference --
+    // and the levels chain from there.
+    //
+    // This is the measurement e20e1f277 reverted a column for getting wrong.  That version
+    // counted hops over interval adjacency, which is a fact about the graph, while INFO/CH
+    // counts coordinate-system changes among ancestors, which is a fact about the caller; they
+    // agreed on only 76% of chr22 fragments.  The difference then was that the cover had no
+    // snarl decomposition and had to approximate containment.  It has one now, and it is the
+    // same decomposition deconstruct recurses, so this computes the caller's answer directly
+    // instead of a proxy for it.  Gate any change here on agreement with INFO/CH, not on
+    // whether the numbers look plausible.
+    void assign_nesting(const bdsg::SnarlDistanceIndex& distance_index);
+
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_path_name,
     //                     ref_path, ref_start, ref_end,
@@ -322,6 +343,14 @@ protected:
 
     // Nodes inside a top-level unit that failed the reference-anchoring requirement, and so
     // are withheld from the cover.  Empty unless enforce_top_level_anchoring() ran.
+    // Parallel to gref_intervals, filled by assign_nesting().
+    // interval_parent: index of the gref interval supplying this one's coordinates, or -1 for
+    //   a reference interval and for a fragment with no gref ancestor at all.
+    // interval_level: 0 for a reference interval, 1 for a fragment hanging directly off the
+    //   base reference, n+1 for one inside a level-n fragment.
+    vector<int64_t> interval_parent;
+    vector<int64_t> interval_level;
+
     unordered_set<nid_t> excluded_nodes;
     int64_t excluded_units = 0;
     int64_t excluded_bp = 0;
