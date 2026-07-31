@@ -1298,10 +1298,10 @@ void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance
         cerr << "[gref] Top-level decomposition: " << stats.top_level_chains << " chains, "
              << stats.top_level_snarls << " top-level snarls, " << stats.spine_nodes
              << " spine nodes" << endl
-             << "[gref]   reference anchoring: " << stats.unanchored_snarls
-             << " top-level snarls have a non-reference bound; "
-             << stats.non_reference_spine_nodes << " spine nodes ("
-             << stats.non_reference_spine_bp << " bp) are not reference" << endl
+             // Anchoring is reported by enforce_top_level_anchoring(), which tests the
+             // condition that is actually enforced -- both bounds on ONE reference contig.
+             // This used to print the weaker "has a non-reference bound" count beside it, so
+             // chrOther-v2.1 showed 7 failures in one line and 2 in the next.
              << "[gref]   fragments: " << stats.fragments << " total, "
              << stats.fragments_in_one_snarl << " wholly inside one top-level snarl ("
              << stats.distinct_snarls_with_fragments << " distinct snarls), "
@@ -1335,51 +1335,31 @@ void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance
 }
 
 void GrefCover::verify_cover(int64_t minimum_length) const {
-    // Check that every node in the graph is covered by the gref cover.
-    // Uncovered nodes are expected when minimum_length > 1 (short intervals
-    // will be filtered later), so only warn when full coverage was intended.
-    int64_t total_nodes = 0;
-    int64_t total_length = 0;
-    int64_t ref_nodes = 0;
-    int64_t ref_length = 0;
-    int64_t alt_nodes = 0;
-    int64_t alt_length = 0;
+    // Report sequence no fragment claims.  Only meaningful at minimum_length <= 1: above it,
+    // short intervals are filtered after this runs and their nodes are expected to be
+    // uncovered, so the count would be noise.
+    //
+    // There used to be a verbose summary here reporting node and interval totals.  It was
+    // deleted rather than fixed: it ran before filter_short_intervals() and reported the
+    // pre-filter interval count as though it were the result -- "169 ref + 45537 alt" on
+    // chrOther-v2.1, against 92 actual fragments -- and its uncovered figure restated what
+    // enforce_top_level_anchoring() had already printed three lines earlier.  The true count
+    // is printed by compute() after the filter, and the useful checks live in
+    // verify_disjoint() and assign_top_level_snarls().
+    if (minimum_length > 1) {
+        return;
+    }
     int64_t uncovered_nodes = 0;
     int64_t uncovered_length = 0;
-
     graph->for_each_handle([&](handle_t handle) {
-        nid_t node_id = graph->get_id(handle);
-        int64_t node_len = graph->get_length(handle);
-        total_nodes++;
-        total_length += node_len;
-
-        if (!node_to_interval.count(node_id)) {
-            uncovered_nodes++;
-            uncovered_length += node_len;
-        } else {
-            int64_t interval_idx = node_to_interval.at(node_id);
-            if (interval_idx < num_ref_intervals) {
-                ref_nodes++;
-                ref_length += node_len;
-            } else {
-                alt_nodes++;
-                alt_length += node_len;
-            }
+        if (!node_to_interval.count(graph->get_id(handle))) {
+            ++uncovered_nodes;
+            uncovered_length += graph->get_length(handle);
         }
     });
-
-    if (uncovered_nodes > 0 && minimum_length <= 1) {
+    if (uncovered_nodes > 0) {
         cerr << "[gref] warning: " << uncovered_nodes << " nodes ("
              << uncovered_length << " bp) not covered by gref paths" << endl;
-    }
-
-    if (verbose) {
-        cerr << "[gref] verify_cover summary:" << endl
-             << "  Total nodes: " << total_nodes << " (" << total_length << " bp)" << endl
-             << "  Reference nodes: " << ref_nodes << " (" << ref_length << " bp)" << endl
-             << "  Alt nodes: " << alt_nodes << " (" << alt_length << " bp)" << endl
-             << "  Uncovered nodes: " << uncovered_nodes << " (" << uncovered_length << " bp)" << endl
-             << "  Intervals: " << num_ref_intervals << " ref + " << (gref_intervals.size() - num_ref_intervals) << " alt" << endl;
     }
 }
 
