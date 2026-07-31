@@ -1467,31 +1467,41 @@ void GrefCover::write_gref_segments(ostream& os) {
     // Subrange offset of each reference path, for columns 6-7.
     unordered_map<path_handle_t, int64_t> ref_offset_cache;
 
-    // Name every interval before emitting any, because a fragment's parent may sit at a
-    // higher index than the fragment itself and the parent column needs its name.
-    // The skip conditions must match the emit loop below exactly, or the counter -- and
-    // therefore every later name -- drifts.
+    // Decide once which intervals are emitted, then use that list for both passes below.
+    // The two used to repeat the skip conditions with a comment warning that they had to stay
+    // in step -- they feed a shared counter, so a divergence would not drop one row, it would
+    // renumber every row after it.
+    //
+    // Skipped: an interval decommissioned to a path_end sentinel, and one of mixed
+    // orientation, which apply() also refuses to write.  Runs split at orientation flips so a
+    // mixed interval should be unreachable; the check is a net, matching apply()'s.
+    vector<int64_t> emitted;
+    emitted.reserve(this->gref_intervals.size());
+    for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
+        if (interval.first == graph->path_end(graph->get_path_handle_of_step(interval.first))) {
+            continue;
+        }
+        bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
+        bool mixed = false;
+        for (step_handle_t step = interval.first; step != interval.second;
+             step = graph->get_next_step(step)) {
+            if (graph->get_is_reverse(graph->get_handle_of_step(step)) != all_reverse) {
+                mixed = true;
+                break;
+            }
+        }
+        if (!mixed) {
+            emitted.push_back(i);
+        }
+    }
+
+    // Name them all before emitting any: a fragment's parent may sit at a higher index than
+    // the fragment itself, and the parent column needs its name.
     vector<string> interval_name(this->gref_intervals.size());
     {
         unordered_map<string, int64_t> counter;
-        for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
-            const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
-            path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
-            if (interval.first == graph->path_end(interval_path)) {
-                continue;
-            }
-            bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
-            bool mixed = false;
-            for (step_handle_t step = interval.first; step != interval.second;
-                 step = graph->get_next_step(step)) {
-                if (graph->get_is_reverse(graph->get_handle_of_step(step)) != all_reverse) {
-                    mixed = true;
-                    break;
-                }
-            }
-            if (mixed) {
-                continue;
-            }
+        for (int64_t i : emitted) {
             string base = this->resolve_base_path_name(i);
             interval_name[i] = make_gref_name(base, ++counter[base]);
         }
@@ -1516,28 +1526,10 @@ void GrefCover::write_gref_segments(ostream& os) {
     };
 
     // Write each gref interval
-    for (int64_t i = this->num_ref_intervals; i < this->gref_intervals.size(); ++i) {
+    for (int64_t i : emitted) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t source_path_handle = graph->get_path_handle_of_step(interval.first);
-
-        // Skip empty intervals
-        if (interval.first == graph->path_end(source_path_handle)) {
-            continue;
-        }
-
-        // Skip mixed-orientation intervals (must match apply() logic)
         bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
-        bool mixed = false;
-        for (step_handle_t step = interval.first; step != interval.second;
-             step = graph->get_next_step(step)) {
-            if (graph->get_is_reverse(graph->get_handle_of_step(step)) != all_reverse) {
-                mixed = true;
-                break;
-            }
-        }
-        if (mixed) {
-            continue;
-        }
 
         // Look up pre-computed source path offsets
         int64_t source_start = step_offset_cache.at(interval.first);
