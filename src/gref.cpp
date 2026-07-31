@@ -151,8 +151,24 @@ void GrefCover::compute(const PathHandleGraph* graph,
     vector<vector<pair<step_handle_t, step_handle_t>>> gref_intervals_vector(thread_count);
     vector<vector<pair<nid_t, nid_t>>> snarl_bounds_vector(thread_count);
 
-    // we process top-level snarls in parallel
-    snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
+    // Candidates come from whole source paths, not from snarl traversals.
+    //
+    // A snarl traversal is bounded by its bubble, so the longest run any candidate can offer
+    // stops at the next boundary -- however far the haplotype actually agrees with the graph.
+    // The cover then has to reassemble those pieces afterwards, and only manages it when
+    // adjacent snarls happen to have selected the same source path.  That reassembly is what
+    // broke when ranking changed in 8c42f5b54, and it is fragile even when it works.
+    //
+    // fill_uncovered_nodes() below already enumerates the thing we actually want: maximal
+    // runs of uncovered nodes along each source path, unbounded by snarls.  Letting it do the
+    // whole cover produces long fragments by construction rather than by successful merging.
+    //
+    // Cost: interval_snarl_bounds stays {0,0} throughout, so --gref-segs columns 5-7 fall back
+    // to the get_reference_nodes() BFS, which reports the nearest single reference node rather
+    // than an enclosing snarl interval.  Consumers of those columns need a flanking-anchor
+    // computation before this is shippable.
+    const bool use_snarl_candidates = false;
+    if (use_snarl_candidates) snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output (intervals and snarl bounds accumulate across snarls)
         vector<pair<step_handle_t, step_handle_t>>& thread_gref_intervals = gref_intervals_vector[omp_get_thread_num()];
         vector<pair<nid_t, nid_t>>& thread_snarl_bounds = snarl_bounds_vector[omp_get_thread_num()];
@@ -284,12 +300,12 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
     graph->for_each_handle([&](handle_t handle) {
         nid_t node_id = graph->get_id(handle);
         if (!node_to_interval.count(node_id)) {
-            // Node is not covered - find paths through it
             uncovered_nodes.insert(node_id);
             graph->for_each_step_on_handle(handle, [&](step_handle_t step) {
                 path_handle_t path_handle = graph->get_path_handle_of_step(step);
                 string path_name = graph->get_path_name(path_handle);
-                // Skip existing gref paths
+                // Skip existing gref paths: covering a fragment with a copy of itself would
+                // make the cover depend on whether one was already there.
                 if (!is_gref_name(path_name)) {
                     candidate_paths[path_name] = path_handle;
                 }
@@ -302,101 +318,157 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         return;
     }
 
-#ifdef debug
-#pragma omp critical(cerr)
-    cerr << "[gref] fill_uncovered_nodes: " << uncovered_nodes.size() << " uncovered nodes, "
-         << candidate_paths.size() << " candidate paths" << endl;
-#endif
-
-    // Greedily walk through paths, creating intervals for contiguous uncovered sequences.
-    // Two passes: the first one only takes nodes where the path walks them forwards, so a
-    // node is covered by a backwards-walking path only when no path walks it forwards.
-    // (The cover never flips a node -- changing topology is not its job -- so this is as
-    // close to a nodes-forward cover as the graph allows.)
-    for (int pass = 0; pass < 2; ++pass) {
-        bool forward_only = (pass == 0);
-        for (const auto& name_path : candidate_paths) {
-            if (uncovered_nodes.empty()) {
-                break;
+    // Enumerate every maximal uncovered run on every candidate path, then select from all of
+    // them at once, longest first.
+    //
+    // Walking the paths in name order and letting each claim greedily as it goes -- which is
+    // what this used to do -- means the first path to reach a node wins it regardless of how
+    // much either path could have covered in one piece.  With snarl-bounded candidates that
+    // hardly mattered, because a run could not exceed its bubble anyway.  With whole-path
+    // runs it decides the answer: a path that offers 40 kb in one piece has to beat one that
+    // offers 200 bp of the same nodes, and only a global ordering can express that.
+    struct FillRun {
+        int64_t length;
+        bool reverse;
+        const string* name;
+        step_handle_t start;
+        step_handle_t end;   // one past the last step
+        bool operator<(const FillRun& other) const {   // max-heap: "worse than"
+            if (this->length != other.length) {
+                return this->length < other.length;
             }
+            // A run a path walks forwards needs no flipping to emit; prefer it, but only
+            // between runs of equal length, never at the cost of covering less in one piece.
+            if (this->reverse != other.reverse) {
+                return this->reverse;
+            }
+            return *this->name > *other.name;   // flipped: low name wins
+        }
+    };
 
-            bool in_interval = false;
-            step_handle_t interval_start;
-            step_handle_t interval_end;
-            int64_t interval_length = 0;
-            unordered_set<nid_t> interval_nodes;  // track nodes in current interval for cycle detection
-            bool interval_reverse = false;  // orientation of current interval
+    // Split one path into maximal runs of currently-uncovered nodes, breaking at orientation
+    // flips and at a repeated node id so no run can contain a cycle.
+    auto enumerate_runs = [&](const string& path_name, path_handle_t path_handle,
+                              vector<FillRun>& out) {
+        bool in_run = false;
+        step_handle_t run_start;
+        int64_t run_length = 0;
+        bool run_reverse = false;
+        unordered_set<nid_t> run_nodes;
+        step_handle_t run_end;
 
-            // Helper to close the current interval and add it if long enough
-            auto close_interval = [&]() {
-                if (in_interval) {
-                    if (interval_length >= minimum_length) {
-                        add_interval(this->gref_intervals, this->node_to_interval,
-                                     make_pair(interval_start, interval_end), true,
-                                     &this->interval_snarl_bounds, {0, 0});
-                        try_cross_path_merge(interval_start);
-                        for (nid_t nid : interval_nodes) {
-                            uncovered_nodes.erase(nid);
-                        }
-                    }
-                    in_interval = false;
+        auto close_run = [&]() {
+            if (in_run && run_length >= minimum_length) {
+                out.push_back({run_length, run_reverse, &path_name, run_start, run_end});
+            }
+            in_run = false;
+            run_nodes.clear();
+            run_length = 0;
+        };
+
+        graph->for_each_step_in_path(path_handle, [&](step_handle_t step) {
+            handle_t handle = graph->get_handle_of_step(step);
+            nid_t node_id = graph->get_id(handle);
+            bool is_reverse = graph->get_is_reverse(handle);
+            if (!uncovered_nodes.count(node_id) ||
+                (in_run && (run_nodes.count(node_id) || is_reverse != run_reverse))) {
+                close_run();
+            }
+            if (uncovered_nodes.count(node_id)) {
+                if (!in_run) {
+                    in_run = true;
+                    run_start = step;
+                    run_reverse = is_reverse;
                 }
-            };
+                run_end = graph->get_next_step(step);
+                run_length += graph->get_length(handle);
+                run_nodes.insert(node_id);
+            }
+            return true;
+        });
+        close_run();
+    };
 
-            graph->for_each_step_in_path(name_path.second, [&](step_handle_t step) {
-                nid_t node_id = graph->get_id(graph->get_handle_of_step(step));
-                bool is_reverse = graph->get_is_reverse(graph->get_handle_of_step(step));
+    vector<FillRun> runs;
+    for (const auto& name_path : candidate_paths) {
+        enumerate_runs(name_path.first, name_path.second, runs);
+    }
+    std::make_heap(runs.begin(), runs.end());
 
-                if (uncovered_nodes.count(node_id) && !(forward_only && is_reverse)) {
-                    if (interval_nodes.count(node_id)) {
-                        // This node is already in the current interval — close to avoid cycle.
-                        // close_interval() will remove covered nodes from uncovered_nodes,
-                        // so we must re-check before adding the node to a new interval.
-                        close_interval();
-                    }
-                    // Re-check: close_interval() may have just covered this node
-                    if (!uncovered_nodes.count(node_id)) {
-                        // Node was covered by the interval we just closed — treat as covered
-                        close_interval();
-                    } else if (in_interval && is_reverse != interval_reverse) {
-                        // Orientation changed — close current interval and start fresh
-                        close_interval();
-                        in_interval = true;
-                        interval_start = step;
-                        interval_length = 0;
-                        interval_nodes.clear();
-                        interval_reverse = is_reverse;
-                        interval_end = graph->get_next_step(step);
-                        interval_length += graph->get_length(graph->get_handle_of_step(step));
-                        interval_nodes.insert(node_id);
-                    } else {
-                        if (!in_interval) {
-                            // Start a new interval
-                            in_interval = true;
-                            interval_start = step;
-                            interval_length = 0;
-                            interval_nodes.clear();
-                            interval_reverse = is_reverse;
-                        }
-                        interval_end = graph->get_next_step(step);
-                        interval_length += graph->get_length(graph->get_handle_of_step(step));
-                        interval_nodes.insert(node_id);
-                    }
-                } else {
-                    // This node is already covered — close current interval
-                    close_interval();
+    // Claim longest-first.  A run may have been partly taken since it was pushed, so verify
+    // before claiming and re-push whatever is still free -- the same lazy-priority-queue
+    // pattern compute_snarl() uses.
+    while (!runs.empty()) {
+        FillRun best = runs.front();
+        std::pop_heap(runs.begin(), runs.end());
+        runs.pop_back();
+
+        // Re-split the run against what is still uncovered.
+        bool chopped = false;
+        bool in_piece = false;
+        step_handle_t piece_start;
+        step_handle_t piece_end;
+        int64_t piece_length = 0;
+        unordered_set<nid_t> piece_nodes;
+        vector<FillRun> pieces;
+        auto close_piece = [&]() {
+            if (in_piece && piece_length >= minimum_length) {
+                pieces.push_back({piece_length, best.reverse, best.name, piece_start, piece_end});
+            }
+            in_piece = false;
+            piece_nodes.clear();
+            piece_length = 0;
+        };
+        for (step_handle_t step = best.start; step != best.end; step = graph->get_next_step(step)) {
+            handle_t handle = graph->get_handle_of_step(step);
+            nid_t node_id = graph->get_id(handle);
+            if (!uncovered_nodes.count(node_id) || piece_nodes.count(node_id)) {
+                if (!uncovered_nodes.count(node_id)) {
+                    chopped = true;
                 }
-                return true;
-            });
+                close_piece();
+                if (!uncovered_nodes.count(node_id)) {
+                    continue;
+                }
+            }
+            if (!in_piece) {
+                in_piece = true;
+                piece_start = step;
+            }
+            piece_end = graph->get_next_step(step);
+            piece_length += graph->get_length(handle);
+            piece_nodes.insert(node_id);
+        }
+        close_piece();
 
-            // Don't forget to close any interval at the end of the path
-            close_interval();
+        if (chopped) {
+            // Something claimed part of it; the survivors go back and compete on their own
+            // lengths rather than inheriting this run's priority.
+            for (const FillRun& piece : pieces) {
+                runs.push_back(piece);
+                std::push_heap(runs.begin(), runs.end());
+            }
+            continue;
+        }
+        if (pieces.empty()) {
+            continue;
+        }
+
+        for (const FillRun& piece : pieces) {
+            add_interval(this->gref_intervals, this->node_to_interval,
+                         make_pair(piece.start, piece.end), true,
+                         &this->interval_snarl_bounds, {0, 0});
+            try_cross_path_merge(piece.start);
+            for (step_handle_t step = piece.start; step != piece.end;
+                 step = graph->get_next_step(step)) {
+                uncovered_nodes.erase(graph->get_id(graph->get_handle_of_step(step)));
+            }
         }
     }
 
 #ifdef debug
 #pragma omp critical(cerr)
-    cerr << "[gref] fill_uncovered_nodes: " << uncovered_nodes.size() << " nodes still uncovered after second pass" << endl;
+    cerr << "[gref] fill_uncovered_nodes: " << uncovered_nodes.size() << " nodes still uncovered" << endl;
 #endif
 }
 
@@ -1534,13 +1606,24 @@ void GrefCover::write_gref_segments(ostream& os) {
     // Walk each source path once, caching offsets only for needed steps.
     // Also cache path_end -> total path length for computing interval end offsets.
     unordered_map<step_handle_t, int64_t> step_offset_cache;
+    // Where each source path touches the reference, in path order.  A fragment's enclosing
+    // reference window is the span between the last such touch before it and the first
+    // after it: the reference interval the fragment is an alternative to.  That is what the
+    // snarl bounds used to approximate, derived from the path itself instead, so it is
+    // available whether or not the cover was built from snarl traversals.
+    unordered_map<path_handle_t, vector<pair<int64_t, nid_t>>> ref_anchors;
     for (const path_handle_t& ph : source_paths_needed) {
         int64_t offset = 0;
+        vector<pair<int64_t, nid_t>>& anchors = ref_anchors[ph];
         for (step_handle_t step = graph->path_begin(ph);
              step != graph->path_end(ph);
              step = graph->get_next_step(step)) {
             if (needed_steps.count(step)) {
                 step_offset_cache[step] = offset;
+            }
+            nid_t step_node = graph->get_id(graph->get_handle_of_step(step));
+            if (ref_node_positions.count(step_node)) {
+                anchors.emplace_back(offset, step_node);
             }
             offset += graph->get_length(graph->get_handle_of_step(step));
         }
@@ -1616,7 +1699,45 @@ void GrefCover::write_gref_segments(ostream& os) {
             // Get base path name from the reference path
             base_path_name = make_gref_base_name(ref_path_name);
         } else {
-            // Fallback to BFS-based get_reference_nodes() for sentinel intervals
+            // No snarl bounds: take the reference window from this fragment's own source
+            // path -- the last reference node it visits before the fragment and the first
+            // after it.  Reporting only the single nearest reference node, as the BFS
+            // fallback below does, collapses the window to one node and loses the span the
+            // fragment is an alternative to.
+            const vector<pair<int64_t, nid_t>>& anchors = ref_anchors[source_path_handle];
+            auto after_start = std::lower_bound(anchors.begin(), anchors.end(),
+                                                make_pair(source_start, (nid_t)0));
+            const pair<int64_t, nid_t>* left_anchor =
+                after_start == anchors.begin() ? nullptr : &*(after_start - 1);
+            auto at_or_after_end = std::lower_bound(anchors.begin(), anchors.end(),
+                                                    make_pair(source_end, (nid_t)0));
+            const pair<int64_t, nid_t>* right_anchor =
+                at_or_after_end == anchors.end() ? nullptr : &*at_or_after_end;
+
+            auto anchor_span = [&](const pair<int64_t, nid_t>* a) {
+                const auto& pos = ref_node_positions[a->second];
+                return make_pair(pos.second, pos.second + graph->get_length(graph->get_handle(a->second)));
+            };
+            if (left_anchor != nullptr &&
+                (right_anchor == nullptr ||
+                 ref_node_positions[left_anchor->second].first ==
+                 ref_node_positions[right_anchor->second].first)) {
+                path_handle_t ref_path_handle = ref_node_positions[left_anchor->second].first;
+                ref_path_name = graph->get_path_name(ref_path_handle);
+                base_path_name = make_gref_base_name(ref_path_name);
+                auto l = anchor_span(left_anchor);
+                auto r = right_anchor != nullptr ? anchor_span(right_anchor) : l;
+                ref_start = min(l.first, r.first);
+                ref_end = max(l.second, r.second);
+            } else if (right_anchor != nullptr) {
+                path_handle_t ref_path_handle = ref_node_positions[right_anchor->second].first;
+                ref_path_name = graph->get_path_name(ref_path_handle);
+                base_path_name = make_gref_base_name(ref_path_name);
+                auto r = anchor_span(right_anchor);
+                ref_start = r.first;
+                ref_end = r.second;
+            } else {
+            // The source path never touches the reference; fall back to searching the graph.
             nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
             vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, true);
 
@@ -1636,6 +1757,7 @@ void GrefCover::write_gref_segments(ostream& os) {
                 // No reference to hang off: name the fragment after its source path,
                 // matching apply().
                 base_path_name = make_gref_base_name(graph->get_path_name(source_path_handle));
+            }
             }
         }
 

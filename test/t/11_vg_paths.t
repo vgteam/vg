@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 122
+plan tests 123
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -354,15 +354,20 @@ rm -f unpathed.vg unpathed.err
 
 # Cross-path merging must be refused when the two paths diverge inside the
 # stretch being merged.  cross_path_merge.gfa covers the accept case; here
-# a#3#y2 reaches node 9 through 5,3 while the neighbouring fragment is 2,3, so
-# the backward extension mismatches at the second step and all three fragments
-# must stay separate.  Merging anyway would emit a path that is not a substring
-# of any haplotype.
+# a#3#y2 reaches node 9 through 5,3 while a#1#y0 reaches 3 through 2, so no fragment may
+# span both routes: that would emit a path which is not a substring of any haplotype.
+# Selecting longest-first takes a#3#y2's whole 5,3,9 run (16 bp) and then a#1#y0's leftover
+# node 2, so the four off-reference nodes are covered in two real walks.  Name-ordered
+# greedy selection used to take a#1#y0's 2,3 first and strand 5 and 9 as singletons, giving
+# three.  Either way nothing is spliced; the count is what changed.
 vg paths -x nesting/cross_path_merge_reject.gfa -Q x --compute-gref --min-gref-len 1 > reject_test.vg
 vg validate reject_test.vg
 is $? 0 "cross-path merge reject: gref computation produces valid graph"
 
-is $(vg paths -x reject_test.vg -L | grep -c "_alt$") 3 "a cross-path merge is refused when the paths diverge mid-stretch"
+is $(vg paths -x reject_test.vg -L | grep -c "_alt$") 2 "diverging paths are covered by whole runs, not spliced together"
+# The real invariant: every fragment is a contiguous walk of one source path.  5,3,9 is
+# a#3#y2 exactly; a fragment containing both 2 and 5 would be the splice this guards against.
+is $(vg convert -f reject_test.vg 2>/dev/null | grep -E "^[PW]" | grep "_alt" | grep -c "2+.*5+\|5+.*2+") 0 "no fragment splices the two divergent routes together"
 
 is "$(vg paths -x reject_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "20" "refusing the merge still covers every off-reference node"
 
