@@ -739,33 +739,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                alignments_to_source, minimizer_explored, stats, rng, funnel);
     }
     
-    for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
-        // Rescore each alignment under its own minimap2 logged-gap scheme.
-
-        Alignment& aln = alignments[alignment_index];
-        if (aln.path().mapping_size() == 0 || aln.sequence().size() == 0) {
-            // This alignment is unmapped or somehow empty.
-            continue;
-        }
-        // Otherwise it must have at least one edit
-
-        // Make a scoring scheme based on it, and count its operations.
-        LoggedGapAlignmentScorer scheme(aln);
-        // Score the alignment
-        int32_t logged_gaps_score = scheme.score_alignment(aln);
-        aln.set_score(logged_gaps_score);
-
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
-                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
-            }
-        }
-    }
-    /// TODO: add back rec_penalty_aln penalties for alignments which require recombination
-    
-    
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnel.stage("winner");
@@ -3080,7 +3053,20 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
         // Stick into alignment
         *(output.back()).mutable_path() = std::move(simplify(composed_path, false));
-        output.back().set_score(trace.score());
+        // Rescore with log-gap penalties
+        LoggedGapAlignmentScorer scheme(output.back());
+        // Score the alignment
+        /// TODO: add back rec_penalty_aln penalties for alignments which require recombination
+        int32_t logged_gaps_score = scheme.score_alignment(output.back());
+        output.back().set_score(logged_gaps_score);
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
+                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+            }
+        }
         if (!output.back().sequence().empty()) {
             output.back().set_identity(identity(output.back().path()));
         }
@@ -3088,6 +3074,13 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         set_annotation(output.back(), "left_tail_length", left_tail_len[trace.path().mapping(0).position().node_id()]); 
         set_annotation(output.back(), "right_tail_length", right_tail_len[trace.path().mapping(num_subchains - 1).position().node_id()]);
     }
+
+    // Sort by new score
+    std::sort(output.begin(), output.end(), 
+    [](const Alignment& a, const Alignment& b) {
+        // Return true if a has the higher score and belongs first
+        return a.score() > b.score();
+    });
     
     return output;
 }
