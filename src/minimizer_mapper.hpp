@@ -936,7 +936,7 @@ protected:
      */
     vector<Alignment> do_base_level_alignment(const Alignment& aln, 
                                               const VectorView<algorithms::Anchor>& to_chain,
-                                              const algorithms::SubchainGroup& subchain_groups,
+                                              const algorithms::SubchainGroup& subchain_group,
                                               const size_t& max_chains,
                                               Funnel& funnel,
                                               aligner_stats_t* stats = nullptr) const;
@@ -977,7 +977,7 @@ protected:
     void find_next_to_skip_to(const VectorView<algorithms::Anchor>& to_chain,
                               const std::vector<size_t>& chain,
                               const algorithms::Anchor*& here,
-                              vector<size_t>::const_iterator next_it) const;
+                              vector<size_t>::const_iterator& next_it) const;
 
     /**
      * Find a link alignment between "here" and "next".

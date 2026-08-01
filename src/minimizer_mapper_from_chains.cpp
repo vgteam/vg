@@ -1536,7 +1536,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             }
 
             // Okay, we're using this chain
-            subchain_groups.push_back(new_group);
             if (new_group.max_sparse_chain_score > *passing_scores.begin()) {
                 // We need to update the passing score list
                 passing_scores[0] = new_group.max_sparse_chain_score;
@@ -1681,6 +1680,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     }
                 }
             }
+
+            // Save our work
+            subchain_groups.push_back(new_group);
 
             if (track_provenance) {
                 // Say we're done with this
@@ -2464,7 +2466,7 @@ void MinimizerMapper::find_next_to_skip_to(
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
     const algorithms::Anchor*& here,
-    vector<size_t>::const_iterator next_it) const {
+    vector<size_t>::const_iterator& next_it) const {
     // Keep track of the total distance from the previous seed to the next one we choose in the graph
     const algorithms::Anchor* next = &to_chain[*next_it];
     size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *this->distance_index, this->gbwt_graph);
@@ -2930,13 +2932,13 @@ pair<MinimizerMapper::ScoredPath, size_t> MinimizerMapper::find_all_inner_chain_
 vector<Alignment> MinimizerMapper::do_base_level_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
-    const algorithms::SubchainGroup& subchain_groups,
+    const algorithms::SubchainGroup& subchain_group,
     const size_t& max_alignments,
     Funnel& funnel,
     aligner_stats_t* stats
 ) const {
     
-    if (subchain_groups.subchains.empty()) {
+    if (subchain_group.subchains.empty()) {
         throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
     }
     
@@ -2961,7 +2963,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // Used to figure out which subchains should get tail alignments
     vector<bool> seen_as_source(to_chain.size(), false);
     vector<bool> seen_as_sink(to_chain.size(), false);
-    for (const auto& extra_edge : subchain_groups.connections) {
+    for (const auto& extra_edge : subchain_group.connections) {
         seen_as_source[extra_edge.first] = true;
         seen_as_sink[extra_edge.second] = true;
     }
@@ -2971,18 +2973,18 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // The edges (connection_t) can't store Paths anyhow
     // and the nodes (subpath_t) require annoying conversion
     // We will piece the alignment back together with this memory
-    vector<Path> node_paths(subchain_groups.subchains.size());
+    vector<Path> node_paths(subchain_group.subchains.size());
     unordered_map<pair<size_t, size_t>, Path> edge_paths;
     // We want to annotate alignments with their tail lengths
     // so for any subchains with a tail, save their length
-    vector<double> left_tail_len(subchain_groups.subchains.size());
-    vector<double> right_tail_len(subchain_groups.subchains.size());
+    vector<double> left_tail_len(subchain_group.subchains.size());
+    vector<double> right_tail_len(subchain_group.subchains.size());
     // Subchains where we bailed out of link alignments
     // We will have to ignore any connections which start from them
     unordered_set<size_t> early_bail_subchains;
 
     // Set up pseudo-subpaths
-    for (size_t i = 0; i < subchain_groups.subchains.size(); i++) {
+    for (size_t i = 0; i < subchain_group.subchains.size(); i++) {
         // Keep track of total base-level results for this subchain
         Path composed_path;
         int composed_score = 0;
@@ -2992,7 +2994,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 #ifdef debug_base_level_alignment
             cerr << "Doing left tail alignment for subchain " << i << endl;
 #endif
-            ScoredPath left_tail = find_tail_alignment(aln, to_chain[subchain_groups.subchains[i].front()], wfa_extender, true, stats);
+            ScoredPath left_tail = find_tail_alignment(aln, to_chain[subchain_group.subchains[i].front()], wfa_extender, true, stats);
             composed_path = left_tail.path;
             composed_score = left_tail.score;
             left_tail_len[i] = left_tail.path.length();
@@ -3004,11 +3006,11 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 #ifdef debug_base_level_alignment
         cerr << "Doing inner link alignment for subchain " << i << endl;
 #endif
-        vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, subchain_groups.subchains[i], wfa_extender, aligner, stats);
+        vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(to_chain, aln, subchain_group.subchains[i], wfa_extender, aligner, stats);
         append_path(composed_path, inner_links.path);
         composed_score += inner_links.score;
 
-        if (last_anchor != subchain_groups.subchains[i].back()) {
+        if (last_anchor != subchain_group.subchains[i].back()) {
 #ifdef debug_base_level_alignment
             cerr << "Bailed out of subchain " << i << endl;
 #endif
@@ -3017,7 +3019,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         }
 
         // Should this subchain get a right tail?
-        if (!seen_as_source[i] || last_anchor != subchain_groups.subchains[i].back()) {
+        if (!seen_as_source[i] || last_anchor != subchain_group.subchains[i].back()) {
 #ifdef debug_base_level_alignment
             cerr << "Doing right tail alignment for subchain " << i << endl;
 #endif
@@ -3039,15 +3041,15 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     }
 
     // Set up connections between subpaths
-    for (const auto& extra_edge : subchain_groups.connections) {
+    for (const auto& extra_edge : subchain_group.connections) {
         // Only use edge if we didn't bail out of its source
         if (!early_bail_subchains.count(extra_edge.first)) {
 #ifdef debug_base_level_alignment
             cerr << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
 #endif
             // Calculate base-level alignment for this connection
-            vector<size_t> edge = {subchain_groups.subchains[extra_edge.first].back(),
-                                   subchain_groups.subchains[extra_edge.second].front()};
+            vector<size_t> edge = {subchain_group.subchains[extra_edge.first].back(),
+                                   subchain_group.subchains[extra_edge.second].front()};
             ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
 
             if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
