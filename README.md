@@ -328,7 +328,7 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa > read.gam
+vg map --seq-name read -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa > read.gam
 
 # simulate a bunch of 150bp reads from the graph, one per line
 vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
