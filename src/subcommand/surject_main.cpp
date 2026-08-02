@@ -41,7 +41,8 @@ void help_surject(char** argv) {
          << "  -x, --xg-name FILE        use this graph or XG index (required)" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -d, --diploid-map NAME    like --into-ref, but also turns on --multimap and" << endl
-         << "                            emits hp/hq/aq tags for haplotype-aware diploid surjection" << endl
+         << "                            emits hp/hq/aq tags for haplotype-aware" << endl
+         << "                            diploid surjection" << endl
          << "  -D, --read-length TYPE    read length preset: {short, long}" << endl
          << "  -p, --into-path NAME      surject into this path or its subpaths (may repeat)" << endl
          << "                            default: reference, then non-alt generic" << endl
