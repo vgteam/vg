@@ -90,7 +90,31 @@ using namespace std;
                                               vector<tuple<string, int64_t, bool>>& positions_out,
                                               bool allow_negative_scores = false,
                                               bool preserve_deletions = false) const;
-        
+
+        /// Compute mapping quality for the candidate at best_idx relative to the
+        /// other candidate scores.
+        int32_t compute_mapping_quality_from_scores(const Alignment& source,
+                                                    const std::vector<double>& scores,
+                                                    size_t best_idx,
+                                                    bool fast_approximation = false) const;
+
+        /// Mark the best non-supplementary haplotype surjection with hp:Z:pri_hap,
+        /// mark the others with hp:Z:sec_hap, and record haplotype quality in hq.
+        void annotate_hap_tags(const Alignment& source,
+                               std::vector<Alignment>& alns) const;
+
+        /// Choose one overall primary from all non-supplementary surjections,
+        /// mark the remaining candidates secondary, and compute their Global Quality.
+        /// The source primary's original Giraffe MAPQ is retained in aq.
+        void annotate_global_mapq_and_primary(const Alignment& source,
+                                              std::vector<Alignment>& alns) const;
+
+        /// Set a SAM-style tag, replacing an existing tag with the same name.
+        static void set_sam_tag_annotation(Alignment& aln,
+                                           const std::string& tag,
+                                           char type,
+                                           const std::string& value);
+
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
 

@@ -23,6 +23,8 @@
 
 #include "bdsg/hash_graph.hpp"
 
+#include <numeric>
+
 // #define debug_spliced_surject
 // #define debug_anchored_surject
 // #define debug_multipath_surject
@@ -115,6 +117,184 @@ using namespace std;
             dp_aligner.reset();
         }
         
+    }
+
+    int32_t Surjector::compute_mapping_quality_from_scores(
+        const Alignment& source,
+        const std::vector<double>& scores,
+        size_t best_idx,
+        bool fast_approximation) const {
+
+        if (scores.empty() || best_idx >= scores.size()) {
+            return 0;
+        }
+        if (scores.size() == 1) {
+            return 60;
+        }
+
+        // compute_first_mapping_quality scores the first candidate, so place
+        // the selected candidate first while preserving the other scores.
+        std::vector<double> reordered;
+        reordered.reserve(scores.size());
+        reordered.push_back(scores[best_idx]);
+
+        for (size_t i = 0; i < scores.size(); ++i) {
+            if (i != best_idx) {
+                reordered.push_back(scores[i]);
+            }
+        }
+
+        const GSSWAligner* aligner = get_aligner(!source.quality().empty());
+        return aligner->mapq_calc->compute_first_mapping_quality(
+            reordered, fast_approximation);
+    }
+
+    void Surjector::set_sam_tag_annotation(Alignment& aln,
+                                            const std::string& tag,
+                                            char type,
+                                            const std::string& value) {
+        std::string old_tags;
+        if (has_annotation(aln, "tags")) {
+            old_tags = get_annotation<std::string>(aln, "tags");
+        }
+
+        const std::string prefix = tag + ":";
+        std::string new_tags;
+
+        size_t begin = 0;
+        while (begin < old_tags.size()) {
+            size_t end = old_tags.find('\t', begin);
+            if (end == std::string::npos) {
+                end = old_tags.size();
+            }
+
+            const std::string token = old_tags.substr(begin, end - begin);
+            if (token.compare(0, prefix.size(), prefix) != 0) {
+                if (!new_tags.empty()) {
+                    new_tags.push_back('\t');
+                }
+                new_tags += token;
+            }
+
+            begin = end + 1;
+        }
+
+        if (!new_tags.empty()) {
+            new_tags.push_back('\t');
+        }
+        new_tags += tag + ":" + type + ":" + value;
+
+        set_annotation<std::string>(aln, "tags", new_tags);
+    }
+
+    void Surjector::annotate_hap_tags(
+        const Alignment& source,
+        std::vector<Alignment>& alns) const {
+
+        if (alns.empty()) {
+            return;
+        }
+
+        std::vector<double> scores;
+        std::vector<size_t> indices;
+        scores.reserve(alns.size());
+        indices.reserve(alns.size());
+
+        // Supplementary segments do not compete for haplotype assignment.
+        for (size_t i = 0; i < alns.size(); ++i) {
+            if (!is_supplementary(alns[i])) {
+                scores.push_back(alns[i].score());
+                indices.push_back(i);
+            }
+        }
+
+        if (indices.empty()) {
+            return;
+        }
+
+        std::vector<size_t> score_order(scores.size());
+        std::iota(score_order.begin(), score_order.end(), 0);
+        LazyRNG rng([&]() { return source.sequence(); });
+        sort_shuffling_ties(score_order.begin(), score_order.end(),
+                            [&](size_t a, size_t b) { return scores[a] > scores[b]; }, rng);
+        const size_t best_k = score_order.front();
+
+        const size_t best_i = indices[best_k];
+        int32_t hq = compute_mapping_quality_from_scores(
+            source, scores, best_k);
+        hq = std::max<int32_t>(0, std::min<int32_t>(60, hq));
+
+        for (size_t i : indices) {
+            set_sam_tag_annotation(
+                alns[i],
+                "hp",
+                'Z',
+                i == best_i ? "pri_hap" : "sec_hap");
+
+            set_sam_tag_annotation(
+                alns[i],
+                "hq",
+                'i',
+                std::to_string(hq));
+        }
+    }
+
+    void Surjector::annotate_global_mapq_and_primary(
+        const Alignment& source,
+        std::vector<Alignment>& alns) const {
+
+        if (alns.empty()) {
+            return;
+        }
+
+        std::vector<double> scores;
+        std::vector<size_t> indices;
+        scores.reserve(alns.size());
+        indices.reserve(alns.size());
+
+        // Supplementary segments do not compete for the overall primary.
+        for (size_t i = 0; i < alns.size(); ++i) {
+            if (!is_supplementary(alns[i])) {
+                scores.push_back(alns[i].score());
+                indices.push_back(i);
+            }
+        }
+
+        if (indices.empty()) {
+            return;
+        }
+
+        std::vector<size_t> score_order(scores.size());
+        std::iota(score_order.begin(), score_order.end(), 0);
+        LazyRNG rng([&]() { return source.sequence(); });
+        sort_shuffling_ties(score_order.begin(), score_order.end(),
+                            [&](size_t a, size_t b) { return scores[a] > scores[b]; }, rng);
+        const size_t best_k = score_order.front();
+
+        const size_t best_i = indices[best_k];
+
+        for (size_t i : indices) {
+            alns[i].set_is_secondary(i != best_i);
+        }
+
+        int32_t global_mapq = compute_mapping_quality_from_scores(
+            source, scores, best_k);
+        global_mapq = std::max<int32_t>(
+            0, std::min<int32_t>(60, global_mapq));
+
+        // The first grouped input record is the original Giraffe primary.
+        const int32_t alignment_quality = source.mapping_quality();
+        global_mapq = std::min(global_mapq, alignment_quality);
+
+        for (size_t i : indices) {
+            set_sam_tag_annotation(
+                alns[i],
+                "aq",
+                'i',
+                std::to_string(alignment_quality));
+
+            alns[i].set_mapping_quality(global_mapq);
+        }
     }
 
     vector<Alignment> Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
@@ -5872,5 +6052,3 @@ using namespace std;
         return return_val;
     }
 }
-
-
