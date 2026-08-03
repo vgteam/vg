@@ -524,11 +524,9 @@ int main_paths(int argc, char** argv) {
             return 1;
         }
 
-        // Compute snarls, biasing the cactus decomposition to root on the
-        // reference path endpoints (matching snarls_main.cpp).  Without this
-        // bias the snarl tree can root arbitrarily, producing backward-oriented
-        // top-level snarls that don't align with the reference.
-        //
+        // Weight the reference path endpoints so the decomposition roots its chains on them
+        // (matching snarls_main.cpp).  Without the bias the snarl tree roots arbitrarily and
+        // produces backward-oriented top-level snarls that do not align with the reference.
         std::unordered_map<nid_t, size_t> extra_node_weight;
         {
             constexpr size_t EXTRA_WEIGHT = 10000000000;

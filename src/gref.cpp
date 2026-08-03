@@ -315,8 +315,8 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
     std::make_heap(runs.begin(), runs.end());
 
     // Claim longest-first.  A run may have been partly taken since it was pushed, so verify
-    // before claiming and re-push whatever is still free -- the same lazy-priority-queue
-    // pattern compute_snarl() uses.
+    // before claiming and re-push whatever is still free: the standard lazy-priority-queue
+    // pattern, rather than keeping the heap consistent as nodes are claimed.
     while (!runs.empty()) {
         FillRun best = runs.front();
         std::pop_heap(runs.begin(), runs.end());
@@ -430,7 +430,7 @@ string GrefCover::make_gref_base_name(const string& path_name) {
 
 void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     if (this->graph != static_cast<const PathHandleGraph*>(mutable_graph)) {
-        cerr << "[gref] error: apply() called with a different graph than compute()/load()" << endl;
+        cerr << "[gref] error: apply() called with a different graph than compute()" << endl;
         exit(1);
     }
 #ifdef debug
@@ -460,7 +460,10 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     int64_t written_length = 0;
     int64_t skipped_intervals = 0;
     for (int64_t i = this->num_ref_intervals; i < this->gref_intervals.size(); ++i) {
-        // Skip empty intervals (these can be created by defragment_intervals or merging)
+        // Nothing decommissions an interval any more -- the sentinel protocol went with the
+        // merging in e6ddb380a and the two-pass filter in f8acd1d53 -- so this should never
+        // fire.  Kept as a net, and counted, so that if one ever appears it is visible in the
+        // --progress output rather than emitted as a zero-length path.
         path_handle_t interval_path = graph->get_path_handle_of_step(gref_intervals[i].first);
         if (gref_intervals[i].first == graph->path_end(interval_path)) {
             skipped_intervals++;
@@ -1626,14 +1629,12 @@ void GrefCover::write_gref_segments(ostream& os) {
             ref_offset = ref_cache_it->second;
         }
 
-        // The top-level snarl this fragment sits in, as its two boundary node ids.  Both are
-        // reference nodes on one contig (enforce_top_level_anchoring), so the pair names the
-        // site the fragment is an allele of, and every fragment inside that snarl carries the
-        // same pair.  0 0 when no decomposition was supplied.
+        // The top-level snarl this fragment sits in.  Both bounds are reference nodes on one
+        // contig (enforce_top_level_anchoring), so it names the site the fragment is an allele
+        // of, and every fragment inside that snarl reports the same one.
         //
-        // Emitted in reference order.  The decomposition reports the bounds in the
-        // orientation it traversed the chain, which can be either way round; ordering them by
-        // where they sit on the reference makes the pair mean the same thing on every row.
+        // Ordered by position on the reference, not by the orientation the decomposition
+        // happened to traverse the chain in, so the same site reads the same on every row.
         pair<nid_t, nid_t> top_snarl = this->interval_snarl_bounds[i];
         if (top_snarl.first != 0 && top_snarl.second != 0) {
             auto left = ref_node_positions.find(top_snarl.first);
