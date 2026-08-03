@@ -1406,7 +1406,7 @@ void GrefCover::write_gref_segments(ostream& os) {
     // every header but the first, so the merged file keeps exactly one.
     os << "#source_path\tsource_start\tsource_end\tgref_contig"
        << "\tref_contig\tref_start\tref_end"
-       << "\tsite_start_node\tsite_end_node"
+       << "\ttop_level_snarl"
        << "\tlevel\tparent_contig\tstrand" << endl;
 
     // Numbering starts from scratch, exactly as apply() does; see the note there.
@@ -1674,6 +1674,13 @@ void GrefCover::write_gref_segments(ostream& os) {
                 std::swap(top_snarl.first, top_snarl.second);
             }
         }
+        // Spelled exactly as vg deconstruct and vg call spell the record ID of that snarl, so
+        // it joins straight to a VCF ID or to the PS of a record nested inside this fragment.
+        // "." when the fragment sits on a top-level chain spine node rather than inside any
+        // snarl, and so has no site to name.
+        string top_snarl_id = (top_snarl.first == 0 && top_snarl.second == 0)
+            ? "."
+            : ">" + std::to_string(top_snarl.first) + ">" + std::to_string(top_snarl.second);
 
         // Output the BED line
         os << display_source_name << "\t"
@@ -1683,8 +1690,7 @@ void GrefCover::write_gref_segments(ostream& os) {
            << ref_path_name << "\t"
            << (ref_start + ref_offset) << "\t"
            << (ref_end + ref_offset) << "\t"
-           << top_snarl.first << "\t"
-           << top_snarl.second << "\t"
+           << top_snarl_id << "\t"
            << (this->interval_level.empty() ? 0 : this->interval_level[i]) << "\t"
            << parent_name_of(i) << "\t"
            // Strand of the fragment against columns 1-3.  apply() reverse-complements an

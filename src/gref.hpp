@@ -198,7 +198,7 @@ public:
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_path_name,
     //                     ref_path, ref_start, ref_end,
-    //                     top_snarl_start, top_snarl_end, level, parent_contig, strand
+    //                     top_level_snarl, level, parent_contig, strand
     //
     // The first line is a '#'-prefixed header naming the columns.  Consumers skip it by the
     // usual conventions (grep -v '^#', pandas comment='#').  Cactus's merge_gref_segs() keeps
@@ -209,8 +209,9 @@ public:
     // underscores (gref_GRCh38#0#chr4_GL000008v2_random_1_alt), so leaving it to the consumer
     // invites an off-by-one-underscore bug for no saving worth having.
     //
-    // The last two are the boundary node ids of the top-level snarl the fragment lies in --
-    // the site it is an allele of.  Both are reference nodes on ref_path, so fragments that
+    // top_level_snarl names the site the fragment is an allele of, spelled ">start>end" as vg
+    // deconstruct and vg call spell that snarl's VCF record ID, so it joins directly to an ID
+    // or to the PS of a record nested inside the fragment.  Both are reference nodes on ref_path, so fragments that
     // are alleles of the same site share the pair, and grouping the table on it groups the
     // cover by site.  0 0 when no decomposition was supplied.
     //
