@@ -93,7 +93,7 @@ On other distros, or if you do not have root access, you will need to perform th
     raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
     libffi-dev libfontconfig-dev libfreetype-dev libglib2.0-dev libpcre2-dev libpng-dev \
     libprotobuf-dev libboost-all-dev tabix bcftools libzstd-dev pybind11-dev \
-    python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc libdw-dev meson
+    python3-pybind11 pandoc libssl-dev libjitterentropy3-dev kmc meson
                          
 To build vg's bundled Cairo and pixman (currently 1.3.0 or newer is required), so you may also need to do the equivalent of:
 

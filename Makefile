@@ -244,8 +244,14 @@ else
     # Absolutely no help in a static build.
     LD_LIB_FLAGS += -rdynamic
 
-    # We want to link against the elfutils libraries
-    LD_LIB_FLAGS += -ldw -lelf
+    # We want to link against the elfutils libraries we build ourselves, in
+    # $(LIB_DIR), rather than the system ones. See the libelf.a rule for why the
+    # system libdw cannot be used in a static build.
+    # 0.195 split out two libraries 0.186 did not have, and both have to be here
+    # or the static link fails: libdwfl calls dwflst_* in libdwfl_stacktrace, and
+    # libdw, libelf and libdwfl all call the eu_* tsearch wrappers in libeu.
+    # -leu goes last because libeu calls back into none of them.
+    LD_LIB_FLAGS += -ldwfl -ldwfl_stacktrace -ldw -ldwelf -lelf -lebl -leu
 
     # We want to link against libatomic which the GNU C++ standard library needs.
     # See <https://github.com/nodejs/node/issues/30093> and <https://stackoverflow.com/q/30591313>
@@ -387,6 +393,7 @@ UNITTEST_SUPPORT_OBJ = $(UNITTEST_SUPPORT_OBJ_DIR)/driver.o $(UNITTEST_SUPPORT_O
 UNITTEST_EXE = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_BIN_DIR)/%,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
 
+ELFUTILS_DIR:=deps/elfutils
 RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
 MIMALLOC_DIR:=deps/mimalloc
@@ -459,6 +466,17 @@ LIB_DEPS += $(LIB_DIR)/libgfaz_core.a
 LIB_DEPS += $(LIB_DIR)/libgfaz_compress.a
 LIB_DEPS += $(LIB_DIR)/libcairo.a
 LIB_DEPS += $(LIB_DIR)/libpixman-1.a
+ifneq ($(shell uname -s),Darwin)
+    # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
+    # backward-cpp will use.
+    LIB_DEPS += $(LIB_DIR)/libdw.a
+    LIB_DEPS += $(LIB_DIR)/libdwfl.a
+    LIB_DEPS += $(LIB_DIR)/libdwelf.a
+    LIB_DEPS += $(LIB_DIR)/libebl.a
+    LIB_DEPS += $(LIB_DIR)/libelf.a
+    LIB_DEPS += $(LIB_DIR)/libeu.a
+    LIB_DEPS += $(LIB_DIR)/libdwfl_stacktrace.a
+endif
 
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
@@ -511,7 +529,7 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
-DEPS += $(LIB_DIR)/cleaned_old_elfutils_v002
+DEPS += $(LIB_DIR)/cleaned_old_elfutils_v004
 
 .PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man version
 
@@ -711,10 +729,11 @@ $(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC
 	+rm -Rf $(INC_DIR)/boost
 	+touch $(LIB_DIR)/cleaned_old_boost
 
-# We used to build elfutils, but now we need to use the system one
-$(LIB_DIR)/cleaned_old_elfutils_v002:
-	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a
-	+touch $(LIB_DIR)/cleaned_old_elfutils_v002
+# We briefly used the system elfutils, and before that built a different
+# version of our own, so clear out whatever either left behind.
+$(LIB_DIR)/cleaned_old_elfutils_v004:
+	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a $(LIB_DIR)/libeu.a $(LIB_DIR)/libdwfl_stacktrace.a
+	+touch $(LIB_DIR)/cleaned_old_elfutils_v004
 
 # We used to accidentally bring vcflib's intervaltree's copy of catch.hpp into the global include
 $(LIB_DIR)/cleaned_old_catch:
@@ -855,6 +874,43 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 
 $(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
 	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
+
+# The rest of the elfutils libraries all come out of the one libelf.a rule below.
+$(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdw.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdwelf.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libeu.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdwfl_stacktrace.a: $(LIB_DIR)/libelf.a
+
+# We can't build elfutils from Git without "maintainer mode".
+# There are some release-only headers or something that it complains it can't find otherwise.
+# We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
+# We need to disable libdebuginfod or the static binary will try and load it at
+# runtime and pull in incompatible libs it depends on on whatever system it's
+# running on. Concretely: elfutils' debuginfod client dlopens libdebuginfod.so.1
+# from a constructor, before main, and in a -static binary that drags the host's
+# libc.so.6 in alongside the one we linked, which dies in __ctype_init. The
+# distro libdw packages are all built with debuginfod enabled, so we cannot use
+# them here however convenient they are.
+$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h $(LIB_DIR)/cleaned_old_elfutils_v004
+	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
+	+cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
+	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libebl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwfl_stacktrace && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl_stacktrace.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/lib && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libeu.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libcpu && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libcpu.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/backends && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libebl_backends.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libdw.a known-dwarf.h $(FILTER)
+	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a lib/libeu.a libdwfl_stacktrace/libdwfl_stacktrace.a $(CWD)/$(LIB_DIR)/
 
 $(INC_DIR)/simde/x86/sse4.1.h: $(DOZEU_DIR)/simde/*.h $(DOZEU_DIR)/simde/x86/*.h
 	+cp -r $(DOZEU_DIR)/simde $(INC_DIR)
