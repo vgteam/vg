@@ -122,6 +122,14 @@ public:
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
 
+    /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
+    /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
+    /// weighted-Jaccard metric and the same site gate as "vg deconstruct -L/--cluster-min-len":
+    /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites with at
+    /// least one traversal whose non-boundary sequence reaches min_len bp.
+    /// A threshold of 1.0 (the default) disables merging entirely.
+    void set_allele_merge(double threshold, int64_t min_len);
+
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the
     /// output buffer, so it costs nothing (no decompression) and does not need the snarl tree.
     /// Only meaningful once calling is finished and before write_variants() drains the buffer.
@@ -143,7 +151,32 @@ protected:
     
     /// convert a traversal into an allele string
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
-    
+
+    /// Convert a SnarlTraversal to the handle vector the clustering code works on.  Returns false
+    /// (leaving out_trav unspecified) if the traversal cannot be represented: fewer than two visits
+    /// (the "*" placeholder pushed for a star allele), or a visit carrying a child Snarl rather
+    /// than a node, which NestedFlowCaller produces via SnarlGraph::embed_snarl.  (LegacyCaller
+    /// expands its children into node visits in top_down_genotype, so it never reaches here.)
+    static bool snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
+                                           Traversal& out_trav);
+
+    /// True if some traversal's non-boundary sequence reaches min_len bp.  Mirrors the
+    /// --cluster-min-len gate in Deconstructor::deconstruct_site, including its early exit.
+    static bool traversals_reach_min_len(const HandleGraph& graph,
+                                         const vector<SnarlTraversal>& travs, int64_t min_len);
+
+    /// Merge near-identical called ALT alleles in an already-populated variant.  Must run AFTER
+    /// SnarlCaller::update_vcf_info and after flatten_common_allele_ends, so that the genotyper and
+    /// the allele-flattening both see the full pre-merge allele set: merging earlier drops the
+    /// absorbed allele's reads from AD/DP and from the Poisson caller's total_other_support term.
+    /// Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT, MAD) and records what was
+    /// merged in the MAT info field.  Returns true if anything merged.
+    bool merge_similar_alleles(const PathPositionHandleGraph& graph,
+                               const vector<SnarlTraversal>& site_traversals,
+                               vector<int>& site_genotype,
+                               const string& sample_name,
+                               vcflib::Variant& out_variant) const;
+
     /// print a vcf variant
     /// return value is taken from add_variant (see above)
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
@@ -201,6 +234,13 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
+
+    // post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named
+    // cluster_threshold / cluster_min_allele_len: Deconstructor derives from this class and already
+    // declares both for its own pre-allele-string clustering, and -Wshadow is silent when a derived
+    // member shadows a base one.
+    double allele_merge_threshold = 1.0;
+    int64_t allele_merge_min_len = 0;
 
     // prevent giant variants
     static const int64_t max_vcf_line_length = 2000000000;
@@ -423,7 +463,7 @@ public:
                bool genotype_snarls,
                const pair<size_t, size_t>& allele_length_range);
 
-    /// Extended constructor for nested mode with clustering and star alleles
+    /// Extended constructor for nested mode with star alleles
     FlowCaller(const PathPositionHandleGraph& graph,
                SupportBasedSnarlCaller& snarl_caller,
                SnarlManager& snarl_manager,
@@ -439,8 +479,6 @@ public:
                bool genotype_snarls,
                const pair<size_t, size_t>& allele_length_range,
                bool nested,
-               double cluster_threshold,
-               bool cluster_post_genotype,
                bool star_allele);
 
     virtual ~FlowCaller();
@@ -496,12 +534,6 @@ protected:
 
     /// enable recursive calling of child snarls
     bool nested = false;
-
-    /// cluster traversals with Jaccard similarity >= this threshold
-    double cluster_threshold = 1.0;
-
-    /// if true, cluster after genotyping (for output grouping); if false, cluster before genotyping
-    bool cluster_post_genotype = false;
 
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;

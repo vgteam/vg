@@ -18,7 +18,6 @@
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
-#include "../traversal_clusters.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -86,9 +85,12 @@ void help_call(char** argv) {
          << "                            from parent to child snarls (writes LV/PS tags)" << endl
          << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
-         << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
-         << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
-         << "                            default is to cluster before genotyping" << endl
+         << "  -L, --cluster F           merge called alt alleles whose (handle) Jaccard" << endl
+         << "                            coefficient is >= F, so 1/2 of two effectively" << endl
+         << "                            identical alleles becomes 1/1 [1.0; experimental]" << endl
+         << "      --cluster-min-len N   only apply -L merging at sites with at least one" << endl
+         << "                            non-boundary traversal >= N bp (50 = SVs only," << endl
+         << "                            0 = always) [0]" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
          << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl
@@ -139,10 +141,12 @@ int main_call(int argc, char** argv) {
     size_t max_allele_len = numeric_limits<size_t>::max();
     bool show_progress = false;
 
-    // Nested calling options (for use with -A)
-    double cluster_threshold = 1.0;
-    bool cluster_post_genotype = false;  // false = cluster before, true = cluster after
+    // Nested calling option (for use with --top-down)
     bool star_allele = false;
+
+    // Post-genotyping alt-allele merging, mirroring vg deconstruct's -L/--cluster-min-len
+    double cluster_threshold = 1.0;
+    int64_t cluster_min_allele_len = 0;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -155,7 +159,7 @@ int main_call(int argc, char** argv) {
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
     constexpr int OPT_PROGRESS = 1000;
-    constexpr int OPT_CLUSTER_POST = 1002;
+    constexpr int OPT_CLUSTER_MIN_LEN = 1002;
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_TOP_DOWN = 1006;
@@ -197,7 +201,7 @@ int main_call(int argc, char** argv) {
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
-            {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
+            {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
             {"star-allele", no_argument, 0, 'Y'},
             {"threads", required_argument, 0, 't'},
             {"progress", no_argument, 0, OPT_PROGRESS },
@@ -330,8 +334,11 @@ int main_call(int argc, char** argv) {
         case 'I':
             call_chains = true;
             break;
-        case OPT_CLUSTER_POST:
-            cluster_post_genotype = true;
+        case OPT_CLUSTER_MIN_LEN:
+            cluster_min_allele_len = parse<int64_t>(optarg);
+            if (cluster_min_allele_len < 0) {
+                logger.error() << "--cluster-min-len must be >= 0" << endl;
+            }
             break;
         case 'Y':
             star_allele = true;
@@ -521,13 +528,13 @@ int main_call(int argc, char** argv) {
         logger.error() << "ploidy (-d) must be 2 when using ratio caller (-B)" << endl;
     }
     if (legacy == true && ploidy != 2) {
-        logger.error() << "ploidy (-d) must be 2 when using legacy caller (-L)" << endl;
+        logger.error() << "ploidy (-d) must be 2 when using legacy caller (--legacy)" << endl;
     }
     if (!vcf_filename.empty() && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used when genotyping VCF (-v)" << endl;
     }
     if (legacy == true && !gbwt_filename.empty()) {
-        logger.error() << "GBWT (-g) cannot be used with legacy caller (-L)" << endl;
+        logger.error() << "GBWT (-g) cannot be used with legacy caller (--legacy)" << endl;
     }
     if (gbz_paths && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
@@ -543,19 +550,33 @@ int main_call(int argc, char** argv) {
     if (star_allele && !top_down) {
         logger.error() << "-Y/--star-allele requires --top-down mode" << endl;
     }
-    if (cluster_post_genotype && cluster_threshold >= 1.0) {
-        logger.error() << "--cluster-post requires -L/--cluster with threshold < 1.0" << endl;
-    }
+    // note: unlike vg deconstruct, which clamps out-of-range values, we reject them.  -L 5 is a
+    // plausible typo for -L 0.5 and would otherwise silently disable merging altogether.
     if (cluster_threshold < 0.0 || cluster_threshold > 1.0) {
         logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
+    }
+    if (cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
+        logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
+    }
+    // -L merges alleles in VCFOutputCaller::emit_variant, which these paths never reach: the VCF
+    // genotyper builds its records by hand and the GAF path has no VCF at all.  Rejecting beats
+    // accepting the option and silently ignoring it.
+    if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
+        logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
+    }
+    if (cluster_threshold < 1.0 && (gaf_output || traversals_only)) {
+        logger.error() << "-L/--cluster cannot be used with GAF output (-G/-T)" << endl;
+    }
+    // the ratio caller's QUAL is min_site_support and its XADL/lowxadl describe a het that would no
+    // longer exist after a merge, so the merged record would carry statistics for a genotype it
+    // does not have.
+    if (cluster_threshold < 1.0 && ratio_caller) {
+        logger.error() << "-L/--cluster cannot be used with the ratio caller (-B)" << endl;
     }
 
     // Validation for bottom-up mode
     if (bottom_up && star_allele) {
         logger.error() << "-Y/--star-allele cannot be used with --bottom-up mode" << endl;
-    }
-    if (bottom_up && cluster_threshold < 1.0) {
-        logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
     }
 
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
@@ -926,8 +947,6 @@ int main_call(int argc, char** argv) {
                                               genotype_snarls,
                                               make_pair(min_allele_len, max_allele_len),
                                               true,  // nested mode enabled
-                                              cluster_threshold,
-                                              cluster_post_genotype,
                                               star_allele));
         } else if (bottom_up) {
             // Use NestedFlowCaller (bottom-up snarl merging, original nested algorithm)
@@ -964,6 +983,9 @@ int main_call(int argc, char** argv) {
         // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
         vcf_caller->set_nested(all_snarls || top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
+        // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
+        // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
+        vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
         vector<string> header_ref_paths;

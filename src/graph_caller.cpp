@@ -2,6 +2,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
+#include "traversal_clusters.hpp"
 
 //#define debug
 
@@ -240,6 +241,13 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
+    if (allele_merge_threshold < 1.0) {
+        ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
+           << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:JACCARD using "
+           << "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD is "
+           << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set.\">"
+           << endl;
+    }
     return ss.str();
 }
 
@@ -389,6 +397,332 @@ void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<string, si
 
 void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
+}
+
+void VCFOutputCaller::set_allele_merge(double threshold, int64_t min_len) {
+    allele_merge_threshold = threshold;
+    allele_merge_min_len = min_len;
+}
+
+bool VCFOutputCaller::snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
+                                                 Traversal& out_trav) {
+    // cluster_traversals asserts size() >= 2, and a Visit carrying a child Snarl has no single
+    // handle.  Both are real inputs here (the "*" placeholder, and NestedFlowCaller traversals via
+    // SnarlGraph::embed_snarl), so refuse rather than fabricate something.
+    if (trav.visit_size() < 2) {
+        return false;
+    }
+    out_trav.clear();
+    out_trav.reserve(trav.visit_size());
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        const Visit& visit = trav.visit(i);
+        if (visit.node_id() <= 0) {
+            return false;
+        }
+        out_trav.push_back(graph.get_handle(visit.node_id(), visit.backward()));
+    }
+    return true;
+}
+
+namespace {
+/// std::stod without vg::parse<>'s exit-on-failure.  merge_similar_alleles runs inside an OpenMP
+/// region, where exit(1) kills the process before write_variants() flushes the per-thread output
+/// buffers -- so one malformed FORMAT value would silently produce a header-only VCF.
+bool parse_vcf_double(const string& field, double& value) {
+    try {
+        size_t after;
+        value = std::stod(field, &after);
+        return after == field.size();
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+}
+
+bool VCFOutputCaller::traversals_reach_min_len(const HandleGraph& graph,
+                                               const vector<SnarlTraversal>& travs, int64_t min_len) {
+    // mirrors the --cluster-min-len gate in Deconstructor::deconstruct_site, including its early exit
+    for (const SnarlTraversal& trav : travs) {
+        int64_t len = 0;
+        // note "k + 1 < visit_size()", not "k < visit_size() - 1": visit_size() returns int, and
+        // the star placeholder makes 0 reachable
+        for (int k = 1; k + 1 < trav.visit_size(); ++k) {
+            const Visit& visit = trav.visit(k);
+            if (visit.node_id() > 0) {
+                len += graph.get_length(graph.get_handle(visit.node_id(), visit.backward()));
+            }
+            if (len >= min_len) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph,
+                                            const vector<SnarlTraversal>& site_traversals,
+                                            vector<int>& site_genotype,
+                                            const string& sample_name,
+                                            vcflib::Variant& out_variant) const {
+    if (!(allele_merge_threshold < 1.0)) {
+        return false;
+    }
+    // we only collapse a genotype that actually calls two distinct ALTs.  This also keeps the -a
+    // padding block above (which adds uncalled alleles) out of scope: those alleles are advertised,
+    // not called, and rewriting them without a genotype change would be a silent surprise.
+    set<int> called_alts;
+    for (int g : site_genotype) {
+        if (g > 0) {
+            called_alts.insert(g);
+        }
+    }
+    if (called_alts.size() < 2) {
+        return false;
+    }
+    // Per-site gate, decided over the alleles this record actually emits.  NOT over the traversal
+    // finder's candidate list: that is up to max_yens_traversals (50) speculative paths, most of
+    // which never become an allele, so gating on them lets an invisible branch with no reads and no
+    // AT entry decide whether merging happens.  deconstruct's equivalent gate reads its use_trav
+    // set, every member of which does become a VCF allele -- these emitted alleles are the
+    // corresponding set here.
+    if (allele_merge_min_len > 0 &&
+        !traversals_reach_min_len(graph, site_traversals, allele_merge_min_len)) {
+        return false;
+    }
+
+    // ALT-vs-ALT only.  Absorbing an ALT into allele 0 would empty out_variant.alt and the record
+    // would then be dropped entirely by the caller, turning a het call into no call at all.
+    // (vg deconstruct does fold near-reference alleles into the reference cluster and drop the
+    //  record; that is deliberate there and deliberately not copied here.)
+    vector<Traversal> alt_travs;
+    vector<int> alt_to_allele;
+    for (size_t i = 1; i < site_traversals.size(); ++i) {
+        if (!called_alts.count((int)i)) {
+            continue;
+        }
+        Traversal trav;
+        if (!snarl_traversal_to_handles(graph, site_traversals[i], trav)) {
+            // star placeholder or a child-snarl visit: leave this allele alone
+            continue;
+        }
+        alt_travs.push_back(std::move(trav));
+        alt_to_allele.push_back((int)i);
+    }
+    if (alt_travs.size() < 2) {
+        return false;
+    }
+
+    // same clustering call deconstruct makes, so the metric, the endpoint pruning and the
+    // >= comparison are inherited rather than reimplemented.
+    //
+    // Cluster in descending allele-depth order, so each cluster's head -- the allele that survives,
+    // and the one MAT's Jaccard is measured against -- is its best-supported member.  Identity order
+    // would instead inherit the traversal finder's ranking, which FlowCaller::call_snarl switches to
+    // length-weighted average flow once a snarl's interior passes the average-support threshold.
+    // That ranking can put a short, lightly-supported allele ahead of a long, heavily-supported one,
+    // and merging into it emits the minority sequence as a homozygous call carrying the pooled depth.
+    vector<int> order(alt_travs.size());
+    std::iota(order.begin(), order.end(), 0);
+    {
+        auto& sample_fields = out_variant.samples[sample_name];
+        auto ad_it = sample_fields.find("AD");
+        if (ad_it != sample_fields.end() && ad_it->second.size() == out_variant.alleles.size()) {
+            vector<double> ad(alt_travs.size(), 0);
+            bool usable = true;
+            for (size_t k = 0; k < alt_travs.size() && usable; ++k) {
+                const string& field = ad_it->second.at(alt_to_allele[k]);
+                usable = !field.empty() && field.find_first_not_of("0123456789") == string::npos;
+                if (usable) {
+                    ad[k] = parse<double>(field);
+                }
+            }
+            if (usable) {
+                // stable, so equal depths keep the finder's own ranking
+                std::stable_sort(order.begin(), order.end(),
+                                 [&](int a, int b) { return ad[a] > ad[b]; });
+            }
+        }
+    }
+    vector<pair<double, int64_t>> cluster_info;
+    vector<int> unused_child_snarl_mapping;
+    vector<vector<int>> clusters = cluster_traversals(&graph, alt_travs, order,
+                                                      vector<pair<handle_t, handle_t>>(),
+                                                      allele_merge_threshold,
+                                                      cluster_info, unused_child_snarl_mapping);
+
+    // merge_to[a] == a for a surviving allele, else the allele it collapses into
+    vector<int> merge_to(out_variant.alleles.size());
+    std::iota(merge_to.begin(), merge_to.end(), 0);
+    vector<string> mat_entries;
+    bool merged_any = false;
+    for (const vector<int>& cluster : clusters) {
+        if (cluster.size() < 2) {
+            continue;
+        }
+        int survivor = alt_to_allele[cluster.front()];
+        for (size_t j = 1; j < cluster.size(); ++j) {
+            int absorbed = alt_to_allele[cluster[j]];
+            merge_to[absorbed] = survivor;
+            merged_any = true;
+            stringstream ss;
+            ss.precision(3);
+            ss << absorbed << ">" << survivor << ":" << cluster_info[cluster[j]].first;
+            mat_entries.push_back(ss.str());
+        }
+    }
+    if (!merged_any) {
+        return false;
+    }
+
+    // dense renumbering of the survivors, preserving order
+    vector<int> new_index(merge_to.size(), -1);
+    int next = 0;
+    for (size_t a = 0; a < merge_to.size(); ++a) {
+        if (merge_to[a] == (int)a) {
+            new_index[a] = next++;
+        }
+    }
+    for (size_t a = 0; a < merge_to.size(); ++a) {
+        if (merge_to[a] != (int)a) {
+            new_index[a] = new_index[merge_to[a]];
+        }
+    }
+    int n_new = next;
+
+    // alleles / alt
+    vector<string> new_alleles(n_new);
+    for (size_t a = 0; a < merge_to.size(); ++a) {
+        if (merge_to[a] == (int)a) {
+            new_alleles[new_index[a]] = out_variant.alleles[a];
+        }
+    }
+    out_variant.alleles = new_alleles;
+    out_variant.alt.assign(new_alleles.begin() + 1, new_alleles.end());
+
+    // AT is Number=R, so it is indexed by allele just like alleles
+    auto at_it = out_variant.info.find("AT");
+    if (at_it != out_variant.info.end() && at_it->second.size() == merge_to.size()) {
+        vector<string> new_at(n_new);
+        for (size_t a = 0; a < merge_to.size(); ++a) {
+            if (merge_to[a] == (int)a) {
+                new_at[new_index[a]] = at_it->second[a];
+            }
+        }
+        at_it->second = new_at;
+    }
+
+    auto& sample = out_variant.samples[sample_name];
+
+    // AD is Number=R and is a count, so the absorbed allele's reads move onto the survivor.  This
+    // keeps DP == sum(AD) exact; it can slightly over-count when the merged alleles share interior
+    // nodes, whose depth was proportionally split between them.
+    auto ad_it = sample.find("AD");
+    if (ad_it != sample.end() && ad_it->second.size() == merge_to.size()) {
+        vector<double> summed(n_new, 0);
+        for (size_t a = 0; a < merge_to.size(); ++a) {
+            double v = 0;
+            // treat an unparseable entry as 0 rather than bailing: the merge is already committed,
+            // and dropping AD would break both DP == sum(AD) and the field's Number=R length
+            parse_vcf_double(ad_it->second[a], v);
+            summed[new_index[a]] += v;
+        }
+        vector<string> new_ad(n_new);
+        for (int a = 0; a < n_new; ++a) {
+            new_ad[a] = std::to_string((int64_t)std::llround(summed[a]));
+        }
+        ad_it->second = new_ad;
+        // MAD is the min allele depth over the called alleles; recompute so it agrees with the AD
+        // and GT printed beside it.  FILTER is left as computed pre-merge, and since the new MAD is
+        // >= the old one, a depth filter can only over-filter, never under-filter.
+        auto mad_it = sample.find("MAD");
+        if (mad_it != sample.end() && mad_it->second.size() == 1) {
+            double min_ad = -1;
+            for (int g : site_genotype) {
+                if (g >= 0 && g < (int)merge_to.size()) {
+                    double v = summed[new_index[g]];
+                    if (min_ad < 0 || v < min_ad) {
+                        min_ad = v;
+                    }
+                }
+            }
+            if (min_ad >= 0) {
+                mad_it->second[0] = std::to_string((int64_t)std::llround(min_ad));
+            }
+        }
+    }
+
+    // GL is Number=G.  vg emits it i-major -- "for i; for j = i..n" -- which is not the VCF spec's
+    // ordering for 3+ alleles, but the fold has to match what is actually written.  Take the max
+    // over the old genotype classes mapping onto each new one: that is the max-marginal, i.e. the
+    // merged allele scores as whichever of its members fit best.
+    auto gl_it = sample.find("GL");
+    if (gl_it != sample.end()) {
+        size_t n_old = merge_to.size();
+        auto gl_index = [](size_t i, size_t j, size_t n) { return i * n - (i * (i - 1)) / 2 + (j - i); };
+        // The diploid layout is the only one that can occur: merging needs at least two distinct
+        // called ALTs, site_genotype has one entry per ploidy, and PoissonSupportSnarlCaller::genotype
+        // -- the only writer of GL -- asserts ploidy is 1 or 2.  So n_old is always 3 here.
+        assert(gl_it->second.size() == n_old * (n_old + 1) / 2);
+        bool gl_usable = true;
+        vector<double> folded((size_t)n_new * (n_new + 1) / 2,
+                              -std::numeric_limits<double>::infinity());
+        for (size_t i = 0; i < n_old && gl_usable; ++i) {
+            for (size_t j = i; j < n_old && gl_usable; ++j) {
+                double v = 0;
+                gl_usable = parse_vcf_double(gl_it->second[gl_index(i, j, n_old)], v);
+                if (!gl_usable) {
+                    break;
+                }
+                size_t ni = new_index[i], nj = new_index[j];
+                if (ni > nj) {
+                    std::swap(ni, nj);
+                }
+                double& slot = folded[gl_index(ni, nj, (size_t)n_new)];
+                slot = std::max(slot, v);
+            }
+        }
+        if (gl_usable) {
+            vector<string> new_gl(folded.size());
+            for (size_t i = 0; i < folded.size(); ++i) {
+                new_gl[i] = std::to_string(folded[i]);
+            }
+            gl_it->second = new_gl;
+        } else {
+            // A value we cannot parse.  Leaving GL alone would emit a Number=G field whose length
+            // disagrees with the new allele count, so drop it rather than lie.
+            sample.erase(gl_it);
+            auto& fmt = out_variant.format;
+            fmt.erase(std::remove(fmt.begin(), fmt.end(), string("GL")), fmt.end());
+        }
+    }
+    // GQ and GP are deliberately untouched: they come from the caller's own CallInfo, computed over
+    // its candidate set rather than from the emitted GL, so recomputing them here would silently
+    // swap one statistic for another.
+
+    // GT, from the renumbered genotype
+    for (int& g : site_genotype) {
+        if (g >= 0 && g < (int)merge_to.size()) {
+            g = new_index[g];
+        }
+    }
+    stringstream vcf_gt;
+    for (size_t i = 0; i < site_genotype.size(); ++i) {
+        if (site_genotype[i] == MISSING_ALLELE_MARKER) {
+            vcf_gt << ".";
+        } else {
+            vcf_gt << site_genotype[i];
+        }
+        if (i != site_genotype.size() - 1) {
+            vcf_gt << "/";
+        }
+    }
+    sample["GT"] = {vcf_gt.str()};
+
+    // record what happened: without this a merged 1/1 is indistinguishable from a real hom-alt
+    out_variant.info["MAT"] = mat_entries;
+
+    out_variant.updateAlleleIndexes();
+    return true;
 }
 
 unordered_set<string> VCFOutputCaller::get_output_contigs() const {
@@ -676,6 +1010,13 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // clean up the alleles to not have so man common prefixes
     flatten_common_allele_ends(out_variant, true, flatten_len_e);
     flatten_common_allele_ends(out_variant, false, flatten_len_s);
+
+    // Merge near-identical called ALT alleles (vg call -L), turning 1/2 into 1/1.  Placed here on
+    // purpose: after update_vcf_info so the genotyper saw every candidate, and after flattening so
+    // the surviving allele's string, POS and REF are byte-identical to a run without -L (a shorter
+    // allele list can share a longer prefix and flatten further).  The missing-allele fixup below
+    // still runs after it, and is unaffected: merging is ALT-vs-ALT so it never empties alt.
+    merge_similar_alleles(graph, site_traversals, site_genotype, sample_name, out_variant);
 #ifdef debug
     for (int i = 0; i < site_traversals.size(); ++i) {
         cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
@@ -1964,8 +2305,6 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool genotype_snarls,
                        const pair<size_t, size_t>& allele_length_range,
                        bool nested,
-                       double cluster_threshold,
-                       bool cluster_post_genotype,
                        bool star_allele) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
@@ -1978,8 +2317,6 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     genotype_snarls(genotype_snarls),
     allele_length_range(allele_length_range),
     nested(nested),
-    cluster_threshold(cluster_threshold),
-    cluster_post_genotype(cluster_post_genotype),
     star_allele(star_allele)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {

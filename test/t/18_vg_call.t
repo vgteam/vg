@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 98
+plan tests 132
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -222,21 +222,130 @@ is $? 0 "overriding contig length does not change calls"
 
 rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
 
-# Test: Clustering option (-L) in vg call
+# Test: -L/--cluster merges near-identical called alt alleles after genotyping, so a 1/2 call of two
+# effectively-identical alleles becomes 1/1.  Two alt paths differing by one 1bp node; reads are
+# simulated from each separately so both alleles get support and the site really is called 1/2.
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - > small_cluster_call.gfa
 printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster_call.gfa
-printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster_call.gfa
-printf "P\tz\t1+,9+\t*\n" >> small_cluster_call.gfa
+printf "P\tyA\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster_call.gfa
+printf "P\tyB\t1+,2+,4+,6+,8+,9+\t*\n" >> small_cluster_call.gfa
 vg view -Fv small_cluster_call.gfa > small_cluster_call.vg
-vg sim -x small_cluster_call.vg -n 100 -l 20 -a -s 1 > small_cluster_call.gam
+vg sim -x small_cluster_call.vg -P yA -n 40 -l 20 -a -s 1 > call_a.gam
+vg sim -x small_cluster_call.vg -P yB -n 40 -l 20 -a -s 2 > call_b.gam
+cat call_a.gam call_b.gam > small_cluster_call.gam
 vg pack -x small_cluster_call.vg -g small_cluster_call.gam -o small_cluster_call.pack
-# Call without clustering
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down > call_no_cluster.vcf 2>/dev/null
-# Call with clustering
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.3 > call_cluster.vcf 2>/dev/null
-is $(grep -v "^#" call_no_cluster.vcf | wc -l) $(grep -v "^#" call_cluster.vcf | wc -l) "clustering does not change number of variant sites in vg call"
 
-rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_no_cluster.vcf call_cluster.vcf
+call_site() { awk -F'\t' -v c="$2" '$2 == 9 {print $c}' "$1"; }
+
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x > call_no_cluster.vcf 2>/dev/null
+is "$(call_site call_no_cluster.vcf 5)"  "ATTTGA,ATTTGG" "vg call emits two near-identical alts without -L"
+is "$(call_site call_no_cluster.vcf 10 | cut -f1 -d:)" "1/2" "vg call genotypes them 1/2 without -L"
+
+# -L 1.0 (the default) must be a strict no-op, byte for byte
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 1.0 > call_cluster_off.vcf 2>/dev/null
+diff call_no_cluster.vcf call_cluster_off.vcf
+is "$?" 0 "-L 1.0 is byte-identical to no -L"
+
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 > call_cluster.vcf 2>/dev/null
+is "$(call_site call_cluster.vcf 5)" "ATTTGA" "-L merges the near-identical alt alleles"
+is "$(call_site call_cluster.vcf 10 | cut -f1 -d:)" "1/1" "-L turns the 1/2 call into 1/1"
+is "$(call_site call_cluster.vcf 10 | cut -f3 -d:)" "0,47" "-L sums AD onto the surviving allele"
+is "$(call_site call_cluster.vcf 10 | cut -f8 -d:)" "47" "-L recomputes MAD from the folded AD"
+# the whole point of merging after update_vcf_info: the genotyper saw every candidate, so the
+# site-level evidence is identical to the unmerged run
+is "$(call_site call_cluster.vcf 6)" "$(call_site call_no_cluster.vcf 6)" "-L leaves QUAL unchanged"
+is "$(echo "$(call_site call_cluster.vcf 8)" | grep -o 'DP=[0-9]*')" "$(echo "$(call_site call_no_cluster.vcf 8)" | grep -o 'DP=[0-9]*')" "-L leaves DP unchanged"
+# merging after flatten_common_allele_ends keeps the surviving allele anchored where it was
+is "$(call_site call_cluster.vcf 4)" "$(call_site call_no_cluster.vcf 4)" "-L leaves REF unchanged"
+is "$(call_site call_cluster.vcf 2)" "$(call_site call_no_cluster.vcf 2)" "-L leaves POS unchanged"
+is "$(call_site call_cluster.vcf 10 | cut -f4 -d: | tr ',' '\n' | grep -c '')" "3" "-L folds GL to the merged allele count"
+is "$(grep -v '^#' call_cluster.vcf | grep -c '')" "$(grep -v '^#' call_no_cluster.vcf | grep -c '')" "-L never deletes a variant record"
+is "$(call_site call_cluster.vcf 8 | grep -o 'MAT=[^;]*')" "MAT=2>1:0.714" "-L records what it merged in MAT"
+is "$(grep -c 'ID=MAT' call_no_cluster.vcf)" "0" "the MAT header is absent when -L is not used"
+
+# the threshold is the same weighted-Jaccard as vg deconstruct -L: these two alts score 5/7
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7143 > call_cluster_hi.vcf 2>/dev/null
+is "$(call_site call_cluster_hi.vcf 5)" "ATTTGA,ATTTGG" "-L just above the Jaccard does not merge"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7142 > call_cluster_lo.vcf 2>/dev/null
+is "$(call_site call_cluster_lo.vcf 5)" "ATTTGA" "-L just below the Jaccard merges"
+# and vg deconstruct flips at the same place on the same graph.  Assert the merge DECISION -- how
+# many alts survive -- not which one survives: the two tools pick a cluster's survivor by different
+# rules (vg call by allele depth, vg deconstruct by get_traversal_order's ranking), so pinning the
+# sequence here would make an unrelated path rename in the fixture fail this test with a message
+# blaming the threshold.
+n_alts() { awk -F'\t' '$2==9{print split($5,a,",")}' "$1"; }
+vg deconstruct small_cluster_call.gfa -p x -L 0.7143 2>/dev/null > decon_hi.vcf
+vg deconstruct small_cluster_call.gfa -p x -L 0.7142 2>/dev/null > decon_lo.vcf
+is "$(n_alts decon_hi.vcf)" "$(n_alts call_cluster_hi.vcf)" "vg call and vg deconstruct agree above the threshold"
+is "$(n_alts decon_lo.vcf)" "$(n_alts call_cluster_lo.vcf)" "vg call and vg deconstruct agree below the threshold"
+
+# --cluster-min-len gates per site, exactly as in vg deconstruct.  This site's longest non-boundary
+# traversal is 6 bp.
+for N in 0 6 7 50 ; do
+    vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len $N > call_minlen_$N.vcf 2>/dev/null
+done
+is "$(call_site call_minlen_0.vcf 5)"  "ATTTGA"        "--cluster-min-len 0 merges everywhere"
+is "$(call_site call_minlen_6.vcf 5)"  "ATTTGA"        "--cluster-min-len at the site length still merges"
+is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length gates merging"
+is "$(call_site call_minlen_50.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len 50 restricts merging to SVs"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 > call_minlen_only.vcf 2>/dev/null
+diff call_no_cluster.vcf call_minlen_only.vcf
+is "$?" 0 "--cluster-min-len without -L is a no-op"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 2>&1 >/dev/null | grep -q "no effect without -L"
+is "$?" 0 "--cluster-min-len without -L warns"
+
+# The gate must read the alleles the record emits, not the traversal finder's candidate list.
+# Adding a long branch with no reads -- absent from the genotype and from every AT entry -- must not
+# change whether merging happens.
+cp small_cluster_call.gfa minlen_ghost.gfa
+printf "S\t9999\t%s\n" "$(printf 'ACGT%.0s' $(seq 1 50))" >> minlen_ghost.gfa
+printf "L\t1\t+\t9999\t+\t0M\n" >> minlen_ghost.gfa
+printf "L\t9999\t+\t9\t+\t0M\n" >> minlen_ghost.gfa
+vg view -Fv minlen_ghost.gfa > minlen_ghost.vg
+vg pack -x minlen_ghost.vg -g small_cluster_call.gam -o minlen_ghost.pack
+vg call minlen_ghost.vg -k minlen_ghost.pack -p x -L 0.6 --cluster-min-len 50 > call_minlen_ghost.vcf 2>/dev/null
+is "$(call_site call_minlen_ghost.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len ignores uncalled candidate traversals"
+
+# When two alleles merge, the surviving sequence must be the better-supported one: the finder ranks
+# by length-weighted average flow on large snarls, which can put a short lightly-supported allele
+# first, and merging into it would emit the minority sequence as a hom-alt carrying the pooled depth.
+vg view -Fv nesting/merge_support.gfa > merge_support.vg
+vg sim -x merge_support.vg -P hapA -n 40  -l 120 -a -s 5 > merge_a.gam
+vg sim -x merge_support.vg -P hapB -n 120 -l 120 -a -s 6 > merge_b.gam
+cat merge_a.gam merge_b.gam > merge_support.gam
+vg pack -x merge_support.vg -g merge_support.gam -o merge_support.pack
+vg call merge_support.vg -k merge_support.pack -p x > merge_plain.vcf 2>/dev/null
+vg call merge_support.vg -k merge_support.pack -p x -L 0.4 > merge_L.vcf 2>/dev/null
+is "$(grep -v '^#' merge_plain.vcf | cut -f10 | cut -f3 -d:)" "0,20,62" "the unmerged call has a clear minority and majority allele"
+is "$(grep -v '^#' merge_L.vcf | cut -f5)" "$(grep -v '^#' merge_plain.vcf | cut -f5 | cut -f2 -d,)" "the merge keeps the better-supported allele's sequence"
+is "$(grep -v '^#' merge_L.vcf | cut -f10 | cut -f3 -d:)" "0,82" "the merge folds both alleles' depth onto the survivor"
+
+rm -f minlen_ghost.gfa minlen_ghost.vg minlen_ghost.pack call_minlen_ghost.vcf
+rm -f merge_support.vg merge_support.gam merge_support.pack merge_a.gam merge_b.gam merge_plain.vcf merge_L.vcf
+
+# -L merges in VCFOutputCaller::emit_variant, which these paths never reach, so it must be rejected
+# rather than silently ignored
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -v small/x.vcf.gz >/dev/null 2>&1
+is "$?" 1 "-L is rejected when genotyping a VCF"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -G >/dev/null 2>&1
+is "$?" 1 "-L is rejected with GAF output"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -B >/dev/null 2>&1
+is "$?" 1 "-L is rejected with the ratio caller"
+# unlike vg deconstruct, which clamps, we reject: -L 5 is a plausible typo for -L 0.5
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 5 >/dev/null 2>&1
+is "$?" 1 "-L out of range is an error"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len=-1 >/dev/null 2>&1
+is "$?" 1 "negative --cluster-min-len is an error"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-post >/dev/null 2>&1
+is "$?" 1 "the removed --cluster-post option is rejected"
+
+# the merge lives on the shared VCFOutputCaller base, so the nested modes get it too
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 > call_cluster_td.vcf 2>/dev/null
+is "$(call_site call_cluster_td.vcf 5)" "ATTTGA" "-L merges under --top-down"
+
+rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_a.gam call_b.gam
+rm -f call_no_cluster.vcf call_cluster.vcf call_cluster_off.vcf call_cluster_hi.vcf call_cluster_lo.vcf call_cluster_td.vcf
+rm -f call_minlen_0.vcf call_minlen_6.vcf call_minlen_7.vcf call_minlen_50.vcf call_minlen_only.vcf decon_hi.vcf decon_lo.vcf
 
 # Test: Nested calling with vg call --top-down (basic test)
 # Use a larger graph with clear variants
@@ -270,15 +379,6 @@ vg call star_test.vg -k star_test.pack -Y 2>&1 | grep -q "requires --top-down"
 is "$?" 0 "star allele option requires top-down mode"
 
 rm -f star_test.vg star_test.gam star_test.pack
-
-# Test: Cluster-post validation (requires -L < 1.0)
-vg construct -r small/x.fa -v small/x.vcf.gz > cluster_post_test.vg
-vg sim -x cluster_post_test.vg -n 100 -l 20 -a -s 1 > cluster_post_test.gam
-vg pack -x cluster_post_test.vg -g cluster_post_test.gam -o cluster_post_test.pack
-vg call cluster_post_test.vg -k cluster_post_test.pack --cluster-post 2>&1 | grep -q "requires -L/--cluster"
-is "$?" 0 "cluster-post option requires cluster threshold"
-
-rm -f cluster_post_test.vg cluster_post_test.gam cluster_post_test.pack
 
 # =============================================================================
 # Nested genotype propagation tests
