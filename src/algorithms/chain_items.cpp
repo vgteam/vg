@@ -857,14 +857,14 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
         return chain_scores[a] > chain_scores[b];
     });
     
-    // To see if an item is used we have this bit vector.
-    vector<bool> item_is_used(chain_scores.size(), false);
+    // To see if an item is used we have this vector tracking its chain start
+    vector<size_t> parent_start(chain_scores.size(), TracedScore::nowhere());
     
     for (auto& trace_from : starts_in_score_order) {
-        if (item_is_used[trace_from]) {
+        if (parent_start[trace_from] != TracedScore::nowhere()) {
             for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
-                if (item_is_used[chain_scores[trace_from][alt_i].source]) {
-                    // Save this extra edge between chains
+                // Are they in different chains?
+                if (parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]) {
                     output.connections.emplace_back(chain_scores[trace_from][alt_i].source, trace_from);
                 }
             }
@@ -891,10 +891,10 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
             std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
 #endif
             // Mark here as used. Happens once per item, and so limits runtime.
-            item_is_used[here] = true;
+            parent_start[here] = trace_from;
             size_t next = chain_scores[here].front().source;
             if (next != TracedScore::nowhere()) {
-                if (item_is_used[next]) {
+                if (parent_start[next] != TracedScore::nowhere()) {
                     // Save this extra edge we tried to use
                     output.connections.emplace_back(next, here);
 
@@ -904,7 +904,7 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
                         // Try to use the other saved predecessors
                         if (chain_scores[here][alt_i].source != TracedScore::nowhere()) {
                             next = chain_scores[here][alt_i].source;
-                            if (!item_is_used[next]) {
+                            if (parent_start[next] == TracedScore::nowhere()) {
 #ifdef debug_chaining
                                 cerr << "Using alternative predecessor " << next << endl;
 #endif
