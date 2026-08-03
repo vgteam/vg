@@ -865,7 +865,6 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
             for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
                 // Are they different anchors in different chains?
                 if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()
-                    && chain_scores[trace_from][alt_i].source != chain_scores[trace_from][alt_i-1].source
                     && parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]) {
                     output.connections.emplace_back(chain_scores[trace_from][alt_i].source, trace_from);
                 }
@@ -989,7 +988,7 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
 SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup& original_tracebacks) {
     SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
-    vector<vector<size_t>> outgoing_edges(anchor_count);
+    vector<unordered_set<size_t>> outgoing_edges(anchor_count);
     // For each anchor (by index), how many sources does it have?
     vector<size_t> source_count(anchor_count, 0);
 
@@ -1012,7 +1011,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup
             cerr << " " << next;
 #endif
             source_count[next]++;
-            outgoing_edges[prev].emplace_back(next);
+            outgoing_edges[prev].emplace(next);
         }
 #ifdef debug_chaining
         cerr << endl;
@@ -1025,7 +1024,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup
             && (outgoing_edges[extra_edge.second].size() + source_count[extra_edge.second]) > 0) {
             // Both sides of this edge are used, so it must connect two different subchains
             // Add this as another possible next
-            outgoing_edges[extra_edge.first].emplace_back(extra_edge.second);
+            outgoing_edges[extra_edge.first].emplace(extra_edge.second);
             source_count[extra_edge.second]++;
         }
     }
@@ -1070,7 +1069,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup
             // If we've reached a decision point, then save all next edges
             // We have reached the end of one subchain
             if (outgoing_edges[cur_anchor_id].size() > 1 
-                || source_count[outgoing_edges[cur_anchor_id].front()] > 1) {
+                || source_count[*outgoing_edges[cur_anchor_id].begin()] > 1) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
                     // We need to start a new trace from here
 #ifdef debug_chaining
@@ -1082,7 +1081,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup
             }
             
             // Otherwise, trace into the next edge
-            cur_anchor_id = outgoing_edges[cur_anchor_id].front();
+            cur_anchor_id = *outgoing_edges[cur_anchor_id].begin();
             output.subchains.back().emplace_back(cur_anchor_id);
             subchain_id[cur_anchor_id] = cur_subchain_id;
 #ifdef debug_chaining
