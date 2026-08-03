@@ -121,7 +121,17 @@ public:
 
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
-    
+
+    /// The set of reference contigs that actually have a record.  Reads the sort keys of the
+    /// output buffer, so it costs nothing (no decompression) and does not need the snarl tree.
+    /// Only meaningful once calling is finished and before write_variants() drains the buffer.
+    unordered_set<string> get_output_contigs() const;
+
+    /// Remove ##contig lines whose ID is not in keep, leaving every other line alone.
+    /// A reference contig that produced no record is not worth declaring: with a gref cover
+    /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
+    string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
+
 protected:
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path

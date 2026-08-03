@@ -9,12 +9,18 @@
  * An gref cover is a set of path fragments (stored as separate paths) in the graph.
  * They are always relative to an existing reference sample (ie GRCh38 or CHM13).
  * Unlike rGFA paths which use complex metadata embedding, gref paths use a simple naming
- * scheme: {base_path_name}_{N}_alt
+ * scheme: the base reference path name moved into the "gref_" namespace, with the
+ * fragments numbered off it as {gref_base_path_name}_{N}_alt
  *
- * For example, if the reference path is "CHM13#0#chr1", gref paths would be named:
- *   - CHM13#0#chr1_1_alt
- *   - CHM13#0#chr1_2_alt
+ * For example, if the reference path is "CHM13#0#chr1", the cover is written as:
+ *   - gref_CHM13#0#chr1        (a copy of the reference path itself)
+ *   - gref_CHM13#0#chr1_1_alt  (fragments hanging off it)
+ *   - gref_CHM13#0#chr1_2_alt
  *   - etc.
+ *
+ * The naming is a convention, not an option: because the prefix lands on the sample,
+ * a graph carries both references at once, "is this a gref path/sample" is a prefix
+ * test, and the base path a gref path came from is recoverable by dropping the prefix.
  *
  * The data structures used in this class are always relative to the original paths
  * in the graph. The REFERENCE-sense fragments that are used to serialize the
@@ -33,24 +39,55 @@ using namespace std;
 
 class GrefCover {
 public:
-    // The suffix used to identify gref paths
+    // The prefix every gref path name carries
+    static const string gref_prefix;  // "gref_"
+
+    // The suffix used to identify gref fragments
     static const string gref_suffix;  // "_alt"
 
+    // Name of the gref copy of a path: the same name moved into the gref namespace,
+    // keeping its subrange so that subpaths of one contig stay distinct and keep their
+    // coordinates.  Example: make_gref_copy_name("CHM13#0#chr1[100-200]")
+    //                        -> "gref_CHM13#0#chr1[100-200]"
+    // For PanSN names the prefix renames the sample, which is what makes "is this path
+    // a gref path" and "which base path is it derived from" answerable from the name
+    // alone.  Anything matching a base path against its gref copy must use this.
+    static string make_gref_copy_name(const string& path_name);
+
+    // Name a fragment's gref base is built from: make_gref_copy_name() with the subrange
+    // dropped as well, since make_gref_name() appends "_{N}_alt" and that has to land on
+    // the locus.  Fragments off different subpaths of one contig therefore share a base
+    // name; the per-base counter keeps their full names distinct.
+    // Example: make_gref_base_name("CHM13#0#chr1[100-200]") -> "gref_CHM13#0#chr1"
+    static string make_gref_base_name(const string& base_path_name);
+
+    // Test if a name is in the gref namespace. Works on path names and, because
+    // the prefix lands on the sample for PanSN names, on sample names too.
+    // Example: is_gref_derived("gref_CHM13#0#chr1_3_alt") -> true
+    //          is_gref_derived("gref_CHM13") -> true
+    static bool is_gref_derived(const string& name);
+
+    // Take a name back out of the gref namespace. Returns the input unchanged
+    // if it isn't in it.
+    // Example: strip_gref_prefix("gref_CHM13#0#chr1") -> "CHM13#0#chr1"
+    static string strip_gref_prefix(const string& name);
+
     // Create an gref path name from a base reference path name and an index.
-    // Example: make_gref_name("CHM13#0#chr1", 1) -> "CHM13#0#chr1_1_alt"
+    // Example: make_gref_name("gref_CHM13#0#chr1", 1) -> "gref_CHM13#0#chr1_1_alt"
     static string make_gref_name(const string& base_path_name, int64_t gref_index);
 
-    // Test if a path name is an gref path (contains "_{N}_alt" suffix).
+    // Test if a path name is an gref fragment (contains "_{N}_alt" suffix).
+    // Copied base contigs are gref paths but not fragments, so they fail this.
     static bool is_gref_name(const string& path_name);
 
     // Parse an gref path name to extract the base reference path name.
     // Returns the original base path name, or the input if not an gref path.
-    // Example: parse_base_path("CHM13#0#chr1_3_alt") -> "CHM13#0#chr1"
+    // Example: parse_base_path("gref_CHM13#0#chr1_3_alt") -> "gref_CHM13#0#chr1"
     static string parse_base_path(const string& gref_name);
 
     // Parse an gref path name to extract the gref index.
     // Returns -1 if the path is not an gref path.
-    // Example: parse_gref_index("CHM13#0#chr1_3_alt") -> 3
+    // Example: parse_gref_index("gref_CHM13#0#chr1_3_alt") -> 3
     static int64_t parse_gref_index(const string& gref_name);
 
 public:
@@ -69,19 +106,13 @@ public:
     void load(const PathHandleGraph* graph,
               const unordered_set<path_handle_t>& reference_paths);
 
-    // Apply the gref cover to a graph (must have been computed first), adding it
-    // as a bunch of REFERENCE-sense paths with the simplified naming scheme.
-    // If gref_sample_name is set, base paths are first copied to the new sample,
-    // and gref paths are created under the new sample name.
+    // Apply the gref cover to a graph (must have been computed first).  Everything
+    // lands in the gref namespace:
+    // 1. The base reference paths are copied over (CHM13#0#chr1 -> gref_CHM13#0#chr1)
+    // 2. The fragments are added alongside them (gref_CHM13#0#chr1_1_alt, etc.)
+    // The original paths are left untouched, so the graph carries both the base
+    // reference and the gref reference and they can be told apart by name.
     void apply(MutablePathMutableHandleGraph* mutable_graph);
-
-    // Set the sample name for gref paths. When set, apply() will:
-    // 1. Copy base reference paths to this new sample (CHM13#0#chr1 -> new_sample#0#chr1)
-    // 2. Create gref paths under the new sample (new_sample#0#chr1_1_alt, etc.)
-    void set_gref_sample(const string& sample_name);
-
-    // Get the current gref sample name (empty string if not set).
-    const string& get_gref_sample() const;
 
     // Enable verbose output (coverage summary, etc.)
     void set_verbose(bool verbose);
@@ -105,7 +136,6 @@ public:
     // Each line contains: source_path, source_start, source_end, gref_path_name,
     //                     ref_path, ref_start, ref_end
     // Must be called after compute() and knows what gref path names will be used.
-    // If gref_sample is set, uses that for the gref path names.
     void write_gref_segments(ostream& os);
 
 protected:
@@ -151,8 +181,9 @@ protected:
     optional<step_handle_t> try_extend_forward(step_handle_t start_step, path_handle_t path,
                                                 const pair<step_handle_t, step_handle_t>& other_interval);
 
-    // Collect other_interval's node IDs + orientations into a vector (forward walk).
-    // Then walk backward from start_step on path, comparing in reverse.
+    // Walk backward from start_step on path, comparing each node ID + orientation
+    // against other_interval's steps in reverse order.  Both sides are walked
+    // lazily, so a mismatch costs only the steps actually compared.
     // Returns the first matching step if all match, nullopt otherwise.
     optional<step_handle_t> try_extend_backward(step_handle_t start_step, path_handle_t path,
                                                  const pair<step_handle_t, step_handle_t>& other_interval);
@@ -219,10 +250,6 @@ protected:
     // Using mutable so it can be updated in apply() which is logically const for the cover.
     unordered_map<string, int64_t> base_path_gref_counter;
 
-    // Optional sample name for gref paths. When set, base paths are copied to this
-    // sample and gref paths are created under it.
-    string gref_sample_name;
-
     // Whether to print verbose output (coverage summary, etc.)
     bool verbose = false;
 
@@ -230,20 +257,37 @@ protected:
     // This ensures deterministic output regardless of thread count.
     bool rank_by_name = false;
 
-    // Copy base reference paths to the gref sample.
-    // Creates new paths like "new_sample#0#chr1" from "CHM13#0#chr1".
-    void copy_base_paths_to_sample(MutablePathMutableHandleGraph* mutable_graph,
-                                   const unordered_set<path_handle_t>& reference_paths);
+    // Copy the base reference paths into the gref namespace.
+    // Creates new paths like "gref_CHM13#0#chr1" from "CHM13#0#chr1".
+    void copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_graph,
+                                 const unordered_set<path_handle_t>& reference_paths);
 
     // Used when selecting traversals to make the greedy cover.
     struct RankedFragment {
         int64_t coverage;
+        int64_t length;
+        bool reverse;
         const string* name;
         int64_t trav_idx;
         pair<int64_t, int64_t> fragment;
         bool operator<(const RankedFragment& f2) const {
+            // Max-heap, so this is "worse than".  Longest first, because a short fragment
+            // that displaces part of a longer one leaves both halves to be filtered away
+            // by --min-gref-len -- which loses the sequence altogether.  Orientation only
+            // breaks ties between runs of equal length: a fragment taken from a path that
+            // walks it backwards has to be flipped to be written, so prefer one that does
+            // not, but never at the cost of covering less in one piece.
             // note: name comparison is flipped because we want to select high coverage / low name
-            return this->coverage < f2.coverage || (this->coverage == f2.coverage && *this->name > *f2.name);
+            if (this->coverage != f2.coverage) {
+                return this->coverage < f2.coverage;
+            }
+            if (this->length != f2.length) {
+                return this->length < f2.length;
+            }
+            if (this->reverse != f2.reverse) {
+                return this->reverse;
+            }
+            return *this->name > *f2.name;
         }
     };
 };

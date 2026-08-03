@@ -68,13 +68,12 @@ void help_paths(char** argv) {
          << "  -H, --haplotype-paths     select haplotype paths" << endl
          << "      --exclude-sample STR  exclude paths belonging to this sample" << endl
          << "graph reference computation:" << endl
-         << "  -u, --compute-gref        compute graph reference path cover" << endl
+         << "  -u, --compute-gref        compute graph reference path cover, written as" << endl
+         << "                            a gref_ copy of each reference path plus the" << endl
+         << "                            fragments hanging off it (GRCh38#0#chr1 gives" << endl
+         << "                            gref_GRCh38#0#chr1, gref_GRCh38#0#chr1_1_alt...)" << endl
          << "                            (use -Q to select reference paths)" << endl
          << "  -l, --min-gref-len N      minimum gref fragment length [50]" << endl
-         << "  -N, --gref-sample STR     create gref paths under a new sample" << endl
-         << "                            (copies base paths to new sample," << endl
-         << "                            then adds gref paths)." << endl
-         << "                            if unspecified, paths get added to target sample." << endl
          << "      --gref-segs FILE      write gref segment table to FILE" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
@@ -150,7 +149,6 @@ int main_paths(int argc, char** argv) {
     bool progress = false;
     bool compute_gref = false;
     int64_t min_gref_length = 50;
-    string gref_sample;
     string gref_segments_file;
     string exclude_sample;
 
@@ -199,7 +197,6 @@ int main_paths(int argc, char** argv) {
             // Gref options
             {"compute-gref", no_argument, 0, 'u'},
             {"min-gref-len", required_argument, 0, 'l'},
-            {"gref-sample", required_argument, 0, 'N'},
             {"gref-segs", required_argument, 0, OPT_GREF_SEGMENTS},
             {"exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE},
 
@@ -207,7 +204,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:N:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -349,10 +346,6 @@ int main_paths(int argc, char** argv) {
             min_gref_length = parse<int64_t>(optarg);
             break;
 
-        case 'N':
-            gref_sample = optarg;
-            break;
-
         case OPT_PROGRESS:
             progress = true;
             break;
@@ -486,9 +479,23 @@ int main_paths(int argc, char** argv) {
     
     // Handle gref computation before other operations
     if (compute_gref && graph) {
+        if (overlay) {
+            // The overlay wrapper is read-only, so -o would otherwise defeat
+            // --compute-gref and report it as a problem with the input file.
+            logger.error() << "--compute-gref cannot be combined with -o/--overlay,"
+                           << " which wraps the graph in a read-only overlay" << std::endl;
+            return 1;
+        }
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
         if (!mutable_graph) {
-            logger.error() << "graph cannot be modified for gref computation" << std::endl;
+            // --compute-gref writes new paths into the graph, so read-only formats
+            // (GBZ, XG) cannot be used directly no matter how they were loaded.
+            logger.error() << "--compute-gref writes paths into the graph, but " << graph_file
+                           << " is in a read-only format (such as GBZ or XG)." << std::endl
+                           << "         Convert it to a mutable format first, for example:"
+                           << std::endl
+                           << "           vg convert -p " << graph_file << " > graph.pg" << std::endl
+                           << "           vg paths -x graph.pg --compute-gref ..." << std::endl;
             return 1;
         }
 
@@ -496,8 +503,9 @@ int main_paths(int argc, char** argv) {
         unordered_set<path_handle_t> ref_paths;
         graph->for_each_path_handle([&](path_handle_t ph) {
             string path_name = graph->get_path_name(ph);
-            // Skip gref paths (they match prefixes but shouldn't be used as references)
-            if (GrefCover::is_gref_name(path_name)) {
+            // Skip anything already in the gref namespace: a previous cover is about to
+            // be cleared, and a gref path can never be the base of a new one.
+            if (GrefCover::is_gref_derived(path_name)) {
                 return;
             }
             if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
@@ -530,9 +538,6 @@ int main_paths(int argc, char** argv) {
 
         // Compute and apply gref cover
         GrefCover cover;
-        if (!gref_sample.empty()) {
-            cover.set_gref_sample(gref_sample);
-        }
         cover.set_verbose(progress);
         cover.clear(mutable_graph);
         cover.compute(graph, &snarl_manager, ref_paths, min_gref_length);
