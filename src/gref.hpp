@@ -86,8 +86,8 @@ public:
     static int64_t parse_gref_index(const string& gref_name);
 
 public:
-    // Clear out any existing gref paths from the graph. Recommended to run this
-    // before compute().
+    // Remove any gref paths already in the graph.  Run this before compute(): fragment
+    // numbering starts from scratch and assumes none survive.
     void clear(MutablePathMutableHandleGraph* graph);
 
     // Compute the gref cover from the graph, starting with a given set of reference paths.
@@ -109,7 +109,7 @@ public:
     // reference and the gref reference and they can be told apart by name.
     void apply(MutablePathMutableHandleGraph* mutable_graph);
 
-    // Enable verbose output (coverage summary, etc.)
+    // Print progress and per-stage counts to stderr while computing.
     void set_verbose(bool verbose);
 
 
@@ -160,30 +160,34 @@ public:
     //
     // A snarl that fails is not repaired and is not covered: its nodes are withheld from the
     // cover and reported.  Withholding sequence is a real cost, so it is counted in nodes and
-    // bp and warned about unconditionally -- never silently.  On a graph whose reference is
-    // full-length nothing is withheld; the failures are clipped or subranged references, where
-    // the spine is not continuous and the guarantee genuinely does not hold.
+    // bp and warned about unconditionally -- never silently, and naming the contigs involved.
+    // Two things make a snarl fail: a clipped or subranged reference, where the spine is not
+    // continuous; and a snarl bridging two reference contigs, which happens where unplaced
+    // contigs share repeat content (chrOther-v2.1 has five, joining rDNA-bearing and
+    // segmentally duplicated pairs).  Nothing is withheld on any of the whole-genome
+    // chromosome graphs.
     //
     // Must run after the reference paths are pre-assigned and before any fragment is claimed.
     void enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& distance_index);
 
     // Map every fragment onto the top-level snarl decomposition carried by distance_index.
     // Fills interval_snarl_bounds with the boundary nodes of the containing top-level snarl
-    // for every fragment that lies wholly inside one, leaves {0,0} for the rest, and records
-    // the summary returned by get_top_level_snarl_stats().
+    // for every fragment that lies wholly inside one, and leaves {0,0} for the rest.  The
+    // counts it gathers along the way go to top_level_snarl_stats, which only feeds the
+    // --progress output.
     void assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance_index);
 
 
-    // Work out, for every fragment, which gref contig supplies the coordinates its VCF records
-    // will be reported against, and how many such contigs lie between it and the base
-    // reference.  Fills interval_parent and interval_level.
+    // Work out how many coordinate-system changes lie between each interval and the top of
+    // its component.  Fills interval_level, and interval_parent as the chain it counts along
+    // -- the parent is not published, only the level is.
     //
     // The rule follows the caller rather than the graph.  Walk up the snarl tree from the
     // fragment until reaching a snarl whose boundary nodes are owned by some gref interval;
     // that interval is the parent, because a snarl's records are reported against whichever
-    // gref path traverses its boundaries.  A fragment whose enclosing snarl is bounded by
-    // reference nodes is level 1 -- one coordinate-system change from the base reference --
-    // and the levels chain from there.
+    // gref path traverses its boundaries.  level is then the length of that chain, uniformly:
+    // an outermost reference contig is 0, a reference contig nested inside another is 1, a
+    // fragment hanging off the base reference is 1, one inside a level-1 fragment is 2.
     //
     // This is the measurement e20e1f277 reverted a column for getting wrong.  That version
     // counted hops over interval adjacency, which is a fact about the graph, while INFO/CH
@@ -195,50 +199,57 @@ public:
     // whether the numbers look plausible.
     void assign_nesting(const bdsg::SnarlDistanceIndex& distance_index);
 
-    // Write a tab-separated table describing gref segments.
-    // Each line contains: source_path, source_start, source_end, gref_contig, level, strand,
-    //                     ref_contig, ref_start, ref_end, top_level_snarl
+    // Write the table of gref fragments, one row each, preceded by a '#' header naming the
+    // columns:
     //
-    // Columns 1-6 are a valid BED6, with the nesting level in the score slot -- a small
-    // non-negative integer is what that field wants, and it avoids a column that would always
-    // be ".".  `cut -f1-6` therefore feeds bedtools directly, strand included.
+    //   1 source_path      the haplotype the fragment was taken from
+    //   2 source_start     half-open interval on it, in that path's own coordinates
+    //   3 source_end
+    //   4 gref_contig      the emitted contig; unique, one row per contig
+    //   5 level            nesting depth, 1 = hangs off the base reference
+    //   6 strand           orientation of columns 1-3 against the emitted contig
+    //   7 ref_contig       the reference contig it hangs off
+    //   8 ref_start        reference interval its source path brackets it with
+    //   9 ref_end
+    //  10 top_level_snarl  the site it is an allele of, or "." if it is in no snarl
     //
-    // The first line is a '#'-prefixed header naming the columns.  Consumers skip it by the
-    // usual conventions (grep -v '^#', pandas comment='#').  Cactus's merge_gref_segs() keeps
-    // the first header and drops the rest when concatenating the per-chromosome tables.
+    // Columns 1-6 are a valid BED6, with level in the score slot -- a small non-negative
+    // integer is what that field wants, and it beats a column that would always read ".".
+    // So `cut -f1-6` feeds bedtools directly, strand included.
     //
-    // ref_path is derivable from gref_path_name and is emitted anyway.  Recovering it means
-    // finding the last '_' before the '_alt' suffix, and reference contig names contain
+    // Consumers skip the header by the usual conventions (grep -v '^#', pandas comment='#').
+    // Cactus's merge_gref_segs() keeps the first and drops the rest when concatenating the
+    // per-chromosome tables.
+    //
+    // ref_contig (7) is derivable from gref_contig (4) and is emitted anyway.  Recovering it
+    // means finding the last '_' before the '_alt' suffix, and reference contig names contain
     // underscores (gref_GRCh38#0#chr4_GL000008v2_random_1_alt), so leaving it to the consumer
     // invites an off-by-one-underscore bug for no saving worth having.
     //
-    // top_level_snarl names the site the fragment is an allele of, spelled ">start>end" as vg
-    // deconstruct and vg call spell that snarl's VCF record ID, so it joins directly to an ID
-    // or to the PS of a record nested inside the fragment.  Both are reference nodes on ref_path, so fragments that
-    // are alleles of the same site share the pair, and grouping the table on it groups the
-    // cover by site.  0 0 when no decomposition was supplied.
+    // top_level_snarl (10) is spelled ">start>end", exactly as vg deconstruct and vg call
+    // spell that snarl's VCF record ID, so it joins straight to an ID or to the PS of a record
+    // nested inside the fragment.  Every fragment at the same site carries the same string.
     //
-    // level equals INFO/CH of every record on the contig -- NOT INFO/LV, which counts only
+    // It is a coarser thing than ref_start/ref_end (8-9): a top-level snarl contains 77% of
+    // chrY's reference nodes, so it identifies the site but does not localise the fragment.
+    // 8-9 are the tight window -- median 55 bp genome-wide -- and are what a reference-region
+    // query should filter on.
+    //
+    // level (5) equals INFO/CH of every record on the contig.  NOT INFO/LV, which counts only
     // ancestors on the same CHROM and is a different number.
+    //
+    // strand (6) is '-' when apply() reverse-complemented the run, so the sequence at
+    // source_path[source_start:source_end] is the reverse complement of the gref contig.  719
+    // of 264,044 fragments genome-wide; without it a samtools faidx on columns 1-3 silently
+    // disagrees with the VCF's REF/ALT.
     //
     // There is deliberately no parent column.  It restated "gref_" + ref_contig on every one
     // of the 201,630 level-1 fragments genome-wide, and on the rest it named a contig without
     // a position on it, so nothing could be located or reproduced from it.  The VCF answers
-    // the question properly: a record's PS names the enclosing site, and its CHROM names the
-    // contig, with a position attached to both.
+    // that properly: a record's PS names the enclosing site and its CHROM names the contig,
+    // both with positions.
     //
-    // strand is '-' when apply() reverse-complemented the run, so the sequence at
-    // source_path[source_start:source_end] is the reverse complement of the gref contig.  26
-    // of 2137 chr22 fragments; without it a samtools faidx on columns 1-3 silently disagrees
-    // with the VCF's REF/ALT.
-    //
-    // Note ref_start/ref_end is a different thing from the site in columns 8-9: it is the
-    // reference interval
-    // the fragment's own source path brackets it with.  A top-level snarl is much coarser --
-    // 77% of chrY's reference nodes are inside one -- so it identifies the site but does not
-    // localise the fragment on the reference.
-    //
-    // Must be called after compute() and knows what gref path names will be used.
+    // Must be called after compute(), and predicts the names apply() will create.
     void write_gref_segments(ostream& os);
 
 protected:
@@ -253,7 +264,9 @@ protected:
                       pair<nid_t, nid_t> snarl_bounds = {0, 0});
 
 
-    // Remove non-reference intervals shorter than minimum_length, then defragment.
+    // Rebuild the cover without the non-reference intervals shorter than minimum_length.
+    // Reference intervals are never dropped: gref_intervals[0, num_ref_intervals) must stay
+    // the reference block or every "idx < num_ref_intervals" test silently becomes wrong.
     void filter_short_intervals(int64_t minimum_length);
 
     // Build the cover: enumerate the maximal runs of uncovered nodes along every candidate
@@ -283,8 +296,9 @@ protected:
                                   path_handle_t* out_ref_path = nullptr,
                                   nid_t* out_ref_node = nullptr) const;
 
-    // Debug function: verify that every node in the graph is covered by the gref cover.
-    // Prints a summary of coverage statistics to stderr.
+    // Warn about sequence no fragment claims.  Only meaningful at minimum_length <= 1: above
+    // it, short intervals are filtered after this runs and their nodes are expected to be
+    // uncovered.
     void verify_cover(int64_t minimum_length) const;
 
     // Enforce node-disjointness: no two gref intervals may share a node, and no fragment
@@ -317,16 +331,16 @@ protected:
     // Summary from assign_top_level_snarls().
     TopLevelSnarlStats top_level_snarl_stats;
 
-    // Nodes inside a top-level unit that failed the reference-anchoring requirement, and so
-    // are withheld from the cover.  Empty unless enforce_top_level_anchoring() ran.
     // Parallel to gref_intervals, filled by assign_nesting().
-    // interval_parent: index of the gref interval supplying this one's coordinates, or -1 for
-    //   a reference interval and for a fragment with no gref ancestor at all.
-    // interval_level: 0 for a reference interval, 1 for a fragment hanging directly off the
-    //   base reference, n+1 for one inside a level-n fragment.
+    // interval_parent: index of the interval enclosing this one, or -1 when nothing does.
+    // interval_level: length of that parent chain.  0 for an outermost reference contig,
+    //   1 for a fragment hanging off the base reference or a reference contig nested in
+    //   another, n+1 for anything inside a level-n interval.
     vector<int64_t> interval_parent;
     vector<int64_t> interval_level;
 
+    // Nodes inside a top-level snarl that failed the reference-anchoring requirement, and are
+    // therefore withheld from the cover.  Empty unless enforce_top_level_anchoring() ran.
     unordered_set<nid_t> excluded_nodes;
     int64_t excluded_units = 0;
     int64_t excluded_bp = 0;
@@ -337,11 +351,11 @@ protected:
     // Map from node ID to interval index.
     unordered_map<nid_t, int64_t> node_to_interval;
 
-    // Counter for generating unique gref indices per base path.
-    // Using mutable so it can be updated in apply() which is logically const for the cover.
+    // Per-base-name counter apply() numbers the fragments with.  write_gref_segments() keeps
+    // its own and must produce the same names; see resolve_base_path_name().
     unordered_map<string, int64_t> base_path_gref_counter;
 
-    // Whether to print verbose output (coverage summary, etc.)
+    // Whether to print progress and per-stage counts to stderr.
     bool verbose = false;
 
     // Copy the base reference paths into the gref namespace.
