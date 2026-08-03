@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 127
+plan tests 136
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -269,7 +269,66 @@ is "$?" "0" "indexed GAM read source produces identical calls to the in-memory o
 vg call x.vg -k x.pack --gam-index sim.sorted.gam.gai -t 1 >/dev/null 2>gi_err.txt
 is $(grep -c "requires --gam" gi_err.txt) "1" "--gam-index without --gam is refused"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt
+# GAF-Base read source. The flag validation and the missing-binary path are checked
+# unconditionally, since none of them ever runs gbz-base; the rest needs it installed.
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gbz-base x.gbz -t 1 >/dev/null 2>gb_err.txt
+is $(grep -c "requires --gaf-base" gb_err.txt) "1" "--gbz-base without --gaf-base is refused"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gaf-base sim.gaf.db -t 1 >/dev/null 2>gb_excl.txt
+is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam together are refused"
+
+vg call x.vg -k x.pack --gaf-base sim.gaf.db -t 1 >/dev/null 2>gb_norl.txt
+is $(grep -c "only used with --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
+
+# A missing gbz-base is the user's setup, not a vg bug: it must be an error with a fix
+# in it, not a crash telling them to file an issue.
+vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gaf-base-binary /nonexistent/gbz-base -t 1 >/dev/null 2>gb_nobin.txt
+is $(grep -c "could not execute" gb_nobin.txt) "1" "a missing gbz-base binary is reported with a remedy"
+is $(grep -c "VG has crashed" gb_nobin.txt) "0" "a missing gbz-base binary is not reported as a vg crash"
+
+# The equivalence test: the same reads, reached through a database instead of held in
+# memory, must give the same calls. Compared against the in-memory *GAF* rather than the
+# GAM, because GAM->GAF is not itself lossless -- an insertion at a node boundary can be
+# attributed to either side, and the two formats disagree -- so comparing against the GAM
+# would be testing vg convert rather than this backend.
+GAFBASE_NOTE=""
+if ! command -v gbz-base >/dev/null 2>&1 || ! command -v gaf-base >/dev/null 2>&1; then
+    GAFBASE_NOTE=" (skipped: gbz-base/gaf-base not on PATH)"
+fi
+
+if [ -z "$GAFBASE_NOTE" ]; then
+    vg convert -G sim.sorted.gam x.gbz 2>/dev/null | grep -v "^@" > sim.gaf
+    gaf-base construct sim.gaf -r x.gbz -o sim.gaf.db --overwrite >/dev/null 2>&1
+    gbz-base construct x.gbz -o x.gbz.db >/dev/null 2>&1
+
+    vg call x.vg -k x.pack --read-likelihood --gaf-reads sim.gaf -t 1 2>/dev/null > rl_gafmem.vcf
+    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gbz-base x.gbz.db -t 1 2>/dev/null > rl_gafbase.vcf
+    GAFBASE_RAN="$?"
+    diff <(grep -v "^#" rl_gafmem.vcf) <(grep -v "^#" rl_gafbase.vcf) >/dev/null
+    GAFBASE_SAME="$?"
+
+    # Several threads, each with its own cache and output file.
+    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gbz-base x.gbz.db -t 4 2>/dev/null > rl_gafbase_t4.vcf
+    diff <(grep -v "^#" rl_gafbase.vcf) <(grep -v "^#" rl_gafbase_t4.vcf) >/dev/null
+    GAFBASE_THREADS="$?"
+
+    # The window is a performance knob and must not change what is called.
+    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gbz-base x.gbz.db --read-window 32 -t 1 2>/dev/null > rl_gafbase_w32.vcf
+    diff <(grep -v "^#" rl_gafbase.vcf) <(grep -v "^#" rl_gafbase_w32.vcf) >/dev/null
+    GAFBASE_WINDOW="$?"
+else
+    GAFBASE_RAN="0"
+    GAFBASE_SAME="0"
+    GAFBASE_THREADS="0"
+    GAFBASE_WINDOW="0"
+fi
+
+is "$GAFBASE_RAN" "0" "--gaf-base runs$GAFBASE_NOTE"
+is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-memory one$GAFBASE_NOTE"
+is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
+is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
+
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf
 
 
 # subpath test

@@ -43,12 +43,17 @@ void help_call(char** argv) {
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
          << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
-         << "                            instead of aggregate depth (needs --gam/--gaf-reads)" << endl
+         << "                            instead of aggregate depth (needs one read source below)" << endl
          << "      --gam FILE            read alignments for --read-likelihood" << endl
          << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
          << "      --gam-index FILE      .gai index for --gam, so reads are fetched per site" << endl
          << "                            instead of all held in memory (from vg gamsort -i)" << endl
-         << "      --read-window N       node-ID window for --gam-index fetches [256]" << endl
+         << "      --gaf-base FILE       GAF-Base of read alignments, fetched per site by" << endl
+         << "                            running gbz-base (needs it on the PATH)" << endl
+         << "      --gbz-base FILE       graph to resolve --gaf-base queries against, as a" << endl
+         << "                            GBZ-Base or GBZ [the input graph]" << endl
+         << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
+         << "      --read-window N       node-ID window for indexed read fetches [256]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
@@ -163,6 +168,9 @@ int main_call(int argc, char** argv) {
     string gaf_filename;
     string dump_likelihoods_filename;
     string gam_index_filename;
+    string gaf_base_filename;
+    string gbz_base_filename;
+    string gaf_base_binary = "gbz-base";
     size_t read_window_size = 256;
     bool no_mismap_term = false;
     int read_min_mapq = 0;
@@ -190,6 +198,9 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_READ_MIN_MAPQ = 1012;
     constexpr int OPT_GAM_INDEX = 1013;
     constexpr int OPT_READ_WINDOW = 1014;
+    constexpr int OPT_GAF_BASE = 1015;
+    constexpr int OPT_GBZ_BASE = 1016;
+    constexpr int OPT_GAF_BASE_BINARY = 1017;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -233,6 +244,9 @@ int main_call(int argc, char** argv) {
             {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+            {"gaf-base", required_argument, 0, OPT_GAF_BASE},
+            {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
+            {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
             {"read-window", required_argument, 0, OPT_READ_WINDOW},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
@@ -386,6 +400,15 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_GAM_INDEX:
             gam_index_filename = optarg;
+            break;
+        case OPT_GAF_BASE:
+            gaf_base_filename = optarg;
+            break;
+        case OPT_GBZ_BASE:
+            gbz_base_filename = optarg;
+            break;
+        case OPT_GAF_BASE_BINARY:
+            gaf_base_binary = optarg;
             break;
         case OPT_READ_WINDOW:
             read_window_size = parse<size_t>(optarg);
@@ -607,11 +630,14 @@ int main_call(int argc, char** argv) {
     // support-based model selection flags. Failing here rather than later keeps a
     // read-free "read-level" genotyping run from silently happening.
     if (read_likelihood) {
-        if (gam_filename.empty() && gaf_filename.empty()) {
-            logger.error() << "--read-likelihood requires reads: pass --gam or --gaf-reads" << endl;
+        int read_source_count = (gam_filename.empty() ? 0 : 1) + (gaf_filename.empty() ? 0 : 1) +
+                                (gaf_base_filename.empty() ? 0 : 1);
+        if (read_source_count == 0) {
+            logger.error() << "--read-likelihood requires reads: pass --gam, --gaf-reads, "
+                           << "or --gaf-base" << endl;
         }
-        if (!gam_filename.empty() && !gaf_filename.empty()) {
-            logger.error() << "--gam and --gaf-reads are mutually exclusive" << endl;
+        if (read_source_count > 1) {
+            logger.error() << "--gam, --gaf-reads, and --gaf-base are mutually exclusive" << endl;
         }
         if (ratio_caller) {
             logger.error() << "--read-likelihood and -B/--bias-mode are mutually exclusive" << endl;
@@ -619,8 +645,15 @@ int main_call(int argc, char** argv) {
         if (legacy) {
             logger.error() << "--read-likelihood cannot be used with --legacy" << endl;
         }
-    } else if (!gam_filename.empty() || !gaf_filename.empty()) {
-        logger.error() << "--gam/--gaf-reads are only used with --read-likelihood" << endl;
+    } else if (!gam_filename.empty() || !gaf_filename.empty() || !gaf_base_filename.empty()) {
+        logger.error() << "--gam/--gaf-reads/--gaf-base are only used with --read-likelihood"
+                       << endl;
+    }
+
+    // --gbz-base only says where to point the query; it means nothing without the read
+    // database that is being queried.
+    if (!gbz_base_filename.empty() && gaf_base_filename.empty()) {
+        logger.error() << "--gbz-base requires --gaf-base" << endl;
     }
 
     // Validation: -A, --top-down, and --bottom-up are mutually exclusive
@@ -886,7 +919,41 @@ int main_call(int argc, char** argv) {
             SiteReadFilter read_filter;
             read_filter.min_mapq = read_min_mapq;
 
-            if (!gam_index_filename.empty()) {
+            if (!gaf_base_filename.empty()) {
+                // GAF-Base: reads are fetched per window by running gbz-base. A runtime
+                // dependency on that binary, and no build dependency at all.
+                //
+                // The query needs a graph to resolve node IDs against. Default to the
+                // graph vg call was given, which is usually the right one and is
+                // certainly the right *graph*; but a GBZ-Base is random-access where a
+                // plain GBZ is loaded in full on every query, so say so.
+                string query_graph = gbz_base_filename.empty() ? graph_filename
+                                                               : gbz_base_filename;
+                auto gaf_base_source = new GafBaseSiteReadSource(*graph, gaf_base_filename,
+                                                                 query_graph, read_filter,
+                                                                 read_window_size, 2,
+                                                                 gaf_base_binary);
+                read_source.reset(gaf_base_source);
+                // Probe now, on the main thread. A missing binary or an unreadable
+                // database is the user's setup, not a vg bug, so report it as an error
+                // and exit rather than letting the exception out to the crash handler --
+                // which would print a bug-report banner for "install gbz-base".
+                try {
+                    gaf_base_source->check_setup();
+                } catch (const std::exception& e) {
+                    logger.error() << e.what() << endl;
+                }
+                if (show_progress) {
+                    logger.info() << "Using GAF-Base " << gaf_base_filename
+                                  << " queried against " << query_graph
+                                  << " via " << gaf_base_binary << endl;
+                    if (gbz_base_filename.empty()) {
+                        logger.info() << "Consider building a GBZ-Base ('gbz-base construct') and "
+                                      << "passing --gbz-base: a plain GBZ is reloaded on every query"
+                                      << endl;
+                    }
+                }
+            } else if (!gam_index_filename.empty()) {
                 // Indexed: reads are fetched per site, so memory is bounded by what a
                 // site needs rather than by the size of the read set.
                 read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
@@ -1166,11 +1233,12 @@ int main_call(int argc, char** argv) {
         recurse_type = GraphCaller::RecurseOnFail;
     }
 
-    // Ordered visits only help a read source that fetches by node-ID range, and they
-    // change the traversal order of code the default caller shares -- so gate on the
-    // indexed source actually being in use. With it off, the default path is
-    // bit-for-bit what it was.
-    if (!gam_index_filename.empty()) {
+    // Ordered visits only help a read source that fetches by node-ID window, and they
+    // change the traversal order of code the default caller shares -- so gate on such a
+    // source actually being in use. With it off, the default path is bit-for-bit what it
+    // was. GAF-Base needs this more than the GAM index does: a query there is a process
+    // spawn, so an unordered visit pays milliseconds per site rather than a rescan.
+    if (dynamic_cast<WindowedSiteReadSource*>(read_source.get()) != nullptr) {
         graph_caller->set_node_id_ordering(true, read_window_size);
         if (show_progress) {
             logger.info() << "Visiting snarls in node-ID order, window " << read_window_size << endl;
@@ -1192,15 +1260,23 @@ int main_call(int argc, char** argv) {
     // the counters mean something. The index over-fetches, so a low hit rate means the
     // parent-then-descendants locality the cache relies on is not materialising.
     if (show_progress) {
-        auto* indexed = dynamic_cast<IndexedGamSiteReadSource*>(read_source.get());
-        if (indexed != nullptr) {
-            size_t hits = indexed->get_cache_hits();
-            size_t misses = indexed->get_cache_misses();
+        auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get());
+        if (windowed != nullptr) {
+            size_t hits = windowed->get_cache_hits();
+            size_t misses = windowed->get_cache_misses();
             size_t total = hits + misses;
-            logger.info() << "Indexed GAM: " << indexed->get_read_count() << " reads fetched, "
+            auto* gaf_base = dynamic_cast<GafBaseSiteReadSource*>(windowed);
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << windowed->get_read_count() << " reads fetched, "
                           << hits << "/" << total << " site queries served from cache"
                           << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
                           << endl;
+            if (gaf_base != nullptr) {
+                // The count that governs run time: each one is a process spawn, so this
+                // is the number to watch if a run is slow.
+                logger.info() << "GAF-Base: " << gaf_base->get_query_count()
+                              << " subprocess queries" << endl;
+            }
         }
     }
 

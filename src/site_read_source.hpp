@@ -142,53 +142,63 @@ private:
 };
 
 /**
- * Reads fetched on demand from a sorted GAM plus its `.gai` index.
+ * Base for on-demand backends: quantises fetches to fixed windows of node IDs and
+ * caches the last few windows per thread.
  *
- * This is the backend that makes whole-genome work possible: memory is bounded by
- * what one site needs plus a small cache, rather than by the size of the read set.
+ * Every on-demand backend faces the same problem. A query costs far more than one
+ * site's worth of reads -- because the backend over-fetches, or because it is a
+ * process spawn -- so issuing one query per snarl rescans or respawns endlessly.
+ * Quantising to windows fixes that, but only if the caller visits sites in node-ID
+ * order, so that each window is asked for while it is still resident. That ordering
+ * is not free and is arranged separately; see GraphCaller::set_node_id_ordering.
  *
- * Two properties of the index shape the implementation, and both come from
- * StreamIndex rather than from any choice here:
- *
- * * **One cursor per thread.** Concurrent `find()` calls are documented safe, but a
- *   cursor seeks, so it cannot be shared. Cursors are created lazily per thread, the
- *   pattern `vg chunk` uses.
- * * **It over-fetches.** The index can only give group start offsets, so a query
- *   scans groups and stops when a group's minimum node ID is too large. Issuing one
- *   query per snarl across millions of snarls therefore rescans the same GAM groups
- *   repeatedly. That is what the cache below is for: because GraphCaller visits a
- *   top-level snarl and then its descendants on the same thread, a child's node range
- *   is usually inside its parent's, so the parent's fetch can serve it.
+ * Subclasses supply one primitive, fetch_span(), and manage whatever per-thread
+ * resources it needs. Everything above it -- window arithmetic, the cache, the
+ * boundary-straddling bypass, and narrowing a window back down to the ranges the
+ * caller actually asked about -- lives here, so the two backends cannot drift apart
+ * in how they interpret a query.
  */
-class IndexedGamSiteReadSource : public SiteReadSource {
+class WindowedSiteReadSource : public SiteReadSource {
 public:
 
-    /// gam_filename must be sorted (`vg gamsort -i`).
-    ///
-    /// window_size is in node IDs. Fetches are quantised to windows of that size so
-    /// that a caller visiting sites in node-ID order touches each window exactly
-    /// once. That ordering is what makes this effective: without it, consecutive
-    /// sites have adjacent-but-not-contained ranges and every one is a fresh scan.
-    /// See GraphCaller::set_node_id_ordering.
-    IndexedGamSiteReadSource(const string& gam_filename, const string& index_filename,
-                             const SiteReadFilter& filter = SiteReadFilter(),
-                             size_t window_size = 256,
-                             size_t cache_entries = 2);
-
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
-                       const function<void(const Alignment&)>& iteratee) const;
+                       const function<void(const Alignment&)>& iteratee) const final;
 
-    /// Reads actually fetched from the index so far, across all threads. Not the size
-    /// of the read set, which this backend never knows.
+    /// Reads actually fetched from the backend so far, across all threads. Not the
+    /// size of the read set, which an on-demand backend never knows.
     size_t get_read_count() const;
 
     size_t get_filtered_count() const;
 
-    /// Queries served from the cache rather than the index. Low hit rates mean the
+    /// Queries served from the cache rather than the backend. Low hit rates mean the
     /// caching assumption above does not hold for this workload, which is worth
     /// knowing rather than guessing.
     size_t get_cache_hits() const;
     size_t get_cache_misses() const;
+
+protected:
+
+    WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_size,
+                           size_t cache_entries);
+
+    /// Visit every read with a mapping onto a node in [min_id, max_id], having
+    /// applied the filter. Each read must be visited at most once. Must be safe to
+    /// call concurrently: implementations own their per-thread resources.
+    virtual void fetch_span(nid_t min_id, nid_t max_id,
+                            const function<void(const Alignment&)>& iteratee) const = 0;
+
+    /// Apply the filter, counting rejections. For subclasses to call on each
+    /// candidate read before handing it to fetch_span's iteratee.
+    bool passes_filter(const Alignment& aln) const;
+
+    /// Count a read as fetched. Separate from passes_filter so a subclass can decide
+    /// the order in which it filters and counts.
+    void count_fetched() const;
+
+    /// How many cache slots each thread gets. For sizing per-thread state.
+    size_t get_cache_entries() const;
+
+    SiteReadFilter filter;
 
 private:
 
@@ -199,43 +209,163 @@ private:
         vector<Alignment> reads;
     };
 
-    /// Per-thread cursor and cache. Mutable because for_each_read is logically const
-    /// but must seek and may populate the cache.
-    struct ThreadState {
-        unique_ptr<ifstream> stream;
-        unique_ptr<GAMIndex::cursor_t> cursor;
+    /// Per-thread cache. Mutable because for_each_read is logically const but may
+    /// populate the cache.
+    struct CacheState {
         vector<CacheEntry> cache;
         size_t next_evict = 0;
+        bool initialized = false;
     };
 
-    ThreadState& thread_state() const;
+    CacheState& cache_state() const;
 
     /// Which window a node ID falls in.
     size_t window_of(nid_t id) const;
 
-    /// Fetch one window's reads from the index, applying the filter.
-    void fetch_window(ThreadState& state, size_t window, vector<Alignment>& out) const;
-
-    /// Fetch an arbitrary span directly, bypassing the cache. Used when a single
-    /// query spans several windows, which also avoids having to de-duplicate reads
-    /// that straddle a window boundary: index->find emits each read at most once.
-    void fetch_span(ThreadState& state, nid_t min_id, nid_t max_id,
-                    const function<void(const Alignment&)>& iteratee) const;
-
     /// Does the read touch any node in the ranges?
     static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
 
-    string gam_filename;
-    unique_ptr<GAMIndex> index;
-    SiteReadFilter filter;
     size_t window_size;
     size_t cache_entries;
 
-    mutable vector<ThreadState> threads;
+    mutable vector<CacheState> caches;
     mutable atomic<size_t> fetched{0};
     mutable atomic<size_t> filtered{0};
     mutable atomic<size_t> cache_hits{0};
     mutable atomic<size_t> cache_misses{0};
+};
+
+/**
+ * Reads fetched on demand from a sorted GAM plus its `.gai` index.
+ *
+ * This is the backend that makes whole-genome work possible with no new dependency:
+ * memory is bounded by what one window needs, rather than by the size of the read
+ * set.
+ *
+ * Two properties of the index shape the implementation, and both come from
+ * StreamIndex rather than from any choice here:
+ *
+ * * **One cursor per thread.** Concurrent `find()` calls are documented safe, but a
+ *   cursor seeks, so it cannot be shared. Cursors are created lazily per thread, the
+ *   pattern `vg chunk` uses.
+ * * **It over-fetches.** The index can only give group start offsets, so a query
+ *   scans groups and stops when a group's minimum node ID is too large. That is what
+ *   the windowing in the base class is for.
+ */
+class IndexedGamSiteReadSource : public WindowedSiteReadSource {
+public:
+
+    /// gam_filename must be sorted (`vg gamsort -i`). window_size is in node IDs.
+    IndexedGamSiteReadSource(const string& gam_filename, const string& index_filename,
+                             const SiteReadFilter& filter = SiteReadFilter(),
+                             size_t window_size = 256,
+                             size_t cache_entries = 2);
+
+protected:
+
+    void fetch_span(nid_t min_id, nid_t max_id,
+                    const function<void(const Alignment&)>& iteratee) const;
+
+private:
+
+    /// Per-thread cursor. Mutable because fetch_span is logically const but seeks.
+    struct ThreadState {
+        unique_ptr<ifstream> stream;
+        unique_ptr<GAMIndex::cursor_t> cursor;
+    };
+
+    ThreadState& thread_state() const;
+
+    string gam_filename;
+    unique_ptr<GAMIndex> index;
+
+    mutable vector<ThreadState> threads;
+};
+
+/**
+ * Reads fetched on demand from a GAF-Base database, by running `gbz-base query`.
+ *
+ * <https://github.com/jltsiren/gbz-base> stores alignments column-compressed in
+ * SQLite and can return the reads overlapping a set of nodes. That is the access
+ * pattern a caller wants, and unlike the GAM index it does not over-fetch.
+ *
+ * **This shells out to a binary rather than linking a library, and that is
+ * deliberate.** GAF-Base has no C API, and its on-disk format is documented as able
+ * to change without warning behind an exact-match version check. Reimplementing the
+ * decoder in C++ would mean tracking a moving format; letting upstream's own binary
+ * do the decoding costs us nothing when it changes. So this adds a *runtime*
+ * dependency on `gbz-base` being on the PATH, and no build dependency at all --
+ * nothing links, and users who do not pass --gaf-base never notice. If a C shim
+ * appears upstream, it replaces run_query() and nothing else: both paths consume GAF
+ * text, so the parsing, filtering, windowing, and caching are already shared.
+ *
+ * The cost of a spawn is why this derives from WindowedSiteReadSource. One process
+ * per snarl would be hopeless; one per window of node IDs, visited in order, is a
+ * handful of spawns for a whole contig.
+ */
+class GafBaseSiteReadSource : public WindowedSiteReadSource {
+public:
+
+    /// graph must outlive this, and must be the graph the alignments were made
+    /// against: it supplies node lengths and sequences to turn GAF back into
+    /// Alignments, and says which node IDs in a window actually exist.
+    ///
+    /// gbz_filename is a GBZ or a GBZ-Base (`gbz-base construct`). Prefer the
+    /// latter: a plain GBZ is loaded in full on every query, while a GBZ-Base is
+    /// random-access, and this issues many queries.
+    GafBaseSiteReadSource(const HandleGraph& graph,
+                          const string& gaf_base_filename,
+                          const string& gbz_filename,
+                          const SiteReadFilter& filter = SiteReadFilter(),
+                          size_t window_size = 256,
+                          size_t cache_entries = 2,
+                          const string& binary = "gbz-base");
+
+    ~GafBaseSiteReadSource();
+
+    /// Subprocesses spawned. The number that matters for run time, since each one
+    /// costs milliseconds no matter how few reads it returns.
+    size_t get_query_count() const;
+
+    /// Run one query up front to check the databases are readable and agree with the
+    /// graph, so a broken setup fails immediately rather than on the first snarl in
+    /// a worker thread. Throws with an actionable message on failure.
+    void check_setup() const;
+
+private:
+
+    /// Per-thread GAF output file. Reused across queries rather than created per
+    /// query, since creating one is a filesystem round trip.
+    struct ThreadState {
+        string gaf_path;
+    };
+
+    ThreadState& thread_state() const;
+
+    void fetch_span(nid_t min_id, nid_t max_id,
+                    const function<void(const Alignment&)>& iteratee) const;
+
+    /// Run `gbz-base query` for these node IDs and parse the GAF it writes,
+    /// applying the filter. Returns the number of records parsed. Throws on failure.
+    size_t run_query(ThreadState& state, const vector<nid_t>& nodes,
+                     const function<void(const Alignment&)>& iteratee) const;
+
+    /// run_query, but reporting and exiting instead of throwing. For use during
+    /// calling, which happens inside an OpenMP parallel region.
+    void run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
+                          const function<void(const Alignment&)>& iteratee) const;
+
+    const HandleGraph& graph;
+    string gaf_base_filename;
+    string gbz_filename;
+    string binary;
+
+    /// Node IDs per subprocess. A node list becomes argv, so it cannot grow without
+    /// bound; queries larger than this are split, and their results de-duplicated.
+    size_t max_query_nodes = 4096;
+
+    mutable vector<ThreadState> threads;
+    mutable atomic<size_t> queries{0};
 };
 
 }
