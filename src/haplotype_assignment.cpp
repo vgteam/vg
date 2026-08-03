@@ -192,7 +192,10 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
             seg.covered_bp += node_bp[k];
         }
         seg.candidate_count = state.size();
-        const size_t cap = std::min(state.size(), max_haplotypes_to_report);
+        // std::min needs both args to be the same type: state.size() returns
+        // gbwt::size_type, which is a distinct type from size_t on macOS (Apple
+        // clang) even though they coincide on Linux. Pin the template param.
+        const size_t cap = std::min<size_t>(state.size(), max_haplotypes_to_report);
         const gbwt::SearchState& fwd = state.forward;
         seg.seq_ids.reserve(cap);
         for (size_t t = 0; t < cap; ++t) {
