@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 123
+plan tests 127
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -254,7 +254,22 @@ is "$?" "0" "pack-free read-likelihood calls are identical to those made with a 
 vg call x.vg --read-likelihood --gam sim.gam > /dev/null 2> nopack_err.txt
 is $(grep -c "requires haplotype-based allele enumeration" nopack_err.txt) "1" "--read-likelihood without -k and without -g/-z is refused"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt
+# Indexed GAM read source: reads fetched per site from a .gai instead of all held
+# in memory. The calls must be identical -- the backend is a pure substitution.
+vg gamsort -i sim.sorted.gam.gai sim.gam > sim.sorted.gam 2>/dev/null
+is "$?" "0" "vg gamsort produces a sorted GAM and .gai index"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam -t 1 2>/dev/null > rl_inmem.vcf
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gam-index sim.sorted.gam.gai -t 1 2>/dev/null > rl_indexed.vcf
+is "$?" "0" "--gam-index runs"
+diff <(grep -v "^#" rl_inmem.vcf) <(grep -v "^#" rl_indexed.vcf) > /dev/null
+is "$?" "0" "indexed GAM read source produces identical calls to the in-memory one"
+
+# --gam-index without --gam is an error rather than a silently ignored flag.
+vg call x.vg -k x.pack --gam-index sim.sorted.gam.gai -t 1 >/dev/null 2>gi_err.txt
+is $(grep -c "requires --gam" gi_err.txt) "1" "--gam-index without --gam is refused"
+
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt
 
 
 # subpath test

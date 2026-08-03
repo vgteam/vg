@@ -11,7 +11,10 @@
  * overlapping each snarl, which is what these classes provide.
  */
 
+#include <atomic>
+#include <fstream>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -19,6 +22,7 @@
 #include <vg/vg.pb.h>
 
 #include "handle.hpp"
+#include "stream_index.hpp"
 
 namespace vg {
 
@@ -135,6 +139,89 @@ private:
 
     /// Reads rejected by the filter.
     size_t filtered_count = 0;
+};
+
+/**
+ * Reads fetched on demand from a sorted GAM plus its `.gai` index.
+ *
+ * This is the backend that makes whole-genome work possible: memory is bounded by
+ * what one site needs plus a small cache, rather than by the size of the read set.
+ *
+ * Two properties of the index shape the implementation, and both come from
+ * StreamIndex rather than from any choice here:
+ *
+ * * **One cursor per thread.** Concurrent `find()` calls are documented safe, but a
+ *   cursor seeks, so it cannot be shared. Cursors are created lazily per thread, the
+ *   pattern `vg chunk` uses.
+ * * **It over-fetches.** The index can only give group start offsets, so a query
+ *   scans groups and stops when a group's minimum node ID is too large. Issuing one
+ *   query per snarl across millions of snarls therefore rescans the same GAM groups
+ *   repeatedly. That is what the cache below is for: because GraphCaller visits a
+ *   top-level snarl and then its descendants on the same thread, a child's node range
+ *   is usually inside its parent's, so the parent's fetch can serve it.
+ */
+class IndexedGamSiteReadSource : public SiteReadSource {
+public:
+
+    /// gam_filename must be sorted (`vg gamsort -i`); index_filename defaults to
+    /// gam_filename + ".gai".
+    IndexedGamSiteReadSource(const string& gam_filename, const string& index_filename,
+                             const SiteReadFilter& filter = SiteReadFilter(),
+                             size_t cache_entries = 2);
+
+    void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
+                       const function<void(const Alignment&)>& iteratee) const;
+
+    /// Reads actually fetched from the index so far, across all threads. Not the size
+    /// of the read set, which this backend never knows.
+    size_t get_read_count() const;
+
+    size_t get_filtered_count() const;
+
+    /// Queries served from the cache rather than the index. Low hit rates mean the
+    /// caching assumption above does not hold for this workload, which is worth
+    /// knowing rather than guessing.
+    size_t get_cache_hits() const;
+    size_t get_cache_misses() const;
+
+private:
+
+    /// One cached fetch: the span it covers and the reads it found.
+    struct CacheEntry {
+        nid_t min_id = 0;
+        nid_t max_id = 0;
+        bool valid = false;
+        vector<Alignment> reads;
+    };
+
+    /// Per-thread cursor and cache. Mutable because for_each_read is logically const
+    /// but must seek and may populate the cache.
+    struct ThreadState {
+        unique_ptr<ifstream> stream;
+        unique_ptr<GAMIndex::cursor_t> cursor;
+        vector<CacheEntry> cache;
+        size_t next_evict = 0;
+    };
+
+    ThreadState& thread_state() const;
+
+    /// True if every requested range lies inside the entry's span, so filtering the
+    /// entry's reads gives exactly the right answer.
+    static bool covers(const CacheEntry& entry, const vector<pair<nid_t, nid_t>>& ranges);
+
+    /// Does the read touch any node in the ranges?
+    static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
+
+    string gam_filename;
+    unique_ptr<GAMIndex> index;
+    SiteReadFilter filter;
+    size_t cache_entries;
+
+    mutable vector<ThreadState> threads;
+    mutable atomic<size_t> fetched{0};
+    mutable atomic<size_t> filtered{0};
+    mutable atomic<size_t> cache_hits{0};
+    mutable atomic<size_t> cache_misses{0};
 };
 
 }

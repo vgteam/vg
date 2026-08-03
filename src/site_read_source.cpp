@@ -6,6 +6,8 @@
 #include <vg/io/alignment_io.hpp>
 #include <vg/io/stream.hpp>
 
+#include <omp.h>
+
 #include "utility.hpp"
 
 namespace vg {
@@ -109,6 +111,160 @@ size_t InMemorySiteReadSource::get_read_count() const {
 
 size_t InMemorySiteReadSource::get_filtered_count() const {
     return filtered_count;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// IndexedGamSiteReadSource
+////////////////////////////////////////////////////////////////////////////////
+
+IndexedGamSiteReadSource::IndexedGamSiteReadSource(const string& gam_filename,
+                                                   const string& index_filename,
+                                                   const SiteReadFilter& filter,
+                                                   size_t cache_entries)
+    : gam_filename(gam_filename), filter(filter), cache_entries(max<size_t>(1, cache_entries)) {
+
+    index.reset(new GAMIndex());
+    get_input_file(index_filename, [&](istream& in) {
+        index->load(in);
+    });
+
+    // One slot per thread, populated lazily: a cursor seeks, so it cannot be shared,
+    // and opening one per thread up front would open files we may never use.
+    threads.resize(max(1, get_thread_count()));
+}
+
+IndexedGamSiteReadSource::ThreadState& IndexedGamSiteReadSource::thread_state() const {
+    int tid = omp_get_thread_num();
+    if ((size_t)tid >= threads.size()) {
+        // More threads than we sized for; grow rather than misbehave.
+#pragma omp critical (indexed_gam_threads)
+        if ((size_t)tid >= threads.size()) {
+            threads.resize(tid + 1);
+        }
+    }
+    ThreadState& state = threads[tid];
+    if (!state.cursor) {
+        state.stream.reset(new ifstream(gam_filename));
+        if (!*state.stream) {
+            throw runtime_error("could not open GAM for reading: " + gam_filename);
+        }
+        state.cursor.reset(new GAMIndex::cursor_t(*state.stream));
+        state.cache.resize(cache_entries);
+    }
+    return state;
+}
+
+bool IndexedGamSiteReadSource::covers(const CacheEntry& entry,
+                                     const vector<pair<nid_t, nid_t>>& ranges) {
+    if (!entry.valid) {
+        return false;
+    }
+    for (const auto& range : ranges) {
+        if (range.first < entry.min_id || range.second > entry.max_id) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool IndexedGamSiteReadSource::touches(const Alignment& aln,
+                                      const vector<pair<nid_t, nid_t>>& ranges) {
+    for (const auto& mapping : aln.path().mapping()) {
+        nid_t node_id = mapping.position().node_id();
+        for (const auto& range : ranges) {
+            if (node_id >= range.first && node_id <= range.second) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void IndexedGamSiteReadSource::for_each_read(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(const Alignment&)>& iteratee) const {
+
+    if (ranges.empty()) {
+        return;
+    }
+
+    ThreadState& state = thread_state();
+
+    // Serve from the cache when a previous fetch already spans everything asked for.
+    // The parent-then-children visit order makes this the common case.
+    for (const CacheEntry& entry : state.cache) {
+        if (covers(entry, ranges)) {
+            ++cache_hits;
+            for (const Alignment& aln : entry.reads) {
+                if (touches(aln, ranges)) {
+                    iteratee(aln);
+                }
+            }
+            return;
+        }
+    }
+    ++cache_misses;
+
+    // Fetch the whole span in one query rather than one query per range. The index
+    // over-fetches and filters anyway, so a single wider scan beats several narrow
+    // ones that each re-walk the same groups.
+    nid_t min_id = ranges.front().first;
+    nid_t max_id = ranges.front().second;
+    for (const auto& range : ranges) {
+        min_id = min(min_id, range.first);
+        max_id = max(max_id, range.second);
+    }
+
+    CacheEntry entry;
+    entry.min_id = min_id;
+    entry.max_id = max_id;
+
+    vector<pair<id_t, id_t>> query{{(id_t)min_id, (id_t)max_id}};
+    index->find(*state.cursor, query, [&](const Alignment& aln) {
+        if (filter.skip_secondary && aln.is_secondary()) {
+            ++filtered;
+            return;
+        }
+        if (aln.mapping_quality() < filter.min_mapq) {
+            ++filtered;
+            return;
+        }
+        if (filter.skip_unmapped && aln.path().mapping_size() == 0) {
+            ++filtered;
+            return;
+        }
+        ++fetched;
+        entry.reads.push_back(aln);
+    });
+    entry.valid = true;
+
+    for (const Alignment& aln : entry.reads) {
+        if (touches(aln, ranges)) {
+            iteratee(aln);
+        }
+    }
+
+    // Round-robin eviction. The access pattern is parent-then-descendants, so the
+    // useful entry is the most recent wide one; a tiny ring keeps that without the
+    // bookkeeping of a real LRU.
+    state.cache[state.next_evict] = std::move(entry);
+    state.next_evict = (state.next_evict + 1) % state.cache.size();
+}
+
+size_t IndexedGamSiteReadSource::get_read_count() const {
+    return fetched.load();
+}
+
+size_t IndexedGamSiteReadSource::get_filtered_count() const {
+    return filtered.load();
+}
+
+size_t IndexedGamSiteReadSource::get_cache_hits() const {
+    return cache_hits.load();
+}
+
+size_t IndexedGamSiteReadSource::get_cache_misses() const {
+    return cache_misses.load();
 }
 
 }

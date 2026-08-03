@@ -46,6 +46,8 @@ void help_call(char** argv) {
          << "                            instead of aggregate depth (needs --gam/--gaf-reads)" << endl
          << "      --gam FILE            read alignments for --read-likelihood" << endl
          << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
+         << "      --gam-index FILE      .gai index for --gam, so reads are fetched per site" << endl
+         << "                            instead of all held in memory (from vg gamsort -i)" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
@@ -159,6 +161,7 @@ int main_call(int argc, char** argv) {
     string gam_filename;
     string gaf_filename;
     string dump_likelihoods_filename;
+    string gam_index_filename;
     bool no_mismap_term = false;
     int read_min_mapq = 0;
 
@@ -183,6 +186,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DUMP_LIKELIHOODS = 1010;
     constexpr int OPT_NO_MISMAP_TERM = 1011;
     constexpr int OPT_READ_MIN_MAPQ = 1012;
+    constexpr int OPT_GAM_INDEX = 1013;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -225,6 +229,7 @@ int main_call(int argc, char** argv) {
             {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
             {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
+            {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
@@ -374,6 +379,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_READ_MIN_MAPQ:
             read_min_mapq = parse<int>(optarg);
+            break;
+        case OPT_GAM_INDEX:
+            gam_index_filename = optarg;
             break;
         case 'I':
             call_chains = true;
@@ -579,6 +587,13 @@ int main_call(int argc, char** argv) {
     }
     if (gbz_paths && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
+    }
+
+    // An index without the thing it indexes is always a mistake, whatever else was
+    // passed. Checked before the read-likelihood validation so the message is
+    // deterministic rather than depending on which error is reached first.
+    if (!gam_index_filename.empty() && gam_filename.empty()) {
+        logger.error() << "--gam-index requires --gam" << endl;
     }
 
     // Validation: --read-likelihood needs reads, and cannot be combined with the
@@ -861,19 +876,31 @@ int main_call(int argc, char** argv) {
             // with; the genotyping itself uses no support at all.
             if (show_progress) logger.info() << "Loading reads for read-level genotyping" << endl;
 
-            auto in_memory_source = new InMemorySiteReadSource();
-            read_source.reset(in_memory_source);
             SiteReadFilter read_filter;
             read_filter.min_mapq = read_min_mapq;
-            if (!gam_filename.empty()) {
-                in_memory_source->load_gam(gam_filename, read_filter);
+
+            if (!gam_index_filename.empty()) {
+                // Indexed: reads are fetched per site, so memory is bounded by what a
+                // site needs rather than by the size of the read set.
+                read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
+                                                               read_filter));
+                if (show_progress) {
+                    logger.info() << "Using indexed GAM " << gam_filename
+                                  << " with index " << gam_index_filename << endl;
+                }
             } else {
-                in_memory_source->load_gaf(*graph, gaf_filename, read_filter);
-            }
-            if (show_progress) {
-                logger.info() << "Loaded " << in_memory_source->get_read_count()
-                              << " reads (" << in_memory_source->get_filtered_count()
-                              << " filtered out)" << endl;
+                auto in_memory_source = new InMemorySiteReadSource();
+                read_source.reset(in_memory_source);
+                if (!gam_filename.empty()) {
+                    in_memory_source->load_gam(gam_filename, read_filter);
+                } else {
+                    in_memory_source->load_gaf(*graph, gaf_filename, read_filter);
+                }
+                if (show_progress) {
+                    logger.info() << "Loaded " << in_memory_source->get_read_count()
+                                  << " reads (" << in_memory_source->get_filtered_count()
+                                  << " filtered out)" << endl;
+                }
             }
 
             // Two scorers: quality-adjusted for reads that have base qualities,
@@ -1142,6 +1169,23 @@ int main_call(int argc, char** argv) {
         if (show_progress) logger.info() << "Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
     }
+
+    // Report the indexed read source's cache behaviour, now that calling is done and
+    // the counters mean something. The index over-fetches, so a low hit rate means the
+    // parent-then-descendants locality the cache relies on is not materialising.
+    if (show_progress) {
+        auto* indexed = dynamic_cast<IndexedGamSiteReadSource*>(read_source.get());
+        if (indexed != nullptr) {
+            size_t hits = indexed->get_cache_hits();
+            size_t misses = indexed->get_cache_misses();
+            size_t total = hits + misses;
+            logger.info() << "Indexed GAM: " << indexed->get_read_count() << " reads fetched, "
+                          << hits << "/" << total << " site queries served from cache"
+                          << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
+                          << endl;
+        }
+    }
+
     if (show_progress) logger.info() << "Calling complete" << endl;
 
     if (!gaf_output) {
