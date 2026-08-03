@@ -79,14 +79,13 @@ void help_paths(char** argv) {
          << "                            one tab-separated row per fragment, with columns" << endl
          << "                            source_path, source_start, source_end, gref_contig," << endl
          << "                            level, strand, ref_contig, ref_start, ref_end," << endl
-         << "                            top_level_snarl, parent_contig.  Columns 1-6 are a" << endl
-         << "                            BED6 on the haplotype the fragment came from, with" << endl
+         << "                            top_level_snarl.  Columns 1-6 are a valid" << endl
+         << "                            BED6 on the haplotype it came from, with" << endl
          << "                            the nesting level in the score slot (1 = directly" << endl
          << "                            off the base reference); 7-9 locate it on the" << endl
          << "                            reference; 10 names the site it is an allele of," << endl
          << "                            spelled as that snarl's VCF record ID (>start>end)" << endl
-         << "                            so it joins to ID or PS; 11 is the gref contig" << endl
-         << "                            supplying its coordinates" << endl
+         << "                            so it joins to ID or PS" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl

@@ -197,7 +197,7 @@ public:
 
     // Write a tab-separated table describing gref segments.
     // Each line contains: source_path, source_start, source_end, gref_contig, level, strand,
-    //                     ref_contig, ref_start, ref_end, top_level_snarl, parent_contig
+    //                     ref_contig, ref_start, ref_end, top_level_snarl
     //
     // Columns 1-6 are a valid BED6, with the nesting level in the score slot -- a small
     // non-negative integer is what that field wants, and it avoids a column that would always
@@ -219,10 +219,13 @@ public:
     // cover by site.  0 0 when no decomposition was supplied.
     //
     // level equals INFO/CH of every record on the contig -- NOT INFO/LV, which counts only
-    // ancestors on the same CHROM and is a different number.  parent_contig equals the CHROM
-    // of the record that a LV==0 record's PS points at; records with LV>0 point at a parent on
-    // their own contig, so a join against all records rather than the LV==0 ones scores about
-    // 69% and looks like a table bug.
+    // ancestors on the same CHROM and is a different number.
+    //
+    // There is deliberately no parent column.  It restated "gref_" + ref_contig on every one
+    // of the 201,630 level-1 fragments genome-wide, and on the rest it named a contig without
+    // a position on it, so nothing could be located or reproduced from it.  The VCF answers
+    // the question properly: a record's PS names the enclosing site, and its CHROM names the
+    // contig, with a position attached to both.
     //
     // strand is '-' when apply() reverse-complemented the run, so the sequence at
     // source_path[source_start:source_end] is the reverse complement of the gref contig.  26

@@ -1410,7 +1410,7 @@ void GrefCover::write_gref_segments(ostream& os) {
     // makes `cut -f1-6` usable by bedtools directly, including strand-aware operations.
     os << "#source_path\tsource_start\tsource_end\tgref_contig\tlevel\tstrand"
        << "\tref_contig\tref_start\tref_end"
-       << "\ttop_level_snarl\tparent_contig" << endl;
+       << "\ttop_level_snarl" << endl;
 
     // Numbering starts from scratch, exactly as apply() does; see the note there.
 
@@ -1478,19 +1478,23 @@ void GrefCover::write_gref_segments(ostream& os) {
     // Subrange offset of each reference path, for columns 6-7.
     unordered_map<path_handle_t, int64_t> ref_offset_cache;
 
-    // Decide once which intervals are emitted, then use that list for both passes below.
-    // The two used to repeat the skip conditions with a comment warning that they had to stay
-    // in step -- they feed a shared counter, so a divergence would not drop one row, it would
-    // renumber every row after it.
+    // One pass: skip what apply() skips, name each surviving interval as we go.
+    //
+    // This used to be two passes over a precomputed list, because the parent_contig column
+    // needed the name of an interval that might sit at a higher index.  That column is gone
+    // (it restated ref_contig on 76% of rows and named a contig without a position on the
+    // rest), so nothing needs a name but the row being written.
     //
     // Skipped: an interval decommissioned to a path_end sentinel, and one of mixed
     // orientation, which apply() also refuses to write.  Runs split at orientation flips so a
     // mixed interval should be unreachable; the check is a net, matching apply()'s.
-    vector<int64_t> emitted;
-    emitted.reserve(this->gref_intervals.size());
+    unordered_map<string, int64_t> gref_counter;
+
+    // Write each gref interval
     for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
-        if (interval.first == graph->path_end(graph->get_path_handle_of_step(interval.first))) {
+        path_handle_t source_path_handle = graph->get_path_handle_of_step(interval.first);
+        if (interval.first == graph->path_end(source_path_handle)) {
             continue;
         }
         bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
@@ -1502,45 +1506,9 @@ void GrefCover::write_gref_segments(ostream& os) {
                 break;
             }
         }
-        if (!mixed) {
-            emitted.push_back(i);
+        if (mixed) {
+            continue;
         }
-    }
-
-    // Name them all before emitting any: a fragment's parent may sit at a higher index than
-    // the fragment itself, and the parent column needs its name.
-    vector<string> interval_name(this->gref_intervals.size());
-    {
-        unordered_map<string, int64_t> counter;
-        for (int64_t i : emitted) {
-            string base = this->resolve_base_path_name(i);
-            interval_name[i] = make_gref_name(base, ++counter[base]);
-        }
-    }
-
-    // The gref contig a fragment's coordinates are reported against: another fragment when it
-    // is nested inside one, otherwise the gref copy of the reference path it hangs off.
-    auto parent_name_of = [&](int64_t i) -> string {
-        if (this->interval_parent.empty() || i >= (int64_t)this->interval_parent.size()) {
-            return ".";
-        }
-        int64_t parent = this->interval_parent[i];
-        if (parent < 0) {
-            return ".";
-        }
-        if (parent < this->num_ref_intervals) {
-            path_handle_t ref_path =
-                graph->get_path_handle_of_step(this->gref_intervals[parent].first);
-            return make_gref_copy_name(graph->get_path_name(ref_path));
-        }
-        return interval_name[parent].empty() ? "." : interval_name[parent];
-    };
-
-    // Write each gref interval
-    for (int64_t i : emitted) {
-        const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
-        path_handle_t source_path_handle = graph->get_path_handle_of_step(interval.first);
-        bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
 
         // Look up pre-computed source path offsets
         int64_t source_start = step_offset_cache.at(interval.first);
@@ -1613,8 +1581,7 @@ void GrefCover::write_gref_segments(ostream& os) {
             }
         }
 
-        // Named in the pass above, which had to run first so parents could be looked up.
-        const string& gref_name = interval_name[i];
+        string gref_name = make_gref_name(base_path_name, ++gref_counter[base_path_name]);
 
         // Resolve source path name to full-path coordinates using cached result.
         // Parses path name once per source path to extract subrange offset and
@@ -1701,8 +1668,7 @@ void GrefCover::write_gref_segments(ostream& os) {
            << ref_path_name << "\t"
            << (ref_start + ref_offset) << "\t"
            << (ref_end + ref_offset) << "\t"
-           << top_snarl_id << "\t"
-           << parent_name_of(i) << "\n";
+           << top_snarl_id << "\n";
     }
 }
 
