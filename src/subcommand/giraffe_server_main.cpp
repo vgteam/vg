@@ -42,7 +42,7 @@ void help_giraffe_server(char** argv) {
          << endl
          << "optional:" << endl
          << "  -t, --threads N              mapping threads [1]" << endl
-         << "  -M, --max-multimaps N        max mappings per read (overrides BLAT default of 100)" << endl
+         << "  -M, --max-multimaps N        max mappings per read (0 = BLAT default 100)" << endl
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
          << "      --framed-output          emit read-grouped framed output for middleware" << endl
@@ -61,9 +61,9 @@ void help_giraffe_server(char** argv) {
          << endl
          << "  SURJECT_WITH_ANCHORS<TAB>NAME<TAB>TARGET<TAB>PATH_LEN<TAB>N_ANCHORS" << endl
          << "    followed by N_ANCHORS tab-separated anchor lines (10 fields each):" << endl
-         << "      step_begin_node<TAB>step_begin_offset<TAB>step_end_node<TAB>step_end_offset<TAB>" << endl
-         << "      path_off_begin<TAB>path_off_end<TAB>read_begin<TAB>read_end<TAB>" << endl
-         << "      src_mapping_begin<TAB>src_mapping_end" << endl
+         << "      step_begin_node, step_begin_offset, step_end_node, step_end_offset," << endl
+         << "      path_off_begin, path_off_end, read_begin, read_end," << endl
+         << "      src_mapping_begin, src_mapping_end (all tab-separated)" << endl
          << "    followed by ONE graph-alignment GAF line." << endl
          << "    Response is framed: READ<TAB>NAME<TAB>1 then one GAF line" << endl
          << "    carrying the surjection tags (sj:Z:..., sn:Z:..., etc.)." << endl
