@@ -863,8 +863,10 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
     for (auto& trace_from : starts_in_score_order) {
         if (parent_start[trace_from] != TracedScore::nowhere()) {
             for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
-                // Are they in different chains?
-                if (parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]) {
+                // Are they different anchors in different chains?
+                if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()
+                    && chain_scores[trace_from][alt_i].source != chain_scores[trace_from][alt_i-1].source
+                    && parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]) {
                     output.connections.emplace_back(chain_scores[trace_from][alt_i].source, trace_from);
                 }
             }
