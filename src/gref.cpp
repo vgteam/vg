@@ -1401,6 +1401,14 @@ void GrefCover::copy_base_paths_to_gref(MutablePathMutableHandleGraph* mutable_g
 }
 
 void GrefCover::write_gref_segments(ostream& os) {
+    // Header, '#'-prefixed so it is skipped by the usual conventions (grep -v '^#',
+    // pandas comment='#', bedtools).  Cactus concatenates the per-chromosome tables and drops
+    // every header but the first, so the merged file keeps exactly one.
+    os << "#source_path\tsource_start\tsource_end\tgref_contig"
+       << "\tref_contig\tref_start\tref_end"
+       << "\tsite_start_node\tsite_end_node"
+       << "\tlevel\tparent_contig\tstrand" << endl;
+
     // Numbering starts from scratch, exactly as apply() does; see the note there.
 
     // Pre-compute reference node positions by walking all reference intervals once.

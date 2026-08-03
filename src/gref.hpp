@@ -200,12 +200,9 @@ public:
     //                     ref_path, ref_start, ref_end,
     //                     top_snarl_start, top_snarl_end, level, parent_contig, strand
     //
-    // Headerless, deliberately and temporarily.  A '#' header would make nine unlabelled
-    // columns self-describing, but cactus's merge_gref_segs() concatenates the per-chromosome
-    // files line by line without skipping headers -- its docstring claims it skips duplicates
-    // and the code does not -- so a header here would put one line per chromosome into the
-    // merged table.  Add the header once that is fixed; until then `vg paths --help` carries
-    // the column list.
+    // The first line is a '#'-prefixed header naming the columns.  Consumers skip it by the
+    // usual conventions (grep -v '^#', pandas comment='#').  Cactus's merge_gref_segs() keeps
+    // the first header and drops the rest when concatenating the per-chromosome tables.
     //
     // ref_path is derivable from gref_path_name and is emitted anyway.  Recovering it means
     // finding the last '_' before the '_alt' suffix, and reference contig names contain

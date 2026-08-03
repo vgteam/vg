@@ -173,11 +173,11 @@ is $(vg paths -x dangling_gref.vg -E | grep "_alt" | awk '{sum+=$2} END {print s
 vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs gref_test.segs > gref_segs_test.vg
 is $? 0 "gref-segs option produces no error"
 
-is $(wc -l < gref_test.segs) 2 "gref-segs produces correct number of lines"
+is $(grep -vc "^#" gref_test.segs) 2 "gref-segs produces correct number of lines"
 
 is $(cut -f4 gref_test.segs | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref-segs contains gref path names"
 
-is $(cut -f1 gref_test.segs | grep -c "#") 2 "gref-segs contains source path names with metadata"
+is $(grep -v "^#" gref_test.segs | cut -f1 | grep -c "#") 2 "gref-segs contains source path names with metadata"
 
 is $(cut -f5 gref_test.segs | grep -c "^x$") 2 "gref-segs contains reference path name"
 
@@ -187,7 +187,7 @@ is $? 0 "gref-segs requires compute-gref option"
 
 # The gref namespace is a convention, not an option: --compute-gref always writes it
 vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs gref_sample_test.segs > gref_sample_test.vg
-is $(cut -f4 gref_sample_test.segs | grep -c "^gref_") 2 "gref-segs names are all in the gref namespace"
+is $(grep -v "^#" gref_sample_test.segs | cut -f4 | grep -c "^gref_") 2 "gref-segs names are all in the gref namespace"
 
 is $(vg paths -x gref_sample_test.vg -L | grep -c "^gref_") 3 "compute-gref writes the base copy and its fragments together"
 
@@ -248,7 +248,7 @@ is $(vg paths -x flip_test.vg -L | grep "_alt$" | wc -l) 2 "intervals on either 
 
 is "$(vg paths -x flip_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "32" "no sequence is dropped at an orientation flip"
 
-is $(wc -l < flip.segs) 2 "gref-segs describes every emitted fragment at an orientation flip"
+is $(grep -vc "^#" flip.segs) 2 "gref-segs describes every emitted fragment at an orientation flip"
 
 # Fragments in a component with no reference path get named after their source path.  The
 # name still has to be a valid path name: the "_{N}_alt" suffix must land on the locus, not
@@ -266,7 +266,7 @@ is $(vg paths -x unanchored_test.vg -S gref_GRCh38 -L | wc -l) 2 "the anchored f
 
 is $(vg paths -x unanchored_test.vg -L | grep -cE "^gref_HG[12]#1#ctgZ_[0-9]+_alt$") 2 "fragments with no reference to reach are namespaced under the path they came from"
 
-diff <(cut -f4 unanchored.segs | sort) <(vg paths -x unanchored_test.vg -L | grep "_alt" | sort)
+diff <(grep -v "^#" unanchored.segs | cut -f4 | sort) <(vg paths -x unanchored_test.vg -L | grep "_alt" | sort)
 is $? 0 "gref-segs names match the gref paths that were created"
 
 rm -f unanchored_test.vg unanchored.segs
@@ -412,9 +412,9 @@ rm -f reject_test.vg
 vg paths -x nesting/consecutive_nested.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs consec.segs > consec.vg
 is $(vg paths -x consec.vg -L | grep -c "_alt$") 1 "consecutive nested snarls are covered by a single fragment"
 
-is $(wc -l < consec.segs) 1 "a fragment spanning two nested snarls gets one segment line"
+is $(grep -vc "^#" consec.segs) 1 "a fragment spanning two nested snarls gets one segment line"
 
-is "$(cut -f5,6,7 consec.segs)" "$(printf 'x\t0\t2')" "the segment reference interval spans the enclosing snarl"
+is "$(grep -v "^#" consec.segs | cut -f5,6,7)" "$(printf 'x\t0\t2')" "the segment reference interval spans the enclosing snarl"
 
 rm -f consec.vg consec.segs
 
