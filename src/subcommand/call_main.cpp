@@ -88,9 +88,10 @@ void help_call(char** argv) {
          << "  -L, --cluster F           merge called alt alleles whose (handle) Jaccard" << endl
          << "                            coefficient is >= F, so 1/2 of two effectively" << endl
          << "                            identical alleles becomes 1/1 [1.0; experimental]" << endl
-         << "      --cluster-min-len N   only apply -L merging at sites with at least one" << endl
-         << "                            non-boundary traversal >= N bp (50 = SVs only," << endl
-         << "                            0 = always) [0]" << endl
+         << "      --cluster-min-len N   only apply -L merging at sites whose core length" << endl
+         << "                            -- the longest allele after stripping the prefix" << endl
+         << "                            and suffix common to all alleles -- is >= N bp" << endl
+         << "                            (50 = SVs only, 0 = always) [0]" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
          << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl

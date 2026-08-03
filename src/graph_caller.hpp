@@ -125,8 +125,8 @@ public:
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
     /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
     /// weighted-Jaccard metric and the same site gate as "vg deconstruct -L/--cluster-min-len":
-    /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites with at
-    /// least one traversal whose non-boundary sequence reaches min_len bp.
+    /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites whose
+    /// core length reaches min_len bp (see allele_core_length).
     /// A threshold of 1.0 (the default) disables merging entirely.
     void set_allele_merge(double threshold, int64_t min_len);
 
@@ -160,10 +160,24 @@ protected:
     static bool snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
                                            Traversal& out_trav);
 
-    /// True if some traversal's non-boundary sequence reaches min_len bp.  Mirrors the
-    /// --cluster-min-len gate in Deconstructor::deconstruct_site, including its early exit.
-    static bool traversals_reach_min_len(const HandleGraph& graph,
-                                         const vector<SnarlTraversal>& travs, int64_t min_len);
+    /// The CORE LENGTH of a variant: the length of the longest allele after stripping the prefix
+    /// and the suffix that every non-"*" allele shares.  This is the single definition of "how big
+    /// is this variant" behind --cluster-min-len in BOTH vg call and vg deconstruct.  It is
+    /// invariant to how much shared flanking context a caller keeps in its allele strings, which is
+    /// the point: vg call flattens down to an anchor base while vg deconstruct emits the whole
+    /// snarl interior, so a raw string length answers differently for the same variant.
+    /// Consequences, all intended:
+    ///   - the anchor base flatten_common_allele_ends must leave on every indel is a shared prefix,
+    ///     so it is stripped: a 49bp indel measures 49, not 50.
+    ///   - REF participates, so a pure deletion measures the deleted length.  A maximum over ALTs
+    ///     alone measures 1 for a deletion of any size.
+    ///   - "*" is a marker, not sequence, so it is excluded from both the affixes and the maximum.
+    ///     That also neutralizes flatten_common_allele_ends being a no-op whenever a "*" is present
+    ///     (min_allele_len becomes 1 and max_flatten_len decrements to 0): the un-flattened
+    ///     boundary sequence is common to every real allele, so it is stripped here instead.
+    /// Note this measures the SPAN of the variant, not the size of any one event inside it: a
+    /// haplotype differing from the reference at two bases 59bp apart has a core length of 60.
+    static int64_t allele_core_length(const vector<string>& alleles);
 
     /// Merge near-identical called ALT alleles in an already-populated variant.  Must run AFTER
     /// SnarlCaller::update_vcf_info and after flatten_common_allele_ends, so that the genotyper and

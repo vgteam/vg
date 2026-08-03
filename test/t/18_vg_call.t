@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 132
+plan tests 138
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -279,8 +279,7 @@ vg deconstruct small_cluster_call.gfa -p x -L 0.7142 2>/dev/null > decon_lo.vcf
 is "$(n_alts decon_hi.vcf)" "$(n_alts call_cluster_hi.vcf)" "vg call and vg deconstruct agree above the threshold"
 is "$(n_alts decon_lo.vcf)" "$(n_alts call_cluster_lo.vcf)" "vg call and vg deconstruct agree below the threshold"
 
-# --cluster-min-len gates per site, exactly as in vg deconstruct.  This site's longest non-boundary
-# traversal is 6 bp.
+# --cluster-min-len gates per site, exactly as in vg deconstruct.  This site's core length is 6 bp.
 for N in 0 6 7 50 ; do
     vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len $N > call_minlen_$N.vcf 2>/dev/null
 done
@@ -323,8 +322,9 @@ is "$(grep -v '^#' merge_L.vcf | cut -f10 | cut -f3 -d:)" "0,82" "the merge fold
 rm -f minlen_ghost.gfa minlen_ghost.vg minlen_ghost.pack call_minlen_ghost.vcf
 rm -f merge_support.vg merge_support.gam merge_support.pack merge_a.gam merge_b.gam merge_plain.vcf merge_L.vcf
 
-# -L merges in VCFOutputCaller::emit_variant, which these paths never reach, so it must be rejected
-# rather than silently ignored
+# -L must be rejected rather than silently ignored: -v and -G/-T never reach
+# VCFOutputCaller::emit_variant at all, while -B reaches it but reports QUAL/XADL/lowxadl for a
+# het the merge would erase.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -v small/x.vcf.gz >/dev/null 2>&1
 is "$?" 1 "-L is rejected when genotyping a VCF"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -G >/dev/null 2>&1
@@ -342,6 +342,28 @@ is "$?" 1 "the removed --cluster-post option is rejected"
 # the merge lives on the shared VCFOutputCaller base, so the nested modes get it too
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 > call_cluster_td.vcf 2>/dev/null
 is "$(call_site call_cluster_td.vcf 5)" "ATTTGA" "-L merges under --top-down"
+
+# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
+# every allele are stripped -- not on the raw snarl interior.  Same rule, same helper, as
+# vg deconstruct: without it a 1bp SNP gets gated on the size of whatever snarl contains it.
+core_pack() {
+    vg view -Fv nesting/$1.gfa > core_$1.vg
+    vg sim -x core_$1.vg -P hapA -n 40 -l 60 -a -s 5 > core_a.gam
+    vg sim -x core_$1.vg -P hapB -n 40 -l 60 -a -s 6 > core_b.gam
+    cat core_a.gam core_b.gam > core_$1.gam
+    vg pack -x core_$1.vg -g core_$1.gam -o core_$1.pack
+}
+core_nalt() { vg call core_$1.vg -k core_$1.pack -p x -L 0.6 --cluster-min-len $2 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+for g in core_snp_in_flanks core_sv60 core_del61 core_ins49 core_ins50 ; do core_pack $g ; done
+
+is "$(core_nalt core_snp_in_flanks 50)" "2" "a 1bp SNP in a large snarl is not merged at --cluster-min-len 50"
+is "$(core_nalt core_snp_in_flanks 1)"  "1" "the same SNP is merged at --cluster-min-len 1"
+is "$(core_nalt core_sv60 50)"          "1" "a 60bp SV is still merged at --cluster-min-len 50"
+is "$(core_nalt core_del61 50)"         "1" "a 61bp deletion is still merged (the reference allele is measured)"
+is "$(core_nalt core_ins49 50)"         "2" "a 49bp insertion is not merged at 50 (the anchor base is not counted)"
+is "$(core_nalt core_ins50 50)"         "1" "a 50bp insertion is merged at 50"
+
+rm -f core_*.vg core_*.gam core_*.pack
 
 rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_a.gam call_b.gam
 rm -f call_no_cluster.vcf call_cluster.vcf call_cluster_off.vcf call_cluster_hi.vcf call_cluster_lo.vcf call_cluster_td.vcf

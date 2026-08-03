@@ -64,9 +64,10 @@ void help_deconstruct(char** argv) {
          << "                           for reference if possible (i.e. only one ref sample)" << endl
          << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
          << "                           is >= F together [1.0; experimental]" << endl
-         << "      --cluster-min-len N  only apply -L clustering at sites with at least one" << endl
-         << "                           non-boundary traversal >= N bp (50 = SVs only,"  << endl
-         << "                           0 = always) [0]" << endl
+         << "      --cluster-min-len N  only apply -L clustering at sites whose core" << endl
+         << "                           length -- the longest allele after stripping" << endl
+         << "                           the prefix and suffix common to all alleles" << endl
+         << "                           -- is >= N bp (50 = SVs only, 0 = always) [0]" << endl
          << "  -R, --star-allele        use *-alleles to represent haplotypes that span the" << endl
          << "                           parent but don't traverse nested sites (requires -a)" << endl
          << "  -t, --threads N          use N threads" << endl

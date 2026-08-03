@@ -439,24 +439,47 @@ bool parse_vcf_double(const string& field, double& value) {
 }
 }
 
-bool VCFOutputCaller::traversals_reach_min_len(const HandleGraph& graph,
-                                               const vector<SnarlTraversal>& travs, int64_t min_len) {
-    // mirrors the --cluster-min-len gate in Deconstructor::deconstruct_site, including its early exit
-    for (const SnarlTraversal& trav : travs) {
-        int64_t len = 0;
-        // note "k + 1 < visit_size()", not "k < visit_size() - 1": visit_size() returns int, and
-        // the star placeholder makes 0 reachable
-        for (int k = 1; k + 1 < trav.visit_size(); ++k) {
-            const Visit& visit = trav.visit(k);
-            if (visit.node_id() > 0) {
-                len += graph.get_length(graph.get_handle(visit.node_id(), visit.backward()));
-            }
-            if (len >= min_len) {
-                return true;
-            }
+int64_t VCFOutputCaller::allele_core_length(const vector<string>& alleles) {
+    vector<const string*> seqs;
+    for (const string& a : alleles) {
+        if (a != "*") {
+            seqs.push_back(&a);
         }
     }
-    return false;
+    if (seqs.empty()) {
+        return 0;
+    }
+    size_t min_len = seqs[0]->length();
+    size_t max_len = 0;
+    for (const string* s : seqs) {
+        min_len = std::min(min_len, s->length());
+        max_len = std::max(max_len, s->length());
+    }
+    // The prefix and the suffix may not overlap, exactly as in flatten_common_allele_ends: a shared
+    // region can only be counted once, or {"AAAA","AAAAA"} would come out at -3 instead of 1.
+    // Case-insensitive to match flatten's own toupper and deconstruct's toUppercase.
+    auto shared = [&](size_t skip, bool from_back) {
+        auto at = [&](const string* s, size_t i) {
+            return std::toupper((*s)[from_back ? s->length() - 1 - i : i]);
+        };
+        size_t n = 0;
+        while (skip + n < min_len) {
+            int ch = at(seqs[0], n);
+            bool match = true;
+            for (size_t j = 1; j < seqs.size() && match; ++j) {
+                match = at(seqs[j], n) == ch;
+            }
+            if (!match) {
+                break;
+            }
+            ++n;
+        }
+        return n;
+    };
+    size_t prefix = shared(0, false);
+    size_t suffix = shared(prefix, true);
+    // non-negative structurally, not by clamping: the loop caps give prefix + suffix <= min_len <= max_len
+    return (int64_t)(max_len - prefix - suffix);
 }
 
 bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph,
@@ -482,11 +505,15 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     // Per-site gate, decided over the alleles this record actually emits.  NOT over the traversal
     // finder's candidate list: that is up to max_yens_traversals (50) speculative paths, most of
     // which never become an allele, so gating on them lets an invisible branch with no reads and no
-    // AT entry decide whether merging happens.  deconstruct's equivalent gate reads its use_trav
-    // set, every member of which does become a VCF allele -- these emitted alleles are the
-    // corresponding set here.
+    // AT entry decide whether merging happens.  deconstruct's equivalent gate is decided over the
+    // set that becomes its alleles too -- the reference plus everything get_traversal_order kept --
+    // so the two tools gate the same variant the same way.
+    // The quantity is CORE LENGTH (see allele_core_length): the longest allele once the prefix and
+    // suffix shared by every allele are stripped.  Raw string length would answer differently from
+    // vg deconstruct on the same variant, because this record has been flattened down to an anchor
+    // base and deconstruct's has not.
     if (allele_merge_min_len > 0 &&
-        !traversals_reach_min_len(graph, site_traversals, allele_merge_min_len)) {
+        allele_core_length(out_variant.alleles) < allele_merge_min_len) {
         return false;
     }
 
@@ -660,8 +687,9 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
         size_t n_old = merge_to.size();
         auto gl_index = [](size_t i, size_t j, size_t n) { return i * n - (i * (i - 1)) / 2 + (j - i); };
         // The diploid layout is the only one that can occur: merging needs at least two distinct
-        // called ALTs, site_genotype has one entry per ploidy, and PoissonSupportSnarlCaller::genotype
-        // -- the only writer of GL -- asserts ploidy is 1 or 2.  So n_old is always 3 here.
+        // called ALTs, site_genotype has one entry per ploidy, and PoissonSupportSnarlCaller --
+        // whose update_vcf_info is the only writer of GL -- asserts in genotype that ploidy is
+        // 1 or 2.  So n_old is always 3 here.
         assert(gl_it->second.size() == n_old * (n_old + 1) / 2);
         bool gl_usable = true;
         vector<double> folded((size_t)n_new * (n_new + 1) / 2,

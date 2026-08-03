@@ -908,26 +908,60 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         vector<int> unused_child_snarl_mapping;
         vector<vector<int>> trav_clusters;
 
-        // If a minimum-allele-length gate is set, skip clustering at sites
-        // where every used traversal's interior (non-boundary) sequence is
-        // shorter than the threshold.  This lets the clustering be SV-only
-        // (setting it to 50bp matches the standard SV size cutoff) while
-        // leaving small variants represented exactly as they are.
+        // If a minimum-allele-length gate is set, skip clustering at sites whose CORE LENGTH -- the
+        // longest allele once the prefix and suffix common to every allele are stripped -- is below
+        // the threshold.  This lets the clustering be SV-only (50bp matches the standard SV size
+        // cutoff) while leaving small variants represented exactly as they are.  Measuring the raw
+        // snarl interior instead would gate a 1bp SNP on the size of the snarl that happens to
+        // contain it, and would disagree with vg call, whose records are flattened.  See
+        // VCFOutputCaller::allele_core_length.
         bool do_clustering = true;
         if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
-            // We only need to know if some used traversal is long enough, so
-            // stop measuring as soon as we find one.
-            do_clustering = false;
-            for (size_t i = 0; i < travs.size() && !do_clustering; ++i) {
-                if (!use_trav[i]) {
-                    continue;
+            // The traversals that become alleles: everything get_traversal_order kept, plus the
+            // reference, which get_alleles() spells as allele 0 whether or not use_trav has it.
+            // Not every use_trav member -- get_traversal_order drops used traversals that are OTHER
+            // reference traversals, and those never become alleles.  No star can be here:
+            // add_star_traversals runs further down.
+            auto for_each_measured = [&](const function<bool(const Traversal&)>& fn) {
+                if (!fn(travs[ref_trav_idx])) {
+                    return;
                 }
-                const Traversal& t = travs[i];
+                for (int idx : sorted_travs) {
+                    if (idx != ref_trav_idx && !fn(travs[idx])) {
+                        return;
+                    }
+                }
+            };
+            // Exact pre-filter: core length can never exceed the longest interior, so if no measured
+            // traversal reaches the threshold we are done without building a single string.  This is
+            // the old gate, demoted from decision to pre-filter, so nothing gets slower.
+            bool interior_reaches = false;
+            for_each_measured([&](const Traversal& t) {
                 int64_t len = 0;
-                for (size_t k = 1; k + 1 < t.size() && !do_clustering; ++k) {
+                for (size_t k = 1; k + 1 < t.size() && !interior_reaches; ++k) {
                     len += graph->get_length(t[k]);
-                    do_clustering = len >= cluster_min_allele_len;
+                    interior_reaches = len >= cluster_min_allele_len;
                 }
+                return !interior_reaches;
+            });
+            do_clustering = false;
+            if (interior_reaches) {
+                // The allele strings do not exist yet -- get_alleles() runs after clustering -- so
+                // rebuild the set this record would emit if we did NOT cluster, which is exactly
+                // what the gate is asking about.  This is exact rather than approximate: the only
+                // transforms get_alleles applies afterwards are reverse-complementing every allele
+                // and prepending a common anchor base, and core length is invariant to both.
+                vector<string> unclustered_alleles;
+                unclustered_alleles.reserve(sorted_travs.size() + 1);
+                for_each_measured([&](const Traversal& t) {
+                    string allele;
+                    for (size_t k = 1; k + 1 < t.size(); ++k) {
+                        allele += toUppercase(graph->get_sequence(t[k]));
+                    }
+                    unclustered_alleles.push_back(std::move(allele));
+                    return true;
+                });
+                do_clustering = allele_core_length(unclustered_alleles) >= cluster_min_allele_len;
             }
         }
 

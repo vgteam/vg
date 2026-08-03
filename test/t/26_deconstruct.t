@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 96
+plan tests 101
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -156,8 +156,8 @@ is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
-# --cluster-min-len gates when the longest non-boundary traversal is below
-# the threshold.  small_cluster's only snarl has max interior length 6 bp.
+# --cluster-min-len gates when the site's core length is below the threshold.
+# small_cluster's only snarl has core length 6 bp.
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3_off.vcf
 is "$(tail -1 small_cluster_3_off.vcf | awk '{print $5}')" "G" "--cluster-min-len 0 is equivalent to clustering everywhere"
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 50 > small_cluster_3_50.vcf
@@ -169,6 +169,18 @@ diff small_cluster_0.vcf small_cluster_min_only.vcf
 is "$?" 0 "--cluster-min-len without -L is a no-op"
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
+
+# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
+# every allele are stripped -- not on the raw snarl interior.  Measuring the interior would gate a
+# 1bp SNP on the size of whatever snarl happens to contain it, and would disagree with vg call,
+# whose records are flattened down to an anchor base.
+core_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 --cluster-min-len $2 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+
+is "$(core_nalt core_snp_in_flanks 50)" "2" "a 1bp SNP in a large snarl is not clustered at --cluster-min-len 50"
+is "$(core_nalt core_sv60 50)"         "1" "a 60bp SV is still clustered at --cluster-min-len 50"
+is "$(core_nalt core_del61 50)"        "1" "a 61bp deletion is still clustered (the reference allele is measured)"
+is "$(core_nalt core_ins49 50)"        "2" "a 49bp insertion is not clustered at 50 (the anchor base is not counted)"
+is "$(core_nalt core_ins50 50)"        "1" "a 50bp insertion is clustered at 50"
 
 # Star alleles (-R) are a marker, not sequence.  They must survive verbatim as "*" in every
 # orientation and at every site type: complement['*'] is 'N', so reverse-complementing one turns it

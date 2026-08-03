@@ -198,9 +198,11 @@ private:
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
 
-    // only apply cluster_threshold at sites with at least one non-boundary
-    // traversal sequence of at least this many bp.  0 disables the gate
-    // (so cluster_threshold applies at every site).
+    // only apply cluster_threshold at sites whose core length is at least this many bp.  0
+    // disables the gate (so cluster_threshold applies at every site).  See
+    // VCFOutputCaller::allele_core_length for what "core length" means and why it, rather than the
+    // raw snarl interior, is the right measure -- it is what lets vg call and vg deconstruct gate
+    // the same variant the same way despite emitting differently flattened records.
     int64_t cluster_min_allele_len = 0;
 
     // use *-alleles to represent haplotypes that span the parent site but don't
