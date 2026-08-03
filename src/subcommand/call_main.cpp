@@ -48,6 +48,7 @@ void help_call(char** argv) {
          << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
          << "      --gam-index FILE      .gai index for --gam, so reads are fetched per site" << endl
          << "                            instead of all held in memory (from vg gamsort -i)" << endl
+         << "      --read-window N       node-ID window for --gam-index fetches [256]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
@@ -162,6 +163,7 @@ int main_call(int argc, char** argv) {
     string gaf_filename;
     string dump_likelihoods_filename;
     string gam_index_filename;
+    size_t read_window_size = 256;
     bool no_mismap_term = false;
     int read_min_mapq = 0;
 
@@ -187,6 +189,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_MISMAP_TERM = 1011;
     constexpr int OPT_READ_MIN_MAPQ = 1012;
     constexpr int OPT_GAM_INDEX = 1013;
+    constexpr int OPT_READ_WINDOW = 1014;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -230,6 +233,7 @@ int main_call(int argc, char** argv) {
             {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+            {"read-window", required_argument, 0, OPT_READ_WINDOW},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
@@ -382,6 +386,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_GAM_INDEX:
             gam_index_filename = optarg;
+            break;
+        case OPT_READ_WINDOW:
+            read_window_size = parse<size_t>(optarg);
             break;
         case 'I':
             call_chains = true;
@@ -883,7 +890,7 @@ int main_call(int argc, char** argv) {
                 // Indexed: reads are fetched per site, so memory is bounded by what a
                 // site needs rather than by the size of the read set.
                 read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
-                                                               read_filter));
+                                                               read_filter, read_window_size));
                 if (show_progress) {
                     logger.info() << "Using indexed GAM " << gam_filename
                                   << " with index " << gam_index_filename << endl;
@@ -1157,6 +1164,17 @@ int main_call(int argc, char** argv) {
         recurse_type = GraphCaller::RecurseAlways;
     } else {
         recurse_type = GraphCaller::RecurseOnFail;
+    }
+
+    // Ordered visits only help a read source that fetches by node-ID range, and they
+    // change the traversal order of code the default caller shares -- so gate on the
+    // indexed source actually being in use. With it off, the default path is
+    // bit-for-bit what it was.
+    if (!gam_index_filename.empty()) {
+        graph_caller->set_node_id_ordering(true, read_window_size);
+        if (show_progress) {
+            logger.info() << "Visiting snarls in node-ID order, window " << read_window_size << endl;
+        }
     }
 
     if (!call_chains) {

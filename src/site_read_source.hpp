@@ -163,10 +163,16 @@ private:
 class IndexedGamSiteReadSource : public SiteReadSource {
 public:
 
-    /// gam_filename must be sorted (`vg gamsort -i`); index_filename defaults to
-    /// gam_filename + ".gai".
+    /// gam_filename must be sorted (`vg gamsort -i`).
+    ///
+    /// window_size is in node IDs. Fetches are quantised to windows of that size so
+    /// that a caller visiting sites in node-ID order touches each window exactly
+    /// once. That ordering is what makes this effective: without it, consecutive
+    /// sites have adjacent-but-not-contained ranges and every one is a fresh scan.
+    /// See GraphCaller::set_node_id_ordering.
     IndexedGamSiteReadSource(const string& gam_filename, const string& index_filename,
                              const SiteReadFilter& filter = SiteReadFilter(),
+                             size_t window_size = 256,
                              size_t cache_entries = 2);
 
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
@@ -186,10 +192,9 @@ public:
 
 private:
 
-    /// One cached fetch: the span it covers and the reads it found.
+    /// One cached window fetch.
     struct CacheEntry {
-        nid_t min_id = 0;
-        nid_t max_id = 0;
+        size_t window = 0;
         bool valid = false;
         vector<Alignment> reads;
     };
@@ -205,9 +210,17 @@ private:
 
     ThreadState& thread_state() const;
 
-    /// True if every requested range lies inside the entry's span, so filtering the
-    /// entry's reads gives exactly the right answer.
-    static bool covers(const CacheEntry& entry, const vector<pair<nid_t, nid_t>>& ranges);
+    /// Which window a node ID falls in.
+    size_t window_of(nid_t id) const;
+
+    /// Fetch one window's reads from the index, applying the filter.
+    void fetch_window(ThreadState& state, size_t window, vector<Alignment>& out) const;
+
+    /// Fetch an arbitrary span directly, bypassing the cache. Used when a single
+    /// query spans several windows, which also avoids having to de-duplicate reads
+    /// that straddle a window boundary: index->find emits each read at most once.
+    void fetch_span(ThreadState& state, nid_t min_id, nid_t max_id,
+                    const function<void(const Alignment&)>& iteratee) const;
 
     /// Does the read touch any node in the ranges?
     static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
@@ -215,6 +228,7 @@ private:
     string gam_filename;
     unique_ptr<GAMIndex> index;
     SiteReadFilter filter;
+    size_t window_size;
     size_t cache_entries;
 
     mutable vector<ThreadState> threads;

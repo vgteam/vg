@@ -120,8 +120,11 @@ size_t InMemorySiteReadSource::get_filtered_count() const {
 IndexedGamSiteReadSource::IndexedGamSiteReadSource(const string& gam_filename,
                                                    const string& index_filename,
                                                    const SiteReadFilter& filter,
+                                                   size_t window_size,
                                                    size_t cache_entries)
-    : gam_filename(gam_filename), filter(filter), cache_entries(max<size_t>(1, cache_entries)) {
+    : gam_filename(gam_filename), filter(filter),
+      window_size(max<size_t>(1, window_size)),
+      cache_entries(max<size_t>(1, cache_entries)) {
 
     index.reset(new GAMIndex());
     get_input_file(index_filename, [&](istream& in) {
@@ -154,17 +157,8 @@ IndexedGamSiteReadSource::ThreadState& IndexedGamSiteReadSource::thread_state() 
     return state;
 }
 
-bool IndexedGamSiteReadSource::covers(const CacheEntry& entry,
-                                     const vector<pair<nid_t, nid_t>>& ranges) {
-    if (!entry.valid) {
-        return false;
-    }
-    for (const auto& range : ranges) {
-        if (range.first < entry.min_id || range.second > entry.max_id) {
-            return false;
-        }
-    }
-    return true;
+size_t IndexedGamSiteReadSource::window_of(nid_t id) const {
+    return (size_t)(id / (nid_t)window_size);
 }
 
 bool IndexedGamSiteReadSource::touches(const Alignment& aln,
@@ -180,45 +174,8 @@ bool IndexedGamSiteReadSource::touches(const Alignment& aln,
     return false;
 }
 
-void IndexedGamSiteReadSource::for_each_read(
-    const vector<pair<nid_t, nid_t>>& ranges,
-    const function<void(const Alignment&)>& iteratee) const {
-
-    if (ranges.empty()) {
-        return;
-    }
-
-    ThreadState& state = thread_state();
-
-    // Serve from the cache when a previous fetch already spans everything asked for.
-    // The parent-then-children visit order makes this the common case.
-    for (const CacheEntry& entry : state.cache) {
-        if (covers(entry, ranges)) {
-            ++cache_hits;
-            for (const Alignment& aln : entry.reads) {
-                if (touches(aln, ranges)) {
-                    iteratee(aln);
-                }
-            }
-            return;
-        }
-    }
-    ++cache_misses;
-
-    // Fetch the whole span in one query rather than one query per range. The index
-    // over-fetches and filters anyway, so a single wider scan beats several narrow
-    // ones that each re-walk the same groups.
-    nid_t min_id = ranges.front().first;
-    nid_t max_id = ranges.front().second;
-    for (const auto& range : ranges) {
-        min_id = min(min_id, range.first);
-        max_id = max(max_id, range.second);
-    }
-
-    CacheEntry entry;
-    entry.min_id = min_id;
-    entry.max_id = max_id;
-
+void IndexedGamSiteReadSource::fetch_span(ThreadState& state, nid_t min_id, nid_t max_id,
+                                         const function<void(const Alignment&)>& iteratee) const {
     vector<pair<id_t, id_t>> query{{(id_t)min_id, (id_t)max_id}};
     index->find(*state.cursor, query, [&](const Alignment& aln) {
         if (filter.skip_secondary && aln.is_secondary()) {
@@ -234,8 +191,73 @@ void IndexedGamSiteReadSource::for_each_read(
             return;
         }
         ++fetched;
-        entry.reads.push_back(aln);
+        iteratee(aln);
     });
+}
+
+void IndexedGamSiteReadSource::fetch_window(ThreadState& state, size_t window,
+                                           vector<Alignment>& out) const {
+    nid_t lo = (nid_t)(window * window_size);
+    nid_t hi = lo + (nid_t)window_size - 1;
+    fetch_span(state, lo, hi, [&](const Alignment& aln) {
+        out.push_back(aln);
+    });
+}
+
+void IndexedGamSiteReadSource::for_each_read(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(const Alignment&)>& iteratee) const {
+
+    if (ranges.empty()) {
+        return;
+    }
+
+    ThreadState& state = thread_state();
+
+    nid_t min_id = ranges.front().first;
+    nid_t max_id = ranges.front().second;
+    for (const auto& range : ranges) {
+        min_id = min(min_id, range.first);
+        max_id = max(max_id, range.second);
+    }
+
+    size_t first_window = window_of(min_id);
+    size_t last_window = window_of(max_id);
+
+    if (first_window != last_window) {
+        // The site straddles a window boundary. Fetch the span directly rather than
+        // stitching windows together: index->find already emits each read at most
+        // once, so this sidesteps de-duplicating reads that span the boundary. A
+        // site large enough to do this is rare, and caching a region of unbounded
+        // size would defeat the point of windowing.
+        ++cache_misses;
+        fetch_span(state, min_id, max_id, [&](const Alignment& aln) {
+            if (touches(aln, ranges)) {
+                iteratee(aln);
+            }
+        });
+        return;
+    }
+
+    // Serve from the cache if this window is already resident. With the caller
+    // visiting sites in node-ID order (GraphCaller::set_node_id_ordering) this is the
+    // common case, and each window is fetched exactly once.
+    for (const CacheEntry& entry : state.cache) {
+        if (entry.valid && entry.window == first_window) {
+            ++cache_hits;
+            for (const Alignment& aln : entry.reads) {
+                if (touches(aln, ranges)) {
+                    iteratee(aln);
+                }
+            }
+            return;
+        }
+    }
+    ++cache_misses;
+
+    CacheEntry entry;
+    entry.window = first_window;
+    fetch_window(state, first_window, entry.reads);
     entry.valid = true;
 
     for (const Alignment& aln : entry.reads) {
@@ -244,9 +266,6 @@ void IndexedGamSiteReadSource::for_each_read(
         }
     }
 
-    // Round-robin eviction. The access pattern is parent-then-descendants, so the
-    // useful entry is the most recent wide one; a tiny ring keeps that without the
-    // bookkeeping of a real LRU.
     state.cache[state.next_evict] = std::move(entry);
     state.next_evict = (state.next_evict + 1) % state.cache.size();
 }

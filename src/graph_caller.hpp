@@ -75,6 +75,15 @@ public:
     /// toggle progress messages
     void set_show_progress(bool show_progress);
 
+    /// Visit top-level snarls in node-ID order, grouped into windows of window_size
+    /// node IDs, instead of the default arbitrary order.
+    ///
+    /// For read sources that fetch by node-ID range: ordered access lets them touch
+    /// each window exactly once and release it, rather than re-querying per site. Off
+    /// by default, because it changes the visit order of code the default caller
+    /// shares and that path's output must stay byte-identical.
+    void set_node_id_ordering(bool ordered, size_t window_size);
+
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
@@ -87,6 +96,10 @@ protected:
 
     /// Our snarls
     SnarlManager& snarl_manager;
+
+    /// See set_node_id_ordering.
+    bool node_id_ordering = false;
+    size_t node_id_window = 256;
 
     /// Toggle progress messages
     bool show_progress;
