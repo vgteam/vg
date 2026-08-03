@@ -78,15 +78,15 @@ void help_paths(char** argv) {
          << "      --gref-segs FILE      write gref segment table to FILE: a '#' header then" << endl
          << "                            one tab-separated row per fragment, with columns" << endl
          << "                            source_path, source_start, source_end, gref_contig," << endl
-         << "                            ref_contig, ref_start, ref_end, top_level_snarl," << endl
-         << "                            level, parent_contig, strand.  Columns 1-3 are a BED" << endl
-         << "                            interval on the haplotype the fragment came from;" << endl
-         << "                            5-7 locate it on the reference; 8 names the site it" << endl
-         << "                            is an allele of, spelled as the VCF record ID of" << endl
-         << "                            that snarl (>start>end) so it joins to ID or PS;" << endl
-         << "                            9-10 are its nesting level (1 = directly off the" << endl
-         << "                            base reference) and the gref contig supplying its" << endl
-         << "                            coordinates; 11 is the strand of columns 1-3" << endl
+         << "                            level, strand, ref_contig, ref_start, ref_end," << endl
+         << "                            top_level_snarl, parent_contig.  Columns 1-6 are a" << endl
+         << "                            BED6 on the haplotype the fragment came from, with" << endl
+         << "                            the nesting level in the score slot (1 = directly" << endl
+         << "                            off the base reference); 7-9 locate it on the" << endl
+         << "                            reference; 10 names the site it is an allele of," << endl
+         << "                            spelled as that snarl's VCF record ID (>start>end)" << endl
+         << "                            so it joins to ID or PS; 11 is the gref contig" << endl
+         << "                            supplying its coordinates" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl

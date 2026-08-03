@@ -179,7 +179,7 @@ is $(cut -f4 gref_test.segs | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref-segs conta
 
 is $(grep -v "^#" gref_test.segs | cut -f1 | grep -c "#") 2 "gref-segs contains source path names with metadata"
 
-is $(cut -f5 gref_test.segs | grep -c "^x$") 2 "gref-segs contains reference path name"
+is $(cut -f7 gref_test.segs | grep -c "^x$") 2 "gref-segs contains reference path name"
 
 # Test that gref-segs requires compute-gref
 vg paths -x nesting/nested_snp_in_ins.gfa -Q x -L --gref-segs gref_test.segs 2>&1 | grep -q "requires --compute-gref"
@@ -222,7 +222,7 @@ is $(vg paths -x ref_start_test.vg -L | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref 
 
 is "$(vg paths -x ref_start_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "16" "gref cover includes the sequence before the reference start"
 
-is $(cut -f5 ref_start.segs | grep -c "^x$") 2 "gref-segs reference column stays on the reference path"
+is $(cut -f7 ref_start.segs | grep -c "^x$") 2 "gref-segs reference column stays on the reference path"
 
 # Same, with the extra sequence after the reference path's last node (the other merge branch)
 vg paths -x nesting/hap_extends_ref_end.gfa -Q x --compute-gref --min-gref-len 1 > ref_end_test.vg
@@ -414,7 +414,7 @@ is $(vg paths -x consec.vg -L | grep -c "_alt$") 1 "consecutive nested snarls ar
 
 is $(grep -vc "^#" consec.segs) 1 "a fragment spanning two nested snarls gets one segment line"
 
-is "$(grep -v "^#" consec.segs | cut -f5,6,7)" "$(printf 'x\t0\t2')" "the segment reference interval spans the enclosing snarl"
+is "$(grep -v "^#" consec.segs | cut -f7,8,9)" "$(printf 'x\t0\t2')" "the segment reference interval spans the enclosing snarl"
 
 rm -f consec.vg consec.segs
 

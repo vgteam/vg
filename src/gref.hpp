@@ -196,9 +196,12 @@ public:
     void assign_nesting(const bdsg::SnarlDistanceIndex& distance_index);
 
     // Write a tab-separated table describing gref segments.
-    // Each line contains: source_path, source_start, source_end, gref_path_name,
-    //                     ref_path, ref_start, ref_end,
-    //                     top_level_snarl, level, parent_contig, strand
+    // Each line contains: source_path, source_start, source_end, gref_contig, level, strand,
+    //                     ref_contig, ref_start, ref_end, top_level_snarl, parent_contig
+    //
+    // Columns 1-6 are a valid BED6, with the nesting level in the score slot -- a small
+    // non-negative integer is what that field wants, and it avoids a column that would always
+    // be ".".  `cut -f1-6` therefore feeds bedtools directly, strand included.
     //
     // The first line is a '#'-prefixed header naming the columns.  Consumers skip it by the
     // usual conventions (grep -v '^#', pandas comment='#').  Cactus's merge_gref_segs() keeps

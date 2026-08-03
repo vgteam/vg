@@ -1404,10 +1404,13 @@ void GrefCover::write_gref_segments(ostream& os) {
     // Header, '#'-prefixed so it is skipped by the usual conventions (grep -v '^#',
     // pandas comment='#', bedtools).  Cactus concatenates the per-chromosome tables and drops
     // every header but the first, so the merged file keeps exactly one.
-    os << "#source_path\tsource_start\tsource_end\tgref_contig"
+    // Columns 1-6 are a valid BED6: chrom/start/end/name/score/strand.  The score slot
+    // carries the nesting level rather than a placeholder -- it is a small non-negative
+    // integer, which is what that field wants, and it is the column people filter on.  That
+    // makes `cut -f1-6` usable by bedtools directly, including strand-aware operations.
+    os << "#source_path\tsource_start\tsource_end\tgref_contig\tlevel\tstrand"
        << "\tref_contig\tref_start\tref_end"
-       << "\ttop_level_snarl"
-       << "\tlevel\tparent_contig\tstrand" << endl;
+       << "\ttop_level_snarl\tparent_contig" << endl;
 
     // Numbering starts from scratch, exactly as apply() does; see the note there.
 
@@ -1687,19 +1690,19 @@ void GrefCover::write_gref_segments(ostream& os) {
            << display_source_start << "\t"
            << display_source_end << "\t"
            << gref_name << "\t"
-           << ref_path_name << "\t"
-           << (ref_start + ref_offset) << "\t"
-           << (ref_end + ref_offset) << "\t"
-           << top_snarl_id << "\t"
            << (this->interval_level.empty() ? 0 : this->interval_level[i]) << "\t"
-           << parent_name_of(i) << "\t"
            // Strand of the fragment against columns 1-3.  apply() reverse-complements an
            // all-reverse run so the emitted contig always reads forward, which means the
            // sequence at source_path[source_start:source_end] is the REVERSE COMPLEMENT of
            // the gref contig for these.  26 of 2137 chr22 fragments.  Without this column
            // cols 1-3 are a BED interval whose sequence silently disagrees with the VCF's
            // REF/ALT, and nothing else in the table or the VCF reveals it.
-           << (all_reverse ? '-' : '+') << "\n";
+           << (all_reverse ? '-' : '+') << "\t"
+           << ref_path_name << "\t"
+           << (ref_start + ref_offset) << "\t"
+           << (ref_end + ref_offset) << "\t"
+           << top_snarl_id << "\t"
+           << parent_name_of(i) << "\n";
     }
 }
 
