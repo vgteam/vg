@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 87
+plan tests 96
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -169,6 +169,49 @@ diff small_cluster_0.vcf small_cluster_min_only.vcf
 is "$?" 0 "--cluster-min-len without -L is a no-op"
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
+
+# Star alleles (-R) are a marker, not sequence.  They must survive verbatim as "*" in every
+# orientation and at every site type: complement['*'] is 'N', so reverse-complementing one turns it
+# into a real ambiguous base, and prepending the anchor base turns it into "A*"/"AN".
+star_alt() { awk -F'\t' -v id="$2" '$3 == id {print $2" "$4" "$5}' "$1"; }
+
+vg deconstruct nesting/nested_snp_in_del.gfa         -p x -a -R 2>/dev/null > star_fwd.vcf
+vg deconstruct nesting/nested_snp_in_del_rev.gfa     -p x -a -R 2>/dev/null > star_rev.vcf
+vg deconstruct nesting/nested_del_star_indel.gfa     -p x -a -R 2>/dev/null > star_indel.vcf
+vg deconstruct nesting/nested_del_star_indel_rev.gfa -p x -a -R 2>/dev/null > star_rev_indel.vcf
+vg deconstruct nesting/nested_mnp_star.gfa           -p x -a -R 2>/dev/null > star_mnp.vcf
+vg deconstruct nesting/nested_ins_star_only.gfa      -p x -a -R 2>/dev/null > star_emptyref.vcf
+vg deconstruct nesting/insertion_with_three_snps.gfa -p x -a -R 2>/dev/null > star_three.vcf
+vg deconstruct nesting/star_cluster.gfa              -p x -a -R 2>/dev/null > star_cluster.vcf
+vg deconstruct nesting/star_allele_cluster.gfa       -p x -a -R 2>/dev/null > star_allele_cluster.vcf
+
+is "$(star_alt star_fwd.vcf       '>2>5')" "3 T A,*"      "star is * at a forward substitution site"
+is "$(star_alt star_rev.vcf       '>2>5')" "3 A T,*"      "star is not reverse complemented into N"
+is "$(star_alt star_indel.vcf     '>2>5')" "2 ATTTT AA,*" "star is not padded with the previous base"
+is "$(star_alt star_rev_indel.vcf '>2>5')" "2 CAAAA CT,*" "star survives reversal and padding together"
+is "$(star_alt star_mnp.vcf       '>2>5')" "3 TT AA,*"    "a star does not force indel padding of the real alleles"
+is "$(star_alt star_emptyref.vcf  '>2>5')" "2 A *"        "empty REF keeps its anchor base with a star-only ALT"
+
+# -R adds star alleles; it must not move or respell the real ones
+diff <(vg deconstruct nesting/nested_mnp_star.gfa -p x -a -R 2>/dev/null | grep -v '^#' | cut -f1,2,4) \
+     <(vg deconstruct nesting/nested_mnp_star.gfa -p x -a    2>/dev/null | grep -v '^#' | cut -f1,2,4)
+is "$?" 0 "-R does not change CHROM/POS/REF of the real alleles"
+
+# Negative sweep over every fixture above: an AT entry of "." identifies a star allele, and AT is
+# Number=R so the mapping is by index, independent of ALT order.
+star_fields() {
+    grep -hv "^#" "$@" | awk -F'\t' '{
+        n = split($5, alts, ",");
+        if (match($8, /AT=[^;]*/)) {
+            split(substr($8, RSTART + 3, RLENGTH - 3), ats, ",");
+            for (i = 1; i <= n; i++) if (ats[i + 1] == ".") print alts[i];
+        }}'
+}
+STAR_VCFS="star_fwd.vcf star_rev.vcf star_indel.vcf star_rev_indel.vcf star_mnp.vcf star_emptyref.vcf star_three.vcf star_cluster.vcf star_allele_cluster.vcf"
+is "$(star_fields $STAR_VCFS | grep -c '')"      "8" "the star allele sweep is not vacuous"
+is "$(star_fields $STAR_VCFS | grep -vc '^\*$')" "0" "every allele whose AT entry is . is spelled exactly *"
+
+rm -f $STAR_VCFS
 
 # Nesting tests now use a two-step process:
 # 1. Compute gref cover with vg paths

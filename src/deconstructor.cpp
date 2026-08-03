@@ -40,11 +40,17 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     // go from traversals number (offset in travs) to allele number
     vector<int> trav_to_allele(travs.size());
 
+    // A star allele is a haplotype genotyped in the parent snarl that does not pass through this
+    // one.  It is an EMPTY traversal (sole producer: add_star_traversals in traversal_clusters.cpp)
+    // spelled "*" in VCF.  That spelling is a MARKER, not sequence -- every test below asks the
+    // traversal, never the string.
+    auto is_star_trav = [](const Traversal& trav) { return trav.empty(); };
+
     // compute the allele as a string
     auto trav_to_string = [&](const Traversal& trav) {
         string allele;
         // hack to support star alleles
-        if (trav.size() == 0) {
+        if (is_star_trav(trav)) {
             allele = "*";
         } else {
             // we skip the snarl endpoints
@@ -55,7 +61,10 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         return allele;
     };
 
-    // set the reference allele
+    // set the reference allele.  The reference traversal comes from PathTraversalFinder, which
+    // always emits both snarl endpoints, so it is never empty; stars are appended later by
+    // add_star_traversals.  Fail loudly rather than putting "*" -- or its revcomp -- in REF.
+    assert(!is_star_trav(travs.at(ref_path_idx)));
     string ref_allele = trav_to_string(travs.at(ref_path_idx));
     allele_idx[ref_allele] = make_pair(0, ref_path_idx);
     trav_to_allele[ref_path_idx] = 0;
@@ -64,16 +73,27 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     // set the other alleles (they can end up as 0 alleles too if their strings match the reference)
     // note that we have one (unique) allele per cluster, so we take advantage of that here
     for (const vector<int>& cluster : trav_clusters) {
-        string allele = trav_to_string(travs[cluster.front()]);
+        const Traversal& cluster_trav = travs[cluster.front()];
+        string allele = trav_to_string(cluster_trav);
+        bool allele_is_star = is_star_trav(cluster_trav);
         for (const int& i : cluster) {
             if (i != ref_path_idx) {
                 auto ai_it = allele_idx.find(allele);
                 if (ai_it == allele_idx.end()) {
+                    // star traversals are always singleton clusters (add_star_traversals in
+                    // traversal_clusters.cpp pushes {travs.size() - 1}), which is what lets the
+                    // emission loop below re-derive star-ness from the stored member index i
+                    // rather than from cluster.front()
+                    assert(!allele_is_star || cluster.size() == 1);
                     // make a new allele for this string
                     allele_idx[allele] = make_pair(cur_alt, i);
                     trav_to_allele.at(i) = cur_alt;
                     ++cur_alt;
-                    substitution = substitution && allele.size() == ref_allele.size();
+                    if (!allele_is_star) {
+                        // a star carries no sequence: it is neither the reference's length nor a
+                        // different one, so it must not decide whether this site needs an anchor base
+                        substitution = substitution && allele.size() == ref_allele.size();
+                    }
                 } else {
                     // allele string has been seen, map this traversal to it
                     trav_to_allele.at(i) = ai_it->second.first;
@@ -82,6 +102,15 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                 trav_to_allele.at(i) = -1; // HACK! negative allele indexes are ignored
             }
         }
+    }
+
+    // An empty reference allele has no anchor base of its own, so the record must be written in
+    // padded (indel) form.  Before stars were excluded from the fold above, a star's length-1 "*"
+    // happened to force that; without this guard a star-only site would leave REF empty and vcflib
+    // silently rewrites "" to ".".  This restores the pre-fix behaviour at such sites, so it adds
+    // no new exposure to the assert(v.position >= 2) below.
+    if (ref_allele.empty() && allele_idx.size() > 1) {
+        substitution = false;
     }
 
     // fill in the variant
@@ -120,11 +149,16 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         string allele_string = ai_pair.first;
         int allele_no = ai_pair.second.first;
         int allele_trav_no = ai_pair.second.second;
-        if (reversed) {
-            reverse_complement_in_place(allele_string);
-        }
-        if (!substitution) {
-            allele_string = string(1, prev_char) + allele_string;
+        // the star is a marker, not sequence: complement['*'] is 'N' (src/utility.cpp) and htslib
+        // only recognizes an overlapping-deletion ALT when the field is exactly "*", so both
+        // transforms below would corrupt it ("N", "AN", "A*")
+        if (!is_star_trav(travs.at(allele_trav_no))) {
+            if (reversed) {
+                reverse_complement_in_place(allele_string);
+            }
+            if (!substitution) {
+                allele_string = string(1, prev_char) + allele_string;
+            }
         }
         v.alleles[allele_no] = allele_string;
         if (allele_no > 0) {
