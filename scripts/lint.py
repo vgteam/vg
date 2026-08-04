@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that command line options are correctly registered.
+"""Check that options and subcommands are correctly registered.
 
 Run with scripts/lint.py
 
@@ -13,126 +13,12 @@ There are a lot of rules; this script has *strong* opinions about how
 options should appear, though I've been flexible about valid
 variations. If something looks off, a detailed message will be
 printed to stdout. If that message doesn't make sense, something
-might've been ignored due to a wrong format, so check "Format".
+might've been ignored due to a wrong format. Check CONTRIBUTING.md.
 If it still doesn't make sense, ping @faithokamoto
 (if I'm still here) and/or open an issue on GitHub.
 
-## Checks
-
-### File as a whole
-
-The file is processed four times in an attempt to extract
-the four option sets: helptext, long_options[], getopt_long() string,
-and switch(c) block. If any of these processes run into completely
-unusable formatting, such as some cases of duplicate options that
-simply can't be stored in my data structures, a ValueError is raised
-and printed to stdout. No other checks are performed.
-
-If you get one of these errors, then, you might have to
-fix multiple things in the file before the script can run well.
-
-Checks performed on the *file as a whole*.
-
-1. The help options (-h, -?) must be present in the helptext,
-   getopt string, and the switch block, and must not take an
-   argument. In the switch block, they must exit/return/abort.
-   (It has at least one of the keywords in `NON_WORK_WORDS`)
-2. The default case in the switch block must exit/return/abort.
-3. All options in the getopt string must be in long_options[].
-4. All options in the switch block must be in long_options[].
-
-While long_options[], the getopt string, and the switch block
-must have the same option set, the helptext is allowed to be
-missing some options (e.g. deprecated/developer-only options).
-
-Also -? should appear only in the getopt string and the switch block,
-and not in long_options[] or the helptext.
-
-### Each option separately
-
-Longform options are pulled from the helptext and long_options[]
-
-1. All longform options must be in long_options[]
-2. The shortform option must be in the getopt string
-   (if not an ALL_CAPS variable name), and the switch block.
-3. The long_options[] entry must be either `no_argument`
-   or `required_argument`.
-4. The long_options[] entry must match the helptext entry, both
-    in whether it takes an argument and in its shortform, if the
-    latter is a single character (not ALL_CAPS variable name).
-5. If the longform option has a single-character shortform,
-   (i.e. not an ALL_CAPS variable name), it must be in the
-   getopt string, which must correctly indicate whether it
-   takes an argument via using a trailing colon.
-6. The long_options[] entry must match the switch block entry,
-   in whether it takes an argument.
-
-Note that only the first of these which fails will be printed,
-so if you see a message about a missing long_options[] entry,
-you may have to do multiple runs/fixes to see all the problems.
-
-### Subcommands all together
-
-All subcommand names, including those skipped, must appear in the
-autocomplete files and manpage files, and those files also can't
-have any subcommands which don't exist.
-
-- Autocompleted subcommands in the AUTOCOMP_FILES are read as:
-      opts="name1 name2 etc."
-- The MANPAGE_HEADER_FILE must have the name of the subcommand
-  as a link to its section, for example:
-       [`vg autoindex`](#autoindex)
-- The MANPAGE_MAKER_FILE must have the name of the subcommand
-  in its "cmds" list (which is allowed to take multiple lines)
-
-## Format
-
-- helptext: within the `help_<command>()` function,
-  options must be printed with `"  -<short>, --<long> <arg>  <desc>"`
-  (the description is ignored, and the shortform and argument are optional).
-  The longform option must be composed of alphanumeric characters
-  and hyphens, and the argument must be in all-caps.
-  In addition, there must be a "usage:" line somewhere.
-  
-  Option helptext is not allowed to be over 80 characters long,
-  and all descriptions must line up properly. If there are more
-  than 80 characters between the `"`s, but that's because you
-  have some long default value, just stick that bit on a new line
-  of code without changing the printed text. Check out
-  `filter_main.cpp`'s `--batch-size` for an example.
-
-- long_options[]: within the `long_options[]` array,
-  must be an array of `{"longform", arg_type, 0, shortform}`
-  where `arg_type` is either `no_argument` or `required_argument`.
-  The longform option must be a string, and the shortform
-  must be a single character (NOT a bare non-quoted integer)
-  or an ALL_CAPS variable name. Note that ALL_CAPS variables
-  must be before the long_options[] array as constexpr ints.
-
-  Shortforms may repeat, and the first longform is retained.
-  This is to allow longform aliases.
-
-- getopt_long() string: within the short option string,
-  a string of single-character shortform options.
-  If and only if a shortform option takes an argument,
-  it must be followed by a colon.
-
-- switch(c) block: within the switch block handling options,
-  each case must be of the form `case <shortform>:` or `default:`.
-  The shortform must be a single character or an ALL_CAPS variable name.
-  If the case takes an argument, it must use `optarg`.
-  If it *intentionally* doesn't work (e.g. is deprecated, calls `exit`)
-  it may or may not use `optarg`. Fallthroughs are handled.
-
-  An attempt is made to enforce the usage of `require_exists()`,
-  `ensure_writable()`, and `set_thread_count()`.
-
-For all checks, commented-out lines are ignored.
-(Though multiline comments aren't handled correctly.)
-
-In addition, the logic to figure out when we're inside of a block
-marked by {} assumes that there is only one curly brace of each
-type maximum per line. }} might compile but this script will complain.
+Note that you may need to do multiple rounds of fixes
+if later errors aren't checked because something earlier failed.,
 
 ## Attribution
 
