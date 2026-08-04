@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 101
+plan tests 108
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -181,6 +181,30 @@ is "$(core_nalt core_sv60 50)"         "1" "a 60bp SV is still clustered at --cl
 is "$(core_nalt core_del61 50)"        "1" "a 61bp deletion is still clustered (the reference allele is measured)"
 is "$(core_nalt core_ins49 50)"        "2" "a 49bp insertion is not clustered at 50 (the anchor base is not counted)"
 is "$(core_nalt core_ins50 50)"        "1" "a 50bp insertion is clustered at 50"
+
+# A PURE DELETION -- a traversal straight from snarl start to snarl end -- used to keep its boundary
+# handles, which made its handle set disjoint from every other allele's by construction.  Its
+# similarity was therefore structurally 0 and no -L could ever merge it.  It is now scored against
+# the site: two deletions that both remove 59 of a 60bp site score 59/60.
+# The ladder is -L 0.99 / 0.983334 / 0.983333 / 0.6 / 0.1, printing the ALT count at each.
+dladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg deconstruct nesting/$1.gfa -p x -L $L 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+
+is "$(dladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion cluster, flipping at 59/60"
+is "$(dladder del60_vs_del59ins1)" "22111" "a deletion clusters with a deletion carrying a novel base"
+is "$(dladder del60_vs_snp)"       "22222" "a 60bp deletion never clusters with a 1bp SNP"
+is "$(dladder inv60_vs_del60)"     "22222" "a 60bp inversion never clusters with a 60bp deletion"
+# only a PURE DELETION is scored against the site; scaling every pair by it would make unrelated
+# alleles in a big snarl look alike, which these two pin
+is "$(dladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion clusterable"
+is "$(dladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles clusterable"
+
+vg deconstruct nesting/del59_vs_del60.gfa -p x 2>/dev/null > deldefault.vcf
+vg deconstruct nesting/del59_vs_del60.gfa -p x -L 1.0 2>/dev/null > delnoop.vcf
+diff deldefault.vcf delnoop.vcf
+is "$?" 0 "-L 1.0 is byte-identical to no -L on a pure-deletion site"
+rm -f deldefault.vcf delnoop.vcf
 
 # Star alleles (-R) are a marker, not sequence.  They must survive verbatim as "*" in every
 # orientation and at every site type: complement['*'] is 'N', so reverse-complementing one turns it

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 138
+plan tests 146
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -362,6 +362,27 @@ is "$(core_nalt core_sv60 50)"          "1" "a 60bp SV is still merged at --clus
 is "$(core_nalt core_del61 50)"         "1" "a 61bp deletion is still merged (the reference allele is measured)"
 is "$(core_nalt core_ins49 50)"         "2" "a 49bp insertion is not merged at 50 (the anchor base is not counted)"
 is "$(core_nalt core_ins50 50)"         "1" "a 50bp insertion is merged at 50"
+
+# Pure deletions: see the matching block in 26_deconstruct.t.  Both tools must make the SAME merge
+# decision, so the ladders are compared directly.  Compare COUNTS, never sequences -- vg call keeps
+# the highest-depth allele and vg deconstruct keeps whichever get_traversal_order ranks first, so the
+# surviving sequence legitimately differs.
+for g in del59_vs_del60 del60_vs_del59ins1 del60_vs_snp inv60_vs_del60 inv60_in_2kb unrelated10_in_2kb ; do core_pack $g ; done
+cladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg call core_$1.vg -k core_$1.pack -p x -L $L 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+dladder2() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg deconstruct nesting/$1.gfa -p x -L $L 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+
+is "$(cladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion merge, flipping at 59/60"
+is "$(cladder del60_vs_del59ins1)" "22111" "a deletion merges with a deletion carrying a novel base"
+is "$(cladder del60_vs_snp)"       "22222" "a 60bp deletion never merges with a 1bp SNP"
+is "$(cladder inv60_vs_del60)"     "22222" "a 60bp inversion never merges with a 60bp deletion"
+is "$(cladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion mergeable"
+is "$(cladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles mergeable"
+is "$(cladder del59_vs_del60)"     "$(dladder2 del59_vs_del60)"     "vg call and vg deconstruct agree on deletions"
+is "$(cladder inv60_in_2kb)"       "$(dladder2 inv60_in_2kb)"       "vg call and vg deconstruct agree on non-merges"
 
 rm -f core_*.vg core_*.gam core_*.pack
 

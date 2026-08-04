@@ -570,12 +570,22 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
             }
         }
     }
+    // The VCF reference allele sets the scale a pure deletion is measured against.  It is
+    // site_traversals[0] and is deliberately not clustered (the loop above starts at 1).  A
+    // NestedFlowCaller child-snarl Visit legitimately has no handle representation, in which case we
+    // pass nullptr and this site falls back to pairwise scoring -- which can only merge less.
+    Traversal ref_trav;
+    const Traversal* site_ref_trav = nullptr;
+    if (!site_traversals.empty() && snarl_traversal_to_handles(graph, site_traversals[0], ref_trav)) {
+        site_ref_trav = &ref_trav;
+    }
     vector<pair<double, int64_t>> cluster_info;
     vector<int> unused_child_snarl_mapping;
     vector<vector<int>> clusters = cluster_traversals(&graph, alt_travs, order,
                                                       vector<pair<handle_t, handle_t>>(),
                                                       allele_merge_threshold,
-                                                      cluster_info, unused_child_snarl_mapping);
+                                                      cluster_info, unused_child_snarl_mapping,
+                                                      site_ref_trav);
 
     // merge_to[a] == a for a surviving allele, else the allele it collapses into
     vector<int> merge_to(out_variant.alleles.size());

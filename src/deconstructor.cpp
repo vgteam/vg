@@ -970,7 +970,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                                                vector<pair<handle_t, handle_t>>(),
                                                cluster_threshold,
                                                trav_cluster_info,
-                                               unused_child_snarl_mapping);
+                                               unused_child_snarl_mapping,
+                                               &travs[ref_trav_idx]);
         } else {
             // Trivial clusters (one per used traversal) in sorted_travs order.
             // Mirrors what cluster_traversals would return when nothing collapses.

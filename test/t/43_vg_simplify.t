@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 7
+plan tests 11
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 
@@ -30,3 +30,16 @@ is "$(vg paths -d -v x.rare.vg | vg mod --unchop - | vg stats -N -)" "118" "simp
 rm -f x.vg x.small.vg x.rare.vg
  
 
+# -L clustering: a pure deletion used to be unclusterable, so this path could never merge one.
+# vg simplify is the only -L consumer that mutates the graph, so the merged allele's nodes and
+# edges are actually removed.  -m 0 is required or the length filter fires first.
+vg view -Fv nesting/simplify_del_absorbs.gfa > simplify_del.vg
+vg simplify --algorithm small -P x -m 0 -L 0.6 simplify_del.vg > simplify_del_L.vg 2>/dev/null
+is "$(vg stats -N simplify_del_L.vg)" "3" "-L drops a node whose allele merged into a pure deletion"
+is "$(vg stats -E simplify_del_L.vg)" "3" "-L drops its edges too"
+vg validate simplify_del_L.vg 2>/dev/null
+is "$?" 0 "the graph is still valid after -L simplification"
+vg simplify --algorithm small -P x -m 0 -L 1.0 simplify_del.vg > simplify_del_noop.vg 2>/dev/null
+is "$(vg stats -N simplify_del_noop.vg)" "4" "-L 1.0 changes nothing"
+
+rm -f simplify_del.vg simplify_del_L.vg simplify_del_noop.vg
