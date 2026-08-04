@@ -309,6 +309,13 @@ int main_call(int argc, char** argv) {
                     // Parse the regex
                     std::regex match(parts[0]);
                     size_t weight = parse<size_t>(parts[1]);
+                    // the callers only implement ploidy 1 and 2 (see the assert in
+                    // PoissonSupportSnarlCaller::genotype); -d is checked for this, and -R has to be
+                    // too or it reaches the caller as an unsupported ploidy and crashes there
+                    if (weight != 1 && weight != 2) {
+                        logger.error() << "ploidy in -R/--ploidy-regex rule \"" << rule
+                                       << "\" must be 1 or 2" << endl;
+                    }
                     // Save the rule
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {

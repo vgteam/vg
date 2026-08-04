@@ -1344,7 +1344,7 @@ void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const st
 
     // create allele ordering where reference is 0
     vector<int> alleles;
-    if (ref_trav_idx >= 0) {
+    if (ref_trav_idx >= 0 && ref_trav_idx < (int64_t)travs.size()) {
         alleles.push_back(ref_trav_idx);
     }
     for (int i = 0; i < travs.size(); ++i) {
@@ -1381,11 +1381,25 @@ void GAFOutputCaller::emit_gaf_variant(const PathHandleGraph& graph, const strin
 
     // pretty bare bones for now, just output the genotype as a pair of traversals
     // todo: we could embed some basic information (likelihood, ploidy, sample etc) in the gaf
+    // gt_travs is a NEW vector holding one entry per called allele, so ref_trav_idx -- an index into
+    // travs -- does not address it.  Passing it through unremapped made emit_gaf_traversals index a
+    // 2-element vector with an index into the full traversal list.  The genotype can also carry the
+    // negative star/missing markers, which address nothing at all.
     vector<SnarlTraversal> gt_travs;
+    int64_t gt_ref_trav_idx = -1;
     for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)travs.size()) {
+            continue;
+        }
+        if (allele == ref_trav_idx && gt_ref_trav_idx < 0) {
+            gt_ref_trav_idx = (int64_t)gt_travs.size();
+        }
         gt_travs.push_back(travs[allele]);
     }
-    emit_gaf_traversals(graph, snarl_name, gt_travs, ref_trav_idx, ref_path_name, ref_path_position, support_finder);
+    if (gt_travs.empty()) {
+        return;
+    }
+    emit_gaf_traversals(graph, snarl_name, gt_travs, gt_ref_trav_idx, ref_path_name, ref_path_position, support_finder);
 }
 
 SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const {

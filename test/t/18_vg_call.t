@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 148
+plan tests 154
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -350,6 +350,16 @@ is "$?" 0 "--cluster-post warns that it is ignored"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 > call_cluster_td.vcf 2>/dev/null
 is "$(call_site call_cluster_td.vcf 5)" "ATTTGA" "-L merges under --top-down"
 
+# --bottom-up had zero coverage anywhere in the suite.  It aborted on any nested graph whose
+# reference traversal crosses a child snarl, because a child-snarl Visit carries no node.
+vg view -Fv nesting/nested_snp_in_del.gfa > bu.vg
+vg sim -x bu.vg -n 30 -l 10 -a -s 1 > bu.gam
+vg pack -x bu.vg -g bu.gam -o bu.pack
+vg call bu.vg -k bu.pack -p x --bottom-up > bu.vcf 2>/dev/null
+is "$?" 0 "--bottom-up does not abort on a nested graph"
+is "$(grep -vc '^#' bu.vcf)" "1" "--bottom-up emits a record"
+rm -f bu.vg bu.gam bu.pack bu.vcf
+
 # --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
 # every allele are stripped -- not on the raw snarl interior.  Same rule, same helper, as
 # vg deconstruct: without it a 1bp SNP gets gated on the size of whatever snarl contains it.
@@ -392,6 +402,20 @@ is "$(cladder del59_vs_del60)"     "$(dladder2 del59_vs_del60)"     "vg call and
 is "$(cladder inv60_in_2kb)"       "$(dladder2 inv60_in_2kb)"       "vg call and vg deconstruct agree on non-merges"
 
 rm -f core_*.vg core_*.gam core_*.pack
+
+# Crash regressions.  None of these modes had any coverage, which is how all three survived.
+# -R/--ploidy-regex bypassed the {1,2} ploidy check that -d gets, and reached the caller as an
+# unsupported ploidy.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:3' >/dev/null 2>&1
+is "$?" 1 "-R rejects a ploidy the callers do not implement"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:2' >/dev/null 2>&1
+is "$?" 0 "-R still accepts ploidy 2"
+# -G built a re-indexed traversal vector but kept the original reference index, then indexed the
+# small vector with it.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null
+is "$?" 0 "-G does not crash"
+is "$(grep -c . call_gaf.gaf)" "11" "-G emits a GAF record per called traversal"
+rm -f call_gaf.gaf
 
 rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_a.gam call_b.gam
 rm -f call_no_cluster.vcf call_cluster.vcf call_cluster_off.vcf call_cluster_hi.vcf call_cluster_lo.vcf call_cluster_td.vcf
