@@ -176,9 +176,10 @@ TEST_CASE("Simple X case", "[chain_items]") {
     scheme.consistency_bonus = 0;
     scheme.recombination_penalty = 0;
     auto result = algorithms::find_best_chains(to_score, distance_index, graph, scheme, 2);
+    REQUIRE(result.size() == 1);
     // We should see all possible paths
-    REQUIRE(result.subchains.size() == 5);
-    REQUIRE(result.connections.size() == 5);
+    REQUIRE(result.front().subchains.size() == 5);
+    REQUIRE(result.front().connections.size() == 5);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {
@@ -212,16 +213,19 @@ TEST_CASE("X with different length chains", "[chain_items]") {
     scheme.consistency_bonus = 0;
     scheme.recombination_penalty = 0;
     auto result = algorithms::find_best_chains(to_score, distance_index, graph, scheme, 2);
+    REQUIRE(result.size() == 1);
     // We should see all possible paths
-    REQUIRE(result.subchains.size() == 5);
-    REQUIRE(result.connections.size() == 5);
+    REQUIRE(result.front().subchains.size() == 5);
+    REQUIRE(result.front().connections.size() == 5);
 }
 
 TEST_CASE("Simple V case", "[chain_items]") {
-    algorithms::SubchainGroup tracebacks;
-    tracebacks.subchains = {{0, 1, 4}, {2, 3}};
-    tracebacks.connections = {make_pair(3, 4)};
-    algorithms::SubchainGroup result = algorithms::split_up_subchains(5, tracebacks);
+    vector<algorithms::SparseAnchorChain> tracebacks;
+    tracebacks.emplace_back();
+    tracebacks.back().anchors = {0, 1, 4};
+    tracebacks.emplace_back();
+    tracebacks.back().anchors = {2, 3};
+    algorithms::SubchainGroup result = algorithms::split_up_subchains(5, tracebacks, {make_pair(3, 4)});
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 3);
     REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
@@ -231,10 +235,12 @@ TEST_CASE("Simple V case", "[chain_items]") {
 }
 
 TEST_CASE("Simple Y case", "[chain_items]") {
-    algorithms::SubchainGroup tracebacks;
-    tracebacks.subchains = {{0, 1, 4, 5}, {2, 3}};
-    tracebacks.connections = {make_pair(3, 4)};
-    algorithms::SubchainGroup result = algorithms::split_up_subchains(6, tracebacks);
+    vector<algorithms::SparseAnchorChain> tracebacks;
+    tracebacks.emplace_back();
+    tracebacks.back().anchors = {0, 1, 4, 5};
+    tracebacks.emplace_back();
+    tracebacks.back().anchors = {2, 3};
+    algorithms::SubchainGroup result = algorithms::split_up_subchains(6, tracebacks, {make_pair(3, 4)});
     // We should see all possible paths
     REQUIRE(result.subchains.size() == 3);
     REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});

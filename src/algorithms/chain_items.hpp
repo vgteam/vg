@@ -438,8 +438,6 @@ struct SubchainGroup {
     /// Subchains, each as a list of anchors
     std::vector<std::vector<size_t>> subchains;
     /// Connections between subchains, as (source index, sink index) pairs
-    /// For a finished SubchainGroup, these are subchain indexes
-    /// For one in progress it may still be anchor indexes
     std::vector<pair<size_t, size_t>> connections;
     /// The maximum score of any chain
     int max_sparse_chain_score = 0;
@@ -563,14 +561,15 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
  * predecessor was already used, the other stored predecessors will be tried,
  * as long as they are no more worse than max_alt_lookback.
  * 
- * Note that the SubchainGroup has "connections" using anchor indexes,
- * not subchain indexes; its "subchains" are actually the full chains
+ * Returns tracebacks and inter-traceback connections via pass-by-ref args
  */
-SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
-                                    const VectorView<Anchor>& to_chain,
-                                    const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                    size_t max_tracebacks = 1,
-                                    size_t max_alt_lookback = 10);
+void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                           const VectorView<Anchor>& to_chain,
+                           vector<SparseAnchorChain>& tracebacks,
+                           vector<pair<size_t, size_t>>& connections,
+                           const ChainScoringScheme& scheme = ChainScoringScheme(),
+                           size_t max_tracebacks = 1,
+                           size_t max_alt_lookback = 10);
 
 /**
  * Generate subchains from multiple tracebacks.
@@ -579,7 +578,9 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
  * Save connections between subchains, pulling from edges in tracebacks
  * as well as alternative edges.
  */
-SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup& original_tracebacks);
+SubchainGroup split_up_subchains(const size_t& anchor_count,
+                                 const vector<SparseAnchorChain>& original_tracebacks,
+                                 const vector<pair<size_t, size_t>>& connections);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -587,17 +588,18 @@ SubchainGroup split_up_subchains(const size_t& anchor_count, const SubchainGroup
  *
  * Input items must be sorted by start position in the read.
  *
- * Returns the scores and the list of indexes of items visited to achieve
- * that score, in order, with multiple tracebacks in descending score order.
+ * Gets initial tracebacks and inter-traceback connections,
+ * then joins them into a SubchainGroup. If all tracebacks are disjoint
+ * then separate SubchainGroups are returned.
  */
-SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
-                               const SnarlDistanceIndex& distance_index,
-                               const HandleGraph& graph,
-                               const ChainScoringScheme& scheme = ChainScoringScheme(),
-                               size_t max_chains = 1,
-                               const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                               size_t max_indel_bases = 100,
-                               bool show_work = false);
+vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
+                                       const SnarlDistanceIndex& distance_index,
+                                       const HandleGraph& graph,
+                                       const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                       size_t max_chains = 1,
+                                       const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                                       size_t max_indel_bases = 100,
+                                       bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
