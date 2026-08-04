@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check that command line options are correctly registered.
 
-Run with scripts/check_options.py
+Run with scripts/lint.py
 
 ## Summary
 
