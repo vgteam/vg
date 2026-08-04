@@ -499,12 +499,12 @@ class MinimizerMapper : public AlignerClient {
 
     /// The minimum score of a supplementary as a fraction of the primary alignment score
     static constexpr double default_min_supplementary_score_fraction = 0.4;
-    size_t min_supplementary_score_fraction = default_min_supplementary_score_fraction;
+    double min_supplementary_score_fraction = default_min_supplementary_score_fraction;
 
     /// The minimum fraction of the read that the primary and the supplementaries must jointly align in order for
     /// supplementary alignments to be reported from disjoint graph regions
     static constexpr double default_min_supplementary_read_coverage = 0.9;
-    size_t min_supplementary_read_coverage = default_min_supplementary_read_coverage;
+    double min_supplementary_read_coverage = default_min_supplementary_read_coverage;
 
     /// Apply this sample name
     string sample_name;

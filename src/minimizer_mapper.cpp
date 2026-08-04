@@ -732,7 +732,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
             // Could this cluster finish out a supplementary alignment?
             return (total_overlap <= 2 * max_supplementary_separation && 
-                    max<int64_t>(cluster_intervals.total_size() - total_overlap, 0) >= min_supplementary_read_coverage);
+                    max<int64_t>(cluster_intervals.total_size() - total_overlap, 0) >= int64_t(min_supplementary_read_coverage * aln.sequence().size()));
         }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num, size_t item_count, bool escaped_threshold) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
@@ -903,7 +903,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
             // Could this cluster finish out a supplementary alignment?
             return (total_overlap <= 2 * max_supplementary_separation && 
-                    max<int64_t>(extension_intervals.total_size() - total_overlap, 0) >= min_supplementary_read_coverage);
+                    max<int64_t>(extension_intervals.total_size() - total_overlap, 0) >= int64_t(min_supplementary_read_coverage * aln.sequence().size()));
         },
         extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t extension_num, size_t item_count, bool escaped_threshold) -> bool {
             // This extension set is good enough.
@@ -1001,6 +1001,11 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             // Have a function to process the best alignments we obtained
             auto observe_alignment = [&](Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
+                
+                if (find_supplementaries) {
+                    auto interval = aligned_interval(aln);
+                    current_read_coverage.add(interval.first, interval.second);
+                }
 
                 if (track_provenance) {
     
@@ -3683,7 +3688,7 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
                         read_supplementaries.push_back({source.fragment, source.alignment});
                     }
                     else {
-                        const auto& source = unpaired_alignments[unpaired_suppl_source[r][i - paired_suppl_source.size() - 1]];
+                        const auto& source = unpaired_alignments[unpaired_suppl_source[r][i - paired_suppl_source[r].size() - 1]];
                         read_supplementaries.push_back({source.fragment, source.alignment});
                     }
                 }
