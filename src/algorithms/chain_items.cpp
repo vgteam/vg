@@ -536,15 +536,15 @@ int check_recombination(const TracedScore& from, const Anchor& to) {
     }
 }
 
-TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
-                           const VectorView<Anchor>& to_chain,
-                           const SnarlDistanceIndex& distance_index,
-                           const HandleGraph& graph,
-                           size_t max_predecessors,
-                           const ChainScoringScheme& scheme,
-                           const transition_iterator& for_each_transition,
-                           size_t max_indel_bases,
-                           bool show_work) {
+void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+                    const VectorView<Anchor>& to_chain,
+                    const SnarlDistanceIndex& distance_index,
+                    const HandleGraph& graph,
+                    size_t max_predecessors,
+                    const ChainScoringScheme& scheme,
+                    const transition_iterator& for_each_transition,
+                    size_t max_indel_bases,
+                    bool show_work) {
 
     DiagramExplainer diagram(show_work);
     TSVExplainer dump(show_work, "chaindump");
@@ -753,14 +753,13 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                         max_indel_bases,
                         iteratee);
         
-   
-    TracedScore best_score = TracedScore::unset();
+    if (show_work) {
+        TracedScore best_score = TracedScore::unset();
 
-    for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
-        // For each destination anchor, now that it is finished, see if it is the winner.
-        auto& here = to_chain[to_anchor];
+        for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
+            // For each destination anchor, now that it is finished, see if it is the winner.
+            auto& here = to_chain[to_anchor];
 
-        if (show_work) {
             cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
                  << " is " << chain_scores[to_anchor].front() << "\n"
                  << "\t\tbut you can also do: ";
@@ -768,51 +767,50 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                 cerr << chain_scores[to_anchor][alt_i] << " ";
             }
             cerr << endl;
+            
+            if (diagram) {
+                // Draw the item in the diagram
+                auto item_points = here.score() + scheme.item_bonus;
+                std::string here_gvnode = "i" + std::to_string(to_anchor);
+                std::stringstream label_stream;
+                label_stream << "#" << to_anchor << " " << here << " = " << item_points
+                            << "/" << chain_scores[to_anchor].front().score;
+                diagram.add_node(here_gvnode, {
+                    {"label", label_stream.str()}
+                });
+                auto graph_start = here.graph_start();
+                std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
+                diagram.ensure_node(graph_gvnode, {
+                    {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
+                    {"shape", "box"}
+                });
+                // Show the item as connected to its source graph node
+                diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+                // Make the next graph node along the same strand
+                std::string graph_gvnode2 = ("n" + std::to_string(id(graph_start) 
+                                            + (is_rev(graph_start) ? -1 : 1))
+                                            + (is_rev(graph_start) ? "r" : "f"));
+                diagram.ensure_node(graph_gvnode2, {
+                    {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) 
+                                            + (is_rev(graph_start) ? "-" : "+")},
+                    {"shape", "box"}
+                });
+                // And show them as connected. 
+                diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+            }
+            
+            // See if this is the best overall
+            best_score.max_in(chain_scores, to_anchor);
+            
+            cerr << "\tBest chain end so far: " << best_score << endl; 
         }
-        
-        if (diagram) {
-            // Draw the item in the diagram
-            auto item_points = here.score() + scheme.item_bonus;
-            std::string here_gvnode = "i" + std::to_string(to_anchor);
-            std::stringstream label_stream;
-            label_stream << "#" << to_anchor << " " << here << " = " << item_points
-                         << "/" << chain_scores[to_anchor].front().score;
-            diagram.add_node(here_gvnode, {
-                {"label", label_stream.str()}
-            });
-            auto graph_start = here.graph_start();
-            std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
-            diagram.ensure_node(graph_gvnode, {
-                {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
-                {"shape", "box"}
-            });
-            // Show the item as connected to its source graph node
-            diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
-            // Make the next graph node along the same strand
-            std::string graph_gvnode2 = ("n" + std::to_string(id(graph_start) 
-                                         + (is_rev(graph_start) ? -1 : 1))
-                                         + (is_rev(graph_start) ? "r" : "f"));
-            diagram.ensure_node(graph_gvnode2, {
-                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) 
-                                         + (is_rev(graph_start) ? "-" : "+")},
-                {"shape", "box"}
-            });
-            // And show them as connected. 
-            diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
-        }
-        
-        // See if this is the best overall
-        best_score.max_in(chain_scores, to_anchor);
-        
-        if (show_work) {
-#ifdef debug_dp
-            cerr << "\tBest chain end so far: " << best_score << endl;
+#ifdef debug_chaining
+        std::cerr << "[REC INFO] Recombination number for chain: "
+                  << best_score.rec_num << "\tscore: "
+                  << best_score.score << "\tpaths: "
+                  << best_score.paths << std::endl;
 #endif
-        }
-        
     }
-    
-    return best_score;
 }
 
 size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor>& to_chain) {
@@ -836,11 +834,9 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
 
 SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                                     const VectorView<Anchor>& to_chain,
-                                    const TracedScore& best_past_ending_score_ever,
                                     const ChainScoringScheme& scheme,
                                     size_t max_tracebacks) {
     SubchainGroup output;
-    output.max_sparse_chain_score = best_past_ending_score_ever.score;
 
     // We will fill this in with all the tracebacks, and then sort and truncate.
     vector<SparseAnchorChain> tracebacks;
@@ -982,6 +978,7 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
         output.subchains.push_back(tracebacks[i].anchors);
     }
 
+    output.max_sparse_chain_score = tracebacks.front().chain_score;
     return output;
 }
 
@@ -1123,21 +1120,12 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
         
     // We actually need to do DP
     vector<vector<TracedScore>> chain_scores;
-    TracedScore best_past_ending_score_ever = chain_items_dp(chain_scores,
-                                                             to_chain,
-                                                             distance_index,
-                                                             graph,
-                                                             3, /// TODO: make into a param
-                                                             scheme,
-                                                             for_each_transition,
-                                                             max_indel_bases,
-                                                             show_work);
-#ifdef debug_chaining
-    std::cerr << "[REC INFO] Recombination number for chain: " << best_past_ending_score_ever.rec_num << "\tscore: " << best_past_ending_score_ever.score << "\tpaths: " << best_past_ending_score_ever.paths << std::endl;
-#endif
+    chain_items_dp(chain_scores, to_chain, distance_index, graph,
+                   3, /// TODO: make into a param
+                   scheme, for_each_transition, max_indel_bases, show_work);
+    
     // Then do the tracebacks
-    SubchainGroup tracebacks = chain_items_traceback(
-        chain_scores, to_chain, best_past_ending_score_ever, scheme, max_chains);
+    SubchainGroup tracebacks = chain_items_traceback(chain_scores, to_chain, scheme, max_chains);
     
     if (tracebacks.subchains.empty()) {
         // Somehow we got nothing

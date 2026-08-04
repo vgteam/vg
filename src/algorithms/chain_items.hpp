@@ -520,9 +520,7 @@ void add_transition_if_legal(vector<transition_info>& transitions,
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
- * item. Returns the top max_predecessors by observed score overall, with
- * provenance to its location in the table, if tracked in the type. Assumes
- * some items exist.
+ * item. Assumes some items exist.
  *
  * We keep many options to allow us to do multiple tracebacks and find
  * multiple good (ideally disjoint) chains.
@@ -537,16 +535,15 @@ void add_transition_if_legal(vector<transition_info>& transitions,
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
-                           const VectorView<Anchor>& to_chain,
-                           const SnarlDistanceIndex& distance_index,
-                           const HandleGraph& graph,
-                           size_t max_predecessors = 5,
-                           const ChainScoringScheme& scheme = ChainScoringScheme(),
-                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                           size_t max_indel_bases = 100,
-                           bool show_work = false
-                           );
+void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+                    const VectorView<Anchor>& to_chain,
+                    const SnarlDistanceIndex& distance_index,
+                    const HandleGraph& graph,
+                    size_t max_predecessors = 5,
+                    const ChainScoringScheme& scheme = ChainScoringScheme(),
+                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
+                    size_t max_indel_bases = 100,
+                    bool show_work = false);
 
 /**
  * Count the number of recombination events forced by this chain.
@@ -559,8 +556,7 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
- * with their scores. The best_past_ending_score_ever is *not* always the source
- * of the first traceback, if there is a tie.
+ * with their scores.
  *
  * Tracebacks are constrained to be nonoverlapping by stopping each traceback
  * when the optimum place to come from has already been used. If the best
@@ -571,7 +567,6 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
  */
 SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                                     const VectorView<Anchor>& to_chain,
-                                    const TracedScore& best_past_ending_score_ever,
                                     const ChainScoringScheme& scheme = ChainScoringScheme(),
                                     size_t max_tracebacks = 1);
 
