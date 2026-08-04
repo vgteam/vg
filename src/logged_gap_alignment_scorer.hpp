@@ -41,6 +41,9 @@ public:
     /// at the address of standard.
     int32_t score_alignment(const Alignment& aln) const override;
 
+    /// Score a plain Path with this scheme. Never the standard.
+    int32_t score_path(const Path& path) const;
+
     double get_log_base() const override;
 
     // Because all these fields are const, we can't just run a static member
@@ -95,6 +98,12 @@ private:
                                            size_t& matches,
                                            size_t& mismatches,
                                            std::vector<size_t>& gap_lengths);
+    
+    /// Sam as count_alignment_operations() but for a Path
+    static void count_path_operations(const Path& path,
+                                      size_t& matches,
+                                      size_t& mismatches,
+                                      std::vector<size_t>& gap_lengths);
     
     /// Walk an alignment and count matches, mismatches, and per-gap lengths.
     /// Returns the result in a format usable to construct a LoggedGapAlignmentScorer

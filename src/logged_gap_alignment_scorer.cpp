@@ -17,9 +17,13 @@ int32_t LoggedGapAlignmentScorer::score_alignment(const Alignment& aln) const {
         return score_from_counts(matches, mismatches, gap_lengths);
     }
     // Otherwise, recompute and score from new statistics
+    return score_path(aln.path());
+}
+
+int32_t LoggedGapAlignmentScorer::score_path(const Path& path) const {
     size_t m, mm;
     std::vector<size_t> gaps;
-    count_alignment_operations(aln, m, mm, gaps);
+    count_path_operations(path, m, mm, gaps);
     return score_from_counts(m, mm, gaps);
 }
 
@@ -69,6 +73,13 @@ void LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln,
                                                           size_t& matches,
                                                           size_t& mismatches,
                                                           std::vector<size_t>& gap_lengths) {
+    count_path_operations(aln.path(), matches, mismatches, gap_lengths);
+}
+
+void LoggedGapAlignmentScorer::count_path_operations(const Path& path,
+                                                     size_t& matches,
+                                                     size_t& mismatches,
+                                                     std::vector<size_t>& gap_lengths) {
     matches = 0;
     mismatches = 0;
     gap_lengths.clear();
@@ -84,8 +95,8 @@ void LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln,
         }
     };
 
-    for (size_t i = 0; i < (size_t) aln.path().mapping_size(); ++i) {
-        auto& mapping = aln.path().mapping(i);
+    for (size_t i = 0; i < (size_t) path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
         for (size_t j = 0; j < (size_t) mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
             if (edit.from_length() == edit.to_length() && edit.from_length() > 0) {
