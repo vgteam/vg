@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 146
+plan tests 148
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -257,11 +257,14 @@ is "$(call_site call_cluster.vcf 6)" "$(call_site call_no_cluster.vcf 6)" "-L le
 is "$(echo "$(call_site call_cluster.vcf 8)" | grep -o 'DP=[0-9]*')" "$(echo "$(call_site call_no_cluster.vcf 8)" | grep -o 'DP=[0-9]*')" "-L leaves DP unchanged"
 # merging after flatten_common_allele_ends keeps the surviving allele anchored where it was
 is "$(call_site call_cluster.vcf 4)" "$(call_site call_no_cluster.vcf 4)" "-L leaves REF unchanged"
-is "$(call_site call_cluster.vcf 2)" "$(call_site call_no_cluster.vcf 2)" "-L leaves POS unchanged"
-is "$(call_site call_cluster.vcf 10 | cut -f4 -d: | tr ',' '\n' | grep -c '')" "3" "-L folds GL to the merged allele count"
+is "$(awk -F'\t' '$3==">1>9"{print $2}' call_cluster.vcf)" "$(awk -F'\t' '$3==">1>9"{print $2}' call_no_cluster.vcf)" "-L leaves POS unchanged"
+# assert the VALUES, not just the count: vg emits GL i-major, and a spec-ordered fold would
+# still produce three fields while putting the wrong number in the middle
+is "$(call_site call_cluster.vcf 10 | cut -f4 -d:)" "-111.563773,-26.511924,-4.458384" "-L folds GL by max over the merged genotype classes"
 is "$(grep -v '^#' call_cluster.vcf | grep -c '')" "$(grep -v '^#' call_no_cluster.vcf | grep -c '')" "-L never deletes a variant record"
 is "$(call_site call_cluster.vcf 8 | grep -o 'MAT=[^;]*')" "MAT=2>1:0.714" "-L records what it merged in MAT"
 is "$(grep -c 'ID=MAT' call_no_cluster.vcf)" "0" "the MAT header is absent when -L is not used"
+is "$(grep -c 'ID=MAT' call_cluster.vcf)" "1" "and present when it is"
 
 # the threshold is the same weighted-Jaccard as vg deconstruct -L: these two alts score 5/7
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7143 > call_cluster_hi.vcf 2>/dev/null
@@ -336,8 +339,12 @@ vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 5 >/dev/null 2>
 is "$?" 1 "-L out of range is an error"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len=-1 >/dev/null 2>&1
 is "$?" 1 "negative --cluster-min-len is an error"
+# --cluster-post shipped through v1.76 as an accepted no-op.  It stays accepted for one release so
+# pipelines carrying it do not die on an unrecognized option, but it now says so.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-post >/dev/null 2>&1
-is "$?" 1 "the removed --cluster-post option is rejected"
+is "$?" 0 "the deprecated --cluster-post option is still accepted"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-post 2>&1 >/dev/null | grep -q "deprecated and ignored"
+is "$?" 0 "--cluster-post warns that it is ignored"
 
 # the merge lives on the shared VCFOutputCaller base, so the nested modes get it too
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 > call_cluster_td.vcf 2>/dev/null

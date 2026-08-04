@@ -172,9 +172,10 @@ protected:
     ///   - REF participates, so a pure deletion measures the deleted length.  A maximum over ALTs
     ///     alone measures 1 for a deletion of any size.
     ///   - "*" is a marker, not sequence, so it is excluded from both the affixes and the maximum.
-    ///     That also neutralizes flatten_common_allele_ends being a no-op whenever a "*" is present
-    ///     (min_allele_len becomes 1 and max_flatten_len decrements to 0): the un-flattened
-    ///     boundary sequence is common to every real allele, so it is stripped here instead.
+    ///     That also neutralizes flatten_common_allele_ends being a no-op whenever a "*" is
+    ///     present -- without -a because min_allele_len becomes 1 and max_flatten_len decrements to
+    ///     0, and with -a because "*" matches no base at the first offset compared.  Either way the
+    ///     un-flattened boundary sequence is common to every real allele, so it is stripped here.
     /// Note this measures the SPAN of the variant, not the size of any one event inside it: a
     /// haplotype differing from the reference at two bases 59bp apart has a core length of 60.
     static int64_t allele_core_length(const vector<string>& alleles);

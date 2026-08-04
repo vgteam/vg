@@ -932,9 +932,11 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                     }
                 }
             };
-            // Exact pre-filter: core length can never exceed the longest interior, so if no measured
-            // traversal reaches the threshold we are done without building a single string.  This is
-            // the old gate, demoted from decision to pre-filter, so nothing gets slower.
+            // Conservative pre-filter: core length can never exceed the longest interior, so if no
+            // measured traversal reaches the threshold we are done without building a single
+            // string.  Sites that fail it therefore cost no more than before.  Sites that pass do
+            // cost more -- one interior string per traversal here, against one per cluster in
+            // get_alleles -- roughly 2x on a site with many near-identical haplotypes.
             bool interior_reaches = false;
             for_each_measured([&](const Traversal& t) {
                 int64_t len = 0;

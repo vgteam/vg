@@ -85,8 +85,8 @@ void help_call(char** argv) {
          << "                            from parent to child snarls (writes LV/PS tags)" << endl
          << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
-         << "  -L, --cluster F           merge called alt alleles whose (handle) Jaccard" << endl
-         << "                            coefficient is >= F, so 1/2 of two effectively" << endl
+         << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
+         << "                            Jaccard is >= F, so 1/2 of two effectively" << endl
          << "                            identical alleles becomes 1/1 [1.0; experimental]" << endl
          << "      --cluster-min-len N   only apply -L merging at sites whose core length" << endl
          << "                            -- the longest allele after stripping the prefix" << endl
@@ -161,6 +161,7 @@ int main_call(int argc, char** argv) {
     const size_t max_chain_trivial_travs = 5;
     constexpr int OPT_PROGRESS = 1000;
     constexpr int OPT_CLUSTER_MIN_LEN = 1002;
+    constexpr int OPT_CLUSTER_POST = 1003;
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_TOP_DOWN = 1006;
@@ -203,6 +204,10 @@ int main_call(int argc, char** argv) {
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
+            // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
+            // from the helptext, which check_options.py allows) so pipelines carrying it do not die
+            // on an unrecognized option.  Remove after one release.
+            {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
             {"star-allele", no_argument, 0, 'Y'},
             {"threads", required_argument, 0, 't'},
             {"progress", no_argument, 0, OPT_PROGRESS },
@@ -335,6 +340,10 @@ int main_call(int argc, char** argv) {
         case 'I':
             call_chains = true;
             break;
+        case OPT_CLUSTER_POST:
+            logger.warn() << "--cluster-post is deprecated and ignored: -L/--cluster now always "
+                          << "merges after genotyping" << endl;
+            break;
         case OPT_CLUSTER_MIN_LEN:
             cluster_min_allele_len = parse<int64_t>(optarg);
             if (cluster_min_allele_len < 0) {
@@ -420,7 +429,7 @@ int main_call(int argc, char** argv) {
 
     if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max())
         && (legacy || !vcf_filename.empty() || bottom_up)) {
-        logger.error() << "-c/-C not supported with -v, -l, or --bottom-up" << endl;
+        logger.error() << "-c/-C not supported with -v, --legacy, or --bottom-up" << endl;
     }
     if (!ref_paths.empty() && !ref_sample.empty()) {
         logger.error() << "-S cannot be used with -p" << endl;
@@ -430,6 +439,44 @@ int main_call(int argc, char** argv) {
     }
     if (!ref_path_prefixes.empty() && !ref_paths.empty()) {
         logger.error() << "-P cannot be used with -p" << endl;
+    }
+
+    // -L/--cluster validation.  Deliberately ahead of the graph load below: every condition here is
+    // pure command-line state, and a typo'd "-L 5" should not cost a multi-gigabyte graph load
+    // before it is rejected.
+    // Unlike vg deconstruct, which clamps out-of-range values, we reject them: -L 5 is a plausible
+    // typo for -L 0.5 and clamping would silently disable merging altogether.
+    if (cluster_threshold < 0.0 || cluster_threshold > 1.0 || std::isnan(cluster_threshold)) {
+        logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
+    }
+    if (cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
+        logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
+    }
+    // -L merges alleles in VCFOutputCaller::emit_variant, which these paths never reach: the VCF
+    // genotyper builds its records by hand and the GAF path has no VCF at all.  Rejecting beats
+    // accepting the option and silently ignoring it.
+    if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
+        logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
+    }
+    if (cluster_threshold < 1.0 && (gaf_output || traversals_only)) {
+        logger.error() << "-L/--cluster cannot be used with GAF output (-G/-T)" << endl;
+    }
+    // the ratio caller's QUAL is min_site_support and its XADL/lowxadl describe a het that would no
+    // longer exist after a merge, so the merged record would carry statistics for a genotype it
+    // does not have.
+    if (cluster_threshold < 1.0 && ratio_caller) {
+        logger.error() << "-L/--cluster cannot be used with the ratio caller (-B)" << endl;
+    }
+    // NestedFlowCaller represents a child snarl as a Visit carrying a Snarl rather than a node, and
+    // those have no handle for the clusterer to work with -- so the merge would silently do nothing
+    // at exactly the nested sites --bottom-up exists for.  An accepted-but-inert option is the bug
+    // this whole feature was written to remove, so reject the combination instead.
+    if (cluster_threshold < 1.0 && bottom_up) {
+        logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
+    }
+    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have
+    if (cluster_threshold < 1.0 && ploidy == 1) {
+        logger.warn() << "-L/--cluster has no effect at ploidy 1 (-d 1)" << endl;
     }
 
     // Read the graph
@@ -550,29 +597,6 @@ int main_call(int argc, char** argv) {
     // Validation for nested calling options
     if (star_allele && !top_down) {
         logger.error() << "-Y/--star-allele requires --top-down mode" << endl;
-    }
-    // note: unlike vg deconstruct, which clamps out-of-range values, we reject them.  -L 5 is a
-    // plausible typo for -L 0.5 and would otherwise silently disable merging altogether.
-    if (cluster_threshold < 0.0 || cluster_threshold > 1.0) {
-        logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
-    }
-    if (cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
-        logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
-    }
-    // -L merges alleles in VCFOutputCaller::emit_variant, which these paths never reach: the VCF
-    // genotyper builds its records by hand and the GAF path has no VCF at all.  Rejecting beats
-    // accepting the option and silently ignoring it.
-    if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
-        logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
-    }
-    if (cluster_threshold < 1.0 && (gaf_output || traversals_only)) {
-        logger.error() << "-L/--cluster cannot be used with GAF output (-G/-T)" << endl;
-    }
-    // the ratio caller's QUAL is min_site_support and its XADL/lowxadl describe a het that would no
-    // longer exist after a merge, so the merged record would carry statistics for a genotype it
-    // does not have.
-    if (cluster_threshold < 1.0 && ratio_caller) {
-        logger.error() << "-L/--cluster cannot be used with the ratio caller (-B)" << endl;
     }
 
     // Validation for bottom-up mode

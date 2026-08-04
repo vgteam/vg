@@ -425,9 +425,11 @@ bool VCFOutputCaller::snarl_traversal_to_handles(const HandleGraph& graph, const
 }
 
 namespace {
-/// std::stod without vg::parse<>'s exit-on-failure.  merge_similar_alleles runs inside an OpenMP
-/// region, where exit(1) kills the process before write_variants() flushes the per-thread output
-/// buffers -- so one malformed FORMAT value would silently produce a header-only VCF.
+/// Parse a VCF FORMAT value without throwing and without exiting.  vg::parse<double> exits on
+/// failure and the 2-argument vg::parse can throw; merge_similar_alleles runs inside an OpenMP
+/// region, where an escaping exception is std::terminate rather than something a caller can handle,
+/// and exit() would abandon whatever the other threads had already buffered.  Missing values
+/// ("." and "") are ordinary input here.
 bool parse_vcf_double(const string& field, double& value) {
     try {
         size_t after;
@@ -544,7 +546,7 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     //
     // Cluster in descending allele-depth order, so each cluster's head -- the allele that survives,
     // and the one MAT's Jaccard is measured against -- is its best-supported member.  Identity order
-    // would instead inherit the traversal finder's ranking, which FlowCaller::call_snarl switches to
+    // would instead inherit the traversal finder's ranking, which FlowCaller::call_snarl_internal (and NestedFlowCaller's copy of it) switches to
     // length-weighted average flow once a snarl's interior passes the average-support threshold.
     // That ranking can put a short, lightly-supported allele ahead of a long, heavily-supported one,
     // and merging into it emits the minority sequence as a homozygous call carrying the pooled depth.
@@ -557,11 +559,7 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
             vector<double> ad(alt_travs.size(), 0);
             bool usable = true;
             for (size_t k = 0; k < alt_travs.size() && usable; ++k) {
-                const string& field = ad_it->second.at(alt_to_allele[k]);
-                usable = !field.empty() && field.find_first_not_of("0123456789") == string::npos;
-                if (usable) {
-                    ad[k] = parse<double>(field);
-                }
+                usable = parse_vcf_double(ad_it->second.at(alt_to_allele[k]), ad[k]);
             }
             if (usable) {
                 // stable, so equal depths keep the finder's own ranking

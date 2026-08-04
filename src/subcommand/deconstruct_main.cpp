@@ -62,8 +62,8 @@ void help_deconstruct(char** argv) {
          << "                           for any given phase (set by default for GBWT input)." << endl
          << "  -C, --contig-only-ref    only use CONTIG name (not SAMPLE#CONTIG#HAPLOTYPE)" << endl
          << "                           for reference if possible (i.e. only one ref sample)" << endl
-         << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
-         << "                           is >= F together [1.0; experimental]" << endl
+         << "  -L, --cluster F          cluster traversals whose length-weighted Jaccard" << endl
+         << "                           coefficient is >= F together [1.0; experimental]" << endl
          << "      --cluster-min-len N  only apply -L clustering at sites whose core" << endl
          << "                           length -- the longest allele after stripping" << endl
          << "                           the prefix and suffix common to all alleles" << endl
