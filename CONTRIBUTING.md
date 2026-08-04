@@ -45,7 +45,7 @@ Ideally you would at least write your own unit tests.
     - Edit the [`Makefile`](https://github.com/vgteam/vg/blob/master/Makefile) with necessary instructions.
 - Helper scripts (not part of the main build) go in `scripts/`
 - Command-line tests go in `test/`
-    - Most subdirectories here are for test inputs/ouputs
+    - Most subdirectories here are for test inputs/outputs
     - There is a small [`Makefile`](https://github.com/vgteam/vg/blob/master/test/Makefile)
     for the `build_graph.cpp` test.
     - Testing scripts go in the `test/t` directory. See "Command-line unit tests".
@@ -55,8 +55,7 @@ Ideally you would at least write your own unit tests.
     that were factored out into their own files.
     - The `src/io/` directory is like `algorithms` but specifically for I/O code.
     Each different kind of filetype generally gets its own I/O file.
-    - The `src/subcommand/` directory is for files defining subcommands.
-    TODO: link description
+    - The `src/subcommand/` directory is for files defining subcommands. See "Subcommands".
     - The `src/unittest/` directory is for direct C++ unit tests. See "C++ unit tests".
 - If you're touching other directories, I really hope you know what you're doing.
 
@@ -105,7 +104,7 @@ Ideas for unit tests:
 - Make sure that two outputs that should be equivalent are the same (`diff`)
 - Make sure that logfiles have necessary elements (e.g. error messages)
 
-## C++ unit tests
+### C++ unit tests
 
 You can call individual functions for direct C++ testing. These live in `src/unittest/`.
 Run with
