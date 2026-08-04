@@ -475,6 +475,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "untracked bonus for chains staying consistent with haplotypes to avoid recombinations in recombination-aware mode",
         int_is_nonnegative
     );
+    chaining_opts.add_range(
+        "max-alt-lookback-score",
+        &MinimizerMapper::max_alt_lookback_score,
+        MinimizerMapper::default_max_alt_lookback_score,
+        "max score drop to accept for an alternative predecessor during chaining tracebacks"
+    );
     
     chaining_opts.add_range(
         "chain-score-threshold",

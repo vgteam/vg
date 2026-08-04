@@ -599,6 +599,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        size_t max_chains = 1,
                                        const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                        size_t max_indel_bases = 100,
+                                       size_t max_alt_lookback = 5,
                                        bool show_work = false);
 
 /**
@@ -615,7 +616,8 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const HandleGraph& graph,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                                  size_t max_indel_bases = 100);
+                                  size_t max_indel_bases = 100,
+                                  size_t max_alt_lookback = 5);
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.

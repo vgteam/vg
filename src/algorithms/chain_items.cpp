@@ -1113,6 +1113,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        size_t max_chains,
                                        const transition_iterator& for_each_transition,
                                        size_t max_indel_bases,
+                                       size_t max_alt_lookback,
                                        bool show_work) {
 
     if (to_chain.empty()) {
@@ -1127,10 +1128,9 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                    scheme, for_each_transition, max_indel_bases, show_work);
     
     // Then do the tracebacks
-    // TODO: make into a param
     vector<SparseAnchorChain> tracebacks;
     vector<pair<size_t, size_t>> connections;
-    chain_items_traceback(chain_scores, to_chain, tracebacks, connections, scheme, max_chains, 2);
+    chain_items_traceback(chain_scores, to_chain, tracebacks, connections, scheme, max_chains, max_alt_lookback);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -1162,14 +1162,16 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const HandleGraph& graph,
                                   const ChainScoringScheme& scheme,
                                   const transition_iterator& for_each_transition,
-                                  size_t max_indel_bases) {
+                                  size_t max_indel_bases,
+                                  size_t max_alt_lookback) {
     SubchainGroup group = find_best_chains(to_chain,
                                            distance_index,
                                            graph,
                                            scheme,
                                            1,
                                            for_each_transition,
-                                           max_indel_bases).front();
+                                           max_indel_bases,
+                                           max_alt_lookback).front();
     if (group.subchains.empty()) {
         // We got nothing
         return SparseAnchorChain();

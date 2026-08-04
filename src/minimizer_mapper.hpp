@@ -300,6 +300,9 @@ class MinimizerMapper : public AlignerClient {
     /// How many bases of indel should we allow in chaining, per base of read length?
     static constexpr double default_max_indel_bases_per_base = 0.2;
     double max_indel_bases_per_base = default_max_indel_bases_per_base;
+    /// How much score drop should we accept when looking through alternative predecessors?
+    static constexpr size_t default_max_alt_lookback_score = 5;
+    size_t max_alt_lookback_score = default_max_alt_lookback_score;
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it

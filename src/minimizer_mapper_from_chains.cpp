@@ -1507,6 +1507,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 this->max_chains_per_tree,
                 for_each_transition,
                 indel_limit,
+                this->max_alt_lookback_score,
                 show_work);
 
             for (auto& group : new_groups) {
