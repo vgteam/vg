@@ -1,11 +1,12 @@
 var searchData=
 [
-  ['tables_7723',['Tables',['../structvg_1_1io_1_1Registry_1_1Tables.html',1,'vg::io::Registry']]],
-  ['targetvaluesearch_7724',['TargetValueSearch',['../classvg_1_1TargetValueSearch.html',1,'vg']]],
-  ['thread_5fstate_5ft_7725',['thread_state_t',['../structvg_1_1Watchdog_1_1thread__state__t.html',1,'vg::Watchdog']]],
-  ['tickchainlink_7726',['TickChainLink',['../structvg_1_1subcommand_1_1TickChainLink.html',1,'vg::subcommand']]],
-  ['tipanchoredmaxdistance_7727',['TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html',1,'vg']]],
-  ['toplevelchain_7728',['TopLevelChain',['../structvg_1_1Haplotypes_1_1TopLevelChain.html',1,'vg::Haplotypes']]],
+  ['tables_7722',['Tables',['../structvg_1_1io_1_1Registry_1_1Tables.html',1,'vg::io::Registry']]],
+  ['targetvaluesearch_7723',['TargetValueSearch',['../classvg_1_1TargetValueSearch.html',1,'vg']]],
+  ['thread_5fstate_5ft_7724',['thread_state_t',['../structvg_1_1Watchdog_1_1thread__state__t.html',1,'vg::Watchdog']]],
+  ['tickchainlink_7725',['TickChainLink',['../structvg_1_1subcommand_1_1TickChainLink.html',1,'vg::subcommand']]],
+  ['tipanchoredmaxdistance_7726',['TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html',1,'vg']]],
+  ['toplevelchain_7727',['TopLevelChain',['../structvg_1_1Haplotypes_1_1TopLevelChain.html',1,'vg::Haplotypes']]],
+  ['toplevelsnarlstats_7728',['TopLevelSnarlStats',['../structvg_1_1GrefCover_1_1TopLevelSnarlStats.html',1,'vg::GrefCover']]],
   ['tracedscore_7729',['TracedScore',['../classvg_1_1algorithms_1_1TracedScore.html',1,'vg::algorithms']]],
   ['transcript_7730',['Transcript',['../structvg_1_1Transcript.html',1,'vg']]],
   ['transcriptome_7731',['Transcriptome',['../classvg_1_1Transcriptome.html',1,'vg']]],

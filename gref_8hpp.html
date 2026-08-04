@@ -73,16 +73,14 @@ $(function() {
 <div class="title">gref.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;optional&gt;</code><br />
+<div class="textblock"><code>#include &lt;bdsg/snarl_distance_index.hpp&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="traversal__finder_8hpp.html">traversal_finder.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GrefCover.html">vg::GrefCover</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefCover_1_1RankedFragment.html">vg::GrefCover::RankedFragment</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefCover_1_1TopLevelSnarlStats.html">vg::GrefCover::TopLevelSnarlStats</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -100,7 +98,7 @@ Namespaces</h2></td></tr>
 <li>etc.</li>
 </ul>
 <p>The naming is a convention, not an option: because the prefix lands on the sample, a graph carries both references at once, "is this a gref path/sample" is a prefix test, and the base path a gref path came from is recoverable by dropping the prefix.</p>
-<p>The data structures used in this class are always relative to the original paths in the graph. The REFERENCE-sense fragments that are used to serialize the cover can be created and loaded, but they are not used beyond that. </p>
+<p>The data structures used in this class are always relative to the original paths in the graph. The REFERENCE-sense fragments the cover is written as are output only; nothing reads them back. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
