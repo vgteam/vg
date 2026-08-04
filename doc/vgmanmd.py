@@ -9,7 +9,7 @@ cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
         'cluster', 'combine', 'construct', 'convert', 'deconstruct', 'depth',
         'describe', 'dotplot', 'filter', 'find', 'gamcompare', 'gampcompare',
         'gamsort', 'gbwt', 'genotype', 'giraffe', 'haplotypes', 'help', 'ids',
-        'index', 'inject', 'map', 'mask', 'mcmc', 'minimizer', 'mod', 'mpmap',
+        'index', 'inject', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
         'pack', 'paths', 'primers', 'prune', 'rna', 'sim', 'simplify', 'snarls',
         'stats', 'surject', 'test', 'trace', 'validate', 'vectorize', 'version',
         'view', 'viz', 'zipcode'
@@ -72,7 +72,7 @@ print("====")
 vg_help = subprocess.run(['vg', 'help'], capture_output=True)
 cmd_desc = dict()
 for line in vg_help.stderr.decode().split('\n'):
-    if '--' in line:
+    if '-' in line:
         parts = line.split()
         cmd_desc[parts[1]] = ' '.join(parts[2:])
         cmd = parts[1]
