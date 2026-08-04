@@ -38,8 +38,8 @@ void help_simplify(char** argv) {
          << "  -m, --min-size N        remove leaf sites with fewer than N bases" << endl
          << "                          (with -P, uses max allele length) involved [10]" << endl
          << "  -i, --max-iterations N  perform up to N iterations of simplification [10]" << endl
-         << "  -L, --cluster F         cluster traversals whose (handle) Jaccard coefficient" << endl
-         << "                          is >= F together [1.0]" << endl
+         << "  -L, --cluster F         cluster traversals whose length-weighted Jaccard" << endl
+         << "                          coefficient is >= F together [1.0]" << endl
          << "  -k, --keep-paths        non-reference (-P) paths are removed by default." << endl
          << "                          use this flag to keep them (the resulting graph will" << endl
          << "                          be more complex and possibly more difficult to load)" << endl

@@ -243,7 +243,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
-           << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:JACCARD using "
+           << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
            << "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD is "
            << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set.\">"
            << endl;
@@ -545,7 +545,7 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     // >= comparison are inherited rather than reimplemented.
     //
     // Cluster in descending allele-depth order, so each cluster's head -- the allele that survives,
-    // and the one MAT's Jaccard is measured against -- is its best-supported member.  Identity order
+    // and the one MAT's similarity is measured against -- is its best-supported member.  Identity order
     // would instead inherit the traversal finder's ranking, which FlowCaller::call_snarl_internal (and NestedFlowCaller's copy of it) switches to
     // length-weighted average flow once a snarl's interior passes the average-support threshold.
     // That ranking can put a short, lightly-supported allele ahead of a long, heavily-supported one,
@@ -569,9 +569,11 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
         }
     }
     // The VCF reference allele sets the scale a pure deletion is measured against.  It is
-    // site_traversals[0] and is deliberately not clustered (the loop above starts at 1).  A
-    // NestedFlowCaller child-snarl Visit legitimately has no handle representation, in which case we
-    // pass nullptr and this site falls back to pairwise scoring -- which can only merge less.
+    // site_traversals[0] and is deliberately not clustered (the loop above starts at 1).
+    // The nullptr fallback is currently unreachable: the only producer of a Visit without a node is
+    // NestedFlowCaller, and --bottom-up is rejected with -L.  It is kept because the consequence of
+    // being wrong about that is a crash, and because falling back to pairwise scoring can only
+    // merge less, never more.
     Traversal ref_trav;
     const Traversal* site_ref_trav = nullptr;
     if (!site_traversals.empty() && snarl_traversal_to_handles(graph, site_traversals[0], ref_trav)) {

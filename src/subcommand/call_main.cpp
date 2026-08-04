@@ -481,9 +481,24 @@ int main_call(int argc, char** argv) {
     if (cluster_threshold < 1.0 && bottom_up) {
         logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
     }
-    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have
-    if (cluster_threshold < 1.0 && ploidy == 1) {
-        logger.warn() << "-L/--cluster has no effect at ploidy 1 (-d 1)" << endl;
+    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have.
+    // -R/--ploidy-regex sets ploidy per contig, so check the rules too and not just -d.
+    bool any_haploid = (ploidy == 1);
+    for (const auto& rule : ploidy_rules) {
+        any_haploid = any_haploid || (rule.second == 1);
+    }
+    if (cluster_threshold < 1.0 && any_haploid) {
+        logger.warn() << "-L/--cluster has no effect at ploidy 1" << endl;
+    }
+    // LegacyCaller is a different caller with its own traversal finder and support model; -L has
+    // never been exercised through it
+    if (cluster_threshold < 1.0 && legacy) {
+        logger.error() << "-L/--cluster cannot be used with the legacy caller (--legacy)" << endl;
+    }
+    // NestedFlowCaller's Snarl-carrying Visits also break the GAF emitters: --bottom-up -T aborts in
+    // to_mapping, and --bottom-up -G emits a header and no records.
+    if (bottom_up && (gaf_output || traversals_only)) {
+        logger.error() << "--bottom-up cannot be used with GAF output (-G/-T)" << endl;
     }
 
     // Read the graph

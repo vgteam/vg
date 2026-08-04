@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 154
+plan tests 158
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -334,6 +334,10 @@ vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -G >/dev/nu
 is "$?" 1 "-L is rejected with GAF output"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -B >/dev/null 2>&1
 is "$?" 1 "-L is rejected with the ratio caller"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --legacy >/dev/null 2>&1
+is "$?" 1 "-L is rejected with the legacy caller"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -R 'x:1' 2>&1 >/dev/null | grep -q "no effect at ploidy 1"
+is "$?" 0 "-L warns at ploidy 1 set via -R, not just -d"
 # unlike vg deconstruct, which clamps, we reject: -L 5 is a plausible typo for -L 0.5
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 5 >/dev/null 2>&1
 is "$?" 1 "-L out of range is an error"
@@ -358,6 +362,12 @@ vg pack -x bu.vg -g bu.gam -o bu.pack
 vg call bu.vg -k bu.pack -p x --bottom-up > bu.vcf 2>/dev/null
 is "$?" 0 "--bottom-up does not abort on a nested graph"
 is "$(grep -vc '^#' bu.vcf)" "1" "--bottom-up emits a record"
+# NestedFlowCaller's Snarl-carrying Visits break the GAF emitters: -T aborted in to_mapping and -G
+# emitted a header with no records.  Rejected rather than left silently inert.
+vg call bu.vg -k bu.pack -p x --bottom-up -T >/dev/null 2>&1
+is "$?" 1 "--bottom-up is rejected with -T"
+vg call bu.vg -k bu.pack -p x --bottom-up -G >/dev/null 2>&1
+is "$?" 1 "--bottom-up is rejected with -G"
 rm -f bu.vg bu.gam bu.pack bu.vcf
 
 # --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
@@ -394,7 +404,7 @@ dladder2() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
 
 is "$(cladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion merge, flipping at 59/60"
 is "$(cladder del60_vs_del59ins1)" "22111" "a deletion merges with a deletion carrying a novel base"
-is "$(cladder del60_vs_snp)"       "22222" "a 60bp deletion never merges with a 1bp SNP"
+is "$(cladder del60_vs_snp)"       "22222" "a 60bp deletion never merges with a 60bp substitution"
 is "$(cladder inv60_vs_del60)"     "22222" "a 60bp inversion never merges with a 60bp deletion"
 is "$(cladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion mergeable"
 is "$(cladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles mergeable"

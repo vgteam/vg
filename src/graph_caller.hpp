@@ -124,7 +124,9 @@ public:
 
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
     /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
-    /// weighted-Jaccard metric and the same site gate as "vg deconstruct -L/--cluster-min-len":
+    /// similarity metric and the same site gate as "vg deconstruct -L/--cluster-min-len" (a
+    /// length-weighted Jaccard, except that a pure deletion is scored against the site -- see
+    /// weighted_traversal_similarity):
     /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites whose
     /// core length reaches min_len bp (see allele_core_length).
     /// A threshold of 1.0 (the default) disables merging entirely.

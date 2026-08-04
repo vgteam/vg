@@ -35,8 +35,10 @@ rm -f x.vg x.small.vg x.rare.vg
 # edges are actually removed.  -m 0 is required or the length filter fires first.
 vg view -Fv nesting/simplify_del_absorbs.gfa > simplify_del.vg
 vg simplify --algorithm small -P x -m 0 -L 0.6 simplify_del.vg > simplify_del_L.vg 2>/dev/null
-is "$(vg stats -N simplify_del_L.vg)" "3" "-L drops a node whose allele merged into a pure deletion"
-is "$(vg stats -E simplify_del_L.vg)" "3" "-L drops its edges too"
+is "$(vg stats -E simplify_del_L.vg)" "3" "-L removes the edge of an allele merged into a pure deletion"
+# the node count falls from 4 to 3 as a consequence: with that edge gone unchop fuses the chain.
+# the edge assertion above is the one that pins the merge itself.
+is "$(vg stats -N simplify_del_L.vg)" "3" "and the resulting chain is unchopped"
 vg validate simplify_del_L.vg 2>/dev/null
 is "$?" 0 "the graph is still valid after -L simplification"
 vg simplify --algorithm small -P x -m 0 -L 1.0 simplify_del.vg > simplify_del_noop.vg 2>/dev/null

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 108
+plan tests 109
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -193,12 +193,15 @@ dladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
 
 is "$(dladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion cluster, flipping at 59/60"
 is "$(dladder del60_vs_del59ins1)" "22111" "a deletion clusters with a deletion carrying a novel base"
-is "$(dladder del60_vs_snp)"       "22222" "a 60bp deletion never clusters with a 1bp SNP"
+is "$(dladder del60_vs_snp)"       "22222" "a 60bp deletion never clusters with a 60bp substitution"
 is "$(dladder inv60_vs_del60)"     "22222" "a 60bp inversion never clusters with a 60bp deletion"
 # only a PURE DELETION is scored against the site; scaling every pair by it would make unrelated
 # alleles in a big snarl look alike, which these two pin
 is "$(dladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion clusterable"
 is "$(dladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles clusterable"
+# the small-variant case: deleting a base and substituting it are different events, so scoring a
+# pure deletion against the site must not make them look alike
+is "$(dladder del1_vs_snp1)"       "22222" "a 1bp deletion never clusters with a 1bp SNP"
 
 vg deconstruct nesting/del59_vs_del60.gfa -p x 2>/dev/null > deldefault.vcf
 vg deconstruct nesting/del59_vs_del60.gfa -p x -L 1.0 2>/dev/null > delnoop.vcf
