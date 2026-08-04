@@ -497,8 +497,8 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
     if (indel_size > max_indel_bases) {
 #ifdef debug_transition
         std::cerr << "\tIndel size " << indel_size << " over max of " << max_indel_bases << std::endl;
-        return;
 #endif 
+        return;
     }
 #ifdef debug_transition
     std::cerr << "\tZip code tree sees " << source_anchor << " and "
