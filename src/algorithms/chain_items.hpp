@@ -560,7 +560,8 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
  *
  * Tracebacks are constrained to be nonoverlapping by stopping each traceback
  * when the optimum place to come from has already been used. If the best
- * predecessor was already used, the other stored predecessors will be tried.
+ * predecessor was already used, the other stored predecessors will be tried,
+ * as long as they are no more worse than max_alt_lookback.
  * 
  * Note that the SubchainGroup has "connections" using anchor indexes,
  * not subchain indexes; its "subchains" are actually the full chains
@@ -568,7 +569,8 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
 SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                                     const VectorView<Anchor>& to_chain,
                                     const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                    size_t max_tracebacks = 1);
+                                    size_t max_tracebacks = 1,
+                                    size_t max_alt_lookback = 10);
 
 /**
  * Generate subchains from multiple tracebacks.

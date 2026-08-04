@@ -835,7 +835,8 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
 SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                                     const VectorView<Anchor>& to_chain,
                                     const ChainScoringScheme& scheme,
-                                    size_t max_tracebacks) {
+                                    size_t max_tracebacks,
+                                    size_t max_alt_lookback) {
     SubchainGroup output;
 
     // We will fill this in with all the tracebacks, and then sort and truncate.
@@ -861,7 +862,8 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
             for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
                 // Are they different anchors in different chains?
                 if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()
-                    && parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]) {
+                    && parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]
+                    && chain_scores[trace_from][alt_i].score >= chain_scores[trace_from].front().score - max_alt_lookback) {
                     output.connections.emplace_back(chain_scores[trace_from][alt_i].source, trace_from);
                 }
             }
@@ -898,6 +900,11 @@ SubchainGroup chain_items_traceback(const vector<vector<TracedScore>>& chain_sco
                     // Try to find a legal predecessor
                     bool found_alt = false;
                     for (size_t alt_i = 1; alt_i < chain_scores[here].size(); alt_i++) {
+                        if (chain_scores[here][alt_i].score < chain_scores[here].front().score - max_alt_lookback) {
+                            // This alt is worse than we're allowed to use
+                            break;
+                        }
+
                         // Try to use the other saved predecessors
                         if (chain_scores[here][alt_i].source != TracedScore::nowhere()) {
                             next = chain_scores[here][alt_i].source;
@@ -1125,7 +1132,8 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
                    scheme, for_each_transition, max_indel_bases, show_work);
     
     // Then do the tracebacks
-    SubchainGroup tracebacks = chain_items_traceback(chain_scores, to_chain, scheme, max_chains);
+    // TODO: make into a param
+    SubchainGroup tracebacks = chain_items_traceback(chain_scores, to_chain, scheme, max_chains, 2);
     
     if (tracebacks.subchains.empty()) {
         // Somehow we got nothing
