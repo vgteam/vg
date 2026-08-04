@@ -2988,8 +2988,6 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // Subchains where we bailed out of link alignments
     // We will have to ignore any connections which start from them
     unordered_set<size_t> early_bail_subchains;
-    // We always rescore with log-gap penalties
-    LoggedGapAlignmentScorer rescorer(aln);
 
     // Find the shortest tail on either side
     size_t min_left_tail_len = std::numeric_limits<int32_t>::max();
@@ -3024,7 +3022,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
                 aln, to_chain[subchain_group.subchains[i].front()], wfa_extender, true, max_left_tail_attempt, stats);
             composed_path = left_tail.path;
             // Rescore if not just a softclip
-            composed_score = left_tail.score == 0 ? 0 : rescorer.score_path(left_tail.path);
+            composed_score = left_tail.score;
             left_tail_len[i] = left_tail.path.length();
         }
 
@@ -3037,7 +3035,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(
             to_chain, aln, subchain_group.subchains[i], wfa_extender, aligner, stats);
         append_path(composed_path, inner_links.path);
-        composed_score += rescorer.score_path(inner_links.path);
+        composed_score += inner_links.score;
 
         if (last_anchor != subchain_group.subchains[i].back()) {
 #ifdef debug_base_level_alignment
@@ -3056,7 +3054,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
                 aln, to_chain[last_anchor], wfa_extender, false, max_right_tail_attempt, stats);
             append_path(composed_path, right_tail.path);
             // Rescore if not just a softclip
-            composed_score += right_tail.score == 0 ? 0 : rescorer.score_path(right_tail.path);
+            composed_score += right_tail.score;
             right_tail_len[i] = right_tail.path.length();
         }
 
@@ -3094,7 +3092,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             // Create & save edge
             connection_t* connection = mp_aln.mutable_subpath(extra_edge.first)->add_connection();
             connection->set_next(extra_edge.second);
-            connection->set_score(rescorer.score_path(link_aln.path));
+            connection->set_score(link_aln.score);
         }
     }
 
@@ -3150,8 +3148,21 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
         // Stick into alignment
         output.emplace_back(aln);
-        output.back().set_score(trace.score());
         *(output.back()).mutable_path() = std::move(simplify(composed_path, false));
+        // Rescore with log-gap penalties
+        LoggedGapAlignmentScorer scheme(output.back());
+        // Score the alignment
+        /// TODO: add back rec_penalty_aln penalties for alignments which require recombination
+        int32_t logged_gaps_score = scheme.score_alignment(output.back());
+        output.back().set_score(logged_gaps_score);
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
+                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+            }
+        }
         /// TODO: add back rec_penalty_aln penalties for alignments which require recombination
         if (!output.back().sequence().empty()) {
             output.back().set_identity(identity(output.back().path()));
