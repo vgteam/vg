@@ -481,6 +481,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_alt_lookback_score,
         "max score drop to accept for an alternative predecessor during chaining tracebacks"
     );
+    chaining_opts.add_range(
+        "tail-grace-window",
+        &MinimizerMapper::tail_grace_window,
+        MinimizerMapper::default_tail_grace_window,
+        "chain tails may be this much longer than the shortest tail without being trimmed away"
+    );
     
     chaining_opts.add_range(
         "chain-score-threshold",
@@ -991,6 +997,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
+        .add_entry<size_t>("tail-grace-window", 500)
         .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)

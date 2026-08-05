@@ -577,11 +577,16 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
  * Split up tracebacks when possible inter-chain alternatives exist.
  * Save connections between subchains, pulling from edges in tracebacks
  * as well as alternative edges.
+ * 
+ * Trims the tails of tracebacks if they would force a tail which is
+ * more than tail_grace_window longer than the shortest tail on that end
+ * (left/right ends treated separately). Trimmed bits are not saved.
  */
 SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
                                  const vector<SparseAnchorChain>& original_tracebacks,
                                  const vector<pair<size_t, size_t>>& connections,
-                                 size_t read_length);
+                                 size_t read_length,
+                                 size_t tail_grace_window);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -601,6 +606,7 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
                                const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                size_t max_indel_bases = 100,
                                size_t max_alt_lookback = 5,
+                               size_t tail_grace_window = 100,
                                bool show_work = false);
 
 /**
@@ -619,6 +625,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                   size_t max_indel_bases = 100,
+                                  size_t tail_grace_window = 100,
                                   size_t max_alt_lookback = 5);
 
 /// Score a chaining gap using the Minimap2 method. See

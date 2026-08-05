@@ -303,6 +303,9 @@ class MinimizerMapper : public AlignerClient {
     /// How much score drop should we accept when looking through alternative predecessors?
     static constexpr size_t default_max_alt_lookback_score = 10;
     size_t max_alt_lookback_score = default_max_alt_lookback_score;
+    /// How much longer should we allow a tail to be than the shortest?
+    static constexpr size_t default_tail_grace_window = 100;
+    size_t tail_grace_window = default_tail_grace_window;
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it
