@@ -301,7 +301,7 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_max_indel_bases_per_base = 0.2;
     double max_indel_bases_per_base = default_max_indel_bases_per_base;
     /// How much score drop should we accept when looking through alternative predecessors?
-    static constexpr size_t default_max_alt_lookback_score = 5;
+    static constexpr size_t default_max_alt_lookback_score = 10;
     size_t max_alt_lookback_score = default_max_alt_lookback_score;
     
     /// If a chain's score is smaller than the best 
