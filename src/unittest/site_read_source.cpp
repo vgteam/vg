@@ -233,6 +233,25 @@ TEST_CASE("A read touching any node of a multi-node range is returned once",
     REQUIRE(reads.size() == 2);
 }
 
+TEST_CASE("Paired mates sharing a read name are both kept", "[site_read_source]") {
+    // Real Illumina GAF gives both mates the same identifier. Any de-duplication keyed
+    // on the name alone therefore throws away one mate of every pair -- halving the
+    // evidence -- and does it silently. This is a regression test for exactly that,
+    // found on HG002 chr20 where 20,000 records carried 10,000 distinct names.
+    //
+    // The de-duplication that has to get this right lives in GafBaseSiteReadSource's
+    // chunked-query path, which cannot be reached without the gbz-base binary; what is
+    // checked here is the property that path must preserve -- two same-named reads at
+    // different positions are two reads.
+    FakeWindowedSource source({{"pair", 10}, {"pair", 20}}, 100);
+
+    vector<string> names = names_for(source, {{10, 20}});
+
+    REQUIRE(names.size() == 2);
+    REQUIRE(names[0] == "pair");
+    REQUIRE(names[1] == "pair");
+}
+
 TEST_CASE("The MAPQ filter is applied by the base class, not left to each backend",
           "[site_read_source]") {
     // A filter applied in one backend and forgotten in the other would mean the two

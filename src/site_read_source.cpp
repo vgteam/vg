@@ -504,17 +504,26 @@ void GafBaseSiteReadSource::fetch_span(nid_t min_id, nid_t max_id,
     }
 
     // Too many nodes for one argv, so split. Chunks overlap in reads rather than in
-    // nodes -- a read spanning a chunk boundary comes back from both -- so de-duplicate
-    // by name. That is sound because the filter keeps at most one alignment per name
-    // (skip_secondary), which is the default and is what the likelihood model needs
-    // anyway. If secondaries are being kept, a read could be emitted twice here; the
-    // model's own independence assumption is already void in that case.
+    // nodes -- a read spanning a chunk boundary comes back from both -- so duplicates
+    // have to be dropped.
+    //
+    // De-duplicate on name *and start position*, not name alone. Paired reads share a
+    // name: in real Illumina GAF both mates carry the same identifier, so keying on the
+    // name would silently discard one mate of every pair that reached this path,
+    // halving the evidence at those sites. Two records sharing a name and a start
+    // position are genuinely the same alignment returned twice.
     unordered_set<string> seen;
     for (size_t start = 0; start < nodes.size(); start += max_query_nodes) {
         size_t end = min(start + max_query_nodes, nodes.size());
         vector<nid_t> chunk(nodes.begin() + start, nodes.begin() + end);
         run_query_or_die(state, chunk, [&](const Alignment& aln) {
-            if (seen.insert(aln.name()).second) {
+            string key = aln.name();
+            if (aln.path().mapping_size() > 0) {
+                const Position& pos = aln.path().mapping(0).position();
+                key += "\t" + to_string(pos.node_id()) + "\t" + to_string(pos.offset()) +
+                       (pos.is_reverse() ? "-" : "+");
+            }
+            if (seen.insert(std::move(key)).second) {
                 iteratee(aln);
             }
         });
