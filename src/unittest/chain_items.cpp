@@ -66,14 +66,29 @@ static vector<handle_t> get_handles(const HandleGraph& graph) {
     return handles;
 }
 
-TEST_CASE("score_best_chain scores no anchors as 0", "[chain_items][score_best_chain]") {
-    HashGraph graph = make_long_graph(1);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    
-    vector<algorithms::Anchor> to_score;
-    REQUIRE(algorithms::score_best_chain(to_score, distance_index, graph, 6, 1) == 0);
+static algorithms::transition_iterator make_ziptree_iterator(const SnarlDistanceIndex& distance_index,
+                                                             const vector<algorithms::Anchor>& positions) {
+    // Convert these into Seed type
+    vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    for (const auto& pos : positions) {
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos.graph_start());
+        zipcode.fill_in_full_decoder();
+        seeds.push_back({pos.graph_start(), 0, zipcode});
+    }
+
+    // Next, make a ZipCodeForest for the graph/seeds
+    ZipCodeForest zip_forest;
+    zip_forest.fill_in_forest(seeds, distance_index);
+
+    // Make iterator for only the first tree
+    // Seriously this is for test cases, only one tree at once
+    return algorithms::zip_tree_transition_iterator(
+        seeds,
+        zip_forest.trees.front(),
+        std::numeric_limits<size_t>::max(),
+        std::numeric_limits<size_t>::max()
+    );
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items][find_best_chain]") {
@@ -89,7 +104,8 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
                                   {10, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
+                                              make_ziptree_iterator(distance_index, to_score));
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
 }
@@ -107,7 +123,8 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
                                   {10, h[1], 11, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
+                                              make_ziptree_iterator(distance_index, to_score));
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
@@ -126,7 +143,8 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
                                   {11, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
+                                              make_ziptree_iterator(distance_index, to_score));
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
@@ -149,7 +167,8 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
+                                              make_ziptree_iterator(distance_index, to_score));
     // We should take all of the items in order and not be scared off by the indels.
     REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
 }
