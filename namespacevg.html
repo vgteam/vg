@@ -2599,12 +2599,12 @@ Functions</h2></td></tr>
 <tr class="separator:acdaa29c218d5d55e76fe4ab168f7a14b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
 <tr class="separator:a52292dfd3869a811170f7c5c0d9da564"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa0b9062cb7b053e7823169d589e113d1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa0b9062cb7b053e7823169d589e113d1">weighted_jaccard_coefficient</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;target, const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;query)</td></tr>
-<tr class="separator:aa0b9062cb7b053e7823169d589e113d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af914ed677d2e73c82f2ea08d594f83c1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af914ed677d2e73c82f2ea08d594f83c1">weighted_traversal_similarity</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;target, const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;query, int64_t site_length)</td></tr>
+<tr class="separator:af914ed677d2e73c82f2ea08d594f83c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa05224d1b8daa421ebfb9320fc1d2d1"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa05224d1b8daa421ebfb9320fc1d2d1">get_traversal_order</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; string &gt; &amp;trav_path_names, const vector&lt; int &gt; &amp;ref_travs, int64_t ref_trav_idx, const vector&lt; bool &gt; &amp;use_traversal)</td></tr>
 <tr class="separator:aaa05224d1b8daa421ebfb9320fc1d2d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a392e3bc708a380e7a3d9b3a669aaf2a9"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a392e3bc708a380e7a3d9b3a669aaf2a9">cluster_traversals</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;traversal_order, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;child_snarls, double min_jaccard, vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;out_info, vector&lt; int &gt; &amp;out_child_snarl_to_trav)</td></tr>
-<tr class="separator:a392e3bc708a380e7a3d9b3a669aaf2a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af5d3cbf202f7037fe7944b446fbea1f0"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af5d3cbf202f7037fe7944b446fbea1f0">cluster_traversals</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;traversal_order, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;child_snarls, double min_jaccard, vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;out_info, vector&lt; int &gt; &amp;out_child_snarl_to_trav, const <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> *site_ref_trav)</td></tr>
+<tr class="separator:af5d3cbf202f7037fe7944b446fbea1f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1ac7d2a0833215a0628a25c8195a70ab"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1ac7d2a0833215a0628a25c8195a70ab">assign_child_snarls_to_traversals</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;child_snarls)</td></tr>
 <tr class="separator:a1ac7d2a0833215a0628a25c8195a70ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adcc7a98e5291c4354fc575289cc50fe1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adcc7a98e5291c4354fc575289cc50fe1">merge_equivalent_traversals_in_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *graph, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;selected_paths, bool use_snarl_manager)</td></tr>
@@ -4170,7 +4170,7 @@ Variables</h2></td></tr>
     <tr><td class="paramname">travs</td><td>Vector of traversals (modified in place to add star traversals) </td></tr>
     <tr><td class="paramname">names</td><td>Vector of path names corresponding to traversals (modified in place) </td></tr>
     <tr><td class="paramname">trav_clusters</td><td>Vector of cluster assignments (modified in place) </td></tr>
-    <tr><td class="paramname">trav_cluster_info</td><td>Vector of cluster info (Jaccard, length delta) (modified in place) </td></tr>
+    <tr><td class="paramname">trav_cluster_info</td><td>Vector of cluster info (similarity, length delta) (modified in place) </td></tr>
     <tr><td class="paramname">parent_haplotypes</td><td>Map from sample name -&gt; vector of haplotype phases in the parent </td></tr>
     <tr><td class="paramname">sample_names</td><td>Set of sample names to consider (reference-only samples are skipped) </td></tr>
   </table>
@@ -7702,8 +7702,8 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="a392e3bc708a380e7a3d9b3a669aaf2a9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a392e3bc708a380e7a3d9b3a669aaf2a9">&#9670;&nbsp;</a></span>cluster_traversals()</h2>
+<a id="af5d3cbf202f7037fe7944b446fbea1f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af5d3cbf202f7037fe7944b446fbea1f0">&#9670;&nbsp;</a></span>cluster_traversals()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -7748,7 +7748,13 @@ template&lt;typename Annotated &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">vector&lt; int &gt; &amp;&#160;</td>
-          <td class="paramname"><em>out_child_snarl_to_trav</em>&#160;</td>
+          <td class="paramname"><em>out_child_snarl_to_trav</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> *&#160;</td>
+          <td class="paramname"><em>site_ref_trav</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -7760,7 +7766,7 @@ template&lt;typename Annotated &gt; </div>
 <p>cluster the traversals. The algorithm is:</p><ul>
 <li>visit traversals in provided order<ul>
 <li>if the traversal is &lt;= min_jaccard away from the reference traversal of cluster, add to cluster</li>
-<li>else start a new cluster, with the given traversal as a reference note that traversal_order can specify a subset of traversals out_info are Simlarity/length-delta pairs comparing the traversal to its cluster reference (if the traversal wasn't in traversal_order, it'll get -1) if child snarls are given, then we make sure that every child snarl is contained in a reference traversal (this guarantees the snarl nesting structure is exactly represented in the vcf alleles!) if child snarls are given, then we also fill in the mapping of each child snarl to its "reference" traversals &ndash; ie first traversal in a cluster that contains both its endpoints </li>
+<li>else start a new cluster, with the given traversal as a reference note that traversal_order can specify a subset of traversals out_info are Simlarity/length-delta pairs comparing the traversal to its cluster reference (if the traversal wasn't in traversal_order, it'll get -1) if child snarls are given, then we make sure that every child snarl is contained in a reference traversal (this guarantees the snarl nesting structure is exactly represented in the vcf alleles!) if child snarls are given, then we also fill in the mapping of each child snarl to its "reference" traversals &ndash; ie first traversal in a cluster that contains both its endpoints site_ref_trav is the site's reference traversal, used to scale the similarity of a PURE DELETION (a 2-visit traversal, whose interior is empty) &ndash; see weighted_traversal_similarity. Pass nullptr only when no reference traversal is available; a site with a pure deletion will then fall back to pairwise scoring and that deletion can never be merged. Deliberately has no default: a caller that omits it would silently reintroduce that bug. </li>
 </ul>
 </li>
 </ul>
@@ -29947,14 +29953,14 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="aa0b9062cb7b053e7823169d589e113d1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa0b9062cb7b053e7823169d589e113d1">&#9670;&nbsp;</a></span>weighted_jaccard_coefficient()</h2>
+<a id="af914ed677d2e73c82f2ea08d594f83c1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af914ed677d2e73c82f2ea08d594f83c1">&#9670;&nbsp;</a></span>weighted_traversal_similarity()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::weighted_jaccard_coefficient </td>
+          <td class="memname">double vg::weighted_traversal_similarity </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -29969,7 +29975,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>query</em>&#160;</td>
+          <td class="paramname"><em>query</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>site_length</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -29978,6 +29990,9 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Length-weighted similarity of two snarl alleles. For two alleles that both carry sequence this is the length-weighted Jaccard coefficient it has always been: |A n B| / |A u B| over multisets of interior handles.</p>
+<p>When one of them is a PURE DELETION &ndash; a traversal straight from snarl start to snarl end, so its interior is empty &ndash; Jaccard has nothing to work with: the intersection is 0 whatever the other allele is, so no threshold could ever merge two deletions. There, and only there, we measure against the site: sim(deletion, X) = 1 - |X| / max(|site|, |X|), the fraction of the site that BOTH alleles delete. A 59bp and a 60bp deletion of a 60bp site score 59/60; a deletion and the reference score 0. Restricting it to that case is the point &ndash; scaling EVERY pair by the site would make two unrelated alleles look similar merely because they sit in a big snarl.</p>
+<p><code>site_length</code> is the total length of the site's reference traversal interior; 0 means "unknown" and falls back to the plain pairwise coefficient for every input. It is a length rather than the traversal itself because it is invariant across a whole clustering pass, and re-summing it per comparison made every comparison against a pure deletion cost O(site) instead of O(allele). Symmetric; in [0,1] structurally rather than by clamping; exactly 1 iff the two multisets are equal, including two identical pure deletions. </p>
 
 </div>
 </div>

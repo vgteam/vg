@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="#pro-static-attribs">Static Protected Attributes</a> &#124;
 <a href="classvg_1_1VCFOutputCaller-members.html">List of all members</a>  </div>
@@ -115,6 +116,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a35f5b2f9d93ea764e0d8f5f957ba4c3a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a35f5b2f9d93ea764e0d8f5f957ba4c3a">set_nested</a> (bool nested)</td></tr>
 <tr class="memdesc:a35f5b2f9d93ea764e0d8f5f957ba4c3a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Assume writing nested snarls is enabled.  <a href="classvg_1_1VCFOutputCaller.html#a35f5b2f9d93ea764e0d8f5f957ba4c3a">More...</a><br /></td></tr>
 <tr class="separator:a35f5b2f9d93ea764e0d8f5f957ba4c3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a75030a0ae2d93e7d2686f0e5d48bb145"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a75030a0ae2d93e7d2686f0e5d48bb145">set_allele_merge</a> (double threshold, int64_t min_len)</td></tr>
+<tr class="separator:a75030a0ae2d93e7d2686f0e5d48bb145"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8af4d1486a3a4419fa7e7a73dcf5a708"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a8af4d1486a3a4419fa7e7a73dcf5a708">get_output_contigs</a> () const</td></tr>
 <tr class="separator:a8af4d1486a3a4419fa7e7a73dcf5a708"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6dd6b8624f41b49d247814e7486f9ef0"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a6dd6b8624f41b49d247814e7486f9ef0">prune_header_contigs</a> (const string &amp;header, const unordered_set&lt; string &gt; &amp;keep) const</td></tr>
@@ -131,6 +134,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:ae4b896a68da613eb2e8e509279e4e1b9"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ae4b896a68da613eb2e8e509279e4e1b9">trav_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav) const</td></tr>
 <tr class="memdesc:ae4b896a68da613eb2e8e509279e4e1b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">convert a traversal into an allele string  <a href="classvg_1_1VCFOutputCaller.html#ae4b896a68da613eb2e8e509279e4e1b9">More...</a><br /></td></tr>
 <tr class="separator:ae4b896a68da613eb2e8e509279e4e1b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa6472d441c2eb20ac4ecd105866c5e0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aaa6472d441c2eb20ac4ecd105866c5e0">merge_similar_alleles</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;site_traversals, vector&lt; int &gt; &amp;site_genotype, const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>, vcflib::Variant &amp;out_variant) const</td></tr>
+<tr class="separator:aaa6472d441c2eb20ac4ecd105866c5e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ed9068c446bfd72f912184421c3d7ce"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a3ed9068c446bfd72f912184421c3d7ce">emit_variant</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;snarl_caller, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;called_traversals, const vector&lt; int &gt; &amp;genotype, int ref_trav_idx, const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &amp;call_info, const string &amp;ref_path_name, int ref_offset, bool genotype_snarls, int ploidy, function&lt; string(const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;, const vector&lt; int &gt; &amp;, int, int, int)&gt; trav_to_string=nullptr)</td></tr>
 <tr class="separator:a3ed9068c446bfd72f912184421c3d7ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab382edfcd67f4f3e73fe032cf8f96b04"><td class="memItemLeft" align="right" valign="top">tuple&lt; int64_t, int64_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ab382edfcd67f4f3e73fe032cf8f96b04">get_ref_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name) const</td></tr>
@@ -153,6 +158,13 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a131c6d35d0722a64bd18b4a646efac5a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a131c6d35d0722a64bd18b4a646efac5a">update_nesting_info_tags</a> (const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarl_manager)</td></tr>
 <tr class="separator:a131c6d35d0722a64bd18b4a646efac5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
+Static Protected Member Functions</h2></td></tr>
+<tr class="memitem:a5b54d24c323fdab6b5baf787a4cbb4c2"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a5b54d24c323fdab6b5baf787a4cbb4c2">snarl_traversal_to_handles</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &amp;out_trav)</td></tr>
+<tr class="separator:a5b54d24c323fdab6b5baf787a4cbb4c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec277a6e87140ca432e4e584b2857c46"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aec277a6e87140ca432e4e584b2857c46">allele_core_length</a> (const vector&lt; string &gt; &amp;alleles)</td></tr>
+<tr class="separator:aec277a6e87140ca432e4e584b2857c46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:a1556bdec270d47b22e5c91b6956a23c0"><td class="memItemLeft" align="right" valign="top">vcflib::VariantCallFile&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a1556bdec270d47b22e5c91b6956a23c0">output_vcf</a></td></tr>
@@ -170,6 +182,10 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a212346d7a629ae3280ce3eb39606237b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb5fc9a52eb170a49d6f77aad30e13f7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#afb5fc9a52eb170a49d6f77aad30e13f7">include_nested</a></td></tr>
 <tr class="separator:afb5fc9a52eb170a49d6f77aad30e13f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a893b66573f35537a5a7fe74f280ecc5c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a893b66573f35537a5a7fe74f280ecc5c">allele_merge_threshold</a> = 1.0</td></tr>
+<tr class="separator:a893b66573f35537a5a7fe74f280ecc5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae0d25b9addef8a4f0e6d21630f4f9d58"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ae0d25b9addef8a4f0e6d21630f4f9d58">allele_merge_min_len</a> = 0</td></tr>
+<tr class="separator:ae0d25b9addef8a4f0e6d21630f4f9d58"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-attribs"></a>
 Static Protected Attributes</h2></td></tr>
@@ -357,6 +373,38 @@ Static Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Add a variant to our buffer Returns false if the variant line length exceeds <a class="el" href="classvg_1_1VCFOutputCaller.html#a549336b5a84bfdef74b8ae8116b1b151">VCFOutputCaller::max_vcf_line_length</a> </p>
+
+</div>
+</div>
+<a id="aec277a6e87140ca432e4e584b2857c46"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aec277a6e87140ca432e4e584b2857c46">&#9670;&nbsp;</a></span>allele_core_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::VCFOutputCaller::allele_core_length </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alleles</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>The CORE LENGTH of a variant: the length of the longest allele after stripping the prefix and the suffix that every non-"*" allele shares. This is the single definition of "how big
+is this variant" behind &ndash;cluster-min-len in BOTH vg call and vg deconstruct. It is invariant to how much shared flanking context a caller keeps in its allele strings, which is the point: vg call flattens down to an anchor base while vg deconstruct emits the whole snarl interior, so a raw string length answers differently for the same variant. Consequences, all intended:</p><ul>
+<li>the anchor base flatten_common_allele_ends must leave on every indel is a shared prefix, so it is stripped: a 49bp indel measures 49, not 50.</li>
+<li>REF participates, so a pure deletion measures the deleted length. A maximum over ALTs alone measures 1 for a deletion of any size.</li>
+<li>"*" is a marker, not sequence, so it is excluded from both the affixes and the maximum. That also neutralizes flatten_common_allele_ends being a no-op whenever a "*" is present &ndash; without -a because min_allele_len becomes 1 and max_flatten_len decrements to 0, and with -a because "*" matches no base at the first offset compared. Either way the un-flattened boundary sequence is common to every real allele, so it is stripped here. Note this measures the SPAN of the variant, not the size of any one event inside it: a haplotype differing from the reference at two bases 59bp apart has a core length of 60. </li>
+</ul>
 
 </div>
 </div>
@@ -612,6 +660,61 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="aaa6472d441c2eb20ac4ecd105866c5e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa6472d441c2eb20ac4ecd105866c5e0">&#9670;&nbsp;</a></span>merge_similar_alleles()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VCFOutputCaller::merge_similar_alleles </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>site_traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>site_genotype</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sample_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>out_variant</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Merge near-identical called ALT alleles in an already-populated variant. Must run AFTER <a class="el" href="classvg_1_1SnarlCaller.html#a5098383d371e037c79e4c278e3fbbea1" title="Update INFO and FORMAT fields of the called variant.">SnarlCaller::update_vcf_info</a> and after flatten_common_allele_ends, so that the genotyper and the allele-flattening both see the full pre-merge allele set: merging earlier drops the absorbed allele's reads from AD/DP and from the Poisson caller's total_other_support term. Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT, MAD) and records what was merged in the MAT info field. Returns true if anything merged. </p>
+
+</div>
+</div>
 <a id="a176e28f88a407072ec8459e1867e283e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a176e28f88a407072ec8459e1867e283e">&#9670;&nbsp;</a></span>print_flipped_snarl()</h2>
 
@@ -803,6 +906,35 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a75030a0ae2d93e7d2686f0e5d48bb145"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a75030a0ae2d93e7d2686f0e5d48bb145">&#9670;&nbsp;</a></span>set_allele_merge()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VCFOutputCaller::set_allele_merge </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>threshold</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_len</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of two effectively-identical alleles collapses to 1/1 with a single ALT. Uses the same similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a length-weighted Jaccard, except that a pure deletion is scored against the site &ndash; see weighted_traversal_similarity). The gate is applied to the alleles each tool emits, and those sets differ, so the two can disagree at a given site: similarity is &gt;= threshold to merge, and min_len &gt; 0 restricts merging to sites whose core length reaches min_len bp (see allele_core_length). A threshold of 1.0 (the default) disables merging entirely. </p>
+
+</div>
+</div>
 <a id="a35f5b2f9d93ea764e0d8f5f957ba4c3a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a35f5b2f9d93ea764e0d8f5f957ba4c3a">&#9670;&nbsp;</a></span>set_nested()</h2>
 
@@ -840,6 +972,49 @@ Static Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Add a translation map. </p>
+
+</div>
+</div>
+<a id="a5b54d24c323fdab6b5baf787a4cbb4c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b54d24c323fdab6b5baf787a4cbb4c2">&#9670;&nbsp;</a></span>snarl_traversal_to_handles()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VCFOutputCaller::snarl_traversal_to_handles </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>trav</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>out_trav</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert a <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> to the handle vector the clustering code works on. Returns false (leaving out_trav unspecified) if the traversal cannot be represented: fewer than two visits (the "*" placeholder pushed for a star allele), or a visit carrying a child <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a> rather than a node, which <a class="el" href="classvg_1_1NestedFlowCaller.html">NestedFlowCaller</a> produces via <a class="el" href="classvg_1_1SnarlGraph.html#af1dc28423f51b60f019e08f716e9b082">SnarlGraph::embed_snarl</a>. (<a class="el" href="classvg_1_1LegacyCaller.html">LegacyCaller</a> expands its children into node visits in top_down_genotype, so it never reaches here.) </p>
 
 </div>
 </div>
@@ -1003,6 +1178,50 @@ Static Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="ae0d25b9addef8a4f0e6d21630f4f9d58"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae0d25b9addef8a4f0e6d21630f4f9d58">&#9670;&nbsp;</a></span>allele_merge_min_len</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::VCFOutputCaller::allele_merge_min_len = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a893b66573f35537a5a7fe74f280ecc5c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a893b66573f35537a5a7fe74f280ecc5c">&#9670;&nbsp;</a></span>allele_merge_threshold</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::VCFOutputCaller::allele_merge_threshold = 1.0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="afb5fc9a52eb170a49d6f77aad30e13f7"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afb5fc9a52eb170a49d6f77aad30e13f7">&#9670;&nbsp;</a></span>include_nested</h2>
 
