@@ -5251,9 +5251,10 @@ using namespace std;
         size_t curr_interval_strict_right_bound = -1;
         for (const auto& chunk_interval : chunk_intervals) {
             
-            // check for sufficient separation to start a new supplementary using the directly attested intervals
+            // Preserve sufficiently separated reference regions as distinct alignment
+            // candidates; supplementary reporting is decided after alignment.
             if (disjoint_path_intervals.empty() ||
-                (report_supplementary && curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval))) {
+                curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval)) {
                 // make new interval
                 curr_interval_strict_right_bound = get<1>(chunk_interval);
                 disjoint_path_intervals.emplace_back(get<2>(chunk_interval), get<3>(chunk_interval),
