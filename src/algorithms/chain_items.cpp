@@ -1035,34 +1035,42 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
     // Trim subchain ends that we wouldn't use
     size_t max_left_tail = min_left_tail + tail_grace_window;
     size_t max_right_tail = min_right_tail + tail_grace_window;
-    for (const auto& cur_trace : original_tracebacks) {
+
+    // We can always trace through the  first, optimal chain
+    trace_from.emplace(original_tracebacks.front().anchors.front());
+#ifdef debug_chaining
+    cerr << "Trace-forwards may start from " << original_tracebacks.front().anchors.front() << endl;
+#endif
+    // See if we should trim the ends of other chains
+    for (size_t i = 1; i < original_tracebacks.size(); i++) {
+        auto& cur_trace = original_tracebacks[i].anchors;
         bool trimmed_full_chain = false;
 
-        if (read_length - to_chain[cur_trace.anchors.back()].read_end() <= max_right_tail
-            || !outgoing_edges[cur_trace.anchors.back()].empty()) {
+        if (read_length - to_chain[cur_trace.back()].read_end() <= max_right_tail
+            || !outgoing_edges[cur_trace.back()].empty()) {
             // We will use this right tail
 #ifdef debug_chaining
-            cerr << "Keeping right tail ending at " << cur_trace.anchors.back() << endl;
+            cerr << "Keeping right tail ending at " << cur_trace.back() << endl;
 #endif
         } else {
             // We need to trim this end
 #ifdef debug_chaining
-            cerr << "Trimming right end from " << cur_trace.anchors.back() << endl;
+            cerr << "Trimming right end from " << cur_trace.back() << endl;
 #endif
-            for (size_t i = cur_trace.anchors.size() - 1; i > 0; i--) {
+            for (size_t i = cur_trace.size() - 1; i > 0; i--) {
                 // Remove edge
-                outgoing_edges[cur_trace.anchors[i-1]].erase(cur_trace.anchors[i]);
-                incoming_edges[cur_trace.anchors[i]].erase(cur_trace.anchors[i-1]);
+                outgoing_edges[cur_trace[i-1]].erase(cur_trace[i]);
+                incoming_edges[cur_trace[i]].erase(cur_trace[i-1]);
                 if (i == 1) {
                     trimmed_full_chain = true;
-                    if (!incoming_edges[cur_trace.anchors[i-1]].empty()) {
+                    if (!incoming_edges[cur_trace[i-1]].empty()) {
                         // Also need to get rid of wherever this is attached to
-                        for (const auto& incoming : incoming_edges[cur_trace.anchors[i-1]]) {
-                            outgoing_edges[incoming].erase(cur_trace.anchors[i-1]);
+                        for (const auto& incoming : incoming_edges[cur_trace[i-1]]) {
+                            outgoing_edges[incoming].erase(cur_trace[i-1]);
                         }
-                        incoming_edges[cur_trace.anchors[i-1]].clear();
+                        incoming_edges[cur_trace[i-1]].clear();
                     }
-                } else if (!outgoing_edges[cur_trace.anchors[i-1]].empty()) {
+                } else if (!outgoing_edges[cur_trace[i-1]].empty()) {
                     // The chain has joined up with another
                     // (this anchor has an outgoing edge from another chain)
                     // We will stop trimming
@@ -1078,23 +1086,23 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
 #endif  
         }
 
-        if (to_chain[cur_trace.anchors.front()].read_start() <= max_left_tail
-            || !incoming_edges[cur_trace.anchors.front()].empty()) {
+        if (to_chain[cur_trace.front()].read_start() <= max_left_tail
+            || !incoming_edges[cur_trace.front()].empty()) {
             // We will use this left tail
-            trace_from.emplace(cur_trace.anchors.front());
+            trace_from.emplace(cur_trace.front());
 #ifdef debug_chaining
-            cerr << "Trace-forwards may start from " << cur_trace.anchors.front() << endl;
+            cerr << "Trace-forwards may start from " << cur_trace.front() << endl;
 #endif
         } else {
             // We need to trim this end
 #ifdef debug_chaining
-            cerr << "Trimming left end from " << cur_trace.anchors.front() << endl;
+            cerr << "Trimming left end from " << cur_trace.front() << endl;
 #endif            
-            for (size_t i = 0; i < cur_trace.anchors.size() - 1; i++) {
+            for (size_t i = 0; i < cur_trace.size() - 1; i++) {
                 // Remove edge
-                outgoing_edges[cur_trace.anchors[i]].erase(cur_trace.anchors[i+1]);
-                incoming_edges[cur_trace.anchors[i+1]].erase(cur_trace.anchors[i]);
-                if (!incoming_edges[cur_trace.anchors[i+1]].empty()) {
+                outgoing_edges[cur_trace[i]].erase(cur_trace[i+1]);
+                incoming_edges[cur_trace[i+1]].erase(cur_trace[i]);
+                if (!incoming_edges[cur_trace[i+1]].empty()) {
                     // The chain has joined up with another
                     // (this anchor has a source from another chain)
                     // We will stop trimming
