@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 87
+plan tests 116
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -151,13 +151,13 @@ printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster.gfa
 printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster.gfa
 printf "P\tz\t1+,9+\t*\n" >> small_cluster.gfa
 vg deconstruct small_cluster.gfa -p x > small_cluster_0.vcf
-vg deconstruct small_cluster.gfa -p x -L 0.3 > small_cluster_3.vcf
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3.vcf
 is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free deconstruction finds all alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
-# --cluster-min-len gates when the longest non-boundary traversal is below
-# the threshold.  small_cluster's only snarl has max interior length 6 bp.
+# --cluster-min-len gates when the site's core length is below the threshold.
+# small_cluster's only snarl has core length 6 bp.
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3_off.vcf
 is "$(tail -1 small_cluster_3_off.vcf | awk '{print $5}')" "G" "--cluster-min-len 0 is equivalent to clustering everywhere"
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 50 > small_cluster_3_50.vcf
@@ -169,6 +169,118 @@ diff small_cluster_0.vcf small_cluster_min_only.vcf
 is "$?" 0 "--cluster-min-len without -L is a no-op"
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
+
+# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
+# every allele are stripped -- not on the raw snarl interior.  Measuring the interior would gate a
+# 1bp SNP on the size of whatever snarl happens to contain it, and would disagree with vg call,
+# whose records are flattened down to an anchor base.
+core_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 --cluster-min-len $2 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+
+is "$(core_nalt core_snp_in_flanks 50)" "2" "a 1bp SNP in a large snarl is not clustered at --cluster-min-len 50"
+is "$(core_nalt core_sv60 50)"         "1" "a 60bp SV is still clustered at --cluster-min-len 50"
+is "$(core_nalt core_del61 50)"        "1" "a 61bp deletion is still clustered (the reference allele is measured)"
+is "$(core_nalt core_ins49 50)"        "2" "a 49bp insertion is not clustered at 50 (the anchor base is not counted)"
+is "$(core_nalt core_ins50 50)"        "1" "a 50bp insertion is clustered at 50"
+# 50 is the DEFAULT, so -L on its own must gate identically.  Every metric assertion in this file
+# passes --cluster-min-len 0 for exactly that reason.
+default_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+is "$(default_nalt core_snp_in_flanks)" "$(core_nalt core_snp_in_flanks 50)" "-L alone gates a small variant like --cluster-min-len 50"
+is "$(default_nalt core_sv60)"          "$(core_nalt core_sv60 50)"          "-L alone still clusters an SV"
+
+# A PURE DELETION -- a traversal straight from snarl start to snarl end -- used to keep its boundary
+# handles, which made its handle set disjoint from every other allele's by construction.  Its
+# similarity was therefore structurally 0 and no -L could ever merge it.  It is now scored against
+# the site: two deletions that both remove 59 of a 60bp site score 59/60.
+# The ladder is -L 0.99 / 0.983334 / 0.983333 / 0.6 / 0.1, printing the ALT count at each.
+# --cluster-min-len 0 so this ladder measures the METRIC alone: the gate now defaults to 50, which
+# would decide del1_vs_snp1 (a 1bp site) before the similarity was ever consulted.  The gate has its
+# own ladder in core_nalt below.
+dladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg deconstruct nesting/$1.gfa -p x -L $L --cluster-min-len 0 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+
+is "$(dladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion cluster, flipping at 59/60"
+is "$(dladder del60_vs_del59ins1)" "22111" "a deletion clusters with a deletion carrying a novel base"
+is "$(dladder del60_vs_snp)"       "22222" "a 60bp deletion never clusters with a 60bp substitution"
+is "$(dladder inv60_vs_del60)"     "22222" "a 60bp inversion never clusters with a 60bp deletion"
+# only a PURE DELETION is scored against the site; scaling every pair by it would make unrelated
+# alleles in a big snarl look alike, which these two pin
+is "$(dladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion clusterable"
+is "$(dladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles clusterable"
+# the small-variant case: deleting a base and substituting it are different events, so scoring a
+# pure deletion against the site must not make them look alike
+is "$(dladder del1_vs_snp1)"       "22222" "a 1bp deletion never clusters with a 1bp SNP"
+
+# The flip point itself is pinned by dladder above.  What is left to pin here is that the clustering
+# machinery is entirely invisible at the default: -L 1.0 must match no -L byte for byte, and neither
+# may carry the TS/TL FORMAT fields that any -L < 1.0 adds (see the -L 0.99 run, which does not merge
+# but does emit them).
+vg deconstruct nesting/del59_vs_del60.gfa -p x 2>/dev/null > deldefault.vcf
+vg deconstruct nesting/del59_vs_del60.gfa -p x -L 1.0 2>/dev/null > delnoop.vcf
+diff deldefault.vcf delnoop.vcf
+is "$?" 0 "-L 1.0 is byte-identical to no -L on a pure-deletion site"
+is "$(grep -cE 'GT:TS:TL' deldefault.vcf)" "0" "the default emits no TS/TL, so -L leaves no trace when off"
+is "$(vg deconstruct nesting/del59_vs_del60.gfa -p x -L 0.99 2>/dev/null | grep -cE 'GT:TS:TL')" "1" "-L < 1.0 emits TS/TL even when nothing merges"
+rm -f deldefault.vcf delnoop.vcf
+
+# -L in a nested run is lossy at the parent and precise at the children, exactly as in vg call:
+# the parent gives the collapsed view of a large variant, the child records the detail.
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -L 0.6 --cluster-min-len 0 >/dev/null 2>&1
+is "$?" 0 "-L is allowed in a nested run (-a)"
+# ...but not with -R.  A "*" in a child record means "an upstream deletion covers this site", and
+# clustering can absorb the allele that deletion came from -- which one survives is decided by
+# traversal order, so by path names -- leaving the "*" referring to nothing in the file.  That is a
+# malformed record rather than a lossy one.  vg call refuses -L with -Y for the same reason.
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -R -L 0.6 >/dev/null 2>&1
+is "$?" 1 "-L is rejected with -R/--star-allele"
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -R >/dev/null 2>&1
+is "$?" 0 "-R without -L still works"
+
+# Star alleles (-R) are a marker, not sequence.  They must survive verbatim as "*" in every
+# orientation and at every site type: complement['*'] is 'N', so reverse-complementing one turns it
+# into a real ambiguous base, and prepending the anchor base turns it into "A*"/"AN".
+star_alt() { awk -F'\t' -v id="$2" '$3 == id {print $2" "$4" "$5}' "$1"; }
+
+vg deconstruct nesting/nested_snp_in_del.gfa         -p x -a -R 2>/dev/null > star_fwd.vcf
+vg deconstruct nesting/nested_snp_in_del_rev.gfa     -p x -a -R 2>/dev/null > star_rev.vcf
+vg deconstruct nesting/nested_del_star_indel.gfa     -p x -a -R 2>/dev/null > star_indel.vcf
+vg deconstruct nesting/nested_del_star_indel_rev.gfa -p x -a -R 2>/dev/null > star_rev_indel.vcf
+vg deconstruct nesting/nested_mnp_star.gfa           -p x -a -R 2>/dev/null > star_mnp.vcf
+vg deconstruct nesting/nested_ins_star_only.gfa      -p x -a -R 2>/dev/null > star_emptyref.vcf
+vg deconstruct nesting/insertion_with_three_snps.gfa -p x -a -R 2>/dev/null > star_three.vcf
+vg deconstruct nesting/star_cluster.gfa              -p x -a -R 2>/dev/null > star_cluster.vcf
+vg deconstruct nesting/star_allele_cluster.gfa       -p x -a -R 2>/dev/null > star_allele_cluster.vcf
+
+# The *_rev fixtures are keyed on '<5<2', not '>2>5': a snarl ID is spelled in the orientation the
+# reference traverses it, so a reverse-oriented site reads backwards.  Only the ID differs -- the
+# POS/REF/ALT asserted here are the same shape as the forward case.
+is "$(star_alt star_fwd.vcf       '>2>5')" "3 T A,*"      "star is * at a forward substitution site"
+is "$(star_alt star_rev.vcf       '<5<2')" "3 A T,*"      "star is not reverse complemented into N"
+is "$(star_alt star_indel.vcf     '>2>5')" "2 ATTTT AA,*" "star is not padded with the previous base"
+is "$(star_alt star_rev_indel.vcf '<5<2')" "2 CAAAA CT,*" "star survives reversal and padding together"
+is "$(star_alt star_mnp.vcf       '>2>5')" "3 TT AA,*"    "a star does not force indel padding of the real alleles"
+is "$(star_alt star_emptyref.vcf  '>2>5')" "2 A *"        "empty REF keeps its anchor base with a star-only ALT"
+
+# -R adds star alleles; it must not move or respell the real ones
+diff <(vg deconstruct nesting/nested_mnp_star.gfa -p x -a -R 2>/dev/null | grep -v '^#' | cut -f1,2,4) \
+     <(vg deconstruct nesting/nested_mnp_star.gfa -p x -a    2>/dev/null | grep -v '^#' | cut -f1,2,4)
+is "$?" 0 "-R does not change CHROM/POS/REF of the real alleles"
+
+# Negative sweep over every fixture above: an AT entry of "." identifies a star allele, and AT is
+# Number=R so the mapping is by index, independent of ALT order.
+star_fields() {
+    grep -hv "^#" "$@" | awk -F'\t' '{
+        n = split($5, alts, ",");
+        if (match($8, /AT=[^;]*/)) {
+            split(substr($8, RSTART + 3, RLENGTH - 3), ats, ",");
+            for (i = 1; i <= n; i++) if (ats[i + 1] == ".") print alts[i];
+        }}'
+}
+STAR_VCFS="star_fwd.vcf star_rev.vcf star_indel.vcf star_rev_indel.vcf star_mnp.vcf star_emptyref.vcf star_three.vcf star_cluster.vcf star_allele_cluster.vcf"
+is "$(star_fields $STAR_VCFS | grep -c '')"      "8" "the star allele sweep is not vacuous"
+is "$(star_fields $STAR_VCFS | grep -vc '^\*$')" "0" "every allele whose AT entry is . is spelled exactly *"
+
+rm -f $STAR_VCFS
 
 # Nesting tests now use a two-step process:
 # 1. Compute gref cover with vg paths

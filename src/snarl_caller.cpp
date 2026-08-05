@@ -807,7 +807,11 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     int ref_trav_size = 0;
     const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
     for (int64_t i = 1; i < (int64_t)ref_trav.visit_size() - 1; ++i) {
-        ref_trav_size += graph.get_length(graph.get_handle(ref_trav.visit(i).node_id()));
+        // NestedFlowCaller plants Visits that carry a child Snarl rather than a node (node_id 0);
+        // those have no handle and contribute no length of their own
+        if (ref_trav.visit(i).node_id() > 0) {
+            ref_trav_size += graph.get_length(graph.get_handle(ref_trav.visit(i).node_id()));
+        }
     }
 
     // Filter out special marker values (negative indices like STAR_ALLELE_MARKER, MISSING_ALLELE_MARKER)
