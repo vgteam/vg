@@ -1483,7 +1483,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 for_each_transition,
                 indel_limit,
                 this->max_alt_lookback_score,
-                this->tail_grace_window,
+                this->extra_tail_grace_window,
                 show_work);
 
             if (show_work) {

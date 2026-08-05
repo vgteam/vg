@@ -986,7 +986,7 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
                                  const vector<SparseAnchorChain>& original_tracebacks,
                                  const vector<pair<size_t, size_t>>& connections,
                                  size_t read_length,
-                                 size_t tail_grace_window) {
+                                 size_t extra_tail_grace_window) {
     SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
     vector<unordered_set<size_t>> outgoing_edges(to_chain.size());
@@ -1033,8 +1033,8 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
     }
 
     // Trim subchain ends that we wouldn't use
-    size_t max_left_tail = min_left_tail + tail_grace_window;
-    size_t max_right_tail = min_right_tail + tail_grace_window;
+    size_t max_left_tail = min_left_tail*2 + extra_tail_grace_window;
+    size_t max_right_tail = min_right_tail*2 + extra_tail_grace_window;
 
     // We can always trace through the  first, optimal chain
     trace_from.emplace(original_tracebacks.front().anchors.front());
@@ -1200,7 +1200,7 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
                                const transition_iterator& for_each_transition,
                                size_t max_indel_bases,
                                size_t max_alt_lookback,
-                               size_t tail_grace_window,
+                               size_t extra_tail_grace_window,
                                bool show_work) {
 
     if (to_chain.empty()) {
@@ -1226,7 +1226,7 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
 
     /// TODO: add recombination annotations?
 
-    return split_up_subchains(to_chain, tracebacks, connections, read_length, tail_grace_window);
+    return split_up_subchains(to_chain, tracebacks, connections, read_length, extra_tail_grace_window);
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
@@ -1237,7 +1237,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const transition_iterator& for_each_transition,
                                   size_t max_indel_bases,
                                   size_t max_alt_lookback,
-                                  size_t tail_grace_window) {
+                                  size_t extra_tail_grace_window) {
     SubchainGroup group = find_best_chains(to_chain,
                                            distance_index,
                                            graph,
@@ -1247,7 +1247,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                            for_each_transition,
                                            max_indel_bases,
                                            max_alt_lookback,
-                                           tail_grace_window);
+                                           extra_tail_grace_window);
     if (group.subchains.empty()) {
         // We got nothing
         return SparseAnchorChain();
