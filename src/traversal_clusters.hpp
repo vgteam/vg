@@ -42,9 +42,10 @@ inline double jaccard_coefficient(const T& target, const U& query) {
 }
 
 // length-weighted similarity of two snarl alleles, with a special case for pure deletions.
-// see the definition for why.  site may be empty, meaning "unknown".
+// see the definition for why.  site_length is the total length of the site's reference traversal
+// interior; 0 means "unknown".
 double weighted_traversal_similarity(const PathHandleGraph* graph, const multiset<handle_t>& target,
-                                     const multiset<handle_t>& query, const multiset<handle_t>& site);
+                                     const multiset<handle_t>& query, int64_t site_length);
 
 // the information needed from the parent traversal in order to
 // genotype a child traversal
@@ -129,7 +130,7 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
  * @param travs             Vector of traversals (modified in place to add star traversals)
  * @param names             Vector of path names corresponding to traversals (modified in place)
  * @param trav_clusters     Vector of cluster assignments (modified in place)
- * @param trav_cluster_info Vector of cluster info (Jaccard, length delta) (modified in place)
+ * @param trav_cluster_info Vector of cluster info (similarity, length delta) (modified in place)
  * @param parent_haplotypes Map from sample name -> vector of haplotype phases in the parent
  * @param sample_names      Set of sample names to consider (reference-only samples are skipped)
  * @return                  Map from sample name -> vector of haplotype phases in all traversals

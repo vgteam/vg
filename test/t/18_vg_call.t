@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 158
+plan tests 167
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -241,12 +241,15 @@ vg call small_cluster_call.vg -k small_cluster_call.pack -p x > call_no_cluster.
 is "$(call_site call_no_cluster.vcf 5)"  "ATTTGA,ATTTGG" "vg call emits two near-identical alts without -L"
 is "$(call_site call_no_cluster.vcf 10 | cut -f1 -d:)" "1/2" "vg call genotypes them 1/2 without -L"
 
-# -L 1.0 (the default) must be a strict no-op, byte for byte
+# -L 1.0 is the default, so this pins that the merge is off there and that the MAT header line the
+# feature adds does not appear.  (The diff alone would be a tautology: there is no "was -L given"
+# flag, so -L 1.0 and no -L are the same internal state.)
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 1.0 > call_cluster_off.vcf 2>/dev/null
 diff call_no_cluster.vcf call_cluster_off.vcf
 is "$?" 0 "-L 1.0 is byte-identical to no -L"
+is "$(grep -c 'ID=MAT' call_cluster_off.vcf)" "0" "-L 1.0 does not declare MAT in the header"
 
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 > call_cluster.vcf 2>/dev/null
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len 0 > call_cluster.vcf 2>/dev/null
 is "$(call_site call_cluster.vcf 5)" "ATTTGA" "-L merges the near-identical alt alleles"
 is "$(call_site call_cluster.vcf 10 | cut -f1 -d:)" "1/1" "-L turns the 1/2 call into 1/1"
 is "$(call_site call_cluster.vcf 10 | cut -f3 -d:)" "0,47" "-L sums AD onto the surviving allele"
@@ -267,9 +270,9 @@ is "$(grep -c 'ID=MAT' call_no_cluster.vcf)" "0" "the MAT header is absent when 
 is "$(grep -c 'ID=MAT' call_cluster.vcf)" "1" "and present when it is"
 
 # the threshold is the same weighted-Jaccard as vg deconstruct -L: these two alts score 5/7
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7143 > call_cluster_hi.vcf 2>/dev/null
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7143 --cluster-min-len 0 > call_cluster_hi.vcf 2>/dev/null
 is "$(call_site call_cluster_hi.vcf 5)" "ATTTGA,ATTTGG" "-L just above the Jaccard does not merge"
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7142 > call_cluster_lo.vcf 2>/dev/null
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7142 --cluster-min-len 0 > call_cluster_lo.vcf 2>/dev/null
 is "$(call_site call_cluster_lo.vcf 5)" "ATTTGA" "-L just below the Jaccard merges"
 # and vg deconstruct flips at the same place on the same graph.  Assert the merge DECISION -- how
 # many alts survive -- not which one survives: the two tools pick a cluster's survivor by different
@@ -277,8 +280,8 @@ is "$(call_site call_cluster_lo.vcf 5)" "ATTTGA" "-L just below the Jaccard merg
 # sequence here would make an unrelated path rename in the fixture fail this test with a message
 # blaming the threshold.
 n_alts() { awk -F'\t' '$2==9{print split($5,a,",")}' "$1"; }
-vg deconstruct small_cluster_call.gfa -p x -L 0.7143 2>/dev/null > decon_hi.vcf
-vg deconstruct small_cluster_call.gfa -p x -L 0.7142 2>/dev/null > decon_lo.vcf
+vg deconstruct small_cluster_call.gfa -p x -L 0.7143 --cluster-min-len 0 2>/dev/null > decon_hi.vcf
+vg deconstruct small_cluster_call.gfa -p x -L 0.7142 --cluster-min-len 0 2>/dev/null > decon_lo.vcf
 is "$(n_alts decon_hi.vcf)" "$(n_alts call_cluster_hi.vcf)" "vg call and vg deconstruct agree above the threshold"
 is "$(n_alts decon_lo.vcf)" "$(n_alts call_cluster_lo.vcf)" "vg call and vg deconstruct agree below the threshold"
 
@@ -290,6 +293,11 @@ is "$(call_site call_minlen_0.vcf 5)"  "ATTTGA"        "--cluster-min-len 0 merg
 is "$(call_site call_minlen_6.vcf 5)"  "ATTTGA"        "--cluster-min-len at the site length still merges"
 is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length gates merging"
 is "$(call_site call_minlen_50.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len 50 restricts merging to SVs"
+# 50 is the DEFAULT, so -L on its own must behave like --cluster-min-len 50 and leave this 6bp site
+# alone.  Every merge assertion above has to pass --cluster-min-len 0 for exactly this reason.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 > call_minlen_default.vcf 2>/dev/null
+diff call_minlen_50.vcf call_minlen_default.vcf
+is "$?" 0 "-L alone gates like --cluster-min-len 50, the default"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 > call_minlen_only.vcf 2>/dev/null
 diff call_no_cluster.vcf call_minlen_only.vcf
 is "$?" 0 "--cluster-min-len without -L is a no-op"
@@ -317,7 +325,7 @@ vg sim -x merge_support.vg -P hapB -n 120 -l 120 -a -s 6 > merge_b.gam
 cat merge_a.gam merge_b.gam > merge_support.gam
 vg pack -x merge_support.vg -g merge_support.gam -o merge_support.pack
 vg call merge_support.vg -k merge_support.pack -p x > merge_plain.vcf 2>/dev/null
-vg call merge_support.vg -k merge_support.pack -p x -L 0.4 > merge_L.vcf 2>/dev/null
+vg call merge_support.vg -k merge_support.pack -p x -L 0.4 --cluster-min-len 0 > merge_L.vcf 2>/dev/null
 is "$(grep -v '^#' merge_plain.vcf | cut -f10 | cut -f3 -d:)" "0,20,62" "the unmerged call has a clear minority and majority allele"
 is "$(grep -v '^#' merge_L.vcf | cut -f5)" "$(grep -v '^#' merge_plain.vcf | cut -f5 | cut -f2 -d,)" "the merge keeps the better-supported allele's sequence"
 is "$(grep -v '^#' merge_L.vcf | cut -f10 | cut -f3 -d:)" "0,82" "the merge folds both alleles' depth onto the survivor"
@@ -336,8 +344,12 @@ vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -B >/dev/nu
 is "$?" 1 "-L is rejected with the ratio caller"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --legacy >/dev/null 2>&1
 is "$?" 1 "-L is rejected with the legacy caller"
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -R 'x:1' 2>&1 >/dev/null | grep -q "no effect at ploidy 1"
-is "$?" 0 "-L warns at ploidy 1 set via -R, not just -d"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -d 1 2>&1 >/dev/null | grep -q "no effect at ploidy 1"
+is "$?" 0 "-L warns at ploidy 1"
+# -R sets ploidy per contig and the contig list is not known until the graph is loaded, so a -R rule
+# does not trigger the warning -- and must not fail the run either
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -R 'nosuchcontig:1' >/dev/null 2>&1
+is "$?" 0 "-L accepts a -R rule that matches no called contig"
 # unlike vg deconstruct, which clamps, we reject: -L 5 is a plausible typo for -L 0.5
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 5 >/dev/null 2>&1
 is "$?" 1 "-L out of range is an error"
@@ -350,9 +362,42 @@ is "$?" 0 "the deprecated --cluster-post option is still accepted"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-post 2>&1 >/dev/null | grep -q "deprecated and ignored"
 is "$?" 0 "--cluster-post warns that it is ignored"
 
-# the merge lives on the shared VCFOutputCaller base, so the nested modes get it too
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 > call_cluster_td.vcf 2>/dev/null
+# In a nested run a merged parent deliberately disagrees with its own child records: the parent
+# gives the collapsed view of a large variant, the children give the precise one.  MAT records it.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 --cluster-min-len 0 > call_cluster_td.vcf 2>/dev/null
 is "$(call_site call_cluster_td.vcf 5)" "ATTTGA" "-L merges under --top-down"
+# -Y is the one nested combination refused: it writes "*" in a child record to mean "an upstream
+# deletion covers this site", and the merge can absorb the parent allele that deletion came from,
+# leaving the "*" referring to nothing in the file.  Malformed, not merely lossy.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -Y -L 0.6 >/dev/null 2>&1
+is "$?" 1 "-L is rejected with -Y/--star-allele"
+
+# The gref workflow, which is what nested -L is for: the reference bypasses a 121bp insertion, so
+# the insertion's interior is only reachable as a gref fragment contig.  The insertion is an SV by
+# the --cluster-min-len 50 default, so it merges without the gate having to be turned off.
+A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
+A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
+{ printf "H\tVN:Z:1.0\n"
+  printf "S\t1\t$A20\nS\t2\t$C60\nS\t3\tG\nS\t4\tT\nS\t5\t$A60\nS\t6\t$T20\n"
+  printf "L\t1\t+\t6\t+\t0M\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n"
+  printf "L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t5\t+\t6\t+\t0M\n"
+  printf "P\tx\t1+,6+\t*,*\n"
+  printf "P\ts#1#hapA\t1+,2+,3+,5+,6+\t*,*,*,*,*\n"
+  printf "P\ts#2#hapB\t1+,2+,4+,5+,6+\t*,*,*,*,*\n"; } > nlg.gfa
+vg paths --compute-gref -Q x --min-gref-len 1 -x nlg.gfa > nlg.pg 2>/dev/null
+vg sim -x nlg.pg -P "s#1#hapA#0" -n 200 -l 30 -a -s 3 > nlg_a.gam 2>/dev/null
+vg sim -x nlg.pg -P "s#2#hapB#0" -n 200 -l 30 -a -s 4 > nlg_b.gam 2>/dev/null
+cat nlg_a.gam nlg_b.gam > nlg.gam
+vg pack -x nlg.pg -g nlg.gam -o nlg.pack 2>/dev/null
+nlg_field() { awk -F'\t' -v c="$2" -v f="$3" '$1==c && $1!~/^#/{print $f}' "$1"; }
+vg call nlg.pg -k nlg.pack -P gref_x -A > nlg_plain.vcf 2>/dev/null
+vg call nlg.pg -k nlg.pack -P gref_x -A -L 0.9 > nlg_L.vcf 2>/dev/null
+is "$(nlg_field nlg_plain.vcf gref_x 5 | awk '{print split($0,a,",")}')" "2" "the unmerged gref parent has both insertion alleles"
+is "$(nlg_field nlg_L.vcf gref_x 5 | awk '{print split($0,a,",")}')" "1" "-L merges them at the default --cluster-min-len, the insertion being an SV"
+is "$(nlg_field nlg_L.vcf gref_x 8 | grep -c 'MAT=')" "1" "and says so in MAT"
+# the merge is parent-only: the nested record on the gref fragment keeps the precise variant
+is "$(nlg_field nlg_L.vcf gref_x_1_alt 1-11)" "$(nlg_field nlg_plain.vcf gref_x_1_alt 1-11)" "the child record on the gref fragment is untouched by the merge"
+rm -f nlg.gfa nlg.pg nlg_a.gam nlg_b.gam nlg.gam nlg.pack nlg_plain.vcf nlg_L.vcf
 
 # --bottom-up had zero coverage anywhere in the suite.  It aborted on any nested graph whose
 # reference traversal crosses a child snarl, because a child-snarl Visit carries no node.
@@ -415,11 +460,14 @@ rm -f core_*.vg core_*.gam core_*.pack
 
 # Crash regressions.  None of these modes had any coverage, which is how all three survived.
 # -R/--ploidy-regex bypassed the {1,2} ploidy check that -d gets, and reached the caller as an
-# unsupported ploidy.
+# unsupported ploidy.  The check runs where the rule is applied, so a rule that matches none of the
+# called contigs is still accepted.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:3' >/dev/null 2>&1
 is "$?" 1 "-R rejects a ploidy the callers do not implement"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:2' >/dev/null 2>&1
 is "$?" 0 "-R still accepts ploidy 2"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'chrY:3' >/dev/null 2>&1
+is "$?" 0 "-R accepts an unsupported ploidy on a contig that is not being called"
 # -G built a re-indexed traversal vector but kept the original reference index, then indexed the
 # small vector with it.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null
@@ -429,7 +477,7 @@ rm -f call_gaf.gaf
 
 rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_a.gam call_b.gam
 rm -f call_no_cluster.vcf call_cluster.vcf call_cluster_off.vcf call_cluster_hi.vcf call_cluster_lo.vcf call_cluster_td.vcf
-rm -f call_minlen_0.vcf call_minlen_6.vcf call_minlen_7.vcf call_minlen_50.vcf call_minlen_only.vcf decon_hi.vcf decon_lo.vcf
+rm -f call_minlen_0.vcf call_minlen_6.vcf call_minlen_7.vcf call_minlen_50.vcf call_minlen_only.vcf call_minlen_default.vcf decon_hi.vcf decon_lo.vcf
 
 # Test: Nested calling with vg call --top-down (basic test)
 # Use a larger graph with clear variants

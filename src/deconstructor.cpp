@@ -903,7 +903,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // Sort the traversals for clustering
         vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, ref_trav_idx, use_trav);
 
-        // jaccard clustering (using handles for now) on traversals
+        // similarity clustering (over interior handles) on traversals
         vector<pair<double, int64_t>> trav_cluster_info;
         vector<int> unused_child_snarl_mapping;
         vector<vector<int>> trav_clusters;
@@ -936,7 +936,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             // measured traversal reaches the threshold we are done without building a single
             // string.  Sites that fail it therefore cost no more than before.  Sites that pass do
             // cost more -- one interior string per traversal here, against one per cluster in
-            // get_alleles -- roughly 2x on a site with many near-identical haplotypes.
+            // get_alleles -- so 2x when nothing collapses, and more when many haplotypes share a
+            // cluster.
             bool interior_reaches = false;
             for_each_measured([&](const Traversal& t) {
                 int64_t len = 0;

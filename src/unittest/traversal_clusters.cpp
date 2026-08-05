@@ -3,10 +3,8 @@
 /// Unit tests for traversal similarity, the metric behind -L/--cluster in vg deconstruct,
 /// vg call and vg simplify.
 ///
-/// These exercise weighted_traversal_similarity directly rather than through a caller.  That
-/// matters: the pure-deletion blindness this file's second half pins went unnoticed through
-/// several reviews precisely because the metric was only ever reached through two layers of
-/// caller, where a similarity of 0 is indistinguishable from "these alleles really are unrelated".
+/// These exercise weighted_traversal_similarity directly rather than through a caller, where a
+/// similarity of 0 is indistinguishable from "these alleles really are unrelated".
 ///
 
 #include <iostream>
@@ -39,9 +37,18 @@ TEST_CASE("traversal similarity handles pure deletions", "[jaccard][traversal_cl
     multiset<handle_t> sub59{h5, h3};
     multiset<handle_t> no_site{};
 
+    // the metric takes the site's total interior length, which cluster_traversals sums once per
+    // clustering pass; sum it here so the cases below can still name a site by its handles
+    auto site_len = [&](const multiset<handle_t>& site) {
+        int64_t len = 0;
+        for (const handle_t& h : site) {
+            len += graph.get_length(h);
+        }
+        return len;
+    };
     auto sim = [&](const multiset<handle_t>& a, const multiset<handle_t>& b,
                    const multiset<handle_t>& site) {
-        return weighted_traversal_similarity(&graph, a, b, site);
+        return weighted_traversal_similarity(&graph, a, b, site_len(site));
     };
 
     SECTION("identical alleles score exactly 1, at any site") {
@@ -63,10 +70,10 @@ TEST_CASE("traversal similarity handles pure deletions", "[jaccard][traversal_cl
         }
     }
 
-    SECTION("THE DEFECT: a pure deletion is similar to a near-identical deletion") {
-        // 59 of the site's 60bp are deleted by both.  Before the fix this was 0 at every
-        // threshold, because a 2-visit traversal kept its boundary handles and was therefore
-        // disjoint from every other allele by construction.
+    SECTION("a pure deletion is similar to a near-identical deletion") {
+        // 59 of the site's 60bp are deleted by both.  This was 0 at every threshold while a
+        // 2-visit traversal kept its boundary handles, which made it disjoint from every other
+        // allele by construction.
         REQUIRE(sim(del59, del60, ref) == Approx(59.0 / 60.0));
         REQUIRE(sim(del60, del59, ref) == Approx(59.0 / 60.0));
     }

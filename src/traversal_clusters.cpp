@@ -12,7 +12,6 @@ namespace vg {
 
 using namespace bdsg;
 
-// specialized version of jaccard_coefficient() that weights jaccard by node lenths. 
 /// Length-weighted similarity of two snarl alleles.  For two alleles that both carry sequence this
 /// is the length-weighted Jaccard coefficient it has always been: |A n B| / |A u B| over multisets
 /// of interior handles.
@@ -25,13 +24,16 @@ using namespace bdsg;
 /// reference score 0.  Restricting it to that case is the point -- scaling EVERY pair by the site
 /// would make two unrelated alleles look similar merely because they sit in a big snarl.
 ///
-/// `site` is the interior of the site's reference traversal; empty means "unknown" and falls back to
-/// the plain pairwise coefficient for every input.  Symmetric; in [0,1] structurally rather than by
-/// clamping; exactly 1 iff the two multisets are equal, including two identical pure deletions.
+/// `site_length` is the total length of the site's reference traversal interior; 0 means "unknown"
+/// and falls back to the plain pairwise coefficient for every input.  It is a length rather than the
+/// traversal itself because it is invariant across a whole clustering pass, and re-summing it per
+/// comparison made every comparison against a pure deletion cost O(site) instead of O(allele).
+/// Symmetric; in [0,1] structurally rather than by clamping; exactly 1 iff the two multisets are
+/// equal, including two identical pure deletions.
 double weighted_traversal_similarity(const PathHandleGraph* graph,
                                      const multiset<handle_t>& target,
                                      const multiset<handle_t>& query,
-                                     const multiset<handle_t>& site) {
+                                     int64_t site_length) {
     vector<handle_t> intersection_handles;
     std::set_intersection(target.begin(), target.end(),
                           query.begin(), query.end(),
@@ -48,20 +50,12 @@ double weighted_traversal_similarity(const PathHandleGraph* graph,
         }
         return len;
     };
-    auto multiset_length = [&](const multiset<handle_t>& handles) {
-        int64_t len = 0;
-        for (const handle_t& handle : handles) {
-            len += graph->get_length(handle);
-        }
-        return len;
-    };
-
     int64_t isec_size = total_length(intersection_handles);
     int64_t union_size = total_length(union_handles);
 
     int64_t denom = union_size;
     if (target.empty() || query.empty()) {
-        denom = std::max(multiset_length(site), union_size);
+        denom = std::max(site_length, union_size);
     }
     if (denom == 0) {
         // Both alleles and the site are empty, so the two alleles ARE the same allele.  Return 1,
@@ -185,10 +179,10 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
     // The site's reference allele, pruned the same way.  It sets the scale a pure deletion is
     // measured on.  It is not itself clustered, so vg call can supply the VCF reference even though
     // it clusters ALTs only.
-    multiset<handle_t> site_interior;
+    int64_t site_length = 0;
     if (site_ref_trav != nullptr) {
         for (int64_t j = 1; j + 1 < (int64_t)site_ref_trav->size(); ++j) {
-            site_interior.insert((*site_ref_trav)[j]);
+            site_length += graph->get_length((*site_ref_trav)[j]);
         }
     }
 
@@ -198,7 +192,7 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
         int64_t max_cluster_idx = -1;
         for (int64_t j = 0; j < clusters.size(); ++j) {
             const auto& cluster_trav = sorted_traversals[clusters[j][0]];
-            double jac = weighted_traversal_similarity(graph, trav, cluster_trav, site_interior);
+            double jac = weighted_traversal_similarity(graph, trav, cluster_trav, site_length);
             if (jac > max_jaccard) {
                 max_jaccard = jac;
                 max_cluster_idx = j;
@@ -498,6 +492,7 @@ void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const u
 static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph, PathTraversalFinder& path_trav_finder,
                                             const handle_t& start_handle, const handle_t& end_handle,
                                             unordered_map<path_handle_t, int64_t>& ref_path_to_rank,
+                                            const unordered_map<path_handle_t, int64_t>& selected_ref_paths,
                                             int64_t level,
                                             int64_t max_snarl_length,
                                             double min_jaccard,
@@ -569,6 +564,16 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         }
     }
     sort(ref_trav_candidates.begin(), ref_trav_candidates.end(), [&](int64_t i, int64_t j) {
+        // A path the user actually named with -P wins outright.  Rank cannot separate them: at a
+        // top-level snarl every spanning path is first seen there and so ties with the reference at
+        // rank == level == 0, leaving the name comparison below to decide.  Whatever wins becomes
+        // ref_trav, which seeds the set of nodes and edges kept, so losing here means the -P
+        // reference's own nodes are deleted and its path is left in fragments.
+        bool i_selected = selected_ref_paths.count(trav_paths[i]) > 0;
+        bool j_selected = selected_ref_paths.count(trav_paths[j]) > 0;
+        if (i_selected != j_selected) {
+            return i_selected;
+        }
         if (trav_names[i] == trav_names[j]) {
             return trav_lengths[i] > trav_lengths[j];
         } else {
@@ -634,7 +639,7 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
             ref_edges.insert(graph->edge_handle(ref_trav[i-1], ref_trav[i]));
         }
     }
-    
+
     bool simplify = false;
 
     // do the length simplification
@@ -656,11 +661,21 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         }
         vector<pair<double, int64_t>> info;
         vector<int> child_to_trav;
-        // ref_trav is path_travs[ref_trav_candidates[0]] (above) and sets the scale a pure deletion
-        // is measured on
+        // The scale a pure deletion is measured on must be a path the user actually named with -P.
+        // ref_trav_candidates[0] is not: at a top-level snarl, level == 0 is the same rank a -P path
+        // enters with, so every spanning path ties and the winner is just the alphabetically first
+        // name -- which would make the merge depend on how the haplotypes happen to be named.
+        // nullptr (no -P path spans this snarl) falls back to pairwise scoring, which merges less.
+        const Traversal* site_trav = nullptr;
+        for (const int64_t& rc : ref_trav_candidates) {
+            if (selected_ref_paths.count(trav_paths[rc])) {
+                site_trav = &path_travs[rc];
+                break;
+            }
+        }
         vector<vector<int>> trav_clusters = cluster_traversals(graph, path_travs, traversal_order, {},
                                                                min_jaccard, info, child_to_trav,
-                                                               &ref_trav);
+                                                               site_trav);
         for (const pair<double, int64_t>& cluster_info : info) {
             if (cluster_info.first < 1.0) {
                 simplify = true;
@@ -794,7 +809,8 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
                 handle_t start_handle = distance_index.get_handle(start_bound, graph);
                 handle_t end_handle = distance_index.get_handle(end_bound, graph);
                 was_simplified = simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle,
-                                                                 cur_ref_paths, level, max_snarl_length, min_jaccard,
+                                                                 cur_ref_paths, ref_paths, level,
+                                                                 max_snarl_length, min_jaccard,
                                                                  min_fragment_length, nodes_to_remove, edges_to_remove);
             }        
             if (!was_simplified && (

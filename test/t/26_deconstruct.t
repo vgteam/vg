@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 109
+plan tests 116
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -151,7 +151,7 @@ printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster.gfa
 printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster.gfa
 printf "P\tz\t1+,9+\t*\n" >> small_cluster.gfa
 vg deconstruct small_cluster.gfa -p x > small_cluster_0.vcf
-vg deconstruct small_cluster.gfa -p x -L 0.3 > small_cluster_3.vcf
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3.vcf
 is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free deconstruction finds all alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
@@ -181,14 +181,22 @@ is "$(core_nalt core_sv60 50)"         "1" "a 60bp SV is still clustered at --cl
 is "$(core_nalt core_del61 50)"        "1" "a 61bp deletion is still clustered (the reference allele is measured)"
 is "$(core_nalt core_ins49 50)"        "2" "a 49bp insertion is not clustered at 50 (the anchor base is not counted)"
 is "$(core_nalt core_ins50 50)"        "1" "a 50bp insertion is clustered at 50"
+# 50 is the DEFAULT, so -L on its own must gate identically.  Every metric assertion in this file
+# passes --cluster-min-len 0 for exactly that reason.
+default_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+is "$(default_nalt core_snp_in_flanks)" "$(core_nalt core_snp_in_flanks 50)" "-L alone gates a small variant like --cluster-min-len 50"
+is "$(default_nalt core_sv60)"          "$(core_nalt core_sv60 50)"          "-L alone still clusters an SV"
 
 # A PURE DELETION -- a traversal straight from snarl start to snarl end -- used to keep its boundary
 # handles, which made its handle set disjoint from every other allele's by construction.  Its
 # similarity was therefore structurally 0 and no -L could ever merge it.  It is now scored against
 # the site: two deletions that both remove 59 of a 60bp site score 59/60.
 # The ladder is -L 0.99 / 0.983334 / 0.983333 / 0.6 / 0.1, printing the ALT count at each.
+# --cluster-min-len 0 so this ladder measures the METRIC alone: the gate now defaults to 50, which
+# would decide del1_vs_snp1 (a 1bp site) before the similarity was ever consulted.  The gate has its
+# own ladder in core_nalt below.
 dladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
-    vg deconstruct nesting/$1.gfa -p x -L $L 2>/dev/null |
+    vg deconstruct nesting/$1.gfa -p x -L $L --cluster-min-len 0 2>/dev/null |
       awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
 
 is "$(dladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion cluster, flipping at 59/60"
@@ -203,11 +211,30 @@ is "$(dladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrela
 # pure deletion against the site must not make them look alike
 is "$(dladder del1_vs_snp1)"       "22222" "a 1bp deletion never clusters with a 1bp SNP"
 
+# The flip point itself is pinned by dladder above.  What is left to pin here is that the clustering
+# machinery is entirely invisible at the default: -L 1.0 must match no -L byte for byte, and neither
+# may carry the TS/TL FORMAT fields that any -L < 1.0 adds (see the -L 0.99 run, which does not merge
+# but does emit them).
 vg deconstruct nesting/del59_vs_del60.gfa -p x 2>/dev/null > deldefault.vcf
 vg deconstruct nesting/del59_vs_del60.gfa -p x -L 1.0 2>/dev/null > delnoop.vcf
 diff deldefault.vcf delnoop.vcf
 is "$?" 0 "-L 1.0 is byte-identical to no -L on a pure-deletion site"
+is "$(grep -cE 'GT:TS:TL' deldefault.vcf)" "0" "the default emits no TS/TL, so -L leaves no trace when off"
+is "$(vg deconstruct nesting/del59_vs_del60.gfa -p x -L 0.99 2>/dev/null | grep -cE 'GT:TS:TL')" "1" "-L < 1.0 emits TS/TL even when nothing merges"
 rm -f deldefault.vcf delnoop.vcf
+
+# -L in a nested run is lossy at the parent and precise at the children, exactly as in vg call:
+# the parent gives the collapsed view of a large variant, the child records the detail.
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -L 0.6 --cluster-min-len 0 >/dev/null 2>&1
+is "$?" 0 "-L is allowed in a nested run (-a)"
+# ...but not with -R.  A "*" in a child record means "an upstream deletion covers this site", and
+# clustering can absorb the allele that deletion came from -- which one survives is decided by
+# traversal order, so by path names -- leaving the "*" referring to nothing in the file.  That is a
+# malformed record rather than a lossy one.  vg call refuses -L with -Y for the same reason.
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -R -L 0.6 >/dev/null 2>&1
+is "$?" 1 "-L is rejected with -R/--star-allele"
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -R >/dev/null 2>&1
+is "$?" 0 "-R without -L still works"
 
 # Star alleles (-R) are a marker, not sequence.  They must survive verbatim as "*" in every
 # orientation and at every site type: complement['*'] is 'N', so reverse-complementing one turns it

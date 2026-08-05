@@ -86,12 +86,14 @@ void help_call(char** argv) {
          << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
-         << "                            Jaccard is >= F, so 1/2 of two effectively" << endl
+         << "                            similarity is >= F, so 1/2 of two effectively" << endl
          << "                            identical alleles becomes 1/1 [1.0; experimental]" << endl
          << "      --cluster-min-len N   only apply -L merging at sites whose core length" << endl
          << "                            -- the longest allele after stripping the prefix" << endl
          << "                            and suffix common to all alleles -- is >= N bp" << endl
-         << "                            (50 = SVs only, 0 = always) [0]" << endl
+         << "                            (0 = every site) [50]" << endl
+         << "                            in a nested run (-A/--top-down) a merged parent" << endl
+         << "                            disagrees with its own child records by design" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
          << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl
@@ -147,7 +149,10 @@ int main_call(int argc, char** argv) {
 
     // Post-genotyping alt-allele merging, mirroring vg deconstruct's -L/--cluster-min-len
     double cluster_threshold = 1.0;
-    int64_t cluster_min_allele_len = 0;
+    // see the note in deconstruct_main.cpp: at 0 the similarity is dominated by sequence every
+    // allele shares, so -L merges small variants it should leave alone.  50 is the SV size cutoff.
+    int64_t cluster_min_allele_len = 50;
+    bool cluster_min_len_set = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -309,14 +314,9 @@ int main_call(int argc, char** argv) {
                     // Parse the regex
                     std::regex match(parts[0]);
                     size_t weight = parse<size_t>(parts[1]);
-                    // the callers only implement ploidy 1 and 2 (see the assert in
-                    // PoissonSupportSnarlCaller::genotype); -d is checked for this, and -R has to be
-                    // too or it reaches the caller as an unsupported ploidy and crashes there
-                    if (weight != 1 && weight != 2) {
-                        logger.error() << "ploidy in -R/--ploidy-regex rule \"" << rule
-                                       << "\" must be 1 or 2" << endl;
-                    }
-                    // Save the rule
+                    // Save the rule.  The {1,2} restriction the callers impose is checked where the
+                    // rule is applied, not here: a rule that matches none of the called contigs
+                    // never reaches a caller, and rejecting it would break command lines that work.
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {
                     // This is not a good regex
@@ -353,6 +353,7 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_CLUSTER_MIN_LEN:
             cluster_min_allele_len = parse<int64_t>(optarg);
+            cluster_min_len_set = true;
             if (cluster_min_allele_len < 0) {
                 logger.error() << "--cluster-min-len must be >= 0" << endl;
             }
@@ -448,52 +449,53 @@ int main_call(int argc, char** argv) {
         logger.error() << "-P cannot be used with -p" << endl;
     }
 
-    // -L/--cluster validation.  Deliberately ahead of the graph load below: every condition here is
-    // pure command-line state, and a typo'd "-L 5" should not cost a multi-gigabyte graph load
-    // before it is rejected.
-    // Unlike vg deconstruct, which clamps out-of-range values, we reject them: -L 5 is a plausible
-    // typo for -L 0.5 and clamping would silently disable merging altogether.
+    // -L/--cluster validation, deliberately ahead of the graph load below: it is all command-line
+    // state, and a typo'd "-L 5" should not cost a multi-gigabyte graph load before it is rejected.
+    // vg deconstruct clamps out-of-range values; we reject them, since -L 5 is a plausible typo for
+    // -L 0.5 and clamping would silently disable merging altogether.
     if (cluster_threshold < 0.0 || cluster_threshold > 1.0 || std::isnan(cluster_threshold)) {
         logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
     }
-    if (cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
+    // only for an explicit --cluster-min-len: the default is nonzero, so testing the value alone
+    // would warn on every run that does not pass -L
+    if (cluster_min_len_set && cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
         logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
     }
-    // -L merges alleles in VCFOutputCaller::emit_variant, which these paths never reach: the VCF
-    // genotyper builds its records by hand and the GAF path has no VCF at all.  Rejecting beats
-    // accepting the option and silently ignoring it.
+    // -L merges in VCFOutputCaller::emit_variant, which these paths never reach: the VCF genotyper
+    // builds its records by hand and the GAF path has no VCF at all.
     if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
         logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
     }
     if (cluster_threshold < 1.0 && (gaf_output || traversals_only)) {
         logger.error() << "-L/--cluster cannot be used with GAF output (-G/-T)" << endl;
     }
-    // the ratio caller's QUAL is min_site_support and its XADL/lowxadl describe a het that would no
-    // longer exist after a merge, so the merged record would carry statistics for a genotype it
-    // does not have.
+    // the ratio caller's QUAL and its XADL/lowxadl describe a het that no longer exists after a merge
     if (cluster_threshold < 1.0 && ratio_caller) {
         logger.error() << "-L/--cluster cannot be used with the ratio caller (-B)" << endl;
     }
-    // NestedFlowCaller represents a child snarl as a Visit carrying a Snarl rather than a node, and
-    // those have no handle for the clusterer to work with -- so the merge would silently do nothing
-    // at exactly the nested sites --bottom-up exists for.  An accepted-but-inert option is the bug
-    // this whole feature was written to remove, so reject the combination instead.
+    // NestedFlowCaller represents a child snarl as a Visit carrying a Snarl rather than a node, which
+    // the clusterer has no handle for, so the merge would be inert at exactly the nested sites
+    // --bottom-up exists for.  (Rejected on master too; the check has only moved ahead of the load.)
     if (cluster_threshold < 1.0 && bottom_up) {
         logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
     }
-    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have.
-    // -R/--ploidy-regex sets ploidy per contig, so check the rules too and not just -d.
-    bool any_haploid = (ploidy == 1);
-    for (const auto& rule : ploidy_rules) {
-        any_haploid = any_haploid || (rule.second == 1);
+    // -Y writes "*" in a child record to mean "an upstream deletion covers this site".  If the merge
+    // absorbs the parent allele that deletion came from, the "*" refers to nothing in the file.  That
+    // is a malformed record, not merely a lossy one -- unlike the nested case, which is allowed: in a
+    // nested run a merged parent deliberately disagrees with its own child records, the parent giving
+    // the collapsed view of a large variant and the children the precise one.  MAT records it.
+    if (cluster_threshold < 1.0 && star_allele) {
+        logger.error() << "-L/--cluster cannot be used with -Y/--star-allele" << endl;
     }
-    if (cluster_threshold < 1.0 && any_haploid) {
-        logger.warn() << "-L/--cluster has no effect at ploidy 1" << endl;
-    }
-    // LegacyCaller is a different caller with its own traversal finder and support model; -L has
-    // never been exercised through it
+    // LegacyCaller has its own traversal finder and support model; -L has never been run through it
     if (cluster_threshold < 1.0 && legacy) {
         logger.error() << "-L/--cluster cannot be used with the legacy caller (--legacy)" << endl;
+    }
+    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have.
+    // -R/--ploidy-regex sets ploidy per contig and we cannot tell here which contigs will be
+    // called, so only -d is worth warning about.
+    if (cluster_threshold < 1.0 && ploidy == 1) {
+        logger.warn() << "-L/--cluster has no effect at ploidy 1 (-d 1)" << endl;
     }
     // NestedFlowCaller's Snarl-carrying Visits also break the GAF emitters: --bottom-up -T aborts in
     // to_mapping, and --bottom-up -G emits a header and no records.
@@ -786,6 +788,13 @@ int main_call(int argc, char** argv) {
                 path_ploidy = rule.second;
                 break;
             }
+        }
+        // the callers only implement ploidy 1 and 2 (see the assert in
+        // PoissonSupportSnarlCaller::genotype), and -d is checked for this below.  An unchecked -R
+        // reaches the caller as an unsupported ploidy and aborts there instead.
+        if (path_ploidy != 1 && path_ploidy != 2) {
+            logger.error() << "ploidy " << path_ploidy << " assigned to path \"" << ref_path
+                           << "\" by -R/--ploidy-regex must be 1 or 2" << endl;
         }
         ref_path_ploidies.push_back(path_ploidy);
 

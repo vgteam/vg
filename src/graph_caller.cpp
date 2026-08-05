@@ -244,6 +244,8 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
            << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
+           << "pre-merge allele numbers. In a nested run this record gives the collapsed view of "
+           << "the site and its child records the precise one, so they disagree by design. "
            << "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD is "
            << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set.\">"
            << endl;
@@ -508,8 +510,10 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     // finder's candidate list: that is up to max_yens_traversals (50) speculative paths, most of
     // which never become an allele, so gating on them lets an invisible branch with no reads and no
     // AT entry decide whether merging happens.  deconstruct's equivalent gate is decided over the
-    // set that becomes its alleles too -- the reference plus everything get_traversal_order kept --
-    // so the two tools gate the same variant the same way.
+    // set that becomes ITS alleles -- the reference plus everything get_traversal_order kept.  Both
+    // tools gate on what they emit, but those sets differ (we see only the called genotype's
+    // alleles, deconstruct sees every haplotype), so the two can disagree at a site whose uncalled
+    // haplotypes are much larger than its called ones.
     // The quantity is CORE LENGTH (see allele_core_length): the longest allele once the prefix and
     // suffix shared by every allele are stripped.  Raw string length would answer differently from
     // vg deconstruct on the same variant, because this record has been flattened down to an anchor
@@ -650,16 +654,16 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
 
     auto& sample = out_variant.samples[sample_name];
 
-    // AD is Number=R and is a count, so the absorbed allele's reads move onto the survivor.  This
-    // keeps DP == sum(AD) exact; it can slightly over-count when the merged alleles share interior
-    // nodes, whose depth was proportionally split between them.
+    // AD is a per-allele count, so the absorbed allele's reads move onto the survivor.  sum(AD) is
+    // therefore unchanged by the merge; it can slightly over-count when the merged alleles share
+    // interior nodes, whose depth was proportionally split between them.
     auto ad_it = sample.find("AD");
     if (ad_it != sample.end() && ad_it->second.size() == merge_to.size()) {
         vector<double> summed(n_new, 0);
         for (size_t a = 0; a < merge_to.size(); ++a) {
             double v = 0;
             // treat an unparseable entry as 0 rather than bailing: the merge is already committed,
-            // and dropping AD would break both DP == sum(AD) and the field's Number=R length
+            // and dropping AD would leave the record with no per-allele depth at all
             parse_vcf_double(ad_it->second[a], v);
             summed[new_index[a]] += v;
         }

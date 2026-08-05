@@ -194,7 +194,7 @@ private:
     bool keep_conflicted_genotypes = false;
 
     // used to merge together similar traversals (to keep allele counts down)
-    // currently implemented as handle jaccard coefficient.  So 1 means only
+    // currently a length-weighted similarity (see weighted_traversal_similarity).  So 1 means only
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
 
