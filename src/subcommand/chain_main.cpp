@@ -30,6 +30,7 @@ void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
          << "  -p, --progress                     show progress" << endl
+         << "  -l, --read-length INT              read length" << endl
          << "  -r, --recombination-penalty INT    set recombination penalty (default: 0)" << endl
          << "  -h, --help                         print this help message to stderr and exit" << endl;
 }
@@ -39,6 +40,7 @@ int main_chain(int argc, char** argv) {
 
     bool show_progress = false;
     int recombination_penalty = 0;
+    size_t read_length = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -46,13 +48,14 @@ int main_chain(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"progress", no_argument, 0, 'p'},
+                {"read-length", required_argument, 0, 'l'},
                 {"recombination-penalty", required_argument, 0, 'r'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "pr:h?",
+        c = getopt_long (argc, argv, "pl:r:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -64,6 +67,10 @@ int main_chain(int argc, char** argv) {
         
         case 'p':
             show_progress = true;
+            break;
+        
+        case 'l':
+            read_length = parse<size_t>(optarg);
             break;
 
         case 'r':
@@ -87,6 +94,10 @@ int main_chain(int argc, char** argv) {
         // No positional arguments
         help_chain(argv);
         exit(1);
+    }
+
+    if (read_length == 0) {
+        logger.error() << "Must pass a read length" << endl;
     }
     
     string problem_filename = get_input_file_name(optind, argc, argv);
@@ -287,7 +298,7 @@ int main_chain(int argc, char** argv) {
     // TODO: Replace with designated initializer list when we get C++20
     vg::algorithms::ChainScoringScheme scheme;
     scheme.recombination_penalty = recombination_penalty;
-    auto score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scheme);
+    auto score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, read_length, scheme);
     
     logger.info() << "Best chain gets score " << score_and_chain.chain_score << std::endl;
     

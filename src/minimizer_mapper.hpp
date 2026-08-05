@@ -964,7 +964,6 @@ protected:
                                    const algorithms::Anchor& tail_anchor,
                                    const WFAExtender& wfa_extender,
                                    bool is_left_tail,
-                                   size_t max_tail_len,
                                    aligner_stats_t* stats = nullptr) const;
 
     /**

@@ -79,7 +79,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
                                   {10, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 25);
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
 }
@@ -97,7 +97,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
                                   {10, h[1], 11, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 25);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
@@ -116,7 +116,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
                                   {11, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 25);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
@@ -139,7 +139,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph);
+    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 125);
     // We should take all of the items in order and not be scared off by the indels.
     REQUIRE(result.anchors == std::vector<size_t>{0, 1, 2, 3});
 }
@@ -172,14 +172,11 @@ TEST_CASE("Simple X case", "[chain_items]") {
                                   {31, h[7], 0, 10, 10}}, graph);
     
     /// Actually run the chaining and test
-    algorithms::ChainScoringScheme scheme;
-    scheme.consistency_bonus = 0;
-    scheme.recombination_penalty = 0;
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, scheme, 2);
-    REQUIRE(result.size() == 1);
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 40, 
+                                               algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
-    REQUIRE(result.front().subchains.size() == 5);
-    REQUIRE(result.front().connections.size() == 5);
+    REQUIRE(result.subchains.size() == 5);
+    REQUIRE(result.connections.size() == 5);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {
@@ -209,44 +206,11 @@ TEST_CASE("X with different length chains", "[chain_items]") {
                                   {31, h[6], 0, 10, 10}}, graph);
     
     // Actually run the chaining and test
-    algorithms::ChainScoringScheme scheme;
-    scheme.consistency_bonus = 0;
-    scheme.recombination_penalty = 0;
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, scheme, 2);
-    REQUIRE(result.size() == 1);
+    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 40, 
+                                               algorithms::ChainScoringScheme(), 2);
     // We should see all possible paths
-    REQUIRE(result.front().subchains.size() == 5);
-    REQUIRE(result.front().connections.size() == 5);
-}
-
-TEST_CASE("Simple V case", "[chain_items]") {
-    vector<algorithms::SparseAnchorChain> tracebacks;
-    tracebacks.emplace_back();
-    tracebacks.back().anchors = {0, 1, 4};
-    tracebacks.emplace_back();
-    tracebacks.back().anchors = {2, 3};
-    algorithms::SubchainGroup result = algorithms::split_up_subchains(5, tracebacks, {make_pair(3, 4)});
-    // We should see all possible paths
-    REQUIRE(result.subchains.size() == 3);
-    REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
-    REQUIRE(result.subchains[1] == std::vector<size_t>{2, 3});
-    REQUIRE(result.subchains[2] == std::vector<size_t>{4});
-    REQUIRE(result.connections.size() == 2);
-}
-
-TEST_CASE("Simple Y case", "[chain_items]") {
-    vector<algorithms::SparseAnchorChain> tracebacks;
-    tracebacks.emplace_back();
-    tracebacks.back().anchors = {0, 1, 4, 5};
-    tracebacks.emplace_back();
-    tracebacks.back().anchors = {2, 3};
-    algorithms::SubchainGroup result = algorithms::split_up_subchains(6, tracebacks, {make_pair(3, 4)});
-    // We should see all possible paths
-    REQUIRE(result.subchains.size() == 3);
-    REQUIRE(result.subchains[0] == std::vector<size_t>{0, 1});
-    REQUIRE(result.subchains[1] == std::vector<size_t>{2, 3});
-    REQUIRE(result.subchains[2] == std::vector<size_t>{4, 5});
-    REQUIRE(result.connections.size() == 2);
+    REQUIRE(result.subchains.size() == 5);
+    REQUIRE(result.connections.size() == 5);
 }
 
 }

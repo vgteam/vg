@@ -981,24 +981,26 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
     }
 }
 
-SubchainGroup split_up_subchains(const size_t& anchor_count,
+/// TODO: break this function up it's getting really big
+SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
                                  const vector<SparseAnchorChain>& original_tracebacks,
-                                 const vector<pair<size_t, size_t>>& connections) {
+                                 const vector<pair<size_t, size_t>>& connections,
+                                 size_t read_length) {
     SubchainGroup output;
     // For each anchor (by index), which other anchors can it connect to?
-    vector<unordered_set<size_t>> outgoing_edges(anchor_count);
-    // For each anchor (by index), how many sources does it have?
-    vector<size_t> source_count(anchor_count, 0);
+    vector<unordered_set<size_t>> outgoing_edges(to_chain.size());
+    vector<unordered_set<size_t>> incoming_edges(to_chain.size());
 
     // Where to search for subchains (we must guarantee they start in read order)
     priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
+
+    // We want to know what the shortest tails in this group are
+    size_t min_left_tail = std::numeric_limits<int32_t>::max();
+    size_t min_right_tail = std::numeric_limits<int32_t>::max();
     
     // Save edges that are part of an original traceback
     for (const auto& cur_trace : original_tracebacks) {
-        // This will start a chain trace
-        trace_from.emplace(cur_trace.anchors.front());
 #ifdef debug_chaining
-        cerr << "Chain traceforwards may start from " << cur_trace.anchors.front() << endl;
         cerr << "Chain: " << cur_trace.anchors.front();
 #endif
         for (size_t i = 0; i < cur_trace.anchors.size() - 1; i++) {
@@ -1008,9 +1010,11 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 #ifdef debug_chaining
             cerr << " " << next;
 #endif
-            source_count[next]++;
+            incoming_edges[next].emplace(prev);
             outgoing_edges[prev].emplace(next);
         }
+        min_left_tail = std::min(min_left_tail, to_chain[cur_trace.anchors.front()].read_start());
+        min_right_tail = std::min(min_right_tail, read_length - to_chain[cur_trace.anchors.back()].read_end());
 #ifdef debug_chaining
         cerr << endl;
 #endif
@@ -1018,18 +1022,91 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 
     // Now check in on the extra edges.
     for (const auto& extra_edge : connections) {
-        if ((outgoing_edges[extra_edge.first].size() + source_count[extra_edge.first]) > 0
-            && (outgoing_edges[extra_edge.second].size() + source_count[extra_edge.second]) > 0) {
+        if ((outgoing_edges[extra_edge.first].size() + incoming_edges[extra_edge.first].size()) > 0
+            && (outgoing_edges[extra_edge.second].size() + incoming_edges[extra_edge.second].size()) > 0) {
             // Both sides of this edge are used, so it must connect two different subchains
             // Add this as another possible next
             outgoing_edges[extra_edge.first].emplace(extra_edge.second);
-            source_count[extra_edge.second]++;
+            incoming_edges[extra_edge.second].emplace(extra_edge.first);
+        }
+    }
+
+    // Trim subchain ends that we wouldn't use
+    /// TODO: make into a param
+    size_t max_left_tail = min_left_tail + std::max(min_left_tail, (size_t)100);
+    size_t max_right_tail = min_right_tail + std::max(min_right_tail, (size_t)100);
+    for (const auto& cur_trace : original_tracebacks) {
+        bool trimmed_full_chain = false;
+
+        if (read_length - to_chain[cur_trace.anchors.back()].read_end() <= max_right_tail
+            || !outgoing_edges[cur_trace.anchors.back()].empty()) {
+            // We will use this right tail
+#ifdef debug_chaining
+            cerr << "Keeping right tail ending at " << cur_trace.anchors.back() << endl;
+#endif
+        } else {
+            // We need to trim this end
+#ifdef debug_chaining
+            cerr << "Trimming right end from " << cur_trace.anchors.back() << endl;
+#endif
+            for (size_t i = cur_trace.anchors.size() - 1; i > 0; i--) {
+                // Remove edge
+                outgoing_edges[cur_trace.anchors[i-1]].erase(cur_trace.anchors[i]);
+                incoming_edges[cur_trace.anchors[i]].erase(cur_trace.anchors[i-1]);
+                if (i == 1) {
+                    trimmed_full_chain = true;
+                    if (!incoming_edges[cur_trace.anchors[i-1]].empty()) {
+                        // Also need to get rid of wherever this is attached to
+                        for (const auto& incoming : incoming_edges[cur_trace.anchors[i-1]]) {
+                            outgoing_edges[incoming].erase(cur_trace.anchors[i-1]);
+                        }
+                        incoming_edges[cur_trace.anchors[i-1]].clear();
+                    }
+                } else if (!outgoing_edges[cur_trace.anchors[i-1]].empty()) {
+                    // The chain has joined up with another
+                    // (this anchor has an outgoing edge from another chain)
+                    // We will stop trimming
+                    break;
+                }
+            }
+        }
+
+        if (trimmed_full_chain) {
+#ifdef debug_chaining
+            cerr << "Trimmed full chain" << endl;
+            break;
+#endif  
+        }
+
+        if (to_chain[cur_trace.anchors.front()].read_start() <= max_left_tail
+            || !incoming_edges[cur_trace.anchors.front()].empty()) {
+            // We will use this left tail
+            trace_from.emplace(cur_trace.anchors.front());
+#ifdef debug_chaining
+            cerr << "Trace-forwards may start from " << cur_trace.anchors.front() << endl;
+#endif
+        } else {
+            // We need to trim this end
+#ifdef debug_chaining
+            cerr << "Trimming left end from " << cur_trace.anchors.front() << endl;
+#endif            
+            for (size_t i = 0; i < cur_trace.anchors.size() - 1; i++) {
+                // Remove edge
+                outgoing_edges[cur_trace.anchors[i]].erase(cur_trace.anchors[i+1]);
+                incoming_edges[cur_trace.anchors[i+1]].erase(cur_trace.anchors[i]);
+                if (!incoming_edges[cur_trace.anchors[i+1]].empty()) {
+                    // The chain has joined up with another
+                    // (this anchor has a source from another chain)
+                    // We will stop trimming
+                    break;
+                }
+            }
         }
     }
 
 #ifdef debug_chaining
-    for (size_t i = 0; i < anchor_count; i++) {
-        cerr << i << " has " << source_count[i] << " sources, and outgoing edges to ";
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        cerr << i << " has " << incoming_edges[i].size() << " sources, and outgoing edges to ";
         for (const auto& next : outgoing_edges[i]) {
             cerr << next << " ";
         }
@@ -1039,7 +1116,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
 
     // Set up the subchains
     // For each anchor (by index), which subchain did it end up in?
-    vector<size_t> subchain_id(anchor_count, std::numeric_limits<size_t>::max());
+    vector<size_t> subchain_id(to_chain.size(), std::numeric_limits<size_t>::max());
     while (!trace_from.empty()) {
         // Start trace for this subchain, until we hit into an endpoint
         size_t cur_anchor_id = trace_from.top();
@@ -1067,7 +1144,7 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
             // If we've reached a decision point, then save all next edges
             // We have reached the end of one subchain
             if (outgoing_edges[cur_anchor_id].size() > 1 
-                || source_count[*outgoing_edges[cur_anchor_id].begin()] > 1) {
+                || incoming_edges[*outgoing_edges[cur_anchor_id].begin()].size() > 1) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
                     // We need to start a new trace from here
 #ifdef debug_chaining
@@ -1106,19 +1183,20 @@ SubchainGroup split_up_subchains(const size_t& anchor_count,
     return output;
 }
 
-vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
-                                       const SnarlDistanceIndex& distance_index,
-                                       const HandleGraph& graph,
-                                       const ChainScoringScheme& scheme,
-                                       size_t max_chains,
-                                       const transition_iterator& for_each_transition,
-                                       size_t max_indel_bases,
-                                       size_t max_alt_lookback,
-                                       bool show_work) {
+SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
+                               const SnarlDistanceIndex& distance_index,
+                               const HandleGraph& graph,
+                               size_t read_length,
+                               const ChainScoringScheme& scheme,
+                               size_t max_chains,
+                               const transition_iterator& for_each_transition,
+                               size_t max_indel_bases,
+                               size_t max_alt_lookback,
+                               bool show_work) {
 
     if (to_chain.empty()) {
         // Nothing to chain
-        return {SubchainGroup()};
+        return SubchainGroup();
     }
         
     // We actually need to do DP
@@ -1134,32 +1212,18 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
-        return {SubchainGroup()};
-    }
-
-    vector<SubchainGroup> groups;
-
-    groups.emplace_back(split_up_subchains(to_chain.size(), tracebacks, connections));
-
-    if (groups.front().connections.empty()) {
-        // No need to split up subchains
-        groups.clear();
-        for (const auto& trace : tracebacks) {
-            groups.emplace_back();
-            groups.back().subchains = {trace.anchors};
-            groups.back().max_sparse_chain_score = trace.chain_score;
-        }
-        return groups;
+        return SubchainGroup();
     }
 
     /// TODO: add recombination annotations?
 
-    return groups;
+    return split_up_subchains(to_chain, tracebacks, connections, read_length);
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
+                                  size_t read_length,
                                   const ChainScoringScheme& scheme,
                                   const transition_iterator& for_each_transition,
                                   size_t max_indel_bases,
@@ -1167,11 +1231,12 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
     SubchainGroup group = find_best_chains(to_chain,
                                            distance_index,
                                            graph,
+                                           read_length,
                                            scheme,
                                            1,
                                            for_each_transition,
                                            max_indel_bases,
-                                           max_alt_lookback).front();
+                                           max_alt_lookback);
     if (group.subchains.empty()) {
         // We got nothing
         return SparseAnchorChain();
