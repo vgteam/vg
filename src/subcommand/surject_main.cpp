@@ -67,6 +67,8 @@ void help_surject(char** argv) {
          << "  -P, --prune-low-cplx      prune short/low complexity anchors in realignment" << endl
          << "                            (on by default for long reads)" << endl
          << "      --no-prune-low-cplx   disable anchor pruning" << endl
+         << "  -j, --prune-tail-region   prune anchors lying fully inside mapper-declared" << endl
+         << "                            tail regions" << endl
          << "  -I, --max-slide N         look for offset duplicates of anchors up to N bp" << endl
          << "                            away when pruning "
                                      << "(default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
@@ -187,6 +189,7 @@ int main_surject(int argc, char** argv) {
     bool validate = true;
     bool show_progress = false;
     bool left_align = false;
+    bool prune_tail_region = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -218,6 +221,7 @@ int main_surject(int argc, char** argv) {
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
             {"no-prune-low-cplx", no_argument, 0, OPT_NO_PRUNE_LOW_CPLX},
+            {"prune-tail-region", no_argument, 0, 'j'},
             {"max-slide", required_argument, 0, 'I'},
             {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
@@ -235,7 +239,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuBN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuBN:R:f:C:t:D:SPjI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -324,6 +328,10 @@ int main_surject(int argc, char** argv) {
 
         case OPT_NO_PRUNE_LOW_CPLX: // --no-prune-low-cplx
             prune_anchors = false;
+            break;
+
+        case 'j':
+            prune_tail_region = true; //remove surject anchors from tails
             break;
 
         case 'I':
@@ -482,6 +490,7 @@ int main_surject(int argc, char** argv) {
                                        default_full_length_bonus); 
     }
     surjector.prune_suspicious_anchors = *prune_anchors;
+    surjector.prune_tail_region_anchors = prune_tail_region;
     surjector.max_slide = max_slide;
     surjector.max_anchors = max_anchors;
     if (spliced) {
