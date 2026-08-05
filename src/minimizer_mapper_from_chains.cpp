@@ -1431,32 +1431,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             // And what seeds should count as explored when we take an anchor
             const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
 
-            // See if we can fail the tree even before chaining
-            if (subchain_groups.size() > min_chains) {
-                // Score we would get if we took literally every seed with no penalties
-                size_t max_tree_score = 0;
-                for (const auto& seed : zip_code_forest.trees[item_num].get_all_seeds()) {
-                    max_tree_score += seed_anchors[seed.seed].score() + this->item_bonus;
-                }
-                if (max_tree_score < *passing_scores.begin()) {
-                    // There's no way we would ever use this chain
-                    if (show_work) {
-                        cerr << log_name() << "Not bothering to chain tree " << item_num
-                             << " because its theoretical maximum chaining score " << max_tree_score
-                             << " is below " << *passing_scores.begin()
-                             << " and thus would not proceed to alignment" << endl;
-                    }
-                    if (track_provenance) {
-                        funnel.fail("zipcode-tree-theoretical-max-chain-score-threshold", item_num, max_tree_score);
-                    }
-                    return false;
-                }
-            }
-
-            if (track_provenance) {
-                funnel.pass("zipcode-tree-theoretical-max-chain-score-threshold", item_num);
-            }
-
             if (track_provenance) {
                 funnel.substage("chain");
             }
