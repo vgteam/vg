@@ -251,10 +251,13 @@ vg deconstruct nesting/insertion_with_three_snps.gfa -p x -a -R 2>/dev/null > st
 vg deconstruct nesting/star_cluster.gfa              -p x -a -R 2>/dev/null > star_cluster.vcf
 vg deconstruct nesting/star_allele_cluster.gfa       -p x -a -R 2>/dev/null > star_allele_cluster.vcf
 
+# The *_rev fixtures are keyed on '<5<2', not '>2>5': a snarl ID is spelled in the orientation the
+# reference traverses it, so a reverse-oriented site reads backwards.  Only the ID differs -- the
+# POS/REF/ALT asserted here are the same shape as the forward case.
 is "$(star_alt star_fwd.vcf       '>2>5')" "3 T A,*"      "star is * at a forward substitution site"
-is "$(star_alt star_rev.vcf       '>2>5')" "3 A T,*"      "star is not reverse complemented into N"
+is "$(star_alt star_rev.vcf       '<5<2')" "3 A T,*"      "star is not reverse complemented into N"
 is "$(star_alt star_indel.vcf     '>2>5')" "2 ATTTT AA,*" "star is not padded with the previous base"
-is "$(star_alt star_rev_indel.vcf '>2>5')" "2 CAAAA CT,*" "star survives reversal and padding together"
+is "$(star_alt star_rev_indel.vcf '<5<2')" "2 CAAAA CT,*" "star survives reversal and padding together"
 is "$(star_alt star_mnp.vcf       '>2>5')" "3 TT AA,*"    "a star does not force indel padding of the real alleles"
 is "$(star_alt star_emptyref.vcf  '>2>5')" "2 A *"        "empty REF keeps its anchor base with a star-only ALT"
 

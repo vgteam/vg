@@ -303,7 +303,9 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                                              added_nodes, orig_node_sizes);
 
             if (aln.name() == "") {
-                cerr << "warning[augment] embedding a path with no name; downstream operations may fail." << endl;
+                cerr << "error[augment] attempting to embed a path with no name; "
+                     << "make sure all items (alignments, annotations) are named" << endl;
+                exit(1);
             }
 
             // Copy over the name

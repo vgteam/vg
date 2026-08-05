@@ -234,7 +234,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     }
     if (include_nested) {
         ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
+        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
         ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
         ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
         ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;

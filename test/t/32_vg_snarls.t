@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 42
 
 vg view -J -v snarls/snarls.json > snarls.vg
 vg snarls -t 1 snarls.vg -r st.pb > snarls.pb
@@ -13,22 +13,39 @@ is $(vg view -R snarls.pb | wc -l) 3 "vg snarls made right number of protobuf Sn
 is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
 is $(vg view -R snarls.pb | jq -r '[(.start.node_id | tonumber), (.end.node_id | tonumber)] | min' | tr '\n' ',') "1,3,7," "vg snarls made snarls in the right order"
 
-vg snarls -l -t 1 snarls.vg > leaf_only.pb 2> warnings.txt
-is "$(grep 'has no effect without --traversals file' warnings.txt | wc -l)" "1" "vg snarls warns when -l is used without --traversals"
+vg snarls -l -t 1 snarls.vg > /dev/null 2> error.txt
+is $? 1 "vg snarls does not allow --leaf-only to be used without --traversals"
+grep "requires --traversals" error.txt
+is $? 0 "the problem is explained"
+vg snarls -l -t 1 snarls.vg -r /dev/null > leaf_only.pb
 diff leaf_only.pb snarls.pb
-is $? 0 "vg snarls -l matches full snarls"
+is $? 0 "vg snarls --leaf-only matches full snarls"
 
-vg snarls -o -t 1 snarls.vg > top_level.pb 2> warnings.txt
-is "$(grep 'has no effect without --traversals file' warnings.txt | wc -l)" "1" "vg snarls warns when -o is used without --traversals"
+vg snarls -o -t 1 snarls.vg > /dev/null 2> error.txt
+is $? 1 "vg snarls does not allow --top-level to be used without --traversals"
+grep "requires --traversals" error.txt
+is $? 0 "the problem is explained"
+vg snarls -o -t 1 snarls.vg -r /dev/null > top_level.pb
 diff top_level.pb snarls.pb
-is $? 0 "vg snarls -o matches full snarls"
+is $? 0 "vg snarls --top-level matches full snarls"
 
-vg snarls -a -t 1 snarls.vg > any.pb 2> warnings.txt
-is "$(grep 'has no effect without --traversals file' warnings.txt | wc -l)" "1" "vg snarls warns when -a is used without --traversals"
+vg snarls -a -t 1 snarls.vg > /dev/null 2> error.txt
+is $? 1 "vg snarls does not allow --any-snarl-type to be used without --traversals"
+grep "requires --traversals" error.txt
+is $? 0 "the problem is explained"
+vg snarls -a -t 1 snarls.vg -r /dev/null > any.pb
 diff any.pb snarls.pb
-is $? 0 "vg snarls -a matches full snarls"
+is $? 0 "vg snarls --any-snarl-type matches full snarls"
 
-rm -f snarls.pb st.pb leaf_only.pb top_level.pb any.pb warnings.txt
+vg snarls -m 5 -t 1 snarls.vg > /dev/null 2> error.txt
+is $? 1 "vg snarls does not allow --max-nodes to be used without --traversals"
+grep "requires --traversals" error.txt
+is $? 0 "the problem is explained"
+vg snarls -m 5 -t 1 snarls.vg -r /dev/null > small.pb
+diff small.pb snarls.pb
+is $? 0 "vg snarls with --max-nodes changed matches full snarls"
+
+rm -f snarls.pb st.pb leaf_only.pb top_level.pb any.pb small.pb error.txt
 
 vg index snarls.vg -x snarls.xg
 is $(vg snarls snarls.xg -r st.pb | vg view -R - | wc -l) 3 "vg snarls on xg made right number of protobuf Snarls"
@@ -45,7 +62,26 @@ vg view -E tiny.vcf.trav | sort > tiny.vcf.trav.sort
 diff tiny.exhaustive.trav.sort tiny.vcf.trav.sort
 is $? 0 "vcf traversals are the same as exhaustive traversals for tiny graph"
 
-rm -f tiny.vg tiny.exhaustive.trav.sort tiny.exhaustive.trav tiny.vcf.trav.sort tiny.vcf.trav
+vg snarls tiny.vg -v tiny/tiny.vcf.gz > /dev/null 2> error.txt
+is $? 1 "vg snarls requires --traversals to be given if --vcf is"
+grep "requires --traversals" error.txt
+is $? 0 "the problem is explained"
+
+vg snarls tiny.vg -r tiny.vcf.trav -v tiny/tiny.vcf.gz -e > /dev/null 2> error.txt
+is $? 1 "vg snarls does not allow both --vcf and --path-traversals"
+grep "cannot be used with" error.txt
+is $? 0 "the problem is explained"
+
+vg snarls tiny.vg -e > /dev/null 2> error.txt
+is $? 1 "vg snarls requires --traversals to be given if --path-traversals is"
+grep "requires --traversals" error.txt
+is $? 0 "the problem is explained"
+
+vg snarls tiny.vg -e -m 5 -r /dev/null > /dev/null 2> warning.txt
+grep "ignored" warning.txt
+is $? 0 "warning about ignoring is given"
+
+rm -f tiny.vg tiny.exhaustive.trav.sort tiny.exhaustive.trav tiny.vcf.trav.sort tiny.vcf.trav error.txt warning.txt
 
 # vcf alt traversals on an inversion
 vg construct -Saf -v sv/x.inv.vcf -r sv/x.fa > x.inv.vg
@@ -56,7 +92,17 @@ vg view -E x.inv.vcf.trav | sort > x.inv.vcf.trav.sort
 diff x.inv.exhaustive.trav.sort x.inv.vcf.trav.sort
 is $? 0 "vcf traversals are the same as exhaustive traversals for inversion"
 
-rm -f x.inv.vg x.inv.exhaustive.trav.sort x.inv.exhaustive.trav x.inv.vcf.trav.sort x.inv.vcf.trav
+vg snarls x.inv.vg -a -r x.inv.vcf.trav -f sv/x.fa > /dev/null 2> error.txt
+is $? 1 "vg snarls requires --vcf to be given if --fasta is"
+grep "requires --vcf" error.txt
+is $? 0 "the problem is explained"
+
+vg snarls x.inv.vg -a -r x.inv.vcf.trav -i sv/x.fa > /dev/null 2> error.txt
+is $? 1 "vg snarls requires --vcf to be given if --ins-fasta is"
+grep "requires --vcf" error.txt
+is $? 0 "the problem is explained"
+
+rm -f x.inv.vg x.inv.exhaustive.trav.sort x.inv.exhaustive.trav x.inv.vcf.trav.sort x.inv.vcf.trav error.txt
 
 # vcf alt traversals on ins_and_del
 vg construct -Saf -v ins_and_del/ins_and_del.vcf.gz -r ins_and_del/ins_and_del.fa > ins_and_del.vg

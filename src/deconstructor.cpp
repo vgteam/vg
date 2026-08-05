@@ -881,7 +881,22 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 
         v.position = first_path_pos + ref_trav_offset;
 
-        v.id = print_snarl(graph, snarl_start, snarl_end);
+        // Spell the ID in the orientation the reference traverses the snarl.  The snarl finder
+        // stores a snarl in whichever orientation it happened to root it, so without this the
+        // ID can contradict the orientation of the record's own POS/REF/ALT, and -- worse --
+        // differs from the ID vg call emits for the same site, which flips the snarl to the
+        // reference before genotyping (graph_caller.cpp, "orient the snarl along the reference
+        // path").  Measured before this change: deconstruct spelled 26% of chrOther-v2.1 sites
+        // and 8.8% of chr22 sites the other way round from call, so IDs and PS chains from the
+        // two tools could not be compared, and anything keying on the ID had to try both.
+        //
+        // use_start is exactly the test: it is start_pos < end_pos on the reference path.
+        //
+        // PS follows automatically.  chrom_of_name is keyed on the emitted ID, and the
+        // ancestor walk in update_nesting_info_tags() already looks up both spellings, so the
+        // parent it records is whichever one the VCF actually contains.
+        v.id = use_start ? print_snarl(graph, snarl_start, snarl_end)
+                         : print_snarl(graph, graph->flip(snarl_end), graph->flip(snarl_start));
             
         // Convert the snarl traversals to strings and add them to the variant
         vector<bool> use_trav(travs.size());
