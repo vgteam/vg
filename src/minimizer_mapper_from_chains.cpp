@@ -1123,10 +1123,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
         }
     }
 
-    // Vector always sorted from small to large
-    // not multiset because not long enough to matter
-    vector<int> passing_scores(min_chains, 0);
-
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
@@ -1493,41 +1489,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                          << group.subchains.size() << " subchains with "
                          << group.connections.size() << " inter-subchain connections in zip code tree " << item_num
                          << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
-                }
-
-                if (group.max_sparse_chain_score < *passing_scores.begin()) {
-                    // There's no way we would ever use this chain
-                    if (show_work) {
-                        cerr << log_name() << "Not bothering to save subchain group " << item_num
-                             << " because its maximum chaining score " << group.max_sparse_chain_score
-                             << " is below " << *passing_scores.begin()
-                             << " and thus would not proceed to alignment" << endl;
-                        }
-                    if (track_provenance) {
-                        funnel.fail("zipcode-tree-actual-max-chain-score-threshold", item_num, group.max_sparse_chain_score);
-                    }
-                    return false;
-                }
-
-                if (track_provenance) {
-                    funnel.pass("zipcode-tree-actual-max-chain-score-threshold", item_num);
-                }
-
-                // Okay, we're using this chain
-                if (group.max_sparse_chain_score > *passing_scores.begin()) {
-                    // We need to update the passing score list
-                    passing_scores[0] = group.max_sparse_chain_score;
-                    // Swap along until we get to the right spot
-                    for (size_t i = 1; i < passing_scores.size(); i++) {
-                        if (passing_scores[i] >= group.max_sparse_chain_score) {
-                            // Shouldn't swap things any further
-                            break;
-                        } else {
-                            // Bump this one down
-                            passing_scores[i-1] = passing_scores[i];
-                            passing_scores[i] = group.max_sparse_chain_score;
-                        }
-                    }
                 }
 
                 for (size_t subchain_i = 0; subchain_i < group.subchains.size(); subchain_i++) {
