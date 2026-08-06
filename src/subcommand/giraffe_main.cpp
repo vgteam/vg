@@ -997,7 +997,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
-        .add_entry<size_t>("extra-tail-grace-window", 500)
         .add_entry<double>("chain-score-threshold", 234.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
