@@ -79,8 +79,6 @@ static pair<int, vector<size_t>> run_ziptree_iterator(const HashGraph& graph,
     // Next, make a ZipCodeForest for the graph/seeds
     ZipCodeForest zip_forest;
     zip_forest.fill_in_forest(seeds, distance_index);
-    zip_forest.print_self(&seeds);
-    zip_forest.trees.front().print_self(&seeds);
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
