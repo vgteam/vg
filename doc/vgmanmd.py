@@ -4,11 +4,16 @@ import subprocess
 
 # commands to include
 ######### If you add to this, also add it to the intro section of vgmandmd.desc.md
-cmds = ['index', 'view', 'autoindex', 'pack', 'giraffe', 'map', 'call',
-        'mpmap', 'rna', 'chunk', 'stats', 'gbwt', 'paths', 'find', 'filter',
-        'construct', 'minimizer', 'haplotypes', 'deconstruct', 'convert',
-        'gamsort', 'inject', 'surject', 'mod', 'prune', 'ids', 'sim', 'annotate',
-        'combine']
+cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
+        'benchmark', 'call', 'chain', 'chains', 'chunk', 'circularize', 'clip',
+        'cluster', 'combine', 'construct', 'convert', 'deconstruct', 'depth',
+        'describe', 'dotplot', 'filter', 'find', 'gamcompare', 'gampcompare',
+        'gamsort', 'gbwt', 'genotype', 'giraffe', 'haplotypes', 'help', 'ids',
+        'index', 'inject', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
+        'pack', 'paths', 'primers', 'prune', 'rna', 'sim', 'simplify', 'snarls',
+        'stats', 'surject', 'test', 'trace', 'validate', 'vectorize', 'version',
+        'view', 'viz', 'zipcode'
+]
 cmds.sort()
 
 
@@ -60,12 +65,6 @@ if 'synopsis' in desc:
     print(desc['synopsis'])
     print('\n\n')
 
-# table of contents
-#for cmd in cmds:
-#    print(' - [vg {cmd}](#{cmd})'.format(cmd=cmd))
-#
-#print('\n\n')
-
 print("COMMANDS")
 print("====")
 
@@ -73,22 +72,14 @@ print("====")
 vg_help = subprocess.run(['vg', 'help'], capture_output=True)
 cmd_desc = dict()
 for line in vg_help.stderr.decode().split('\n'):
-    if '--' in line:
+    if '-' in line:
         parts = line.split()
         cmd_desc[parts[1]] = ' '.join(parts[2:])
         cmd = parts[1]
 
 for cmd in cmds:
     print('<a id="{cmd}"/>\n\n## {cmd}: {blurb}\n\n'.format(cmd=cmd, blurb=cmd_desc[cmd]))
-    try:
-        # Try first with the help option to get all options described.
-        # Use check=True to raise CalledProcessError on non-zero exit codes (e.g., when --help fails),
-        # allowing us to fall back to running the command without --help.
-        ret = subprocess.run(['vg', cmd, '--help'], capture_output=True, check=True)
-    except subprocess.CalledProcessError:
-        # Fallback to running the subcommand alone because some
-        # vg subcommands (e.g., construct) don’t recognize --help
-        ret = subprocess.run(['vg', cmd], capture_output=True)
+    ret = subprocess.run(['vg', cmd, '--help'], capture_output=True)
     print('```')
     print(ret.stderr.decode())
     print('```\n\n')
