@@ -60,6 +60,9 @@ void help_call(char** argv) {
          << "                            to correct for correlated reads (mates, repeats) [1.0]" << endl
          << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
          << "                            probability; larger tolerates more stray reads [0.1]" << endl
+         << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
+         << "                            capping one read's veto at ln(P). Covers local" << endl
+         << "                            misalignment, which MAPQ does not measure [0.01]" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
          << "                            more support than the next best allele [6,6]" << endl
@@ -179,6 +182,7 @@ int main_call(int argc, char** argv) {
     bool no_mismap_term = false;
     double read_weight = 1.0;
     double max_mismap_prob = 0.1;
+    double min_mismap_prob = 0.01;
     int read_min_mapq = 0;
 
     // constants
@@ -209,6 +213,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_GAF_BASE_BINARY = 1017;
     constexpr int OPT_READ_WEIGHT = 1018;
     constexpr int OPT_MISMAP_MAX = 1019;
+    constexpr int OPT_MISMAP_MIN = 1020;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -252,6 +257,7 @@ int main_call(int argc, char** argv) {
             {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
             {"read-weight", required_argument, 0, OPT_READ_WEIGHT},
             {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
+            {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -410,6 +416,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_MISMAP_MAX:
             max_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_MISMAP_MIN:
+            min_mismap_prob = parse<double>(optarg);
             break;
         case OPT_READ_MIN_MAPQ:
             read_min_mapq = parse<int>(optarg);
@@ -671,6 +680,9 @@ int main_call(int argc, char** argv) {
     }
     if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {
         logger.error() << "--mismap-max must be in (0, 1)" << endl;
+    }
+    if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
+        logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
     }
 
     // --gbz-base only says where to point the query; it means nothing without the read
@@ -1010,6 +1022,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.use_mismap_term = !no_mismap_term;
             likelihood_params.read_weight = read_weight;
             likelihood_params.max_mismap_prob = max_mismap_prob;
+            likelihood_params.min_mismap_prob = min_mismap_prob;
 
             likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
                 *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,

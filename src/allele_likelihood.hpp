@@ -190,7 +190,7 @@ public:
     /// contributing nothing at all. That may even be the desired behaviour for a
     /// MAPQ 0 read, but it should be a deliberate clamp rather than an artefact
     /// of the phred conversion. It also keeps the per-read term's log finite.
-    AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 1e-8,
+    AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 0.01,
                                  double max_mismap = 0.1, double read_weight = 1.0);
 
     /// Add a read. raw_ln_likelihood must have one entry per allele and may
@@ -224,7 +224,27 @@ private:
  */
 struct AlleleLikelihoodParams {
     /// Clamps on the MAPQ-derived mismapping probability. See the builder.
-    double min_mismap_prob = 1e-8;
+    ///
+    /// The *floor* is the more consequential of the two on real data, and its
+    /// meaning is broader than mismapping. e_r bounds how much one read can veto
+    /// an allele: a read fitting allele A perfectly and B not at all costs B
+    /// exactly ln(e_r). MAPQ answers "is this read in the right place", not "is
+    /// its path through this site right", so a MAPQ 60 read with a locally
+    /// misaligned indel still gets e_r ~ 1e-6 and a -13.8 nat veto it has not
+    /// earned. Raising the floor caps that veto: read it as
+    /// P(this read's evidence at this site is unreliable), of which mismapping is
+    /// only one cause and local misalignment is another.
+    ///
+    /// Default raised from 1e-8 to 0.01 on measurement. 1e-8 asserts that a MAPQ 60
+    /// read is locally misaligned once in 10^8 sites, which nothing supports; it let
+    /// a single read veto an allele by -13.8 nats, and a few misaligned reads then
+    /// forced spurious heterozygous calls. On HG002 chr20 against the GIAB draft
+    /// benchmark, 0.01 moved 1,493 genotypes -- 94% of them het to hom -- and improved
+    /// every class: SNV GT F1 0.9759 -> 0.9766, insertion 0.7783 -> 0.8231, deletion
+    /// 0.8231 -> 0.8706, overall 0.9370 -> 0.9482, SV 0.4991 -> 0.5120. Calibrated on
+    /// one chromosome of one sample, so it is a better default rather than a
+    /// definitive one.
+    double min_mismap_prob = 0.01;
     double max_mismap_prob = 0.1;
     /// Turn the mismapping term off entirely, so its contribution can be
     /// measured rather than assumed. With it off, e_r is pinned to the minimum,
