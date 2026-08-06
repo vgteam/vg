@@ -1044,6 +1044,10 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         return groups;
     }
 
+    // We'll build up a SubchainGroup in here
+    vector<SubchainGroup> output;
+    output.emplace_back();
+
     // Trim subchain ends that we wouldn't use
     size_t max_left_tail = min_left_tail*2 + extra_tail_grace_window;
     size_t max_right_tail = min_right_tail*2 + extra_tail_grace_window;
@@ -1054,9 +1058,10 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     cerr << "Trace-forwards may start from " << original_tracebacks.front().anchors.front() << endl;
 #endif
     // See if we should trim the ends of other chains
+    // Collection of anchors to trim
+    unordered_set<size_t> trimmed_anchors;
     for (size_t i = 1; i < original_tracebacks.size(); i++) {
         auto& cur_trace = original_tracebacks[i].anchors;
-        bool trimmed_full_chain = false;
 
         if (read_length - to_chain[cur_trace.back()].read_end() <= max_right_tail
             || !outgoing_edges[cur_trace.back()].empty()) {
@@ -1069,33 +1074,26 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 #ifdef debug_chaining
             cerr << "Trimming right end from " << cur_trace.back() << endl;
 #endif
-            for (size_t i = cur_trace.size() - 1; i > 0; i--) {
-                // Remove edge
-                outgoing_edges[cur_trace[i-1]].erase(cur_trace[i]);
-                incoming_edges[cur_trace[i]].erase(cur_trace[i-1]);
-                if (i == 1) {
-                    trimmed_full_chain = true;
-                    if (!incoming_edges[cur_trace[i-1]].empty()) {
-                        // Also need to get rid of wherever this is attached to
-                        for (const auto& incoming : incoming_edges[cur_trace[i-1]]) {
-                            outgoing_edges[incoming].erase(cur_trace[i-1]);
-                        }
-                        incoming_edges[cur_trace[i-1]].clear();
-                    }
-                } else if (!outgoing_edges[cur_trace[i-1]].empty()) {
+            for (int i = cur_trace.size() - 1; i >= 0; i--) {
+                if (outgoing_edges[cur_trace[i]].size() > 1) {
                     // The chain has joined up with another
                     // (this anchor has an outgoing edge from another chain)
                     // We will stop trimming
                     break;
                 }
-            }
-        }
-
-        if (trimmed_full_chain) {
+                // Remove anchor
+                trimmed_anchors.emplace(cur_trace[i]);
+                if (i == 0) {
 #ifdef debug_chaining
-            cerr << "Trimmed full chain" << endl;
-            break;
-#endif  
+                    cerr << "We trimmed the entirety of traceback " << i 
+                         << " and will instead save as its own SubchainGroup" << endl;
+#endif
+                    output.emplace_back();
+                    output.back().subchains = {cur_trace};
+                    output.back().max_sparse_chain_score = original_tracebacks[i].chain_score;
+                    break;
+                }
+            }
         }
 
         if (to_chain[cur_trace.front()].read_start() <= max_left_tail
@@ -1110,18 +1108,32 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 #ifdef debug_chaining
             cerr << "Trimming left end from " << cur_trace.front() << endl;
 #endif            
-            for (size_t i = 0; i < cur_trace.size() - 1; i++) {
-                // Remove edge
-                outgoing_edges[cur_trace[i]].erase(cur_trace[i+1]);
-                incoming_edges[cur_trace[i+1]].erase(cur_trace[i]);
-                if (!incoming_edges[cur_trace[i+1]].empty()) {
+            for (size_t i = 0; i < cur_trace.size(); i++) {
+                if (incoming_edges[cur_trace[i]].size() > 1) {
                     // The chain has joined up with another
                     // (this anchor has a source from another chain)
                     // We will stop trimming
                     break;
                 }
+                // Remove anchor
+                trimmed_anchors.emplace(cur_trace[i]);
             }
         }
+    }
+
+    // Remove all edges connecting to trimmed anchors
+    for (const auto& anchor : trimmed_anchors) {
+#ifdef debug_chaining
+        cerr << "Trimming away " << anchor << endl;
+#endif
+        for (const auto& other : incoming_edges[anchor]) {
+            outgoing_edges[other].erase(anchor);
+        }
+        incoming_edges[anchor].clear();
+        for (const auto& other : outgoing_edges[anchor]) {
+            incoming_edges[other].erase(anchor);
+        }
+        outgoing_edges[anchor].clear();
     }
 
 #ifdef debug_chaining
@@ -1133,8 +1145,6 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         cerr << endl;
     }
 #endif
-
-    SubchainGroup output;
 
     // Set up the subchains
     // For each anchor (by index), which subchain did it end up in?
@@ -1149,9 +1159,9 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         }
 
         // Create a new subchain to trace into
-        size_t cur_subchain_id = output.subchains.size();
-        output.subchains.emplace_back();
-        output.subchains.back().emplace_back(cur_anchor_id);
+        size_t cur_subchain_id = output.front().subchains.size();
+        output.front().subchains.emplace_back();
+        output.front().subchains.back().emplace_back(cur_anchor_id);
         subchain_id[cur_anchor_id] = cur_subchain_id;
 
 #ifdef debug_chaining
@@ -1179,7 +1189,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             
             // Otherwise, trace into the next edge
             cur_anchor_id = *outgoing_edges[cur_anchor_id].begin();
-            output.subchains.back().emplace_back(cur_anchor_id);
+            output.front().subchains.back().emplace_back(cur_anchor_id);
             subchain_id[cur_anchor_id] = cur_subchain_id;
 #ifdef debug_chaining
             cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
@@ -1188,11 +1198,11 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     }
 
     // Make all inter-subchain connections necessary
-    for (size_t i = 0; i < output.subchains.size(); i++) {
+    for (size_t i = 0; i < output.front().subchains.size(); i++) {
         // Loop over any way to exit this subchain
-        for (const auto& next : outgoing_edges[output.subchains[i].back()]) {
+        for (const auto& next : outgoing_edges[output.front().subchains[i].back()]) {
             if (next != std::numeric_limits<size_t>::max()) {
-                output.connections.emplace_back(i, subchain_id[next]);
+                output.front().connections.emplace_back(i, subchain_id[next]);
 #ifdef debug_chaining
                 cerr << "Connect subchains " << i << " -> " << subchain_id[next] << endl;
 #endif
@@ -1201,8 +1211,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     }
 
     // Assume first is highest score
-    output.max_sparse_chain_score = original_tracebacks.front().chain_score;
-    return {output};
+    output.front().max_sparse_chain_score = original_tracebacks.front().chain_score;
+    return output;
 }
 
 vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
