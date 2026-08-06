@@ -12,18 +12,14 @@ namespace vg {
 namespace unittest {
 
 /// Turn inline test data of read start, graph handle and offset, length, and score into Anchor objects.
+/// Assume things are in the correct order
 static vector<algorithms::Anchor> make_anchors(const vector<tuple<size_t, handle_t, size_t, size_t, int>>& test_data, const HandleGraph& graph) {
     vector<algorithms::Anchor> to_score;
-    for (auto& item : test_data) {
+    for (size_t i = 0; i < test_data.size(); i++) {
+        const auto& item = test_data[i];
         pos_t graph_pos = make_pos_t(graph.get_id(get<1>(item)), graph.get_is_reverse(get<1>(item)), get<2>(item));
-        to_score.emplace_back(get<0>(item), graph_pos, get<3>(item), 0, 0, get<4>(item));
+        to_score.emplace_back(get<0>(item), graph_pos, get<3>(item), 0, 0, get<4>(item), i);
     }
-    
-    // Sort by read interval as is required
-    std::sort(to_score.begin(), to_score.end(), [](const algorithms::Anchor& a, const algorithms::Anchor& b) {
-        return (a.read_start() < b.read_start()) ||
-            (a.read_start() == b.read_start() && a.length() < b.length());
-    });
     
     return to_score;
 }
@@ -66,11 +62,14 @@ static vector<handle_t> get_handles(const HandleGraph& graph) {
     return handles;
 }
 
-static algorithms::transition_iterator make_ziptree_iterator(const SnarlDistanceIndex& distance_index,
-                                                             const vector<algorithms::Anchor>& positions) {
+static pair<int, vector<size_t>> run_ziptree_iterator(const HashGraph& graph,
+                                                      const vector<algorithms::Anchor>& anchors) {
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     // Convert these into Seed type
     vector<SnarlDistanceIndexClusterer::Seed> seeds;
-    for (const auto& pos : positions) {
+    for (const auto& pos : anchors) {
         ZipCode zipcode;
         zipcode.fill_in_zipcode_from_pos(distance_index, pos.graph_start());
         zipcode.fill_in_full_decoder();
@@ -80,15 +79,18 @@ static algorithms::transition_iterator make_ziptree_iterator(const SnarlDistance
     // Next, make a ZipCodeForest for the graph/seeds
     ZipCodeForest zip_forest;
     zip_forest.fill_in_forest(seeds, distance_index);
+    zip_forest.print_self(&seeds);
+    zip_forest.trees.front().print_self(&seeds);
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
-    return algorithms::zip_tree_transition_iterator(
-        seeds,
-        zip_forest.trees.front(),
-        std::numeric_limits<size_t>::max(),
-        std::numeric_limits<size_t>::max()
-    );
+    return algorithms::find_best_chain(anchors, distance_index, graph, 6, 1,
+                                       algorithms::zip_tree_transition_iterator(seeds,
+                                                                                zip_forest.trees.front(),
+                                                                                std::numeric_limits<size_t>::max(),
+                                                                                std::numeric_limits<size_t>::max()
+                                                                               )
+                                       );
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items][find_best_chain]") {
@@ -104,8 +106,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
                                   {10, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
-                                              make_ziptree_iterator(distance_index, to_score));
+    auto result = run_ziptree_iterator(graph, to_score);
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
 }
@@ -123,8 +124,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
                                   {10, h[1], 11, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
-                                              make_ziptree_iterator(distance_index, to_score));
+    auto result = run_ziptree_iterator(graph, to_score);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
@@ -143,8 +143,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
                                   {11, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
-                                              make_ziptree_iterator(distance_index, to_score));
+    auto result = run_ziptree_iterator(graph, to_score);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second == std::vector<size_t>{0, 1});
@@ -167,8 +166,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1,
-                                              make_ziptree_iterator(distance_index, to_score));
+    auto result = run_ziptree_iterator(graph, to_score);
     // We should take all of the items in order and not be scared off by the indels.
     REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
 }
