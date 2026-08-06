@@ -95,10 +95,6 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     // Set up graph fixture
     HashGraph graph = make_long_graph(1);
     auto h = get_handles(graph);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {10, h[1], 10, 9, 9}}, graph);
@@ -113,10 +109,6 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     // Set up graph fixture
     HashGraph graph = make_long_graph(1);
     auto h = get_handles(graph);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {10, h[1], 11, 9, 9}}, graph);
@@ -132,10 +124,6 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     // Set up graph fixture
     HashGraph graph = make_long_graph(1);
     auto h = get_handles(graph);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {11, h[1], 10, 9, 9}}, graph);
@@ -151,11 +139,6 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     // Set up graph fixture
     HashGraph graph = make_long_graph(10, 10);
     auto h = get_handles(graph);
-    
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
     // Set up extensions.
     // We're going to have to pay for at least 2 gaps so we need to make sure that doing that is worth it.
     auto to_score = make_anchors({{10, h[1], 0, 10, 10}, // First one on main diagonal
