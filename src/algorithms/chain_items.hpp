@@ -578,15 +578,17 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
  * Save connections between subchains, pulling from edges in tracebacks
  * as well as alternative edges.
  * 
+ * If no edges connect the tracebacks then they are returned separately.
+ * 
  * Trims the tails of tracebacks if they would force a tail which is
  * more than extra_tail_grace_window longer than twice the shortest tail
  * (left/right ends treated separately). Trimmed bits are not saved.
  */
-SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
-                                 const vector<SparseAnchorChain>& original_tracebacks,
-                                 const vector<pair<size_t, size_t>>& connections,
-                                 size_t read_length,
-                                 size_t extra_tail_grace_window);
+vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
+                                         const vector<SparseAnchorChain>& original_tracebacks,
+                                         const vector<pair<size_t, size_t>>& connections,
+                                         size_t read_length,
+                                         size_t extra_tail_grace_window);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -595,19 +597,20 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
  * Input items must be sorted by start position in the read.
  *
  * Gets initial tracebacks and inter-traceback connections,
- * then joins them into a SubchainGroup.
+ * then joins them into a SubchainGroup. If the tracebacks are
+ * entirely disjoint then return multiple SubchainGroups.
  */
-SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
-                               const SnarlDistanceIndex& distance_index,
-                               const HandleGraph& graph,
-                               size_t read_length,
-                               const ChainScoringScheme& scheme = ChainScoringScheme(),
-                               size_t max_chains = 1,
-                               const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                               size_t max_indel_bases = 100,
-                               size_t max_alt_lookback = 5,
-                               size_t extra_tail_grace_window = 100,
-                               bool show_work = false);
+vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
+                                       const SnarlDistanceIndex& distance_index,
+                                       const HandleGraph& graph,
+                                       size_t read_length,
+                                       const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                       size_t max_chains = 1,
+                                       const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                                       size_t max_indel_bases = 100,
+                                       size_t max_alt_lookback = 5,
+                                       size_t extra_tail_grace_window = 100,
+                                       bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and

@@ -1473,7 +1473,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
             };
-            algorithms::SubchainGroup new_group = algorithms::find_best_chains(
+            vector<algorithms::SubchainGroup> new_groups = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1486,180 +1486,182 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 this->extra_tail_grace_window,
                 show_work);
 
-            if (show_work) {
-                #pragma omp critical (cerr)
-                cerr << log_name() << "\t[" << aln.name() << "] Found "
-                     << new_group.subchains.size() << " subchains with "
-                     << new_group.connections.size() << " inter-subchain connections in zip code tree " << item_num
-                     << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
-            }
-
-            if (new_group.max_sparse_chain_score < *passing_scores.begin()) {
-                // There's no way we would ever use this chain
+            for (auto& group : new_groups) {
                 if (show_work) {
-                    cerr << log_name() << "Not bothering to save subchain group " << item_num
-                        << " because its maximum chaining score " << new_group.max_sparse_chain_score
-                        << " is below " << *passing_scores.begin()
-                        << " and thus would not proceed to alignment" << endl;
+                    #pragma omp critical (cerr)
+                    cerr << log_name() << "\t[" << aln.name() << "] Found "
+                         << group.subchains.size() << " subchains with "
+                         << group.connections.size() << " inter-subchain connections in zip code tree " << item_num
+                         << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
+                }
+
+                if (group.max_sparse_chain_score < *passing_scores.begin()) {
+                    // There's no way we would ever use this chain
+                    if (show_work) {
+                        cerr << log_name() << "Not bothering to save subchain group " << item_num
+                             << " because its maximum chaining score " << group.max_sparse_chain_score
+                             << " is below " << *passing_scores.begin()
+                             << " and thus would not proceed to alignment" << endl;
+                        }
+                    if (track_provenance) {
+                        funnel.fail("zipcode-tree-actual-max-chain-score-threshold", item_num, group.max_sparse_chain_score);
                     }
+                    return false;
+                }
+
                 if (track_provenance) {
-                    funnel.fail("zipcode-tree-actual-max-chain-score-threshold", item_num, new_group.max_sparse_chain_score);
+                    funnel.pass("zipcode-tree-actual-max-chain-score-threshold", item_num);
                 }
-                return false;
-            }
 
-            if (track_provenance) {
-                funnel.pass("zipcode-tree-actual-max-chain-score-threshold", item_num);
-            }
-
-            // Okay, we're using this chain
-            if (new_group.max_sparse_chain_score > *passing_scores.begin()) {
-                // We need to update the passing score list
-                passing_scores[0] = new_group.max_sparse_chain_score;
-                // Swap along until we get to the right spot
-                for (size_t i = 1; i < passing_scores.size(); i++) {
-                    if (passing_scores[i] >= new_group.max_sparse_chain_score) {
-                        // Shouldn't swap things any further
-                        break;
-                    } else {
-                        // Bump this one down
-                        passing_scores[i-1] = passing_scores[i];
-                        passing_scores[i] = new_group.max_sparse_chain_score;
+                // Okay, we're using this chain
+                if (group.max_sparse_chain_score > *passing_scores.begin()) {
+                    // We need to update the passing score list
+                    passing_scores[0] = group.max_sparse_chain_score;
+                    // Swap along until we get to the right spot
+                    for (size_t i = 1; i < passing_scores.size(); i++) {
+                        if (passing_scores[i] >= group.max_sparse_chain_score) {
+                            // Shouldn't swap things any further
+                            break;
+                        } else {
+                            // Bump this one down
+                            passing_scores[i-1] = passing_scores[i];
+                            passing_scores[i] = group.max_sparse_chain_score;
+                        }
                     }
                 }
-            }
 
-            for (size_t subchain_i = 0; subchain_i < new_group.subchains.size(); subchain_i++) {
-                // For each subchain
-                vector<size_t>& subchain = new_group.subchains[subchain_i];
-#ifdef debug_rec
-                if (true)
-#else
-                if (show_work)
-#endif
-                {
-#ifdef debug
-                    if(true)
-#else
-                    if (subchain_i < MANY_LIMIT)
-#endif
+                for (size_t subchain_i = 0; subchain_i < group.subchains.size(); subchain_i++) {
+                    // For each subchain
+                    vector<size_t>& subchain = group.subchains[subchain_i];
+    #ifdef debug_rec
+                    if (true)
+    #else
+                    if (show_work)
+    #endif
                     {
-                        #pragma omp critical (cerr)
+    #ifdef debug
+                        if(true)
+    #else
+                        if (subchain_i < MANY_LIMIT)
+    #endif
                         {
-                            cerr << log_name() << "\t[" << aln.name() << "] Subchain " << subchain_i
-                                 << " and length " << subchain.size()
-                                 << " running " << anchor_view[subchain.front()]
-                                 << " to " << anchor_view[subchain.back()] << std::endl;
-#ifdef debug_rec
-                            algorithms::path_flags_t current_paths = 0;
-                            bool first = true;
-                            for (auto& selected_number : subchain) {
-                                auto& anchor = anchor_view[selected_number];
-                                auto new_paths = anchor.anchor_paths();
-                                if (first) {
-                                    current_paths = new_paths.second;
-                                    first = false;
-                                } else {
-                                    if (new_paths.first == new_paths.second) {
-                                        if ((current_paths & new_paths.first) == 0) {
-                                            current_paths = new_paths.first;
-                                        } else {
-                                            current_paths &= new_paths.first;
-                                        }
-                                    } else {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "\t[" << aln.name() << "] Subchain " << subchain_i
+                                     << " and length " << subchain.size()
+                                     << " running " << anchor_view[subchain.front()]
+                                     << " to " << anchor_view[subchain.back()] << std::endl;
+    #ifdef debug_rec
+                                algorithms::path_flags_t current_paths = 0;
+                                bool first = true;
+                                for (auto& selected_number : subchain) {
+                                    auto& anchor = anchor_view[selected_number];
+                                    auto new_paths = anchor.anchor_paths();
+                                    if (first) {
                                         current_paths = new_paths.second;
+                                        first = false;
+                                    } else {
+                                        if (new_paths.first == new_paths.second) {
+                                            if ((current_paths & new_paths.first) == 0) {
+                                                current_paths = new_paths.first;
+                                            } else {
+                                                current_paths &= new_paths.first;
+                                            }
+                                        } else {
+                                            current_paths = new_paths.second;
+                                        }
                                     }
+                                    
+                                    std::cerr << log_name() << "\t\t" << anchor 
+                                              << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
+                                              << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
                                 }
-                                
-                                std::cerr << log_name() << "\t\t" << anchor 
-                                        << " anchor_paths: " << std::bitset<64>(new_paths.first).count() << " " << std::bitset<64>(new_paths.first) 
-                                        << " chain_paths: " << std::bitset<64>(current_paths).count() << " " << std::bitset<64>(current_paths) << std::endl;
+    #endif
                             }
-#endif
+                        } else if (subchain_i == MANY_LIMIT) {
+                            #pragma omp critical (cerr)
+                            std::cerr << log_name() << "\t[" << aln.name() << "] <" << (group.subchains.size() - subchain_i) << " more chains>" << std::endl;
                         }
-                    } else if (subchain_i == MANY_LIMIT) {
-                        #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t[" << aln.name() << "] <" << (new_group.subchains.size() - subchain_i) << " more chains>" << std::endl;
                     }
-                }
 
-                // Count how many of each minimizer is in each chain produced
-                minimizer_kept_chain_count.emplace_back(minimizers.size(), 0);
+                    // Count how many of each minimizer is in each chain produced
+                    minimizer_kept_chain_count.emplace_back(minimizers.size(), 0);
 
-                // Translate subchains into seed numbers and not local anchor numbers.
-                vector<size_t> seed_nums;
-                seed_nums.reserve(subchain.size() * 2);
+                    // Translate subchains into seed numbers and not local anchor numbers.
+                    vector<size_t> seed_nums;
+                    seed_nums.reserve(subchain.size() * 2);
 
-                for (auto& selected_number : subchain) {
-                    // For each anchor in the chain, get its number in the whole group of anchors.
-                    size_t anchor_number = anchor_indexes.at(selected_number);
-                    for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
-                        // And get all the seeds it actually uses in sequence and put them in the chain.
-                        seed_nums.push_back(seed_number);
+                    for (auto& selected_number : subchain) {
+                        // For each anchor in the chain, get its number in the whole group of anchors.
+                        size_t anchor_number = anchor_indexes.at(selected_number);
+                        for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
+                            // And get all the seeds it actually uses in sequence and put them in the chain.
+                            seed_nums.push_back(seed_number);
+                        }
+                        for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
+                            // And get all the seeds it represents exploring and mark their minimizers explored.
+                            // TODO: Can we get the gapless extension logic to count this for us for that codepath?
+                            minimizer_kept_chain_count.back()[seeds[seed_number].source]++;
+                        }
                     }
-                    for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
-                        // And get all the seeds it represents exploring and mark their minimizers explored.
-                        // TODO: Can we get the gapless extension logic to count this for us for that codepath?
-                        minimizer_kept_chain_count.back()[seeds[seed_number].source]++;
+                    subchain = seed_nums;
+
+                    // Remember how we got it
+                    subchain_source_tree.push_back(item_num);
+                    // Remember the number of better or equal-scoring things
+                    multiplicity_by_chain.emplace_back((float)item_count);
+
+                    if (track_provenance) {
+                        // Tell the funnel
+                        funnel.introduce();
+                        /// TODO: no score provided because these are intentionally just pieces
+                        // We come from all the seeds directly
+                        // TODO: Include all the middle seeds when gapless extending!
+                        funnel.also_merge_group(2, subchain.begin(), subchain.end());
+                        // And are related to the problem
+                        funnel.also_relevant(1, item_num);
                     }
-                }
-                subchain = seed_nums;
 
-                // Remember how we got it
-                subchain_source_tree.push_back(item_num);
-                // Remember the number of better or equal-scoring things
-                multiplicity_by_chain.emplace_back((float)item_count);
-
-                if (track_provenance) {
-                    // Tell the funnel
-                    funnel.introduce();
-                    /// TODO: no score provided because these are intentionally just pieces
-                    // We come from all the seeds directly
-                    // TODO: Include all the middle seeds when gapless extending!
-                    funnel.also_merge_group(2, subchain.begin(), subchain.end());
-                    // And are related to the problem
-                    funnel.also_relevant(1, item_num);
-                }
-
-                if (track_position && subchain_i < MANY_LIMIT) {
-                    // Add position annotations for some chains.
-                    // Should be much faster than full correctness tracking from every seed.
-                    crash_unless(this->path_graph);
-                    std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
-                    if (haplotype_positions) {
-                        wanted_senses.insert(PathSense::HAPLOTYPE);
-                    }
-                    for (auto& boundary : {anchor_view[subchain.front()].graph_start(), anchor_view[subchain.back()].graph_end()}) {
-                        // For each end of the chain
-                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
-                        for (auto& handle_and_positions : offsets) {
-                            for (auto& position : handle_and_positions.second) {
-                                // Tell the funnel all the effective positions, ignoring orientation
-                                funnel.position(funnel.latest(), handle_and_positions.first, position.first);
+                    if (track_position && subchain_i < MANY_LIMIT) {
+                        // Add position annotations for some chains.
+                        // Should be much faster than full correctness tracking from every seed.
+                        crash_unless(this->path_graph);
+                        std::unordered_set<PathSense> wanted_senses {PathSense::REFERENCE, PathSense::GENERIC};
+                        if (haplotype_positions) {
+                            wanted_senses.insert(PathSense::HAPLOTYPE);
+                        }
+                        for (auto& boundary : {anchor_view[subchain.front()].graph_start(), anchor_view[subchain.back()].graph_end()}) {
+                            // For each end of the chain
+                            auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
+                            for (auto& handle_and_positions : offsets) {
+                                for (auto& position : handle_and_positions.second) {
+                                    // Tell the funnel all the effective positions, ignoring orientation
+                                    funnel.position(funnel.latest(), handle_and_positions.first, position.first);
+                                }
                             }
+
                         }
+                    }
 
+                    if (track_provenance && show_work && subchain_i < MANY_LIMIT) {
+                        for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                            // Log each range on a path associated with the chain.
+                            #pragma omp critical (cerr)
+                            std::cerr << log_name() << "\t\tAt linear reference "
+                                << this->path_graph->get_path_name(handle_and_range.first)
+                                << ":" << handle_and_range.second.first
+                                << "-" << handle_and_range.second.second << std::endl;
+                        }
+                        if (track_correctness && funnel.is_correct(funnel.latest())) {
+                            #pragma omp critical (cerr)
+                            cerr << log_name() << "\t\tCORRECT!" << endl;
+                        }
                     }
                 }
 
-                if (track_provenance && show_work && subchain_i < MANY_LIMIT) {
-                    for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                        // Log each range on a path associated with the chain.
-                        #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t\tAt linear reference "
-                            << this->path_graph->get_path_name(handle_and_range.first)
-                            << ":" << handle_and_range.second.first
-                            << "-" << handle_and_range.second.second << std::endl;
-                    }
-                    if (track_correctness && funnel.is_correct(funnel.latest())) {
-                        #pragma omp critical (cerr)
-                        cerr << log_name() << "\t\tCORRECT!" << endl;
-                    }
-                }
+                // Save our work
+                subchain_groups.push_back(group);
             }
-
-            // Save our work
-            subchain_groups.push_back(new_group);
 
             if (track_provenance) {
                 // Say we're done with this

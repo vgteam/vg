@@ -982,12 +982,11 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
 }
 
 /// TODO: break this function up it's getting really big
-SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
-                                 const vector<SparseAnchorChain>& original_tracebacks,
-                                 const vector<pair<size_t, size_t>>& connections,
-                                 size_t read_length,
-                                 size_t extra_tail_grace_window) {
-    SubchainGroup output;
+vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
+                                         const vector<SparseAnchorChain>& original_tracebacks,
+                                         const vector<pair<size_t, size_t>>& connections,
+                                         size_t read_length,
+                                         size_t extra_tail_grace_window) {
     // For each anchor (by index), which other anchors can it connect to?
     vector<unordered_set<size_t>> outgoing_edges(to_chain.size());
     vector<unordered_set<size_t>> incoming_edges(to_chain.size());
@@ -1022,6 +1021,7 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
     }
 
     // Now check in on the extra edges.
+    bool edge_used = false;
     for (const auto& extra_edge : connections) {
         if ((outgoing_edges[extra_edge.first].size() + incoming_edges[extra_edge.first].size()) > 0
             && (outgoing_edges[extra_edge.second].size() + incoming_edges[extra_edge.second].size()) > 0) {
@@ -1029,7 +1029,19 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
             // Add this as another possible next
             outgoing_edges[extra_edge.first].emplace(extra_edge.second);
             incoming_edges[extra_edge.second].emplace(extra_edge.first);
+            edge_used = true;
         }
+    }
+
+    if (!edge_used) {
+        // These tracebacks are disjoint; return separately
+        vector<SubchainGroup> groups;
+        for (const auto& cur_trace : original_tracebacks) {
+            groups.emplace_back();
+            groups.back().subchains = {cur_trace.anchors};
+            groups.back().max_sparse_chain_score = cur_trace.chain_score;
+        }
+        return groups;
     }
 
     // Trim subchain ends that we wouldn't use
@@ -1122,6 +1134,8 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
     }
 #endif
 
+    SubchainGroup output;
+
     // Set up the subchains
     // For each anchor (by index), which subchain did it end up in?
     vector<size_t> subchain_id(to_chain.size(), std::numeric_limits<size_t>::max());
@@ -1188,24 +1202,24 @@ SubchainGroup split_up_subchains(const VectorView<Anchor>& to_chain,
 
     // Assume first is highest score
     output.max_sparse_chain_score = original_tracebacks.front().chain_score;
-    return output;
+    return {output};
 }
 
-SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
-                               const SnarlDistanceIndex& distance_index,
-                               const HandleGraph& graph,
-                               size_t read_length,
-                               const ChainScoringScheme& scheme,
-                               size_t max_chains,
-                               const transition_iterator& for_each_transition,
-                               size_t max_indel_bases,
-                               size_t max_alt_lookback,
-                               size_t extra_tail_grace_window,
-                               bool show_work) {
+vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
+                                       const SnarlDistanceIndex& distance_index,
+                                       const HandleGraph& graph,
+                                       size_t read_length,
+                                       const ChainScoringScheme& scheme,
+                                       size_t max_chains,
+                                       const transition_iterator& for_each_transition,
+                                       size_t max_indel_bases,
+                                       size_t max_alt_lookback,
+                                       size_t extra_tail_grace_window,
+                                       bool show_work) {
 
     if (to_chain.empty()) {
         // Nothing to chain
-        return SubchainGroup();
+        return {SubchainGroup()};
     }
         
     // We actually need to do DP
@@ -1221,7 +1235,7 @@ SubchainGroup find_best_chains(const VectorView<Anchor>& to_chain,
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
-        return SubchainGroup();
+        return {SubchainGroup()};
     }
 
     /// TODO: add recombination annotations?
@@ -1247,7 +1261,8 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                            for_each_transition,
                                            max_indel_bases,
                                            max_alt_lookback,
-                                           extra_tail_grace_window);
+                                           extra_tail_grace_window
+                                           ).front();
     if (group.subchains.empty()) {
         // We got nothing
         return SparseAnchorChain();
