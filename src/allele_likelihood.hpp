@@ -95,6 +95,29 @@ public:
     /// do not match.
     size_t num_unplaceable() const { return unplaceable; }
 
+    /// How much each read counts as evidence. 1.0 treats every read as one
+    /// independent observation, which is what the model assumed until it was
+    /// measured; see set_read_weight.
+    double get_read_weight() const { return read_weight; }
+
+    /// Discount every read's contribution by a single scalar, so w reads carry
+    /// the evidential weight of one.
+    ///
+    /// This is an effective-sample-size correction, not a tuning knob bolted on
+    /// to fix a metric. The model sums ln P(r | G) over reads as if each were an
+    /// independent draw, and on real data they are not: mates of a pair share a
+    /// fragment and share a mismapping fate, and reads piled on a repeat copy
+    /// mismap together rather than independently. Summing correlated evidence as
+    /// if independent overstates how much the reads know, which is exactly the
+    /// failure seen at tandem repeats -- a minority of correlated mismapped reads
+    /// outvoting a correct homozygous call.
+    ///
+    /// Deliberately a single scalar rather than a per-MAPQ table. A table would
+    /// have to estimate P(mismapped | MAPQ) per bin, which needs per-read origin
+    /// truth in quantity; one scalar can be set from the observable behaviour it
+    /// is meant to control.
+    void set_read_weight(double w) { read_weight = w; }
+
     /**
      * ln P(reads | G), where G is a multiset of allele indices of size ploidy.
      *
@@ -141,6 +164,7 @@ private:
     /// Row major, n_reads * n_alleles, every entry in [0,1], row max exactly 1.
     vector<double> matrix;
     vector<double> read_mismap_prob;
+    double read_weight = 1.0;
     vector<double> read_best_ln;
     vector<string> read_names;
     size_t n_reads = 0;
@@ -167,7 +191,7 @@ public:
     /// MAPQ 0 read, but it should be a deliberate clamp rather than an artefact
     /// of the phred conversion. It also keeps the per-read term's log finite.
     AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 1e-8,
-                                 double max_mismap = 0.1);
+                                 double max_mismap = 0.1, double read_weight = 1.0);
 
     /// Add a read. raw_ln_likelihood must have one entry per allele and may
     /// contain -inf for alleles that cannot place the read.
@@ -184,6 +208,7 @@ private:
     size_t n_alleles;
     double min_mismap;
     double max_mismap;
+    double read_weight;
     vector<vector<double>> rows;
     vector<double> mismap_probs;
     vector<string> names;
@@ -206,6 +231,9 @@ struct AlleleLikelihoodParams {
     /// which is as close to "trust every read fully" as the model can get while
     /// keeping the log finite.
     bool use_mismap_term = true;
+    /// Effective-sample-size discount applied to every read. See
+    /// AlleleReadLikelihoods::set_read_weight. 1.0 reproduces the original model.
+    double read_weight = 1.0;
 };
 
 /**

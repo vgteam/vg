@@ -69,7 +69,9 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
         // in [e_r, 1] and its log is always finite: no logsumexp needed, and no
         // single read can penalise a genotype without bound.
         double e_r = read_mismap_prob[r];
-        total += log((1.0 - e_r) * mixture + e_r);
+        // Weighted so that read_weight reads carry the evidence of one. At the
+        // default of 1.0 this is exactly the original sum.
+        total += read_weight * log((1.0 - e_r) * mixture + e_r);
     }
 
     return total;
@@ -139,8 +141,10 @@ void AlleleReadLikelihoods::dump(ostream& out, const string& site_name) const {
 ////////////////////////////////////////////////////////////////////////////////
 
 AlleleReadLikelihoodsBuilder::AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap,
-                                                           double max_mismap)
-    : n_alleles(num_alleles), min_mismap(min_mismap), max_mismap(max_mismap) {
+                                                           double max_mismap,
+                                                           double read_weight)
+    : n_alleles(num_alleles), min_mismap(min_mismap), max_mismap(max_mismap),
+      read_weight(read_weight) {
 }
 
 void AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelihood,
@@ -187,6 +191,7 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     AlleleReadLikelihoods result;
     result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(mismap_probs),
                         std::move(best_lns), std::move(names), unplaceable);
+    result.set_read_weight(read_weight);
     return result;
 }
 
@@ -505,7 +510,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     last_site_uninformative = 0;
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
-                                        params.max_mismap_prob);
+                                        params.max_mismap_prob, params.read_weight);
     if (traversals.empty()) {
         return builder.build();
     }
