@@ -68,7 +68,9 @@ void help_call(char** argv) {
          << "      --read-weight W       count each read as W independent observations," << endl
          << "                            to correct for correlated reads (mates, repeats) [1.0]" << endl
          << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
-         << "                            probability; larger tolerates more stray reads [0.1]" << endl
+         << "                            probability. Governs how much a read's placement" << endl
+         << "                            ambiguity counts, so it matters most on graphs with" << endl
+         << "                            many similar haplotypes [0.5]" << endl
          << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
          << "                            capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure [0.01]" << endl
@@ -193,7 +195,7 @@ int main_call(int argc, char** argv) {
     size_t read_window_size = 0;
     bool no_mismap_term = false;
     double read_weight = 1.0;
-    double max_mismap_prob = 0.1;
+    double max_mismap_prob = 0.5;
     double min_mismap_prob = 0.01;
     int read_min_mapq = 0;
 
