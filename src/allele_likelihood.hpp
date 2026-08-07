@@ -235,16 +235,32 @@ struct AlleleLikelihoodParams {
     /// P(this read's evidence at this site is unreliable), of which mismapping is
     /// only one cause and local misalignment is another.
     ///
-    /// Default raised from 1e-8 to 0.01 on measurement. 1e-8 asserts that a MAPQ 60
-    /// read is locally misaligned once in 10^8 sites, which nothing supports; it let
-    /// a single read veto an allele by -13.8 nats, and a few misaligned reads then
-    /// forced spurious heterozygous calls. On HG002 chr20 against the GIAB draft
-    /// benchmark, 0.01 moved 1,493 genotypes -- 94% of them het to hom -- and improved
-    /// every class: SNV GT F1 0.9759 -> 0.9766, insertion 0.7783 -> 0.8231, deletion
-    /// 0.8231 -> 0.8706, overall 0.9370 -> 0.9482, SV 0.4991 -> 0.5120. Calibrated on
-    /// one chromosome of one sample, so it is a better default rather than a
-    /// definitive one.
-    double min_mismap_prob = 0.01;
+    /// Default raised from 1e-8 to 0.01, then to 0.05. 1e-8 asserted that a MAPQ 60
+    /// read is locally misaligned once in 10^8 sites, which nothing supports; it let a
+    /// single read veto an allele by -13.8 nats, and a few misaligned reads then forced
+    /// spurious heterozygous calls. On HG002 chr20 against the GIAB draft benchmark,
+    /// 0.01 moved 1,493 genotypes -- 94% of them het to hom -- and improved every class.
+    ///
+    /// 0.05 was then measured once max_mismap_prob had been corrected to 0.5, because
+    /// the two clamps interact and a floor chosen under the old cap is not evidence
+    /// about the new one. Swept at cap 0.5 on chr20, GT F1:
+    ///
+    ///   floor      0.01     0.02     0.03     0.05     0.10     0.20
+    ///   4-hap    0.9479   0.9490   0.9495   0.9492   0.9449   0.9247
+    ///   34-hap   0.9520   0.9547   0.9563   0.9571   0.9535   0.9331
+    ///
+    /// This is an indel knob. At 0.05 on the 34-haplotype graph, insertion GT F1 goes
+    /// 0.8662 -> 0.8879 and deletion 0.8743 -> 0.9067, against SNV precision 0.9937 ->
+    /// 0.9921 -- 107 more false SNVs across ~72,000 SNV calls. Raising the cap absorbed
+    /// most of what the floor used to cost SNVs; under the old cap the same move cost
+    /// four times as much SNV precision.
+    ///
+    /// 0.03 is the joint optimum if both graphs are weighted equally (best on 4-hap by
+    /// 0.0003, behind on 34-hap by 0.0008) and costs ~90 fewer false SNVs on each. 0.05
+    /// is chosen because the defaults should suit graphs with realistic haplotype
+    /// diversity. The curve is flat across 0.02-0.05 and clearly worse by 0.10, so the
+    /// choice within that range matters less than staying inside it.
+    double min_mismap_prob = 0.05;
 
     /// The *cap* is what stops the model believing MAPQ when MAPQ is low, and how much
     /// it matters is a property of the graph rather than a constant.
