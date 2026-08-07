@@ -1075,9 +1075,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             cerr << "Trimming right end from " << cur_trace.back() << endl;
 #endif
             for (int i = cur_trace.size() - 1; i >= 0; i--) {
-                if (outgoing_edges[cur_trace[i]].size() > 1) {
+                if (outgoing_edges[cur_trace[i]].size() > 1 || incoming_edges[cur_trace[i]].size() > 1) {
                     // The chain has joined up with another
-                    // (this anchor has an outgoing edge from another chain)
                     // We will stop trimming
                     break;
                 }
@@ -1109,9 +1108,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             cerr << "Trimming left end from " << cur_trace.front() << endl;
 #endif            
             for (size_t i = 0; i < cur_trace.size(); i++) {
-                if (incoming_edges[cur_trace[i]].size() > 1) {
+                if (outgoing_edges[cur_trace[i]].size() > 1 || incoming_edges[cur_trace[i]].size() > 1) {
                     // The chain has joined up with another
-                    // (this anchor has a source from another chain)
                     // We will stop trimming
                     break;
                 }
