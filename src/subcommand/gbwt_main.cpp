@@ -84,6 +84,7 @@ struct GBWTConfig {
     // Sample names and metadata
     std::set<std::string> to_remove; // Sample names to remove.
     std::map<std::string, std::string> tags_to_set; // Tag changes to apply to the GBWT
+    std::unordered_set<std::string> wrap_contigs; // Contigs whose haplotype origin fragments to double (circular wrap).
     
     GBWTConfig() {
         this->merge_parameters.setMergeJobs(default_merge_jobs());
@@ -194,8 +195,8 @@ int main_gbwt(int argc, char** argv) {
         step_2_merge_gbwts(gbwts, config);
     }
 
-    // Edit the GBWT (remove samples, apply tags).
-    if (!config.to_remove.empty() || !config.tags_to_set.empty()) {
+    // Edit the GBWT (remove samples, apply tags, wrap contigs).
+    if (!config.to_remove.empty() || !config.tags_to_set.empty() || !config.wrap_contigs.empty()) {
         step_3_alter_gbwt(gbwts, graphs, config);
     }
 
@@ -335,6 +336,9 @@ void help_gbwt(char** argv) {
     std::cerr << "  -R, --remove-sample X   remove sample X from the index (may repeat)" << std::endl;
     std::cerr << "      --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
     std::cerr << "      --set-reference X   set sample X as the reference (may repeat)" << std::endl;
+    std::cerr << "      --wrap-contig NAME  double the origin (count 0) fragment of each haplotype" << std::endl;
+    std::cerr << "                          on contig NAME so its end wraps onto its start" << std::endl;
+    std::cerr << "                          (for circular contigs such as chrM; may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 4: Path cover GBWT construction " << std::endl;
     std::cerr << "(requires an input graph, -o, and one of { -a, -l, -P }):" << std::endl;
@@ -455,6 +459,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_MERGE_JOBS = 1204;
     constexpr int OPT_SET_TAG = 1300;
     constexpr int OPT_SET_REFERENCE = 1301;
+    constexpr int OPT_WRAP_CONTIG = 1302;
     constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_V1 = 1500;
     constexpr int OPT_TAGS = 1700;
@@ -537,6 +542,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Alter GBWT
         { "remove-sample", required_argument, 0, 'R' },
+        { "wrap-contig", required_argument, 0, OPT_WRAP_CONTIG },
         { "set-tag", required_argument, 0, OPT_SET_TAG },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
 
@@ -785,6 +791,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case 'R':
             config.to_remove.insert(optarg);
             break;
+        case OPT_WRAP_CONTIG:
+            config.wrap_contigs.insert(optarg);
+            break;
         case OPT_SET_TAG:
             {
                 string tag_name, tag_value;
@@ -1031,6 +1040,12 @@ void validate_gbwt_config(GBWTConfig& config) {
     if (!config.tags_to_set.empty()) {
         if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
             config.logger.error() << "setting tags requires one input GBWT and output GBWT" << std::endl;
+        }
+    }
+
+    if (!config.wrap_contigs.empty()) {
+        if (!(one_input_gbwt || config.build == GBWTConfig::build_gbz || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
+            config.logger.error() << "wrapping contigs requires one input GBWT and output GBWT or GBZ" << std::endl;
         }
     }
 
@@ -1553,12 +1568,40 @@ void set_tags(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     report_time_memory("Tags set", start, config);
 }
 
+void wrap_gbwt_contigs(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
+    double start = gbwt::readTimer();
+    if (config.show_progress) {
+        config.logger.info() << "Wrapping " << config.wrap_contigs.size()
+                             << " contig(s) in the index" << std::endl;
+    }
+
+    gbwts.use_compressed();
+    gbwt::GBWT* index = gbwts.get_compressed();
+    gbwt::GBWT wrapped;
+    try {
+        wrapped = wrap_haplotype_paths(*index, config.wrap_contigs);
+    } catch (const std::runtime_error& e) {
+        config.logger.error() << e.what() << std::endl;
+    }
+
+    // We take ownership of the wrapped GBWT instead of using it as an external
+    // index. For GBZ output, this makes step_5_gbz rebuild the GBWTGraph from
+    // the wrapped GBWT, so that the new edges are reflected in the graph.
+    gbwts.use(wrapped);
+    gbwts.unbacked(); // We modified the GBWT.
+
+    report_time_memory("Contigs wrapped", start, config);
+}
+
 void step_3_alter_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     if (!config.to_remove.empty()) {
         remove_samples(gbwts, config);
     }
     if (!config.tags_to_set.empty()) {
         set_tags(gbwts, graphs, config);
+    }
+    if (!config.wrap_contigs.empty()) {
+        wrap_gbwt_contigs(gbwts, graphs, config);
     }
 }
 
