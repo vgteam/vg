@@ -50,46 +50,46 @@ cmp ban_ref.gbz no_ref.gbz > /dev/null
 is $? 1 "the output changes"
 
 # Sample a contig using the high-coverage model
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig chr6 -g hicov.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-cov-contig chr6 -g hicov.gbz full.gbz
 is $? 0 "sampling with a high-coverage contig"
 cmp hicov.gbz no_ref.gbz
 is $? 1 "the high-coverage model changes the output"
 
 # The high-coverage haplotype count applies to high-coverage contigs
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig chr6 --high-coverage-num-haplotypes 8 -g hicov8.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-cov-contig chr6 --high-cov-num-haps 8 -g hicov8.gbz full.gbz
 is $? 0 "sampling with a high-coverage contig and 8 haplotypes"
 is $([ $(vg gbwt -H -Z hicov8.gbz) -gt $(vg gbwt -H -Z no_ref.gbz) ] && echo 1 || echo 0) 1 "more haplotypes are generated for the high-coverage contig"
 
 # A high-coverage contig can be selected by PanSN-style name
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig GRCh38#0#chr6 -g hicov_pansn.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-cov-contig GRCh38#0#chr6 -g hicov_pansn.gbz full.gbz
 is $? 0 "sampling with a high-coverage contig by PanSN name"
 cmp hicov_pansn.gbz hicov.gbz
 is $? 0 "plain and PanSN contig names produce identical output"
 
 # Selecting an unknown high-coverage contig fails
-vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig no_such_contig -g /dev/null full.gbz 2> hicov_log.txt
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --high-cov-contig no_such_contig -g /dev/null full.gbz 2> hicov_log.txt
 is $? 1 "an unknown high-coverage contig fails"
 is $(grep -c "found 0 chains for contig" hicov_log.txt) 1 "an appropriate error message is printed"
 
 # Sample a contig using the half-coverage model
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-coverage-contig chr6 -g halfcov.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-cov-contig chr6 -g halfcov.gbz full.gbz
 is $? 0 "sampling with a half-coverage contig"
 cmp halfcov.gbz no_ref.gbz
 is $? 1 "the half-coverage model changes the output"
 
 # The half-coverage haplotype count applies to half-coverage contigs
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-coverage-contig chr6 --half-coverage-num-haplotypes 6 -g halfcov6.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-cov-contig chr6 --half-cov-num-haps 6 -g halfcov6.gbz full.gbz
 is $? 0 "sampling with a half-coverage contig and 6 haplotypes"
 is $([ $(vg gbwt -H -Z halfcov6.gbz) -gt $(vg gbwt -H -Z no_ref.gbz) ] && echo 1 || echo 0) 1 "more haplotypes are generated for the half-coverage contig"
 
 # A half-coverage contig can be selected by PanSN-style name
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-coverage-contig GRCh38#0#chr6 -g halfcov_pansn.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-cov-contig GRCh38#0#chr6 -g halfcov_pansn.gbz full.gbz
 is $? 0 "sampling with a half-coverage contig by PanSN name"
 cmp halfcov_pansn.gbz halfcov.gbz
 is $? 0 "plain and PanSN contig names produce identical output for half-coverage"
 
 # A contig cannot be both high-coverage and half-coverage
-vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig chr6 --half-coverage-contig chr6 -g /dev/null full.gbz 2> bothcov_log.txt
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --high-cov-contig chr6 --half-cov-contig chr6 -g /dev/null full.gbz 2> bothcov_log.txt
 is $? 1 "a contig cannot be both high-coverage and half-coverage"
 is $(grep -c "both high-coverage and half-coverage" bothcov_log.txt) 1 "an appropriate error message is printed"
 
