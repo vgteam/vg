@@ -241,23 +241,26 @@ gbwt::vector_type extract_forward(const gbwt::GBWT& index, gbwt::size_type path_
 
 } // anonymous namespace
 
-TEST_CASE("double_origin_fragment doubles a path", "[index_helpers]") {
-    SECTION("non-empty path") {
+TEST_CASE("append_wrap_fragment appends the origin onto the last fragment", "[index_helpers]") {
+    SECTION("distinct fragments") {
+        gbwt::vector_type last = wrap_hap_b;
+        append_wrap_fragment(last, wrap_hap_a);
+        gbwt::vector_type expected = wrap_hap_b;
+        expected.insert(expected.end(), wrap_hap_a.begin(), wrap_hap_a.end());
+        REQUIRE(last == expected);
+    }
+
+    SECTION("unfragmented haplotype is appended to itself") {
         gbwt::vector_type path = wrap_hap_a;
-        double_origin_fragment(path);
+        gbwt::vector_type origin = wrap_hap_a;
+        append_wrap_fragment(path, origin);
         gbwt::vector_type expected = wrap_hap_a;
         expected.insert(expected.end(), wrap_hap_a.begin(), wrap_hap_a.end());
         REQUIRE(path == expected);
     }
-
-    SECTION("empty path is unchanged") {
-        gbwt::vector_type path;
-        double_origin_fragment(path);
-        REQUIRE(path.empty());
-    }
 }
 
-TEST_CASE("wrap_haplotype_paths doubles origin fragments", "[index_helpers]") {
+TEST_CASE("wrap_haplotype_paths wraps unfragmented haplotypes", "[index_helpers]") {
     // Two contigs, each with a single haplotype (sample "sampleA"), plus a
     // generic reference path on contig 0 that must never be wrapped.
     std::vector<gbwt::vector_type> source {
@@ -280,7 +283,7 @@ TEST_CASE("wrap_haplotype_paths doubles origin fragments", "[index_helpers]") {
 
         // chr1 haplotype untouched.
         REQUIRE(extract_forward(wrapped, 0) == wrap_hap_a);
-        // chrM haplotype doubled.
+        // The chrM haplotype is unfragmented, so wrapping appends it to itself.
         gbwt::vector_type expected_b = wrap_hap_b;
         expected_b.insert(expected_b.end(), wrap_hap_b.begin(), wrap_hap_b.end());
         REQUIRE(extract_forward(wrapped, 1) == expected_b);
@@ -292,13 +295,13 @@ TEST_CASE("wrap_haplotype_paths doubles origin fragments", "[index_helpers]") {
 
     SECTION("wrapping a generic reference contig does not affect the reference") {
         // chr1 has both a haplotype and a generic path; wrapping chr1 should
-        // double only the haplotype, not the generic reference path.
+        // wrap only the haplotype, not the generic reference path.
         std::unordered_set<std::string> contigs { "chr1" };
         gbwt::GBWT wrapped = wrap_haplotype_paths(index, contigs);
 
         gbwt::vector_type expected_a = wrap_hap_a;
         expected_a.insert(expected_a.end(), wrap_hap_a.begin(), wrap_hap_a.end());
-        REQUIRE(extract_forward(wrapped, 0) == expected_a); // haplotype doubled
+        REQUIRE(extract_forward(wrapped, 0) == expected_a); // haplotype wrapped
         REQUIRE(extract_forward(wrapped, 1) == wrap_hap_b); // chrM untouched
         REQUIRE(extract_forward(wrapped, 2) == wrap_hap_a); // generic untouched
     }
@@ -310,6 +313,35 @@ TEST_CASE("wrap_haplotype_paths doubles origin fragments", "[index_helpers]") {
         REQUIRE(extract_forward(wrapped, 1) == wrap_hap_b);
         REQUIRE(extract_forward(wrapped, 2) == wrap_hap_a);
     }
+}
+
+TEST_CASE("wrap_haplotype_paths wraps fragmented haplotypes onto the last fragment", "[index_helpers]") {
+    // A haplotype on chrM split into two fragments: an origin fragment
+    // (count 0) and a second fragment (count 1). Wrapping must append the
+    // origin onto the last fragment, leaving the origin fragment itself
+    // untouched, so that the single wrap adjacency joins the true end back to
+    // the true start.
+    std::vector<gbwt::vector_type> source {
+        wrap_hap_a, // path 0: origin fragment on chrM, count 0
+        wrap_hap_b, // path 1: last fragment on chrM,   count 1
+    };
+    gbwt::GBWT index = get_gbwt(source);
+    index.addMetadata();
+    index.metadata.setSamples(std::vector<std::string>{ "sampleA" });
+    index.metadata.setContigs(std::vector<std::string>{ "chrM" });
+    index.metadata.setHaplotypes(1);
+    index.metadata.addPath(0, 0, 0, 0); // sampleA, chrM, phase 0, count 0 (origin)
+    index.metadata.addPath(0, 0, 0, 1); // sampleA, chrM, phase 0, count 1 (last)
+
+    std::unordered_set<std::string> contigs { "chrM" };
+    gbwt::GBWT wrapped = wrap_haplotype_paths(index, contigs);
+
+    // Origin fragment is copied verbatim, not doubled.
+    REQUIRE(extract_forward(wrapped, 0) == wrap_hap_a);
+    // Last fragment has the origin appended onto it.
+    gbwt::vector_type expected_last = wrap_hap_b;
+    expected_last.insert(expected_last.end(), wrap_hap_a.begin(), wrap_hap_a.end());
+    REQUIRE(extract_forward(wrapped, 1) == expected_last);
 }
 
 TEST_CASE("wrap_haplotype_paths preserves reference samples", "[index_helpers]") {
@@ -330,9 +362,9 @@ TEST_CASE("wrap_haplotype_paths preserves reference samples", "[index_helpers]")
     gbwt::GBWT wrapped = wrap_haplotype_paths(index, contigs);
 
     // The reference-sample path on chr1 has REFERENCE sense, so it must not be
-    // doubled even though chr1 is named.
+    // wrapped even though chr1 is named.
     REQUIRE(extract_forward(wrapped, 0) == wrap_hap_a);
-    // The haplotype on chrM is doubled.
+    // The unfragmented haplotype on chrM is appended to itself.
     gbwt::vector_type expected_b = wrap_hap_b;
     expected_b.insert(expected_b.end(), wrap_hap_b.begin(), wrap_hap_b.end());
     REQUIRE(extract_forward(wrapped, 1) == expected_b);

@@ -533,6 +533,9 @@ public:
         /// Number of reference paths included.
         size_t ref_paths = 0;
 
+        /// Number of paths copied verbatim from excluded chains.
+        size_t copied_paths = 0;
+
         /// Number of kmers selected.
         size_t kmers = 0;
 

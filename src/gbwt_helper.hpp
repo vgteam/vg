@@ -268,21 +268,32 @@ void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destinati
 
 //------------------------------------------------------------------------------
 
-/// Concatenate `path` with itself, creating a self-loop that spans the origin.
-/// The last node becomes adjacent to the first, wrapping a circular haplotype
-/// fragment so that its end connects back to its start.
-void double_origin_fragment(gbwt::vector_type& path);
-
-/// Rebuild `source` into a new GBWT in which every haplotype path with count 0
-/// on one of the named `contigs` is doubled (see `double_origin_fragment`),
-/// creating an origin-spanning wrap edge. All other paths are copied verbatim,
-/// and the metadata and the reference sample tag are preserved.
+/// Append the nodes of `origin_fragment` onto `last_fragment`, joining the end
+/// of a haplotype back to its start. The two vectors must be distinct.
 ///
-/// Origin selection uses count 0 because that is the one invariant shared by
-/// both construction pathways. VCF-built GBWTs store a dense 0-based fragment
-/// identifier in the count field, while GFA W-line GBWTs store the genomic start
-/// offset, but in both cases the origin fragment (the one containing contig
-/// position 0) has count 0. If a named contig has haplotype paths whose origin
+/// Linearizing a circular sequence drops a single adjacency, the one connecting
+/// the end of the sequence to its start. Appending the origin fragment onto the
+/// last fragment restores it. For an unfragmented haplotype the origin and the
+/// last fragment are the same path, so it is appended to itself.
+void append_wrap_fragment(gbwt::vector_type& last_fragment, const gbwt::vector_type& origin_fragment);
+
+/// Rebuild `source` into a new GBWT in which every haplotype on one of the named
+/// `contigs` has its origin (first) fragment appended onto its last fragment
+/// (see `append_wrap_fragment`), restoring the adjacency that linearization drops
+/// from a circular sequence. All other paths are copied verbatim, and the
+/// metadata and the reference sample tag are preserved.
+///
+/// Fragments are grouped into haplotypes using `gbwt::FragmentMap`, which groups
+/// by (sample, contig, phase) and orders fragments by their position along the
+/// contig. Every fragment of a haplotype therefore lies on the same contig, and
+/// wrapping affects only the last fragment. This means fragmented haplotypes are
+/// handled correctly: the wrap joins the true end back to the true start, rather
+/// than looping an interior fragment onto itself.
+///
+/// The origin fragment must contain contig position 0, identified by count 0.
+/// VCF-built GBWTs store a dense 0-based fragment identifier in the count field,
+/// while GFA W-line GBWTs store the genomic start offset, but in both cases the
+/// origin fragment has count 0. If a named contig has a haplotype whose origin
 /// fragment is missing (the start was truncated out of the graph), this is an
 /// error, as there is no origin node to wrap onto.
 ///

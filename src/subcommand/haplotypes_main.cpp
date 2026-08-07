@@ -938,6 +938,13 @@ size_t chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, g
 
 std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
                                                   const std::vector<std::string>& names, const Logger& logger) {
+    // Map each canonical contig name stored in the top-level chains to the
+    // chains carrying it, so that plain contig names resolve in one lookup.
+    std::unordered_map<std::string, std::vector<size_t>> chains_by_contig;
+    for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
+        chains_by_contig[haplotypes.chains[chain_id].contig_name].push_back(chain_id);
+    }
+
     std::unordered_set<size_t> result;
     for (const std::string& name : names) {
         PathSense sense;
@@ -948,18 +955,12 @@ std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, con
 
         if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
             // Plain contig name: match against chain contig names.
-            size_t found = haplotypes.components();
-            size_t matches = 0;
-            for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
-                if (haplotypes.chains[chain_id].contig_name == locus_name) {
-                    found = chain_id;
-                    matches++;
-                }
-            }
+            auto iter = chains_by_contig.find(locus_name);
+            size_t matches = (iter == chains_by_contig.end() ? 0 : iter->second.size());
             if (matches != 1) {
                 logger.error() << "found " << matches << " chains for contig " << name << std::endl;
             }
-            result.insert(found);
+            result.insert(iter->second.front());
         } else {
             // PanSN-style name: validate the full path and its chain.
             gbwt::size_type sample_id = gbz.index.metadata.sample(sample_name);

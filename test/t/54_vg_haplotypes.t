@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 45
+plan tests 80
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -48,6 +48,102 @@ vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --ban-samp
 is $? 0 "sampling banning the selection of CHM13"
 cmp ban_ref.gbz no_ref.gbz > /dev/null
 is $? 1 "the output changes"
+
+# Sample a contig using the high-coverage model
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig chr6 -g hicov.gbz full.gbz
+is $? 0 "sampling with a high-coverage contig"
+cmp hicov.gbz no_ref.gbz
+is $? 1 "the high-coverage model changes the output"
+
+# The high-coverage haplotype count applies to high-coverage contigs
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig chr6 --high-coverage-num-haplotypes 8 -g hicov8.gbz full.gbz
+is $? 0 "sampling with a high-coverage contig and 8 haplotypes"
+is $([ $(vg gbwt -H -Z hicov8.gbz) -gt $(vg gbwt -H -Z no_ref.gbz) ] && echo 1 || echo 0) 1 "more haplotypes are generated for the high-coverage contig"
+
+# A high-coverage contig can be selected by PanSN-style name
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig GRCh38#0#chr6 -g hicov_pansn.gbz full.gbz
+is $? 0 "sampling with a high-coverage contig by PanSN name"
+cmp hicov_pansn.gbz hicov.gbz
+is $? 0 "plain and PanSN contig names produce identical output"
+
+# Selecting an unknown high-coverage contig fails
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig no_such_contig -g /dev/null full.gbz 2> hicov_log.txt
+is $? 1 "an unknown high-coverage contig fails"
+is $(grep -c "found 0 chains for contig" hicov_log.txt) 1 "an appropriate error message is printed"
+
+# Sample a contig using the half-coverage model
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-coverage-contig chr6 -g halfcov.gbz full.gbz
+is $? 0 "sampling with a half-coverage contig"
+cmp halfcov.gbz no_ref.gbz
+is $? 1 "the half-coverage model changes the output"
+
+# The half-coverage haplotype count applies to half-coverage contigs
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-coverage-contig chr6 --half-coverage-num-haplotypes 6 -g halfcov6.gbz full.gbz
+is $? 0 "sampling with a half-coverage contig and 6 haplotypes"
+is $([ $(vg gbwt -H -Z halfcov6.gbz) -gt $(vg gbwt -H -Z no_ref.gbz) ] && echo 1 || echo 0) 1 "more haplotypes are generated for the half-coverage contig"
+
+# A half-coverage contig can be selected by PanSN-style name
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --half-coverage-contig GRCh38#0#chr6 -g halfcov_pansn.gbz full.gbz
+is $? 0 "sampling with a half-coverage contig by PanSN name"
+cmp halfcov_pansn.gbz halfcov.gbz
+is $? 0 "plain and PanSN contig names produce identical output for half-coverage"
+
+# A contig cannot be both high-coverage and half-coverage
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --high-coverage-contig chr6 --half-coverage-contig chr6 -g /dev/null full.gbz 2> bothcov_log.txt
+is $? 1 "a contig cannot be both high-coverage and half-coverage"
+is $(grep -c "both high-coverage and half-coverage" bothcov_log.txt) 1 "an appropriate error message is printed"
+
+# Exclude a contig from personalization using a plain contig name.
+# The excluded chain is copied through verbatim, preserving all of its original
+# haplotypes, so the output has more haplotypes than plain sampling.
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --exclude-contig chr6 -g exclude.gbz full.gbz
+is $? 0 "sampling with an excluded contig"
+cmp exclude.gbz no_ref.gbz
+is $? 1 "excluding a contig changes the output"
+is $([ $(vg gbwt -C -Z exclude.gbz) -gt $(vg gbwt -C -Z no_ref.gbz) ] && echo 1 || echo 0) 1 "excluding a contig preserves its original contig names"
+is $([ $(vg gbwt -H -Z exclude.gbz) -gt $(vg gbwt -H -Z no_ref.gbz) ] && echo 1 || echo 0) 1 "excluding a contig preserves its original haplotypes"
+
+# Excluding a contig by PanSN-style name resolves to the same chain
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --exclude-contig GRCh38#0#chr6 -g exclude_pansn.gbz full.gbz
+is $? 0 "sampling with an excluded contig by PanSN name"
+cmp exclude_pansn.gbz exclude.gbz
+is $? 0 "plain and PanSN contig names produce identical output"
+
+# Excluding an unknown contig fails
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --exclude-contig no_such_contig -g /dev/null full.gbz 2> exclude_log.txt
+is $? 1 "excluding an unknown contig fails"
+is $(grep -c "found 0 chains for contig" exclude_log.txt) 1 "an appropriate error message is printed"
+
+# Wrapping a contig appends each generated haplotype's origin fragment onto its
+# last fragment. The chr6 haplotypes here are unfragmented, so the origin and the
+# last fragment coincide and the path is exactly doubled. Build a
+# reference-including baseline so we can also check the reference path is intact.
+# --validate is not used here: wrapping intentionally adds an origin-spanning
+# edge that is absent from the source graph, which the validator would reject.
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --include-reference -g wrap_base.gbz full.gbz
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --wrap chr6 -g wrap.gbz full.gbz
+is $? 0 "sampling with a wrapped contig"
+cmp wrap.gbz wrap_base.gbz
+is $? 1 "wrapping a contig changes the output"
+is $(vg paths -E -x wrap.gbz | awk '$1 == "recombination#1#chr6#0" {print $2}') $(echo "2 * $(vg paths -E -x wrap_base.gbz | awk '$1 == "recombination#1#chr6#0" {print $2}')" | bc) "the wrapped haplotype is exactly doubled"
+is "$(vg paths -E -x wrap.gbz | grep 'recombination.*chr19')" "$(vg paths -E -x wrap_base.gbz | grep 'recombination.*chr19')" "haplotypes on an unwrapped contig are unchanged"
+is "$(vg paths -E -x wrap.gbz | grep 'GRCh38#0#chr6')" "$(vg paths -E -x wrap_base.gbz | grep 'GRCh38#0#chr6')" "the reference path on the wrapped contig is unchanged"
+
+# Wrapping a contig by PanSN-style name resolves to the same chain
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --wrap GRCh38#0#chr6 -g wrap_pansn.gbz full.gbz
+is $? 0 "sampling with a wrapped contig by PanSN name"
+cmp wrap_pansn.gbz wrap.gbz
+is $? 0 "plain and PanSN wrap contig names produce identical output"
+
+# Wrapping an unknown contig fails
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --wrap no_such_contig -g /dev/null full.gbz 2> wrap_log.txt
+is $? 1 "wrapping an unknown contig fails"
+is $(grep -c "found 0 chains for contig" wrap_log.txt) 1 "an appropriate error message is printed"
+
+# Wrapping and excluding the same contig fails
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --wrap chr6 --exclude-contig chr6 -g /dev/null full.gbz 2> wrap_exclude_log.txt
+is $? 1 "wrapping and excluding the same contig fails"
+is $(grep -c "cannot be both wrapped and excluded" wrap_exclude_log.txt) 1 "an appropriate error message is printed"
 
 # Diploid sampling
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling -g diploid.gbz full.gbz
@@ -153,6 +249,10 @@ is $(grep -c "error.*are not compatible" log.txt) 1 "an appropriate error messag
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz ban_ref.gbz
+rm -f hicov.gbz hicov8.gbz hicov_pansn.gbz hicov_log.txt
+rm -f halfcov.gbz halfcov6.gbz halfcov_pansn.gbz bothcov_log.txt
+rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
+rm -f wrap.gbz wrap_base.gbz wrap_pansn.gbz wrap_log.txt wrap_exclude_log.txt
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam

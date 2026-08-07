@@ -1196,9 +1196,15 @@ struct RecombinatorHaplotype {
     // Contig name in GBWT metadata.
     const std::string& contig_name;
 
-    // Whether the origin (first) fragment of this haplotype should be doubled
-    // to create an origin-spanning wrap edge (for circular contigs).
+    // Whether this haplotype should be wrapped, appending its origin (first)
+    // fragment onto its last fragment to create an origin-spanning edge (for
+    // circular contigs).
     bool wrap;
+
+    // Nodes of the origin (first) fragment, saved when wrapping so that they
+    // can be appended onto the last fragment. Empty until the origin fragment
+    // has been inserted.
+    gbwt::vector_type origin_fragment;
 
     // Haplotype identifier in GBWT metadata.
     size_t id;
@@ -1244,8 +1250,13 @@ struct RecombinatorHaplotype {
      * If `extend()` has not been called, the generated haplotype will
      * take the prefix of the original original haplotype until the start
      * of the subchain.
+     *
+     * `is_last_subchain` indicates whether this is the last subchain of the
+     * chain. It is needed because a suffix subchain finishes a fragment
+     * immediately, and that fragment is the last one only when the suffix is
+     * the last subchain (a broken snarl can put a suffix in the middle).
      */
-    void extend(sequence_type sequence, const Haplotypes::Subchain& subchain);
+    void extend(sequence_type sequence, const Haplotypes::Subchain& subchain, bool is_last_subchain);
 
     // Takes an existing haplotype from the GBWT index and inserts it into
     // the builder. This is intended for fragments that do not contain
@@ -1257,7 +1268,9 @@ struct RecombinatorHaplotype {
     // If `with_suffix` is true, the current fragment will be extended
     // until the end of the corresponding path. In that case, the call will
     // fail if `extend()` has not been called for this fragment.
-    void finish(bool with_suffix);
+    // If `is_final` is true, this is the last fragment of the haplotype, and
+    // the origin fragment will be appended onto it when wrapping.
+    void finish(bool with_suffix, bool is_final = true);
 
 private:
     // Extends the haplotype over a unary path from a previous subchain.
@@ -1270,11 +1283,12 @@ private:
     // Extends the haplotype from the previous subchain until the end.
     void suffix();
 
-    // Inserts the current fragment into the builder.
-    void insert();
+    // Inserts the current fragment into the builder. If `is_final` is true and
+    // wrapping is enabled, the origin fragment is appended onto it first.
+    void insert(bool is_final);
 };
 
-void RecombinatorHaplotype::extend(sequence_type sequence, const Haplotypes::Subchain& subchain) {
+void RecombinatorHaplotype::extend(sequence_type sequence, const Haplotypes::Subchain& subchain, bool is_last_subchain) {
     if (subchain.type == Haplotypes::Subchain::full_haplotype) {
         throw std::runtime_error("Haplotype::extend(): cannot extend a full haplotype");
     }
@@ -1306,7 +1320,7 @@ void RecombinatorHaplotype::extend(sequence_type sequence, const Haplotypes::Sub
     }
 
     if (subchain.type == Haplotypes::Subchain::suffix) {
-        this->finish(true);
+        this->finish(true, is_last_subchain);
         return;
     }
 
@@ -1315,7 +1329,7 @@ void RecombinatorHaplotype::extend(sequence_type sequence, const Haplotypes::Sub
         this->position = index.LF(this->position);
         if (this->position.first == gbwt::ENDMARKER) {
             gbwt::size_type prev = this->sequence_id;
-            this->finish(false);
+            this->finish(false, false);
             do {
                 // Find the next non-empty fragment.
                 this->sequence_id = this->recombinator.fragment_map.oriented_next(prev);
@@ -1343,14 +1357,14 @@ void RecombinatorHaplotype::take(gbwt::size_type sequence_id) {
     this->finish(false);
 }
 
-void RecombinatorHaplotype::finish(bool with_suffix) {
+void RecombinatorHaplotype::finish(bool with_suffix, bool is_final) {
     if (with_suffix) {
         if (this->position == gbwt::invalid_edge()) {
             throw std::runtime_error("Haplotype::finish(): there is no current position");
         }
         this->suffix();
     }
-    this->insert();
+    this->insert(is_final);
     this->fragment++;
     this->sequence_id = gbwt::invalid_sequence();
     this->position = gbwt::invalid_edge();
@@ -1404,12 +1418,21 @@ void RecombinatorHaplotype::suffix() {
     }
 }
 
-void RecombinatorHaplotype::insert() {
+void RecombinatorHaplotype::insert(bool is_final) {
     std::string sample_name = "recombination"; // TODO: Make this a static class variable.
     this->metadata.add_haplotype(sample_name, this->contig_name, this->id, this->fragment);
-    if (this->wrap && this->fragment == 0) {
-        // Double the origin fragment so its end wraps back onto its start.
-        double_origin_fragment(this->path);
+    if (this->wrap) {
+        // Linearizing a circular sequence drops the adjacency joining its end
+        // back to its start. We restore it by appending the origin (first)
+        // fragment onto the last fragment. We save the origin fragment here,
+        // before it is inserted, so that a distinct copy remains available for
+        // an unfragmented haplotype where the origin is also the last fragment.
+        if (this->fragment == 0) {
+            this->origin_fragment = this->path;
+        }
+        if (is_final) {
+            append_wrap_fragment(this->path, this->origin_fragment);
+        }
     }
     this->builder.insert(this->path, true);
 }
@@ -1513,6 +1536,7 @@ void Recombinator::Statistics::combine(const Statistics& another) {
     this->extra_fragments += another.extra_fragments;
     this->connections += another.connections;
     this->ref_paths += another.ref_paths;
+    this->copied_paths += another.copied_paths;
     this->kmers += another.kmers;
     this->score += another.score;
 }
@@ -1529,6 +1553,9 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
     }
     if (this->ref_paths > 0) {
         out << "; included " << this->ref_paths << " reference paths";
+    }
+    if (this->copied_paths > 0) {
+        out << "; copied " << this->copied_paths << " paths from excluded chains";
     }
     if (this->kmers > 0) {
         double average_score = this->score / (this->kmers * this->haplotypes);
@@ -2236,11 +2263,12 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             }
 
             // Finally extend the haplotypes with the selected and matched sequences.
+            bool is_last_subchain = (subchain_id + 1 == chain.subchains.size());
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
                 size_t selected = haplotype_to_selected[haplotype];
                 size_t seq_offset = selected_haplotypes[selected].first;
                 statistics.score += selected_haplotypes[selected].second;
-                haplotypes[haplotype].extend(subchain.sequences[seq_offset], subchain);
+                haplotypes[haplotype].extend(subchain.sequences[seq_offset], subchain, is_last_subchain);
             }
             have_haplotypes = subchain.has_end();
             statistics.subchains++;
@@ -2282,12 +2310,13 @@ Recombinator::Statistics Recombinator::copy_chain(const Haplotypes::TopLevelChai
         }
     }
 
-    // Copy each path through verbatim, preserving its metadata.
+    // Copy each path through verbatim, preserving its metadata. These are
+    // haplotype-sense paths, not reference paths, so we count them separately.
     Statistics statistics;
     statistics.chains = 1;
     for (gbwt::size_type path_id : path_ids) {
         add_path(this->gbz.index, path_id, builder, metadata);
-        statistics.ref_paths++;
+        statistics.copied_paths++;
     }
 
     return statistics;
