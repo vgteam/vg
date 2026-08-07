@@ -241,26 +241,35 @@ struct AlleleLikelihoodParams {
     /// spurious heterozygous calls. On HG002 chr20 against the GIAB draft benchmark,
     /// 0.01 moved 1,493 genotypes -- 94% of them het to hom -- and improved every class.
     ///
-    /// 0.05 was then measured once max_mismap_prob had been corrected to 0.5, because
+    /// 0.02 was then measured once max_mismap_prob had been corrected to 0.5, because
     /// the two clamps interact and a floor chosen under the old cap is not evidence
-    /// about the new one. Swept at cap 0.5 on chr20, GT F1:
+    /// about the new one. Raising the cap absorbed most of what the floor used to cost
+    /// SNVs -- under the old cap the same move cost about four times as much SNV
+    /// precision, which is why an earlier pass rejected it.
     ///
-    ///   floor      0.01     0.02     0.03     0.05     0.10     0.20
-    ///   4-hap    0.9479   0.9490   0.9495   0.9492   0.9449   0.9247
-    ///   34-hap   0.9520   0.9547   0.9563   0.9571   0.9535   0.9331
+    /// Swept at cap 0.5 on chr20. **Small-variant GT F1 and SV F1 peak in different
+    /// places, so this is a choice and not an optimum:**
     ///
-    /// This is an indel knob. At 0.05 on the 34-haplotype graph, insertion GT F1 goes
-    /// 0.8662 -> 0.8879 and deletion 0.8743 -> 0.9067, against SNV precision 0.9937 ->
-    /// 0.9921 -- 107 more false SNVs across ~72,000 SNV calls. Raising the cap absorbed
-    /// most of what the floor used to cost SNVs; under the old cap the same move cost
-    /// four times as much SNV precision.
+    ///   floor         0.01     0.02     0.03     0.05     0.10
+    ///   4-hap  small 0.9479   0.9490   0.9495   0.9492   0.9449
+    ///   4-hap  SV    0.5164   0.5145   0.5121   0.5074   0.5033
+    ///   34-hap small 0.9520   0.9547   0.9563   0.9571   0.9535
+    ///   34-hap SV    0.4906   0.4912   0.4860   0.4789   0.4619
     ///
-    /// 0.03 is the joint optimum if both graphs are weighted equally (best on 4-hap by
-    /// 0.0003, behind on 34-hap by 0.0008) and costs ~90 fewer false SNVs on each. 0.05
-    /// is chosen because the defaults should suit graphs with realistic haplotype
-    /// diversity. The curve is flat across 0.02-0.05 and clearly worse by 0.10, so the
-    /// choice within that range matters less than staying inside it.
-    double min_mismap_prob = 0.05;
+    /// 0.02 is chosen because on the 34-haplotype graph it is the only point that
+    /// improves **both** metrics against 0.01 -- everything above it buys small-variant
+    /// accuracy by selling SV accuracy, at a rate that gets worse the higher it goes.
+    /// It is also the best point on an equal-weight sum of all four numbers.
+    ///
+    /// That choice is not forced. Weighted by record count the answer is 0.05: there
+    /// are 94,691 small-variant truth records on chr20 against 1,680 SVs, so its
+    /// +0.0024 small-variant F1 is worth ~227 records while its -0.0123 SV F1 costs
+    /// ~22. Anyone who cares only about small variants should set 0.05 explicitly.
+    ///
+    /// The knob itself is indel-shaped: from 0.01 to 0.02 on the 34-haplotype graph,
+    /// insertion GT F1 goes 0.8662 -> 0.8764 and deletion 0.8743 -> 0.8883, against SNV
+    /// precision 0.9937 -> 0.9934. Above 0.10 everything degrades on both graphs.
+    double min_mismap_prob = 0.02;
 
     /// The *cap* is what stops the model believing MAPQ when MAPQ is low, and how much
     /// it matters is a property of the graph rather than a constant.

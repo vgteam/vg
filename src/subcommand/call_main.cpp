@@ -74,7 +74,7 @@ void help_call(char** argv) {
          << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
          << "                            capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly" << endl
-         << "                            an indel knob; interacts with --mismap-max [0.05]" << endl
+         << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
          << "                            more support than the next best allele [6,6]" << endl
@@ -197,7 +197,7 @@ int main_call(int argc, char** argv) {
     bool no_mismap_term = false;
     double read_weight = 1.0;
     double max_mismap_prob = 0.5;
-    double min_mismap_prob = 0.05;
+    double min_mismap_prob = 0.02;
     int read_min_mapq = 0;
 
     // constants
