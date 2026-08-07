@@ -31,6 +31,14 @@ using namespace vg::subcommand;
 
 const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 
+/// Default --read-window per backend. A GAF-Base query costs a process spawn, so it
+/// wants a window big enough to amortise one; an indexed GAM query is a seek into an
+/// already-open file, and a large window there just over-fetches. Measured on HG002
+/// chr20 (GAF-Base): 256 -> 180 s, 1024 -> 114 s, 4096 -> 96 s, 16384 -> 101 s at
+/// 6.0 GB against 3.9 GB. 4096 is the best wall clock and the memory is still bounded.
+const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
+const size_t DEFAULT_GAF_BASE_WINDOW = 4096;
+
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
          << "Call variants or genotype known variants" << endl
@@ -53,7 +61,8 @@ void help_call(char** argv) {
          << "      --gbz-base FILE       graph to resolve --gaf-base queries against, as a" << endl
          << "                            GBZ-Base or GBZ [the input graph]" << endl
          << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
-         << "      --read-window N       node-ID window for indexed read fetches [256]" << endl
+         << "      --read-window N       node-ID window for indexed read fetches" << endl
+         << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
          << "      --read-weight W       count each read as W independent observations," << endl
@@ -178,7 +187,10 @@ int main_call(int argc, char** argv) {
     string gaf_base_filename;
     string gbz_base_filename;
     string gaf_base_binary = "gbz-base";
-    size_t read_window_size = 256;
+    // 0 means "let the backend choose": the two on-demand backends want different
+    // windows, because a GAF-Base query is a process spawn where a .gai group scan is
+    // a seek. See DEFAULT_GAM_INDEX_WINDOW / DEFAULT_GAF_BASE_WINDOW below.
+    size_t read_window_size = 0;
     bool no_mismap_term = false;
     double read_weight = 1.0;
     double max_mismap_prob = 0.1;
@@ -964,6 +976,9 @@ int main_call(int argc, char** argv) {
                 // plain GBZ is loaded in full on every query, so say so.
                 string query_graph = gbz_base_filename.empty() ? graph_filename
                                                                : gbz_base_filename;
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAF_BASE_WINDOW;
+                }
                 auto gaf_base_source = new GafBaseSiteReadSource(*graph, gaf_base_filename,
                                                                  query_graph, read_filter,
                                                                  read_window_size, 2,
@@ -991,6 +1006,9 @@ int main_call(int argc, char** argv) {
             } else if (!gam_index_filename.empty()) {
                 // Indexed: reads are fetched per site, so memory is bounded by what a
                 // site needs rather than by the size of the read set.
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAM_INDEX_WINDOW;
+                }
                 read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
                                                                read_filter, read_window_size));
                 if (show_progress) {
@@ -1308,6 +1326,24 @@ int main_call(int argc, char** argv) {
                           << windowed->get_read_count() << " reads fetched, "
                           << hits << "/" << total << " site queries served from cache"
                           << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
+                          << endl;
+            // Selectivity. A window holds far more reads than any one site wants, so
+            // the gap between these two is work spent rejecting reads, and it is what
+            // to watch when tuning --read-window.
+            size_t seen = windowed->get_scanned_count();
+            size_t used = windowed->get_delivered_count();
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << seen << " reads considered, " << used << " delivered"
+                          << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
+                          << endl;
+            // Sites too big for one window are fetched uncached, by their exact node
+            // ranges. The two totals are the ranges asked for against the span they
+            // sit in: if a change ever collapses one to the other, this is where it
+            // shows, and on chr20 that difference was 133 k node IDs against 13.2 M.
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << windowed->get_straddle_count() << " site queries too wide for a "
+                          << "window, fetched uncached over " << windowed->get_straddle_wanted()
+                          << " node IDs (spanning " << windowed->get_straddle_nodes() << ")"
                           << endl;
             if (gaf_base != nullptr) {
                 // The count that governs run time: each one is a process spawn, so this

@@ -7,8 +7,13 @@
 #include <unordered_set>
 
 #include <fcntl.h>
+#include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+/// The environment to hand a spawned gbz-base. Declared rather than included because
+/// the header that provides it differs between platforms; the symbol does not.
+extern char** environ;
 
 #include <vg/io/alignment_io.hpp>
 #include <vg/io/stream.hpp>
@@ -211,17 +216,34 @@ void WindowedSiteReadSource::for_each_read(
     size_t last_window = window_of(max_id);
 
     if (first_window != last_window) {
-        // The site straddles a window boundary. Fetch the span directly rather than
+        // The site straddles a window boundary. Fetch it directly rather than
         // stitching windows together: fetch_span already emits each read at most
-        // once, so this sidesteps de-duplicating reads that span the boundary. A
-        // site large enough to do this is rare, and caching a region of unbounded
-        // size would defeat the point of windowing.
+        // once, so this sidesteps de-duplicating reads that span the boundary, and
+        // caching a region of unbounded size would defeat the point of windowing.
+        //
+        // The ranges go through as they are. Collapsing them to [min_id, max_id]
+        // first is what the window path does, and for a site inside one window that
+        // is exact -- but a snarl whose contents are sparse in ID space would then
+        // fetch the gaps too. Measured on chr20: 215 such sites, spanning 13.2 M node
+        // IDs but wanting 133 k of them.
         ++cache_misses;
-        fetch_span(min_id, max_id, [&](const Alignment& aln) {
+        ++straddles;
+        straddle_nodes += (size_t)(max_id - min_id + 1);
+        size_t wanted = 0;
+        for (const auto& range : ranges) {
+            wanted += (size_t)(range.second - range.first + 1);
+        }
+        straddle_wanted += wanted;
+        size_t n_scanned = 0, n_delivered = 0;
+        fetch_span(ranges, [&](Alignment& aln) {
+            ++n_scanned;
             if (touches(aln, ranges)) {
+                ++n_delivered;
                 iteratee(aln);
             }
         });
+        scanned += n_scanned;
+        delivered += n_delivered;
         return;
     }
 
@@ -233,11 +255,7 @@ void WindowedSiteReadSource::for_each_read(
     for (const CacheEntry& entry : state.cache) {
         if (entry.valid && entry.window == first_window) {
             ++cache_hits;
-            for (const Alignment& aln : entry.reads) {
-                if (touches(aln, ranges)) {
-                    iteratee(aln);
-                }
-            }
+            deliver(entry, min_id, max_id, ranges, iteratee);
             return;
         }
     }
@@ -247,19 +265,62 @@ void WindowedSiteReadSource::for_each_read(
     entry.window = first_window;
     nid_t lo = (nid_t)(first_window * window_size);
     nid_t hi = lo + (nid_t)window_size - 1;
-    fetch_span(lo, hi, [&](const Alignment& aln) {
-        entry.reads.push_back(aln);
+    fetch_span({{lo, hi}}, [&](Alignment& aln) {
+        // Take ownership rather than copy. Deep-copying an Alignment protobuf here
+        // was 16% of a chr20 run: 32 M reads are cached over the chromosome, each
+        // copy allocating a Path, its Mappings and their Edits. fetch_span hands out
+        // a mutable reference precisely so this can move; the backends reuse one
+        // Alignment per record and clear it before the next, so moving from it is
+        // safe. Everything above this line still sees const references.
+        entry.bounds.push_back(node_id_span(aln));
+        entry.reads.push_back(std::move(aln));
     });
     entry.valid = true;
 
-    for (const Alignment& aln : entry.reads) {
-        if (touches(aln, ranges)) {
-            iteratee(aln);
-        }
-    }
+    deliver(entry, min_id, max_id, ranges, iteratee);
 
     state.cache[state.next_evict] = std::move(entry);
     state.next_evict = (state.next_evict + 1) % state.cache.size();
+}
+
+pair<nid_t, nid_t> WindowedSiteReadSource::node_id_span(const Alignment& aln) {
+    if (aln.path().mapping_size() == 0) {
+        return make_pair(numeric_limits<nid_t>::max(), (nid_t)-1);
+    }
+    nid_t lo = numeric_limits<nid_t>::max();
+    nid_t hi = numeric_limits<nid_t>::min();
+    for (const auto& mapping : aln.path().mapping()) {
+        nid_t node_id = mapping.position().node_id();
+        lo = min(lo, node_id);
+        hi = max(hi, node_id);
+    }
+    return make_pair(lo, hi);
+}
+
+void WindowedSiteReadSource::deliver(const CacheEntry& entry, nid_t min_id, nid_t max_id,
+                                     const vector<pair<nid_t, nid_t>>& ranges,
+                                     const function<void(const Alignment&)>& iteratee) const {
+    size_t n_delivered = 0;
+    for (size_t i = 0; i < entry.reads.size(); ++i) {
+        // Reject on the read's node-ID span first. A window holds far more reads than
+        // any one site wants -- measured at 1.2% delivered on chr20 -- so nearly all
+        // of this loop is rejection, and doing it against a compact array of bounds
+        // rather than by walking each alignment's mappings is most of the cost.
+        // Conservative by construction: a read that passes is still adjudicated by
+        // touches(), so this changes speed and not which reads a site sees.
+        if (entry.bounds[i].second < min_id || entry.bounds[i].first > max_id) {
+            continue;
+        }
+        if (touches(entry.reads[i], ranges)) {
+            ++n_delivered;
+            iteratee(entry.reads[i]);
+        }
+    }
+    // Tallied locally and flushed once. This loop runs once per read per site query --
+    // hundreds of millions of times over a chromosome -- so an atomic increment inside
+    // it would cost more than the test it is counting.
+    scanned += entry.reads.size();
+    delivered += n_delivered;
 }
 
 size_t WindowedSiteReadSource::get_read_count() const {
@@ -276,6 +337,26 @@ size_t WindowedSiteReadSource::get_cache_hits() const {
 
 size_t WindowedSiteReadSource::get_cache_misses() const {
     return cache_misses.load();
+}
+
+size_t WindowedSiteReadSource::get_scanned_count() const {
+    return scanned.load();
+}
+
+size_t WindowedSiteReadSource::get_delivered_count() const {
+    return delivered.load();
+}
+
+size_t WindowedSiteReadSource::get_straddle_count() const {
+    return straddles.load();
+}
+
+size_t WindowedSiteReadSource::get_straddle_nodes() const {
+    return straddle_nodes.load();
+}
+
+size_t WindowedSiteReadSource::get_straddle_wanted() const {
+    return straddle_wanted.load();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -320,16 +401,27 @@ IndexedGamSiteReadSource::ThreadState& IndexedGamSiteReadSource::thread_state() 
     return state;
 }
 
-void IndexedGamSiteReadSource::fetch_span(nid_t min_id, nid_t max_id,
-                                          const function<void(const Alignment&)>& iteratee) const {
+void IndexedGamSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                                          const function<void(Alignment&)>& iteratee) const {
     ThreadState& state = thread_state();
-    vector<pair<id_t, id_t>> query{{(id_t)min_id, (id_t)max_id}};
+    // GAMIndex::find already takes a range list and de-duplicates across it, which is
+    // exactly the contract fetch_span promises.
+    vector<pair<id_t, id_t>> query;
+    query.reserve(ranges.size());
+    for (const auto& range : ranges) {
+        query.emplace_back((id_t)range.first, (id_t)range.second);
+    }
     index->find(*state.cursor, query, [&](const Alignment& aln) {
         if (!passes_filter(aln)) {
             return;
         }
         count_fetched();
-        iteratee(aln);
+        // GAMIndex hands out a const reference to its own buffer, so this backend
+        // cannot pass ownership along the way the GAF-Base one can. Copying into a
+        // local the caller may move from keeps the cost where it already was -- one
+        // copy per read -- rather than adding a second.
+        Alignment owned = aln;
+        iteratee(owned);
     });
 }
 
@@ -379,7 +471,7 @@ GafBaseSiteReadSource::ThreadState& GafBaseSiteReadSource::thread_state() const 
 }
 
 size_t GafBaseSiteReadSource::run_query(ThreadState& state, const vector<nid_t>& nodes,
-                                        const function<void(const Alignment&)>& iteratee) const {
+                                        const function<void(Alignment&)>& iteratee) const {
     if (nodes.empty()) {
         return 0;
     }
@@ -414,30 +506,36 @@ size_t GafBaseSiteReadSource::run_query(ThreadState& state, const vector<nid_t>&
     // Capture stderr so a failure can say why, rather than just reporting a code.
     string err_path = state.gaf_path + ".err";
 
-    cout.flush();
-    cerr.flush();
-    fflush(nullptr);
+    // posix_spawn rather than fork/exec. Not a style preference: fork() from a
+    // process with several threads allocating hard makes libc take a fork lock
+    // around malloc, and every other thread stalls on it for the duration. That
+    // showed up plainly in a chr20 profile as _xzm_fork_lock_wait under threads doing
+    // no forking at all. posix_spawn never duplicates the address space, so there is
+    // no lock to contend on -- and it needs no child branch, so it is also less code.
+    // No stdio flush is needed for the same reason: no buffers are duplicated.
+    posix_spawn_file_actions_t actions;
+    if (posix_spawn_file_actions_init(&actions) != 0) {
+        throw runtime_error("posix_spawn_file_actions_init() failed: " + string(strerror(errno)));
+    }
+    // The subgraph GFA goes to stdout and we do not want it; only the separate
+    // --gaf-output file interests us. stderr is captured so a failure can say why.
+    posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, err_path.c_str(),
+                                     O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
-    pid_t pid = fork();
-    if (pid == -1) {
-        throw runtime_error("fork() failed for " + binary + ": " + strerror(errno));
-    } else if (pid == 0) {
-        // Child. The subgraph GFA goes to stdout and we do not want it; only the
-        // separate --gaf-output file interests us.
-        int devnull = open("/dev/null", O_WRONLY);
-        if (devnull != -1) {
-            dup2(devnull, STDOUT_FILENO);
-            close(devnull);
+    pid_t pid = 0;
+    // posix_spawnp promises not to modify argv but cannot say so in C's type system;
+    // see the same cast in index_registry.cpp's kmc call.
+    int spawn_err = posix_spawnp(&pid, binary.c_str(), &actions, nullptr,
+                                 (char* const*)&argv[0], environ);
+    posix_spawn_file_actions_destroy(&actions);
+    if (spawn_err != 0) {
+        if (spawn_err == ENOENT) {
+            throw runtime_error("could not execute '" + binary + "'. Install gbz-base "
+                                "(https://github.com/jltsiren/gbz-base) and put it on your "
+                                "PATH, or pass --gaf-base-binary with its location.");
         }
-        int errfd = open(err_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
-        if (errfd != -1) {
-            dup2(errfd, STDERR_FILENO);
-            close(errfd);
-        }
-        // execvp promises not to modify its arguments but cannot say so in C's type
-        // system; see the same cast in index_registry.cpp's kmc call.
-        execvp(binary.c_str(), (char**)&argv[0]);
-        _exit(127);
+        throw runtime_error("posix_spawnp() failed for " + binary + ": " + strerror(spawn_err));
     }
 
     int child_stat = 0;
@@ -458,11 +556,9 @@ size_t GafBaseSiteReadSource::run_query(ThreadState& state, const vector<nid_t>&
             message = buffer.str();
         }
         unlink(err_path.c_str());
-        if (ret == 127) {
-            throw runtime_error("could not execute '" + binary + "'. Install gbz-base "
-                                "(https://github.com/jltsiren/gbz-base) and put it on your "
-                                "PATH, or pass --gaf-base-binary with its location.");
-        }
+        // No special case for exit code 127 here: a missing binary now comes back as
+        // ENOENT from posix_spawnp, which never runs anything, so 127 can only mean
+        // gbz-base itself exited that way.
         throw runtime_error(binary + " query failed with exit code " + to_string(ret) +
                             (message.empty() ? "" : ": " + message));
     }
@@ -482,14 +578,16 @@ size_t GafBaseSiteReadSource::run_query(ThreadState& state, const vector<nid_t>&
     return parsed;
 }
 
-void GafBaseSiteReadSource::fetch_span(nid_t min_id, nid_t max_id,
-                                       const function<void(const Alignment&)>& iteratee) const {
-    // Ask only for node IDs that exist. The window is a range of IDs, but ID space is
+void GafBaseSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                                       const function<void(Alignment&)>& iteratee) const {
+    // Ask only for node IDs that exist. The ranges are ranges of IDs, but ID space is
     // not dense, and gbz-base is entitled to complain about a node that is not there.
     vector<nid_t> nodes;
-    for (nid_t id = max<nid_t>(1, min_id); id <= max_id; ++id) {
-        if (graph.has_node(id)) {
-            nodes.push_back(id);
+    for (const auto& range : ranges) {
+        for (nid_t id = max<nid_t>(1, range.first); id <= range.second; ++id) {
+            if (graph.has_node(id)) {
+                nodes.push_back(id);
+            }
         }
     }
     if (nodes.empty()) {
@@ -516,7 +614,7 @@ void GafBaseSiteReadSource::fetch_span(nid_t min_id, nid_t max_id,
     for (size_t start = 0; start < nodes.size(); start += max_query_nodes) {
         size_t end = min(start + max_query_nodes, nodes.size());
         vector<nid_t> chunk(nodes.begin() + start, nodes.begin() + end);
-        run_query_or_die(state, chunk, [&](const Alignment& aln) {
+        run_query_or_die(state, chunk, [&](Alignment& aln) {
             string key = aln.name();
             if (aln.path().mapping_size() > 0) {
                 const Position& pos = aln.path().mapping(0).position();
@@ -531,7 +629,7 @@ void GafBaseSiteReadSource::fetch_span(nid_t min_id, nid_t max_id,
 }
 
 void GafBaseSiteReadSource::run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
-                                             const function<void(const Alignment&)>& iteratee) const {
+                                             const function<void(Alignment&)>& iteratee) const {
     // Calling happens inside an OpenMP parallel region, and an exception must not
     // propagate out of one -- that is undefined behaviour, not a clean error. A failed
     // query also means we cannot score this site correctly, and carrying on with the

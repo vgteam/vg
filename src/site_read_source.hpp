@@ -176,16 +176,40 @@ public:
     size_t get_cache_hits() const;
     size_t get_cache_misses() const;
 
+    /// Reads considered while answering site queries, against reads actually handed
+    /// to the caller. A window holds far more reads than any one site wants, so the
+    /// ratio between these is the selectivity of the window size -- and the amount of
+    /// work spent rejecting reads. Both are counted per site query, so a read in a
+    /// window visited by many sites counts many times.
+    size_t get_scanned_count() const;
+    size_t get_delivered_count() const;
+
+    /// Site queries that crossed a window boundary and so were fetched uncached, and
+    /// the total node-ID span they covered.
+    size_t get_straddle_count() const;
+    size_t get_straddle_nodes() const;
+    /// Node IDs those sites actually asked about, as opposed to the span they were
+    /// collapsed to. The gap between the two is over-fetching.
+    size_t get_straddle_wanted() const;
+
 protected:
 
     WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_size,
                            size_t cache_entries);
 
-    /// Visit every read with a mapping onto a node in [min_id, max_id], having
-    /// applied the filter. Each read must be visited at most once. Must be safe to
-    /// call concurrently: implementations own their per-thread resources.
-    virtual void fetch_span(nid_t min_id, nid_t max_id,
-                            const function<void(const Alignment&)>& iteratee) const = 0;
+    /// Visit every read with a mapping onto a node in any of the inclusive ranges,
+    /// having applied the filter. Each read must be visited at most once. Must be safe
+    /// to call concurrently: implementations own their per-thread resources.
+    ///
+    /// Ranges rather than one span because a snarl's contents can be extremely sparse
+    /// in ID space. On chr20, 215 sites spanning 13.2 M node IDs between them wanted
+    /// only 133 k of those IDs -- a 99x over-fetch if the span is used instead. Both
+    /// backends address ranges natively, so this costs them nothing.
+    ///
+    /// The iteratee takes a mutable reference: the alignment handed over is the
+    /// backend's per-record scratch, and the caller may move from it.
+    virtual void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                            const function<void(Alignment&)>& iteratee) const = 0;
 
     /// Apply the filter, counting rejections. For subclasses to call on each
     /// candidate read before handing it to fetch_span's iteratee.
@@ -207,6 +231,10 @@ private:
         size_t window = 0;
         bool valid = false;
         vector<Alignment> reads;
+        /// Parallel to reads: the lowest and highest node ID each one visits. Held
+        /// separately so a site can reject most of the window by scanning 16 bytes a
+        /// read rather than walking each alignment's mappings.
+        vector<pair<nid_t, nid_t>> bounds;
     };
 
     /// Per-thread cache. Mutable because for_each_read is logically const but may
@@ -218,6 +246,17 @@ private:
     };
 
     CacheState& cache_state() const;
+
+    /// Hand the entry's reads that touch the ranges to the caller, counting both how
+    /// many were considered and how many got through. [min_id, max_id] must bracket
+    /// the ranges; it is used only to reject reads cheaply, never to accept them.
+    void deliver(const CacheEntry& entry, nid_t min_id, nid_t max_id,
+                 const vector<pair<nid_t, nid_t>>& ranges,
+                 const function<void(const Alignment&)>& iteratee) const;
+
+    /// The lowest and highest node ID the read visits. A read with no mappings gets
+    /// an empty span that no site can overlap.
+    static pair<nid_t, nid_t> node_id_span(const Alignment& aln);
 
     /// Which window a node ID falls in.
     size_t window_of(nid_t id) const;
@@ -233,6 +272,19 @@ private:
     mutable atomic<size_t> filtered{0};
     mutable atomic<size_t> cache_hits{0};
     mutable atomic<size_t> cache_misses{0};
+
+    // Accumulated once per site query, not once per read: these count into the
+    // hundreds of millions, and an atomic increment on that path would cost more than
+    // the work it is measuring.
+    mutable atomic<size_t> scanned{0};
+    mutable atomic<size_t> delivered{0};
+
+    // Sites whose span crosses a window boundary, and the total ID span they asked
+    // for. These bypass the cache entirely, so if the span is large relative to the
+    // window they are where the backend queries actually go.
+    mutable atomic<size_t> straddles{0};
+    mutable atomic<size_t> straddle_nodes{0};
+    mutable atomic<size_t> straddle_wanted{0};
 };
 
 /**
@@ -263,8 +315,8 @@ public:
 
 protected:
 
-    void fetch_span(nid_t min_id, nid_t max_id,
-                    const function<void(const Alignment&)>& iteratee) const;
+    void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                    const function<void(Alignment&)>& iteratee) const;
 
 private:
 
@@ -342,18 +394,18 @@ private:
 
     ThreadState& thread_state() const;
 
-    void fetch_span(nid_t min_id, nid_t max_id,
-                    const function<void(const Alignment&)>& iteratee) const;
+    void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                    const function<void(Alignment&)>& iteratee) const;
 
     /// Run `gbz-base query` for these node IDs and parse the GAF it writes,
     /// applying the filter. Returns the number of records parsed. Throws on failure.
     size_t run_query(ThreadState& state, const vector<nid_t>& nodes,
-                     const function<void(const Alignment&)>& iteratee) const;
+                     const function<void(Alignment&)>& iteratee) const;
 
     /// run_query, but reporting and exiting instead of throwing. For use during
     /// calling, which happens inside an OpenMP parallel region.
     void run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
-                          const function<void(const Alignment&)>& iteratee) const;
+                          const function<void(Alignment&)>& iteratee) const;
 
     const HandleGraph& graph;
     string gaf_base_filename;

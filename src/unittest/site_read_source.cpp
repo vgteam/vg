@@ -48,22 +48,49 @@ public:
         }
     }
 
-    /// Every (min, max) pair fetch_span was called with, in order.
+    /// The (min, max) extent of every fetch_span call, in order. Recorded as an
+    /// extent rather than the full range list because that is what the windowing
+    /// assertions are about; get_fetch_ranges() has the detail.
     const vector<pair<nid_t, nid_t>>& get_fetches() const {
         return fetches;
     }
 
+    /// Every range list fetch_span was called with, in order.
+    const vector<vector<pair<nid_t, nid_t>>>& get_fetch_ranges() const {
+        return fetch_ranges;
+    }
+
 protected:
 
-    void fetch_span(nid_t min_id, nid_t max_id,
-                    const function<void(const Alignment&)>& iteratee) const {
+    void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                    const function<void(Alignment&)>& iteratee) const {
+        fetch_ranges.push_back(ranges);
+        nid_t min_id = ranges.front().first;
+        nid_t max_id = ranges.front().second;
+        for (const auto& range : ranges) {
+            min_id = min(min_id, range.first);
+            max_id = max(max_id, range.second);
+        }
         fetches.push_back(make_pair(min_id, max_id));
         for (const Alignment& aln : held) {
             nid_t node = aln.path().mapping(0).position().node_id();
-            if (node >= min_id && node <= max_id) {
+            bool in_range = false;
+            for (const auto& range : ranges) {
+                if (node >= range.first && node <= range.second) {
+                    in_range = true;
+                    break;
+                }
+            }
+            if (in_range) {
                 if (passes_filter(aln)) {
                     count_fetched();
-                    iteratee(aln);
+                    // A copy, because `held` is this fake's permanent store and a
+                    // caller is entitled to move from what fetch_span hands it. Real
+                    // backends hand over a per-record scratch alignment instead. If
+                    // this were `iteratee(aln)` the second fetch of a window would
+                    // return empty reads, which is what the repeat-fetch cases check.
+                    Alignment owned = aln;
+                    iteratee(owned);
                 }
             }
         }
@@ -72,6 +99,7 @@ protected:
 private:
     vector<Alignment> held;
     mutable vector<pair<nid_t, nid_t>> fetches;
+    mutable vector<vector<pair<nid_t, nid_t>>> fetch_ranges;
 };
 
 /// Collect the names of the reads a query returns.
@@ -264,8 +292,8 @@ TEST_CASE("The MAPQ filter is applied by the base class, not left to each backen
         LowMapqSource(const SiteReadFilter& filter)
             : WindowedSiteReadSource(filter, 100, 2) {}
     protected:
-        void fetch_span(nid_t min_id, nid_t max_id,
-                        const function<void(const Alignment&)>& iteratee) const {
+        void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                        const function<void(Alignment&)>& iteratee) const {
             for (int mapq : {10, 60}) {
                 Alignment aln;
                 aln.set_name("q" + to_string(mapq));
