@@ -260,16 +260,19 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
     std::cerr << "      --ban-sample NAME        don't use NAME haplotypes, no matter the score" << std::endl;
     std::cerr << "      --high-coverage-contig NAME" << std::endl;
-    std::cerr << "                               sample contig/path NAME with the high-coverage model:" << std::endl;
-    std::cerr << "                               frequent kmers are the signal, no diploid sampling (may repeat)" << std::endl;
+    std::cerr << "                               sample contig/path NAME with the high-coverage" << std::endl;
+    std::cerr << "                               model: frequent kmers are the signal, no diploid" << std::endl;
+    std::cerr << "                               sampling (may repeat)" << std::endl"
     std::cerr << "      --high-coverage-num-haplotypes N" << std::endl;
     std::cerr << "                               number of haplotypes for high-coverage contigs "
                                              << "[" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "      --half-coverage-contig NAME" << std::endl;
-    std::cerr << "                               sample contig/path NAME with the half-coverage model:" << std::endl;
-    std::cerr << "                               for heterogametic allosomes, no diploid sampling (may repeat)" << std::endl;
+    std::cerr << "                               sample contig/path NAME with the half-coverage" << std::endl;
+    std::cerr << "                               model: for heterogametic allosomes, no diploid" << std::endl;
+    std::cerr << "                               sampling (may repeat)" << std::endl;
     std::cerr << "      --half-coverage-num-haplotypes N" << std::endl;
-    std::cerr << "                               number of haplotypes for half-coverage contigs [2]" << std::endl;
+    std::cerr << "                               number of haplotypes for half-coverage contigs" << std::endl;
+    std::cerr << "                               [2]" << std::endl;
     std::cerr << "      --exclude-contig NAME    copy the chain for contig/path NAME through" << std::endl;
     std::cerr << "                               verbatim instead of personalizing it (may repeat)" << std::endl;
     std::cerr << "      --wrap NAME              double the origin fragment of each haplotype on" << std::endl;
