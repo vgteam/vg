@@ -12,7 +12,7 @@ namespace vg {
 namespace unittest {
 
 /// Turn inline test data of read start, graph handle and offset, length, and score into Anchor objects.
-/// Assume things are in the correct order
+/// Assume things are in the correct order; they are given seed numbers in order of appearance
 static vector<algorithms::Anchor> make_anchors(const vector<tuple<size_t, handle_t, size_t, size_t, int>>& test_data, const HandleGraph& graph) {
     vector<algorithms::Anchor> to_score;
     for (size_t i = 0; i < test_data.size(); i++) {
