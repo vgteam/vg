@@ -1729,7 +1729,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
-    // Track total count of alignments made (we will make at least min_chains)
+    // Track total count of alignments made (we will make at most max_alignments)
     size_t alns_made = 0;
 
     // Track what node ID, orientation, read-minus-node offset tuples were used
@@ -1743,8 +1743,13 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     process_until_threshold_b<int>(max_sparse_chain_scores,
         chain_score_threshold, min_chains, max_alignments, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
-            // This chain is good enough.
+            // This subchain group is good enough.
             // Called in descending score order.
+
+            if (alns_made >= max_alignments) {
+                // Earlier SubchainGroups made enough alignments already
+                return false;
+            }
         
             if (max_sparse_chain_scores[processed_num] < chain_min_score) {
                 // Actually discard by score
