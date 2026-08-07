@@ -261,7 +261,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --ban-sample NAME        don't use NAME haplotypes, no matter the score" << std::endl;
     std::cerr << "      --high-cov-contig NAME   sample contig/path NAME with the high-coverage" << std::endl;
     std::cerr << "                               model: frequent kmers are the signal, no diploid" << std::endl;
-    std::cerr << "                               sampling (may repeat)" << std::endl"
+    std::cerr << "                               sampling (may repeat)" << std::endl;
     std::cerr << "      --high-cov-num-haps N    number of haplotypes for high-coverage contigs "
                                              << "[" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "      --half-cov-contig NAME   sample contig/path NAME with the half-coverage" << std::endl;
