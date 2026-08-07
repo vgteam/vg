@@ -127,7 +127,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
             // Start making a list of things to show.
             std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
             seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
-            seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{subchain_groups[group_num].subchains.at(chain_num)});
+            seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{subchain_groups[group_num].subchains.at(chain_num).anchors});
 
             // Sort everything in read order
             for (auto& seed_set : seed_sets) {
@@ -237,7 +237,6 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 exp.field(position.first);
                                 // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                                 exp.field(minimizers[seed.source].pin_offset());
-                                /// TODO: recombination flag column?
                             }
                         }
                         if (offsets.empty()) {
@@ -254,7 +253,6 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                             exp.field(0);
                             // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
                             exp.field(minimizers[seed.source].pin_offset());
-                            /// TODO: recombination flag column?
                         }
                     }
 
@@ -1493,7 +1491,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                 for (size_t subchain_i = 0; subchain_i < group.subchains.size(); subchain_i++) {
                     // For each subchain
-                    vector<size_t>& subchain = group.subchains[subchain_i];
+                    vector<size_t>& subchain = group.subchains[subchain_i].anchors;
     #ifdef debug_rec
                     if (true)
     #else
@@ -1510,6 +1508,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                             {
                                 cerr << log_name() << "\t[" << aln.name() << "] Subchain " << subchain_i
                                      << " and length " << subchain.size()
+                                     << " with " << group.subchains[subchain_i].rec_count << " recombinations "
                                      << " running " << anchor_view[subchain.front()]
                                      << " to " << anchor_view[subchain.back()] << std::endl;
     #ifdef debug_rec
@@ -2832,7 +2831,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             cerr << "Doing left tail alignment for subchain " << i << endl;
 #endif
             ScoredPath left_tail = find_tail_alignment(
-                aln, to_chain[subchain_group.subchains[i].front()], wfa_extender, true, stats);
+                aln, to_chain[subchain_group.subchains[i].anchors.front()], wfa_extender, true, stats);
             composed_path = left_tail.path;
             // Rescore if not just a softclip
             composed_score = left_tail.score;
@@ -2846,11 +2845,11 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         cerr << "Doing inner link alignment for subchain " << i << endl;
 #endif
         vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(
-            to_chain, aln, subchain_group.subchains[i], wfa_extender, aligner, stats);
+            to_chain, aln, subchain_group.subchains[i].anchors, wfa_extender, aligner, stats);
         append_path(composed_path, inner_links.path);
         composed_score += inner_links.score;
 
-        if (last_anchor != subchain_group.subchains[i].back()) {
+        if (last_anchor != subchain_group.subchains[i].anchors.back()) {
 #ifdef debug_base_level_alignment
             cerr << "Bailed out of subchain " << i << endl;
 #endif
@@ -2859,7 +2858,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         }
 
         // Should this subchain get a right tail?
-        if (!seen_as_source[i] || last_anchor != subchain_group.subchains[i].back()) {
+        if (!seen_as_source[i] || last_anchor != subchain_group.subchains[i].anchors.back()) {
 #ifdef debug_base_level_alignment
             cerr << "Doing right tail alignment for subchain " << i << endl;
 #endif
@@ -2890,8 +2889,8 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             cerr << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
 #endif
             // Calculate base-level alignment for this connection
-            vector<size_t> edge = {subchain_group.subchains[extra_edge.first].back(),
-                                   subchain_group.subchains[extra_edge.second].front()};
+            vector<size_t> edge = {subchain_group.subchains[extra_edge.first].anchors.back(),
+                                   subchain_group.subchains[extra_edge.second].anchors.front()};
             ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
 
             if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
@@ -3025,24 +3024,52 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Rescore with log-gap penalties
         LoggedGapAlignmentScorer scheme(output.back());
         // Score the alignment
-        /// TODO: add back rec_penalty_aln penalties for alignments which require recombination
         int32_t logged_gaps_score = scheme.score_alignment(output.back());
-        output.back().set_score(logged_gaps_score);
+
+        // Penalize score according to the number of recombinations their chains required.
+        // This allows alignments that required fewer recombinations in their chains to win.
+        // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
+        size_t total_rec_count = subchain_group.subchains[subchains_used.front()].rec_count;
+        algorithms::path_flags_t cur_paths = subchain_group.subchains[subchains_used.front()].end_paths;
+        for (size_t i = 1; i < subchains_used.size(); i++) {
+            if (cur_paths & subchain_group.subchains[subchains_used[i]].start_paths == 0) {
+                // This inter-subchain connection requires a recombination
+                total_rec_count += 1;
+                // Paths reset to whatever this next subchain wants
+                cur_paths = subchain_group.subchains[subchains_used[i]].end_paths;
+            } else if (subchain_group.subchains[subchains_used[i]].rec_count > 0) {
+                // The subchain itself requires a recombination, so paths reset
+                cur_paths = subchain_group.subchains[subchains_used[i]].end_paths;
+            } else {
+                // No forced recombinations, so paths narrow down to what is OK with the end
+                cur_paths &= subchain_group.subchains[subchains_used[i]].end_paths;
+            }
+            // Add in recombinations required by the subchain itself
+            total_rec_count += subchain_group.subchains[subchains_used[i]].rec_count;
+        }
+        if (rec_penalty != 0) {
+            logged_gaps_score -= (rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * total_rec_count;
+        }
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
-                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
+                cerr << log_name() << " Original score: " << trace.score()
+                                   << " Matches: " << scheme.matches
+                                   << " Mismatches: " << scheme.mismatches
+                                   << " Gap opens: " << scheme.gap_lengths.size()
+                                   << " Recombinations: " << total_rec_count
+                                   << " New score: " << logged_gaps_score << endl;
             }
         }
-        /// TODO: add back rec_penalty_aln penalties for alignments which require recombination
+        output.back().set_score(logged_gaps_score);
         if (!output.back().sequence().empty()) {
             output.back().set_identity(identity(output.back().path()));
         }
         // Annotate with tail lengths
         set_annotation(output.back(), "left_tail_length", left_tail_len[subchains_used.front()]); 
         set_annotation(output.back(), "right_tail_length", right_tail_len[subchains_used.back()]);
+        set_annotation(output.back(), "chain.rec_count", total_rec_count);
     }
 
     // Sort by new score

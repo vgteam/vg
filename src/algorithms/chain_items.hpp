@@ -432,11 +432,28 @@ struct SparseAnchorChain {
     std::vector<size_t> anchors;
 };
 
+/// A list of anchors which unambiguously connect to each other
+struct Subchain {
+    /// Anchor indexes within this subchain
+    std::vector<size_t> anchors;
+    /// How many recombinations are forced within this subchain
+    size_t rec_count;
+    /// Haplotypes consistent with the start of this subchain
+    /// i.e. can connect to the start anchor without forcing a recombination
+    path_flags_t start_paths;
+    /// Haplotypes consistent with the end of this subchain
+    /// i.e. can connect to the last anchor without forcing a recombination
+    path_flags_t end_paths;
+
+    /// Create a Subchain without recombination annotations
+    inline Subchain(vector<size_t> anchor_list) : anchors(anchor_list) {}
+};
+
 /// Result of finding best chains: a list of subchains and how they
 /// connect to each other, ready to be put in a multipath alignment graph
 struct SubchainGroup {
-    /// Subchains, each as a list of anchors
-    std::vector<std::vector<size_t>> subchains;
+    /// Subchains (lists of anchors) which are the "nodes" in this graph
+    std::vector<Subchain> subchains;
     /// Connections between subchains, as (source index, sink index) pairs
     std::vector<pair<size_t, size_t>> connections;
     /// The maximum score of any chain

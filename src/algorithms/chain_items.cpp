@@ -1038,7 +1038,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         vector<SubchainGroup> groups;
         for (const auto& cur_trace : original_tracebacks) {
             groups.emplace_back();
-            groups.back().subchains = {cur_trace.anchors};
+            groups.back().subchains.emplace_back(cur_trace.anchors);
             groups.back().max_sparse_chain_score = cur_trace.chain_score;
         }
         return groups;
@@ -1088,7 +1088,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                          << " and will instead save as its own SubchainGroup" << endl;
 #endif
                     output.emplace_back();
-                    output.back().subchains = {cur_trace};
+                    output.back().subchains.emplace_back(cur_trace);
                     output.back().max_sparse_chain_score = original_tracebacks[i].chain_score;
                     break;
                 }
@@ -1158,8 +1158,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 
         // Create a new subchain to trace into
         size_t cur_subchain_id = output.front().subchains.size();
-        output.front().subchains.emplace_back();
-        output.front().subchains.back().emplace_back(cur_anchor_id);
+        output.front().subchains.emplace_back(vector<size_t>{cur_anchor_id});
         subchain_id[cur_anchor_id] = cur_subchain_id;
 
 #ifdef debug_chaining
@@ -1187,7 +1186,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             
             // Otherwise, trace into the next edge
             cur_anchor_id = *outgoing_edges[cur_anchor_id].begin();
-            output.front().subchains.back().emplace_back(cur_anchor_id);
+            output.front().subchains.back().anchors.emplace_back(cur_anchor_id);
             subchain_id[cur_anchor_id] = cur_subchain_id;
 #ifdef debug_chaining
             cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
@@ -1198,7 +1197,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     // Make all inter-subchain connections necessary
     for (size_t i = 0; i < output.front().subchains.size(); i++) {
         // Loop over any way to exit this subchain
-        for (const auto& next : outgoing_edges[output.front().subchains[i].back()]) {
+        for (const auto& next : outgoing_edges[output.front().subchains[i].anchors.back()]) {
             if (next != std::numeric_limits<size_t>::max()) {
                 output.front().connections.emplace_back(i, subchain_id[next]);
 #ifdef debug_chaining
@@ -1246,9 +1245,52 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return {SubchainGroup()};
     }
 
-    /// TODO: add recombination annotations?
+    vector<SubchainGroup> subchain_groups = split_up_subchains(
+        to_chain, tracebacks, connections, read_length, extra_tail_grace_window);
 
-    return split_up_subchains(to_chain, tracebacks, connections, read_length, extra_tail_grace_window);
+    for (SubchainGroup& group : subchain_groups) {
+        for (Subchain& subchain : group.subchains) {
+            // Compute the anchor indices in this chain that introduce an
+            // inter-anchor recombination event. We simulate the path-bit
+            // propagation along the chain using the same logic as
+            // TracedScore::set_shared_paths (but without modifying the state).
+            // Start with the endpoint paths of the first anchor.
+            const Anchor& first_anchor = to_chain[subchain.anchors.front()];
+            // Paths at the start of the subchain are for its first anchor
+            subchain.start_paths = first_anchor.anchor_start_paths();
+            // Is the first anchor internally recombinant?
+            subchain.rec_count = first_anchor.anchor_start_paths() != first_anchor.anchor_end_paths();
+
+            // Walk the chain from the second anchor onward and apply the
+            // same recombination-detection rules used in set_shared_paths.
+            path_flags_t current_paths = first_anchor.anchor_end_paths();
+            for (size_t i = 1; i < subchain.anchors.size(); ++i) {
+                auto new_paths = to_chain[subchain.anchors[i]].anchor_paths();
+                // If the anchor's start and end paths are equal, it's not an
+                // internally recombinant anchor; check inter-anchor overlap.
+                if (new_paths.first == new_paths.second) {
+                    if ((current_paths & new_paths.first) == 0) {
+                        // No overlap -> inter-anchor recombination occurred here.
+                        subchain.rec_count++;
+                        // Reset current paths to the anchor's start paths.
+                        current_paths = new_paths.first;
+                    } else {
+                        // Intersect supported paths and continue.
+                        current_paths &= new_paths.first;
+                    }
+                } else {
+                    // Recombinant anchor: do not count as inter-anchor
+                    // recombination per original logic; reset paths to the
+                    // anchor's end paths.
+                    // TODO: since no fragmenting, probably unnecessary to track
+                    subchain.rec_count++;
+                    current_paths = new_paths.second;
+                }
+            }
+        }
+    }
+
+    return subchain_groups;
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
@@ -1277,7 +1319,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
     }
 
     SparseAnchorChain output;
-    output.anchors = group.subchains.front();
+    output.anchors = group.subchains.front().anchors;
     output.chain_score = group.max_sparse_chain_score;
     
     return output;
