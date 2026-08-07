@@ -259,19 +259,15 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
     std::cerr << "      --ban-sample NAME        don't use NAME haplotypes, no matter the score" << std::endl;
-    std::cerr << "      --high-coverage-contig NAME" << std::endl;
-    std::cerr << "                               sample contig/path NAME with the high-coverage" << std::endl;
+    std::cerr << "      --high-cov-contig NAME   sample contig/path NAME with the high-coverage" << std::endl;
     std::cerr << "                               model: frequent kmers are the signal, no diploid" << std::endl;
     std::cerr << "                               sampling (may repeat)" << std::endl"
-    std::cerr << "      --high-coverage-num-haplotypes N" << std::endl;
-    std::cerr << "                               number of haplotypes for high-coverage contigs "
+    std::cerr << "      --high-cov-num-haps N    number of haplotypes for high-coverage contigs "
                                              << "[" << haplotypes_defaults::n() << "]" << std::endl;
-    std::cerr << "      --half-coverage-contig NAME" << std::endl;
-    std::cerr << "                               sample contig/path NAME with the half-coverage" << std::endl;
+    std::cerr << "      --half-cov-contig NAME   sample contig/path NAME with the half-coverage" << std::endl;
     std::cerr << "                               model: for heterogametic allosomes, no diploid" << std::endl;
     std::cerr << "                               sampling (may repeat)" << std::endl;
-    std::cerr << "      --half-coverage-num-haplotypes N" << std::endl;
-    std::cerr << "                               number of haplotypes for half-coverage contigs" << std::endl;
+    std::cerr << "      --half-cov-num-haps N    number of haplotypes for half-coverage contigs" << std::endl;
     std::cerr << "                               [2]" << std::endl;
     std::cerr << "      --exclude-contig NAME    copy the chain for contig/path NAME through" << std::endl;
     std::cerr << "                               verbatim instead of personalizing it (may repeat)" << std::endl;
@@ -350,10 +346,10 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
         { "ban-sample", required_argument, 0, OPT_BAN_SAMPLE },
-        { "high-coverage-contig", required_argument, 0, OPT_HIGH_COVERAGE_CONTIG },
-        { "high-coverage-num-haplotypes", required_argument, 0, OPT_HIGH_COVERAGE_NUM_HAPLOTYPES },
-        { "half-coverage-contig", required_argument, 0, OPT_HALF_COVERAGE_CONTIG },
-        { "half-coverage-num-haplotypes", required_argument, 0, OPT_HALF_COVERAGE_NUM_HAPLOTYPES },
+        { "high-cov-contig", required_argument, 0, OPT_HIGH_COVERAGE_CONTIG },
+        { "high-cov-num-haps", required_argument, 0, OPT_HIGH_COVERAGE_NUM_HAPLOTYPES },
+        { "half-cov-contig", required_argument, 0, OPT_HALF_COVERAGE_CONTIG },
+        { "half-cov-num-haps", required_argument, 0, OPT_HALF_COVERAGE_NUM_HAPLOTYPES },
         { "exclude-contig", required_argument, 0, OPT_EXCLUDE_CONTIG },
         { "wrap", required_argument, 0, OPT_WRAP },
         { "verbosity", required_argument, 0, 'v' },
