@@ -1746,7 +1746,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             // This chain is good enough.
             // Called in descending score order.
         
-            if (max_sparse_chain_scores[processed_num] < chain_min_score && alns_made >= min_chains) {
+            if (max_sparse_chain_scores[processed_num] < chain_min_score) {
                 // Actually discard by score
                 discard_chain_by_score(processed_num);
                 return false;
