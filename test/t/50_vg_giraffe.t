@@ -73,10 +73,10 @@ is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining
 rm -f x.longread.withzip.min
 rm -f x.longread.zipcodes
 
-vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi >mapped.gam
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --min-chains 1 >mapped.gam
 is "$(vg view -aj mapped.gam | jq '.annotation.chain.rec_count')" "1" "recombinations are counted by default when mapping with the hifi preset"
 
-vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --rec-penalty-aln 9999 >mapped.gam
+vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --min-chains 1 --rec-penalty-aln 9999 >mapped.gam
 is "$(vg view -aj mapped.gam | jq '.score // 0')" "0" "recombination alignment score penalty is used by default and can unmap a read"
 
 rm -f mapped.gam
