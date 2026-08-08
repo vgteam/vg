@@ -65,6 +65,9 @@ void help_call(char** argv) {
          << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
+         << "                            scaling it by the fraction of reads the called" << endl
+         << "                            genotype explains. GQI always carries the raw value" << endl
          << "      --read-weight W       count each read as W independent observations," << endl
          << "                            to correct for correlated reads (mates, repeats) [1.0]" << endl
          << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
@@ -195,6 +198,7 @@ int main_call(int argc, char** argv) {
     // a seek. See DEFAULT_GAM_INDEX_WINDOW / DEFAULT_GAF_BASE_WINDOW below.
     size_t read_window_size = 0;
     bool no_mismap_term = false;
+    bool no_share_quality = false;
     double read_weight = 1.0;
     double max_mismap_prob = 0.5;
     double min_mismap_prob = 0.02;
@@ -229,6 +233,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_READ_WEIGHT = 1018;
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
+    constexpr int OPT_NO_SHARE_QUALITY = 1021;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -273,6 +278,7 @@ int main_call(int argc, char** argv) {
             {"read-weight", required_argument, 0, OPT_READ_WEIGHT},
             {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
+            {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -425,6 +431,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_MISMAP_TERM:
             no_mismap_term = true;
+            break;
+        case OPT_NO_SHARE_QUALITY:
+            no_share_quality = true;
             break;
         case OPT_READ_WEIGHT:
             read_weight = parse<double>(optarg);
@@ -1064,6 +1073,7 @@ int main_call(int argc, char** argv) {
             // Without a pack file the support finder reports zero for everything, so
             // the caller must not prune alleles on support.
             rl_caller->set_support_available(!support_free);
+            rl_caller->set_share_discount(!no_share_quality);
 
             packed_caller = rl_caller;
         } else if (ratio_caller == false) {

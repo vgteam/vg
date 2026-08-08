@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <iomanip>
+#include <set>
 #include <sstream>
 
 #include "statistics.hpp"
@@ -25,6 +26,10 @@ ReadLikelihoodSnarlCaller::~ReadLikelihoodSnarlCaller() {
 
 void ReadLikelihoodSnarlCaller::set_likelihood_dump(ostream* dump_stream) {
     this->dump_stream = dump_stream;
+}
+
+void ReadLikelihoodSnarlCaller::set_share_discount(bool discount) {
+    this->share_discount = discount;
 }
 
 void ReadLikelihoodSnarlCaller::set_support_available(bool available) {
@@ -179,6 +184,33 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     if (std::isfinite(best_ll) && std::isfinite(second_best_ll)) {
         call_info->gq = logprob_to_phred(second_best_ll) - logprob_to_phred(best_ll);
     }
+    call_info->gq_undiscounted = call_info->gq;
+
+    // How much of the pile-up the called genotype accounts for. Reads whose best-fitting
+    // allele lies outside the call are counted in *every* genotype's likelihood and so
+    // cancel out of the best-versus-second-best comparison; GQ cannot see them. See
+    // set_share_discount for why this is worth correcting and what it costs.
+    //
+    // Computed from the fractional allele_support rather than the rounded AD, and over
+    // the distinct called alleles, so a homozygote does not count its allele twice.
+    {
+        const vector<int>& called = scored[best_index].first;
+        double explained = 0.0;
+        set<int> seen;
+        for (int a : called) {
+            if (a >= 0 && (size_t)a < call_info->allele_support.size() && seen.insert(a).second) {
+                explained += call_info->allele_support[a];
+            }
+        }
+        size_t n = matrix.num_reads();
+        // Clamped rather than trusted: ties split fractionally and floating-point
+        // accumulation can land a hair above the read count, and a share above 1 would
+        // *raise* GQ, which this is never allowed to do.
+        call_info->explained_share = n ? min(1.0, explained / (double)n) : 1.0;
+        if (share_discount) {
+            call_info->gq *= call_info->explained_share;
+        }
+    }
 
     // Posterior under a uniform prior. Deliberately NOT the Poisson caller's
     // formula, which subtracts ln(number of candidates): under a uniform prior
@@ -316,6 +348,13 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.samples[sample_name]["GQ"].push_back(
         std::to_string(min((int)256, max((int)0, (int)info->gq))));
 
+    // The likelihood-ratio quality before the explained-share discount. Emitted
+    // unconditionally, including when the discount is off and the two are equal, so a
+    // consumer never has to know which mode produced the file to know what GQ means.
+    variant.format.push_back("GQI");
+    variant.samples[sample_name]["GQI"].push_back(
+        std::to_string(min((int)256, max((int)0, (int)info->gq_undiscounted))));
+
     variant.format.push_back("GP");
     variant.samples[sample_name]["GP"].push_back(std::to_string(info->posterior));
 
@@ -377,7 +416,16 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "ranking; not a calibrated probability, and over-confident at high depth because "
               "reads are treated as independent\">\n";
     header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the "
-              "phred-scaled gap between the best and second-best genotype likelihood\">\n";
+              "phred-scaled gap between the best and second-best genotype likelihood, scaled "
+              "by the fraction of reads the called genotype explains (sum(AD)/DP). The "
+              "likelihood ratio alone cannot see reads that fit an allele outside the call, "
+              "because those reads enter every genotype's likelihood and cancel; the scaling "
+              "restores them. It also means GQ here is a quality score rather than a "
+              "calibrated posterior. GQI is the unscaled value; --no-share-quality restores "
+              "it as GQ\">\n";
+    header += "##FORMAT=<ID=GQI,Number=1,Type=Integer,Description=\"Genotype Quality from the "
+              "likelihood ratio alone, with no explained-read-fraction scaling. Equals GQ "
+              "when --no-share-quality is in effect\">\n";
     header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
               "log-scaled posterior of the called genotype under a uniform prior\">\n";
     header += "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "

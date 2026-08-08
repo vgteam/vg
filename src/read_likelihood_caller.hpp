@@ -87,6 +87,15 @@ public:
         /// measures whether reads fit *anything* here, where GQ measures only how far
         /// apart the top two genotypes are, so the two are close to independent.
         double mean_best_ln = 0;
+
+        /// Fraction of reads whose best-fitting allele is one of the *called* alleles,
+        /// derived from allele_support. 1.0 when the called genotype accounts for every
+        /// read at the site.
+        double explained_share = 1.0;
+
+        /// GQ before the explained-share discount, so the discount stays auditable and a
+        /// consumer that wants the raw likelihood-ratio quality can still have it.
+        double gq_undiscounted = 0;
     };
 
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
@@ -131,6 +140,30 @@ public:
     /// Write the matrix for every site to this stream as TSV. Not owned.
     void set_likelihood_dump(ostream* dump_stream);
 
+    /**
+     * Scale GQ by the fraction of reads the called genotype explains.
+     *
+     * The genotype likelihood compares genotypes using only *which* alleles each read
+     * fits, so a read that fits some allele the call does not contain is counted in every
+     * genotype's likelihood and cancels out of the comparison. GQ therefore says nothing
+     * about whether the called genotype accounts for the reads at all -- only about how
+     * far ahead of its nearest rival it is. Sites where a third of the reads prefer an
+     * uncalled allele get the same GQ as sites where none do.
+     *
+     * Discounting by that fraction improved the ranking of calls in every case measured:
+     * two chromosomes, a 4- and a 34-haplotype graph, and both a small-variant and a
+     * structural benchmark, at both moderate and high recall. The linear form was chosen
+     * over stronger ones (share^2, share^4, and a phred cap on the unexplained fraction)
+     * which score better on AUC but lose ground at high recall on some of those eight
+     * combinations; linear was the only form that never made any of them worse.
+     *
+     * This does cost something real: a discounted GQ is no longer the phred-scaled
+     * posterior odds of the top two genotypes, so it is a quality score rather than a
+     * calibrated probability. GQI keeps the undiscounted value for anyone who needs it.
+     * Off restores the previous behaviour exactly.
+     */
+    void set_share_discount(bool discount);
+
 protected:
 
     /// True if two traversals visit exactly the same nodes in the same
@@ -145,6 +178,9 @@ protected:
     /// False when running without a pack file, so the support finder is a
     /// NullTraversalSupportFinder and reports zero for everything.
     bool support_available = true;
+
+    /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.
+    bool share_discount = true;
 };
 
 }
