@@ -5,8 +5,11 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
+# Never index a FORMAT sub-field by position; find it by name in column 9 first. Adding a
+# FORMAT field shifts every later one, which broke four assertions here that were not
+# testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 136
+plan tests 138
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -153,25 +156,40 @@ is "$?" "0" "vg call default path still works with read-likelihood support compi
 vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > HGSVC_rl.vcf 2>/dev/null
 is "$?" "0" "vg call --read-likelihood runs"
 
-is $(grep -v "^#" HGSVC_rl.vcf | wc -l | tr -d ' ') $(grep -v "^#" HGSVC_rl.vcf | grep -c "GT:DP:GL:GQ:GP") "every read-likelihood record carries GL/GQ/GP"
+# Address FORMAT fields by NAME, never by position. This block previously hard-coded
+# "GT:DP:GL:GQ:GP" and read GL from sub-field 3; adding AD, BL and GQI moved GL to 5 and
+# broke three assertions at once, none of which was testing field order.
+RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
+is "${RL_MISSING}" "0" "every read-likelihood record carries the full FORMAT field set"
 
 # GL must have exactly one entry per genotype of the emitted alleles, or the
 # field is silently mislabelled.
-GL_BAD=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{n=split($5,alts,","); na=n+1; ng=na*(na+1)/2; split($10,f,":"); ngl=split(f[3],gl,","); if (ngl != ng) print}' | wc -l | tr -d ' ')
+GL_BAD=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); gi=0; for(j=1;j<=nk;j++) if(k[j]=="GL") gi=j; if(gi==0){print; next} n=split($5,alts,","); na=n+1; ng=na*(na+1)/2; split($10,f,":"); ngl=split(f[gi],gl,","); if (ngl != ng) print}' | wc -l | tr -d ' ')
 is "${GL_BAD}" "0" "every GL field has the VCF-required number of entries"
 
 # The called genotype must be the one GL says is most likely.
 # A tie makes the argmax genuinely ambiguous (a flat likelihood means the reads
 # say nothing), so require only that no OTHER genotype is strictly more likely.
-GT_MISMATCH=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{split($10,f,":"); gt=f[1]; ngl=split(f[3],gl,","); sub("/","|",gt); split(gt,a,"|"); lo=(a[1]<a[2]?a[1]:a[2]); hi=(a[1]<a[2]?a[2]:a[1]); idx=hi*(hi+1)/2+lo+1; if (idx<1 || idx>ngl) {print; next} for(i=1;i<=ngl;i++) if (gl[i]+0 > gl[idx]+0 + 1e-9) {print; next}}' | wc -l | tr -d ' ')
+GT_MISMATCH=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); gi=0; for(j=1;j<=nk;j++) if(k[j]=="GL") gi=j; if(gi==0){print; next} split($10,f,":"); gt=f[1]; ngl=split(f[gi],gl,","); sub("/","|",gt); split(gt,a,"|"); lo=(a[1]<a[2]?a[1]:a[2]); hi=(a[1]<a[2]?a[2]:a[1]); idx=hi*(hi+1)/2+lo+1; if (idx<1 || idx>ngl) {print; next} for(i=1;i<=ngl;i++) if (gl[i]+0 > gl[idx]+0 + 1e-9) {print; next}}' | wc -l | tr -d ' ')
 is "${GT_MISMATCH}" "0" "no genotype is strictly more likely than the one called"
+
+# GQ is GQI scaled by the explained-read fraction, so it can only ever be lower.
+# A sign error or an unclamped share above 1 would show up here and nowhere else.
+GQ_ABOVE_GQI=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); q=0; qi=0; for(j=1;j<=nk;j++){if(k[j]=="GQ") q=j; if(k[j]=="GQI") qi=j} if(q==0||qi==0){print; next} split($10,f,":"); if (f[q]+0 > f[qi]+0) print}' | wc -l | tr -d ' ')
+is "${GQ_ABOVE_GQI}" "0" "GQ never exceeds GQI"
+
+# ...and with the discount off the two must be identical, which is what makes
+# --no-share-quality a genuine restoration of the previous behaviour.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --no-share-quality --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > HGSVC_rl_nosq.vcf 2>/dev/null
+GQ_NE_GQI=$(grep -v "^#" HGSVC_rl_nosq.vcf | awk -F'\t' '{nk=split($9,k,":"); q=0; qi=0; for(j=1;j<=nk;j++){if(k[j]=="GQ") q=j; if(k[j]=="GQI") qi=j} split($10,f,":"); if (f[q] != f[qi]) print}' | wc -l | tr -d ' ')
+is "${GQ_NE_GQI}" "0" "--no-share-quality makes GQ equal GQI"
 
 # --read-likelihood without reads must fail loudly rather than genotype with none.
 vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -t 1 > /dev/null 2> rl_err.txt
 is "$?" "1" "--read-likelihood without --gam/--gaf is an error"
 is $(grep -c "requires reads" rl_err.txt) "1" "the error explains that reads are required"
 
-rm -f HGSVC_rl.xg HGSVC_rl.pack HGSVC_rl.vcf HGSVC_rl_default.vcf rl_err.txt
+rm -f HGSVC_rl.xg HGSVC_rl.pack HGSVC_rl.vcf HGSVC_rl_nosq.vcf HGSVC_rl_default.vcf rl_err.txt
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L
@@ -410,7 +428,7 @@ is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emi
 # with reference-supporting reads only, called it hom-ref, and dropped the record
 # entirely. The deletion must be called, and its DP must include those reads.
 is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "the parent deletion is called from boundary-to-boundary reads"
-is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG"{split($10,f,":"); print f[2]}') "300" "deletion-spanning reads are counted, not discarded"
+is $(grep -v "^#" ns_rl.vcf | awk -F'\t' '$4=="CATG"{nk=split($9,k,":"); di=0; for(j=1;j<=nk;j++) if(k[j]=="DP") di=j; split($10,f,":"); print f[di]}') "300" "deletion-spanning reads are counted, not discarded"
 
 # Regression: half these reads are reverse strand. Failing to flip them meant they
 # anchored on nothing and scored against the wrong allele, which turned the nested
@@ -436,7 +454,7 @@ vg pack -x ns.vg -g ns_mix.gam -o ns_mix.pack 2>/dev/null
 vg call ns.vg -k ns_mix.pack --top-down -Y -p x --read-likelihood --gam ns_mix.gam 2>/dev/null > ns_mix.vcf
 
 is $(grep -v "^#" ns_mix.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "mixed-read nested site still yields a star allele"
-STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk '$5=="*"{split($10,f,":"); print f[3]}')
+STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk -F'\t' '$5=="*"{nk=split($9,k,":"); qi=0; for(j=1;j<=nk;j++) if(k[j]=="GQ") qi=j; split($10,f,":"); print f[qi]}')
 is $(if [ "${STAR_GQ}" -gt 100 ]; then echo 1; else echo 0; fi) "1" "a singly-traversed nested site is genotyped at its own ploidy, not diluted by a spurious het"
 
 rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_mix.gam ns_mix.pack ns_mix.vcf
