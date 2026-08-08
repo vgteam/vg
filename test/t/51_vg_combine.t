@@ -45,7 +45,7 @@ vg combine -p x.vg y.vg z.vg > xyz.vg
 
 is $(vg stats -z xyz.vg | grep nodes | awk '{print $2}') 645 "path combined graph as correct total nodes"
 is $(vg stats -z xyz.vg | grep edges | awk '{print $2}') 890 "path combined path graph as correct total edges"
-is $(vg paths -Ev xyz.vg | wc -l) 1 "path combined graph as correct number of paths"
+is $(vg paths -Ev xyz.vg | wc -l | tr -d ' ') 1 "path combined graph as correct number of paths"
 is $(vg paths -Ev xyz.vg | awk '{print $2}') 3003 "combined path has correct size"
 
 rm -f x.vg y.vg z.vg xyz.vg

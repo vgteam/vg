@@ -30,7 +30,7 @@ is "${?}" "0" "vg construct can skip self-inconsistent structural variants"
 
 rm -f z.vg
 
-is $(vg construct -r 1mb1kgp/z.fa | vg view -j - | jq -c '.node[] | select((.sequence | length) >= 1024)' | wc -l) 0 "node size is manageable by default"
+is $(vg construct -r 1mb1kgp/z.fa | vg view -j - | jq -c '.node[] | select((.sequence | length) >= 1024)' | wc -l | tr -d ' ') 0 "node size is manageable by default"
 
 vg construct -m 1000 -r complex/c.fa -v complex/c.vcf.gz >c.vg
 is $? 0 "construction of a very complex region succeeds"
@@ -51,7 +51,7 @@ is $order_a $order_b "the ordering of variants at the same position has no effec
 vg construct -r order/n.fa -v order/z.vcf.gz -R n:47-73 >/dev/null
 is $? 0 "construction does not fail when the first position in the VCF is repeated and has an indel"
 
-x1=$(for i in $(seq 100); do size=$(shuf -i 1-100 -n 1); threads=1; vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum; done | sort | uniq | wc -l)
+x1=$(for i in $(seq 100); do size=$(shuf -i 1-100 -n 1); threads=1; vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum; done | sort | uniq | wc -l | tr -d ' ')
 
 is $x1 1 "the size of the regions used in construction has no effect on the graph"
 
@@ -59,7 +59,7 @@ x2=$(for i in $(seq 100); do
     size=10;
     threads=$(shuf -i 1-$(nproc) -n 1);
     vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum;
-    done | sort | uniq | wc -l)
+    done | sort | uniq | wc -l | tr -d ' ')
 
 is $x2 1 "the number of threads used in construction has no effect on the graph"
 
@@ -67,7 +67,7 @@ x3=$(for i in $(seq 100); do
     size=$(shuf -i 1-$(nproc) -n 1);
     threads=$(shuf -i 1-100 -n 1);
     vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum;
-    done | sort | uniq | wc -l)
+    done | sort | uniq | wc -l | tr -d ' ')
 
 is $x3 1 "the number of threads and regions used in construction has no effect on the graph"
 
@@ -88,7 +88,7 @@ graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 
 
 is "$graphbp" $(echo "$refbp + $variantbp" | bc) "the graph contains all the sequence in the reference and VCF"
 
-is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i | vg stats -l - | cut -f 2; done | sort | uniq | wc -l) 1 "varying the max node size does not affect graph length"
+is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i | vg stats -l - | cut -f 2; done | sort | uniq | wc -l | tr -d ' ') 1 "varying the max node size does not affect graph length"
 
 max_node_size=$(vg construct -r small/x.fa -v small/x.vcf.gz -m 12 | vg view -g - | grep ^S | cut -f 3 | awk '{ print length($1) }' | sort -n | tail -1)
 
@@ -100,10 +100,10 @@ is $(vg construct -m 1000 -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz |
 vg construct -r small/x.fa >/dev/null
 is $? 0 "vg construct does not require a vcf"
 
-(( short_enough=$(vg construct -r small/x.fa -m 50 | vg view - | grep "^S" | cut -f3 | wc -l) < 51 ? 1 : 0 ))
+(( short_enough=$(vg construct -r small/x.fa -m 50 | vg view - | grep "^S" | cut -f3 | wc -l | tr -d ' ') < 51 ? 1 : 0 ))
 is $short_enough 1 "vg construct respects node size limit"
 
-is $(vg construct -CR 'gi|568815592:29791752-29792749' -r GRCh38_alts/FASTA/HLA/V-352962.fa | vg view - | grep TCTAGAAGAGTCCACGGGGACAGGTAAG | wc -l) 1 "--region can be interpreted to be a reference sequence (and not parsed as a region spec)"
+is $(vg construct -CR 'gi|568815592:29791752-29792749' -r GRCh38_alts/FASTA/HLA/V-352962.fa | vg view - | grep TCTAGAAGAGTCCACGGGGACAGGTAAG | wc -l | tr -d ' ') 1 "--region can be interpreted to be a reference sequence (and not parsed as a region spec)"
 
 is "$(vg construct -r sv/x.fa -v sv/x.inv.vcf -S | vg view - | sort | md5sum | cut -f 1 -d\ )" "$(cat sv/x.inv.gfa | sort | md5sum | cut -f1 -d\ )" "vg constructs the correct graph for inversions"
 
