@@ -74,7 +74,9 @@ const static std::map<std::string, std::string> REMOVED_CMD_MESSAGES{
     {"msga", std::string("vg msga was an early prototype for constructing genome graphs "
                          "from multiple sequence alignments, but VG team members have developed "
                          "improved graph construction algorithms in Cactus and PGGB, "
-                         "and several other tools have been developed by other groups.")}
+                         "and several other tools have been developed by other groups.")
+    },
+    {"concat", "Please use the more flexible and updated 'vg combine' to merge graphs"}
  };
 
 /// Define a way to print the titles of the different categories
