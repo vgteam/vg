@@ -74,6 +74,19 @@ public:
         /// The traversals that were scored, in matrix column order. Kept so the
         /// deduplicated traversals handed to update_vcf_info can be mapped back.
         vector<SnarlTraversal> scored_traversals;
+
+        /// Reads whose best-fitting allele is each scored allele, in matrix column
+        /// order. A read fitting several alleles equally splits its vote between them
+        /// rather than going to the lowest index: at multi-allelic sites many reads are
+        /// genuinely undecided, and awarding those to one column would manufacture
+        /// allele balance that the reads do not support.
+        vector<double> allele_support;
+
+        /// Mean over reads of the best raw score any allele gave them -- the row
+        /// divisor, which the genotype likelihood divides out and never uses again. It
+        /// measures whether reads fit *anything* here, where GQ measures only how far
+        /// apart the top two genotypes are, so the two are close to independent.
+        double mean_best_ln = 0;
     };
 
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,

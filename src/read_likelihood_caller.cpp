@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <iomanip>
 #include <sstream>
 
 #include "statistics.hpp"
@@ -67,6 +68,39 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
 
     // Build the reads x alleles matrix for this site.
     AlleleReadLikelihoods matrix = likelihood_calculator.compute(snarl, traversals);
+
+    // Per-allele read support and mean absolute fit. Neither enters the genotype
+    // likelihood -- the row normalisation divides the absolute fit out, and the mixture
+    // uses only which alleles a read fits, not how the reads divide between them. Both
+    // are reported so that a caller downstream can use evidence the model discards.
+    call_info->allele_support.assign(matrix.num_alleles(), 0.0);
+    double best_ln_total = 0.0;
+    size_t best_ln_n = 0;
+    for (size_t r = 0; r < matrix.num_reads(); ++r) {
+        double best = 0.0;
+        for (size_t a = 0; a < matrix.num_alleles(); ++a) {
+            best = max(best, matrix.rel(r, a));
+        }
+        if (best > 0.0) {
+            size_t winners = 0;
+            for (size_t a = 0; a < matrix.num_alleles(); ++a) {
+                if (matrix.rel(r, a) >= best) {
+                    ++winners;
+                }
+            }
+            for (size_t a = 0; a < matrix.num_alleles(); ++a) {
+                if (matrix.rel(r, a) >= best) {
+                    call_info->allele_support[a] += 1.0 / (double)winners;
+                }
+            }
+        }
+        double bl = matrix.best_ln_likelihood(r);
+        if (std::isfinite(bl)) {
+            best_ln_total += bl;
+            ++best_ln_n;
+        }
+    }
+    call_info->mean_best_ln = best_ln_n ? best_ln_total / (double)best_ln_n : 0.0;
 
     call_info->n_informative = matrix.num_reads();
     call_info->n_unplaceable = matrix.num_unplaceable();
@@ -176,6 +210,16 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.format.push_back("DP");
     variant.samples[sample_name]["DP"].push_back(std::to_string(info->n_informative));
 
+    // Mean absolute fit. Reported rather than used: the model divides it out, but it
+    // separates true from false calls about as well as GQ does and is nearly
+    // uncorrelated with it, so a downstream filter can combine them.
+    variant.format.push_back("BL");
+    {
+        stringstream ss;
+        ss << std::fixed << std::setprecision(2) << info->mean_best_ln;
+        variant.samples[sample_name]["BL"].push_back(ss.str());
+    }
+
     // Map each emitted VCF allele back to the matrix column it came from.
     //
     // emit_variant deduplicated by allele string and dropped uncalled alleles, so
@@ -190,6 +234,28 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
                 site_to_scored[s] = (int)k;
                 break;
             }
+        }
+    }
+
+    // AD over the emitted alleles, through the same remap. Rounded to integers for the
+    // conventional Number=R Integer form. The total does not reconstruct DP, and at a
+    // busy site falls a long way below it: reads whose best-fitting allele was scored
+    // but never emitted have no column to land in, and a read that fits several alleles
+    // equally splits its vote. The shortfall is the useful part -- it is the share of
+    // reads the called genotype fails to explain -- so the header documents it rather
+    // than papering over it. An allele that maps to no scored column (a star allele)
+    // reports 0 rather than being omitted, since Number=R requires one entry per allele.
+    {
+        vector<long> ad(traversals.size(), 0);
+        for (size_t s = 0; s < traversals.size(); ++s) {
+            int k = site_to_scored[s];
+            if (k >= 0 && (size_t)k < info->allele_support.size()) {
+                ad[s] = lround(info->allele_support[k]);
+            }
+        }
+        variant.format.push_back("AD");
+        for (long v : ad) {
+            variant.samples[sample_name]["AD"].push_back(std::to_string(v));
         }
     }
 
@@ -292,6 +358,20 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
 void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
     header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of informative reads "
               "overlapping the site\">\n";
+    header += "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Reads whose best-fitting "
+        "allele is this one. **AD does not sum to DP**, for two reasons: a read fitting "
+        "several alleles equally splits its vote between them, and more importantly only "
+        "alleles that reached this record get a column, while the genotyper scored every "
+        "allele the site offered. At a site where many alleles were enumerated and few "
+        "emitted, most reads best-fit something absent here and the shortfall is large. "
+        "That shortfall is itself informative: it is how much of the evidence the emitted "
+        "alleles fail to explain. Not used by the genotype model, which assumes each "
+        "haplotype contributed 1/ploidy of the reads whatever they show\">\n";
+    header += "##FORMAT=<ID=BL,Number=1,Type=Float,Description=\"Mean over reads of the best "
+        "raw alignment score any allele gave them. Measures whether reads fit anything at "
+        "this site, where GQ measures only the gap between the top two genotypes, so the "
+        "two are nearly independent. NOT normalised for site size or read overlap, so it "
+        "is comparable between calls at similar sites rather than across a whole genome\">\n";
     header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, "
               "log10-scaled P(reads | genotype) from the read-level likelihood model. Useful for "
               "ranking; not a calibrated probability, and over-confident at high depth because "
