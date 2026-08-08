@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 138
+plan tests 204
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -22,42 +22,41 @@ vg index tiny_aug.vg -x tiny_aug.xg
 vg pack -x tiny_aug.xg -g empty_aug.gam -o tiny_aug.pack
 vg call tiny_aug.xg -k tiny_aug.pack > tiny_aug.vcf
 
-is $(grep -v '#' tiny_aug.vcf | wc -l) 0 "calling empty gam gives empty VCF"
+is $(grep -v '#' tiny_aug.vcf | wc -l | tr -d ' ') 0 "calling empty gam gives empty VCF"
+
+rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam
 
 # No ref paths test
-grep -v CHM13 graphs/haplotypes.gfa > only_haps.gfa
-vg convert --gfa-in only_haps.gfa > only_haps.vg
-vg index only_haps.vg -x only_haps.xg
+vg convert --gfa-in graphs/three_samples.gfa > only_haps.vg
+vg sim --sample sample2 -n 20 -l 5 --align-out --random-seed 79 --xg-name only_haps.vg > sample2.gam
+vg augment only_haps.vg sample2.gam -A sample2.aug.gam > only_haps.aug.vg
+vg index only_haps.aug.vg -x only_haps.aug.xg
+vg pack -x only_haps.aug.xg -g sample2.aug.gam -o sample2.aug.pack
 
-vg call only_haps.xg -k tiny_aug.pack 2> error.txt
-is "$?" 1 "Must be a non-reference path to call against"
+vg call only_haps.aug.xg -k sample2.aug.pack 2> error.txt
+is "$?" 1 "If no path is specified, there must be a reference path to fall back to"
 grep "REFERENCE or GENERIC" error.txt
 is "$?" 0 "Problem is explained in some detail"
 grep "Changing-References" error.txt
 is "$?" 0 "Hint towards solution provided"
 
-vg call only_haps.xg -k tiny_aug.pack -p "KOLF2.1J#1#chr1_1#0" 2> error.txt
-is "$?" 1 "-p path must be a reference"
-grep "REFERENCE or GENERIC" error.txt
+vg call only_haps.aug.xg -k sample2.aug.pack -p "sample1#1#A#0" > sample2.vcf
+is $(fgrep -v "#" sample2.vcf | wc -l | tr -d ' ') 2 "can call against a HAPLOTYPE sense -p path"
+
+vg call only_haps.aug.xg -k sample2.aug.pack -P "sample1#1" > sample2.vcf
+is $(fgrep -v "#" sample2.vcf | wc -l | tr -d ' ') 2 "can call against HAPLOTYPE sense -P paths"
+
+vg call only_haps.aug.xg -k sample2.aug.pack -S "sample1" > sample2.vcf
+is $(fgrep -v "#" sample2.vcf | wc -l | tr -d ' ') 2 "can call against HAPLOTYPE sense -S paths"
+
+vg call only_haps.aug.xg -k sample2.aug.pack -S "missing" 2> error.txt
+is "$?" 1 "-S sample must have usable paths"
+grep "REFERENCE or HAPLOTYPE" error.txt
 is "$?" 0 "Problem is explained in some detail"
 grep "Changing-References" error.txt
 is "$?" 0 "Hint towards solution provided"
 
-vg call only_haps.xg -k tiny_aug.pack -P "KOLF2.1J" 2> error.txt
-is "$?" 1 "-P paths must be references"
-grep "REFERENCE or GENERIC" error.txt
-is "$?" 0 "Problem is explained in some detail"
-grep "Changing-References" error.txt
-is "$?" 0 "Hint towards solution provided"
-
-vg call only_haps.xg -k tiny_aug.pack -S "KOLF2.1J" 2> error.txt
-is "$?" 1 "-S sample must have reference paths"
-grep "REFERENCE" error.txt
-is "$?" 0 "Problem is explained in some detail"
-grep "Changing-References" error.txt
-is "$?" 0 "Hint towards solution provided"
-
-rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam only_haps.vg only_haps.xg error.txt
+rm -f only_haps.vg only_haps.xg only_haps.aug.vg only_haps.aug.xg error.txt sample2.gam sample2.vcf sample2.aug.gam sample2.aug.pack
 
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
@@ -68,7 +67,7 @@ vg index mappedminitest_aug.vg -x mappedminitest_aug.xg
 vg pack -x mappedminitest_aug.xg -g mappedminitest_aug.gam -o mappedminitest_aug.pack
 vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack > calledminitest.vcf
 
-L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
+L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l | tr -d ' ')
 is "${L_COUNT}" "1" "Called microinversion"
 
 rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf  miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
@@ -84,7 +83,7 @@ vg index mappedminitest_aug.vg -x mappedminitest_aug.xg
 vg pack -x mappedminitest_aug.xg -g mappedminitest_aug.gam -o mappedminitest_aug.pack
 vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack -d 1 > calledminitest.vcf
 
-L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
+L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l | tr -d ' ')
 is "${L_COUNT}" "0" "Called no microinversion with haploid setting"
 
 rm -f miniFastaGraph.vg miniFastaFlat.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf calledminitest1.vcf miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
@@ -102,7 +101,7 @@ vg call HGSVC_alts.xg -k HGSVC_alts.pack -v call/HGSVC_chr22_17200000_17800000.v
 gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' > baseline_gts.txt
 # extract the called genotypes
 grep -v '#' HGSVC.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts.txt
-DIFF_COUNT=$(diff -U1000 <(nl baseline_gts.txt) <(nl gts.txt) | tail -n +4 | grep '^+' | wc -l)
+DIFF_COUNT=$(diff -U1000 <(nl baseline_gts.txt) <(nl gts.txt) | tail -n +4 | grep '^+' | wc -l | tr -d ' ')
 LESS_EIGHT=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
 is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called and true SV genotypes"
 
@@ -112,14 +111,14 @@ vg call HGSVC_alts.xg -k HGSVC_alts.pack -v call/HGSVC_chr22_17200000_17800000.v
 gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' | awk -F '|' '{print $1}'  > baseline_gts1.txt
 # extract the called genotypes
 grep -v '#' HGSVC1.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts1.txt
-DIFF_COUNT=$(diff -U1000 <(nl baseline_gts1.txt) <(nl gts1.txt) | tail -n +4 | grep '^+' | wc -l)
+DIFF_COUNT=$(diff -U1000 <(nl baseline_gts1.txt) <(nl gts1.txt) | tail -n +4 | grep '^+' | wc -l | tr -d ' ')
 LESS_EIGHT=$(if (( $DIFF_COUNT <= 8 )); then echo 1; else echo 0; fi)
 is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called haploid and truncated true SV genotypes"
 
 # call all the snarls with -a
 vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 -a > HGSVC2.vcf
-REF_COUNT_V=$(grep "0/0" HGSVC.vcf | wc -l)
-REF_COUNT_A=$(grep "0/0" HGSVC2.vcf | wc -l)
+REF_COUNT_V=$(grep "0/0" HGSVC.vcf | wc -l | tr -d ' ')
+REF_COUNT_A=$(grep "0/0" HGSVC2.vcf | wc -l | tr -d ' ')
 # this probably doesn't need to be exact (coincidence?), but it works now
 is "${REF_COUNT_V}" "${REF_COUNT_A}" "Same number of reference calls with -a as with -v"
 
@@ -136,7 +135,7 @@ is "$?" "0" "Calling from extracted traversals by way of GBWT produces same geno
 
 grep -v '#' HGSVC_travs.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > calls-travs.txt
 grep -v '#' HGSVC_direct.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > calls-direct.txt
-DIFF_COUNT=$(diff -U1000 <(nl calls-travs.txt) <(nl calls-direct.txt) | tail -n +4 | grep '^+' | wc -l)
+DIFF_COUNT=$(diff -U1000 <(nl calls-travs.txt) <(nl calls-direct.txt) | tail -n +4 | grep '^+' | wc -l | tr -d ' ')
 LESS_THREE=$(if (( $DIFF_COUNT < 3 )); then echo 1; else echo 0; fi)
 # because call makes an attempt to call multiple snarls at once when outputting traversals (to make bigger traversals)
 # there is some wobble here
@@ -224,7 +223,7 @@ vg augment msgas/c1.vg m.gam -A m.aug.gam >c.aug.vg
 vg index -x c.aug.xg c.aug.vg
 vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
 vg call c.aug.xg -k m.aug.pack -p s1 >m.vcf
-is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
+is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l | tr -d ' ') 3 "vg call finds true homozygous variants in a cyclic graph"
 rm -f c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 
 # simple gbwt
@@ -240,7 +239,7 @@ vg sim -x x.vg -P 1#1#x#0 -n 500 -a -s 23 >> sim.gam
 vg pack -x x.vg -o x.pack -g sim.gam
 vg call x.vg -k x.pack -a > call.vcf
 vg call x.vg -k x.pack -g x.gbwt > callg.vcf
-is "$(grep -v 0/0 callg.vcf | grep -v lowad | wc -l)" "$(grep -v 0/0 call.vcf | grep -v lowad | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
+is "$(grep -v 0/0 callg.vcf | grep -v lowad | wc -l | tr -d ' ')" "$(grep -v 0/0 call.vcf | grep -v lowad | wc -l | tr -d ' ')" "vg call finds same variants when using gbwt to enumerate traversals"
 # try with gbz
 vg call x.gbz -k x.pack -z > callz.vcf
 cat callg.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}' > callg.6
@@ -358,12 +357,12 @@ vg construct -r x_sub1.fa -v x_sub1.vcf.gz -r x_sub2.fa -v x_sub2.vcf.gz > x_sub
 vg sim -x x_subs.vg -n 1000 -a -s 23 > sim.gam
 vg pack -x x_subs.vg -o x_subs.pack -g sim.gam
 vg call x_subs.vg -k x_subs.pack > x_subs.vcf
-is $(grep "^##contig=<ID=x,length=11001>" x_subs.vcf | wc -l) 1 "vg call makes currect base path header with subpath input"
-is $(grep "^##contig" x_subs.vcf | wc -l) 1 "vg call makes only currect base path header with subpath input"
-is "$(grep -v "^#" x_subs.vcf | wc -l)" "$(grep "^x" x_subs.vcf | grep -v "\[" | wc -l)" "vg call only reports base paths with subpath input"
+is $(grep "^##contig=<ID=x,length=11001>" x_subs.vcf | wc -l | tr -d ' ') 1 "vg call makes currect base path header with subpath input"
+is $(grep "^##contig" x_subs.vcf | wc -l | tr -d ' ') 1 "vg call makes only currect base path header with subpath input"
+is "$(grep -v "^#" x_subs.vcf | wc -l | tr -d ' ')" "$(grep "^x" x_subs.vcf | grep -v "\[" | wc -l | tr -d ' ')" "vg call only reports base paths with subpath input"
 vg call x_subs.vg -k x_subs.pack -p x -l 50000 > x_subs_override.vcf
-is $(grep "^##contig=<ID=x,length=50000>" x_subs_override.vcf | wc -l) 1 "vg call makes currect base path header with subpath input and override"
-is $(grep "^##contig" x_subs_override.vcf | wc -l) 1 "vg call makes only currect base path header with subpath input and override"
+is $(grep "^##contig=<ID=x,length=50000>" x_subs_override.vcf | wc -l | tr -d ' ') 1 "vg call makes currect base path header with subpath input and override"
+is $(grep "^##contig" x_subs_override.vcf | wc -l | tr -d ' ') 1 "vg call makes only currect base path header with subpath input and override"
 grep -v "##contig" x_subs.vcf > x_subs_nocontig.vcf
 grep -v "##contig" x_subs_override.vcf > x_subs_override_nocontig.vcf
 diff x_subs_nocontig.vcf x_subs_override_nocontig.vcf
@@ -371,21 +370,262 @@ is $? 0 "overriding contig length does not change calls"
 
 rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
 
-# Test: Clustering option (-L) in vg call
+# Test: -L/--cluster merges near-identical called alt alleles after genotyping, so a 1/2 call of two
+# effectively-identical alleles becomes 1/1.  Two alt paths differing by one 1bp node; reads are
+# simulated from each separately so both alleles get support and the site really is called 1/2.
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - > small_cluster_call.gfa
 printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster_call.gfa
-printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster_call.gfa
-printf "P\tz\t1+,9+\t*\n" >> small_cluster_call.gfa
+printf "P\tyA\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster_call.gfa
+printf "P\tyB\t1+,2+,4+,6+,8+,9+\t*\n" >> small_cluster_call.gfa
 vg view -Fv small_cluster_call.gfa > small_cluster_call.vg
-vg sim -x small_cluster_call.vg -n 100 -l 20 -a -s 1 > small_cluster_call.gam
+vg sim -x small_cluster_call.vg -P yA -n 40 -l 20 -a -s 1 > call_a.gam
+vg sim -x small_cluster_call.vg -P yB -n 40 -l 20 -a -s 2 > call_b.gam
+cat call_a.gam call_b.gam > small_cluster_call.gam
 vg pack -x small_cluster_call.vg -g small_cluster_call.gam -o small_cluster_call.pack
-# Call without clustering
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down > call_no_cluster.vcf 2>/dev/null
-# Call with clustering
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.3 > call_cluster.vcf 2>/dev/null
-is $(grep -v "^#" call_no_cluster.vcf | wc -l) $(grep -v "^#" call_cluster.vcf | wc -l) "clustering does not change number of variant sites in vg call"
 
-rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_no_cluster.vcf call_cluster.vcf
+call_site() { awk -F'\t' -v c="$2" '$2 == 9 {print $c}' "$1"; }
+
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x > call_no_cluster.vcf 2>/dev/null
+is "$(call_site call_no_cluster.vcf 5)"  "ATTTGA,ATTTGG" "vg call emits two near-identical alts without -L"
+is "$(call_site call_no_cluster.vcf 10 | cut -f1 -d:)" "1/2" "vg call genotypes them 1/2 without -L"
+
+# -L 1.0 is the default, so this pins that the merge is off there and that the MAT header line the
+# feature adds does not appear.  (The diff alone would be a tautology: there is no "was -L given"
+# flag, so -L 1.0 and no -L are the same internal state.)
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 1.0 > call_cluster_off.vcf 2>/dev/null
+diff call_no_cluster.vcf call_cluster_off.vcf
+is "$?" 0 "-L 1.0 is byte-identical to no -L"
+is "$(grep -c 'ID=MAT' call_cluster_off.vcf)" "0" "-L 1.0 does not declare MAT in the header"
+
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len 0 > call_cluster.vcf 2>/dev/null
+is "$(call_site call_cluster.vcf 5)" "ATTTGA" "-L merges the near-identical alt alleles"
+is "$(call_site call_cluster.vcf 10 | cut -f1 -d:)" "1/1" "-L turns the 1/2 call into 1/1"
+is "$(call_site call_cluster.vcf 10 | cut -f3 -d:)" "0,47" "-L sums AD onto the surviving allele"
+is "$(call_site call_cluster.vcf 10 | cut -f8 -d:)" "47" "-L recomputes MAD from the folded AD"
+# the whole point of merging after update_vcf_info: the genotyper saw every candidate, so the
+# site-level evidence is identical to the unmerged run
+is "$(call_site call_cluster.vcf 6)" "$(call_site call_no_cluster.vcf 6)" "-L leaves QUAL unchanged"
+is "$(echo "$(call_site call_cluster.vcf 8)" | grep -o 'DP=[0-9]*')" "$(echo "$(call_site call_no_cluster.vcf 8)" | grep -o 'DP=[0-9]*')" "-L leaves DP unchanged"
+# merging after flatten_common_allele_ends keeps the surviving allele anchored where it was
+is "$(call_site call_cluster.vcf 4)" "$(call_site call_no_cluster.vcf 4)" "-L leaves REF unchanged"
+is "$(awk -F'\t' '$3==">1>9"{print $2}' call_cluster.vcf)" "$(awk -F'\t' '$3==">1>9"{print $2}' call_no_cluster.vcf)" "-L leaves POS unchanged"
+# assert the VALUES, not just the count: vg emits GL i-major, and a spec-ordered fold would
+# still produce three fields while putting the wrong number in the middle
+is "$(call_site call_cluster.vcf 10 | cut -f4 -d:)" "-111.563773,-26.511924,-4.458384" "-L folds GL by max over the merged genotype classes"
+is "$(grep -v '^#' call_cluster.vcf | grep -c '')" "$(grep -v '^#' call_no_cluster.vcf | grep -c '')" "-L never deletes a variant record"
+is "$(call_site call_cluster.vcf 8 | grep -o 'MAT=[^;]*')" "MAT=2>1:0.714" "-L records what it merged in MAT"
+is "$(grep -c 'ID=MAT' call_no_cluster.vcf)" "0" "the MAT header is absent when -L is not used"
+is "$(grep -c 'ID=MAT' call_cluster.vcf)" "1" "and present when it is"
+
+# the threshold is the same weighted-Jaccard as vg deconstruct -L: these two alts score 5/7
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7143 --cluster-min-len 0 > call_cluster_hi.vcf 2>/dev/null
+is "$(call_site call_cluster_hi.vcf 5)" "ATTTGA,ATTTGG" "-L just above the Jaccard does not merge"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.7142 --cluster-min-len 0 > call_cluster_lo.vcf 2>/dev/null
+is "$(call_site call_cluster_lo.vcf 5)" "ATTTGA" "-L just below the Jaccard merges"
+# and vg deconstruct flips at the same place on the same graph.  Assert the merge DECISION -- how
+# many alts survive -- not which one survives: the two tools pick a cluster's survivor by different
+# rules (vg call by allele depth, vg deconstruct by get_traversal_order's ranking), so pinning the
+# sequence here would make an unrelated path rename in the fixture fail this test with a message
+# blaming the threshold.
+n_alts() { awk -F'\t' '$2==9{print split($5,a,",")}' "$1"; }
+vg deconstruct small_cluster_call.gfa -p x -L 0.7143 --cluster-min-len 0 2>/dev/null > decon_hi.vcf
+vg deconstruct small_cluster_call.gfa -p x -L 0.7142 --cluster-min-len 0 2>/dev/null > decon_lo.vcf
+is "$(n_alts decon_hi.vcf)" "$(n_alts call_cluster_hi.vcf)" "vg call and vg deconstruct agree above the threshold"
+is "$(n_alts decon_lo.vcf)" "$(n_alts call_cluster_lo.vcf)" "vg call and vg deconstruct agree below the threshold"
+
+# --cluster-min-len gates per site, exactly as in vg deconstruct.  This site's core length is 6 bp.
+for N in 0 6 7 50 ; do
+    vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len $N > call_minlen_$N.vcf 2>/dev/null
+done
+is "$(call_site call_minlen_0.vcf 5)"  "ATTTGA"        "--cluster-min-len 0 merges everywhere"
+is "$(call_site call_minlen_6.vcf 5)"  "ATTTGA"        "--cluster-min-len at the site length still merges"
+is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length gates merging"
+is "$(call_site call_minlen_50.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len 50 restricts merging to SVs"
+# 50 is the DEFAULT, so -L on its own must behave like --cluster-min-len 50 and leave this 6bp site
+# alone.  Every merge assertion above has to pass --cluster-min-len 0 for exactly this reason.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 > call_minlen_default.vcf 2>/dev/null
+diff call_minlen_50.vcf call_minlen_default.vcf
+is "$?" 0 "-L alone gates like --cluster-min-len 50, the default"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 > call_minlen_only.vcf 2>/dev/null
+diff call_no_cluster.vcf call_minlen_only.vcf
+is "$?" 0 "--cluster-min-len without -L is a no-op"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 2>&1 >/dev/null | grep -q "no effect without -L"
+is "$?" 0 "--cluster-min-len without -L warns"
+
+# The gate must read the alleles the record emits, not the traversal finder's candidate list.
+# Adding a long branch with no reads -- absent from the genotype and from every AT entry -- must not
+# change whether merging happens.
+cp small_cluster_call.gfa minlen_ghost.gfa
+printf "S\t9999\t%s\n" "$(printf 'ACGT%.0s' $(seq 1 50))" >> minlen_ghost.gfa
+printf "L\t1\t+\t9999\t+\t0M\n" >> minlen_ghost.gfa
+printf "L\t9999\t+\t9\t+\t0M\n" >> minlen_ghost.gfa
+vg view -Fv minlen_ghost.gfa > minlen_ghost.vg
+vg pack -x minlen_ghost.vg -g small_cluster_call.gam -o minlen_ghost.pack
+vg call minlen_ghost.vg -k minlen_ghost.pack -p x -L 0.6 --cluster-min-len 50 > call_minlen_ghost.vcf 2>/dev/null
+is "$(call_site call_minlen_ghost.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len ignores uncalled candidate traversals"
+
+# When two alleles merge, the surviving sequence must be the better-supported one: the finder ranks
+# by length-weighted average flow on large snarls, which can put a short lightly-supported allele
+# first, and merging into it would emit the minority sequence as a hom-alt carrying the pooled depth.
+vg view -Fv nesting/merge_support.gfa > merge_support.vg
+vg sim -x merge_support.vg -P hapA -n 40  -l 120 -a -s 5 > merge_a.gam
+vg sim -x merge_support.vg -P hapB -n 120 -l 120 -a -s 6 > merge_b.gam
+cat merge_a.gam merge_b.gam > merge_support.gam
+vg pack -x merge_support.vg -g merge_support.gam -o merge_support.pack
+vg call merge_support.vg -k merge_support.pack -p x > merge_plain.vcf 2>/dev/null
+vg call merge_support.vg -k merge_support.pack -p x -L 0.4 --cluster-min-len 0 > merge_L.vcf 2>/dev/null
+is "$(grep -v '^#' merge_plain.vcf | cut -f10 | cut -f3 -d:)" "0,20,62" "the unmerged call has a clear minority and majority allele"
+is "$(grep -v '^#' merge_L.vcf | cut -f5)" "$(grep -v '^#' merge_plain.vcf | cut -f5 | cut -f2 -d,)" "the merge keeps the better-supported allele's sequence"
+is "$(grep -v '^#' merge_L.vcf | cut -f10 | cut -f3 -d:)" "0,82" "the merge folds both alleles' depth onto the survivor"
+
+rm -f minlen_ghost.gfa minlen_ghost.vg minlen_ghost.pack call_minlen_ghost.vcf
+rm -f merge_support.vg merge_support.gam merge_support.pack merge_a.gam merge_b.gam merge_plain.vcf merge_L.vcf
+
+# -L must be rejected rather than silently ignored: -v and -G/-T never reach
+# VCFOutputCaller::emit_variant at all, while -B reaches it but reports QUAL/XADL/lowxadl for a
+# het the merge would erase.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -v small/x.vcf.gz >/dev/null 2>&1
+is "$?" 1 "-L is rejected when genotyping a VCF"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -G >/dev/null 2>&1
+is "$?" 1 "-L is rejected with GAF output"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -B >/dev/null 2>&1
+is "$?" 1 "-L is rejected with the ratio caller"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --legacy >/dev/null 2>&1
+is "$?" 1 "-L is rejected with the legacy caller"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -d 1 2>&1 >/dev/null | grep -q "no effect at ploidy 1"
+is "$?" 0 "-L warns at ploidy 1"
+# -R sets ploidy per contig and the contig list is not known until the graph is loaded, so a -R rule
+# does not trigger the warning -- and must not fail the run either
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -R 'nosuchcontig:1' >/dev/null 2>&1
+is "$?" 0 "-L accepts a -R rule that matches no called contig"
+# unlike vg deconstruct, which clamps, we reject: -L 5 is a plausible typo for -L 0.5
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 5 >/dev/null 2>&1
+is "$?" 1 "-L out of range is an error"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len=-1 >/dev/null 2>&1
+is "$?" 1 "negative --cluster-min-len is an error"
+# --cluster-post shipped through v1.76 as an accepted no-op.  It stays accepted for one release so
+# pipelines carrying it do not die on an unrecognized option, but it now says so.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-post >/dev/null 2>&1
+is "$?" 0 "the deprecated --cluster-post option is still accepted"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-post 2>&1 >/dev/null | grep -q "deprecated and ignored"
+is "$?" 0 "--cluster-post warns that it is ignored"
+
+# In a nested run a merged parent deliberately disagrees with its own child records: the parent
+# gives the collapsed view of a large variant, the children give the precise one.  MAT records it.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -L 0.6 --cluster-min-len 0 > call_cluster_td.vcf 2>/dev/null
+is "$(call_site call_cluster_td.vcf 5)" "ATTTGA" "-L merges under --top-down"
+# -Y is the one nested combination refused: it writes "*" in a child record to mean "an upstream
+# deletion covers this site", and the merge can absorb the parent allele that deletion came from,
+# leaving the "*" referring to nothing in the file.  Malformed, not merely lossy.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --top-down -Y -L 0.6 >/dev/null 2>&1
+is "$?" 1 "-L is rejected with -Y/--star-allele"
+
+# The gref workflow, which is what nested -L is for: the reference bypasses a 121bp insertion, so
+# the insertion's interior is only reachable as a gref fragment contig.  The insertion is an SV by
+# the --cluster-min-len 50 default, so it merges without the gate having to be turned off.
+A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
+A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
+{ printf "H\tVN:Z:1.0\n"
+  printf "S\t1\t$A20\nS\t2\t$C60\nS\t3\tG\nS\t4\tT\nS\t5\t$A60\nS\t6\t$T20\n"
+  printf "L\t1\t+\t6\t+\t0M\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n"
+  printf "L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t5\t+\t6\t+\t0M\n"
+  printf "P\tx\t1+,6+\t*,*\n"
+  printf "P\ts#1#hapA\t1+,2+,3+,5+,6+\t*,*,*,*,*\n"
+  printf "P\ts#2#hapB\t1+,2+,4+,5+,6+\t*,*,*,*,*\n"; } > nlg.gfa
+vg paths --compute-gref -Q x --min-gref-len 1 -x nlg.gfa > nlg.pg 2>/dev/null
+vg sim -x nlg.pg -P "s#1#hapA#0" -n 200 -l 30 -a -s 3 > nlg_a.gam 2>/dev/null
+vg sim -x nlg.pg -P "s#2#hapB#0" -n 200 -l 30 -a -s 4 > nlg_b.gam 2>/dev/null
+cat nlg_a.gam nlg_b.gam > nlg.gam
+vg pack -x nlg.pg -g nlg.gam -o nlg.pack 2>/dev/null
+nlg_field() { awk -F'\t' -v c="$2" -v f="$3" '$1==c && $1!~/^#/{print $f}' "$1"; }
+vg call nlg.pg -k nlg.pack -P gref_x -A > nlg_plain.vcf 2>/dev/null
+vg call nlg.pg -k nlg.pack -P gref_x -A -L 0.9 > nlg_L.vcf 2>/dev/null
+is "$(nlg_field nlg_plain.vcf gref_x 5 | awk '{print split($0,a,",")}')" "2" "the unmerged gref parent has both insertion alleles"
+is "$(nlg_field nlg_L.vcf gref_x 5 | awk '{print split($0,a,",")}')" "1" "-L merges them at the default --cluster-min-len, the insertion being an SV"
+is "$(nlg_field nlg_L.vcf gref_x 8 | grep -c 'MAT=')" "1" "and says so in MAT"
+# the merge is parent-only: the nested record on the gref fragment keeps the precise variant
+is "$(nlg_field nlg_L.vcf gref_x_1_alt 1-11)" "$(nlg_field nlg_plain.vcf gref_x_1_alt 1-11)" "the child record on the gref fragment is untouched by the merge"
+rm -f nlg.gfa nlg.pg nlg_a.gam nlg_b.gam nlg.gam nlg.pack nlg_plain.vcf nlg_L.vcf
+
+# --bottom-up had zero coverage anywhere in the suite.  It aborted on any nested graph whose
+# reference traversal crosses a child snarl, because a child-snarl Visit carries no node.
+vg view -Fv nesting/nested_snp_in_del.gfa > bu.vg
+vg sim -x bu.vg -n 30 -l 10 -a -s 1 > bu.gam
+vg pack -x bu.vg -g bu.gam -o bu.pack
+vg call bu.vg -k bu.pack -p x --bottom-up > bu.vcf 2>/dev/null
+is "$?" 0 "--bottom-up does not abort on a nested graph"
+is "$(grep -vc '^#' bu.vcf)" "1" "--bottom-up emits a record"
+# NestedFlowCaller's Snarl-carrying Visits break the GAF emitters: -T aborted in to_mapping and -G
+# emitted a header with no records.  Rejected rather than left silently inert.
+vg call bu.vg -k bu.pack -p x --bottom-up -T >/dev/null 2>&1
+is "$?" 1 "--bottom-up is rejected with -T"
+vg call bu.vg -k bu.pack -p x --bottom-up -G >/dev/null 2>&1
+is "$?" 1 "--bottom-up is rejected with -G"
+rm -f bu.vg bu.gam bu.pack bu.vcf
+
+# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
+# every allele are stripped -- not on the raw snarl interior.  Same rule, same helper, as
+# vg deconstruct: without it a 1bp SNP gets gated on the size of whatever snarl contains it.
+core_pack() {
+    vg view -Fv nesting/$1.gfa > core_$1.vg
+    vg sim -x core_$1.vg -P hapA -n 40 -l 60 -a -s 5 > core_a.gam
+    vg sim -x core_$1.vg -P hapB -n 40 -l 60 -a -s 6 > core_b.gam
+    cat core_a.gam core_b.gam > core_$1.gam
+    vg pack -x core_$1.vg -g core_$1.gam -o core_$1.pack
+}
+core_nalt() { vg call core_$1.vg -k core_$1.pack -p x -L 0.6 --cluster-min-len $2 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+for g in core_snp_in_flanks core_sv60 core_del61 core_ins49 core_ins50 ; do core_pack $g ; done
+
+is "$(core_nalt core_snp_in_flanks 50)" "2" "a 1bp SNP in a large snarl is not merged at --cluster-min-len 50"
+is "$(core_nalt core_snp_in_flanks 1)"  "1" "the same SNP is merged at --cluster-min-len 1"
+is "$(core_nalt core_sv60 50)"          "1" "a 60bp SV is still merged at --cluster-min-len 50"
+is "$(core_nalt core_del61 50)"         "1" "a 61bp deletion is still merged (the reference allele is measured)"
+is "$(core_nalt core_ins49 50)"         "2" "a 49bp insertion is not merged at 50 (the anchor base is not counted)"
+is "$(core_nalt core_ins50 50)"         "1" "a 50bp insertion is merged at 50"
+
+# Pure deletions: see the matching block in 26_deconstruct.t.  Both tools must make the SAME merge
+# decision, so the ladders are compared directly.  Compare COUNTS, never sequences -- vg call keeps
+# the highest-depth allele and vg deconstruct keeps whichever get_traversal_order ranks first, so the
+# surviving sequence legitimately differs.
+for g in del59_vs_del60 del60_vs_del59ins1 del60_vs_snp inv60_vs_del60 inv60_in_2kb unrelated10_in_2kb ; do core_pack $g ; done
+cladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg call core_$1.vg -k core_$1.pack -p x -L $L 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+dladder2() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg deconstruct nesting/$1.gfa -p x -L $L 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+
+is "$(cladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion merge, flipping at 59/60"
+is "$(cladder del60_vs_del59ins1)" "22111" "a deletion merges with a deletion carrying a novel base"
+is "$(cladder del60_vs_snp)"       "22222" "a 60bp deletion never merges with a 60bp substitution"
+is "$(cladder inv60_vs_del60)"     "22222" "a 60bp inversion never merges with a 60bp deletion"
+is "$(cladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion mergeable"
+is "$(cladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles mergeable"
+is "$(cladder del59_vs_del60)"     "$(dladder2 del59_vs_del60)"     "vg call and vg deconstruct agree on deletions"
+is "$(cladder inv60_in_2kb)"       "$(dladder2 inv60_in_2kb)"       "vg call and vg deconstruct agree on non-merges"
+
+rm -f core_*.vg core_*.gam core_*.pack
+
+# Crash regressions.  None of these modes had any coverage, which is how all three survived.
+# -R/--ploidy-regex bypassed the {1,2} ploidy check that -d gets, and reached the caller as an
+# unsupported ploidy.  The check runs where the rule is applied, so a rule that matches none of the
+# called contigs is still accepted.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:3' >/dev/null 2>&1
+is "$?" 1 "-R rejects a ploidy the callers do not implement"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:2' >/dev/null 2>&1
+is "$?" 0 "-R still accepts ploidy 2"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'chrY:3' >/dev/null 2>&1
+is "$?" 0 "-R accepts an unsupported ploidy on a contig that is not being called"
+# -G built a re-indexed traversal vector but kept the original reference index, then indexed the
+# small vector with it.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null
+is "$?" 0 "-G does not crash"
+is "$(grep -c . call_gaf.gaf)" "11" "-G emits a GAF record per called traversal"
+rm -f call_gaf.gaf
+
+rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_a.gam call_b.gam
+rm -f call_no_cluster.vcf call_cluster.vcf call_cluster_off.vcf call_cluster_hi.vcf call_cluster_lo.vcf call_cluster_td.vcf
+rm -f call_minlen_0.vcf call_minlen_6.vcf call_minlen_7.vcf call_minlen_50.vcf call_minlen_only.vcf call_minlen_default.vcf decon_hi.vcf decon_lo.vcf
 
 # Test: Nested calling with vg call --top-down (basic test)
 # Use a larger graph with clear variants
@@ -394,7 +634,7 @@ vg sim -x nested_call_test.vg -n 500 -l 50 -a -s 42 > nested_call_test.gam
 vg pack -x nested_call_test.vg -g nested_call_test.gam -o nested_call_test.pack
 vg call nested_call_test.vg -k nested_call_test.pack -p x --top-down > nested_call_test.vcf 2>/dev/null
 # Should produce at least one variant (the small/x graph has multiple variants)
-NESTED_VARIANT_COUNT=$(grep -v "^#" nested_call_test.vcf | wc -l)
+NESTED_VARIANT_COUNT=$(grep -v "^#" nested_call_test.vcf | wc -l | tr -d ' ')
 is $(if [ "$NESTED_VARIANT_COUNT" -ge 1 ]; then echo "1"; else echo "0"; fi) "1" "nested vg call produces at least one variant"
 
 rm -f nested_call_test.vg nested_call_test.gam nested_call_test.pack nested_call_test.vcf
@@ -406,7 +646,7 @@ vg sim -x nested_snp.vg -n 100 -l 5 -a -s 42 > nested_snp.gam
 vg pack -x nested_snp.vg -g nested_snp.gam -o nested_snp.pack
 vg call nested_snp.vg -k nested_snp.pack --top-down -p x 2>/dev/null > nested_snp.vcf
 # Should have exactly 2 variant lines: one for top-level snarl (1->6) and one for nested snarl (2->5)
-NESTED_LINE_COUNT=$(grep -v "^#" nested_snp.vcf | wc -l)
+NESTED_LINE_COUNT=$(grep -v "^#" nested_snp.vcf | wc -l | tr -d ' ')
 is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl variants"
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
@@ -468,15 +708,6 @@ is "$?" 0 "star allele option requires top-down mode"
 
 rm -f star_test.vg star_test.gam star_test.pack
 
-# Test: Cluster-post validation (requires -L < 1.0)
-vg construct -r small/x.fa -v small/x.vcf.gz > cluster_post_test.vg
-vg sim -x cluster_post_test.vg -n 100 -l 20 -a -s 1 > cluster_post_test.gam
-vg pack -x cluster_post_test.vg -g cluster_post_test.gam -o cluster_post_test.pack
-vg call cluster_post_test.vg -k cluster_post_test.pack --cluster-post 2>&1 | grep -q "requires -L/--cluster"
-is "$?" 0 "cluster-post option requires cluster threshold"
-
-rm -f cluster_post_test.vg cluster_post_test.gam cluster_post_test.pack
-
 # =============================================================================
 # Nested genotype propagation tests
 # These tests verify correct genotype propagation from parent to child snarls
@@ -491,7 +722,7 @@ vg sim -x nesting/nested_snp_in_del.gfa -P x -n 100 -l 2 -a -s 1 > nd_00.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_00.gam -o nd_00.pack
 vg call nesting/nested_snp_in_del.gfa -k nd_00.pack --top-down -p x 2>/dev/null > nd_00.vcf
 # 0/0 should produce no non-ref variants
-ND_00_NONREF=$(grep -v "^#" nd_00.vcf | grep -v "0/0" | wc -l)
+ND_00_NONREF=$(grep -v "^#" nd_00.vcf | grep -v "0/0" | wc -l | tr -d ' ')
 is "$ND_00_NONREF" "0" "nested_snp_in_del 0/0: homozygous ref produces no non-ref variants"
 
 # Test 0/1: het ref/SNP - reads from x and y0 (both traverse nested snarl)
@@ -500,7 +731,7 @@ vg sim -x nesting/nested_snp_in_del.gfa -m a -n 50 -l 2 -a -s 11 >> nd_01.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_01.gam -o nd_01.pack
 vg call nesting/nested_snp_in_del.gfa -k nd_01.pack --top-down -p x 2>/dev/null > nd_01.vcf
 # Should have 2 variants (top-level and nested), both het
-ND_01_COUNT=$(grep -v "^#" nd_01.vcf | wc -l)
+ND_01_COUNT=$(grep -v "^#" nd_01.vcf | wc -l | tr -d ' ')
 is "$ND_01_COUNT" "2" "nested_snp_in_del 0/1: produces both top-level and nested variants"
 
 # Test 1/1: homozygous alt SNP - reads only from y0 path (via sample a haplotype 1)
@@ -518,7 +749,7 @@ vg sim -x nesting/nested_snp_in_del.gfa -m a -n 100 -l 2 -a -s 30 > nd_12.gam
 vg pack -x nesting/nested_snp_in_del.gfa -g nd_12.gam -o nd_12.pack
 vg call nesting/nested_snp_in_del.gfa -k nd_12.pack --top-down -p x 2>/dev/null > nd_12.vcf
 # Should have 2 variants, nested one should have missing allele
-ND_12_COUNT=$(grep -v "^#" nd_12.vcf | wc -l)
+ND_12_COUNT=$(grep -v "^#" nd_12.vcf | wc -l | tr -d ' ')
 is "$ND_12_COUNT" "2" "nested_snp_in_del 1/2: het SNP/del produces both variants"
 # Nested snarl should have missing allele (.) for deletion parent
 ND_12_MISSING=$(grep ">2>5" nd_12.vcf | grep -c "\./")
@@ -542,7 +773,7 @@ STAR_IN_ALT=$(grep ">2>5" star.vcf | cut -f5 | grep -c "\*")
 is "$STAR_IN_ALT" "1" "star allele: -Y flag produces * in ALT for spanning deletion"
 # Verify the genotype doesn't have . when -Y is used (it uses indexed * instead)
 # Extract just the GT field (first colon-separated field in SAMPLE column)
-NO_MISSING_GT=$(grep ">2>5" star.vcf | cut -f10 | cut -d: -f1 | grep -v "\." | wc -l)
+NO_MISSING_GT=$(grep ">2>5" star.vcf | cut -f10 | cut -d: -f1 | grep -v "\." | wc -l | tr -d ' ')
 is "$NO_MISSING_GT" "1" "star allele: genotype uses indexed * instead of . with -Y"
 
 rm -f star.gam star.pack star.vcf
@@ -582,27 +813,27 @@ vg pack -x tnq_ap.gfa -g tnq.gam -o tnq.pack
 vg call tnq_ap.gfa -k tnq.pack --top-down -P gref_x 2>/dev/null > tnq.vcf
 
 # All variant lines should have non-zero QUAL
-TNQ_ZERO_QUAL=$(grep -v "^#" tnq.vcf | awk -F'\t' '$6 == "0" || $6 == "."' | wc -l)
+TNQ_ZERO_QUAL=$(grep -v "^#" tnq.vcf | awk -F'\t' '$6 == "0" || $6 == "."' | wc -l | tr -d ' ')
 is "$TNQ_ZERO_QUAL" "0" "triple nested calls all have non-zero QUAL"
 
 # All variant lines should have GQ in FORMAT
-TNQ_ALL_GQ=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GQ" | wc -l)
+TNQ_ALL_GQ=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GQ" | wc -l | tr -d ' ')
 is "$TNQ_ALL_GQ" "0" "triple nested calls all have GQ field"
 
 # All variant lines should have GL (Genotype Likelihood) in FORMAT
-TNQ_ALL_GL=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GL" | wc -l)
+TNQ_ALL_GL=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GL" | wc -l | tr -d ' ')
 is "$TNQ_ALL_GL" "0" "triple nested calls all have GL field"
 
 # All variant lines should have GP (Genotype Posterior) in FORMAT
-TNQ_ALL_GP=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GP" | wc -l)
+TNQ_ALL_GP=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "GP" | wc -l | tr -d ' ')
 is "$TNQ_ALL_GP" "0" "triple nested calls all have GP field"
 
 # All variant lines should have XD (Expected Depth) in FORMAT
-TNQ_ALL_XD=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "XD" | wc -l)
+TNQ_ALL_XD=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "XD" | wc -l | tr -d ' ')
 is "$TNQ_ALL_XD" "0" "triple nested calls all have XD field"
 
 # All variant lines should have AD (Allelic Depth) in FORMAT
-TNQ_ALL_AD=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "AD" | wc -l)
+TNQ_ALL_AD=$(grep -v "^#" tnq.vcf | cut -f9 | grep -v "AD" | wc -l | tr -d ' ')
 is "$TNQ_ALL_AD" "0" "triple nested calls all have AD field"
 
 # GQ values should be in valid range (0-256, integers)
@@ -615,29 +846,29 @@ TNQ_INVALID_GQ=$(grep -v "^#" tnq.vcf | awk -F'\t' '{
             if (gq !~ /^[0-9]+$/ || gq < 0 || gq > 256) print "invalid";
         }
     }
-}' | wc -l)
+}' | wc -l | tr -d ' ')
 is "$TNQ_INVALID_GQ" "0" "triple nested calls have valid GQ values (0-256)"
 
 # All variant lines should have LV (nesting level) in INFO
-TNQ_ALL_LV=$(grep -v "^#" tnq.vcf | cut -f8 | grep -v "LV=" | wc -l)
+TNQ_ALL_LV=$(grep -v "^#" tnq.vcf | cut -f8 | grep -v "LV=" | wc -l | tr -d ' ')
 is "$TNQ_ALL_LV" "0" "triple nested calls all have LV tag"
 
 # Nested variants (LV > 0) should have PS (parent snarl) in INFO
-TNQ_NESTED_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 !~ /PS=/' | wc -l)
+TNQ_NESTED_NO_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 !~ /PS=/' | wc -l | tr -d ' ')
 is "$TNQ_NESTED_NO_PS" "0" "nested calls (LV>0) all have PS tag"
 
 # A record with no ancestor anywhere is LV=0 with no contig hop, and has no PS tag.
-TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/ && $8 ~ /PS=/' | wc -l)
+TNQ_TOPLEVEL_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/ && $8 ~ /PS=/' | wc -l | tr -d ' ')
 is "$TNQ_TOPLEVEL_HAS_PS" "0" "calls with no ancestor at all (LV=0, CH=0) do not have PS tag"
 
 # gref_x_2_alt is in the cover but carries no call, so vg call does not declare it either.
 is $(grep -c "^##contig" tnq.vcf) 2 "vg call does not declare reference contigs with no records"
-is $(grep -v "^#" tnq.vcf | cut -f1 | sort -u | wc -l) 2 "every contig with a call is declared"
+is $(grep -v "^#" tnq.vcf | cut -f1 | sort -u | wc -l | tr -d ' ') 2 "every contig with a call is declared"
 
 # But a record that is top-level on its OWN contig (LV=0) while being nested in the snarl
 # tree (CH>0) MUST keep PS.  It is the only in-VCF link back to the enclosing base-contig
 # site, and vcfbub's rescue of the children of popped bubbles is keyed on it.
-TNQ_PERCONTIG_TOP_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /CH=0/ && $8 !~ /PS=/' | wc -l)
+TNQ_PERCONTIG_TOP_HAS_PS=$(grep -v "^#" tnq.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 !~ /CH=0/ && $8 !~ /PS=/' | wc -l | tr -d ' ')
 is "$TNQ_PERCONTIG_TOP_HAS_PS" "0" "per-contig top-level calls nested in the tree still carry PS"
 
 rm -f tnq_ap.gfa tnq.gam tnq.pack tnq.vcf
@@ -660,7 +891,7 @@ vg sim -x ni_ap.gfa -P x -n 100 -l 2 -a -s 70 > ni_00.gam
 vg pack -x ni_ap.gfa -g ni_00.gam -o ni_00.pack
 vg call ni_ap.gfa -k ni_00.pack --top-down -P gref_x 2>/dev/null > ni_00.vcf
 # 0/0 should produce no non-ref variants (or only ref calls)
-NI_00_NONREF=$(grep -v "^#" ni_00.vcf | grep -v "0/0" | wc -l)
+NI_00_NONREF=$(grep -v "^#" ni_00.vcf | grep -v "0/0" | wc -l | tr -d ' ')
 is "$NI_00_NONREF" "0" "nested_snp_in_ins 0/0: homozygous ref produces no non-ref variants"
 
 # Test 0/1: het ref/insertion - reads from x and y1 (a#2 haplotype)
@@ -670,7 +901,7 @@ vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 72 >> ni_01.gam
 vg pack -x ni_ap.gfa -g ni_01.gam -o ni_01.pack
 vg call ni_ap.gfa -k ni_01.pack --top-down -P gref_x 2>/dev/null > ni_01.vcf
 # With gref paths: both top-level and nested variants emitted
-NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l)
+NI_01_COUNT=$(grep -v "^#" ni_01.vcf | wc -l | tr -d ' ')
 is "$NI_01_COUNT" "2" "nested_snp_in_ins 0/1: het ref/ins produces top-level and nested variants with gref paths"
 
 # Test 1/1: homozygous insertion - reads only from y1 path
@@ -678,7 +909,7 @@ vg sim -x ni_ap.gfa -P "a#2#y1#0" -n 100 -l 2 -a -s 73 > ni_11.gam
 vg pack -x ni_ap.gfa -g ni_11.gam -o ni_11.pack
 vg call ni_ap.gfa -k ni_11.pack --top-down -P gref_x 2>/dev/null > ni_11.vcf
 # With gref paths: both top-level and nested variants emitted
-NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l)
+NI_11_COUNT=$(grep -v "^#" ni_11.vcf | wc -l | tr -d ' ')
 is "$NI_11_COUNT" "2" "nested_snp_in_ins 1/1: homozygous ins produces top-level and nested variants with gref paths"
 
 # Test 1/2: het between two insertion alleles - reads from both y0 and y1
@@ -686,7 +917,7 @@ vg sim -x ni_ap.gfa -m a -n 200 -l 2 -a -s 74 > ni_12.gam
 vg pack -x ni_ap.gfa -g ni_12.gam -o ni_12.pack
 vg call ni_ap.gfa -k ni_12.pack --top-down -P gref_x 2>/dev/null > ni_12.vcf
 # With gref paths: both top-level and nested variants emitted
-NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l)
+NI_12_COUNT=$(grep -v "^#" ni_12.vcf | wc -l | tr -d ' ')
 is "$NI_12_COUNT" "2" "nested_snp_in_ins 1/2: het ins/ins produces top-level and nested variants with gref paths"
 
 rm -f ni_ap.gfa ni_00.gam ni_00.pack ni_00.vcf ni_01.gam ni_01.pack ni_01.vcf
@@ -710,7 +941,7 @@ vg paths --compute-gref -Q x --min-gref-len 1 -x nesting/triple_nested.gfa > tn_
 vg sim -x tn_ap.gfa -P x -n 100 -l 2 -a -s 80 > tn_00.gam
 vg pack -x tn_ap.gfa -g tn_00.gam -o tn_00.pack
 vg call tn_ap.gfa -k tn_00.pack --top-down -P gref_x 2>/dev/null > tn_00.vcf
-TN_00_NONREF=$(grep -v "^#" tn_00.vcf | grep -v "0/0" | wc -l)
+TN_00_NONREF=$(grep -v "^#" tn_00.vcf | grep -v "0/0" | wc -l | tr -d ' ')
 is "$TN_00_NONREF" "0" "triple_nested 0/0: homozygous ref produces no non-ref variants"
 
 # Test 0/1: het ref/insertion - reads from x and y0
@@ -720,7 +951,7 @@ vg sim -x tn_ap.gfa -P "a#1#y0#0" -n 500 -l 2 -a -s 82 >> tn_01.gam
 vg pack -x tn_ap.gfa -g tn_01.gam -o tn_01.pack
 vg call tn_ap.gfa -k tn_01.pack --top-down -P gref_x 2>/dev/null > tn_01.vcf
 # With gref paths: all 5 nesting levels can be emitted
-TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l)
+TN_01_COUNT=$(grep -v "^#" tn_01.vcf | wc -l | tr -d ' ')
 is "$TN_01_COUNT" "5" "triple_nested 0/1: het ref/ins produces all 5 nesting level variants with gref paths"
 
 # Test 1/1: homozygous insertion - reads only from y0 path
@@ -730,7 +961,7 @@ vg call tn_ap.gfa -k tn_11.pack --top-down -P gref_x 2>/dev/null > tn_11.vcf
 # With gref paths: 1 variant emitted (top-level insertion only)
 # All nested snarls are 0/0 because y0 matches gref_x_1_alt reference at all levels
 # (y0 goes through 313, and gref_x_1_alt also goes through 313)
-TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l)
+TN_11_COUNT=$(grep -v "^#" tn_11.vcf | wc -l | tr -d ' ')
 is "$TN_11_COUNT" "1" "triple_nested 1/1: homozygous ins produces only top-level variant"
 
 # Test 1/2: het between insertion alleles - reads from y0 and y1 (differ at deepest SNP)
@@ -739,7 +970,7 @@ vg sim -x tn_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 85 >> tn_12.gam
 vg pack -x tn_ap.gfa -g tn_12.gam -o tn_12.pack
 vg call tn_ap.gfa -k tn_12.pack --top-down -P gref_x 2>/dev/null > tn_12.vcf
 # With gref paths: all 5 nesting levels can be emitted
-TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l)
+TN_12_COUNT=$(grep -v "^#" tn_12.vcf | wc -l | tr -d ' ')
 is "$TN_12_COUNT" "5" "triple_nested 1/2: het ins/ins produces all 5 nesting level variants with gref paths"
 
 rm -f tn_ap.gfa tn_00.gam tn_00.pack tn_00.vcf tn_01.gam tn_01.pack tn_01.vcf
@@ -758,14 +989,14 @@ vg sim -x tn_ms_ap.gfa -P "a#2#y1#0" -n 200 -l 2 -a -s 100 > tn_ms.gam
 vg pack -x tn_ms_ap.gfa -g tn_ms.gam -o tn_ms.pack
 vg call tn_ms_ap.gfa -k tn_ms.pack --top-down -P gref_x 2>/dev/null > tn_ms.vcf
 # Should get 4 variants: top-level + 3 nested SNPs (all at 1/1)
-TN_MS_COUNT=$(grep -v "^#" tn_ms.vcf | wc -l)
+TN_MS_COUNT=$(grep -v "^#" tn_ms.vcf | wc -l | tr -d ' ')
 is "$TN_MS_COUNT" "4" "triple_nested_multisnp 1/1: homozygous alt produces variants at all 4 nesting levels"
 # Verify all variants are 1/1 (homozygous alt)
 TN_MS_HOM=$(grep -v "^#" tn_ms.vcf | cut -f10 | cut -d: -f1 | grep -c "1/1")
 is "$TN_MS_HOM" "4" "triple_nested_multisnp 1/1: all 4 variants are homozygous alt"
 # Verify LV tags span levels 0-3
-TN_MS_TOP=$(grep -v "^#" tn_ms.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l)
-TN_MS_NESTED=$(grep -v "^#" tn_ms.vcf | awk -F'\t' '$8 !~ /LV=0/ || $8 !~ /CH=0/' | wc -l)
+TN_MS_TOP=$(grep -v "^#" tn_ms.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l | tr -d ' ')
+TN_MS_NESTED=$(grep -v "^#" tn_ms.vcf | awk -F'\t' '$8 !~ /LV=0/ || $8 !~ /CH=0/' | wc -l | tr -d ' ')
 is "$TN_MS_TOP" "1" "triple_nested_multisnp: one variant with no ancestor at all"
 is "$TN_MS_NESTED" "3" "triple_nested_multisnp: three nested variants"
 
@@ -799,7 +1030,7 @@ vg pack -x nesting/nested_snp_in_del.gfa -g na_del.gam -o na_del.pack
 vg call nesting/nested_snp_in_del.gfa -k na_del.pack --top-down -a -p x 2>/dev/null > na_del.vcf
 
 # Count variant lines (should be 2: top-level + nested)
-NA_DEL_COUNT=$(grep -v "^#" na_del.vcf | wc -l)
+NA_DEL_COUNT=$(grep -v "^#" na_del.vcf | wc -l | tr -d ' ')
 is "$NA_DEL_COUNT" "2" "--top-down -a: nested_snp_in_del 0/0 emits both snarls"
 
 # Verify top-level is 0/0 (use awk to match ID column exactly)
@@ -820,7 +1051,7 @@ vg pack -x na_ins_ap.gfa -g na_ins_00.gam -o na_ins_00.pack
 vg call na_ins_ap.gfa -k na_ins_00.pack --top-down -a -P gref_x 2>/dev/null > na_ins_00.vcf
 
 # Count variant lines (should be 1: only top-level, nested not emitted)
-NA_INS_00_COUNT=$(grep -v "^#" na_ins_00.vcf | wc -l)
+NA_INS_00_COUNT=$(grep -v "^#" na_ins_00.vcf | wc -l | tr -d ' ')
 is "$NA_INS_00_COUNT" "1" "--top-down -a: nested_snp_in_ins 0/0 emits only top-level (ref spans nested)"
 
 rm -f na_ins_00.gam na_ins_00.pack na_ins_00.vcf
@@ -833,7 +1064,7 @@ vg pack -x na_ins_ap.gfa -g na_ins_01.gam -o na_ins_01.pack
 vg call na_ins_ap.gfa -k na_ins_01.pack --top-down -a -P gref_x 2>/dev/null > na_ins_01.vcf
 
 # Count variant lines (should be 2: top-level + nested)
-NA_INS_01_COUNT=$(grep -v "^#" na_ins_01.vcf | wc -l)
+NA_INS_01_COUNT=$(grep -v "^#" na_ins_01.vcf | wc -l | tr -d ' ')
 is "$NA_INS_01_COUNT" "2" "--top-down -a: nested_snp_in_ins 0/1 emits both snarls"
 
 # Verify nested has missing allele marker (.)
@@ -851,7 +1082,7 @@ vg pack -x na_tn_ap.gfa -g na_tn_00.gam -o na_tn_00.pack
 vg call na_tn_ap.gfa -k na_tn_00.pack --top-down -a -P gref_x 2>/dev/null > na_tn_00.vcf
 
 # Count variant lines (should be 1: only top-level, nested not emitted since ref spans them)
-NA_TN_00_COUNT=$(grep -v "^#" na_tn_00.vcf | wc -l)
+NA_TN_00_COUNT=$(grep -v "^#" na_tn_00.vcf | wc -l | tr -d ' ')
 is "$NA_TN_00_COUNT" "1" "--top-down -a: triple_nested 0/0 emits only top-level (ref spans all nested)"
 
 # Verify top-level is 0/0
@@ -868,12 +1099,12 @@ vg pack -x na_tn_ap.gfa -g na_tn_01.gam -o na_tn_01.pack
 vg call na_tn_ap.gfa -k na_tn_01.pack --top-down -a -P gref_x 2>/dev/null > na_tn_01.vcf
 
 # Count variant lines (should be 5: all nesting levels emitted with -a)
-NA_TN_01_COUNT=$(grep -v "^#" na_tn_01.vcf | wc -l)
+NA_TN_01_COUNT=$(grep -v "^#" na_tn_01.vcf | wc -l | tr -d ' ')
 is "$NA_TN_01_COUNT" "5" "--top-down -a: triple_nested 0/1 emits all 5 nesting levels"
 
 # Nested snarls (LV > 0) should have missing allele (.) for the spanning ref
 NA_TN_01_NESTED_MISSING=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ {print $10}' | cut -d: -f1 | grep -c "\.")
-NA_TN_01_NESTED_COUNT=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+NA_TN_01_NESTED_COUNT=$(grep -v "^#" na_tn_01.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l | tr -d ' ')
 is "$NA_TN_01_NESTED_MISSING" "$NA_TN_01_NESTED_COUNT" "--top-down -a: triple_nested 0/1 all nested snarls have missing allele (.)"
 
 rm -f na_tn_ap.gfa na_tn_01.gam na_tn_01.pack na_tn_01.vcf
@@ -901,7 +1132,7 @@ AS_HAS_PS_HEADER=$(grep -c "##INFO=<ID=PS" all_snarls_test.vcf)
 is "$AS_HAS_PS_HEADER" "1" "-A flag: VCF includes PS header line"
 
 # Check that variants have LV tags
-AS_VARIANT_COUNT=$(grep -v "^#" all_snarls_test.vcf | wc -l)
+AS_VARIANT_COUNT=$(grep -v "^#" all_snarls_test.vcf | wc -l | tr -d ' ')
 AS_LV_COUNT=$(grep -v "^#" all_snarls_test.vcf | grep -c "LV=")
 is "$AS_LV_COUNT" "$AS_VARIANT_COUNT" "-A flag: all variants have LV tag"
 
@@ -914,7 +1145,7 @@ vg pack -x as_nested.vg -g as_nested.gam -o as_nested.pack
 vg call as_nested.vg -k as_nested.pack -A -p x > as_nested.vcf 2>/dev/null
 
 # Should produce variants at both nesting levels
-AS_NESTED_COUNT=$(grep -v "^#" as_nested.vcf | wc -l)
+AS_NESTED_COUNT=$(grep -v "^#" as_nested.vcf | wc -l | tr -d ' ')
 is "$AS_NESTED_COUNT" "2" "-A flag: nested graph produces both top-level and nested variants"
 
 # Verify LV tags present
@@ -930,7 +1161,7 @@ AS_NESTED_LV1=$(grep -v "^#" as_nested.vcf | grep -c "LV=1")
 is "$AS_NESTED_LV1" "1" "-A flag: has nested variant (LV=1)"
 
 # Verify nested variant has PS tag pointing to parent
-AS_NESTED_PS=$(grep -v "^#" as_nested.vcf | awk -F'\t' '$8 ~ /LV=1/ && $8 ~ /PS=/' | wc -l)
+AS_NESTED_PS=$(grep -v "^#" as_nested.vcf | awk -F'\t' '$8 ~ /LV=1/ && $8 ~ /PS=/' | wc -l | tr -d ' ')
 is "$AS_NESTED_PS" "1" "-A flag: nested variant has PS tag"
 
 rm -f as_nested.vg as_nested.gam as_nested.pack as_nested.vcf
@@ -943,7 +1174,7 @@ vg pack -x as_triple.gfa -g as_triple.gam -o as_triple.pack
 vg call as_triple.gfa -k as_triple.pack -A -P gref_x > as_triple.vcf 2>/dev/null
 
 # Should produce variants at multiple nesting levels
-AS_TRIPLE_COUNT=$(grep -v "^#" as_triple.vcf | wc -l)
+AS_TRIPLE_COUNT=$(grep -v "^#" as_triple.vcf | wc -l | tr -d ' ')
 AS_TRIPLE_HAS_VARIANTS=$(if [ "$AS_TRIPLE_COUNT" -ge 3 ]; then echo "1"; else echo "0"; fi)
 is "$AS_TRIPLE_HAS_VARIANTS" "1" "-A flag: triple nested produces at least 3 variants"
 
@@ -952,8 +1183,8 @@ AS_TRIPLE_LV=$(grep -v "^#" as_triple.vcf | grep -c "LV=")
 is "$AS_TRIPLE_LV" "$AS_TRIPLE_COUNT" "-A flag: all triple nested variants have LV tags"
 
 # Verify PS tags on nested variants (LV > 0)
-AS_TRIPLE_NESTED=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
-AS_TRIPLE_NESTED_PS=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 ~ /PS=/' | wc -l)
+AS_TRIPLE_NESTED=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l | tr -d ' ')
+AS_TRIPLE_NESTED_PS=$(grep -v "^#" as_triple.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/ && $8 ~ /PS=/' | wc -l | tr -d ' ')
 is "$AS_TRIPLE_NESTED_PS" "$AS_TRIPLE_NESTED" "-A flag: all nested variants (LV>0) have PS tags"
 
 rm -f as_triple.gfa as_triple.gam as_triple.pack as_triple.vcf
@@ -980,7 +1211,7 @@ RD_HEADER=$(grep -c "##INFO=<ID=RD" rc_test.vcf)
 is "$RD_HEADER" "1" "RD header is present in VCF"
 
 # Check that all variants have RC, RS, RD tags
-RC_COUNT=$(grep -v "^#" rc_test.vcf | wc -l)
+RC_COUNT=$(grep -v "^#" rc_test.vcf | wc -l | tr -d ' ')
 RC_TAG_COUNT=$(grep -v "^#" rc_test.vcf | grep -c "RC=")
 is "$RC_TAG_COUNT" "$RC_COUNT" "All variants have RC tag"
 
@@ -998,7 +1229,7 @@ is "$TOP_RC" "$TOP_CHROM" "Top-level variant RC equals its own CHROM"
 # Check that nested variants point to top-level's coordinates
 # All nested variants should have RC=gref_x (the top-level reference)
 NESTED_RC_X=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=gref_x")
-NESTED_COUNT=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
+NESTED_COUNT=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l | tr -d ' ')
 is "$NESTED_RC_X" "$NESTED_COUNT" "All nested variants have RC=x (top-level contig)"
 
 rm -f rc_test.gfa rc_test.gam rc_test.pack rc_test.vcf
