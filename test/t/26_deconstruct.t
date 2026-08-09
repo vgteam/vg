@@ -11,10 +11,10 @@ vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
 
 vg deconstruct hla.xg -p "gi|157734152:29563108-29564082" > hla_decon.vcf
-is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf has correct number of sites"
+is $(grep -v "#" hla_decon.vcf | wc -l | tr -d ' ') 17 "deconstructed hla vcf has correct number of sites"
 is $(grep -v "#" hla_decon.vcf | grep 822 | awk '{print $4 "-" $5}') "C-CGCGGGCGCCGTGGATGGAGCA" "deconstructed hla vcf has correct insertion"
 vg deconstruct hla.xg -p "gi|568815592:29791752-29792749" > hla_decon.vcf
-is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf with other path has correct number of sites"
+is $(grep -v "#" hla_decon.vcf | wc -l | tr -d ' ') 17 "deconstructed hla vcf with other path has correct number of sites"
 is $(grep -v "#" hla_decon.vcf | grep 824 | awk '{print $4 "-" $5}') "CGCGGGCGCCGTGGATGGAGCA-C" "deconstructed hla vcf has correct deletion"
 
 vg deconstruct hla.xg -p "gi|568815592:29791752-29792749" -e > hla_decon_path.vcf
@@ -94,7 +94,7 @@ vg find -x cyclic_tiny.xg  -n 10 -n 11 -n 12 -n 13 -n 14 -n 15 -c 1 > cycle.vg
 vg view cycle.vg | sed 's/\([xy]\)\[[-0-9]*\]/\1/g' >cycle-asfullpaths.gfa
 vg index cycle-asfullpaths.gfa -x cycle.xg
 vg deconstruct cycle.xg -p y -e -t 1 > cycle_decon.vcf
-is $(grep -v "#" cycle_decon.vcf | wc -l) 1 "cyclic reference deconstruction has correct number of variants"
+is $(grep -v "#" cycle_decon.vcf | wc -l | tr -d ' ') 1 "cyclic reference deconstruction has correct number of variants"
 grep -v "#" cycle_decon.vcf | grep 20 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cycle_decon.tsv
 grep -v "#" cycle_decon.vcf | grep 44 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' >> cycle_decon.tsv
 printf "y\t44\tA\tT\t1\n" > cycle_decon_truth.tsv
@@ -113,9 +113,9 @@ printf "P\talt2.4\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t*\n" >> tiny_names.gfa
 vg view -Fv tiny_names.gfa > tiny_names.vg
 vg index tiny_names.vg -x tiny_names.xg
 vg deconstruct tiny_names.xg -P ref -H . -e -d 1 | sort > tiny_names_decon.vcf
-is $(grep -v "#" tiny_names_decon.vcf | wc -l) 2 "-P -H options return correct number of variants"
-is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l) 2 "-P -H options use correct reference name"
-is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l) 0 "-P -H does not find conflict in alt1 in second variant"
+is $(grep -v "#" tiny_names_decon.vcf | wc -l | tr -d ' ') 2 "-P -H options return correct number of variants"
+is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l | tr -d ' ') 2 "-P -H options use correct reference name"
+is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l | tr -d ' ') 0 "-P -H does not find conflict in alt1 in second variant"
 vg deconstruct tiny_names.vg -P ref -H . -e -d 1 | sort > tiny_names_decon_vg.vcf
 diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
 is "$?" 0 "deconstructing vg graph gives same output as xg graph"
@@ -301,7 +301,7 @@ is "$?" 0 "nested deconstruction gets correct allele for snp inside deletion"
 # where it lands on a gref contig at LV=0 with CH=1.  Nothing else distinguishes the two.
 is "$(grep -v ^# nested_snp_in_del.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=1 " "a SNP inside a deletion stays nested on its own contig"
 is "$(grep -v ^# nested_snp_in_del.vcf | grep -o 'CH=[0-9]*' | tr '\n' ' ')" "CH=0 CH=0 " "a SNP inside a deletion takes no contig hop"
-is $(grep -v ^# nested_snp_in_del.vcf | cut -f1 | sort -u | wc -l) 1 "both records are on the base contig"
+is $(grep -v ^# nested_snp_in_del.vcf | cut -f1 | sort -u | wc -l | tr -d ' ') 1 "both records are on the base contig"
 
 rm -f nested_snp_in_del.gref.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
@@ -327,14 +327,14 @@ is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "LV=0") 2 "both sites are top-le
 is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "CH=1") 1 "the nested allele is one contig hop from the base reference"
 # The LV=0 record on the gref contig must keep PS: vcfbub's rescue of the children of
 # popped bubbles is keyed on it, and it is the only in-VCF link back to the base site.
-is $(grep -v ^# nested_snp_in_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=1/ && $8 ~ /PS=/' | wc -l) 1 "a per-contig top-level site on a gref contig still carries PS"
+is $(grep -v ^# nested_snp_in_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=1/ && $8 ~ /PS=/' | wc -l | tr -d ' ') 1 "a per-contig top-level site on a gref contig still carries PS"
 
 # The cover selects three contigs here (gref_x, gref_x_1_alt, gref_x_2_alt) but
 # gref_x_2_alt carries no variant, and a reference contig that produced no record is not
 # worth declaring.  So the header has two.
 is $(grep -c "^##contig" nested_snp_in_ins.vcf) 2 "contigs with no records are not declared"
 is $(grep -c "^##contig=<ID=gref_x_2_alt," nested_snp_in_ins.vcf) 0 "the undeclared contig is the one with no records"
-is $(grep -v "^#" nested_snp_in_ins.vcf | cut -f1 | sort -u | wc -l) 2 "every declared contig has records, and every contig with records is declared"
+is $(grep -v "^#" nested_snp_in_ins.vcf | cut -f1 | sort -u | wc -l | tr -d ' ') 2 "every declared contig has records, and every contig with records is declared"
 # The contig set comes from the records, not the snarl tree, so it does not need -a.
 vg deconstruct nested_snp_in_ins.gref.pg -P gref_x > nested_snp_in_ins.flat.vcf
 is $(grep -c "^##contig" nested_snp_in_ins.flat.vcf) 1 "pruning works without -a"
@@ -347,8 +347,8 @@ for thread_opt in "-t 1" "-t 2" ""; do
     thread_label=${thread_opt:- default}
     vg paths --compute-gref --min-gref-len 0 $thread_opt -x nesting/nested_snp_in_nested_ins.gfa -Q x > nested_snp_in_nested_ins.gref.pg
     vg deconstruct nested_snp_in_nested_ins.gref.pg -P gref_x -a > nested_snp_in_nested_ins.vcf
-    is $(grep -v ^# nested_snp_in_nested_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "one absolutely top-level site in double-nested SNP ($thread_label)"
-    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP ($thread_label)"
+    is $(grep -v ^# nested_snp_in_nested_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l | tr -d ' ') 1 "one absolutely top-level site in double-nested SNP ($thread_label)"
+    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l | tr -d ' ') 3 "all nested sites found in double-nested SNP ($thread_label)"
     is "$(grep -v ^# nested_snp_in_nested_ins.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=0 LV=1 " "per-contig levels in double-nested SNP ($thread_label)"
     rm -f nested_snp_in_nested_ins.gref.pg nested_snp_in_nested_ins.vcf
 done
@@ -356,7 +356,7 @@ done
 # Test: Nested site with cycle
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins_cycle.gfa -Q x > nested_snp_in_ins_cycle.gref.pg
 vg deconstruct nested_snp_in_ins_cycle.gref.pg -P gref_x -a > nested_snp_in_ins_cycle.vcf
-is $(grep -v ^# nested_snp_in_ins_cycle.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "one absolutely top-level site found in nested cycle"
+is $(grep -v ^# nested_snp_in_ins_cycle.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l | tr -d ' ') 1 "one absolutely top-level site found in nested cycle"
 is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep -c "CH=1") 1 "the nested site is one contig hop out, in nested cycle"
 rm -f nested_snp_in_ins_cycle.gref.pg nested_snp_in_ins_cycle.vcf
 
@@ -373,8 +373,8 @@ rm -f mnp.gref.pg mnp.vcf mnp_truth.tsv mnp.tsv
 # Test 1: Deep nesting (3+ levels) - triple nested SNP
 vg paths --compute-gref --min-gref-len 0 -x nesting/triple_nested.gfa -Q x > triple_nested.gref.pg
 vg deconstruct triple_nested.gref.pg -P gref_x -a > triple_nested.vcf
-is $(grep -v ^# triple_nested.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "one absolutely top-level site in triple nested"
-is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 5 "all nested sites found in triple nested"
+is $(grep -v ^# triple_nested.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l | tr -d ' ') 1 "one absolutely top-level site in triple nested"
+is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l | tr -d ' ') 5 "all nested sites found in triple nested"
 # One hop into the insertion, then four levels of nesting all on that one gref contig.
 is "$(grep -v ^# triple_nested.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=0 LV=1 LV=2 LV=3 " "LV is the per-contig level in triple nested"
 is "$(grep -v ^# triple_nested.vcf | grep -o 'CH=[0-9]*' | tr '\n' ' ')" "CH=0 CH=1 CH=1 CH=1 CH=1 " "CH counts steps into non-reference sequence"
@@ -383,31 +383,31 @@ rm -f triple_nested.gref.pg triple_nested.vcf
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
 vg paths --compute-gref --min-gref-len 0 -x nesting/insertion_with_three_snps.gfa -Q x > insertion_with_three_snps.gref.pg
 vg deconstruct insertion_with_three_snps.gref.pg -P gref_x -a > multi_child.vcf
-is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l) 3 "expected number of sites with LV field"
-is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
+is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l | tr -d ' ') 3 "expected number of sites with LV field"
+is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l | tr -d ' ') 2 "two child SNPs found at level 1"
 rm -f insertion_with_three_snps.gref.pg multi_child.vcf
 
 # Test 3: NestingInfo field propagation - verify LV field
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > field_check.gref.pg
 vg deconstruct field_check.gref.pg -P gref_x -a > field_check.vcf
-is $(grep -v ^# field_check.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "LV/CH present and zero for the top-level site"
+is $(grep -v ^# field_check.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l | tr -d ' ') 1 "LV/CH present and zero for the top-level site"
 rm -f field_check.gref.pg field_check.vcf
 
 # Test 4: Multiple reference traversals with nesting (should reduce to one)
 vg paths --compute-gref --min-gref-len 0 -x nesting/cyclic_ref_nested.gfa -Q x > cyclic_ref_nested.gref.pg
 vg deconstruct cyclic_ref_nested.gref.pg -P gref_x -a > cyclic_ref_nested.vcf
-is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
+is $(grep -v ^# cyclic_ref_nested.vcf | wc -l | tr -d ' ') 1 "cyclic reference with nesting produces single variant"
 rm -f cyclic_ref_nested.gref.pg cyclic_ref_nested.vcf
 
 # Test 5: Cyclic reference outputs multiple variants (one per reference traversal)
 # Reference x visits the snarl twice (via node 2 then 3), alt a visits twice (via node 3 then 4)
 # With -c 0 to disable context-jaccard (which doesn't work well on tiny graphs), we should get 2 variants
 vg deconstruct nesting/cyclic_ref_multiple_variants.gfa -p x -a -c 0 > cyclic_ref_multi.vcf
-is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
+is $(grep -v ^# cyclic_ref_multi.vcf | wc -l | tr -d ' ') 2 "cyclic reference with -a outputs variant for each reference traversal"
 # Both records share the snarl ID, because the ID names the snarl and not the traversal of
 # it.  Each must still report its own reference interval; a name-keyed lookup used to hand
 # both of them whichever one was written last.
-is "$(grep -v ^# cyclic_ref_multi.vcf | cut -f3 | sort -u | wc -l)" "1" "the two records share one snarl ID"
+is "$(grep -v ^# cyclic_ref_multi.vcf | cut -f3 | sort -u | wc -l | tr -d ' ')" "1" "the two records share one snarl ID"
 is "$(grep -v ^# cyclic_ref_multi.vcf | grep -o 'RS=[0-9]*' | tr '\n' ' ')" "RS=20 RS=44 " "each record keeps its own RS, not the other's"
 rm -f cyclic_ref_multi.vcf
 
@@ -433,7 +433,7 @@ rm -f base_and_gref.pg base_ref.vcf gref_ref.vcf
 vg paths --compute-gref --min-gref-len 1 -x nesting/subranged_ref.gfa -Q GRCh38 > subranged.pg
 vg deconstruct subranged.pg -P GRCh38 -a | grep -v "^#" | cut -f2,4,5 > subranged_base.tsv
 vg deconstruct subranged.pg -P gref_GRCh38 -a | grep -v "^#" | cut -f2,4,5 > subranged_gref.tsv
-is $(cat subranged_gref.tsv | wc -l) 2 "every subpath of a subranged reference is deconstructed in the gref vcf"
+is $(cat subranged_gref.tsv | wc -l | tr -d ' ') 2 "every subpath of a subranged reference is deconstructed in the gref vcf"
 diff subranged_base.tsv subranged_gref.tsv
 is $? 0 "gref vcf keeps the subrange offsets, so positions match the base vcf"
 
@@ -490,7 +490,7 @@ is $(grep -c "##INFO=<ID=RS" rc_decon_test.vcf) 1 "deconstruct: RS header is pre
 is $(grep -c "##INFO=<ID=RD" rc_decon_test.vcf) 1 "deconstruct: RD header is present in VCF"
 
 # Check that all variants have RC, RS, RD tags
-# Use grep -c "" instead of wc -l: macOS wc -l pads output with leading
+# Use grep -c "" instead of wc -l | tr -d ' ': macOS wc -l | tr -d ' ' pads output with leading
 # whitespace which breaks string comparison in is assertions.
 RC_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | grep -c "")
 RC_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RC=")

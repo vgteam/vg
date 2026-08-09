@@ -7,12 +7,12 @@ PATH=../bin:$PATH # for vg
 
 plan tests 6
 
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -t -r 'http://example.org' - | wc -l) 90 "vg view produces the expected number of lines of turtle"
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -t -r 'http://example.org/' - | vg view -t -T -r  'http://example.org/' - | wc -l) 90 "vg view produces the expected number of lines of turtle"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -t -r 'http://example.org' - | wc -l | tr -d ' ') 90 "vg view produces the expected number of lines of turtle"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -t -r 'http://example.org/' - | vg view -t -T -r  'http://example.org/' - | wc -l | tr -d ' ') 90 "vg view produces the expected number of lines of turtle"
 is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -t -r 'http://example.org/' - | rapper -c --input turtle -I "http://example.org/vg" -; echo $?) 0 "rapper passed"
 is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -tC -r 'http://example.org/' - | rapper -c --input turtle -I "http://example.org/vg" -; echo $?) 0 "rapper passed"
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -tC -r 'http://example.org' - | wc -l) 5 "vg view produces the expected number of lines of turtle"
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -tC -r 'http://example.org/' - | vg view -tC -T -r  'http://example.org/' - | wc -l) 5 "vg view produces the expected number of lines of turtle"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -tC -r 'http://example.org' - | wc -l | tr -d ' ') 5 "vg view produces the expected number of lines of turtle"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg view -tC -r 'http://example.org/' - | vg view -tC -T -r  'http://example.org/' - | wc -l | tr -d ' ') 5 "vg view produces the expected number of lines of turtle"
 
 # this returns inconsistent results on different systems
 # why?

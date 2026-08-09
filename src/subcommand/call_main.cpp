@@ -18,6 +18,9 @@
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
+#include "../traversal_clusters.hpp"
+#include "../read_likelihood_caller.hpp"
+#include "../site_read_source.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -27,6 +30,14 @@ using namespace vg;
 using namespace vg::subcommand;
 
 const string DEFAULT_SAMPLE_NAME = "SAMPLE";
+
+/// Default --read-window per backend. A GAF-Base query costs a process spawn, so it
+/// wants a window big enough to amortise one; an indexed GAM query is a seek into an
+/// already-open file, and a large window there just over-fetches. Measured on HG002
+/// chr20 (GAF-Base): 256 -> 180 s, 1024 -> 114 s, 4096 -> 96 s, 16384 -> 101 s at
+/// 6.0 GB against 3.9 GB. 4096 is the best wall clock and the memory is still bounded.
+const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
+const size_t DEFAULT_GAF_BASE_WINDOW = 4096;
 
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
@@ -39,6 +50,49 @@ void help_call(char** argv) {
          << "                            and large (Y) variants [0.005,0.01]" << endl
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
+         << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
+         << "                            instead of aggregate depth (needs one read source below)" << endl
+         << "      --gam FILE            read alignments for --read-likelihood" << endl
+         << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
+         << "      --gam-index FILE      .gai index for --gam, so reads are fetched per site" << endl
+         << "                            instead of all held in memory (from vg gamsort -i)" << endl
+         << "      --gaf-base FILE       GAF-Base of read alignments, fetched per site by" << endl
+         << "                            running gbz-base (needs it on the PATH)" << endl
+         << "      --gbz-base FILE       graph to resolve --gaf-base queries against, as a" << endl
+         << "                            GBZ-Base or GBZ [the input graph]" << endl
+         << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
+         << "      --read-window N       node-ID window for indexed read fetches" << endl
+         << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
+         << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
+         << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
+         << "                            instead of by the reads it is expected to contribute." << endl
+         << "                            The flat weight is wrong wherever the alleles differ" << endl
+         << "                            in length: it loses large heterozygous deletions and" << endl
+         << "                            mis-genotypes large heterozygous insertions. Restores" << endl
+         << "                            the pre-correction model exactly" << endl
+         << "      --length-weight-whole-traversal  weight by whole traversal length rather" << endl
+         << "                            than by sequence unique to each allele. Coarser;" << endl
+         << "                            kept so the sharper weight can be measured against it" << endl
+         << "      --max-allele-likelihood  score each read by the best-fitting haplotype in" << endl
+         << "                            the genotype instead of averaging over them. Removes" << endl
+         << "                            the ln 2 penalty that reads inside a heterozygous" << endl
+         << "                            deletion pay, but a heterozygote can then never score" << endl
+         << "                            below a homozygote, so it over-calls hets. Diagnostic" << endl
+         << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
+         << "                            scaling it by the fraction of reads the called" << endl
+         << "                            genotype explains. GQI always carries the raw value" << endl
+         << "      --read-weight W       count each read as W independent observations," << endl
+         << "                            to correct for correlated reads (mates, repeats) [1.0]" << endl
+         << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
+         << "                            probability. Governs how much a read's placement" << endl
+         << "                            ambiguity counts, so it matters most on graphs with" << endl
+         << "                            many similar haplotypes [0.5]" << endl
+         << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
+         << "                            capping one read's veto at ln(P). Covers local" << endl
+         << "                            misalignment, which MAPQ does not measure. Mainly" << endl
+         << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
+         << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
          << "                            more support than the next best allele [6,6]" << endl
          << "GAF options:" << endl
@@ -154,6 +208,30 @@ int main_call(int argc, char** argv) {
     int64_t cluster_min_allele_len = 50;
     bool cluster_min_len_set = false;
 
+    // Read-level genotyping options. Opt-in: without --read-likelihood none of
+    // this code runs and the default caller is unchanged.
+    bool read_likelihood = false;
+    string gam_filename;
+    string gaf_filename;
+    string dump_likelihoods_filename;
+    string gam_index_filename;
+    string gaf_base_filename;
+    string gbz_base_filename;
+    string gaf_base_binary = "gbz-base";
+    // 0 means "let the backend choose": the two on-demand backends want different
+    // windows, because a GAF-Base query is a process spawn where a .gai group scan is
+    // a seek. See DEFAULT_GAM_INDEX_WINDOW / DEFAULT_GAF_BASE_WINDOW below.
+    size_t read_window_size = 0;
+    bool no_mismap_term = false;
+    bool no_share_quality = false;
+    bool max_allele_likelihood = false;
+    bool flat_mixture = false;
+    bool length_weight_whole_traversal = false;
+    double read_weight = 1.0;
+    double max_mismap_prob = 0.5;
+    double min_mismap_prob = 0.02;
+    int read_min_mapq = 0;
+
     // constants
     const size_t avg_trav_threshold = 50;
     const size_t avg_node_threshold = 50;
@@ -170,6 +248,24 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_TOP_DOWN = 1006;
+    constexpr int OPT_READ_LIKELIHOOD = 1007;
+    constexpr int OPT_GAM = 1008;
+    constexpr int OPT_GAF = 1009;
+    constexpr int OPT_DUMP_LIKELIHOODS = 1010;
+    constexpr int OPT_NO_MISMAP_TERM = 1011;
+    constexpr int OPT_READ_MIN_MAPQ = 1012;
+    constexpr int OPT_GAM_INDEX = 1013;
+    constexpr int OPT_READ_WINDOW = 1014;
+    constexpr int OPT_GAF_BASE = 1015;
+    constexpr int OPT_GBZ_BASE = 1016;
+    constexpr int OPT_GAF_BASE_BINARY = 1017;
+    constexpr int OPT_READ_WEIGHT = 1018;
+    constexpr int OPT_MISMAP_MAX = 1019;
+    constexpr int OPT_MISMAP_MIN = 1020;
+    constexpr int OPT_NO_SHARE_QUALITY = 1021;
+    constexpr int OPT_MAX_ALLELE_LIKELIHOOD = 1022;
+    constexpr int OPT_FLAT_MIXTURE = 1023;
+    constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -206,6 +302,24 @@ int main_call(int argc, char** argv) {
             {"legacy", no_argument, 0, OPT_LEGACY},
             {"top-down", no_argument, 0, OPT_TOP_DOWN},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+            {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
+            {"gam", required_argument, 0, OPT_GAM},
+            {"gaf-reads", required_argument, 0, OPT_GAF},
+            {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
+            {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
+            {"read-weight", required_argument, 0, OPT_READ_WEIGHT},
+            {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
+            {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
+            {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
+            {"max-allele-likelihood", no_argument, 0, OPT_MAX_ALLELE_LIKELIHOOD},
+            {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
+            {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
+            {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
+            {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+            {"gaf-base", required_argument, 0, OPT_GAF_BASE},
+            {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
+            {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
+            {"read-window", required_argument, 0, OPT_READ_WINDOW},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
@@ -343,6 +457,60 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
+            break;
+        case OPT_READ_LIKELIHOOD:
+            read_likelihood = true;
+            break;
+        case OPT_GAM:
+            gam_filename = optarg;
+            break;
+        case OPT_GAF:
+            gaf_filename = optarg;
+            break;
+        case OPT_DUMP_LIKELIHOODS:
+            dump_likelihoods_filename = optarg;
+            break;
+        case OPT_NO_MISMAP_TERM:
+            no_mismap_term = true;
+            break;
+        case OPT_MAX_ALLELE_LIKELIHOOD:
+            max_allele_likelihood = true;
+            break;
+        case OPT_FLAT_MIXTURE:
+            flat_mixture = true;
+            break;
+        case OPT_LENGTH_WEIGHT_WHOLE:
+            length_weight_whole_traversal = true;
+            break;
+        case OPT_NO_SHARE_QUALITY:
+            no_share_quality = true;
+            break;
+        case OPT_READ_WEIGHT:
+            read_weight = parse<double>(optarg);
+            break;
+        case OPT_MISMAP_MAX:
+            max_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_MISMAP_MIN:
+            min_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_READ_MIN_MAPQ:
+            read_min_mapq = parse<int>(optarg);
+            break;
+        case OPT_GAM_INDEX:
+            gam_index_filename = optarg;
+            break;
+        case OPT_GAF_BASE:
+            gaf_base_filename = optarg;
+            break;
+        case OPT_GBZ_BASE:
+            gbz_base_filename = optarg;
+            break;
+        case OPT_GAF_BASE_BINARY:
+            gaf_base_binary = optarg;
+            break;
+        case OPT_READ_WINDOW:
+            read_window_size = parse<size_t>(optarg);
             break;
         case 'I':
             call_chains = true;
@@ -612,6 +780,53 @@ int main_call(int argc, char** argv) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
     }
 
+    // An index without the thing it indexes is always a mistake, whatever else was
+    // passed. Checked before the read-likelihood validation so the message is
+    // deterministic rather than depending on which error is reached first.
+    if (!gam_index_filename.empty() && gam_filename.empty()) {
+        logger.error() << "--gam-index requires --gam" << endl;
+    }
+
+    // Validation: --read-likelihood needs reads, and cannot be combined with the
+    // support-based model selection flags. Failing here rather than later keeps a
+    // read-free "read-level" genotyping run from silently happening.
+    if (read_likelihood) {
+        int read_source_count = (gam_filename.empty() ? 0 : 1) + (gaf_filename.empty() ? 0 : 1) +
+                                (gaf_base_filename.empty() ? 0 : 1);
+        if (read_source_count == 0) {
+            logger.error() << "--read-likelihood requires reads: pass --gam, --gaf-reads, "
+                           << "or --gaf-base" << endl;
+        }
+        if (read_source_count > 1) {
+            logger.error() << "--gam, --gaf-reads, and --gaf-base are mutually exclusive" << endl;
+        }
+        if (ratio_caller) {
+            logger.error() << "--read-likelihood and -B/--bias-mode are mutually exclusive" << endl;
+        }
+        if (legacy) {
+            logger.error() << "--read-likelihood cannot be used with --legacy" << endl;
+        }
+    } else if (!gam_filename.empty() || !gaf_filename.empty() || !gaf_base_filename.empty()) {
+        logger.error() << "--gam/--gaf-reads/--gaf-base are only used with --read-likelihood"
+                       << endl;
+    }
+
+    if (read_weight <= 0.0) {
+        logger.error() << "--read-weight must be positive" << endl;
+    }
+    if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {
+        logger.error() << "--mismap-max must be in (0, 1)" << endl;
+    }
+    if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
+        logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
+    }
+
+    // --gbz-base only says where to point the query; it means nothing without the read
+    // database that is being queried.
+    if (!gbz_base_filename.empty() && gaf_base_filename.empty()) {
+        logger.error() << "--gbz-base requires --gaf-base" << endl;
+    }
+
     // Validation: -A, --top-down, and --bottom-up are mutually exclusive
     int nested_mode_count = (all_snarls ? 1 : 0) + (top_down ? 1 : 0) + (bottom_up ? 1 : 0);
     if (nested_mode_count > 1) {
@@ -841,18 +1056,38 @@ int main_call(int argc, char** argv) {
 
     unique_ptr<Packer> packer;
     unique_ptr<TraversalSupportFinder> support_finder;
-    if (!pack_filename.empty()) {        
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
-        if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
-        packer->load_from_file(pack_filename);
-        if (show_progress) logger.info() << "Loaded pack file" << endl;
-        if (bottom_up) {
-            // Make a nested packed traversal support finder (required by NestedFlowCaller)
-            support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+    // Only used by --read-likelihood, but declared out here so they outlive the
+    // caller, which holds references to them.
+    unique_ptr<SiteReadSource> read_source;
+    unique_ptr<EditAlignmentScorer> qual_scorer;
+    unique_ptr<EditAlignmentScorer> plain_scorer;
+    unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
+    unique_ptr<ofstream> likelihood_dump;
+    // Read-level genotyping can run without a pack file, but only when allele
+    // enumeration does not need support either. GBWTTraversalFinder enumerates from
+    // recorded haplotypes, so it needs none; FlowTraversalFinder is driven entirely
+    // by node and edge weights, so it does.
+    bool gbwt_enumeration = !gbwt_filename.empty() || gbz_paths;
+    bool support_free = read_likelihood && pack_filename.empty();
+
+    if (!pack_filename.empty() || support_free) {
+        if (support_free) {
+            // Nothing downstream will consult support: stand in a finder that
+            // reports none rather than requiring a pack file for its own sake.
+            support_finder.reset(new NullTraversalSupportFinder(*graph, *snarl_manager));
         } else {
-            // Make a packed traversal support finder (using cached version important for poisson caller)
-            support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            // Load our packed supports (they must have come from vg pack on graph)
+            packer = unique_ptr<Packer>(new Packer(graph));
+            if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
+            packer->load_from_file(pack_filename);
+            if (show_progress) logger.info() << "Loaded pack file" << endl;
+            if (bottom_up) {
+                // Make a nested packed traversal support finder (required by NestedFlowCaller)
+                support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            } else {
+                // Make a packed traversal support finder (using cached version important for poisson caller)
+                support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            }
         }
                 
         // need to use average support when genotyping as small differences in between sample and graph
@@ -866,7 +1101,117 @@ int main_call(int argc, char** argv) {
         
         SupportBasedSnarlCaller* packed_caller = nullptr;
 
-        if (ratio_caller == false) {
+        if (read_likelihood) {
+            // Read-level genotyping. The pack file is still required, but only so
+            // FlowTraversalFinder has node/edge weights to *enumerate* alleles
+            // with; the genotyping itself uses no support at all.
+            if (show_progress) logger.info() << "Loading reads for read-level genotyping" << endl;
+
+            SiteReadFilter read_filter;
+            read_filter.min_mapq = read_min_mapq;
+
+            if (!gaf_base_filename.empty()) {
+                // GAF-Base: reads are fetched per window by running gbz-base. A runtime
+                // dependency on that binary, and no build dependency at all.
+                //
+                // The query needs a graph to resolve node IDs against. Default to the
+                // graph vg call was given, which is usually the right one and is
+                // certainly the right *graph*; but a GBZ-Base is random-access where a
+                // plain GBZ is loaded in full on every query, so say so.
+                string query_graph = gbz_base_filename.empty() ? graph_filename
+                                                               : gbz_base_filename;
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAF_BASE_WINDOW;
+                }
+                auto gaf_base_source = new GafBaseSiteReadSource(*graph, gaf_base_filename,
+                                                                 query_graph, read_filter,
+                                                                 read_window_size, 2,
+                                                                 gaf_base_binary);
+                read_source.reset(gaf_base_source);
+                // Probe now, on the main thread. A missing binary or an unreadable
+                // database is the user's setup, not a vg bug, so report it as an error
+                // and exit rather than letting the exception out to the crash handler --
+                // which would print a bug-report banner for "install gbz-base".
+                try {
+                    gaf_base_source->check_setup();
+                } catch (const std::exception& e) {
+                    logger.error() << e.what() << endl;
+                }
+                if (show_progress) {
+                    logger.info() << "Using GAF-Base " << gaf_base_filename
+                                  << " queried against " << query_graph
+                                  << " via " << gaf_base_binary << endl;
+                    if (gbz_base_filename.empty()) {
+                        logger.info() << "Consider building a GBZ-Base ('gbz-base construct') and "
+                                      << "passing --gbz-base: a plain GBZ is reloaded on every query"
+                                      << endl;
+                    }
+                }
+            } else if (!gam_index_filename.empty()) {
+                // Indexed: reads are fetched per site, so memory is bounded by what a
+                // site needs rather than by the size of the read set.
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAM_INDEX_WINDOW;
+                }
+                read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
+                                                               read_filter, read_window_size));
+                if (show_progress) {
+                    logger.info() << "Using indexed GAM " << gam_filename
+                                  << " with index " << gam_index_filename << endl;
+                }
+            } else {
+                auto in_memory_source = new InMemorySiteReadSource();
+                read_source.reset(in_memory_source);
+                if (!gam_filename.empty()) {
+                    in_memory_source->load_gam(gam_filename, read_filter);
+                } else {
+                    in_memory_source->load_gaf(*graph, gaf_filename, read_filter);
+                }
+                if (show_progress) {
+                    logger.info() << "Loaded " << in_memory_source->get_read_count()
+                                  << " reads (" << in_memory_source->get_filtered_count()
+                                  << " filtered out)" << endl;
+                }
+            }
+
+            // Two scorers: quality-adjusted for reads that have base qualities,
+            // plain for reads that do not. Picking per read avoids either
+            // fabricating qualities or mis-scoring.
+            qual_scorer.reset(new QualAdjAlignmentScorer());
+            plain_scorer.reset(new MatrixAlignmentScorer());
+
+            AlleleLikelihoodParams likelihood_params;
+            likelihood_params.use_mismap_term = !no_mismap_term;
+            likelihood_params.read_weight = read_weight;
+            likelihood_params.max_allele = max_allele_likelihood;
+            likelihood_params.length_weighted_mixture = !flat_mixture;
+            likelihood_params.length_weight_whole_traversal = length_weight_whole_traversal;
+            likelihood_params.max_mismap_prob = max_mismap_prob;
+            likelihood_params.min_mismap_prob = min_mismap_prob;
+
+            likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
+                *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,
+                likelihood_params));
+
+            auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *snarl_manager, *support_finder,
+                                                           *likelihood_calculator);
+
+            if (!dump_likelihoods_filename.empty()) {
+                likelihood_dump.reset(new ofstream(dump_likelihoods_filename));
+                if (!(*likelihood_dump)) {
+                    logger.error() << "could not open " << dump_likelihoods_filename
+                                   << " for writing" << endl;
+                }
+                rl_caller->set_likelihood_dump(likelihood_dump.get());
+            }
+
+            // Without a pack file the support finder reports zero for everything, so
+            // the caller must not prune alleles on support.
+            rl_caller->set_support_available(!support_free);
+            rl_caller->set_share_discount(!no_share_quality);
+
+            packed_caller = rl_caller;
+        } else if (ratio_caller == false) {
             // Make a depth index
             if (show_progress) logger.info() << "Computing coverage statistics" << endl;
             depth_index = vg::algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
@@ -900,6 +1245,24 @@ int main_call(int argc, char** argv) {
 
     if (!snarl_caller) {
         logger.error() << "pack file (-k) is required" << endl;
+    }
+
+    // Guard the pack-free path: it is only sound where nothing consults support.
+    if (support_free) {
+        if (!gbwt_enumeration) {
+            logger.error() << "--read-likelihood without -k/--pack requires haplotype-based allele "
+                           << "enumeration (-g/--gbwt or -z/--gbz); otherwise a pack file is needed "
+                           << "for the flow traversal finder's node and edge weights" << endl;
+        }
+        if (!vcf_filename.empty()) {
+            // VCFTraversalFinder prunes alt paths on support before its brute-force
+            // enumeration, so -v genuinely needs a pack file.
+            logger.error() << "-v/--vcf with --read-likelihood requires -k/--pack" << endl;
+        }
+        if (bottom_up) {
+            // NestedFlowCaller downcasts the support finder to a nested packed one.
+            logger.error() << "--bottom-up with --read-likelihood requires -k/--pack" << endl;
+        }
     }
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
@@ -1075,6 +1438,18 @@ int main_call(int argc, char** argv) {
         recurse_type = GraphCaller::RecurseOnFail;
     }
 
+    // Ordered visits only help a read source that fetches by node-ID window, and they
+    // change the traversal order of code the default caller shares -- so gate on such a
+    // source actually being in use. With it off, the default path is bit-for-bit what it
+    // was. GAF-Base needs this more than the GAM index does: a query there is a process
+    // spawn, so an unordered visit pays milliseconds per site rather than a rescan.
+    if (dynamic_cast<WindowedSiteReadSource*>(read_source.get()) != nullptr) {
+        graph_caller->set_node_id_ordering(true, read_window_size);
+        if (show_progress) {
+            logger.info() << "Visiting snarls in node-ID order, window " << read_window_size << endl;
+        }
+    }
+
     if (!call_chains) {
         // Call each snarl
         if (show_progress) logger.info() << "Calling top-level snarls" << endl;
@@ -1085,6 +1460,49 @@ int main_call(int argc, char** argv) {
         if (show_progress) logger.info() << "Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
     }
+
+    // Report the indexed read source's cache behaviour, now that calling is done and
+    // the counters mean something. The index over-fetches, so a low hit rate means the
+    // parent-then-descendants locality the cache relies on is not materialising.
+    if (show_progress) {
+        auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get());
+        if (windowed != nullptr) {
+            size_t hits = windowed->get_cache_hits();
+            size_t misses = windowed->get_cache_misses();
+            size_t total = hits + misses;
+            auto* gaf_base = dynamic_cast<GafBaseSiteReadSource*>(windowed);
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << windowed->get_read_count() << " reads fetched, "
+                          << hits << "/" << total << " site queries served from cache"
+                          << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
+                          << endl;
+            // Selectivity. A window holds far more reads than any one site wants, so
+            // the gap between these two is work spent rejecting reads, and it is what
+            // to watch when tuning --read-window.
+            size_t seen = windowed->get_scanned_count();
+            size_t used = windowed->get_delivered_count();
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << seen << " reads considered, " << used << " delivered"
+                          << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
+                          << endl;
+            // Sites too big for one window are fetched uncached, by their exact node
+            // ranges. The two totals are the ranges asked for against the span they
+            // sit in: if a change ever collapses one to the other, this is where it
+            // shows, and on chr20 that difference was 133 k node IDs against 13.2 M.
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << windowed->get_straddle_count() << " site queries too wide for a "
+                          << "window, fetched uncached over " << windowed->get_straddle_wanted()
+                          << " node IDs (spanning " << windowed->get_straddle_nodes() << ")"
+                          << endl;
+            if (gaf_base != nullptr) {
+                // The count that governs run time: each one is a process spawn, so this
+                // is the number to watch if a run is slow.
+                logger.info() << "GAF-Base: " << gaf_base->get_query_count()
+                              << " subprocess queries" << endl;
+            }
+        }
+    }
+
     if (show_progress) logger.info() << "Calling complete" << endl;
 
     if (!gaf_output) {

@@ -20,6 +20,25 @@ void GraphCaller::set_show_progress(bool show_progress) {
     this->show_progress = show_progress;
 }
 
+void GraphCaller::set_node_id_ordering(bool ordered, size_t window_size) {
+    node_id_ordering = ordered;
+    node_id_window = max<size_t>(1, window_size);
+}
+
+/// Key a snarl by the lower of its two boundary node IDs. Sorting on this groups
+/// snarls that a node-ID-range read source would fetch together.
+static nid_t snarl_node_key(const Snarl* snarl) {
+    return min(snarl->start().node_id(), snarl->end().node_id());
+}
+
+/// Sort snarls by node ID, so a read source fetching by node-ID range sees each
+/// window once instead of re-querying per site.
+static void sort_snarls_by_node_id(vector<const Snarl*>& snarls) {
+    std::sort(snarls.begin(), snarls.end(), [](const Snarl* a, const Snarl* b) {
+        return snarl_node_key(a) < snarl_node_key(b);
+    });
+}
+
 void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
 
     // Used to recurse on children of parents that can't be called
@@ -65,7 +84,41 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
     };
 
     // Start with the top level snarls
-    snarl_manager.for_each_top_level_snarl_parallel(process_snarl);
+    if (node_id_ordering) {
+        // Visit in node-ID order, grouped into windows, so a read source that fetches
+        // by node-ID range touches each window once and can release it. roots is
+        // already a materialised vector, so this is a sort rather than a traversal.
+        vector<const Snarl*> roots;
+        snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) {
+            roots.push_back(snarl);
+        });
+        sort_snarls_by_node_id(roots);
+
+        // Partition into contiguous windows. Parallelism becomes one task per window
+        // rather than per snarl, which is what keeps a window's reads useful for the
+        // whole time they are resident.
+        vector<pair<size_t, size_t>> windows;
+        size_t begin = 0;
+        while (begin < roots.size()) {
+            size_t window = (size_t)(snarl_node_key(roots[begin]) / (nid_t)node_id_window);
+            size_t end = begin + 1;
+            while (end < roots.size() &&
+                   (size_t)(snarl_node_key(roots[end]) / (nid_t)node_id_window) == window) {
+                ++end;
+            }
+            windows.emplace_back(begin, end);
+            begin = end;
+        }
+
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int w = 0; w < (int)windows.size(); ++w) {
+            for (size_t i = windows[w].first; i < windows[w].second; ++i) {
+                process_snarl(roots[i]);
+            }
+        }
+    } else {
+        snarl_manager.for_each_top_level_snarl_parallel(process_snarl);
+    }
     if (show_progress) cerr << "[vg call]: Finished processing " << top_snarl_count << " top-level snarls" << endl;
 
     top_level = false;
@@ -78,6 +131,12 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
             cur_queue.reserve(cur_queue.size() + thread_queue.size());
             std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
             thread_queue.clear();
+        }
+
+        if (node_id_ordering) {
+            // Keep queued children window-ordered as well, or the recursion rounds
+            // undo the ordering the top-level pass established.
+            sort_snarls_by_node_id(cur_queue);
         }
 
 #pragma omp parallel for schedule(dynamic, 1)
@@ -2738,44 +2797,46 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             }
         }
 
-        // Track which parent sets are empty (star/missing allele cases)
-        vector<bool> empty_sets(ploidy, false);
+        // Which parent haplotypes actually traverse this child? A parent allele with
+        // an empty traversal set skips the child entirely, and gets a star or
+        // missing allele rather than a genotype.
+        vector<int> traversing_sets;
         for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
-            if ((*parent_child_trav_sets)[set_idx].empty()) {
-                empty_sets[set_idx] = true;
-            }
-        }
-
-        // Check if ALL sets are empty (no traversals at all)
-        bool all_empty = true;
-        for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
-            if (!empty_sets[set_idx]) {
-                all_empty = false;
-                break;
+            if (!(*parent_child_trav_sets)[set_idx].empty()) {
+                traversing_sets.push_back(set_idx);
             }
         }
 
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        int marker = star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER;
 
-        if (all_empty) {
-            // All parent alleles skip this child - genotype is all star/missing
-            for (int i = 0; i < ploidy; ++i) {
-                trav_genotype.push_back(star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER);
-            }
+        if (traversing_sets.empty()) {
+            // No parent allele traverses this child at all.
+            trav_genotype.assign(ploidy, marker);
         } else {
-            // Use the existing genotyper to select best genotype from available traversals
-            // The genotyper uses proper genotype likelihoods that account for expected allele ratios
-            std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+            // Genotype at the ploidy that actually traverses the site, not at the
+            // parent's ploidy.
+            //
+            // This used to ask for a full-ploidy genotype and then overwrite the
+            // positions belonging to empty sets, which was wrong twice over. A site
+            // only one haplotype reaches is not diploid, and asking a genotyper for
+            // a diploid call there lets a spurious heterozygote absorb noise on a
+            // second allele for free, biasing which allele gets picked before any
+            // marker is applied. And because genotype() returns a sorted allele
+            // multiset with no haplotype identity, overwriting position i had no
+            // relationship to which parent haplotype was actually empty -- so which
+            // allele got discarded was effectively arbitrary.
+            int effective_ploidy = (int)traversing_sets.size();
+            vector<int> called_alleles;
+            std::tie(called_alleles, trav_call_info) = snarl_caller.genotype(
+                snarl, travs, ref_trav_idx, effective_ploidy, ref_path_name,
+                make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
-            // Post-process: replace genotyped alleles with star/missing for empty parent sets
-            // The genotyper returns one allele per ploidy position, and we need to check if
-            // the corresponding parent set was empty
-            for (int i = 0; i < ploidy && i < trav_genotype.size(); ++i) {
-                if (empty_sets[i]) {
-                    // This parent allele doesn't traverse the child - use star/missing
-                    trav_genotype[i] = star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER;
-                }
+            // Scatter the called alleles back onto the traversing haplotypes,
+            // leaving the others as star/missing.
+            trav_genotype.assign(ploidy, marker);
+            for (size_t j = 0; j < traversing_sets.size() && j < called_alleles.size(); ++j) {
+                trav_genotype[traversing_sets[j]] = called_alleles[j];
             }
         }
 
