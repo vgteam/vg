@@ -104,19 +104,32 @@ public:
     /// Discount every read's contribution by a single scalar, so w reads carry
     /// the evidential weight of one.
     ///
-    /// This is an effective-sample-size correction, not a tuning knob bolted on
-    /// to fix a metric. The model sums ln P(r | G) over reads as if each were an
-    /// independent draw, and on real data they are not: mates of a pair share a
-    /// fragment and share a mismapping fate, and reads piled on a repeat copy
-    /// mismap together rather than independently. Summing correlated evidence as
-    /// if independent overstates how much the reads know, which is exactly the
-    /// failure seen at tandem repeats -- a minority of correlated mismapped reads
-    /// outvoting a correct homozygous call.
+    /// This is an effective-sample-size correction. The model sums ln P(r | G) over
+    /// reads as if each were an independent draw, and on real data they are not:
+    /// mates of a pair share a fragment and share a mismapping fate, and reads
+    /// piled on a repeat copy mismap together rather than independently. Summing
+    /// correlated evidence as if independent overstates how much the reads know.
+    ///
+    /// **It cannot change a genotype, and it was once documented as if it could.**
+    /// A single scalar multiplies every genotype's log-likelihood equally, so
+    /// argmax_G w * LL(G) = argmax_G LL(G) for any w > 0. Measured across w in
+    /// [0.5, 2.0] on two graphs, the called genotypes are byte-identical while GQ
+    /// scales exactly with w. So this knob rescales *confidence* and nothing else:
+    /// it cannot stop "a minority of correlated mismapped reads outvoting a correct
+    /// homozygous call", which is what an earlier version of this comment claimed.
+    /// Anything that must change which genotype wins has to enter the per-read term
+    /// -- as e_r does, and as the mixture weights do.
+    ///
+    /// It follows that w cannot be fitted against genotype accuracy at all: every
+    /// metric scored across all GQ thresholds is invariant to it. Fitting it needs a
+    /// calibration objective -- does a GQ of q correspond to an error rate of
+    /// 10^(-q/10)? -- not an F1. Note also that GQ saturates at 256, and at w = 2.0
+    /// the 90th percentile is already there, so raising w destroys GQ's dynamic
+    /// range before it improves anything.
     ///
     /// Deliberately a single scalar rather than a per-MAPQ table. A table would
     /// have to estimate P(mismapped | MAPQ) per bin, which needs per-read origin
-    /// truth in quantity; one scalar can be set from the observable behaviour it
-    /// is meant to control.
+    /// truth in quantity.
     void set_read_weight(double w) { read_weight = w; }
 
     /// Replace the 1/|G| mixture over the genotype's haplotypes with a maximum:
