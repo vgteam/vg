@@ -426,8 +426,16 @@ struct AlleleLikelihoodParams {
     /// diagnostic only, and expected to over-call heterozygotes.
     bool max_allele = false;
     /// Weight the mixture by each haplotype's expected read contribution at the
-    /// site. See AlleleReadLikelihoods::set_length_weights.
-    bool length_weighted_mixture = false;
+    /// site rather than a flat 1/|G|. See AlleleReadLikelihoods::set_length_weights.
+    ///
+    /// **On by default.** The flat weight asserts each haplotype of a genotype
+    /// produced half the site's reads, which is false wherever the alleles differ
+    /// in length, and badly so for large events: it lost 94% of heterozygous
+    /// deletions above 1 kb and mis-genotyped two thirds of heterozygous insertions
+    /// above 1 kb. Correcting it costs nothing measurable elsewhere -- equal-length
+    /// alleles give exactly 1/2, so SNV genotype F1 is unchanged to four decimal
+    /// places on both graphs tested -- and about 2% of runtime.
+    bool length_weighted_mixture = true;
     /// Use whole traversal length for that weight instead of sequence unique to
     /// each allele. The first version of the weight; kept so the sharpening can be
     /// measured against it rather than assumed.
