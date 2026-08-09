@@ -193,6 +193,79 @@ TEST_CASE("A length-weighted mixture still prefers a clean homozygote",
     REQUIRE(best_genotype(matrix.score_genotypes(2)) == vector<int>({0, 0}));
 }
 
+TEST_CASE("Unique-content weighting is sharper than whole-traversal weighting",
+          "[allele_likelihood]") {
+    // A deletion whose traversals share most of their sequence: the site spells
+    // 2945 bp along the long allele and 296 bp along the short one, but all 296 of
+    // the short allele's bases are shared, so nothing in it is unique. Whole-length
+    // weighting therefore credits the deletion with 296 bp it cannot use to
+    // distinguish itself, and understates the imbalance.
+    //
+    // The read counts here matter, and not only as flavour. Sharpening the weight is
+    // NOT monotonically better: it cuts what each interior read costs the
+    // heterozygote, but it also cuts what each junction read earns it, because a
+    // read fitting the deletion is being scored against a smaller prior mass. The
+    // sharpening pays only once interior reads outnumber junction reads by more than
+    // about 27:1 * (per-read deltas) -- here 40:3. At 20:3 the whole-traversal weight
+    // actually gives the larger margin. Real large heterozygous deletions sit around
+    // 15:1 measured on chr6 and the sharpening helps there; a toy at 20:3 does not
+    // reproduce them, and asserting otherwise pinned an expectation the model never
+    // made.
+    auto fill = [](AlleleReadLikelihoodsBuilder& b) {
+        for (int i = 0; i < 40; ++i) {
+            b.add_read({0.0, -30.0}, 0.02, "", 151);
+        }
+        for (int i = 0; i < 3; ++i) {
+            b.add_read({-30.0, 0.0}, 0.02, "", 151);
+        }
+    };
+    AlleleReadLikelihoodsBuilder whole(2);
+    fill(whole);
+    whole.set_allele_lengths({2945, 296});
+    AlleleReadLikelihoods whole_matrix = whole.build();
+
+    AlleleReadLikelihoodsBuilder unique(2);
+    fill(unique);
+    unique.set_allele_lengths({2945, 296});
+    unique.set_unique_lengths({{2649, 2649}, {0, 0}});
+    AlleleReadLikelihoods unique_matrix = unique.build();
+
+    double whole_margin = whole_matrix.genotype_likelihood({0, 1})
+                        - whole_matrix.genotype_likelihood({0, 0});
+    double unique_margin = unique_matrix.genotype_likelihood({0, 1})
+                         - unique_matrix.genotype_likelihood({0, 0});
+    REQUIRE(unique_margin > whole_margin);
+}
+
+TEST_CASE("Unique-content weighting still gives a SNV exactly one half",
+          "[allele_likelihood]") {
+    // The property everything else depends on. A SNV's two alleles each carry one
+    // base the other does not, so unique content is symmetric and the weights must
+    // come out flat -- otherwise every SNV in the genome moves.
+    auto fill = [](AlleleReadLikelihoodsBuilder& b) {
+        for (int i = 0; i < 12; ++i) {
+            b.add_read({0.0, -8.0}, 0.02, "", 151);
+        }
+        for (int i = 0; i < 9; ++i) {
+            b.add_read({-8.0, 0.0}, 0.02, "", 151);
+        }
+    };
+    AlleleReadLikelihoodsBuilder flat(2);
+    fill(flat);
+    AlleleReadLikelihoods flat_matrix = flat.build();
+
+    AlleleReadLikelihoodsBuilder unique(2);
+    fill(unique);
+    unique.set_allele_lengths({1, 1});
+    unique.set_unique_lengths({{0, 1}, {1, 0}});
+    AlleleReadLikelihoods unique_matrix = unique.build();
+
+    for (auto& g : {vector<int>({0, 0}), vector<int>({0, 1}), vector<int>({1, 1})}) {
+        REQUIRE(unique_matrix.genotype_likelihood(g)
+                == Approx(flat_matrix.genotype_likelihood(g)));
+    }
+}
+
 TEST_CASE("Equal-length alleles are unchanged by the length weighting",
           "[allele_likelihood]") {
     // The blast radius has to be confined to length-imbalanced sites: every SNV in

@@ -69,6 +69,9 @@ void help_call(char** argv) {
          << "                            it is expected to contribute here, (L+R-1), instead of" << endl
          << "                            a flat 1/ploidy. Equal-length alleles are unchanged;" << endl
          << "                            corrects heterozygotes whose alleles differ in length" << endl
+         << "      --length-weight-whole-traversal  weight by whole traversal length rather" << endl
+         << "                            than by sequence unique to each allele. Coarser;" << endl
+         << "                            kept so the sharper weight can be measured against it" << endl
          << "      --max-allele-likelihood  score each read by the best-fitting haplotype in" << endl
          << "                            the genotype instead of averaging over them. Removes" << endl
          << "                            the ln 2 penalty that reads inside a heterozygous" << endl
@@ -221,6 +224,7 @@ int main_call(int argc, char** argv) {
     bool no_share_quality = false;
     bool max_allele_likelihood = false;
     bool length_weighted_mixture = false;
+    bool length_weight_whole_traversal = false;
     double read_weight = 1.0;
     double max_mismap_prob = 0.5;
     double min_mismap_prob = 0.02;
@@ -259,6 +263,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_MAX_ALLELE_LIKELIHOOD = 1022;
     constexpr int OPT_LENGTH_WEIGHTED_MIXTURE = 1023;
+    constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -306,6 +311,7 @@ int main_call(int argc, char** argv) {
             {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
             {"max-allele-likelihood", no_argument, 0, OPT_MAX_ALLELE_LIKELIHOOD},
             {"length-weighted-mixture", no_argument, 0, OPT_LENGTH_WEIGHTED_MIXTURE},
+            {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -470,6 +476,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_LENGTH_WEIGHTED_MIXTURE:
             length_weighted_mixture = true;
+            break;
+        case OPT_LENGTH_WEIGHT_WHOLE:
+            length_weight_whole_traversal = true;
             break;
         case OPT_NO_SHARE_QUALITY:
             no_share_quality = true;
@@ -1174,6 +1183,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.read_weight = read_weight;
             likelihood_params.max_allele = max_allele_likelihood;
             likelihood_params.length_weighted_mixture = length_weighted_mixture;
+            likelihood_params.length_weight_whole_traversal = length_weight_whole_traversal;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
 

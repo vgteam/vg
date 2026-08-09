@@ -60,9 +60,27 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
         double sum = 0.0;
         for (size_t i = 0; i < genotype.size(); ++i) {
             int allele = genotype[i];
-            double eff = (allele >= 0 && (size_t)allele < allele_lengths.size())
-                             ? (double)allele_lengths[allele] + mean_read_length - 1.0
-                             : mean_read_length;
+            double own;
+            if (!unique_lengths.empty() && allele >= 0
+                && (size_t)allele < unique_lengths.size()) {
+                // Sequence in this allele that no other member of the genotype
+                // carries. Reads outside it cannot separate the two.
+                size_t u = numeric_limits<size_t>::max();
+                for (size_t j = 0; j < genotype.size(); ++j) {
+                    int other = genotype[j];
+                    if (j == i || other < 0
+                        || (size_t)other >= unique_lengths[allele].size()) {
+                        continue;
+                    }
+                    u = min(u, unique_lengths[allele][other]);
+                }
+                own = (u == numeric_limits<size_t>::max()) ? 0.0 : (double)u;
+            } else if (allele >= 0 && (size_t)allele < allele_lengths.size()) {
+                own = (double)allele_lengths[allele];
+            } else {
+                own = 0.0;
+            }
+            double eff = own + mean_read_length - 1.0;
             // A traversal shorter than one read still admits reads spanning it,
             // so the effective length can never fall to zero.
             weights[i] = max(eff, 1.0);
@@ -231,6 +249,7 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     result.set_max_allele(max_allele);
     if (!allele_lengths.empty() && read_length_count > 0) {
         result.set_length_weights(allele_lengths, read_length_total / (double)read_length_count);
+        result.set_unique_lengths(std::move(unique_lengths));
     }
     return result;
 }
@@ -598,7 +617,37 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             }
             allele_lengths.push_back(len);
         }
-        builder.set_allele_lengths(std::move(allele_lengths));
+        builder.set_allele_lengths(allele_lengths);
+
+        if (!params.length_weight_whole_traversal) {
+            // Per-allele node content, then pairwise set differences. Computed once
+            // per site off the hot path; a node visited more than once by an allele
+            // counts its sequence once, which is what "does this allele carry this
+            // sequence" means.
+            vector<map<nid_t, size_t>> content(allele_steps.size());
+            for (size_t a = 0; a < allele_steps.size(); ++a) {
+                for (const AlleleStep& step : allele_steps[a]) {
+                    content[a][step.node_id] = step.sequence.size();
+                }
+            }
+            vector<vector<size_t>> unique_lengths(
+                allele_steps.size(), vector<size_t>(allele_steps.size(), 0));
+            for (size_t a = 0; a < content.size(); ++a) {
+                for (size_t b = 0; b < content.size(); ++b) {
+                    if (a == b) {
+                        continue;
+                    }
+                    size_t total = 0;
+                    for (const auto& entry : content[a]) {
+                        if (!content[b].count(entry.first)) {
+                            total += entry.second;
+                        }
+                    }
+                    unique_lengths[a][b] = total;
+                }
+            }
+            builder.set_unique_lengths(std::move(unique_lengths));
+        }
     }
 
     // The orientation each allele visits each node in, so a read aligned to the

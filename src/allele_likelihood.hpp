@@ -15,6 +15,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -167,6 +168,31 @@ public:
         this->mean_read_length = mean_read_length;
     }
 
+    /// Sharpen the weights by counting only sequence *unique* to each allele.
+    ///
+    /// Whole traversal length over-counts the shorter allele, because a traversal
+    /// includes the site's shared sequence -- at one measured 2648 bp deletion the
+    /// traversals are 296 and 2945 bp, so the raw ratio is 6.9 where the reads
+    /// actually split about 14.6. Reads landing in shared sequence fit every allele
+    /// equally, contribute the same factor to every genotype, and cancel; only
+    /// reads overlapping sequence unique to one allele can move a genotype
+    /// comparison at all. So the quantity the weight wants is unique content:
+    ///
+    ///     w_h = (U_h + R - 1) / sum_{h' in G} (U_h' + R - 1)
+    ///
+    /// where U_h is the sequence h visits and the other allele of the genotype does
+    /// not. Balanced alleles still give exactly 1/2 -- a SNV has U = 1 on both
+    /// sides -- so the no-op-on-small-variants property is unaffected.
+    ///
+    /// `unique_lengths[a][b]` is the sequence in allele a but not allele b. For a
+    /// diploid genotype that is exact. Above diploid the minimum over the other
+    /// members is used, which over-states uniqueness when three or more alleles
+    /// overlap partially; `vg call` genotypes diploid, so this is a bound rather
+    /// than a live approximation.
+    void set_unique_lengths(vector<vector<size_t>> unique_lengths) {
+        this->unique_lengths = std::move(unique_lengths);
+    }
+
     /// True when set_length_weights supplied usable data.
     bool uses_length_weights() const {
         return !allele_lengths.empty() && mean_read_length > 0.0;
@@ -221,6 +247,7 @@ private:
     double read_weight = 1.0;
     bool max_allele = false;
     vector<size_t> allele_lengths;
+    vector<vector<size_t>> unique_lengths;
     double mean_read_length = 0.0;
     vector<double> read_best_ln;
     vector<string> read_names;
@@ -270,6 +297,11 @@ public:
         allele_lengths = std::move(lengths);
     }
 
+    /// See AlleleReadLikelihoods::set_unique_lengths. Carried through build().
+    void set_unique_lengths(vector<vector<size_t>> lengths) {
+        unique_lengths = std::move(lengths);
+    }
+
     /// Normalise every row by its own maximum and produce the matrix.
     AlleleReadLikelihoods build();
 
@@ -280,6 +312,7 @@ private:
     double read_weight;
     bool max_allele = false;
     vector<size_t> allele_lengths;
+    vector<vector<size_t>> unique_lengths;
     double read_length_total = 0.0;
     size_t read_length_count = 0;
     vector<vector<double>> rows;
@@ -395,6 +428,10 @@ struct AlleleLikelihoodParams {
     /// Weight the mixture by each haplotype's expected read contribution at the
     /// site. See AlleleReadLikelihoods::set_length_weights.
     bool length_weighted_mixture = false;
+    /// Use whole traversal length for that weight instead of sequence unique to
+    /// each allele. The first version of the weight; kept so the sharpening can be
+    /// measured against it rather than assumed.
+    bool length_weight_whole_traversal = false;
 };
 
 /**
