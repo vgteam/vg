@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 116
+plan tests 119
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 vg index hla_v.vg -x hla.xg
@@ -483,6 +483,18 @@ rm -f nors.pg nors.vcf nors.gbwt
 # Test: RC, RS, RD headers and tags in deconstruct output
 vg paths --compute-gref --min-gref-len 0 -x nesting/triple_nested.gfa -Q x > rc_decon_test.gref.pg
 vg deconstruct rc_decon_test.gref.pg -P gref_x -a > rc_decon_test.vcf
+
+# A gref fragment whose enclosing snarl only the reference and its own gref copy span.  That
+# parent has no variant, so it never reaches the VCF, and the walk that looks for an ancestor to
+# take RC/RS/RD from finds nothing.  It used to fall back to this record's own contig and
+# position, which on a gref contig is not a reference coordinate at all -- and is indistinguishable
+# from the legitimate case where a record really is top-level on a reference contig.
+vg paths --compute-gref --min-gref-len 1 -x nesting/gref_island_no_parent_record.gfa -Q REF > island.pg
+vg deconstruct island.pg -P gref_REF -a -C > island.vcf
+is $(grep -v "^#" island.vcf | awk '$8 ~ /LV=0/ && $8 ~ /CH=0/ {print $1}') "chr1_1_alt" "the island record has no ancestor in the VCF"
+is $(grep -v "^#" island.vcf | grep -c "RC=chr1;") 1 "a suppressed parent still gives its child a reference coordinate"
+is $(grep -v "^#" island.vcf | grep -c "RC=chr1_1_alt") 0 "no record names its own gref contig as its reference"
+rm -f island.pg island.vcf
 
 # Check for RC, RS, RD headers
 is $(grep -c "##INFO=<ID=RC" rc_decon_test.vcf) 1 "deconstruct: RC header is present in VCF"
