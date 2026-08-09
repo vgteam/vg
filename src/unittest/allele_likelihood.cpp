@@ -155,6 +155,98 @@ TEST_CASE("set_max_allele removes the heterozygote's mixture penalty", "[allele_
     }
 }
 
+TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",
+          "[allele_likelihood]") {
+    // Same shape as the max-allele case: allele 0 is a 2000 bp long allele, allele
+    // 1 a deletion leaving 300 bp. Twenty reads sit inside the deleted interval and
+    // fit only the long allele; three span the junction and fit only the deletion.
+    AlleleReadLikelihoodsBuilder builder(2);
+    for (int i = 0; i < 20; ++i) {
+        builder.add_read({0.0, -30.0}, 0.02, "", 151);
+    }
+    for (int i = 0; i < 3; ++i) {
+        builder.add_read({-30.0, 0.0}, 0.02, "", 151);
+    }
+    builder.set_allele_lengths({2000, 300});
+    AlleleReadLikelihoods matrix = builder.build();
+    REQUIRE(matrix.uses_length_weights());
+
+    // Interior reads now cost the heterozygote ln(1/0.827) rather than ln 2, and
+    // the three junction reads are enough to carry it.
+    REQUIRE(matrix.genotype_likelihood({0, 1}) > matrix.genotype_likelihood({0, 0}));
+    REQUIRE(best_genotype(matrix.score_genotypes(2)) == vector<int>({0, 1}));
+}
+
+TEST_CASE("A length-weighted mixture still prefers a clean homozygote",
+          "[allele_likelihood]") {
+    // The property max_allele destroys. Weights sum to 1, so adding an allele still
+    // costs: overwhelming homozygous evidence plus one stray read must stay
+    // homozygous, even when the alleles differ wildly in length.
+    AlleleReadLikelihoodsBuilder builder(2);
+    for (int i = 0; i < 30; ++i) {
+        builder.add_read({0.0, -30.0}, 0.02, "", 151);
+    }
+    builder.add_read({-30.0, 0.0}, 0.02, "", 151);
+    builder.set_allele_lengths({2000, 300});
+    AlleleReadLikelihoods matrix = builder.build();
+
+    REQUIRE(best_genotype(matrix.score_genotypes(2)) == vector<int>({0, 0}));
+}
+
+TEST_CASE("Equal-length alleles are unchanged by the length weighting",
+          "[allele_likelihood]") {
+    // The blast radius has to be confined to length-imbalanced sites: every SNV in
+    // the genome goes through this code path, and must come out bit for bit the
+    // same as the flat 1/|G| mixture.
+    auto fill = [](AlleleReadLikelihoodsBuilder& b) {
+        for (int i = 0; i < 12; ++i) {
+            b.add_read({0.0, -8.0}, 0.02, "", 151);
+        }
+        for (int i = 0; i < 9; ++i) {
+            b.add_read({-8.0, 0.0}, 0.02, "", 151);
+        }
+    };
+    AlleleReadLikelihoodsBuilder flat(2);
+    fill(flat);
+    AlleleReadLikelihoods flat_matrix = flat.build();
+
+    AlleleReadLikelihoodsBuilder weighted(2);
+    fill(weighted);
+    weighted.set_allele_lengths({1, 1});
+    AlleleReadLikelihoods weighted_matrix = weighted.build();
+
+    for (auto& g : {vector<int>({0, 0}), vector<int>({0, 1}), vector<int>({1, 1})}) {
+        REQUIRE(weighted_matrix.genotype_likelihood(g)
+                == Approx(flat_matrix.genotype_likelihood(g)));
+    }
+}
+
+TEST_CASE("A length-weighted mixture fixes heterozygous insertions too",
+          "[allele_likelihood]") {
+    // The mirrored failure. Allele 1 is a 2 kb insertion; reads lying inside the
+    // inserted sequence fit only it, so under the flat mixture they argue for
+    // homozygous-ALT and the site is called 1/1. Recall metrics cannot see this
+    // because the event is still matched -- only genotype concordance shows it.
+    AlleleReadLikelihoodsBuilder flat(2);
+    for (int i = 0; i < 3; ++i) {
+        flat.add_read({0.0, -30.0}, 0.02, "", 151);     // junction, reference side
+    }
+    for (int i = 0; i < 20; ++i) {
+        flat.add_read({-30.0, 0.0}, 0.02, "", 151);     // inside the insertion
+    }
+    REQUIRE(best_genotype(flat.build().score_genotypes(2)) == vector<int>({1, 1}));
+
+    AlleleReadLikelihoodsBuilder weighted(2);
+    for (int i = 0; i < 3; ++i) {
+        weighted.add_read({0.0, -30.0}, 0.02, "", 151);
+    }
+    for (int i = 0; i < 20; ++i) {
+        weighted.add_read({-30.0, 0.0}, 0.02, "", 151);
+    }
+    weighted.set_allele_lengths({100, 2100});
+    REQUIRE(best_genotype(weighted.build().score_genotypes(2)) == vector<int>({0, 1}));
+}
+
 TEST_CASE("set_max_allele cannot score a heterozygote below a homozygote",
           "[allele_likelihood]") {
     // Why this is a diagnostic and not a shipping default. max over the genotype

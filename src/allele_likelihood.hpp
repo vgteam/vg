@@ -137,6 +137,41 @@ public:
     /// to measure that trade, not as a shipping default.
     void set_max_allele(bool on) { max_allele = on; }
 
+    /// Weight the mixture by how many reads each haplotype is *expected* to
+    /// contribute at this site, instead of a flat 1/|G|.
+    ///
+    /// The flat weight asserts that each haplotype of a genotype produced half
+    /// the reads. Over an interval where one haplotype carries a deletion that is
+    /// simply false -- the deleted haplotype produces no reads there at all -- and
+    /// the error grows with the length imbalance. It is why a read lying inside a
+    /// heterozygous deletion argues for the homozygous long genotype by ln 2, and
+    /// why large heterozygous deletions are lost (and large heterozygous
+    /// insertions mis-genotyped, the same failure mirrored).
+    ///
+    /// The number of read start positions that yield a read overlapping this site
+    /// from a haplotype presenting an allele of length L is L + R - 1, for read
+    /// length R. So
+    ///
+    ///     w_h = (L_h + R - 1) / sum_{h' in G} (L_h' + R - 1)
+    ///
+    /// Three properties this has and a plain maximum does not. The weights sum to
+    /// 1, so adding an allele still costs and a clean homozygote still beats the
+    /// heterozygote. Equal-length alleles give exactly 1/2, so SNVs and balanced
+    /// indels are unchanged bit for bit. And it is symmetric in the direction of
+    /// the imbalance, so it addresses insertions and deletions with one rule.
+    ///
+    /// `allele_lengths` is indexed by allele, `mean_read_length` is R. Passing an
+    /// empty vector, or a zero R, falls back to the flat 1/|G|.
+    void set_length_weights(vector<size_t> allele_lengths, double mean_read_length) {
+        this->allele_lengths = std::move(allele_lengths);
+        this->mean_read_length = mean_read_length;
+    }
+
+    /// True when set_length_weights supplied usable data.
+    bool uses_length_weights() const {
+        return !allele_lengths.empty() && mean_read_length > 0.0;
+    }
+
     /**
      * ln P(reads | G), where G is a multiset of allele indices of size ploidy.
      *
@@ -185,6 +220,8 @@ private:
     vector<double> read_mismap_prob;
     double read_weight = 1.0;
     bool max_allele = false;
+    vector<size_t> allele_lengths;
+    double mean_read_length = 0.0;
     vector<double> read_best_ln;
     vector<string> read_names;
     size_t n_reads = 0;
@@ -215,14 +252,23 @@ public:
 
     /// Add a read. raw_ln_likelihood must have one entry per allele and may
     /// contain -inf for alleles that cannot place the read.
+    /// read_length feeds the mean R used by the length-weighted mixture. Zero
+    /// means "unknown"; if every read is unknown the mixture stays flat.
     void add_read(const vector<double>& raw_ln_likelihood, double mismap_prob,
-                  const string& name = "");
+                  const string& name = "", size_t read_length = 0);
 
     size_t num_reads_added() const { return rows.size(); }
     size_t num_unplaceable() const { return unplaceable; }
 
     /// See AlleleReadLikelihoods::set_max_allele. Carried through build().
     void set_max_allele(bool on) { max_allele = on; }
+
+    /// Allele lengths for the length-weighted mixture, indexed by allele. The
+    /// read length is accumulated from the reads themselves, so only this is
+    /// needed from the caller. Carried through build().
+    void set_allele_lengths(vector<size_t> lengths) {
+        allele_lengths = std::move(lengths);
+    }
 
     /// Normalise every row by its own maximum and produce the matrix.
     AlleleReadLikelihoods build();
@@ -233,6 +279,9 @@ private:
     double max_mismap;
     double read_weight;
     bool max_allele = false;
+    vector<size_t> allele_lengths;
+    double read_length_total = 0.0;
+    size_t read_length_count = 0;
     vector<vector<double>> rows;
     vector<double> mismap_probs;
     vector<string> names;
@@ -343,6 +392,9 @@ struct AlleleLikelihoodParams {
     /// of marginalising over them. See AlleleReadLikelihoods::set_max_allele --
     /// diagnostic only, and expected to over-call heterozygotes.
     bool max_allele = false;
+    /// Weight the mixture by each haplotype's expected read contribution at the
+    /// site. See AlleleReadLikelihoods::set_length_weights.
+    bool length_weighted_mixture = false;
 };
 
 /**

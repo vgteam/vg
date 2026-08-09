@@ -49,14 +49,40 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
         return 0.0;
     }
 
-    double weight = 1.0 / (double)genotype.size();
+    double flat = 1.0 / (double)genotype.size();
     double total = 0.0;
+
+    // Expected share of this site's reads per haplotype of the genotype. Flat
+    // 1/|G| unless lengths were supplied; see set_length_weights for why the flat
+    // weight is wrong whenever the alleles differ in length.
+    vector<double> weights(genotype.size(), flat);
+    if (uses_length_weights()) {
+        double sum = 0.0;
+        for (size_t i = 0; i < genotype.size(); ++i) {
+            int allele = genotype[i];
+            double eff = (allele >= 0 && (size_t)allele < allele_lengths.size())
+                             ? (double)allele_lengths[allele] + mean_read_length - 1.0
+                             : mean_read_length;
+            // A traversal shorter than one read still admits reads spanning it,
+            // so the effective length can never fall to zero.
+            weights[i] = max(eff, 1.0);
+            sum += weights[i];
+        }
+        if (sum > 0.0) {
+            for (double& w : weights) {
+                w /= sum;
+            }
+        } else {
+            weights.assign(genotype.size(), flat);
+        }
+    }
 
     for (size_t r = 0; r < n_reads; ++r) {
         // Marginalise over which haplotype of the genotype produced this read --
         // or, under max_allele, keep only the best-explaining haplotype.
         double mixture = 0.0;
-        for (int allele : genotype) {
+        for (size_t i = 0; i < genotype.size(); ++i) {
+            int allele = genotype[i];
             // The VCF layer uses negative sentinels for star and missing
             // alleles, so be defensive rather than reading out of bounds.
             if (allele < 0 || (size_t)allele >= n_alleles) {
@@ -65,7 +91,7 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
             if (max_allele) {
                 mixture = max(mixture, rel(r, (size_t)allele));
             } else {
-                mixture += weight * rel(r, (size_t)allele);
+                mixture += weights[i] * rel(r, (size_t)allele);
             }
         }
 
@@ -153,7 +179,8 @@ AlleleReadLikelihoodsBuilder::AlleleReadLikelihoodsBuilder(size_t num_alleles, d
 }
 
 void AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelihood,
-                                            double mismap_prob, const string& name) {
+                                            double mismap_prob, const string& name,
+                                            size_t read_length) {
     assert(raw_ln_likelihood.size() == n_alleles);
 
     // The row's divisor is the read's best fit over ALL alleles at the site, not
@@ -180,6 +207,10 @@ void AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelih
         rows.back().push_back(exp(ll - best));
     }
 
+    if (read_length > 0) {
+        read_length_total += (double)read_length;
+        ++read_length_count;
+    }
     mismap_probs.push_back(min(max(mismap_prob, min_mismap), max_mismap));
     best_lns.push_back(best);
     names.push_back(name);
@@ -198,6 +229,9 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
                         std::move(best_lns), std::move(names), unplaceable);
     result.set_read_weight(read_weight);
     result.set_max_allele(max_allele);
+    if (!allele_lengths.empty() && read_length_count > 0) {
+        result.set_length_weights(allele_lengths, read_length_total / (double)read_length_count);
+    }
     return result;
 }
 
@@ -550,6 +584,23 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         allele_steps.push_back(get_allele_steps(traversal));
     }
 
+    if (params.length_weighted_mixture) {
+        // Length of each allele as it is actually spelled by its traversal, which
+        // is the quantity the mixture weight needs. Computed from the same steps
+        // the scorer uses, so it cannot drift from what the reads are scored
+        // against.
+        vector<size_t> allele_lengths;
+        allele_lengths.reserve(allele_steps.size());
+        for (const auto& steps : allele_steps) {
+            size_t len = 0;
+            for (const AlleleStep& step : steps) {
+                len += step.sequence.size();
+            }
+            allele_lengths.push_back(len);
+        }
+        builder.set_allele_lengths(std::move(allele_lengths));
+    }
+
     // The orientation each allele visits each node in, so a read aligned to the
     // opposite strand can be flipped into the alleles' reading direction before
     // being compared to them. A node different alleles disagree about is left out
@@ -624,7 +675,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                             ? phred_to_prob((double)aln.mapping_quality())
                             : params.min_mismap_prob;
 
-        builder.add_read(row, mismap, aln.name());
+        builder.add_read(row, mismap, aln.name(), aln.sequence().size());
     });
 
     return builder.build();
