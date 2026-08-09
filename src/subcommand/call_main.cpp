@@ -65,6 +65,11 @@ void help_call(char** argv) {
          << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "      --max-allele-likelihood  score each read by the best-fitting haplotype in" << endl
+         << "                            the genotype instead of averaging over them. Removes" << endl
+         << "                            the ln 2 penalty that reads inside a heterozygous" << endl
+         << "                            deletion pay, but a heterozygote can then never score" << endl
+         << "                            below a homozygote, so it over-calls hets. Diagnostic" << endl
          << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
          << "                            scaling it by the fraction of reads the called" << endl
          << "                            genotype explains. GQI always carries the raw value" << endl
@@ -210,6 +215,7 @@ int main_call(int argc, char** argv) {
     size_t read_window_size = 0;
     bool no_mismap_term = false;
     bool no_share_quality = false;
+    bool max_allele_likelihood = false;
     double read_weight = 1.0;
     double max_mismap_prob = 0.5;
     double min_mismap_prob = 0.02;
@@ -246,6 +252,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
+    constexpr int OPT_MAX_ALLELE_LIKELIHOOD = 1022;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -291,6 +298,7 @@ int main_call(int argc, char** argv) {
             {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
             {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
+            {"max-allele-likelihood", no_argument, 0, OPT_MAX_ALLELE_LIKELIHOOD},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -449,6 +457,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_MISMAP_TERM:
             no_mismap_term = true;
+            break;
+        case OPT_MAX_ALLELE_LIKELIHOOD:
+            max_allele_likelihood = true;
             break;
         case OPT_NO_SHARE_QUALITY:
             no_share_quality = true;
@@ -1151,6 +1162,7 @@ int main_call(int argc, char** argv) {
             AlleleLikelihoodParams likelihood_params;
             likelihood_params.use_mismap_term = !no_mismap_term;
             likelihood_params.read_weight = read_weight;
+            likelihood_params.max_allele = max_allele_likelihood;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
 
