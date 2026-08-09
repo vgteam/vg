@@ -219,6 +219,14 @@ protected:
 
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
+    // The nesting INFO headers (LV/CH/PS/RC/RS/RD), for both vg call and vg deconstruct.
+    //
+    // One definition on purpose.  These used to be written out verbatim in two places, and
+    // drifted: 54bfd0f2d corrected the CH description in graph_caller.cpp while deconstructor.cpp
+    // -- the copy deconstruct actually emits -- kept the text that commit's own message called
+    // false, so the released VCFs carried the wrong one.
+    static string nesting_info_headers();
+
     string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
     /// legacy version of above
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;

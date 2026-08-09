@@ -233,12 +233,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
     if (include_nested) {
-        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
-        ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-        ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
-        ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
-        ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
+        ss << nesting_info_headers();
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
@@ -1229,6 +1224,17 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
             variant.alt[i - 1] = variant.alleles[i];
         }
     }
+}
+
+string VCFOutputCaller::nesting_info_headers() {
+    stringstream ss;
+    ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
+    ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
+    ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the top-level ancestor record in this VCF. This record's own CHROM when it has no ancestor here, which happens when the enclosing site produced no record\">" << endl;
+    ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"POS of the record named by RC. A position on that record's contig, not a span of its snarl\">" << endl;
+    ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"POS plus REF length of the record named by RC\">" << endl;
+    return ss.str();
 }
 
 string VCFOutputCaller::print_snarl(const HandleGraph* graph, const handle_t& snarl_start,
