@@ -1242,9 +1242,9 @@ string VCFOutputCaller::nesting_info_headers() {
     ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
     ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
     ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the top-level ancestor record in this VCF. This record's own CHROM when it has no ancestor here, which happens when the enclosing site produced no record\">" << endl;
-    ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"POS of the record named by RC. A position on that record's contig, not a span of its snarl\">" << endl;
-    ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"POS plus REF length of the record named by RC\">" << endl;
+    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the topmost ancestor site containing this record: its record in this VCF where it has one, otherwise the site itself, since an enclosing site with no variant to report produces none. This record's own CHROM when it is top-level. Absent when no ancestor and no suppressed ancestor gives a position outside the gref fragments\">" << endl;
+    ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Start of the site named by RC: the POS of its record, or where the site begins when it produced none. A position on that contig, not a span of the snarl, so it can precede the sequence this record describes\">" << endl;
+    ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"End of the site named by RC: RS plus the length of that site's REF allele\">" << endl;
     return ss.str();
 }
 
