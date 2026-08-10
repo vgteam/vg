@@ -493,7 +493,26 @@ struct AlleleLikelihoodParams {
     /// Weight on ln P(N | G). Zero disables the depth term entirely; the `DR`
     /// diagnostic is still computed, so the observable can be measured before the
     /// model is allowed to act on it.
-    double depth_weight = 0.0;
+    ///
+    /// **On by default at 0.1.** The read term is conditioned on the reads it was
+    /// handed and never asks whether that many reads should be there, which is why
+    /// collapsed-repeat pile-ups survived it and why the Poisson caller led on large
+    /// heterozygous deletions. Measured across the full five-arm matrix on two
+    /// chromosomes and two graphs: structural-variant F1 rises on 4 of 4 datasets for
+    /// haplotype enumeration (+0.0067 to +0.0108) and 3 of 4 for support enumeration,
+    /// with the fourth flat; small-variant genotype F1 is unchanged to four decimal
+    /// places on every read arm; and both Poisson arms are byte-identical, as they
+    /// must be. Heterozygous deletion recall above 1 kb roughly doubles.
+    ///
+    /// 0.1 rather than a heavier weight, from a 27-point grid searched on chr20 and
+    /// validated on chr6. The weight is unimodal and turns over sharply above 0.25 --
+    /// false positives climb far faster than true ones -- and the optimum is
+    /// graph-dependent in a consistent way: 4-haplotype graphs prefer 0.25 and
+    /// 34-haplotype graphs prefer 0.1, two for two. 0.1 ties on mean F1, wins on
+    /// precision, and wins on the richer graph, which is the direction pangenomes are
+    /// going. It gives back some heterozygous deletion recall against 0.25; raise it if
+    /// that class is the objective.
+    double depth_weight = 0.1;
     /// Count reads toward depth in proportion to `1 - e_r` -- the probability the
     /// read came from this locus at all -- rather than one apiece.
     ///

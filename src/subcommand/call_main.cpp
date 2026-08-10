@@ -69,7 +69,7 @@ void help_call(char** argv) {
          << "                            a genotype is also judged on whether it predicts the" << endl
          << "                            number of reads seen. The rate is measured over the read" << endl
          << "                            source's own fetch window, so it costs no extra I/O." << endl
-         << "                            0 disables it; DR is emitted either way [0]" << endl
+         << "                            0 disables it; DR is emitted either way [0.1]" << endl
          << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
          << "                            1 - e_r, the probability it came from this locus" << endl
          << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose called" << endl
@@ -237,7 +237,7 @@ int main_call(int argc, char** argv) {
     double depth_quality = 0.0;
     bool max_allele_likelihood = false;
     bool flat_mixture = false;
-    double depth_weight = 0.0;
+    double depth_weight = 0.1;
     bool length_weight_whole_traversal = false;
     bool depth_count_raw = false;
     double max_mismap_prob = 0.7;
