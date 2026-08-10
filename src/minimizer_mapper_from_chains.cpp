@@ -1748,6 +1748,22 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
             if (alns_made >= max_alignments) {
                 // Earlier SubchainGroups made enough alignments already
+                if (track_provenance) {
+                    funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, max_sparse_chain_scores[processed_num]);
+                    funnel.fail("max-alignments", processed_num);
+                }
+                
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "subchain group " << processed_num 
+                            << " failed because there were too many good groups (max score="
+                            << max_sparse_chain_scores[processed_num] << ")" << endl;
+                        if (track_correctness && funnel.was_correct(processed_num)) {
+                            cerr << log_name() << "\tCORRECT!" << endl;
+                        }
+                    }
+                }
                 return false;
             }
         
