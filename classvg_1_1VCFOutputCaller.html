@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
@@ -94,6 +95,11 @@ Inheritance diagram for vg::VCFOutputCaller:</div>
   </map>
 </div></div>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1VCFOutputCaller_1_1SuppressedRef.html">SuppressedRef</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:ad758f9180a51784374ef044b54883f87"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ad758f9180a51784374ef044b54883f87">VCFOutputCaller</a> (const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>)</td></tr>
@@ -164,6 +170,8 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="separator:a5b54d24c323fdab6b5baf787a4cbb4c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aec277a6e87140ca432e4e584b2857c46"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aec277a6e87140ca432e4e584b2857c46">allele_core_length</a> (const vector&lt; string &gt; &amp;alleles)</td></tr>
 <tr class="separator:aec277a6e87140ca432e4e584b2857c46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca94feb0c16d45ce0048e6d027533ca0"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aca94feb0c16d45ce0048e6d027533ca0">nesting_info_headers</a> ()</td></tr>
+<tr class="separator:aca94feb0c16d45ce0048e6d027533ca0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -175,6 +183,8 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a70e8288543e7facfb79f5211ce33fa7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9a532dbc58fe6031595ed819d31b02a"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; pair&lt; pair&lt; string, size_t &gt;, string &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aa9a532dbc58fe6031595ed819d31b02a">output_variants</a></td></tr>
 <tr class="separator:aa9a532dbc58fe6031595ed819d31b02a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afc358b59bf7689dec882ac90b6a4696c"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_map&lt; string, <a class="el" href="structvg_1_1VCFOutputCaller_1_1SuppressedRef.html">SuppressedRef</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#afc358b59bf7689dec882ac90b6a4696c">suppressed_ref_info</a></td></tr>
+<tr class="separator:afc358b59bf7689dec882ac90b6a4696c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4">max_uncalled_alleles</a> = 5</td></tr>
 <tr class="memdesc:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">print up to this many uncalled alleles when doing ref-genotpes in -a mode  <a href="classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4">More...</a><br /></td></tr>
 <tr class="separator:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -715,6 +725,32 @@ is this variant" behind &ndash;cluster-min-len in BOTH vg call and vg deconstruc
 
 </div>
 </div>
+<a id="aca94feb0c16d45ce0048e6d027533ca0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca94feb0c16d45ce0048e6d027533ca0">&#9670;&nbsp;</a></span>nesting_info_headers()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::VCFOutputCaller::nesting_info_headers </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>print a snarl in a consistent form like &gt;3435&lt;12222 if in_brackets set to true, do (&gt;3435&lt;12222) instead (this is only used for nested caller) </p>
+
+</div>
+</div>
 <a id="a176e28f88a407072ec8459e1867e283e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a176e28f88a407072ec8459e1867e283e">&#9670;&nbsp;</a></span>print_flipped_snarl()</h2>
 
@@ -798,7 +834,6 @@ is this variant" behind &ndash;cluster-min-len in BOTH vg call and vg deconstruc
   </tr>
 </table>
 </div><div class="memdoc">
-<p>print a snarl in a consistent form like &gt;3435&lt;12222 if in_brackets set to true, do (&gt;3435&lt;12222) instead (this is only used for nested caller) </p>
 
 </div>
 </div>
@@ -1358,6 +1393,28 @@ is this variant" behind &ndash;cluster-min-len in BOTH vg call and vg deconstruc
 </div><div class="memdoc">
 
 <p>Sample name. </p>
+
+</div>
+</div>
+<a id="afc358b59bf7689dec882ac90b6a4696c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afc358b59bf7689dec882ac90b6a4696c">&#9670;&nbsp;</a></span>suppressed_ref_info</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;unordered_map&lt;string, <a class="el" href="structvg_1_1VCFOutputCaller_1_1SuppressedRef.html">SuppressedRef</a>&gt; &gt; vg::VCFOutputCaller::suppressed_ref_info</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
