@@ -210,6 +210,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         if (share_discount) {
             call_info->gq *= call_info->explained_share;
         }
+        call_info->depth_ratio = matrix.depth_ratio(scored[best_index].first);
     }
 
     // Posterior under a uniform prior. Deliberately NOT the Poisson caller's
@@ -250,6 +251,16 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
         stringstream ss;
         ss << std::fixed << std::setprecision(2) << info->mean_best_ln;
         variant.samples[sample_name]["BL"].push_back(ss.str());
+    }
+
+    // Observed reads over what the call predicts. Diagnostic: the model uses it only
+    // when --depth-term is armed, but it is always reported so the signal can be
+    // measured before it is trusted.
+    if (info->depth_ratio >= 0.0) {
+        variant.format.push_back("DR");
+        stringstream ss;
+        ss << std::fixed << std::setprecision(3) << info->depth_ratio;
+        variant.samples[sample_name]["DR"].push_back(ss.str());
     }
 
     // Map each emitted VCF allele back to the matrix column it came from.
@@ -406,6 +417,13 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
         "That shortfall is itself informative: it is how much of the evidence the emitted "
         "alleles fail to explain. Not used by the genotype model, which assumes each "
         "haplotype contributed 1/ploidy of the reads whatever they show\">\n";
+    header += "##FORMAT=<ID=DR,Number=1,Type=Float,Description=\"Observed reads at this site "
+              "divided by the number the called genotype predicts, from a read rate measured over "
+              "the read source's local fetch window and the called alleles' traversal lengths. 1.0 "
+              "means the read count is exactly what the call implies. Values well above 1 are "
+              "collapsed repeats, where reads from several copies pile onto one; values near 0.5 "
+              "are a genotype claiming twice the sequence actually covered, which is what a missed "
+              "heterozygous deletion looks like. Reported whether or not --depth-term is in use\">\n";
     header += "##FORMAT=<ID=BL,Number=1,Type=Float,Description=\"Mean over reads of the best "
         "raw alignment score any allele gave them. Measures whether reads fit anything at "
         "this site, where GQ measures only the gap between the top two genotypes, so the "

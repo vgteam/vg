@@ -16,6 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -170,6 +171,52 @@ public:
         this->unique_lengths = std::move(unique_lengths);
     }
 
+    /// Add ln P(N | G) to the genotype likelihood: does this genotype predict the
+    /// number of reads actually seen?
+    ///
+    /// The model otherwise scores P(reads | G) conditioned on the reads it was
+    /// handed, and never asks whether that many reads should be there. A complete
+    /// generative model factorises as P(N | G) * P(reads | N, G), so the missing
+    /// piece is additive:
+    ///
+    ///     ln P(data | G) = w * ln Poisson(N ; lambda_G) + sum_r ln[...]
+    ///     lambda_G       = rate * sum_{h in G} (T_h + R - 1)
+    ///
+    /// `T_h` is the allele's **whole** traversal length, not the unique content the
+    /// mixture weights use. The two are different quantities and conflating them is
+    /// an easy, invisible error: a mixture weight asks which allele a read could
+    /// *distinguish*, while lambda asks how much sequence *generates* reads at all.
+    ///
+    /// `rate` is reads per position per haplotype, estimated locally. It must be
+    /// measured through the same fetch and placement path that produced `N`, since
+    /// `N` is rows in this matrix -- neither coverage nor what a `vg pack` index
+    /// reports -- and a rate in different units carries a silent scale error.
+    ///
+    /// Off unless `weight` is positive.
+    void set_depth_context(vector<size_t> traversal_lengths, double rate,
+                           double read_length, double weight) {
+        this->traversal_lengths = std::move(traversal_lengths);
+        this->depth_rate = rate;
+        this->depth_read_length = read_length;
+        this->depth_weight = weight;
+    }
+
+    bool uses_depth_term() const {
+        return depth_weight > 0.0 && depth_rate > 0.0 && !traversal_lengths.empty();
+    }
+
+    /// Expected reads at this site under G, from the same geometry the term uses.
+    double expected_reads(const vector<int>& genotype) const;
+
+    /// Observed over expected, for the genotype given. 1.0 is a site whose read
+    /// count is exactly what the call predicts; 7.0 is a collapsed repeat. Emitted
+    /// as `DR` whether or not the term is switched on, so it can be measured as a
+    /// ranking signal before it is trusted as a likelihood.
+    double depth_ratio(const vector<int>& genotype) const;
+
+    /// Mean read length in this site's own matrix, for the depth term's geometry.
+    double mean_read_length_estimate() const { return mean_read_length; }
+
     /// True when set_length_weights supplied usable data.
     bool uses_length_weights() const {
         return !allele_lengths.empty() && mean_read_length > 0.0;
@@ -225,6 +272,10 @@ private:
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
     double mean_read_length = 0.0;
+    vector<size_t> traversal_lengths;
+    double depth_rate = 0.0;
+    double depth_read_length = 0.0;
+    double depth_weight = 0.0;
     vector<double> read_best_ln;
     vector<string> read_names;
     size_t n_reads = 0;
@@ -412,6 +463,13 @@ struct AlleleLikelihoodParams {
     /// each allele. The first version of the weight; kept so the sharpening can be
     /// measured against it rather than assumed.
     bool length_weight_whole_traversal = false;
+    /// Weight on ln P(N | G). Zero disables the depth term entirely; the `DR`
+    /// diagnostic is still computed, so the observable can be measured before the
+    /// model is allowed to act on it.
+    double depth_weight = 0.0;
+    /// Assumed ploidy when converting a window's read count into a per-haplotype
+    /// rate. The caller genotypes diploid.
+    int depth_ploidy = 2;
 };
 
 /**
@@ -551,9 +609,25 @@ protected:
                                       const EditAlignmentScorer& read_scorer,
                                       bool& placed_out) const;
 
+    /// Reads per position per haplotype, measured over the read source's own fetch
+    /// window around this site.
+    ///
+    /// The window is the right denominator and the snarl is not. A snarl's shared
+    /// sequence is its boundary nodes, which are too short to contain a read --
+    /// measured on ten large deletions, the number of reads fitting every allele
+    /// equally was zero at nine of them. A window is thousands of node IDs wide, and
+    /// crucially it is already fetched and cached to answer the site's own query, so
+    /// asking for it a second time is a cache hit rather than new I/O.
+    ///
+    /// Returns 0 if the source has no window (an in-memory source answers exactly),
+    /// which switches the depth term off rather than inventing a rate.
+    double local_read_rate(const vector<pair<nid_t, nid_t>>& site_ranges) const;
+
     const PathHandleGraph& graph;
     SnarlManager& snarl_manager;
     const SiteReadSource& read_source;
+    mutable unordered_map<size_t, double> window_rate;
+    mutable std::mutex window_bp_mutex;
     const EditAlignmentScorer& qual_scorer;
     const EditAlignmentScorer& plain_scorer;
     Params params;

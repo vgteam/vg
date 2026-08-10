@@ -93,6 +93,15 @@ public:
         /// read at the site.
         double explained_share = 1.0;
 
+        /// Observed reads over the number the called genotype predicts, from the local
+        /// rate and the called alleles' geometry. 1.0 means the read count is exactly
+        /// what the call implies; 7.0 is a collapsed repeat. Negative means unavailable.
+        ///
+        /// Emitted whether or not `--depth-term` is armed, so it can be measured as a
+        /// ranking signal before the model is allowed to act on it -- the same order the
+        /// explained-share discount was established in.
+        double depth_ratio = -1.0;
+
         /// GQ before the explained-share discount, so the discount stays auditable and a
         /// consumer that wants the raw likelihood-ratio quality can still have it.
         double gq_undiscounted = 0;

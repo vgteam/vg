@@ -44,6 +44,36 @@ const string& AlleleReadLikelihoods::read_name(size_t r) const {
     return read_names.at(r);
 }
 
+double AlleleReadLikelihoods::expected_reads(const vector<int>& genotype) const {
+    double total = 0.0;
+    for (int allele : genotype) {
+        double len = (allele >= 0 && (size_t)allele < traversal_lengths.size())
+                         ? (double)traversal_lengths[allele] : 0.0;
+        total += max(len + depth_read_length - 1.0, 1.0);
+    }
+    return depth_rate * total;
+}
+
+double AlleleReadLikelihoods::depth_ratio(const vector<int>& genotype) const {
+    double expected = expected_reads(genotype);
+    return expected > 0.0 ? (double)n_reads / expected : -1.0;
+}
+
+/// ln of a Poisson pmf, via Stirling for the factorial. n here is a read count at
+/// one site, so it is in the hundreds at most and Stirling is far inside the noise
+/// of the rate estimate it is being compared against.
+static double ln_poisson_pmf(size_t n, double lambda) {
+    if (lambda <= 0.0) {
+        return -numeric_limits<double>::infinity();
+    }
+    if (n == 0) {
+        return -lambda;
+    }
+    double dn = (double)n;
+    return dn * log(lambda) - lambda
+           - (dn * log(dn) - dn + 0.5 * log(2.0 * M_PI * dn));
+}
+
 double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) const {
     if (genotype.empty()) {
         return 0.0;
@@ -119,6 +149,10 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
         // single read can penalise a genotype without bound.
         double e_r = read_mismap_prob[r];
         total += log((1.0 - e_r) * mixture + e_r);
+    }
+
+    if (uses_depth_term()) {
+        total += depth_weight * ln_poisson_pmf(n_reads, expected_reads(genotype));
     }
 
     return total;
@@ -557,6 +591,52 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     return score;
 }
 
+double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
+    const vector<pair<nid_t, nid_t>>& site_ranges) const {
+
+    size_t span = read_source.get_window_span();
+    if (span == 0 || site_ranges.empty() || params.depth_ploidy <= 0) {
+        return 0.0;
+    }
+    // The window the source would have fetched to answer this site's own query.
+    nid_t lo = site_ranges.front().first;
+    for (const auto& r : site_ranges) {
+        lo = min(lo, r.first);
+    }
+    size_t window_index = (size_t)(lo / (nid_t)span);
+    {
+        lock_guard<std::mutex> guard(window_bp_mutex);
+        auto found = window_rate.find(window_index);
+        if (found != window_rate.end()) {
+            return found->second;
+        }
+    }
+
+    nid_t first = (nid_t)window_index * (nid_t)span;
+    nid_t last = first + (nid_t)span - 1;
+
+    // Memoised per window, not per site. Counting a window's reads costs O(reads in
+    // window), which is far more than a snarl, and neighbouring sites share windows;
+    // without this the diagnostic would cost more than the genotyping.
+    size_t reads = 0;
+    read_source.for_each_read({{first, last}}, [&](const Alignment&) { ++reads; });
+
+    // Node IDs are dense in a GBZ but not guaranteed to be, so ask the graph.
+    size_t bp = 0;
+    for (nid_t id = first; id <= last; ++id) {
+        if (graph.has_node(id)) {
+            bp += graph.get_length(graph.get_handle(id));
+        }
+    }
+
+    double rate = (reads == 0 || bp == 0)
+                      ? 0.0
+                      : (double)reads / ((double)params.depth_ploidy * (double)bp);
+    lock_guard<std::mutex> guard(window_bp_mutex);
+    window_rate[window_index] = rate;
+    return rate;
+}
+
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const Snarl& snarl, const vector<SnarlTraversal>& traversals) {
 
@@ -590,12 +670,28 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
     }
 
+    // Whole traversal length per allele, for the depth term's lambda. Distinct from
+    // the unique content the mixture weights use: lambda asks how much sequence
+    // generates reads, the weights ask which sequence can tell alleles apart.
+    vector<size_t> depth_lengths;
+
     // Materialise each allele's node sequences once per site. This is per allele,
     // not per (read, allele), so it stays off the hot path.
     vector<vector<AlleleStep>> allele_steps;
     allele_steps.reserve(traversals.size());
     for (const SnarlTraversal& traversal : traversals) {
         allele_steps.push_back(get_allele_steps(traversal));
+    }
+
+    if (depth_lengths.empty()) {
+        depth_lengths.reserve(allele_steps.size());
+        for (const auto& steps : allele_steps) {
+            size_t len = 0;
+            for (const AlleleStep& step : steps) {
+                len += step.sequence.size();
+            }
+            depth_lengths.push_back(len);
+        }
     }
 
     if (params.length_weighted_mixture) {
@@ -613,6 +709,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             allele_lengths.push_back(len);
         }
         builder.set_allele_lengths(allele_lengths);
+        depth_lengths = allele_lengths;
 
         if (!params.length_weight_whole_traversal) {
             // Per-allele node content, then pairwise set differences. Computed once
@@ -722,7 +819,16 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         builder.add_read(row, mismap, aln.name(), aln.sequence().size());
     });
 
-    return builder.build();
+    AlleleReadLikelihoods result = builder.build();
+    if (!depth_lengths.empty()) {
+        // Set unconditionally so `DR` is emitted whether or not the term is armed:
+        // the observable should be measurable as a ranking signal before the model
+        // is allowed to act on it. A zero weight leaves the likelihood untouched.
+        result.set_depth_context(depth_lengths, local_read_rate(ranges),
+                                 result.mean_read_length_estimate(),
+                                 params.depth_weight);
+    }
+    return result;
 }
 
 }

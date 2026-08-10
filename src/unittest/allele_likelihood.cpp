@@ -155,6 +155,69 @@ TEST_CASE("set_max_allele removes the heterozygote's mixture penalty", "[allele_
     }
 }
 
+TEST_CASE("The depth term prefers the genotype that predicts the read count",
+          "[allele_likelihood]") {
+    // A heterozygous deletion the length-weighted mixture still gets wrong, which is
+    // the residual the depth term exists for: measured on real data the mixture
+    // recovers about 44% of large heterozygous deletions and this is one of the rest.
+    // Forty reads lie inside the deleted interval and fit only the long allele; one
+    // spans the junction. The mixture weight already discounts the interior reads --
+    // they cost the heterozygote ln(1/0.917) rather than ln 2 -- but forty of them
+    // still outweigh a single junction read.
+    auto fill = [](AlleleReadLikelihoodsBuilder& b) {
+        for (int i = 0; i < 40; ++i) {
+            b.add_read({0.0, -30.0}, 0.02, "", 151);
+        }
+        b.add_read({-30.0, 0.0}, 0.02, "", 151);
+    };
+    AlleleReadLikelihoodsBuilder off(2);
+    fill(off);
+    off.set_allele_lengths({2000, 50});
+    REQUIRE(best_genotype(off.build().score_genotypes(2)) == vector<int>({0, 0}));
+
+    // The homozygous long genotype claims 2*(2000+150) = 4300 positions where the
+    // heterozygote claims (2000+150)+(50+150) = 2350. At a rate calibrated so the
+    // heterozygote predicts the 41 reads actually present, the homozygote predicts 75
+    // -- and observing 41 when 75 are expected is worth about 9 nats.
+    AlleleReadLikelihoodsBuilder on(2);
+    fill(on);
+    on.set_allele_lengths({2000, 50});
+    AlleleReadLikelihoods m = on.build();
+    m.set_depth_context({2000, 50}, 41.0 / 2350.0, 151.0, 1.0);
+    REQUIRE(m.uses_depth_term());
+    REQUIRE(m.expected_reads({0, 1}) == Approx(41.0));
+    REQUIRE(best_genotype(m.score_genotypes(2)) == vector<int>({0, 1}));
+}
+
+TEST_CASE("A zero depth weight leaves the likelihood untouched", "[allele_likelihood]") {
+    // The term must be inert when off, not merely small: it is shipped disabled and
+    // the DR diagnostic is computed regardless, so the two paths have to agree
+    // exactly rather than approximately.
+    auto fill = [](AlleleReadLikelihoodsBuilder& b) {
+        for (int i = 0; i < 14; ++i) {
+            b.add_read({0.0, -9.0}, 0.02, "", 151);
+        }
+        for (int i = 0; i < 11; ++i) {
+            b.add_read({-9.0, 0.0}, 0.02, "", 151);
+        }
+    };
+    AlleleReadLikelihoodsBuilder a(2);
+    fill(a);
+    AlleleReadLikelihoods plain = a.build();
+
+    AlleleReadLikelihoodsBuilder b(2);
+    fill(b);
+    AlleleReadLikelihoods armed = b.build();
+    armed.set_depth_context({500, 500}, 0.05, 151.0, 0.0);
+    REQUIRE_FALSE(armed.uses_depth_term());
+    for (auto& g : {vector<int>({0, 0}), vector<int>({0, 1}), vector<int>({1, 1})}) {
+        REQUIRE(armed.genotype_likelihood(g) == Approx(plain.genotype_likelihood(g)));
+    }
+    // DR is still available with the term disabled: 25 reads against a genotype
+    // predicting 0.05 * 2 * (500+150) = 65.
+    REQUIRE(armed.depth_ratio({0, 1}) == Approx(25.0 / 65.0));
+}
+
 TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",
           "[allele_likelihood]") {
     // Same shape as the max-allele case: allele 0 is a 2000 bp long allele, allele

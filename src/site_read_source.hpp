@@ -82,6 +82,16 @@ public:
     /// How many reads this source holds or can see, for logging. May be 0 if
     /// the backend cannot cheaply say.
     virtual size_t get_read_count() const = 0;
+
+    /// Width, in node IDs, of the locality this source fetches and caches around
+    /// a request. 0 means "no such locality" -- an in-memory source answers each
+    /// request exactly.
+    ///
+    /// Exposed so a caller can ask for a *neighbourhood* rather than a site and
+    /// get it from the same cache entry the site already populated. That is what
+    /// makes a local depth rate free: the reads are fetched either way, and a
+    /// window is wide enough to be a meaningful denominator where a snarl is not.
+    virtual size_t get_window_span() const { return 0; }
 };
 
 /**
@@ -191,6 +201,8 @@ public:
     /// Node IDs those sites actually asked about, as opposed to the span they were
     /// collapsed to. The gap between the two is over-fetching.
     size_t get_straddle_wanted() const;
+
+    size_t get_window_span() const override { return window_size; }
 
 protected:
 
