@@ -219,6 +219,14 @@ protected:
 
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
+    // The nesting INFO headers (LV/CH/PS/RC/RS/RD), for both vg call and vg deconstruct.
+    //
+    // One definition on purpose.  These used to be written out verbatim in two places, and
+    // drifted: 54bfd0f2d corrected the CH description in graph_caller.cpp while deconstructor.cpp
+    // -- the copy deconstruct actually emits -- kept the text that commit's own message called
+    // false, so the released VCFs carried the wrong one.
+    static string nesting_info_headers();
+
     string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
     /// legacy version of above
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
@@ -243,6 +251,23 @@ protected:
     /// output buffers (1/thread) (for sorting)
     /// variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge
     mutable vector<vector<pair<pair<string, size_t>, string>>> output_variants;
+
+    /// Reference interval of a site that was visited but not emitted, because every traversal
+    /// through it was the reference (or absent) and so it had no variant to report.  Such a site
+    /// is invisible to the RC/RS/RD walk, which only sees sites that reached the VCF, and a record
+    /// nested under one would otherwise have no reference coordinate to point at.  Common in gref
+    /// graphs, where the parent of an island of non-reference sequence is often a large snarl that
+    /// only the reference and its own gref copy span.
+    ///
+    /// Keyed by snarl name as print_snarl() spells it, which is how record IDs and chrom_of_name
+    /// are keyed too.  One buffer per thread, like output_variants, merged in
+    /// update_nesting_info_tags().
+    struct SuppressedRef {
+        string chrom;
+        size_t pos;
+        size_t ref_len;
+    };
+    mutable vector<unordered_map<string, SuppressedRef>> suppressed_ref_info;
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 167
+plan tests 170
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1037,4 +1037,20 @@ NESTED_COUNT=$(grep -v "^#" rc_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | wc -l)
 is "$NESTED_RC_X" "$NESTED_COUNT" "All nested variants have RC=x (top-level contig)"
 
 rm -f rc_test.gfa rc_test.gam rc_test.pack rc_test.vcf
+
+# Same case as in 26_deconstruct.t: a gref fragment whose enclosing snarl produces no record, so
+# there is no ancestor in the VCF to take RC/RS/RD from.  vg call reaches it less often than
+# deconstruct does, because it builds traversals from the graph rather than from the embedded
+# paths, so the parent usually has something to report -- here support is given only along the
+# island, which leaves the parent with no alt.  Both tools have to answer with the reference
+# coordinate rather than the record's own gref contig.
+vg paths --compute-gref --min-gref-len 1 -x nesting/gref_island_no_parent_record.gfa -Q REF > island_call.pg
+vg paths -x island_call.pg -X -Q SAMP > island_call.gam
+vg pack -x island_call.pg -g island_call.gam -o island_call.pack
+vg call island_call.pg -k island_call.pack -A -p gref_REF#0#chr1 -p gref_REF#0#chr1_1_alt -p gref_REF#0#chr1_2_alt > island_call.vcf 2>/dev/null
+is $(grep -v "^#" island_call.vcf | awk '$8 ~ /LV=0/ && $8 ~ /CH=0/ {print $1}') "chr1_1_alt" "call: the island record has no ancestor in the VCF"
+is $(grep -v "^#" island_call.vcf | grep -c "RC=chr1;") 1 "call: a suppressed parent still gives its child a reference coordinate"
+is $(grep -v "^#" island_call.vcf | grep -c "RC=chr1_1_alt") 0 "call: no record names its own gref contig as its reference"
+
+rm -f island_call.pg island_call.gam island_call.pack island_call.vcf
 

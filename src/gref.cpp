@@ -978,9 +978,21 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
             if (i < this->num_ref_intervals) {
                 return false;
             }
-            // Two runs of the same haplotype are separated by sequence one of them does not
-            // hold, so neither can contain the other.  Measured on chr22: 10 of 48 wrong
-            // parents were the fragment's own source path, and 0 of 127 correct ones were.
+            // Two runs of the same haplotype are rejected as parent and child.  This is a
+            // heuristic, not a proof, and the distinction matters: the runs are disjoint in
+            // SEQUENCE, which is not the same as being disjoint in SNARL CONTAINMENT, and
+            // owner_of_snarl() below tests the latter.  Two fragments from one haplotype at
+            // disjoint intervals can genuinely nest.
+            //
+            // It is kept because it earns its place empirically -- on chr22, 10 of 48 wrong
+            // parents were the fragment's own source path and 0 of 127 correct ones were -- and
+            // because the failure it prevents is the one e20e1f277 was reverted for.  The cost
+            // is a suspected 2 contigs in 144,145 on whole-genome CHM13 (chr5_1998_alt and
+            // chr5_2201_alt, which get level 1 where the VCF chain says 2 through
+            // chr5_113_alt, all three off HG04160#1#CM088426.1).  Not proven to be this guard
+            // rather than the depth or both-bounds tests; settling that needs instrumentation.
+            // Do not relax it without gating on those two contigs AND on chr22 and
+            // chrOther-v2.1 staying byte-identical.
             if (graph->get_path_handle_of_step(this->gref_intervals[owner].first) == my_source) {
                 return false;
             }

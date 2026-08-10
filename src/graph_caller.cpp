@@ -209,6 +209,7 @@ vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& ch
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name), translation(nullptr), include_nested(false)
 {
     output_variants.resize(get_thread_count());
+    suppressed_ref_info.resize(get_thread_count());
 }
 
 VCFOutputCaller::~VCFOutputCaller() {
@@ -233,12 +234,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
     if (include_nested) {
-        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
-        ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-        ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
-        ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
-        ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
+        ss << nesting_info_headers();
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
@@ -1088,6 +1084,16 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         }
         return added;
     }
+    // Same as in Deconstructor::deconstruct_site: a site with nothing to report is still the only
+    // thing that knows where its children sit, so keep its reference interval for their RC/RS/RD.
+    // Kept in step with deconstruct deliberately -- the two tools should annotate a gref graph the
+    // same way -- even though vg call's records are on reference paths, where the old self-reference
+    // fallback was at least a real coordinate.
+    if (include_nested) {
+        suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
+            {out_variant.sequenceName, static_cast<size_t>(out_variant.position),
+             out_variant.ref.length()};
+    }
     return true;
 }
 
@@ -1229,6 +1235,17 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
             variant.alt[i - 1] = variant.alleles[i];
         }
     }
+}
+
+string VCFOutputCaller::nesting_info_headers() {
+    stringstream ss;
+    ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
+    ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
+    ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the topmost ancestor record in this VCF, or this record's own CHROM when it has none. On a gref fragment, where that own CHROM would be no use, the enclosing site is named even if it produced no record of its own; the tags are absent when there is no such site either\">" << endl;
+    ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Start of the site named by RC: the POS of its record, or where the site begins when it produced none. A position on that contig, not a span of the snarl, so it can precede the sequence this record describes\">" << endl;
+    ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"End of the site named by RC: RS plus the length of that site's REF allele\">" << endl;
+    return ss.str();
 }
 
 string VCFOutputCaller::print_snarl(const HandleGraph* graph, const handle_t& snarl_start,
@@ -1520,6 +1537,18 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             name_to_snarl[print_snarl(flipped_snarl)] = snarl;
         });
 
+    // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
+    // that never reached the VCF, so pass 1 below cannot see them, but a record nested under one
+    // has no other way to name a reference position.
+    unordered_map<string, SuppressedRef> suppressed_ref;
+    for (auto& buf : suppressed_ref_info) {
+        for (auto& kv : buf) {
+            suppressed_ref.emplace(kv.first, std::move(kv.second));
+        }
+        buf.clear();
+        buf.rehash(0);
+    }
+
     // pass 1) index sites in vcf
     // (todo: this could be done more quickly upstream)
     //
@@ -1531,8 +1560,18 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     // Contig names are interned rather than stored per record for the same reason: there are
     // at most a few thousand distinct ones, and all we ever ask is whether two are the same.
     unordered_map<string, uint32_t> chrom_index;
+    // Whether each interned contig is a synthetic gref fragment, by the same index.  Stored as a
+    // bit per contig rather than looked up by name later, so the names are still stored once.
+    // is_gref_name(), not is_gref_derived(): a gref copy of a real reference contig is a perfectly
+    // good coordinate system -- it is what the whole VCF is deconstructed against -- and only the
+    // "_<N>_alt" fragments are positions a reader cannot look up.
+    vector<bool> chrom_is_gref_fragment;
     auto intern_chrom = [&](const string& chrom) -> uint32_t {
-        return chrom_index.emplace(chrom, (uint32_t)chrom_index.size()).first->second;
+        auto result = chrom_index.emplace(chrom, (uint32_t)chrom_index.size());
+        if (result.second) {
+            chrom_is_gref_fragment.push_back(GrefCover::is_gref_name(chrom));
+        }
+        return result.first->second;
     };
     // One entry per snarl name.  A snarl ID is not unique -- a cyclic reference path that
     // traverses the same snarl twice emits two records with the same ID (see
@@ -1608,10 +1647,16 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     //   contig_hops     steps in the chain where CHROM changed, i.e. how many insertions deep
     //                   the site is
     //
-    // Returns: (contig_level, contig_hops, parent_name, top_level_name)
-    function<tuple<size_t, size_t, string, string>(const string&, const string&)> get_nesting_tags =
+    // Returns: (contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
+    //           suppressed_name)
+    // ref_chrom_name is the topmost ancestor in the VCF that sits on a reference contig rather
+    // than a gref one, and suppressed_name the topmost ancestor that was dropped for having no
+    // variant.  Both feed the RC/RS/RD choice below; neither affects LV/CH/PS.
+    function<tuple<size_t, size_t, string, string, string, string>(const string&, const string&)> get_nesting_tags =
         [&](const string& name, const string& my_chrom) {
         string parent_name;
+        string ref_chrom_name;
+        string suppressed_name;
         string top_level_name = name;  // default to self (for the top-level case)
         size_t contig_level = 0;
         size_t contig_hops = 0;
@@ -1637,6 +1682,15 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 hit = &flipped_name;
             }
             if (hit == nullptr) {
+                // Not in the VCF.  If it was dropped for having no variant we still know where it
+                // sits, and it may be the only ancestor that can give a reference position.
+                auto sup_it = suppressed_ref.find(cur_name);
+                if (sup_it == suppressed_ref.end()) {
+                    sup_it = suppressed_ref.find(flipped_name);
+                }
+                if (sup_it != suppressed_ref.end()) {
+                    suppressed_name = sup_it->first;
+                }
                 continue;
             }
 
@@ -1657,8 +1711,15 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             }
             // keep updating top_level to find the topmost ancestor in VCF
             top_level_name = *hit;
+            // ...and, separately, the topmost one actually on a reference contig.  An ancestor on
+            // another gref contig can name a position, but not one a reader can look up in the
+            // reference, so it is the weaker answer of the two.
+            if (!chrom_is_gref_fragment[anc_chrom_id]) {
+                ref_chrom_name = *hit;
+            }
         }
-        return make_tuple(contig_level, contig_hops, parent_name, top_level_name);
+        return make_tuple(contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
+                          suppressed_name);
     };
 
     // pass 3) add the LV, PS, RC, RS, RD tags
@@ -1673,8 +1734,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
 
-            auto [contig_level, contig_hops, parent_name, top_level_name] =
-                get_nesting_tags(name, toks[0]);
+            auto [contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
+                  suppressed_name] = get_nesting_tags(name, toks[0]);
             // LV is the level within this record's own reference contig.  It used to count
             // ancestors across every contig: for a VCF with a single reference contig the two
             // are identical, but once gref fragments give the insides of insertions their own
@@ -1691,14 +1752,46 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 nesting_tags += ";PS=" + parent_name;
             }
 
-            // Add RC, RS, RD tags (reference info from top-level snarl)
+            // Add RC, RS, RD tags: where to look this record up in the reference.
+            //
+            // Prefer, in order, the topmost ancestor in the VCF that is on a reference contig;
+            // then the topmost ancestor in the VCF at all; then the topmost ancestor that was
+            // dropped for having no variant.  The last is what rescues a gref fragment whose
+            // parent snarl only the reference and its own gref copy span: the site is real and
+            // has a reference interval, it just had nothing to report.
+            //
+            // If none of those exist there is no reference position to give, and the tags are
+            // left off.  They used to fall back to this record's own contig and position, which
+            // is not a reference coordinate at all -- on a gref contig it is a self-reference
+            // that a reader cannot tell apart from the genuine case.
+            const string* ref_source = nullptr;
+            if (!ref_chrom_name.empty()) {
+                ref_source = &ref_chrom_name;
+            } else if (top_level_name != name) {
+                ref_source = &top_level_name;
+            }
+            bool have_ref = true;
             RefInfo top_ref;
-            if (top_level_name == name) {
-                // We are our own top-level site, so the answer is our own interval.  Looking
-                // it up by name would risk picking a different record that shares our ID.
-                top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+            if (ref_source == nullptr) {
+                if (!GrefCover::is_gref_name(toks[0])) {
+                    // Not on a gref fragment, so our own interval is already a position a reader
+                    // can look up, and it is the narrower answer of the two.  Keep it rather than
+                    // reach for an enclosing site that produced no record: doing that would
+                    // repoint every such record on a reference contig at a site LV and CH say it
+                    // has no ancestor in.  The records that need the reach are the fragments
+                    // below, which have no usable coordinate of their own.
+                    top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+                } else {
+                    auto sup_it = suppressed_name.empty() ? suppressed_ref.end()
+                                                          : suppressed_ref.find(suppressed_name);
+                    if (sup_it != suppressed_ref.end()) {
+                        top_ref = {sup_it->second.chrom, sup_it->second.pos, sup_it->second.ref_len};
+                    } else {
+                        have_ref = false;
+                    }
+                }
             } else {
-                const auto& candidates = top_level_ref_info.at(top_level_name);
+                const auto& candidates = top_level_ref_info.at(*ref_source);
                 // If the ancestor produced several records, prefer one on our own contig;
                 // failing that take the smallest (chrom, pos).  Which one is "right" is
                 // genuinely ambiguous, so pick deterministically rather than by chance.
@@ -1711,9 +1804,11 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 }
                 top_ref = {chosen->first.first, chosen->first.second, chosen->second};
             }
-            nesting_tags += ";RC=" + top_ref.chrom;
-            nesting_tags += ";RS=" + std::to_string(top_ref.pos);
-            nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
+            if (have_ref) {
+                nesting_tags += ";RC=" + top_ref.chrom;
+                nesting_tags += ";RS=" + std::to_string(top_ref.pos);
+                nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
+            }
 
             // rewrite the output string using the updated info toks
             output_variant_string.clear();
