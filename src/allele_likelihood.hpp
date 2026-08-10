@@ -96,42 +96,6 @@ public:
     /// do not match.
     size_t num_unplaceable() const { return unplaceable; }
 
-    /// How much each read counts as evidence. 1.0 treats every read as one
-    /// independent observation, which is what the model assumed until it was
-    /// measured; see set_read_weight.
-    double get_read_weight() const { return read_weight; }
-
-    /// Discount every read's contribution by a single scalar, so w reads carry
-    /// the evidential weight of one.
-    ///
-    /// This is an effective-sample-size correction. The model sums ln P(r | G) over
-    /// reads as if each were an independent draw, and on real data they are not:
-    /// mates of a pair share a fragment and share a mismapping fate, and reads
-    /// piled on a repeat copy mismap together rather than independently. Summing
-    /// correlated evidence as if independent overstates how much the reads know.
-    ///
-    /// **It cannot change a genotype, and it was once documented as if it could.**
-    /// A single scalar multiplies every genotype's log-likelihood equally, so
-    /// argmax_G w * LL(G) = argmax_G LL(G) for any w > 0. Measured across w in
-    /// [0.5, 2.0] on two graphs, the called genotypes are byte-identical while GQ
-    /// scales exactly with w. So this knob rescales *confidence* and nothing else:
-    /// it cannot stop "a minority of correlated mismapped reads outvoting a correct
-    /// homozygous call", which is what an earlier version of this comment claimed.
-    /// Anything that must change which genotype wins has to enter the per-read term
-    /// -- as e_r does, and as the mixture weights do.
-    ///
-    /// It follows that w cannot be fitted against genotype accuracy at all: every
-    /// metric scored across all GQ thresholds is invariant to it. Fitting it needs a
-    /// calibration objective -- does a GQ of q correspond to an error rate of
-    /// 10^(-q/10)? -- not an F1. Note also that GQ saturates at 256, and at w = 2.0
-    /// the 90th percentile is already there, so raising w destroys GQ's dynamic
-    /// range before it improves anything.
-    ///
-    /// Deliberately a single scalar rather than a per-MAPQ table. A table would
-    /// have to estimate P(mismapped | MAPQ) per bin, which needs per-read origin
-    /// truth in quantity.
-    void set_read_weight(double w) { read_weight = w; }
-
     /// Replace the 1/|G| mixture over the genotype's haplotypes with a maximum:
     /// score each read by the single haplotype in G that explains it best.
     ///
@@ -257,7 +221,6 @@ private:
     /// Row major, n_reads * n_alleles, every entry in [0,1], row max exactly 1.
     vector<double> matrix;
     vector<double> read_mismap_prob;
-    double read_weight = 1.0;
     bool max_allele = false;
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
@@ -288,7 +251,7 @@ public:
     /// MAPQ 0 read, but it should be a deliberate clamp rather than an artefact
     /// of the phred conversion. It also keeps the per-read term's log finite.
     AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 0.01,
-                                 double max_mismap = 0.1, double read_weight = 1.0);
+                                 double max_mismap = 0.1);
 
     /// Add a read. raw_ln_likelihood must have one entry per allele and may
     /// contain -inf for alleles that cannot place the read.
@@ -322,7 +285,6 @@ private:
     size_t n_alleles;
     double min_mismap;
     double max_mismap;
-    double read_weight;
     bool max_allele = false;
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
@@ -424,16 +386,13 @@ struct AlleleLikelihoodParams {
     /// and shows up in SNVs; the floor governs how hard one read may veto an allele and
     /// shows up in indels -- and raising the floor makes SNV precision slightly worse.
     /// Tuning either against an aggregate F1 hides what the other is doing.
-    double max_mismap_prob = 0.5;
+    double max_mismap_prob = 0.7;
 
     /// Turn the mismapping term off entirely, so its contribution can be
     /// measured rather than assumed. With it off, e_r is pinned to the minimum,
     /// which is as close to "trust every read fully" as the model can get while
     /// keeping the log finite.
     bool use_mismap_term = true;
-    /// Effective-sample-size discount applied to every read. See
-    /// AlleleReadLikelihoods::set_read_weight. 1.0 reproduces the original model.
-    double read_weight = 1.0;
     /// Score each read by the best-explaining haplotype in the genotype instead
     /// of marginalising over them. See AlleleReadLikelihoods::set_max_allele --
     /// diagnostic only, and expected to over-call heterozygotes.

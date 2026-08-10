@@ -82,12 +82,10 @@ void help_call(char** argv) {
          << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
          << "                            scaling it by the fraction of reads the called" << endl
          << "                            genotype explains. GQI always carries the raw value" << endl
-         << "      --read-weight W       count each read as W independent observations," << endl
-         << "                            to correct for correlated reads (mates, repeats) [1.0]" << endl
          << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
          << "                            probability. Governs how much a read's placement" << endl
          << "                            ambiguity counts, so it matters most on graphs with" << endl
-         << "                            many similar haplotypes [0.5]" << endl
+         << "                            many similar haplotypes [0.7]" << endl
          << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
          << "                            capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly" << endl
@@ -227,8 +225,7 @@ int main_call(int argc, char** argv) {
     bool max_allele_likelihood = false;
     bool flat_mixture = false;
     bool length_weight_whole_traversal = false;
-    double read_weight = 1.0;
-    double max_mismap_prob = 0.5;
+    double max_mismap_prob = 0.7;
     double min_mismap_prob = 0.02;
     int read_min_mapq = 0;
 
@@ -259,7 +256,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_GAF_BASE = 1015;
     constexpr int OPT_GBZ_BASE = 1016;
     constexpr int OPT_GAF_BASE_BINARY = 1017;
-    constexpr int OPT_READ_WEIGHT = 1018;
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
@@ -307,7 +303,6 @@ int main_call(int argc, char** argv) {
             {"gaf-reads", required_argument, 0, OPT_GAF},
             {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
             {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
-            {"read-weight", required_argument, 0, OPT_READ_WEIGHT},
             {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
             {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
@@ -484,9 +479,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_SHARE_QUALITY:
             no_share_quality = true;
-            break;
-        case OPT_READ_WEIGHT:
-            read_weight = parse<double>(optarg);
             break;
         case OPT_MISMAP_MAX:
             max_mismap_prob = parse<double>(optarg);
@@ -811,9 +803,6 @@ int main_call(int argc, char** argv) {
                        << endl;
     }
 
-    if (read_weight <= 0.0) {
-        logger.error() << "--read-weight must be positive" << endl;
-    }
     if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {
         logger.error() << "--mismap-max must be in (0, 1)" << endl;
     }
@@ -1182,7 +1171,6 @@ int main_call(int argc, char** argv) {
 
             AlleleLikelihoodParams likelihood_params;
             likelihood_params.use_mismap_term = !no_mismap_term;
-            likelihood_params.read_weight = read_weight;
             likelihood_params.max_allele = max_allele_likelihood;
             likelihood_params.length_weighted_mixture = !flat_mixture;
             likelihood_params.length_weight_whole_traversal = length_weight_whole_traversal;

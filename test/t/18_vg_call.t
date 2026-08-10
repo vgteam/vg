@@ -691,7 +691,13 @@ vg sim -x ns.vg -P x -n 100 -l 4 -a -s 11 > ns_mix.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#1#y0#0' -n 30 -l 4 -a -s 12 >> ns_mix.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 100 -l 4 -a -s 13 >> ns_mix.gam 2>/dev/null
 vg pack -x ns.vg -g ns_mix.gam -o ns_mix.pack 2>/dev/null
-vg call ns.vg -k ns_mix.pack --top-down -Y -p x --read-likelihood --gam ns_mix.gam 2>/dev/null > ns_mix.vcf
+# --mismap-max is pinned rather than defaulted, because every read here comes
+# straight from `vg sim` and so carries MAPQ 0. That makes e_r equal to the cap for
+# all 230 reads, and the GQ assertion below becomes a measurement of the cap rather
+# than of the ploidy handling it is named for: the same correct 1/0 call scores GQ
+# 161, 83 or 24 at caps 0.5, 0.7 and 0.9. Pinning keeps this a ploidy test. The cap
+# itself is swept against real data, where reads have real mapping qualities.
+vg call ns.vg -k ns_mix.pack --top-down -Y -p x --read-likelihood --gam ns_mix.gam --mismap-max 0.5 2>/dev/null > ns_mix.vcf
 
 is $(grep -v "^#" ns_mix.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "mixed-read nested site still yields a star allele"
 STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk -F'\t' '$5=="*"{nk=split($9,k,":"); qi=0; for(j=1;j<=nk;j++) if(k[j]=="GQ") qi=j; split($10,f,":"); print f[qi]}')
