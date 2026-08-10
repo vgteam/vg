@@ -603,13 +603,24 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
 double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
-    // Prefer the source's own window so the query lands on a cache entry the site
-    // already populated; fall back to policy so every backend gives the same answer.
+    // The neighbourhood the rate is measured over, in node IDs. Prefer the source's own
+    // fetch window so the query lands on a cache entry the site already populated.
+    //
+    // The fallback is not a tuning knob and was demoted from one: it exists so that a
+    // source with no window of its own -- an in-memory source answers every range
+    // exactly -- still produces the same `DR` as an indexed source over the same reads.
+    // Without it the emitted FORMAT fields depended on how the reads were supplied, which
+    // an in-tree test caught immediately. Measured through --read-window on real data, the
+    // width saturates well below the 4096 an indexed source uses: 1024 loses 0.004
+    // structural-variant F1, 16384 gains 0.001. There is nothing here to tune, and every
+    // indexed source supplies a window anyway, so this constant is only ever reached by
+    // in-memory sources and tests.
+    static const size_t FALLBACK_RATE_WINDOW = 4096;
     size_t span = read_source.get_window_span();
     if (span == 0) {
-        span = params.depth_window;
+        span = FALLBACK_RATE_WINDOW;
     }
-    if (span == 0 || site_ranges.empty() || params.depth_ploidy <= 0) {
+    if (site_ranges.empty() || params.depth_ploidy <= 0) {
         return 0.0;
     }
     // The window the source would have fetched to answer this site's own query.

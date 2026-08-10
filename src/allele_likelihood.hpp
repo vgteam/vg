@@ -528,15 +528,6 @@ struct AlleleLikelihoodParams {
     /// Assumed ploidy when converting a window's read count into a per-haplotype
     /// rate. The caller genotypes diploid.
     int depth_ploidy = 2;
-    /// Width in node IDs of the neighbourhood the local rate is measured over, used
-    /// when the read source has no fetch window of its own.
-    ///
-    /// This is caller policy, not a backend property, and it has to be: an in-memory
-    /// source answers every range exactly and so has no window, but it must still
-    /// produce the same `DR` as an indexed source over the same reads. Deriving the
-    /// neighbourhood from the backend made the emitted FORMAT fields depend on how
-    /// the reads were supplied, which an in-tree test caught immediately.
-    size_t depth_window = 4096;
 };
 
 /**
