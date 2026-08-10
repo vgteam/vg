@@ -40,6 +40,9 @@ void help_surject(char** argv) {
          << "options:" << endl
          << "  -x, --xg-name FILE        use this graph or XG index (required)" << endl
          << "  -t, --threads N           number of threads to use" << endl
+         << "  -d, --diploid-map NAME    like --into-ref, but also turns on --multimap and" << endl
+         << "                            emits hp/hq/aq tags for haplotype-aware" << endl
+         << "                            diploid surjection" << endl
          << "  -D, --read-length TYPE    read length preset: {short, long}" << endl
          << "  -p, --into-path NAME      surject into this path or its subpaths (may repeat)" << endl
          << "                            default: reference, then non-alt generic" << endl
@@ -67,6 +70,8 @@ void help_surject(char** argv) {
          << "  -P, --prune-low-cplx      prune short/low complexity anchors in realignment" << endl
          << "                            (on by default for long reads)" << endl
          << "      --no-prune-low-cplx   disable anchor pruning" << endl
+         << "  -j, --prune-tail-region   prune anchors lying fully inside mapper-declared" << endl
+         << "                            tail regions" << endl
          << "  -I, --max-slide N         look for offset duplicates of anchors up to N bp" << endl
          << "                            away when pruning "
                                      << "(default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
@@ -163,6 +168,7 @@ int main_surject(int argc, char** argv) {
     string input_format = "GAM";
     bool spliced = false;
     bool interleaved = false;
+    bool diploid_map = false;
     string sample_name;
     string read_group;
     int32_t max_frag_len = 0;
@@ -187,6 +193,7 @@ int main_surject(int argc, char** argv) {
     bool validate = true;
     bool show_progress = false;
     bool left_align = false;
+    bool prune_tail_region = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -205,6 +212,7 @@ int main_surject(int argc, char** argv) {
             {"max-tail-len", required_argument, 0, 'T'},
             {"max-graph-scale", required_argument, 0, 'g'},
             {"interleaved", no_argument, 0, 'i'},
+            {"diploid-map", required_argument, 0, 'd'},
             {"multimap", no_argument, 0, 'M'},
             {"gaf-input", no_argument, 0, 'G'},
             {"gamp-input", no_argument, 0, 'm'},
@@ -218,6 +226,7 @@ int main_surject(int argc, char** argv) {
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
             {"no-prune-low-cplx", no_argument, 0, OPT_NO_PRUNE_LOW_CPLX},
+            {"prune-tail-region", no_argument, 0, 'j'},
             {"max-slide", required_argument, 0, 'I'},
             {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
@@ -235,7 +244,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuBN:R:f:C:t:D:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsuBN:R:f:C:t:D:d:SPjI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -310,6 +319,12 @@ int main_surject(int argc, char** argv) {
             left_align = true;
             break;
                 
+        case 'd':
+            reference_assembly_names.insert(optarg);
+            diploid_map = true;
+            multimap = true;
+            break;
+
         case 'D':
             read_length = optarg;
             break;
@@ -324,6 +339,10 @@ int main_surject(int argc, char** argv) {
 
         case OPT_NO_PRUNE_LOW_CPLX: // --no-prune-low-cplx
             prune_anchors = false;
+            break;
+
+        case 'j':
+            prune_tail_region = true; //remove surject anchors from tails
             break;
 
         case 'I':
@@ -482,6 +501,7 @@ int main_surject(int argc, char** argv) {
                                        default_full_length_bonus); 
     }
     surjector.prune_suspicious_anchors = *prune_anchors;
+    surjector.prune_tail_region_anchors = prune_tail_region;
     surjector.max_slide = max_slide;
     surjector.max_anchors = max_anchors;
     if (spliced) {
@@ -709,16 +729,88 @@ int main_surject(int argc, char** argv) {
                     report_exception(ex);
                 }
             };
+
+            // For --diploid-map, all graph placements sharing a read name (the
+            // primary placement plus any secondaries already in the input) need
+            // to be surjected and compared together, so that haplotype quality
+            // and the single overall primary are chosen across all of them, not
+            // independently per input record.
+            std::function<void(std::vector<Alignment>&)> set_lambda = [&](std::vector<Alignment>& placements) {
+                try {
+                    if (placements.empty()) {
+                        return;
+                    }
+
+                    set_crash_context(placements.front().name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, placements.front().name());
+                    }
+
+                    vector<Alignment> all_surjected;
+                    all_surjected.reserve(placements.size() * 2);
+
+                    for (auto& placement : placements) {
+                        if (validate) {
+                            ensure_alignment_is_for_graph(logger, placement, *xgidx);
+                        }
+                        set_metadata(placement);
+
+                        // multimap_to_all_paths is forced on for diploid mode, so this
+                        // already returns one surjection per overlapping haplotype path
+                        // for this one graph placement.
+                        vector<Alignment> surjected = surjector.surject(placement, paths, subpath_global, spliced);
+
+                        // Assign hp/hq by comparing this graph placement's
+                        // haplotype-path surjections with each other.
+                        surjector.annotate_hap_tags(placement, surjected);
+
+                        all_surjected.insert(all_surjected.end(),
+                                             std::make_move_iterator(surjected.begin()),
+                                             std::make_move_iterator(surjected.end()));
+                    }
+
+                    // Global Quality and single overall primary, chosen across every
+                    // haplotype-path surjection from every graph placement pooled
+                    // together.
+                    surjector.annotate_global_mapq_and_primary(placements.front(), all_surjected);
+
+                    alignment_emitter->emit_singles(std::move(all_surjected));
+                    total_reads_surjected++;
+
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
+                    clear_crash_context();
+                } catch (const std::exception& ex) {
+                    report_exception(ex);
+                }
+            };
+
             if (input_format == "GAM") {
                 get_input_file(file_name, [&](istream& in) {
-                    vg::io::for_each_parallel<Alignment>(in,lambda);
+                    if (diploid_map) {
+                        vg::io::gam_grouped_for_each_parallel(in, set_lambda);
+                    } else {
+                        vg::io::for_each_parallel<Alignment>(in, lambda);
+                    }
                 });
             } else {
-                auto gaf_checking_lambda = [&](Alignment& src) {
-                    check_gaf_aln(src);
-                    return lambda(src);
-                };
-                vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
+                if (diploid_map) {
+                    std::function<void(std::vector<Alignment>&)> gaf_set_lambda = [&](std::vector<Alignment>& placements) {
+                        for (auto& p : placements) {
+                            check_gaf_aln(p);
+                        }
+                        set_lambda(placements);
+                    };
+                    vg::io::gaf_grouped_for_each_parallel(*xgidx, file_name, gaf_set_lambda);
+                } else {
+                    auto gaf_checking_lambda = [&](Alignment& src) {
+                        check_gaf_aln(src);
+                        return lambda(src);
+                    };
+                    vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
+                }
             }
         }
     } else if (input_format == "GAMP") {

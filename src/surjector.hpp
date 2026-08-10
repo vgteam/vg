@@ -90,7 +90,31 @@ using namespace std;
                                               vector<tuple<string, int64_t, bool>>& positions_out,
                                               bool allow_negative_scores = false,
                                               bool preserve_deletions = false) const;
-        
+
+        /// Compute mapping quality for the candidate at best_idx relative to the
+        /// other candidate scores.
+        int32_t compute_mapping_quality_from_scores(const Alignment& source,
+                                                    const std::vector<double>& scores,
+                                                    size_t best_idx,
+                                                    bool fast_approximation = false) const;
+
+        /// Mark the best non-supplementary haplotype surjection with hp:Z:pri_hap,
+        /// mark the others with hp:Z:sec_hap, and record haplotype quality in hq.
+        void annotate_hap_tags(const Alignment& source,
+                               std::vector<Alignment>& alns) const;
+
+        /// Choose one overall primary from all non-supplementary surjections,
+        /// mark the remaining candidates secondary, and compute their Global Quality.
+        /// The source primary's original Giraffe MAPQ is retained in aq.
+        void annotate_global_mapq_and_primary(const Alignment& source,
+                                              std::vector<Alignment>& alns) const;
+
+        /// Set a SAM-style tag, replacing an existing tag with the same name.
+        static void set_sam_tag_annotation(Alignment& aln,
+                                           const std::string& tag,
+                                           char type,
+                                           const std::string& value);
+
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
 
@@ -139,6 +163,9 @@ using namespace std;
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
         bool prune_suspicious_anchors = false;
+        /// Remove anchors contained entirely within mapper-declared read tails.
+        /// Tail coordinates are relative to the stored read sequence.
+        bool prune_tail_region_anchors = false;
         int64_t max_tail_anchor_prune = 4;
         static constexpr int64_t DEFAULT_MAX_SLIDE = 6;
         /// Declare an anchor suspicious if it appears again at any offset up
@@ -243,7 +270,8 @@ using namespace std;
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
-                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges) const;
+                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges,
+                                    size_t left_tail_length = 0, size_t right_tail_length = 0) const;
         
         /// Compute the widest end-inclusive interval of path positions that
         /// the realigned sequence could align to, or an interval where start >
@@ -282,17 +310,29 @@ using namespace std;
         template<class AlnType>
         string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
-        // helpers to choose one among supplementary alignments to be the primary
+        // helpers to choose one alignment as primary and classify the alternatives
+        /// Select the highest-scoring surjection as primary.
+        ///
+        /// Non-primary surjections that overlap the primary's query interval by more
+        /// than disjoint_interval_allowable_overlap are retained as secondary.
+        /// Disjoint surjections are retained as supplementary when
+        /// report_supplementary is enabled and are otherwise omitted.
+        ///
+        /// Modifies surjections in place by annotating retained alternatives and
+        /// removing supplementaries that were not requested.
         template<class AlnType>
         void choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
-                                     const function<void(AlnType&)>& annotate_supplementary) const;
+                                     const function<void(AlnType&)>& annotate_supplementary,
+                                     const function<void(AlnType&)>& annotate_secondary) const;
         void choose_primary(vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>& surjections) const {
             function<void(Alignment&)> annotate_supplementary = [](Alignment& aln) { set_annotation<bool>(aln, "supplementary", true); };
-            choose_primary_internal(surjections, annotate_supplementary);
+            function<void(Alignment&)> annotate_secondary = [](Alignment& aln) { aln.set_is_secondary(true); };
+            choose_primary_internal(surjections, annotate_supplementary, annotate_secondary);
         }
         void choose_primary(vector<pair<multipath_alignment_t, pair<step_handle_t, step_handle_t>>>& surjections) const {
             function<void(multipath_alignment_t&)> annotate_supplementary = [](multipath_alignment_t& mp_aln) { mp_aln.set_annotation("supplementary", true); };
-            choose_primary_internal(surjections, annotate_supplementary);
+            function<void(multipath_alignment_t&)> annotate_secondary = [](multipath_alignment_t& mp_aln) { mp_aln.set_annotation("secondary", true); };
+            choose_primary_internal(surjections, annotate_supplementary, annotate_secondary);
         }
         
         vector<tuple<Alignment, size_t, size_t>> generate_hard_clipped_alignments(const Alignment& source) const;
@@ -452,7 +492,8 @@ using namespace std;
 
     template<class AlnType>
     void Surjector::choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
-                                            const function<void(AlnType&)>& annotate_supplementary) const {
+                                            const function<void(AlnType&)>& annotate_supplementary,
+                                            const function<void(AlnType&)>& annotate_secondary) const {
         if (surjections.size() > 1) {
             size_t opt_idx = 0;
             int32_t opt_score = get_score(surjections.front().first);
@@ -463,10 +504,29 @@ using namespace std;
                     opt_idx = i;
                 }
             }
-            
-            for (size_t i = 0; i < surjections.size(); ++i) {
-                if (i != opt_idx) {
+
+            const auto best_interval = aligned_interval(surjections[opt_idx].first);
+
+            // Iterate backward so supplementaries can be removed safely.
+            for (size_t i = surjections.size(); i-- > 0;) {
+                if (i == opt_idx) {
+                    continue;
+                }
+                // Compare query coverage
+                const auto interval = aligned_interval(surjections[i].first);
+                const int64_t query_overlap = max<int64_t>(
+                    0,
+                    min(best_interval.second, interval.second)
+                    - max(best_interval.first, interval.first));
+
+                if (query_overlap > disjoint_interval_allowable_overlap) {
+                    annotate_secondary(surjections[i].first);
+                }
+                else if (report_supplementary) {
                     annotate_supplementary(surjections[i].first);
+                }
+                else {
+                    surjections.erase(surjections.begin() + i);
                 }
             }
         }

@@ -23,6 +23,8 @@
 
 #include "bdsg/hash_graph.hpp"
 
+#include <numeric>
+
 // #define debug_spliced_surject
 // #define debug_anchored_surject
 // #define debug_multipath_surject
@@ -115,6 +117,184 @@ using namespace std;
             dp_aligner.reset();
         }
         
+    }
+
+    int32_t Surjector::compute_mapping_quality_from_scores(
+        const Alignment& source,
+        const std::vector<double>& scores,
+        size_t best_idx,
+        bool fast_approximation) const {
+
+        if (scores.empty() || best_idx >= scores.size()) {
+            return 0;
+        }
+        if (scores.size() == 1) {
+            return 60;
+        }
+
+        // compute_first_mapping_quality scores the first candidate, so place
+        // the selected candidate first while preserving the other scores.
+        std::vector<double> reordered;
+        reordered.reserve(scores.size());
+        reordered.push_back(scores[best_idx]);
+
+        for (size_t i = 0; i < scores.size(); ++i) {
+            if (i != best_idx) {
+                reordered.push_back(scores[i]);
+            }
+        }
+
+        const GSSWAligner* aligner = get_aligner(!source.quality().empty());
+        return aligner->mapq_calc->compute_first_mapping_quality(
+            reordered, fast_approximation);
+    }
+
+    void Surjector::set_sam_tag_annotation(Alignment& aln,
+                                            const std::string& tag,
+                                            char type,
+                                            const std::string& value) {
+        std::string old_tags;
+        if (has_annotation(aln, "tags")) {
+            old_tags = get_annotation<std::string>(aln, "tags");
+        }
+
+        const std::string prefix = tag + ":";
+        std::string new_tags;
+
+        size_t begin = 0;
+        while (begin < old_tags.size()) {
+            size_t end = old_tags.find('\t', begin);
+            if (end == std::string::npos) {
+                end = old_tags.size();
+            }
+
+            const std::string token = old_tags.substr(begin, end - begin);
+            if (token.compare(0, prefix.size(), prefix) != 0) {
+                if (!new_tags.empty()) {
+                    new_tags.push_back('\t');
+                }
+                new_tags += token;
+            }
+
+            begin = end + 1;
+        }
+
+        if (!new_tags.empty()) {
+            new_tags.push_back('\t');
+        }
+        new_tags += tag + ":" + type + ":" + value;
+
+        set_annotation<std::string>(aln, "tags", new_tags);
+    }
+
+    void Surjector::annotate_hap_tags(
+        const Alignment& source,
+        std::vector<Alignment>& alns) const {
+
+        if (alns.empty()) {
+            return;
+        }
+
+        std::vector<double> scores;
+        std::vector<size_t> indices;
+        scores.reserve(alns.size());
+        indices.reserve(alns.size());
+
+        // Supplementary segments do not compete for haplotype assignment.
+        for (size_t i = 0; i < alns.size(); ++i) {
+            if (!is_supplementary(alns[i])) {
+                scores.push_back(alns[i].score());
+                indices.push_back(i);
+            }
+        }
+
+        if (indices.empty()) {
+            return;
+        }
+
+        std::vector<size_t> score_order(scores.size());
+        std::iota(score_order.begin(), score_order.end(), 0);
+        LazyRNG rng([&]() { return source.sequence(); });
+        sort_shuffling_ties(score_order.begin(), score_order.end(),
+                            [&](size_t a, size_t b) { return scores[a] > scores[b]; }, rng);
+        const size_t best_k = score_order.front();
+
+        const size_t best_i = indices[best_k];
+        int32_t hq = compute_mapping_quality_from_scores(
+            source, scores, best_k);
+        hq = std::max<int32_t>(0, std::min<int32_t>(60, hq));
+
+        for (size_t i : indices) {
+            set_sam_tag_annotation(
+                alns[i],
+                "hp",
+                'Z',
+                i == best_i ? "pri_hap" : "sec_hap");
+
+            set_sam_tag_annotation(
+                alns[i],
+                "hq",
+                'i',
+                std::to_string(hq));
+        }
+    }
+
+    void Surjector::annotate_global_mapq_and_primary(
+        const Alignment& source,
+        std::vector<Alignment>& alns) const {
+
+        if (alns.empty()) {
+            return;
+        }
+
+        std::vector<double> scores;
+        std::vector<size_t> indices;
+        scores.reserve(alns.size());
+        indices.reserve(alns.size());
+
+        // Supplementary segments do not compete for the overall primary.
+        for (size_t i = 0; i < alns.size(); ++i) {
+            if (!is_supplementary(alns[i])) {
+                scores.push_back(alns[i].score());
+                indices.push_back(i);
+            }
+        }
+
+        if (indices.empty()) {
+            return;
+        }
+
+        std::vector<size_t> score_order(scores.size());
+        std::iota(score_order.begin(), score_order.end(), 0);
+        LazyRNG rng([&]() { return source.sequence(); });
+        sort_shuffling_ties(score_order.begin(), score_order.end(),
+                            [&](size_t a, size_t b) { return scores[a] > scores[b]; }, rng);
+        const size_t best_k = score_order.front();
+
+        const size_t best_i = indices[best_k];
+
+        for (size_t i : indices) {
+            alns[i].set_is_secondary(i != best_i);
+        }
+
+        int32_t global_mapq = compute_mapping_quality_from_scores(
+            source, scores, best_k);
+        global_mapq = std::max<int32_t>(
+            0, std::min<int32_t>(60, global_mapq));
+
+        // The first grouped input record is the original Giraffe primary.
+        const int32_t alignment_quality = source.mapping_quality();
+        global_mapq = std::min(global_mapq, alignment_quality);
+
+        for (size_t i : indices) {
+            set_sam_tag_annotation(
+                alns[i],
+                "aq",
+                'i',
+                std::to_string(alignment_quality));
+
+            alns[i].set_mapping_quality(global_mapq);
+        }
     }
 
     vector<Alignment> Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
@@ -336,11 +516,30 @@ using namespace std;
         }
 #endif
         
-        // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
-        // low complexity sequences
+        // Read mapper-declared tail lengths. These coordinates are
+        // relative to the stored read sequence and independent of path orientation.
+        // Missing annotations remain zero, making tail-region pruning a no-op.
+        size_t left_tail_length = 0, right_tail_length = 0;
+        if (source_aln) {
+            if (has_annotation(*source_aln, "left_tail_length")) {
+                left_tail_length = static_cast<size_t>(get_annotation<double>(*source_aln, "left_tail_length"));
+            }
+            if (has_annotation(*source_aln, "right_tail_length")) {
+                right_tail_length = static_cast<size_t>(get_annotation<double>(*source_aln, "right_tail_length"));
+            }
+        }
+        else {
+            if (source_mp_aln->has_annotation("left_tail_length")) {
+                left_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("left_tail_length").second));
+            }
+            if (source_mp_aln->has_annotation("right_tail_length")) {
+                right_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("right_tail_length").second));
+            }
+        }
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
             prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
-                                   it->second.first, it->second.second);
+                                   it->second.first, it->second.second,
+                                   left_tail_length, right_tail_length);
         }
         
         // the surjected alignment for each path we overlapped
@@ -4643,10 +4842,11 @@ using namespace std;
     }
 
     void Surjector::prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
-                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges) const {
-        
-        if (!prune_suspicious_anchors && max_anchors > path_chunks.size()) {
-            // the setting don't require us to prune anything here
+                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges,
+                                           size_t left_tail_length, size_t right_tail_length) const {
+
+        if (!prune_suspicious_anchors && !prune_tail_region_anchors && max_anchors > path_chunks.size()) {
+            // the settings don't require us to prune anything here
             return;
         }
         
@@ -4670,7 +4870,37 @@ using namespace std;
         }
         
         vector<bool> keep(path_chunks.size(), true);
-        
+
+        // Clamp tail lengths to the read length
+        size_t read_length = sequence.size();
+        left_tail_length = std::min(left_tail_length, read_length);
+        right_tail_length = std::min(right_tail_length, read_length);
+        size_t right_tail_begin = read_length - right_tail_length;
+
+        if (prune_tail_region_anchors) {
+            // Drop anchors whose entire read interval lies inside a mapper-declared tail region.
+            for (int i = 0; i < path_chunks.size(); ++i) {
+                auto& chunk = path_chunks[i];
+                size_t anchor_read_start = chunk.first.first - sequence.begin();
+                size_t anchor_read_end = chunk.first.second - sequence.begin();
+
+                bool fully_in_left_tail = (left_tail_length > 0 && anchor_read_end <= left_tail_length);
+                bool fully_in_right_tail = (right_tail_length > 0 && anchor_read_start >= right_tail_begin);
+
+                if (fully_in_left_tail || fully_in_right_tail) {
+#ifdef debug_anchored_surject
+                    cerr << "anchor " << i << " (read[" << anchor_read_start << ":" << anchor_read_end
+                        << "]) pruned for lying fully inside "
+                        << (fully_in_left_tail ? "left" : "right")
+                        << " tail region"
+                        << " (left_tail_length=" << left_tail_length
+                        << ", right_tail_length=" << right_tail_length << ")" << endl;
+#endif
+                    keep[i] = false;
+                }
+            }
+        }
+
         if (prune_suspicious_anchors) {
 #ifdef debug_anchored_surject
             cerr << "pruning suspicious anchors";
@@ -4682,7 +4912,12 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
-                
+
+                if (!keep[i]) {
+                    // Already pruned by the tail-region check above; skip remaining checks.
+                    continue;
+                }
+
                 // Short tails
                 if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second) // Is at either tail
                     && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) { // And is too short
@@ -5251,9 +5486,10 @@ using namespace std;
         size_t curr_interval_strict_right_bound = -1;
         for (const auto& chunk_interval : chunk_intervals) {
             
-            // check for sufficient separation to start a new supplementary using the directly attested intervals
+            // Preserve sufficiently separated reference regions as distinct alignment
+            // candidates; supplementary reporting is decided after alignment.
             if (disjoint_path_intervals.empty() ||
-                (report_supplementary && curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval))) {
+                curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval)) {
                 // make new interval
                 curr_interval_strict_right_bound = get<1>(chunk_interval);
                 disjoint_path_intervals.emplace_back(get<2>(chunk_interval), get<3>(chunk_interval),
@@ -5816,5 +6052,3 @@ using namespace std;
         return return_val;
     }
 }
-
-
