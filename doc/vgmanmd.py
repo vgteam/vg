@@ -5,7 +5,7 @@ import subprocess
 # commands to include
 ######### If you add to this, also add it to the intro section of vgmandmd.desc.md
 cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
-        'benchmark', 'call', 'chain', 'chains', 'chunk', 'circularize', 'clip',
+        'benchmark', 'call', 'chains', 'chunk', 'circularize', 'clip',
         'cluster', 'combine', 'construct', 'convert', 'deconstruct', 'depth',
         'describe', 'dotplot', 'filter', 'find', 'gamcompare', 'gampcompare',
         'gamsort', 'gbwt', 'genotype', 'giraffe', 'haplotypes', 'help', 'ids',

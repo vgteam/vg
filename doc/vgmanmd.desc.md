@@ -74,7 +74,6 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg trace`](#trace): extract (sub-)haplotypes from a graph.
 - **Extremely specific analyses** (i.e. don't use unless you know what you're doing)
     - [`vg align`](#align): run highly configurable alignment of a single sequence.
-    - [`vg chain`](#chain): run an anchor chaining problem as specified in a JSON.
     - [`vg cluster`](#cluster): run only the seed-clustering step of an alignment.
     - [`vg zipcode`](#zipcode): test zipcode functionality on given GAM reads.
 - **Developer tools**

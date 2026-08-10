@@ -62,11 +62,14 @@ void help_deconstruct(char** argv) {
          << "                           for any given phase (set by default for GBWT input)." << endl
          << "  -C, --contig-only-ref    only use CONTIG name (not SAMPLE#CONTIG#HAPLOTYPE)" << endl
          << "                           for reference if possible (i.e. only one ref sample)" << endl
-         << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
-         << "                           is >= F together [1.0; experimental]" << endl
-         << "      --cluster-min-len N  only apply -L clustering at sites with at least one" << endl
-         << "                           non-boundary traversal >= N bp (50 = SVs only,"  << endl
-         << "                           0 = always) [0]" << endl
+         << "  -L, --cluster F          cluster traversals whose length-weighted" << endl
+         << "                           similarity is >= F together [1.0; experimental]" << endl
+         << "      --cluster-min-len N  only apply -L clustering at sites whose core" << endl
+         << "                           length -- the longest allele after stripping" << endl
+         << "                           the prefix and suffix common to all alleles" << endl
+         << "                           -- is >= N bp (0 = every site) [50]" << endl
+         << "                           in a nested run (-a) a clustered parent" << endl
+         << "                           disagrees with its own child records by design" << endl
          << "  -R, --star-allele        use *-alleles to represent haplotypes that span the" << endl
          << "                           parent but don't traverse nested sites (requires -a)" << endl
          << "  -t, --threads N          use N threads" << endl
@@ -97,7 +100,11 @@ int main_deconstruct(int argc, char** argv) {
     bool untangle_traversals = false;
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
-    int64_t cluster_min_allele_len = 0;
+    // -L is for collapsing near-identical structural alleles.  At 0 the similarity is dominated by
+    // sequence every allele shares, so a het SNP scores ~1 against its own alternative and is
+    // merged away; 50 is the standard SV size cutoff.  Pass 0 explicitly to gate nothing.
+    int64_t cluster_min_allele_len = 50;
+    bool cluster_min_len_set = false;
     bool star_allele = false;
 
     constexpr int OPT_CLUSTER_MIN_LEN = 1000;
@@ -191,6 +198,7 @@ int main_deconstruct(int argc, char** argv) {
             break;
         case OPT_CLUSTER_MIN_LEN:
             cluster_min_allele_len = parse<int64_t>(optarg);
+            cluster_min_len_set = true;
             if (cluster_min_allele_len < 0) {
                 logger.error() << "--cluster-min-len must be >= 0" << endl;
             }
@@ -219,7 +227,20 @@ int main_deconstruct(int argc, char** argv) {
         logger.error() << "-R can only be used with -a" << endl;
     }
 
-    if (cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
+    // -R writes "*" in a child record to mean "an upstream deletion covers this site".  Clustering
+    // can absorb the very allele that deletion came from -- which one survives is decided by
+    // traversal order, so it is a matter of path names -- leaving the "*" referring to nothing in
+    // the file.  That is a malformed record rather than a lossy one, which is what separates it
+    // from ordinary nested clustering: there a clustered parent deliberately disagrees with its own
+    // child records, giving the collapsed view of a large variant while the children keep the
+    // precise one.  vg call refuses -L with -Y for the same reason.
+    if (star_allele == true && cluster_threshold < 1.0) {
+        logger.error() << "-L/--cluster cannot be used with -R/--star-allele" << endl;
+    }
+
+    // only for an explicit --cluster-min-len: the default is nonzero, so testing the value alone
+    // would warn on every run that does not pass -L
+    if (cluster_min_len_set && cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
         logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
     }
 

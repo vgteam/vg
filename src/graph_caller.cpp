@@ -2,6 +2,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
+#include "traversal_clusters.hpp"
 
 //#define debug
 
@@ -208,6 +209,7 @@ vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& ch
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name), translation(nullptr), include_nested(false)
 {
     output_variants.resize(get_thread_count());
+    suppressed_ref_info.resize(get_thread_count());
 }
 
 VCFOutputCaller::~VCFOutputCaller() {
@@ -232,14 +234,18 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
     if (include_nested) {
-        ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
-        ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-        ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
-        ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
-        ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
+        ss << nesting_info_headers();
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
+    if (allele_merge_threshold < 1.0) {
+        ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
+           << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
+           << "pre-merge allele numbers. In a nested run this record gives the collapsed view of "
+           << "the site and its child records the precise one, so they disagree by design. "
+           << "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD is "
+           << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set.\">"
+           << endl;
+    }
     return ss.str();
 }
 
@@ -389,6 +395,372 @@ void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<string, si
 
 void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
+}
+
+void VCFOutputCaller::set_allele_merge(double threshold, int64_t min_len) {
+    allele_merge_threshold = threshold;
+    allele_merge_min_len = min_len;
+}
+
+bool VCFOutputCaller::snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
+                                                 Traversal& out_trav) {
+    // cluster_traversals asserts size() >= 2, and a Visit carrying a child Snarl has no single
+    // handle.  Both are real inputs here (the "*" placeholder, and NestedFlowCaller traversals via
+    // SnarlGraph::embed_snarl), so refuse rather than fabricate something.
+    if (trav.visit_size() < 2) {
+        return false;
+    }
+    out_trav.clear();
+    out_trav.reserve(trav.visit_size());
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        const Visit& visit = trav.visit(i);
+        if (visit.node_id() <= 0) {
+            return false;
+        }
+        out_trav.push_back(graph.get_handle(visit.node_id(), visit.backward()));
+    }
+    return true;
+}
+
+namespace {
+/// Parse a VCF FORMAT value without throwing and without exiting.  vg::parse<double> exits on
+/// failure and the 2-argument vg::parse can throw; merge_similar_alleles runs inside an OpenMP
+/// region, where an escaping exception is std::terminate rather than something a caller can handle,
+/// and exit() would abandon whatever the other threads had already buffered.  Missing values
+/// ("." and "") are ordinary input here.
+bool parse_vcf_double(const string& field, double& value) {
+    try {
+        size_t after;
+        value = std::stod(field, &after);
+        return after == field.size();
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+}
+
+int64_t VCFOutputCaller::allele_core_length(const vector<string>& alleles) {
+    vector<const string*> seqs;
+    for (const string& a : alleles) {
+        if (a != "*") {
+            seqs.push_back(&a);
+        }
+    }
+    if (seqs.empty()) {
+        return 0;
+    }
+    size_t min_len = seqs[0]->length();
+    size_t max_len = 0;
+    for (const string* s : seqs) {
+        min_len = std::min(min_len, s->length());
+        max_len = std::max(max_len, s->length());
+    }
+    // The prefix and the suffix may not overlap, exactly as in flatten_common_allele_ends: a shared
+    // region can only be counted once, or {"AAAA","AAAAA"} would come out at -3 instead of 1.
+    // Case-insensitive to match flatten's own toupper and deconstruct's toUppercase.
+    auto shared = [&](size_t skip, bool from_back) {
+        auto at = [&](const string* s, size_t i) {
+            return std::toupper((*s)[from_back ? s->length() - 1 - i : i]);
+        };
+        size_t n = 0;
+        while (skip + n < min_len) {
+            int ch = at(seqs[0], n);
+            bool match = true;
+            for (size_t j = 1; j < seqs.size() && match; ++j) {
+                match = at(seqs[j], n) == ch;
+            }
+            if (!match) {
+                break;
+            }
+            ++n;
+        }
+        return n;
+    };
+    size_t prefix = shared(0, false);
+    size_t suffix = shared(prefix, true);
+    // non-negative structurally, not by clamping: the loop caps give prefix + suffix <= min_len <= max_len
+    return (int64_t)(max_len - prefix - suffix);
+}
+
+bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph,
+                                            const vector<SnarlTraversal>& site_traversals,
+                                            vector<int>& site_genotype,
+                                            const string& sample_name,
+                                            vcflib::Variant& out_variant) const {
+    if (!(allele_merge_threshold < 1.0)) {
+        return false;
+    }
+    // we only collapse a genotype that actually calls two distinct ALTs.  This also keeps the -a
+    // padding block above (which adds uncalled alleles) out of scope: those alleles are advertised,
+    // not called, and rewriting them without a genotype change would be a silent surprise.
+    set<int> called_alts;
+    for (int g : site_genotype) {
+        if (g > 0) {
+            called_alts.insert(g);
+        }
+    }
+    if (called_alts.size() < 2) {
+        return false;
+    }
+    // Per-site gate, decided over the alleles this record actually emits.  NOT over the traversal
+    // finder's candidate list: that is up to max_yens_traversals (50) speculative paths, most of
+    // which never become an allele, so gating on them lets an invisible branch with no reads and no
+    // AT entry decide whether merging happens.  deconstruct's equivalent gate is decided over the
+    // set that becomes ITS alleles -- the reference plus everything get_traversal_order kept.  Both
+    // tools gate on what they emit, but those sets differ (we see only the called genotype's
+    // alleles, deconstruct sees every haplotype), so the two can disagree at a site whose uncalled
+    // haplotypes are much larger than its called ones.
+    // The quantity is CORE LENGTH (see allele_core_length): the longest allele once the prefix and
+    // suffix shared by every allele are stripped.  Raw string length would answer differently from
+    // vg deconstruct on the same variant, because this record has been flattened down to an anchor
+    // base and deconstruct's has not.
+    if (allele_merge_min_len > 0 &&
+        allele_core_length(out_variant.alleles) < allele_merge_min_len) {
+        return false;
+    }
+
+    // ALT-vs-ALT only.  Absorbing an ALT into allele 0 would empty out_variant.alt and the record
+    // would then be dropped entirely by the caller, turning a het call into no call at all.
+    // (vg deconstruct does fold near-reference alleles into the reference cluster and drop the
+    //  record; that is deliberate there and deliberately not copied here.)
+    vector<Traversal> alt_travs;
+    vector<int> alt_to_allele;
+    for (size_t i = 1; i < site_traversals.size(); ++i) {
+        if (!called_alts.count((int)i)) {
+            continue;
+        }
+        Traversal trav;
+        if (!snarl_traversal_to_handles(graph, site_traversals[i], trav)) {
+            // star placeholder or a child-snarl visit: leave this allele alone
+            continue;
+        }
+        alt_travs.push_back(std::move(trav));
+        alt_to_allele.push_back((int)i);
+    }
+    if (alt_travs.size() < 2) {
+        return false;
+    }
+
+    // same clustering call deconstruct makes, so the metric, the endpoint pruning and the
+    // >= comparison are inherited rather than reimplemented.
+    //
+    // Cluster in descending allele-depth order, so each cluster's head -- the allele that survives,
+    // and the one MAT's similarity is measured against -- is its best-supported member.  Identity order
+    // would instead inherit the traversal finder's ranking, which FlowCaller::call_snarl_internal (and NestedFlowCaller's copy of it) switches to
+    // length-weighted average flow once a snarl's interior passes the average-support threshold.
+    // That ranking can put a short, lightly-supported allele ahead of a long, heavily-supported one,
+    // and merging into it emits the minority sequence as a homozygous call carrying the pooled depth.
+    vector<int> order(alt_travs.size());
+    std::iota(order.begin(), order.end(), 0);
+    {
+        auto& sample_fields = out_variant.samples[sample_name];
+        auto ad_it = sample_fields.find("AD");
+        if (ad_it != sample_fields.end() && ad_it->second.size() == out_variant.alleles.size()) {
+            vector<double> ad(alt_travs.size(), 0);
+            bool usable = true;
+            for (size_t k = 0; k < alt_travs.size() && usable; ++k) {
+                usable = parse_vcf_double(ad_it->second.at(alt_to_allele[k]), ad[k]);
+            }
+            if (usable) {
+                // stable, so equal depths keep the finder's own ranking
+                std::stable_sort(order.begin(), order.end(),
+                                 [&](int a, int b) { return ad[a] > ad[b]; });
+            }
+        }
+    }
+    // The VCF reference allele sets the scale a pure deletion is measured against.  It is
+    // site_traversals[0] and is deliberately not clustered (the loop above starts at 1).
+    // The nullptr fallback is currently unreachable: the only producer of a Visit without a node is
+    // NestedFlowCaller, and --bottom-up is rejected with -L.  It is kept because the consequence of
+    // being wrong about that is a crash, and because falling back to pairwise scoring can only
+    // merge less, never more.
+    Traversal ref_trav;
+    const Traversal* site_ref_trav = nullptr;
+    if (!site_traversals.empty() && snarl_traversal_to_handles(graph, site_traversals[0], ref_trav)) {
+        site_ref_trav = &ref_trav;
+    }
+    vector<pair<double, int64_t>> cluster_info;
+    vector<int> unused_child_snarl_mapping;
+    vector<vector<int>> clusters = cluster_traversals(&graph, alt_travs, order,
+                                                      vector<pair<handle_t, handle_t>>(),
+                                                      allele_merge_threshold,
+                                                      cluster_info, unused_child_snarl_mapping,
+                                                      site_ref_trav);
+
+    // merge_to[a] == a for a surviving allele, else the allele it collapses into
+    vector<int> merge_to(out_variant.alleles.size());
+    std::iota(merge_to.begin(), merge_to.end(), 0);
+    vector<string> mat_entries;
+    bool merged_any = false;
+    for (const vector<int>& cluster : clusters) {
+        if (cluster.size() < 2) {
+            continue;
+        }
+        int survivor = alt_to_allele[cluster.front()];
+        for (size_t j = 1; j < cluster.size(); ++j) {
+            int absorbed = alt_to_allele[cluster[j]];
+            merge_to[absorbed] = survivor;
+            merged_any = true;
+            stringstream ss;
+            ss.precision(3);
+            ss << absorbed << ">" << survivor << ":" << cluster_info[cluster[j]].first;
+            mat_entries.push_back(ss.str());
+        }
+    }
+    if (!merged_any) {
+        return false;
+    }
+
+    // dense renumbering of the survivors, preserving order
+    vector<int> new_index(merge_to.size(), -1);
+    int next = 0;
+    for (size_t a = 0; a < merge_to.size(); ++a) {
+        if (merge_to[a] == (int)a) {
+            new_index[a] = next++;
+        }
+    }
+    for (size_t a = 0; a < merge_to.size(); ++a) {
+        if (merge_to[a] != (int)a) {
+            new_index[a] = new_index[merge_to[a]];
+        }
+    }
+    int n_new = next;
+
+    // alleles / alt
+    vector<string> new_alleles(n_new);
+    for (size_t a = 0; a < merge_to.size(); ++a) {
+        if (merge_to[a] == (int)a) {
+            new_alleles[new_index[a]] = out_variant.alleles[a];
+        }
+    }
+    out_variant.alleles = new_alleles;
+    out_variant.alt.assign(new_alleles.begin() + 1, new_alleles.end());
+
+    // AT is Number=R, so it is indexed by allele just like alleles
+    auto at_it = out_variant.info.find("AT");
+    if (at_it != out_variant.info.end() && at_it->second.size() == merge_to.size()) {
+        vector<string> new_at(n_new);
+        for (size_t a = 0; a < merge_to.size(); ++a) {
+            if (merge_to[a] == (int)a) {
+                new_at[new_index[a]] = at_it->second[a];
+            }
+        }
+        at_it->second = new_at;
+    }
+
+    auto& sample = out_variant.samples[sample_name];
+
+    // AD is a per-allele count, so the absorbed allele's reads move onto the survivor.  sum(AD) is
+    // therefore unchanged by the merge; it can slightly over-count when the merged alleles share
+    // interior nodes, whose depth was proportionally split between them.
+    auto ad_it = sample.find("AD");
+    if (ad_it != sample.end() && ad_it->second.size() == merge_to.size()) {
+        vector<double> summed(n_new, 0);
+        for (size_t a = 0; a < merge_to.size(); ++a) {
+            double v = 0;
+            // treat an unparseable entry as 0 rather than bailing: the merge is already committed,
+            // and dropping AD would leave the record with no per-allele depth at all
+            parse_vcf_double(ad_it->second[a], v);
+            summed[new_index[a]] += v;
+        }
+        vector<string> new_ad(n_new);
+        for (int a = 0; a < n_new; ++a) {
+            new_ad[a] = std::to_string((int64_t)std::llround(summed[a]));
+        }
+        ad_it->second = new_ad;
+        // MAD is the min allele depth over the called alleles; recompute so it agrees with the AD
+        // and GT printed beside it.  FILTER is left as computed pre-merge, and since the new MAD is
+        // >= the old one, a depth filter can only over-filter, never under-filter.
+        auto mad_it = sample.find("MAD");
+        if (mad_it != sample.end() && mad_it->second.size() == 1) {
+            double min_ad = -1;
+            for (int g : site_genotype) {
+                if (g >= 0 && g < (int)merge_to.size()) {
+                    double v = summed[new_index[g]];
+                    if (min_ad < 0 || v < min_ad) {
+                        min_ad = v;
+                    }
+                }
+            }
+            if (min_ad >= 0) {
+                mad_it->second[0] = std::to_string((int64_t)std::llround(min_ad));
+            }
+        }
+    }
+
+    // GL is Number=G.  vg emits it i-major -- "for i; for j = i..n" -- which is not the VCF spec's
+    // ordering for 3+ alleles, but the fold has to match what is actually written.  Take the max
+    // over the old genotype classes mapping onto each new one: that is the max-marginal, i.e. the
+    // merged allele scores as whichever of its members fit best.
+    auto gl_it = sample.find("GL");
+    if (gl_it != sample.end()) {
+        size_t n_old = merge_to.size();
+        auto gl_index = [](size_t i, size_t j, size_t n) { return i * n - (i * (i - 1)) / 2 + (j - i); };
+        // The diploid layout is the only one that can occur: merging needs at least two distinct
+        // called ALTs, site_genotype has one entry per ploidy, and PoissonSupportSnarlCaller --
+        // whose update_vcf_info is the only writer of GL -- asserts in genotype that ploidy is
+        // 1 or 2.  So n_old is always 3 here.
+        assert(gl_it->second.size() == n_old * (n_old + 1) / 2);
+        bool gl_usable = true;
+        vector<double> folded((size_t)n_new * (n_new + 1) / 2,
+                              -std::numeric_limits<double>::infinity());
+        for (size_t i = 0; i < n_old && gl_usable; ++i) {
+            for (size_t j = i; j < n_old && gl_usable; ++j) {
+                double v = 0;
+                gl_usable = parse_vcf_double(gl_it->second[gl_index(i, j, n_old)], v);
+                if (!gl_usable) {
+                    break;
+                }
+                size_t ni = new_index[i], nj = new_index[j];
+                if (ni > nj) {
+                    std::swap(ni, nj);
+                }
+                double& slot = folded[gl_index(ni, nj, (size_t)n_new)];
+                slot = std::max(slot, v);
+            }
+        }
+        if (gl_usable) {
+            vector<string> new_gl(folded.size());
+            for (size_t i = 0; i < folded.size(); ++i) {
+                new_gl[i] = std::to_string(folded[i]);
+            }
+            gl_it->second = new_gl;
+        } else {
+            // A value we cannot parse.  Leaving GL alone would emit a Number=G field whose length
+            // disagrees with the new allele count, so drop it rather than lie.
+            sample.erase(gl_it);
+            auto& fmt = out_variant.format;
+            fmt.erase(std::remove(fmt.begin(), fmt.end(), string("GL")), fmt.end());
+        }
+    }
+    // GQ and GP are deliberately untouched: they come from the caller's own CallInfo, computed over
+    // its candidate set rather than from the emitted GL, so recomputing them here would silently
+    // swap one statistic for another.
+
+    // GT, from the renumbered genotype
+    for (int& g : site_genotype) {
+        if (g >= 0 && g < (int)merge_to.size()) {
+            g = new_index[g];
+        }
+    }
+    stringstream vcf_gt;
+    for (size_t i = 0; i < site_genotype.size(); ++i) {
+        if (site_genotype[i] == MISSING_ALLELE_MARKER) {
+            vcf_gt << ".";
+        } else {
+            vcf_gt << site_genotype[i];
+        }
+        if (i != site_genotype.size() - 1) {
+            vcf_gt << "/";
+        }
+    }
+    sample["GT"] = {vcf_gt.str()};
+
+    // record what happened: without this a merged 1/1 is indistinguishable from a real hom-alt
+    out_variant.info["MAT"] = mat_entries;
+
+    out_variant.updateAlleleIndexes();
+    return true;
 }
 
 unordered_set<string> VCFOutputCaller::get_output_contigs() const {
@@ -676,6 +1048,13 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // clean up the alleles to not have so man common prefixes
     flatten_common_allele_ends(out_variant, true, flatten_len_e);
     flatten_common_allele_ends(out_variant, false, flatten_len_s);
+
+    // Merge near-identical called ALT alleles (vg call -L), turning 1/2 into 1/1.  Placed here on
+    // purpose: after update_vcf_info so the genotyper saw every candidate, and after flattening so
+    // the surviving allele's string, POS and REF are byte-identical to a run without -L (a shorter
+    // allele list can share a longer prefix and flatten further).  The missing-allele fixup below
+    // still runs after it, and is unaffected: merging is ALT-vs-ALT so it never empties alt.
+    merge_similar_alleles(graph, site_traversals, site_genotype, sample_name, out_variant);
 #ifdef debug
     for (int i = 0; i < site_traversals.size(); ++i) {
         cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
@@ -704,6 +1083,16 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                  << VCFOutputCaller::max_vcf_line_length << endl;
         }
         return added;
+    }
+    // Same as in Deconstructor::deconstruct_site: a site with nothing to report is still the only
+    // thing that knows where its children sit, so keep its reference interval for their RC/RS/RD.
+    // Kept in step with deconstruct deliberately -- the two tools should annotate a gref graph the
+    // same way -- even though vg call's records are on reference paths, where the old self-reference
+    // fallback was at least a real coordinate.
+    if (include_nested) {
+        suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
+            {out_variant.sequenceName, static_cast<size_t>(out_variant.position),
+             out_variant.ref.length()};
     }
     return true;
 }
@@ -848,6 +1237,17 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     }
 }
 
+string VCFOutputCaller::nesting_info_headers() {
+    stringstream ss;
+    ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
+    ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
+    ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the topmost ancestor record in this VCF, or this record's own CHROM when it has none. On a gref fragment, where that own CHROM would be no use, the enclosing site is named even if it produced no record of its own; the tags are absent when there is no such site either\">" << endl;
+    ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Start of the site named by RC: the POS of its record, or where the site begins when it produced none. A position on that contig, not a span of the snarl, so it can precede the sequence this record describes\">" << endl;
+    ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"End of the site named by RC: RS plus the length of that site's REF allele\">" << endl;
+    return ss.str();
+}
+
 string VCFOutputCaller::print_snarl(const HandleGraph* graph, const handle_t& snarl_start,
                                     const handle_t& snarl_end, bool in_brackets) const {
     Snarl snarl;
@@ -967,7 +1367,7 @@ void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const st
 
     // create allele ordering where reference is 0
     vector<int> alleles;
-    if (ref_trav_idx >= 0) {
+    if (ref_trav_idx >= 0 && ref_trav_idx < (int64_t)travs.size()) {
         alleles.push_back(ref_trav_idx);
     }
     for (int i = 0; i < travs.size(); ++i) {
@@ -1004,11 +1404,25 @@ void GAFOutputCaller::emit_gaf_variant(const PathHandleGraph& graph, const strin
 
     // pretty bare bones for now, just output the genotype as a pair of traversals
     // todo: we could embed some basic information (likelihood, ploidy, sample etc) in the gaf
+    // gt_travs is a NEW vector holding one entry per called allele, so ref_trav_idx -- an index into
+    // travs -- does not address it.  Passing it through unremapped made emit_gaf_traversals index a
+    // 2-element vector with an index into the full traversal list.  The genotype can also carry the
+    // negative star/missing markers, which address nothing at all.
     vector<SnarlTraversal> gt_travs;
+    int64_t gt_ref_trav_idx = -1;
     for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)travs.size()) {
+            continue;
+        }
+        if (allele == ref_trav_idx && gt_ref_trav_idx < 0) {
+            gt_ref_trav_idx = (int64_t)gt_travs.size();
+        }
         gt_travs.push_back(travs[allele]);
     }
-    emit_gaf_traversals(graph, snarl_name, gt_travs, ref_trav_idx, ref_path_name, ref_path_position, support_finder);
+    if (gt_travs.empty()) {
+        return;
+    }
+    emit_gaf_traversals(graph, snarl_name, gt_travs, gt_ref_trav_idx, ref_path_name, ref_path_position, support_finder);
 }
 
 SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const {
@@ -1123,6 +1537,18 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             name_to_snarl[print_snarl(flipped_snarl)] = snarl;
         });
 
+    // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
+    // that never reached the VCF, so pass 1 below cannot see them, but a record nested under one
+    // has no other way to name a reference position.
+    unordered_map<string, SuppressedRef> suppressed_ref;
+    for (auto& buf : suppressed_ref_info) {
+        for (auto& kv : buf) {
+            suppressed_ref.emplace(kv.first, std::move(kv.second));
+        }
+        buf.clear();
+        buf.rehash(0);
+    }
+
     // pass 1) index sites in vcf
     // (todo: this could be done more quickly upstream)
     //
@@ -1134,8 +1560,18 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     // Contig names are interned rather than stored per record for the same reason: there are
     // at most a few thousand distinct ones, and all we ever ask is whether two are the same.
     unordered_map<string, uint32_t> chrom_index;
+    // Whether each interned contig is a synthetic gref fragment, by the same index.  Stored as a
+    // bit per contig rather than looked up by name later, so the names are still stored once.
+    // is_gref_name(), not is_gref_derived(): a gref copy of a real reference contig is a perfectly
+    // good coordinate system -- it is what the whole VCF is deconstructed against -- and only the
+    // "_<N>_alt" fragments are positions a reader cannot look up.
+    vector<bool> chrom_is_gref_fragment;
     auto intern_chrom = [&](const string& chrom) -> uint32_t {
-        return chrom_index.emplace(chrom, (uint32_t)chrom_index.size()).first->second;
+        auto result = chrom_index.emplace(chrom, (uint32_t)chrom_index.size());
+        if (result.second) {
+            chrom_is_gref_fragment.push_back(GrefCover::is_gref_name(chrom));
+        }
+        return result.first->second;
     };
     // One entry per snarl name.  A snarl ID is not unique -- a cyclic reference path that
     // traverses the same snarl twice emits two records with the same ID (see
@@ -1211,10 +1647,16 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     //   contig_hops     steps in the chain where CHROM changed, i.e. how many insertions deep
     //                   the site is
     //
-    // Returns: (contig_level, contig_hops, parent_name, top_level_name)
-    function<tuple<size_t, size_t, string, string>(const string&, const string&)> get_nesting_tags =
+    // Returns: (contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
+    //           suppressed_name)
+    // ref_chrom_name is the topmost ancestor in the VCF that sits on a reference contig rather
+    // than a gref one, and suppressed_name the topmost ancestor that was dropped for having no
+    // variant.  Both feed the RC/RS/RD choice below; neither affects LV/CH/PS.
+    function<tuple<size_t, size_t, string, string, string, string>(const string&, const string&)> get_nesting_tags =
         [&](const string& name, const string& my_chrom) {
         string parent_name;
+        string ref_chrom_name;
+        string suppressed_name;
         string top_level_name = name;  // default to self (for the top-level case)
         size_t contig_level = 0;
         size_t contig_hops = 0;
@@ -1240,6 +1682,15 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 hit = &flipped_name;
             }
             if (hit == nullptr) {
+                // Not in the VCF.  If it was dropped for having no variant we still know where it
+                // sits, and it may be the only ancestor that can give a reference position.
+                auto sup_it = suppressed_ref.find(cur_name);
+                if (sup_it == suppressed_ref.end()) {
+                    sup_it = suppressed_ref.find(flipped_name);
+                }
+                if (sup_it != suppressed_ref.end()) {
+                    suppressed_name = sup_it->first;
+                }
                 continue;
             }
 
@@ -1260,8 +1711,15 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             }
             // keep updating top_level to find the topmost ancestor in VCF
             top_level_name = *hit;
+            // ...and, separately, the topmost one actually on a reference contig.  An ancestor on
+            // another gref contig can name a position, but not one a reader can look up in the
+            // reference, so it is the weaker answer of the two.
+            if (!chrom_is_gref_fragment[anc_chrom_id]) {
+                ref_chrom_name = *hit;
+            }
         }
-        return make_tuple(contig_level, contig_hops, parent_name, top_level_name);
+        return make_tuple(contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
+                          suppressed_name);
     };
 
     // pass 3) add the LV, PS, RC, RS, RD tags
@@ -1276,8 +1734,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
 
-            auto [contig_level, contig_hops, parent_name, top_level_name] =
-                get_nesting_tags(name, toks[0]);
+            auto [contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
+                  suppressed_name] = get_nesting_tags(name, toks[0]);
             // LV is the level within this record's own reference contig.  It used to count
             // ancestors across every contig: for a VCF with a single reference contig the two
             // are identical, but once gref fragments give the insides of insertions their own
@@ -1294,14 +1752,46 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 nesting_tags += ";PS=" + parent_name;
             }
 
-            // Add RC, RS, RD tags (reference info from top-level snarl)
+            // Add RC, RS, RD tags: where to look this record up in the reference.
+            //
+            // Prefer, in order, the topmost ancestor in the VCF that is on a reference contig;
+            // then the topmost ancestor in the VCF at all; then the topmost ancestor that was
+            // dropped for having no variant.  The last is what rescues a gref fragment whose
+            // parent snarl only the reference and its own gref copy span: the site is real and
+            // has a reference interval, it just had nothing to report.
+            //
+            // If none of those exist there is no reference position to give, and the tags are
+            // left off.  They used to fall back to this record's own contig and position, which
+            // is not a reference coordinate at all -- on a gref contig it is a self-reference
+            // that a reader cannot tell apart from the genuine case.
+            const string* ref_source = nullptr;
+            if (!ref_chrom_name.empty()) {
+                ref_source = &ref_chrom_name;
+            } else if (top_level_name != name) {
+                ref_source = &top_level_name;
+            }
+            bool have_ref = true;
             RefInfo top_ref;
-            if (top_level_name == name) {
-                // We are our own top-level site, so the answer is our own interval.  Looking
-                // it up by name would risk picking a different record that shares our ID.
-                top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+            if (ref_source == nullptr) {
+                if (!GrefCover::is_gref_name(toks[0])) {
+                    // Not on a gref fragment, so our own interval is already a position a reader
+                    // can look up, and it is the narrower answer of the two.  Keep it rather than
+                    // reach for an enclosing site that produced no record: doing that would
+                    // repoint every such record on a reference contig at a site LV and CH say it
+                    // has no ancestor in.  The records that need the reach are the fragments
+                    // below, which have no usable coordinate of their own.
+                    top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+                } else {
+                    auto sup_it = suppressed_name.empty() ? suppressed_ref.end()
+                                                          : suppressed_ref.find(suppressed_name);
+                    if (sup_it != suppressed_ref.end()) {
+                        top_ref = {sup_it->second.chrom, sup_it->second.pos, sup_it->second.ref_len};
+                    } else {
+                        have_ref = false;
+                    }
+                }
             } else {
-                const auto& candidates = top_level_ref_info.at(top_level_name);
+                const auto& candidates = top_level_ref_info.at(*ref_source);
                 // If the ancestor produced several records, prefer one on our own contig;
                 // failing that take the smallest (chrom, pos).  Which one is "right" is
                 // genuinely ambiguous, so pick deterministically rather than by chance.
@@ -1314,9 +1804,11 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 }
                 top_ref = {chosen->first.first, chosen->first.second, chosen->second};
             }
-            nesting_tags += ";RC=" + top_ref.chrom;
-            nesting_tags += ";RS=" + std::to_string(top_ref.pos);
-            nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
+            if (have_ref) {
+                nesting_tags += ";RC=" + top_ref.chrom;
+                nesting_tags += ";RS=" + std::to_string(top_ref.pos);
+                nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
+            }
 
             // rewrite the output string using the updated info toks
             output_variant_string.clear();
@@ -1964,8 +2456,6 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool genotype_snarls,
                        const pair<size_t, size_t>& allele_length_range,
                        bool nested,
-                       double cluster_threshold,
-                       bool cluster_post_genotype,
                        bool star_allele) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
@@ -1978,8 +2468,6 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     genotype_snarls(genotype_snarls),
     allele_length_range(allele_length_range),
     nested(nested),
-    cluster_threshold(cluster_threshold),
-    cluster_post_genotype(cluster_post_genotype),
     star_allele(star_allele)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {

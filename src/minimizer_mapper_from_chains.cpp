@@ -1649,9 +1649,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 gbwt_graph,
                 get_regular_aligner()->scorer->gap_open,
                 get_regular_aligner()->scorer->gap_extension,
+                for_each_transition,
                 scheme,
                 this->max_alignments,
-                for_each_transition,
                 indel_limit,
                 show_work
             );
