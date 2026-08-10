@@ -1242,7 +1242,7 @@ string VCFOutputCaller::nesting_info_headers() {
     ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
     ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
     ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the topmost ancestor site containing this record: its record in this VCF where it has one, otherwise the site itself, since an enclosing site with no variant to report produces none. This record's own CHROM when it is top-level. Absent when no ancestor and no suppressed ancestor gives a position outside the gref fragments\">" << endl;
+    ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"CHROM of the topmost ancestor record in this VCF, or this record's own CHROM when it has none. On a gref fragment, where that own CHROM would be no use, the enclosing site is named even if it produced no record of its own; the tags are absent when there is no such site either\">" << endl;
     ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Start of the site named by RC: the POS of its record, or where the site begins when it produced none. A position on that contig, not a span of the snarl, so it can precede the sequence this record describes\">" << endl;
     ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"End of the site named by RC: RS plus the length of that site's REF allele\">" << endl;
     return ss.str();
@@ -1773,15 +1773,22 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             bool have_ref = true;
             RefInfo top_ref;
             if (ref_source == nullptr) {
-                auto sup_it = suppressed_name.empty() ? suppressed_ref.end()
-                                                      : suppressed_ref.find(suppressed_name);
-                if (sup_it != suppressed_ref.end()) {
-                    top_ref = {sup_it->second.chrom, sup_it->second.pos, sup_it->second.ref_len};
-                } else if (!GrefCover::is_gref_name(toks[0])) {
-                    // Top-level on a reference contig: our own interval IS the reference one.
+                if (!GrefCover::is_gref_name(toks[0])) {
+                    // Not on a gref fragment, so our own interval is already a position a reader
+                    // can look up, and it is the narrower answer of the two.  Keep it rather than
+                    // reach for an enclosing site that produced no record: doing that would
+                    // repoint every such record on a reference contig at a site LV and CH say it
+                    // has no ancestor in.  The records that need the reach are the fragments
+                    // below, which have no usable coordinate of their own.
                     top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
                 } else {
-                    have_ref = false;
+                    auto sup_it = suppressed_name.empty() ? suppressed_ref.end()
+                                                          : suppressed_ref.find(suppressed_name);
+                    if (sup_it != suppressed_ref.end()) {
+                        top_ref = {sup_it->second.chrom, sup_it->second.pos, sup_it->second.ref_len};
+                    } else {
+                        have_ref = false;
+                    }
                 }
             } else {
                 const auto& candidates = top_level_ref_info.at(*ref_source);
