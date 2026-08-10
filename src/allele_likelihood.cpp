@@ -594,7 +594,12 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
 double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
+    // Prefer the source's own window so the query lands on a cache entry the site
+    // already populated; fall back to policy so every backend gives the same answer.
     size_t span = read_source.get_window_span();
+    if (span == 0) {
+        span = params.depth_window;
+    }
     if (span == 0 || site_ranges.empty() || params.depth_ploidy <= 0) {
         return 0.0;
     }
