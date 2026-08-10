@@ -70,6 +70,8 @@ void help_call(char** argv) {
          << "                            number of reads seen. The rate is measured over the read" << endl
          << "                            source's own fetch window, so it costs no extra I/O." << endl
          << "                            0 disables it; DR is emitted either way [0]" << endl
+         << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
+         << "                            1 - e_r, the probability it came from this locus" << endl
          << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
          << "                            instead of by the reads it is expected to contribute." << endl
          << "                            The flat weight is wrong wherever the alleles differ" << endl
@@ -231,6 +233,7 @@ int main_call(int argc, char** argv) {
     bool flat_mixture = false;
     double depth_weight = 0.0;
     bool length_weight_whole_traversal = false;
+    bool depth_count_raw = false;
     double max_mismap_prob = 0.7;
     double min_mismap_prob = 0.02;
     int read_min_mapq = 0;
@@ -269,6 +272,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_FLAT_MIXTURE = 1023;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
+    constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -316,6 +320,7 @@ int main_call(int argc, char** argv) {
             {"max-allele-likelihood", no_argument, 0, OPT_MAX_ALLELE_LIKELIHOOD},
             {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
             {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
+            {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
             {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
@@ -484,6 +489,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_DEPTH_TERM:
             depth_weight = parse<double>(optarg);
+            break;
+        case OPT_DEPTH_COUNT_RAW:
+            depth_count_raw = true;
             break;
         case OPT_LENGTH_WEIGHT_WHOLE:
             length_weight_whole_traversal = true;
@@ -1186,6 +1194,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.length_weighted_mixture = !flat_mixture;
             likelihood_params.depth_weight = depth_weight;
             likelihood_params.length_weight_whole_traversal = length_weight_whole_traversal;
+            likelihood_params.depth_effective_reads = !depth_count_raw;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
 

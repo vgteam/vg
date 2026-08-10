@@ -423,7 +423,11 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "means the read count is exactly what the call implies. Values well above 1 are "
               "collapsed repeats, where reads from several copies pile onto one; values near 0.5 "
               "are a genotype claiming twice the sequence actually covered, which is what a missed "
-              "heterozygous deletion looks like. Reported whether or not --depth-term is in use\">\n";
+              "heterozygous deletion looks like. Both sides of the ratio count a read as 1 - e_r, "
+              "the probability it came from this locus at all, so a site whose mapping quality "
+              "matches its neighbourhood's is unaffected and only the difference shows; pass "
+              "--depth-count-raw to count whole reads instead. Reported whether or not "
+              "--depth-term is in use\">\n";
     header += "##FORMAT=<ID=BL,Number=1,Type=Float,Description=\"Mean over reads of the best "
         "raw alignment score any allele gave them. Measures whether reads fit anything at "
         "this site, where GQ measures only the gap between the top two genotypes, so the "

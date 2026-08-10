@@ -213,9 +213,58 @@ TEST_CASE("A zero depth weight leaves the likelihood untouched", "[allele_likeli
     for (auto& g : {vector<int>({0, 0}), vector<int>({0, 1}), vector<int>({1, 1})}) {
         REQUIRE(armed.genotype_likelihood(g) == Approx(plain.genotype_likelihood(g)));
     }
-    // DR is still available with the term disabled: 25 reads against a genotype
-    // predicting 0.05 * 2 * (500+150) = 65.
-    REQUIRE(armed.depth_ratio({0, 1}) == Approx(25.0 / 65.0));
+    // DR is still available with the term disabled: 25 reads at e_r = 0.02, so an
+    // effective 24.5, against a genotype predicting 0.05 * 2 * (500+150) = 65.
+    REQUIRE(armed.depth_ratio({0, 1}) == Approx(24.5 / 65.0));
+}
+
+TEST_CASE("Depth counts a read by the probability it came from this locus",
+          "[allele_likelihood]") {
+    // Forty-one reads that say nothing about which allele is present: every row is
+    // flat, so the mixture is 1 for every genotype and the read term is *identical*
+    // across all three. Whatever genotype comes out is the depth term's doing alone.
+    //
+    // The reads are all MAPQ 0, clamped to e_r = 0.7. Counted one apiece they are 41
+    // reads of depth and the two long alleles are needed to explain them. Counted by
+    // the probability they are from here at all they are 12.3, and the heterozygote
+    // predicts that exactly.
+    auto fill = [](AlleleReadLikelihoodsBuilder& b) {
+        for (int i = 0; i < 41; ++i) {
+            b.add_read({0.0, 0.0}, 0.7, "", 151);
+        }
+    };
+    const double rate = 12.3 / 2350.0;   // het claims (2000+150) + (50+150) positions
+
+    AlleleReadLikelihoodsBuilder raw_b(2, 0.01, 0.7);
+    fill(raw_b);
+    AlleleReadLikelihoods raw = raw_b.build();
+    raw.set_depth_context({2000, 50}, rate, 151.0, 1.0, false);
+    REQUIRE(raw.observed_reads() == Approx(41.0));
+    REQUIRE(best_genotype(raw.score_genotypes(2)) == vector<int>({0, 0}));
+
+    AlleleReadLikelihoodsBuilder eff_b(2, 0.01, 0.7);
+    fill(eff_b);
+    AlleleReadLikelihoods eff = eff_b.build();
+    eff.set_depth_context({2000, 50}, rate, 151.0, 1.0, true);
+    REQUIRE(eff.observed_reads() == Approx(41.0 * 0.3));
+    REQUIRE(eff.expected_reads({0, 1}) == Approx(12.3));
+    REQUIRE(eff.depth_ratio({0, 1}) == Approx(1.0));
+    REQUIRE(best_genotype(eff.score_genotypes(2)) == vector<int>({0, 1}));
+}
+
+TEST_CASE("Confident reads count as very nearly whole reads of depth",
+          "[allele_likelihood]") {
+    // The counterpart to the case above, and the reason this is safe to switch on by
+    // default: at the shipped floor of 0.02 a well-mapped read is worth 0.98 of a
+    // read, so nothing moves at ordinary sites. The correction is *relative* -- it
+    // only bites where a site's mapping quality differs from its neighbourhood's,
+    // because the local rate is measured under the same weighting.
+    AlleleReadLikelihoodsBuilder b(2, 0.02, 0.7);
+    for (int i = 0; i < 30; ++i) {
+        b.add_read({0.0, -9.0}, 0.0, "", 151);   // MAPQ high: clamped up to the floor
+    }
+    AlleleReadLikelihoods m = b.build();
+    REQUIRE(m.observed_reads() == Approx(30.0 * 0.98));
 }
 
 TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",

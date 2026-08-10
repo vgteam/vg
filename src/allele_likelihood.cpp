@@ -26,6 +26,12 @@ void AlleleReadLikelihoods::set_contents(size_t n_reads, size_t n_alleles, vecto
     this->read_best_ln = std::move(best_ln);
     this->read_names = std::move(names);
     this->unplaceable = unplaceable;
+    // sum_r (1 - e_r), the expected number of these reads that are genuinely from
+    // this locus. Cached because the depth term asks for it once per genotype.
+    this->effective_read_total = 0.0;
+    for (double e : this->read_mismap_prob) {
+        this->effective_read_total += 1.0 - e;
+    }
 }
 
 double AlleleReadLikelihoods::rel(size_t r, size_t a) const {
@@ -54,24 +60,27 @@ double AlleleReadLikelihoods::expected_reads(const vector<int>& genotype) const 
     return depth_rate * total;
 }
 
-double AlleleReadLikelihoods::depth_ratio(const vector<int>& genotype) const {
-    double expected = expected_reads(genotype);
-    return expected > 0.0 ? (double)n_reads / expected : -1.0;
+double AlleleReadLikelihoods::observed_reads() const {
+    return depth_effective ? effective_read_total : (double)n_reads;
 }
 
-/// ln of a Poisson pmf, via Stirling for the factorial. n here is a read count at
-/// one site, so it is in the hundreds at most and Stirling is far inside the noise
-/// of the rate estimate it is being compared against.
-static double ln_poisson_pmf(size_t n, double lambda) {
+double AlleleReadLikelihoods::depth_ratio(const vector<int>& genotype) const {
+    double expected = expected_reads(genotype);
+    return expected > 0.0 ? observed_reads() / expected : -1.0;
+}
+
+/// ln of a Poisson pmf, continued to real `n` through lgamma. The observation is
+/// `sum_r (1 - e_r)` rather than a row count, so it is fractional by construction.
+/// The `-ln n!` normaliser is the same for every genotype at a site and cancels in
+/// every comparison; it is carried anyway because GL is reported, not just ranked.
+static double ln_poisson_pmf(double n, double lambda) {
     if (lambda <= 0.0) {
         return -numeric_limits<double>::infinity();
     }
-    if (n == 0) {
+    if (n <= 0.0) {
         return -lambda;
     }
-    double dn = (double)n;
-    return dn * log(lambda) - lambda
-           - (dn * log(dn) - dn + 0.5 * log(2.0 * M_PI * dn));
+    return n * log(lambda) - lambda - lgamma(n + 1.0);
 }
 
 double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) const {
@@ -152,7 +161,7 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
     }
 
     if (uses_depth_term()) {
-        total += depth_weight * ln_poisson_pmf(n_reads, expected_reads(genotype));
+        total += depth_weight * ln_poisson_pmf(observed_reads(), expected_reads(genotype));
     }
 
     return total;
@@ -623,8 +632,23 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     // Memoised per window, not per site. Counting a window's reads costs O(reads in
     // window), which is far more than a snarl, and neighbouring sites share windows;
     // without this the diagnostic would cost more than the genotyping.
-    size_t reads = 0;
-    read_source.for_each_read({{first, last}}, [&](const Alignment&) { ++reads; });
+    //
+    // Reads are counted here exactly as they are counted at a site: under
+    // `depth_effective_reads` each contributes `1 - e_r` rather than 1, using the same
+    // MAPQ, the same clamps and the same `use_mismap_term` switch. Weighting one side
+    // and not the other would put a constant scale factor between N and lambda and
+    // bias every DR in the same direction, which is not a signal.
+    double reads = 0.0;
+    read_source.for_each_read({{first, last}}, [&](const Alignment& aln) {
+        if (!params.depth_effective_reads) {
+            reads += 1.0;
+            return;
+        }
+        double mismap = params.use_mismap_term
+                            ? phred_to_prob((double)aln.mapping_quality())
+                            : params.min_mismap_prob;
+        reads += 1.0 - min(max(mismap, params.min_mismap_prob), params.max_mismap_prob);
+    });
 
     // Node IDs are dense in a GBZ but not guaranteed to be, so ask the graph.
     size_t bp = 0;
@@ -634,9 +658,9 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
         }
     }
 
-    double rate = (reads == 0 || bp == 0)
+    double rate = (reads <= 0.0 || bp == 0)
                       ? 0.0
-                      : (double)reads / ((double)params.depth_ploidy * (double)bp);
+                      : reads / ((double)params.depth_ploidy * (double)bp);
     lock_guard<std::mutex> guard(window_bp_mutex);
     window_rate[window_index] = rate;
     return rate;
@@ -831,7 +855,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // is allowed to act on it. A zero weight leaves the likelihood untouched.
         result.set_depth_context(depth_lengths, local_read_rate(ranges),
                                  result.mean_read_length_estimate(),
-                                 params.depth_weight);
+                                 params.depth_weight, params.depth_effective_reads);
     }
     return result;
 }

@@ -192,13 +192,22 @@ public:
     /// `N` is rows in this matrix -- neither coverage nor what a `vg pack` index
     /// reports -- and a rate in different units carries a silent scale error.
     ///
+    /// `effective_count` decides what `N` means. The read term already believes each
+    /// read only to the extent of `1 - e_r`; counting that same read as a whole read
+    /// of depth asserts something the read term explicitly declines to. Under
+    /// `effective_count` the observation is `N_eff = sum_r (1 - e_r)`, the expected
+    /// number of reads genuinely from this locus, and `rate` must be measured the
+    /// same way or the two carry a constant scale factor between them.
+    ///
     /// Off unless `weight` is positive.
     void set_depth_context(vector<size_t> traversal_lengths, double rate,
-                           double read_length, double weight) {
+                           double read_length, double weight,
+                           bool effective_count = true) {
         this->traversal_lengths = std::move(traversal_lengths);
         this->depth_rate = rate;
         this->depth_read_length = read_length;
         this->depth_weight = weight;
+        this->depth_effective = effective_count;
     }
 
     bool uses_depth_term() const {
@@ -207,6 +216,11 @@ public:
 
     /// Expected reads at this site under G, from the same geometry the term uses.
     double expected_reads(const vector<int>& genotype) const;
+
+    /// The read count the depth term compares against: `sum_r (1 - e_r)` when the
+    /// context was set with `effective_count`, and the plain row count otherwise.
+    /// Fractional by construction, which is why the Poisson uses lgamma.
+    double observed_reads() const;
 
     /// Observed over expected, for the genotype given. 1.0 is a site whose read
     /// count is exactly what the call predicts; 7.0 is a collapsed repeat. Emitted
@@ -268,12 +282,15 @@ private:
     /// Row major, n_reads * n_alleles, every entry in [0,1], row max exactly 1.
     vector<double> matrix;
     vector<double> read_mismap_prob;
+    /// sum_r (1 - e_r), filled in by set_contents.
+    double effective_read_total = 0.0;
     bool max_allele = false;
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
     double mean_read_length = 0.0;
     vector<size_t> traversal_lengths;
     double depth_rate = 0.0;
+    bool depth_effective = true;
     double depth_read_length = 0.0;
     double depth_weight = 0.0;
     vector<double> read_best_ln;
@@ -467,6 +484,18 @@ struct AlleleLikelihoodParams {
     /// diagnostic is still computed, so the observable can be measured before the
     /// model is allowed to act on it.
     double depth_weight = 0.0;
+    /// Count reads toward depth in proportion to `1 - e_r` -- the probability the
+    /// read came from this locus at all -- rather than one apiece.
+    ///
+    /// **On by default.** A read the mapper places with MAPQ 0 is evidence that
+    /// *something* is here, not that a read is here: the read term already believes
+    /// it only to the extent of `1 - e_r`, and counting it as a whole read of depth
+    /// asserts precisely what that term declines to. The same weighting is applied
+    /// when the local rate is measured, so a site whose mapping quality matches its
+    /// neighbourhood's is unaffected -- the correction is relative, and it moves
+    /// only where a site is more or less ambiguously mapped than the sequence
+    /// around it.
+    bool depth_effective_reads = true;
     /// Assumed ploidy when converting a window's read count into a per-haplotype
     /// rate. The caller genotypes diploid.
     int depth_ploidy = 2;
