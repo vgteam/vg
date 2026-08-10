@@ -72,6 +72,11 @@ void help_call(char** argv) {
          << "                            0 disables it; DR is emitted either way [0]" << endl
          << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
          << "                            1 - e_r, the probability it came from this locus" << endl
+         << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose called" << endl
+         << "                            alleles change length by 50 bp or more, so a call whose" << endl
+         << "                            read count is implausible for the sequence it claims" << endl
+         << "                            ranks lower. Ranking only; no genotype changes. 0 is" << endl
+         << "                            off [0]" << endl
          << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
          << "                            instead of by the reads it is expected to contribute." << endl
          << "                            The flat weight is wrong wherever the alleles differ" << endl
@@ -229,6 +234,7 @@ int main_call(int argc, char** argv) {
     size_t read_window_size = 0;
     bool no_mismap_term = false;
     bool no_share_quality = false;
+    double depth_quality = 0.0;
     bool max_allele_likelihood = false;
     bool flat_mixture = false;
     double depth_weight = 0.0;
@@ -273,6 +279,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
+    constexpr int OPT_DEPTH_QUALITY = 1027;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -321,6 +328,7 @@ int main_call(int argc, char** argv) {
             {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
             {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
             {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
+            {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
             {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
@@ -492,6 +500,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_DEPTH_COUNT_RAW:
             depth_count_raw = true;
+            break;
+        case OPT_DEPTH_QUALITY:
+            depth_quality = parse<double>(optarg);
             break;
         case OPT_LENGTH_WEIGHT_WHOLE:
             length_weight_whole_traversal = true;
@@ -1218,6 +1229,7 @@ int main_call(int argc, char** argv) {
             // the caller must not prune alleles on support.
             rl_caller->set_support_available(!support_free);
             rl_caller->set_share_discount(!no_share_quality);
+            rl_caller->set_depth_quality(depth_quality);
 
             packed_caller = rl_caller;
         } else if (ratio_caller == false) {

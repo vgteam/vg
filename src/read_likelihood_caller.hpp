@@ -173,6 +173,36 @@ public:
      */
     void set_share_discount(bool discount);
 
+    /**
+     * Scale GQ by how far the site's read count is from what the call predicts, at
+     * records whose called alleles change length by at least `min_length` bp.
+     *
+     *     GQ' = GQ * exp(-exponent * |ln DR|)
+     *
+     * The sibling of set_share_discount, aimed at the model's other structural
+     * blindness. That one asks whether the called genotype explains the reads that are
+     * here; this asks whether the right *number* of reads is here at all, which
+     * `P(reads | G)` cannot see because it is conditioned on the reads it was handed.
+     * Both can only lower GQ, and GQI keeps the undiscounted value.
+     *
+     * **Off by default, and the size gate is why.** Ungated, this gains on structural
+     * variants on all four datasets measured and *loses* on small variants on the two
+     * 34-haplotype graphs -- the sign reversal that has blocked every previous attempt
+     * to use depth here. The gate is not a fitted threshold: at a SNV, lambda's geometry
+     * is dominated by the read length, so DR mostly reports local coverage scatter and
+     * ranking on it adds noise to a GQ that already ranks well there; at a large event
+     * the geometry is dominated by the allele, so DR reports whether the called sequence
+     * is present at all. 50 bp is the boundary the two benchmarks already draw.
+     *
+     * Gated, it reaches 15 of 16 operating points improving or tying -- the standard the
+     * explained-share discount met -- but structural-variant AUC still falls on one of
+     * the eight cells, at every exponent tried, so it does not quite clear the bar that
+     * put the share discount on by default. Hence a flag rather than a default.
+     *
+     * An `exponent` of 0 disables it and restores the previous behaviour exactly.
+     */
+    void set_depth_quality(double exponent, size_t min_length = 50);
+
 protected:
 
     /// True if two traversals visit exactly the same nodes in the same
@@ -190,6 +220,11 @@ protected:
 
     /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.
     bool share_discount = true;
+
+    /// Exponent on |ln DR| in the depth-implausibility discount, and the minimum called
+    /// allele length change that arms it. Zero exponent disables. See set_depth_quality.
+    double depth_quality = 0.0;
+    size_t depth_quality_min_length = 50;
 };
 
 }

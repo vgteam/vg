@@ -32,6 +32,11 @@ void ReadLikelihoodSnarlCaller::set_share_discount(bool discount) {
     this->share_discount = discount;
 }
 
+void ReadLikelihoodSnarlCaller::set_depth_quality(double exponent, size_t min_length) {
+    this->depth_quality = exponent;
+    this->depth_quality_min_length = min_length;
+}
+
 void ReadLikelihoodSnarlCaller::set_support_available(bool available) {
     this->support_available = available;
 }
@@ -210,7 +215,29 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         if (share_discount) {
             call_info->gq *= call_info->explained_share;
         }
-        call_info->depth_ratio = matrix.depth_ratio(scored[best_index].first);
+        call_info->depth_ratio = matrix.depth_ratio(called);
+
+        // The depth-implausibility discount, gated on called-allele size. See
+        // set_depth_quality for why it is gated and why it is not on by default.
+        //
+        // Size is measured as the largest length change against the reference
+        // traversal, using the same interior lengths lambda uses -- so it is the change
+        // in sequence a read could actually be recruited by, and it needs no reference
+        // to the VCF alleles, which do not exist yet at this point.
+        if (depth_quality > 0.0 && call_info->depth_ratio > 0.0 && ref_trav_idx >= 0) {
+            size_t ref_len = matrix.traversal_length((size_t)ref_trav_idx);
+            size_t change = 0;
+            for (int a : called) {
+                if (a < 0) {
+                    continue;
+                }
+                size_t len = matrix.traversal_length((size_t)a);
+                change = max(change, len > ref_len ? len - ref_len : ref_len - len);
+            }
+            if (change >= depth_quality_min_length) {
+                call_info->gq *= exp(-depth_quality * fabs(log(call_info->depth_ratio)));
+            }
+        }
     }
 
     // Posterior under a uniform prior. Deliberately NOT the Poisson caller's
@@ -444,7 +471,9 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "because those reads enter every genotype's likelihood and cancel; the scaling "
               "restores them. It also means GQ here is a quality score rather than a "
               "calibrated posterior. GQI is the unscaled value; --no-share-quality restores "
-              "it as GQ\">\n";
+              "it as GQ. With --depth-quality A in effect, records whose called alleles change "
+              "length by at least 50 bp are additionally scaled by exp(-A * |ln DR|), so a call "
+              "whose read count is implausible for the sequence it claims ranks lower\">\n";
     header += "##FORMAT=<ID=GQI,Number=1,Type=Integer,Description=\"Genotype Quality from the "
               "likelihood ratio alone, with no explained-read-fraction scaling. Equals GQ "
               "when --no-share-quality is in effect\">\n";

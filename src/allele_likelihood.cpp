@@ -699,11 +699,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
     }
 
-    // Whole traversal length per allele, for the depth term's lambda. Distinct from
-    // the unique content the mixture weights use: lambda asks how much sequence
-    // generates reads, the weights ask which sequence can tell alleles apart.
-    vector<size_t> depth_lengths;
-
     // Materialise each allele's node sequences once per site. This is per allele,
     // not per (read, allele), so it stays off the hot path.
     vector<vector<AlleleStep>> allele_steps;
@@ -712,15 +707,35 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         allele_steps.push_back(get_allele_steps(traversal));
     }
 
-    if (depth_lengths.empty()) {
-        depth_lengths.reserve(allele_steps.size());
-        for (const auto& steps : allele_steps) {
-            size_t len = 0;
-            for (const AlleleStep& step : steps) {
+    // Per-allele length for the depth term's lambda: the sequence over which a read
+    // can become a row of this matrix, which is the traversal's **interior** only.
+    //
+    // Not the whole traversal, and the difference is not cosmetic. A SnarlTraversal
+    // runs from the snarl's start visit to its end visit inclusive, so its length
+    // includes both boundary nodes -- but get_read_steps drops a read that sits
+    // entirely inside one boundary node as uninformative, so those bases recruit no
+    // reads. Counting them made lambda too large by roughly the two anchors' length,
+    // a constant per site, which put the median DR at 0.59 instead of 1 and diluted
+    // exactly the contrast between genotypes the term exists to see. It showed as DR
+    // rising with event size -- 0.58 at SNVs, 0.87 above 1 kb -- because a fixed
+    // overhead matters less the longer the allele.
+    //
+    // A traversal with no interior at all is the deletion edge: no interior node, so
+    // only a junction-spanning read can be a row, and max(len + R - 1, 1) gives the
+    // R - 1 junction positions, which is right.
+    //
+    // Distinct from the unique content the mixture weights use: lambda asks how much
+    // sequence generates reads, the weights ask which sequence tells alleles apart.
+    vector<size_t> depth_lengths;
+    depth_lengths.reserve(allele_steps.size());
+    for (const auto& steps : allele_steps) {
+        size_t len = 0;
+        for (const AlleleStep& step : steps) {
+            if (!boundary_nodes.count(step.node_id)) {
                 len += step.sequence.size();
             }
-            depth_lengths.push_back(len);
         }
+        depth_lengths.push_back(len);
     }
 
     if (params.length_weighted_mixture) {
@@ -738,7 +753,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             allele_lengths.push_back(len);
         }
         builder.set_allele_lengths(allele_lengths);
-        depth_lengths = allele_lengths;
 
         if (!params.length_weight_whole_traversal) {
             // Per-allele node content, then pairwise set differences. Computed once

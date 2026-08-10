@@ -182,10 +182,13 @@ public:
     ///     ln P(data | G) = w * ln Poisson(N ; lambda_G) + sum_r ln[...]
     ///     lambda_G       = rate * sum_{h in G} (T_h + R - 1)
     ///
-    /// `T_h` is the allele's **whole** traversal length, not the unique content the
-    /// mixture weights use. The two are different quantities and conflating them is
-    /// an easy, invisible error: a mixture weight asks which allele a read could
-    /// *distinguish*, while lambda asks how much sequence *generates* reads at all.
+    /// `T_h` is the allele's **interior** traversal length -- the sequence over which
+    /// a read can become a row of this matrix. It is neither the whole traversal, whose
+    /// two boundary nodes recruit no rows because a read inside one of them cannot
+    /// discriminate, nor the unique content the mixture weights use. All three are
+    /// different quantities and conflating any two is an easy, invisible error: a
+    /// mixture weight asks which allele a read could *distinguish*, while lambda asks
+    /// how much sequence can put a read in front of the question at all.
     ///
     /// `rate` is reads per position per haplotype, estimated locally. It must be
     /// measured through the same fetch and placement path that produced `N`, since
@@ -221,6 +224,13 @@ public:
     /// context was set with `effective_count`, and the plain row count otherwise.
     /// Fractional by construction, which is why the Poisson uses lgamma.
     double observed_reads() const;
+
+    /// This allele's interior traversal length, as lambda uses it. Zero if the depth
+    /// context was never set or the index is out of range, so a difference between two
+    /// of these is only meaningful when uses_depth_term() or a rate was supplied.
+    size_t traversal_length(size_t allele) const {
+        return allele < traversal_lengths.size() ? traversal_lengths[allele] : 0;
+    }
 
     /// Observed over expected, for the genotype given. 1.0 is a site whose read
     /// count is exactly what the call predicts; 7.0 is a collapsed repeat. Emitted
