@@ -72,6 +72,19 @@ void help_call(char** argv) {
          << "                            0 disables it; DR is emitted either way [0.1]" << endl
          << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
          << "                            1 - e_r, the probability it came from this locus" << endl
+         << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over the" << endl
+         << "                            GBWT haplotypes, so consecutive calls are judged against" << endl
+         << "                            combinations the panel carries. Needs -z. 0 is off, and" << endl
+         << "                            reproduces the per-site caller exactly [0]" << endl
+         << "      --linkage-block-switch B" << endl
+         << "                            probability a haplotype-sampling block boundary changes" << endl
+         << "                            which assembly a panel haplotype continues from. A" << endl
+         << "                            per-graph property: 0 for a full pangenome [0]" << endl
+         << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
+         << "      --linkage-freq-prior F" << endl
+         << "                            weight on the panel allele-frequency prior. 0 by default:" << endl
+         << "                            over a panel picked by haplotype sampling against these" << endl
+         << "                            reads it is the same evidence twice [0]" << endl
          << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose called" << endl
          << "                            alleles change length by 50 bp or more, so a call whose" << endl
          << "                            read count is implausible for the sequence it claims" << endl
@@ -235,6 +248,10 @@ int main_call(int argc, char** argv) {
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
+    double linkage_weight = 0.0;
+    double linkage_block_switch = 0.0;
+    double linkage_scale = 10000.0;
+    double linkage_freq_prior = 0.0;
     bool max_allele_likelihood = false;
     bool flat_mixture = false;
     double depth_weight = 0.1;
@@ -280,6 +297,10 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
+    constexpr int OPT_LINKAGE_WEIGHT = 1028;
+    constexpr int OPT_LINKAGE_BLOCK_SWITCH = 1029;
+    constexpr int OPT_LINKAGE_SCALE = 1030;
+    constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -329,6 +350,10 @@ int main_call(int argc, char** argv) {
             {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
             {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
             {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+            {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
+            {"linkage-block-switch", required_argument, 0, OPT_LINKAGE_BLOCK_SWITCH},
+            {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
+            {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
             {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
@@ -503,6 +528,18 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_DEPTH_QUALITY:
             depth_quality = parse<double>(optarg);
+            break;
+        case OPT_LINKAGE_WEIGHT:
+            linkage_weight = parse<double>(optarg);
+            break;
+        case OPT_LINKAGE_BLOCK_SWITCH:
+            linkage_block_switch = parse<double>(optarg);
+            break;
+        case OPT_LINKAGE_SCALE:
+            linkage_scale = parse<double>(optarg);
+            break;
+        case OPT_LINKAGE_FREQ_PRIOR:
+            linkage_freq_prior = parse<double>(optarg);
             break;
         case OPT_LENGTH_WEIGHT_WHOLE:
             length_weight_whole_traversal = true;
@@ -1415,6 +1452,10 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Owned here because write_variants(), at the very end of main, consumes the collector.
+    unique_ptr<LinkageCollector> linkage_collector;
+    vector<size_t> linkage_sequence_to_haplotype;
+
     string header;
     if (!gaf_output) {
         // Init The VCF       
@@ -1423,6 +1464,53 @@ int main_call(int argc, char** argv) {
         // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
         vcf_caller->set_nested(all_snarls || top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
+
+        // Linkage pass. Only under -z: the panel matrix comes from asking which GBWT haplotypes
+        // traverse each allele, and without haplotype enumeration there is no panel to link
+        // against. Kept alive to the end of main because write_variants() consumes it.
+        if (linkage_weight > 0.0) {
+            if (gbwt_index == nullptr) {
+                cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z)" << endl;
+                return 1;
+            }
+            // A haplotype is (sample, phase); a GBWT sequence is one orientation of one path, and
+            // a haplotype in several fragments owns several paths. Collapse all of them onto one
+            // index, or the panel would double-count a fragmented haplotype and treat its pieces
+            // as independent evidence.
+            const gbwt::Metadata& meta = gbwt_index->metadata;
+            map<pair<size_t, size_t>, size_t> hap_index;
+            linkage_sequence_to_haplotype.assign(gbwt_index->sequences(), 0);
+            for (gbwt::size_type path = 0; path < meta.paths(); ++path) {
+                const gbwt::PathName& name = meta.path(path);
+                auto key = make_pair((size_t)name.sample, (size_t)name.phase);
+                auto found = hap_index.find(key);
+                size_t index;
+                if (found == hap_index.end()) {
+                    index = hap_index.size();
+                    hap_index[key] = index;
+                } else {
+                    index = found->second;
+                }
+                for (gbwt::size_type orientation = 0; orientation < 2; ++orientation) {
+                    gbwt::size_type seq = gbwt::Path::encode(path, orientation);
+                    if (seq < linkage_sequence_to_haplotype.size()) {
+                        linkage_sequence_to_haplotype[seq] = index;
+                    }
+                }
+            }
+            LinkageModel::Params linkage_params;
+            linkage_params.weight = linkage_weight;
+            linkage_params.block_switch = linkage_block_switch;
+            linkage_params.scale = linkage_scale;
+            linkage_params.freq_prior = linkage_freq_prior;
+            linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
+            vcf_caller->set_linkage(linkage_collector.get(), gbwt_index,
+                                    &linkage_sequence_to_haplotype);
+            if (show_progress) {
+                logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "
+                              << gbwt_index->sequences() << " GBWT sequences" << endl;
+            }
+        }
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);

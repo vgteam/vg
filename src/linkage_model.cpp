@@ -31,6 +31,20 @@ double LinkageModel::switch_probability(size_t gap) const {
     return min(max(pow(rho, params.weight), 1e-12), 1.0);
 }
 
+/// The allele a panel haplotype carries at a site, or -1 for "nothing to say".
+///
+/// Out-of-range indices are absent rather than trusted. A caller that passes an allele index from
+/// the wrong numbering -- traversal order instead of VCF allele order, say -- would otherwise index
+/// past the genotype vector and corrupt the heap, which is exactly what happened the first time
+/// this was wired up.
+static inline int allele_at(const LinkageModel::Site& site, size_t h, size_t n_hap) {
+    if (h >= n_hap || h >= site.haplotype_allele.size()) {
+        return -1;
+    }
+    int allele = site.haplotype_allele[h];
+    return (allele >= 0 && (size_t)allele < site.num_alleles) ? allele : -1;
+}
+
 /// Relative P(reads | genotype implied by state) for every ordered pair of panel haplotypes,
 /// with the wildcard last. Row-normalised only in the sense that the site's best genotype is 1,
 /// which keeps the numbers in range without changing any ratio.
@@ -69,10 +83,9 @@ static void build_emission(const LinkageModel::Site& site, size_t n_hap, double 
 
     e.assign(m * m, 0.0);
     for (size_t a = 0; a < m; ++a) {
-        int ai = (a < n_hap && a < site.haplotype_allele.size()) ? site.haplotype_allele[a] : -1;
+        int ai = allele_at(site, a, n_hap);
         for (size_t b = 0; b < m; ++b) {
-            int bi = (b < n_hap && b < site.haplotype_allele.size())
-                         ? site.haplotype_allele[b] : -1;
+            int bi = allele_at(site, b, n_hap);
             double value;
             if (ai >= 0 && bi >= 0) {
                 value = per_genotype[LinkageModel::genotype_index((size_t)ai, (size_t)bi)];
@@ -202,11 +215,9 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         }
 
         for (size_t a = 0; a < m; ++a) {
-            int ai = (a < n_hap && a < site.haplotype_allele.size())
-                         ? site.haplotype_allele[a] : -1;
+            int ai = allele_at(site, a, n_hap);
             for (size_t b = 0; b < m; ++b) {
-                int bi = (b < n_hap && b < site.haplotype_allele.size())
-                             ? site.haplotype_allele[b] : -1;
+                int bi = allele_at(site, b, n_hap);
                 double g = alpha[t][a * m + b] * beta[a * m + b];
                 if (g <= 0.0) {
                     continue;
@@ -378,7 +389,8 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
         int allele = h < haplotype_allele.size() ? haplotype_allele[h] : -1;
         // int8 caps alleles per site at 127, which no snarl this caller emits approaches; a site
         // that did would lose linkage rather than be mis-linked, since -1 means "absent".
-        hap_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
+        hap_arena.push_back(allele >= 0 && allele < 127 && (size_t)allele < num_alleles
+                                ? (int8_t)allele : (int8_t)-1);
     }
     entries.push_back(e);
 }
@@ -456,6 +468,10 @@ vector<LinkageCollector::Change> LinkageCollector::resolve() const {
             size_t i = best - (j * (j + 1) / 2);
             Change c;
             c.record_key = e.record_key;
+            c.contig = contig_names[e.contig];
+            c.position = e.position;
+            c.called_i = e.called_i;
+            c.called_j = e.called_j;
             c.allele_i = i;
             c.allele_j = j;
             c.posterior = post[best];

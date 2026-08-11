@@ -1,4 +1,5 @@
 #include "graph_caller.hpp"
+#include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
@@ -312,6 +313,63 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     return ss.str();
 }
 
+void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
+                                  const vector<size_t>* sequence_to_haplotype) {
+    this->linkage_collector = collector;
+    this->linkage_gbwt = gbwt;
+    this->linkage_sequence_to_haplotype = sequence_to_haplotype;
+}
+
+vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
+                                          const vector<SnarlTraversal>& travs) const {
+    vector<int> out;
+    if (linkage_gbwt == nullptr || linkage_sequence_to_haplotype == nullptr) {
+        return out;
+    }
+    // -1 means "this haplotype carries no allele here", which is not the same as carrying the
+    // reference: a haplotype whose path ends inside the site genuinely has nothing to say, and
+    // recording it as reference would invent evidence.
+    out.assign(linkage_sequence_to_haplotype->size(), -1);
+
+    for (size_t a = 0; a < travs.size(); ++a) {
+        const SnarlTraversal& trav = travs[a];
+        if (trav.visit_size() < 1) {
+            continue;
+        }
+        gbwt::SearchState state;
+        bool ok = true;
+        for (int64_t i = 0; i < trav.visit_size(); ++i) {
+            const Visit& visit = trav.visit(i);
+            if (visit.node_id() == 0) {
+                // A visit to a child snarl rather than a node: the traversal is not expanded, so
+                // it cannot be looked up in the GBWT.
+                ok = false;
+                break;
+            }
+            gbwt::node_type node = gbwt::Node::encode(visit.node_id(), visit.backward());
+            state = (i == 0) ? linkage_gbwt->find(node) : linkage_gbwt->extend(state, node);
+            if (state.empty()) {
+                ok = false;
+                break;
+            }
+        }
+        if (!ok || state.empty()) {
+            continue;
+        }
+        for (gbwt::size_type seq : linkage_gbwt->locate(state)) {
+            if (seq < linkage_sequence_to_haplotype->size()) {
+                size_t hap = (*linkage_sequence_to_haplotype)[seq];
+                if (hap < out.size()) {
+                    // A haplotype in several fragments can reach the same site twice; the allele
+                    // is the same either way, so first writer wins rather than being an error.
+                    out[hap] = (int)a;
+                }
+            }
+        }
+    }
+    return out;
+}
+
 bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
@@ -356,11 +414,125 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                                                            const pair<pair<string, size_t>, string>& v2) {
             return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
         });
+    // Phase two of the linkage pass. The records are already all here, compressed, with
+    // (contig, position) uncompressed as the sort key -- so a change can be matched without ever
+    // having kept the record itself, and only the records that actually move are re-parsed.
+    map<pair<string, size_t>, LinkageCollector::Change> changes;
+    if (linkage_collector != nullptr) {
+        for (const LinkageCollector::Change& c : linkage_collector->resolve()) {
+            changes[make_pair(c.contig, c.position)] = c;
+        }
+    }
+
     for (const auto& v : all_variants) {
         string dest;
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
+        if (!changes.empty()) {
+            auto found = changes.find(v.first);
+            if (found != changes.end()) {
+                apply_linkage_change(dest, found->second);
+            }
+        }
         out_stream << dest << endl;
+    }
+}
+
+void VCFOutputCaller::apply_linkage_change(string& line,
+                                           const LinkageCollector::Change& change) const {
+    // Edit the emitted line rather than rebuilding the record: everything else about it -- AD, DP,
+    // GL, the traversals in AT -- is still the per-site truth and should not move.
+    vector<string> fields;
+    {
+        size_t start = 0;
+        while (true) {
+            size_t tab = line.find('\t', start);
+            fields.push_back(line.substr(start, tab == string::npos ? string::npos : tab - start));
+            if (tab == string::npos) {
+                break;
+            }
+            start = tab + 1;
+        }
+    }
+    if (fields.size() < 10) {
+        return;
+    }
+    vector<string> keys, values;
+    {
+        size_t start = 0;
+        while (true) {
+            size_t colon = fields[8].find(':', start);
+            keys.push_back(fields[8].substr(start,
+                                            colon == string::npos ? string::npos : colon - start));
+            if (colon == string::npos) {
+                break;
+            }
+            start = colon + 1;
+        }
+        start = 0;
+        while (true) {
+            size_t colon = fields[9].find(':', start);
+            values.push_back(fields[9].substr(start,
+                                              colon == string::npos ? string::npos : colon - start));
+            if (colon == string::npos) {
+                break;
+            }
+            start = colon + 1;
+        }
+    }
+    if (keys.size() != values.size()) {
+        return;
+    }
+    size_t gt_field = keys.size();
+    size_t gq_field = keys.size();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (keys[i] == "GT") {
+            gt_field = i;
+        } else if (keys[i] == "GQ") {
+            gq_field = i;
+        }
+    }
+    if (gt_field == keys.size()) {
+        return;
+    }
+
+    // Guard. Two records can share a (contig, position) -- a nested site under -A, for one -- and
+    // patching the wrong one would be silent. Only replace a genotype that is the one the per-site
+    // model actually chose at the site this change came from.
+    {
+        string expected = std::to_string(change.called_i) + "/" + std::to_string(change.called_j);
+        string expected_alt = std::to_string(change.called_j) + "/" + std::to_string(change.called_i);
+        string current = values[gt_field];
+        std::replace(current.begin(), current.end(), '|', '/');
+        if (current != expected && current != expected_alt) {
+            return;
+        }
+    }
+
+    values[gt_field] = std::to_string(change.allele_i) + "/" + std::to_string(change.allele_j);
+    if (gq_field != keys.size()) {
+        // GQ becomes the phred-scaled complement of the posterior, which is what the quality means
+        // once a posterior exists. GQI is left alone: it is the per-site likelihood ratio, and
+        // keeping it untouched is what makes the before/after pair comparable.
+        double q = change.posterior >= 1.0
+                       ? 256.0 : -10.0 * log10(max(1.0 - change.posterior, 1e-26));
+        values[gq_field] = std::to_string((int)min(256.0, max(0.0, round(q))));
+    }
+
+    string format;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i) {
+            format += ":";
+        }
+        format += values[i];
+    }
+    fields[9] = format;
+    line.clear();
+    for (size_t i = 0; i < fields.size(); ++i) {
+        if (i) {
+            line += "\t";
+        }
+        line += fields[i];
     }
 }
 
@@ -980,7 +1152,12 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     
     // deduplicate alleles and compute the site traversals and genotype
     map<string, int> allele_to_gt;
+    // Which VCF allele each *called traversal* became. The two numberings differ -- alleles are
+    // deduplicated by string, and only called traversals reach the record at all -- and the
+    // linkage pass needs the VCF numbering, because that is what GL and GT are written in.
+    map<int, int> trav_to_allele;
     allele_to_gt[out_variant.ref] = 0;
+    trav_to_allele[ref_trav_idx] = 0;
     int star_allele_idx = -1;  // index for star allele in allele_to_gt, if needed
     for (int i = 0; i < genotype.size(); ++i) {
         if (genotype[i] == STAR_ALLELE_MARKER) {
@@ -1007,6 +1184,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                 site_genotype.push_back(allele_to_gt.size());
                 allele_to_gt[allele_string] = site_genotype.back();
             }
+            trav_to_allele[genotype[i]] = site_genotype.back();
         }
     }
 
@@ -1138,6 +1316,48 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 
     if (genotype_snarls || !out_variant.alt.empty()) {
         bool added = add_variant(out_variant);
+        if (added && linkage_collector != nullptr) {
+            // Phase one of the linkage pass: keep the compact site, not the record. See
+            // LinkageCollector for why the CallInfo cannot be retained instead.
+            const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_info =
+                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                    call_info.get());
+            if (rl_info != nullptr && site_genotype.size() == 2
+                && site_genotype[0] >= 0 && site_genotype[1] >= 0) {
+                size_t n_alleles = out_variant.alleles.size();
+                size_t n_gt = n_alleles * (n_alleles + 1) / 2;
+                vector<double> gls(n_gt, -numeric_limits<double>::infinity());
+                for (const auto& entry : rl_info->genotype_lls) {
+                    if (entry.first.size() != 2) {
+                        continue;
+                    }
+                    // genotype_lls is keyed by traversal index. Using those as VCF allele indices
+                    // fed the model a scrambled emission -- it changed 34% of confident genotypes
+                    // against a 0.1% budget, which is what a wrong emission looks like.
+                    auto a_it = trav_to_allele.find(entry.first[0]);
+                    auto b_it = trav_to_allele.find(entry.first[1]);
+                    if (a_it == trav_to_allele.end() || b_it == trav_to_allele.end()) {
+                        continue;   // a traversal that never became a VCF allele
+                    }
+                    size_t i = (size_t)a_it->second, j = (size_t)b_it->second;
+                    if (i >= n_alleles || j >= n_alleles) {
+                        continue;
+                    }
+                    gls[LinkageModel::genotype_index(i, j)] = entry.second;
+                }
+                size_t gi = (size_t)min(site_genotype[0], site_genotype[1]);
+                size_t gj = (size_t)max(site_genotype[0], site_genotype[1]);
+                linkage_collector->record(out_variant.sequenceName, out_variant.position,
+                                          n_alleles, gls,
+                                          // site_traversals, not called_traversals: the VCF
+                                          // alleles come from the deduplicated list, so a
+                                          // traversal index is not an allele index. Passing the
+                                          // wrong one wrote past the end of the genotype vector
+                                          // and corrupted the heap.
+                                          panel_alleles(graph, site_traversals),
+                                          gi, gj, 0);
+            }
+        }
         if (!added) {
             stringstream ss;
             ss << out_variant;

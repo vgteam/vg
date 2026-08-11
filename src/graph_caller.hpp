@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <tuple>
 #include "handle.hpp"
+#include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
@@ -122,6 +123,16 @@ public:
     /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
     bool add_variant(vcflib::Variant& var) const;
 
+    /// Collect a compact record per site during calling, so genotypes can be re-decided by linkage
+    /// once calling is done. Neither pointer is owned; a null collector disables the pass.
+    ///
+    /// The GBWT is needed because the panel matrix -- which allele each haplotype carries at a
+    /// site -- comes from asking which haplotypes traverse each allele. That only exists under -z,
+    /// where the alleles are haplotype-derived in the first place; without it there is no panel to
+    /// link against.
+    void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
+                     const vector<size_t>* sequence_to_haplotype);
+
     /// Sort then write variants in the buffer
     /// snarl_manager needed if include_nested is true
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
@@ -157,6 +168,20 @@ public:
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
 protected:
+
+    /// Linkage pass state. Not owned.
+    LinkageCollector* linkage_collector = nullptr;
+    const gbwt::GBWT* linkage_gbwt = nullptr;
+    const vector<size_t>* linkage_sequence_to_haplotype = nullptr;
+
+    /// Rewrite one emitted line's GT and GQ for a linkage change, leaving every other field --
+    /// AD, DP, GL, GQI, AT -- alone, since those remain the per-site truth.
+    void apply_linkage_change(string& line, const LinkageCollector::Change& change) const;
+
+    /// Which allele of `travs` each panel haplotype carries, or -1 where it does not traverse the
+    /// site. Asks the GBWT which haplotypes take each traversal.
+    vector<int> panel_alleles(const HandleGraph& graph,
+                              const vector<SnarlTraversal>& travs) const;
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
     void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,

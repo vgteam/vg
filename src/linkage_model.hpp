@@ -188,6 +188,14 @@ public:
     /// A genotype the linkage pass wants changed, identified by the key the caller supplied.
     struct Change {
         size_t record_key = 0;
+        /// Where to apply it. The output buffer already stores (contig, position) uncompressed as
+        /// its sort key, so a change can be matched without keeping the record itself.
+        string contig;
+        size_t position = 0;
+        /// The genotype the per-site model chose. Checked before patching: two records can share a
+        /// position, and patching the wrong one would be silent.
+        size_t called_i = 0;
+        size_t called_j = 0;
         size_t allele_i = 0;
         size_t allele_j = 0;
         double posterior = 0.0;
