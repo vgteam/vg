@@ -1355,7 +1355,10 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           // wrong one wrote past the end of the genotype vector
                                           // and corrupted the heap.
                                           panel_alleles(graph, site_traversals),
-                                          gi, gj, 0);
+                                          gi, gj,
+                                          // A key intrinsic to the site, so ordering cannot depend
+                                          // on which thread got there first.
+                                          std::hash<string>{}(out_variant.id));
             }
         }
         if (!added) {

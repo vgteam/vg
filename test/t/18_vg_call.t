@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 204
+plan tests 208
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -258,6 +258,27 @@ is $(if [ $(grep -v "^#" callrl_nopack.vcf | wc -l) -gt 0 ]; then echo 1; else e
 # Same via GBZ.
 vg call x.gbz --read-likelihood --gam sim.gam -z > callrl_nopack_z.vcf 2>/dev/null
 is "$?" "0" "--read-likelihood works with -z and no pack file"
+
+# Thread count must not change the output. This is asserted for its own sake and because the
+# linkage pass collects sites from parallel threads and re-decides them afterwards: an ordering
+# that depended on which thread finished first would make results irreproducible in a way no
+# accuracy metric would reveal.
+vg call x.gbz --read-likelihood --gam sim.gam -z -t 1 2>/dev/null | grep -v "^#" > rl_t1.vcf
+vg call x.gbz --read-likelihood --gam sim.gam -z -t 4 2>/dev/null | grep -v "^#" > rl_t4.vcf
+is $(diff rl_t1.vcf rl_t4.vcf | wc -l | tr -d ' ') "0" "--read-likelihood output does not depend on thread count"
+
+vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 1 -t 1 2>/dev/null | grep -v "^#" > rl_link_t1.vcf
+vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 1 -t 4 2>/dev/null | grep -v "^#" > rl_link_t4.vcf
+is $(diff rl_link_t1.vcf rl_link_t4.vcf | wc -l | tr -d ' ') "0" "--linkage-weight output does not depend on thread count"
+
+vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 0 2>/dev/null | grep -v "^#" > rl_link_off.vcf
+grep -v "^#" callrl_nopack_z.vcf > rl_noflag.vcf
+is $(diff rl_noflag.vcf rl_link_off.vcf | wc -l | tr -d ' ') "0" "--linkage-weight 0 is inert"
+
+vg call x.gbz --read-likelihood --gam sim.gam --linkage-weight 1 2>rl_link_err.txt >/dev/null
+is "$?" "1" "--linkage-weight without -z is refused rather than silently ignored"
+
+rm -f rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_noflag.vcf rl_link_err.txt
 
 # The real assertion: since nothing on the GBWT path consults support, supplying a
 # pack file must make no difference whatsoever to the calls.

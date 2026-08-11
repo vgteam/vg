@@ -420,8 +420,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve() const {
         if (indices.size() < 2) {
             continue;
         }
+        // Position, then the site's own key. Sites arrive in whatever order the threads finished,
+        // and two records can share a position, so sorting on position alone leaves their relative
+        // order down to scheduling -- which would make the output depend on --threads. The key is
+        // derived from the snarl ID, so it is a property of the site rather than of the run.
         sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
-            return entries[a].position < entries[b].position;
+            if (entries[a].position != entries[b].position) {
+                return entries[a].position < entries[b].position;
+            }
+            return entries[a].record_key < entries[b].record_key;
         });
 
         vector<LinkageModel::Site> sites;
