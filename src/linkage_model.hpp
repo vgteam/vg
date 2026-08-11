@@ -7,6 +7,9 @@
  */
 
 #include <cstddef>
+#include <cstdint>
+#include <mutex>
+#include <string>
 #include <vector>
 
 namespace vg {
@@ -151,6 +154,86 @@ private:
                            vector<vector<double>>& out) const;
 
     Params params;
+};
+
+/**
+ * Collects one compact record per site during calling, then re-decides genotypes once calling is
+ * done.
+ *
+ * Two phases, because the alternative does not fit. Deferring emission until a chain completes
+ * would mean holding a `ReadLikelihoodCallInfo` per site -- and that carries a
+ * `vector<SnarlTraversal>` and a `map<vector<int>, double>`, which over a chromosome arm runs to
+ * hundreds of megabytes and far worse at multi-allelic sites. Keeping only what the HMM consumes
+ * costs about 80 bytes a site: roughly 8 MB for chr20, against ~8 GB peak for the run.
+ *
+ * The other reason is that per-window inference would not work here even though the caller
+ * already partitions into windows and parallelises over them. Those windows are 256 node IDs
+ * wide, which on chr20 is about eleven sites -- *shorter* than the 10-30 kb over which linkage
+ * carries anything. Inference has to span more than one, and having threads genotype their
+ * neighbours' sites to get a margin would duplicate the expensive half of the work.
+ *
+ * So: phase one genotypes exactly as before, in parallel, and records a compact site. Phase two
+ * runs between calling and writing, groups by contig, sorts by reference position -- node-ID order
+ * is close to reference order but not guaranteed, and transition probabilities are computed from
+ * the gaps, so trusting it would silently use the wrong distances -- and reports the genotypes
+ * that changed. Records are already buffered whole-genome as compressed strings until
+ * `write_variants`, so patching between the two adds no new peak.
+ */
+class LinkageCollector {
+public:
+
+    LinkageCollector(const LinkageModel::Params& params, size_t num_haplotypes)
+        : params(params), model(params), n_haplotypes(num_haplotypes) {}
+
+    /// A genotype the linkage pass wants changed, identified by the key the caller supplied.
+    struct Change {
+        size_t record_key = 0;
+        size_t allele_i = 0;
+        size_t allele_j = 0;
+        double posterior = 0.0;
+    };
+
+    /// Record one site. Safe to call from several threads. `haplotype_allele` must have one entry
+    /// per panel haplotype, -1 where the haplotype does not traverse the site; `called_i/j` is the
+    /// genotype the per-site model chose, so a change can be detected without keeping the record.
+    void record(const string& contig, size_t position, size_t num_alleles,
+                const vector<double>& genotype_ln_likelihood,
+                const vector<int>& haplotype_allele,
+                size_t called_i, size_t called_j, size_t record_key);
+
+    /// Run the model per contig and return only the genotypes that changed.
+    vector<Change> resolve() const;
+
+    /// Retained bytes, for reporting. The point of the compact form is that this stays small, so
+    /// it is worth being able to say what it actually is rather than trusting the estimate.
+    size_t bytes() const;
+
+    size_t num_sites() const { return entries.size(); }
+
+private:
+
+    struct Entry {
+        uint32_t position = 0;
+        uint32_t contig = 0;
+        uint32_t gl_offset = 0;
+        uint32_t hap_offset = 0;
+        uint16_t num_alleles = 0;
+        uint16_t called_i = 0;
+        uint16_t called_j = 0;
+        size_t record_key = 0;
+    };
+
+    LinkageModel::Params params;
+    LinkageModel model;
+    size_t n_haplotypes;
+
+    /// Flat arenas rather than a vector per site: at 80 bytes a site the 48 bytes of overhead two
+    /// empty vectors would add is most of the budget.
+    vector<Entry> entries;
+    vector<float> gl_arena;
+    vector<int8_t> hap_arena;
+    vector<string> contig_names;
+    mutable std::mutex mutex;
 };
 
 }

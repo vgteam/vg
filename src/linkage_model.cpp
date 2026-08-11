@@ -333,4 +333,136 @@ vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const
     return out;
 }
 
+//------------------------------------------------------------------------------
+// LinkageCollector
+
+void LinkageCollector::record(const string& contig, size_t position, size_t num_alleles,
+                              const vector<double>& genotype_ln_likelihood,
+                              const vector<int>& haplotype_allele,
+                              size_t called_i, size_t called_j, size_t record_key) {
+    if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
+        return;
+    }
+    lock_guard<std::mutex> guard(mutex);
+
+    uint32_t contig_id = 0;
+    bool found = false;
+    for (size_t i = 0; i < contig_names.size(); ++i) {
+        if (contig_names[i] == contig) {
+            contig_id = (uint32_t)i;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        contig_id = (uint32_t)contig_names.size();
+        contig_names.push_back(contig);
+    }
+
+    Entry e;
+    e.position = (uint32_t)position;
+    e.contig = contig_id;
+    e.num_alleles = (uint16_t)num_alleles;
+    e.called_i = (uint16_t)called_i;
+    e.called_j = (uint16_t)called_j;
+    e.record_key = record_key;
+
+    e.gl_offset = (uint32_t)gl_arena.size();
+    for (double v : genotype_ln_likelihood) {
+        // float, not double: these are log-likelihood differences fed to an exp(), and the
+        // ratios that survive are nowhere near float's precision limit. It halves the arena.
+        gl_arena.push_back((float)v);
+    }
+    e.hap_offset = (uint32_t)hap_arena.size();
+    for (size_t h = 0; h < n_haplotypes; ++h) {
+        int allele = h < haplotype_allele.size() ? haplotype_allele[h] : -1;
+        // int8 caps alleles per site at 127, which no snarl this caller emits approaches; a site
+        // that did would lose linkage rather than be mis-linked, since -1 means "absent".
+        hap_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
+    }
+    entries.push_back(e);
+}
+
+size_t LinkageCollector::bytes() const {
+    return entries.size() * sizeof(Entry)
+           + gl_arena.size() * sizeof(float)
+           + hap_arena.size() * sizeof(int8_t);
+}
+
+vector<LinkageCollector::Change> LinkageCollector::resolve() const {
+    vector<Change> changes;
+    if (!model.active() || entries.empty()) {
+        return changes;
+    }
+
+    // Group by contig, then sort by reference position. Node-ID order is close to reference order
+    // in a reference-first graph but is not guaranteed to be it, and the transition probabilities
+    // are computed from the gaps -- so trusting the arrival order would silently feed the model
+    // the wrong distances.
+    vector<vector<size_t>> by_contig(contig_names.size());
+    for (size_t i = 0; i < entries.size(); ++i) {
+        by_contig[entries[i].contig].push_back(i);
+    }
+
+    for (auto& indices : by_contig) {
+        if (indices.size() < 2) {
+            continue;
+        }
+        sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+            return entries[a].position < entries[b].position;
+        });
+
+        vector<LinkageModel::Site> sites;
+        sites.reserve(indices.size());
+        for (size_t idx : indices) {
+            const Entry& e = entries[idx];
+            LinkageModel::Site s;
+            s.position = e.position;
+            s.num_alleles = e.num_alleles;
+            size_t n_gt = (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
+            s.genotype_ln_likelihood.reserve(n_gt);
+            for (size_t g = 0; g < n_gt; ++g) {
+                s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
+            }
+            s.haplotype_allele.reserve(n_haplotypes);
+            for (size_t h = 0; h < n_haplotypes; ++h) {
+                s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
+            }
+            sites.push_back(std::move(s));
+        }
+
+        vector<vector<double>> posteriors = model.posteriors(sites);
+        for (size_t t = 0; t < indices.size(); ++t) {
+            const vector<double>& post = posteriors[t];
+            if (post.empty()) {
+                continue;
+            }
+            size_t best = 0;
+            for (size_t g = 1; g < post.size(); ++g) {
+                if (post[g] > post[best]) {
+                    best = g;
+                }
+            }
+            const Entry& e = entries[indices[t]];
+            if (best == LinkageModel::genotype_index(e.called_i, e.called_j)) {
+                continue;
+            }
+            // Decode the genotype index back to its allele pair.
+            size_t j = 0;
+            while (LinkageModel::genotype_index(0, j) <= best) {
+                ++j;
+            }
+            --j;
+            size_t i = best - (j * (j + 1) / 2);
+            Change c;
+            c.record_key = e.record_key;
+            c.allele_i = i;
+            c.allele_j = j;
+            c.posterior = post[best];
+            changes.push_back(c);
+        }
+    }
+    return changes;
+}
+
 }

@@ -262,5 +262,114 @@ TEST_CASE("The frequency prior is separable from linkage", "[linkage_model]") {
                                         .margin(1e-6));
 }
 
+
+TEST_CASE("The collector keeps sites compactly and re-decides only what changed",
+          "[linkage_model]") {
+    // The compact form is the reason the two-phase design fits: keeping a CallInfo per site --
+    // with its vector<SnarlTraversal> and map -- would run to hundreds of megabytes over a
+    // chromosome arm. This asserts the budget rather than trusting the estimate.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+    LinkageCollector collector(p, 4);
+
+    // Site 1 decisive for 1/1; site 2 flat, with the panel linking allele 1 to allele 1.
+    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, /*key*/ 11);
+    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22);
+
+    REQUIRE(collector.num_sites() == 2);
+    // Two entries, six floats, eight int8s. Anything near a vector-per-site layout would be
+    // several times this.
+    REQUIRE(collector.bytes() < 2 * 48 + 6 * 4 + 8 + 64);
+
+    auto changes = collector.resolve();
+    // Site 1 was already called 1/1 and must not be reported; site 2 was called 0/0 and linkage
+    // should move it to 1/1.
+    REQUIRE(changes.size() == 1);
+    REQUIRE(changes[0].record_key == 22);
+    REQUIRE(changes[0].allele_i == 1);
+    REQUIRE(changes[0].allele_j == 1);
+    REQUIRE(changes[0].posterior > 0.5);
+}
+
+TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
+    // The shipped default. If this ever reports a change, the caller's output has moved without
+    // anyone asking for it.
+    LinkageModel::Params p;
+    p.weight = 0.0;
+    LinkageCollector collector(p, 4);
+    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
+    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+    REQUIRE(collector.resolve().empty());
+}
+
+TEST_CASE("The collector does not link across contigs", "[linkage_model]") {
+    // Two sites at the same coordinates on different contigs are not neighbours. Linking them
+    // would be an easy mistake to make and an invisible one, since the gap would look tiny.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    LinkageCollector same(p, 4);
+    same.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
+    same.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+
+    LinkageCollector split(p, 4);
+    split.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
+    split.record("chr2", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+
+    REQUIRE(same.resolve().size() == 1);
+    REQUIRE(split.resolve().empty());
+}
+
+TEST_CASE("The collector sorts by reference position, not arrival order",
+          "[linkage_model]") {
+    // Sites arrive in node-ID order, which is close to reference order but not guaranteed to be
+    // it. Transition probabilities come from the gaps, so arrival order would silently feed the
+    // model wrong distances -- and with a short scale, a wrong gap changes the answer.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 500.0;            // short, so the gap matters
+    p.rho_min = 1e-4;
+
+    LinkageCollector ordered(p, 4);
+    ordered.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
+    ordered.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+
+    LinkageCollector shuffled(p, 4);
+    shuffled.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+    shuffled.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
+
+    auto a = ordered.resolve();
+    auto b = shuffled.resolve();
+    REQUIRE(a.size() == b.size());
+    for (size_t i = 0; i < a.size(); ++i) {
+        REQUIRE(a[i].record_key == b[i].record_key);
+        REQUIRE(a[i].allele_i == b[i].allele_i);
+        REQUIRE(a[i].allele_j == b[i].allele_j);
+        REQUIRE(a[i].posterior == Approx(b[i].posterior).margin(1e-12));
+    }
+}
+
+TEST_CASE("Genotype indices round-trip through the collector's decode", "[linkage_model]") {
+    // resolve() decodes a genotype index back to an allele pair by inverting the triangular
+    // number. Worth pinning: an off-by-one here would emit a plausible but wrong genotype.
+    for (size_t j = 0; j < 8; ++j) {
+        for (size_t i = 0; i <= j; ++i) {
+            size_t idx = LinkageModel::genotype_index(i, j);
+            size_t dj = 0;
+            while (LinkageModel::genotype_index(0, dj) <= idx) {
+                ++dj;
+            }
+            --dj;
+            size_t di = idx - (dj * (dj + 1) / 2);
+            REQUIRE(di == i);
+            REQUIRE(dj == j);
+        }
+    }
+}
+
 }
 }
