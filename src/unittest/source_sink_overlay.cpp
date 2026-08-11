@@ -10,7 +10,8 @@
 #include "../source_sink_overlay.hpp"
 #include "../kmer.hpp"
 #include "../vg.hpp"
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 
 #include <iostream>
 #include <vector>
@@ -132,11 +133,9 @@ TEST_CASE("SourceSinkOverlay adds a source and a sink to a 1-node graph", "[over
 
 TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a tiny graph", "[overlay]") {
     const string graph_json = R"({"node":[{"sequence":"CAAATAAG","id":"1"},{"sequence":"A","id":"2"},{"sequence":"G","id":"3"},{"sequence":"T","id":"4"},{"sequence":"C","id":"5"},{"sequence":"TTG","id":"6"},{"sequence":"A","id":"7"},{"sequence":"G","id":"8"},{"sequence":"AAATTTTCTGGAGTTCTAT","id":"9"},{"sequence":"A","id":"10"},{"sequence":"T","id":"11"},{"sequence":"ATAT","id":"12"},{"sequence":"A","id":"13"},{"sequence":"T","id":"14"},{"sequence":"CCAACTCTCTG","id":"15"}],"edge":[{"from":"1","to":"2"},{"from":"1","to":"3"},{"from":"2","to":"4"},{"from":"2","to":"5"},{"from":"3","to":"4"},{"from":"3","to":"5"},{"from":"4","to":"6"},{"from":"5","to":"6"},{"from":"6","to":"7"},{"from":"6","to":"8"},{"from":"7","to":"9"},{"from":"8","to":"9"},{"from":"9","to":"10"},{"from":"9","to":"11"},{"from":"10","to":"12"},{"from":"11","to":"12"},{"from":"12","to":"13"},{"from":"12","to":"14"},{"from":"13","to":"15"},{"from":"14","to":"15"}],"path":[{"name":"x","mapping":[{"position":{"node_id":"1"},"edit":[{"from_length":8,"to_length":8}],"rank":"1"},{"position":{"node_id":"3"},"edit":[{"from_length":1,"to_length":1}],"rank":"2"},{"position":{"node_id":"5"},"edit":[{"from_length":1,"to_length":1}],"rank":"3"},{"position":{"node_id":"6"},"edit":[{"from_length":3,"to_length":3}],"rank":"4"},{"position":{"node_id":"8"},"edit":[{"from_length":1,"to_length":1}],"rank":"5"},{"position":{"node_id":"9"},"edit":[{"from_length":19,"to_length":19}],"rank":"6"},{"position":{"node_id":"11"},"edit":[{"from_length":1,"to_length":1}],"rank":"7"},{"position":{"node_id":"12"},"edit":[{"from_length":4,"to_length":4}],"rank":"8"},{"position":{"node_id":"14"},"edit":[{"from_length":1,"to_length":1}],"rank":"9"},{"position":{"node_id":"15"},"edit":[{"from_length":11,"to_length":11}],"rank":"10"}]}]})";
-    
-    Graph graph;
-    json2pb(graph, graph_json);
-    
-    VG produced(graph);
+
+    VG produced;
+    vg::io::json2graph(graph_json, &produced);
     
     id_t highest_id = produced.max_node_id();
     id_t start_id = highest_id + 1;

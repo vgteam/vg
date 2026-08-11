@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 32
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -122,6 +122,8 @@ vg convert -gp tiny/tiny.gfa | vg find -x - -n 1 -c 2 | vg convert -f - | vg ids
 vg find -x tiny/tiny.gfa -n 1 -c 2| vg ids -s - | sort > found2.gfa
 diff found1.gfa found2.gfa
 is $? 0 "GFA i/o for find -n consistent with converting both ways"
+vg find -x tiny/tiny.gfaz -n 1 -c 2 >/dev/null
+is $? 0 "find accepts GFAZ graph input"
 
 
 # Find nodes that map to the provided ids
@@ -142,3 +144,9 @@ is $? 0 "find nodes that map to the provided node ids"
 
 rm -f x.vg x.gbwt x.mapping x.unfolded.vg
 rm -f expected.gfa found.gfa
+
+# We wish we could test specifically for which paths are indexed, but we can't.
+# So we test to make sure at least paths that shouldn't normally be indexed are
+# indexed when asked about.
+is "$(vg find -n 5 -P sample1#1#chr1#0 -x graphs/gfa_with_reference.gfa | cut -f2)" "4" "vg find can find positions along non-reference paths asked about specifically"
+

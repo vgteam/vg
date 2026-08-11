@@ -94,7 +94,6 @@ int main_minimizer(int argc, char** argv) {
             logger.info() << "Loading SnarlDistanceIndex from " << config.distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_name);
-        distance_index->preload(true);
     }
 
     ZipCodeCollection oversized_zipcodes;

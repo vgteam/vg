@@ -33,6 +33,7 @@
 #include <arpa/inet.h>
 
 using namespace vg;
+using namespace vg::subcommand;
 
 //----------------------------------------------------------------------------
 
@@ -181,8 +182,6 @@ int main_describe(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_chains("describe", "identify and describe files", vg::subcommand::WIDGET, main_describe);
-
 //----------------------------------------------------------------------------
 
 void list_tags(std::ifstream& in, bool simple_sds, const std::string& index_type, std::ostream& out) {
@@ -315,3 +314,6 @@ void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::
 }
 
 //----------------------------------------------------------------------------
+
+// Register subcommand
+static Subcommand vg_describe("describe", "identify and describe files", WIDGET, main_describe);

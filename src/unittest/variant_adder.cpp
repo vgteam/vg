@@ -9,7 +9,7 @@
 
 #include "../utility.hpp"
 #include "../path.hpp"
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 
 #include <vector>
 #include <sstream>
@@ -38,7 +38,7 @@ ref	5	rs1337	A	G	29	PASS	.	GT
 
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
-    
+
     // Load it up in vcflib
     vcflib::VariantCallFile vcf;
     vcf.open(vcf_stream);
@@ -51,14 +51,10 @@ ref	5	rs1337	A	G	29	PASS	.	GT
             ]}
         ]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     
     // Make a VariantAdder
@@ -85,7 +81,7 @@ ref	5	rs1337	A	G	29	PASS	.	GT	0/1
 
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
-    
+
     // Load it up in vcflib
     vcflib::VariantCallFile vcf;
     vcf.open(vcf_stream);
@@ -98,14 +94,10 @@ ref	5	rs1337	A	G	29	PASS	.	GT	0/1
             ]}
         ]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);
@@ -139,7 +131,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
 
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
-    
+
     // Load it up in vcflib
     vcflib::VariantCallFile vcf;
     vcf.open(vcf_stream);
@@ -152,14 +144,10 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
             ]}
         ]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);
@@ -193,7 +181,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
 
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
-    
+
     // Load it up in vcflib
     vcflib::VariantCallFile vcf;
     vcf.open(vcf_stream);
@@ -213,14 +201,10 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
             ]}
         ]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     SECTION ("should work when the graph is as given") {
     
@@ -280,7 +264,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	29
 
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
-    
+
     // Load it up in vcflib
     vcflib::VariantCallFile vcf;
     vcf.open(vcf_stream);
@@ -293,14 +277,10 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	29
             ]}
         ]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);
@@ -323,14 +303,10 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     string graph_json = R"({
         "node": [{"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC"}]
     })";
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);
@@ -396,21 +372,17 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
             {"from": 2, "to": 3}
         ]
     })";
-    
+
     // Make the graph have lots of As
     stringstream a_stream;
     for(size_t i = 0; i < 10000; i++) {
         a_stream << "A";
     }
     graph_json = regex_replace(graph_json, std::regex("<10kAs>"), a_stream.str());
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);
@@ -484,21 +456,17 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
             {"from": 2, "to": 3}
         ]
     })";
-    
+
     // Make the graph have lots of As
     stringstream a_stream;
     for(size_t i = 0; i < 10000; i++) {
         a_stream << "A";
     }
     graph_json = regex_replace(graph_json, std::regex("<10kAs>"), a_stream.str());
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);
@@ -564,21 +532,17 @@ TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[
     string graph_json = R"({
         "node": [{"id": 1, "sequence": "GCGC<100As>GCGC"}]
     })";
-    
+
     // Make the graph have lots of As
     stringstream a_stream;
     for(size_t i = 0; i < 100; i++) {
         a_stream << "A";
     }
     graph_json = regex_replace(graph_json, std::regex("<100As>"), a_stream.str());
-    
+
     // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Make it into a VG
     VG graph;
-    graph.extend(proto_graph);
+    json2graph(graph_json, &graph);
     
     // Make a VariantAdder
     VariantAdder adder(graph);

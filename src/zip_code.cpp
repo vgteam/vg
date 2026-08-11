@@ -1,3 +1,5 @@
+#include "crash.hpp"
+
 #include "zip_code.hpp"
 
 //#define DEBUG_ZIPCODE
@@ -16,9 +18,10 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
     //Put all ancestors of the node in a vector, starting from the node, and not including the root
     while (!distance_index.is_root(current_handle)) {
         ancestors.emplace_back(distance_index.start_end_traversal_of(current_handle));
-        current_handle = distance_index.get_parent(current_handle);
+        net_handle_t parent_handle = distance_index.get_parent(current_handle);
+        crash_unless(parent_handle != current_handle);
+        current_handle = parent_handle;
     }
-
 
     //Now add the root-level snarl or chain
     if (distance_index.is_root_snarl(current_handle)) {
@@ -121,7 +124,7 @@ void ZipCode::fill_in_zipcode_from_pos(const SnarlDistanceIndex& distance_index,
                 }
                 return;
             }
-        } else if (distance_index.is_regular_snarl(current_ancestor, false, graph_ptr)) {
+        } else if (distance_index.is_regular_snarl(current_ancestor)) {
             snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
             zipcode.add_value(snarl_code.get_raw_code_type());
             zipcode.add_value(snarl_code.get_raw_prefix_sum_or_identifier());
@@ -1065,11 +1068,7 @@ ZipCode::snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl,
     snarl_code.set_code_type(1);
 
     //The number of children
-    size_t child_count = 0;
-    distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
-        child_count++;
-    });
-    snarl_code.set_child_count(child_count);
+    snarl_code.set_child_count(distance_index.get_snarl_child_count(snarl));
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
@@ -1100,11 +1099,7 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
     snarl_code.set_code_type(distance_index.is_dag(snarl) ? 0 : 2);
 
     //The number of children
-    size_t child_count = 0;
-    distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
-        child_count++;
-    });
-    snarl_code.set_child_count(child_count);
+    snarl_code.set_child_count(distance_index.get_snarl_child_count(snarl));
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));

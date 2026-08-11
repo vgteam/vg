@@ -3,8 +3,8 @@
 /// unit tests for the minimizer mapper
 
 #include <iostream>
-#include "vg/io/json2pb.h"
 #include "../io/json2graph.hpp"
+#include <bdsg/hash_graph.hpp>
 #include <vg/vg.pb.h>
 #include "../minimizer_mapper.hpp"
 #include "../build_index.hpp"
@@ -450,15 +450,13 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
                 {"id": "55511925", "sequence": "CTTCCTTCC"}
             ]
         })";
-        
-        // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
-        
+
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
+
         Alignment aln;
         aln.set_sequence("");
-        
+
         pos_t left_anchor {55511921, false, 5}; // This is on the final base of the node
         pos_t right_anchor {55511925, false, 6};
         
@@ -480,7 +478,7 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
 TEST_CASE("MinimizerMapper can map with an initial deletion", "[giraffe][mapping][right_tail]") {
 
         Aligner aligner;
-        
+
         string graph_json = R"({
             "edge": [
                 {"from": "1", "to": "2"},
@@ -492,12 +490,10 @@ TEST_CASE("MinimizerMapper can map with an initial deletion", "[giraffe][mapping
                 {"id": "3", "sequence": "CATTAG"}
             ]
         })";
-        
-        // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
-        
+
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
+
         Alignment aln;
         aln.set_sequence("CATTAG");
         
@@ -527,7 +523,7 @@ TEST_CASE("MinimizerMapper can map with an initial deletion", "[giraffe][mapping
 TEST_CASE("MinimizerMapper can map with an initial deletion on a multi-base node", "[giraffe][mapping][right_tail]") {
 
         Aligner aligner;
-        
+
         string graph_json = R"({
             "edge": [
                 {"from": "1", "to": "2"},
@@ -539,12 +535,10 @@ TEST_CASE("MinimizerMapper can map with an initial deletion on a multi-base node
                 {"id": "3", "sequence": "CATTAG"}
             ]
         })";
-        
-        // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
-        
+
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
+
         Alignment aln;
         aln.set_sequence("CATTAG");
         
@@ -574,7 +568,7 @@ TEST_CASE("MinimizerMapper can map with an initial deletion on a multi-base node
 TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][mapping][right_tail]") {
 
         Aligner aligner;
-        
+
         string graph_json = R"({
             "edge": [
                 {"from": "1", "to": "2"},
@@ -586,15 +580,13 @@ TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][
                 {"id": "3", "sequence": "CATTAG"}
             ]
         })";
-        
-        // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
-        
+
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
+
         Alignment aln;
         aln.set_sequence("CATTAG");
-        
+
         pos_t left_anchor {1, false, 1}; // This is the past-end position
         pos_t right_anchor = empty_pos_t();
         
@@ -635,15 +627,13 @@ TEST_CASE("MinimizerMapper can compute longest detectable gap in range", "[giraf
 TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting softclip", "[giraffe][mapping][left_tail]") {
 
         Aligner aligner;
-        
+
         string graph_json = R"({
             "edge": [{"from": "30788083", "to": "30788088"}, {"from": "30788083", "to": "30788084"}, {"from": "30788074", "to": "30788075"}, {"from": "30788074", "to": "30788076"}, {"from": "30788079", "to": "30788080"}, {"from": "30788079", "to": "30788081"}, {"from": "30788086", "to": "30788088"}, {"from": "30788086", "to": "30788087", "to_end": true}, {"from": "30788075", "to": "30788077"}, {"from": "30788073", "to": "30788074"}, {"from": "30788078", "to": "30788079"}, {"from": "30788077", "to": "30788078"}, {"from": "30788084", "to": "30788088"}, {"from": "30788084", "to": "30788085"}, {"from": "30788076", "to": "30788077"}, {"from": "30788087", "from_start": true, "to": "30788088"}, {"from": "30788081", "to": "30788082"}, {"from": "30788080", "to": "30788082"}, {"from": "30788082", "to": "30788088"}, {"from": "30788082", "to": "30788083"}, {"from": "30788085", "to": "30788086"}], "node": [{"id": "30788083", "sequence": "AAA"}, {"id": "30788074", "sequence": "AAAAAAAATACAAAAAATTAGC"}, {"id": "30788079", "sequence": "CGCCACTGCACTCCAGCCTGGGC"}, {"id": "30788086", "sequence": "AAAAAAA"}, {"id": "30788075", "sequence": "T"}, {"id": "30788073", "sequence": "GAAAGAGAGTTGTTTAAATTCCATAGTTAGGGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACGAGGTCAGGAGATCGAGACCATCCTGGCTAACACGGTGAAACCCCGTCTCTACTA"}, {"id": "30788078", "sequence": "G"}, {"id": "30788077", "sequence": "GGGCGTGGTAGCGGGCGCCTGTAGTCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATGGCGTGAACCCGGGAGGCGGAGCTTGCAGTGAGCCGAGATC"}, {"id": "30788084", "sequence": "A"}, {"id": "30788088", "sequence": "AATTCCATAGTTAGAAAAATAAGACATATCAGGTTTTCAAAAAGTGTAGCCATTTTCTGTTTCTAAAAGGGACACTTAAAGTGAAA"}, {"id": "30788076", "sequence": "C"}, {"id": "30788087", "sequence": "T"}, {"id": "30788081", "sequence": "A"}, {"id": "30788080", "sequence": "G"}, {"id": "30788082", "sequence": "ACAGAGCGAGACTCCGTCTCAAAAAAAAAAAAAA"}, {"id": "30788085", "sequence": "AA"}]
         })";
-        
-        // TODO: Write a json_to_handle_graph
-        vg::Graph proto_graph;
-        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-        auto graph = vg::VG(proto_graph);
+
+        bdsg::HashGraph graph;
+        vg::io::json2graph(graph_json, &graph);
         
         Alignment aln;
         aln.set_sequence("TTGAAAACCTGATATGTCTTATTTTTCTAACTATGGAATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGAGACGGAGTCTCGCTCTGTCGCCCAGGCTGGAGTGCAGTGGCGCGATCTCGGCTCACTGCAAGCTCCGCCTCCCGGGTTCACGCCATTCTCCTGCCTCAGCCTCCCGAGTAGCTGGGACTACAGGCGCCCGCTACCACGCCCGGCTAATTTTTTGTATTTTTTTT");
@@ -854,9 +844,8 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
                      {"id": "60245278", "sequence": "GATTACAGATTACA"}]
         }
     )";
-    vg::Graph graph_chunk;
-    json2pb(graph_chunk, graph_json.c_str(), graph_json.size());
-    vg::VG graph(graph_chunk);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(graph_json, &graph);
     
     TestMinimizerMapper::with_dagified_local_graph(make_pos_t(60245283, false, 10), empty_pos_t(), 50, graph, [&](DeletableHandleGraph& dagified_graph, const handle_t& left_anchor_handle, const handle_t& right_anchor_handle, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
         // The graph started as a stick

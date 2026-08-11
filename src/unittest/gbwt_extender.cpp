@@ -5,7 +5,7 @@
 
 #include "../gbwt_extender.hpp"
 #include "../gbwt_helper.hpp"
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 #include "../utility.hpp"
 #include "../vg.hpp"
 
@@ -90,10 +90,9 @@ gbwt::GBWT build_gbwt_index() {
 
 // Build a GBWTGraph using the provided GBWT index.
 gbwtgraph::GBWTGraph build_gbwt_graph(const gbwt::GBWT& gbwt_index) {
-    Graph graph;
-    json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    VG vg_graph(graph);
-    return gbwtgraph::GBWTGraph(gbwt_index, vg_graph, nullptr);
+    bdsg::HashGraph graph;
+    vg::io::json2graph(gapless_extender_graph, &graph);
+    return gbwtgraph::GBWTGraph(gbwt_index, graph, nullptr);
 }
 
 void same_position(const Position& pos, const Position& correct) {

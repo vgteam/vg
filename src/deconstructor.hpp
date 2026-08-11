@@ -49,6 +49,7 @@ public:
                      bool strict_conflicts,
                      bool long_ref_contig,
                      double cluster_threshold = 1.0,
+                     int64_t cluster_min_allele_len = 0,
                      gbwt::GBWT* gbwt = nullptr,
                      bool star_allele = false);
     
@@ -56,6 +57,15 @@ private:
 
     // initialize the vcf and get the header 
     string get_vcf_header();
+
+    // Test if a path is the reference we're deconstructing against, seen through the
+    // other half of the base/gref pair (a gref path when deconstructing against the
+    // base reference, or the base path of a selected gref reference).  Such a path is
+    // not a sample: it would genotype as all-reference and inflate AC/AF/AN/NS.
+    bool is_other_reference_view(const string& path_name) const;
+
+    // Samples that exist only as the other view (base or gref) of a selected reference.
+    set<string> other_ref_samples;
 
     // the header needs to be initialized *before* construction for vcflib
     // but we don't know all the non-ref contigs (in nested mode) until *after*
@@ -184,9 +194,16 @@ private:
     bool keep_conflicted_genotypes = false;
 
     // used to merge together similar traversals (to keep allele counts down)
-    // currently implemented as handle jaccard coefficient.  So 1 means only
+    // currently a length-weighted similarity (see weighted_traversal_similarity).  So 1 means only
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
+
+    // only apply cluster_threshold at sites whose core length is at least this many bp.  0
+    // disables the gate (so cluster_threshold applies at every site).  See
+    // VCFOutputCaller::allele_core_length for what "core length" means and why it, rather than the
+    // raw snarl interior, is the right measure -- it is what lets vg call and vg deconstruct gate
+    // the same variant the same way despite emitting differently flattened records.
+    int64_t cluster_min_allele_len = 0;
 
     // use *-alleles to represent haplotypes that span the parent site but don't
     // traverse the current nested site (e.g., a deletion that spans a nested SNP)

@@ -125,6 +125,10 @@ int main_inject(int argc, char** argv) {
         logger.error() << "Graph (-x) is required" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+
+    // Path position index the graph.
+    // TODO: We can't index the paths the input BAM is actually on; it needs to
+    // be on reference paths in the graph.
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = overlay_helper.apply(path_handle_graph.get());
 
@@ -138,7 +142,7 @@ int main_inject(int argc, char** argv) {
         set_crash_context(aln.name());
         if (add_identity) {
             // Calculate & save identity statistic
-            aln.set_identity(identity(aln.path()));
+            aln.set_identity(vg::identity(aln.path()));
         }
         if (rescore) {
             // Rescore the alignment

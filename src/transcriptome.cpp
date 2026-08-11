@@ -2156,6 +2156,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
         for (auto & transcript_path: edited_transcript_paths) {
 
             exon_boundary_paths.emplace_back(transcript_path.path);
+            exon_boundary_paths.back().set_name(transcript_path.get_name() + "_splice");
         }
 
     } else {
@@ -2177,6 +2178,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
                     exon_boundary_paths.emplace_back(Path());
                     *(exon_boundary_paths.back().add_mapping()) = mapping; 
                     exon_boundary_paths.back().mutable_mapping(0)->set_rank(1);
+                    exon_boundary_paths.back().set_name(transcript_path.get_name() + "_exon_boundary");
 
                     // Remove if already added.
                     if (!exon_boundary_mapping_index.emplace(exon_boundary_paths.back().mapping(0)).second) {

@@ -19,20 +19,20 @@ is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg stats -l - | cut -f 2) 983 "short subgraph pruning works"
 
-is $(vg mod -U 10 msgas/q_redundant.vg | vg view - | grep ^S | wc -l) 4 "normalization produces the correct number of nodes"
+is $(vg mod -U 10 graphs/q_redundant.vg | vg view - | grep ^S | wc -l) 4 "normalization produces the correct number of nodes"
 
 is $(vg view -vF graphs/redundant-snp.gfa | vg mod -n - | vg view - | grep ^S | wc -l) 4 "normalization removes redundant SNP alleles"
 
-vg mod -n msgas/q_redundant.vg | vg validate -
+vg mod -n graphs/q_redundant.vg | vg validate -
 is $? 0 "normalization produces a valid graph"
 
-vg mod -U 10 msgas/q_redundant.vg | vg validate -
+vg mod -U 10 graphs/q_redundant.vg | vg validate -
 is $? 0 "looped normalization produces a valid graph"
 
-vg mod -u msgas/q_redundant.vg | vg validate -
+vg mod -u graphs/q_redundant.vg | vg validate -
 is $? 0 "unchop produces a valid graph"
 
-is $(vg mod -U 10 msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
+is $(vg mod -U 10 graphs/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
 
 is $(vg view -Fv graphs/normalize_me.gfa | vg mod -U 10 - | vg view - | sort | md5sum | cut -f 1 -d\ ) $(md5sum graphs/normalize_me.norm.gfa | cut -f 1 -d\ ) "normalization doesn't introduce cycles and does remove redundancy in bubbles"
 
@@ -47,21 +47,18 @@ vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate -
 is "$?" "0" "chopping a graph works correctly with reverse mappings"
 set +o pipefail
 
-is $(vg msga -w 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -w 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -v - -X | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
+is $(vg mod -X 5 msgas/s.vg | vg mod -u - | vg validate - && vg mod -X 5 msgas/s.vg | vg mod -u - | vg paths -v - -X | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
-is "$(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | vg view - | sort | diff - msgas/inv-mess-unchopped.gfa)" "" "unchop correctly handles a graph with an inversion"
+is "$(vg view -Jv graphs/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv graphs/inv-mess.json | vg mod -u - | vg view - | sort | diff - correct/14_vg_mod/inv-mess-unchopped.gfa)" "" "unchop correctly handles a graph with an inversion"
 
 is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - | grep "nodes" | cut -f2)" "1" "unchop handles doubly-reversing edges"
 
-is "$(vg view -Jv msgas/inv-mess.json | vg mod -U 10 - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -U 10 - | vg view - | sort | diff - msgas/inv-mess-normalized.gfa)" "" "normalization works on a graph with an inversion"
+is "$(vg view -Jv graphs/inv-mess.json | vg mod -U 10 - | vg validate - && vg view -Jv graphs/inv-mess.json | vg mod -U 10 - | vg view - | sort | diff - correct/14_vg_mod/inv-mess-normalized.gfa)" "" "normalization works on a graph with an inversion"
 
-vg msga -w 20 -f msgas/s.fa > s.vg
-vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N > s2.vg
-vg mod -u s2.vg >/dev/null
+vg mod -u msgas/s2.vg >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
-rm -f s.vg s2.vg
 
-vg msga -f msgas/l.fa -b a1 -w 16 | vg mod -X 8 - | vg validate -
+vg mod -X 8 msgas/l.vg | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
 
 vg mod -U 3 graphs/atgclinv2.vg | vg validate -
@@ -87,7 +84,7 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 19 -O 18 -k 4 -t 1 | vg paths -d -v - | vg mod -U 10 -) -f msgas/cycle.fa -t 1 | vg mod -N - | vg paths -d -v - | vg mod -U 10 - >c.vg
+vg mod -N msgas/c2.vg | vg paths -d -v - | vg mod -U 10 - >c.vg
 is $(cat c.vg | vg mod -w 100 - | vg stats -N -) 4 "dagify correctly calculates the minimum distance through the unrolled component"
 is $(cat c.vg | vg mod -w 100 - | vg stats -l - | cut -f 2) 200 "dagify produces a graph of the correct size"
 rm -f c.vg

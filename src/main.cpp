@@ -70,16 +70,22 @@ int vg_main(int argc, char *argv[]) {
     }
     
     auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
+    std::string cmd_name = std::string(argv[1]);
     if (subcommand != nullptr) {
         // We found a matching subcommand, so run it
         if (subcommand->get_category() == vg::subcommand::CommandCategory::DEPRECATED) {
             cerr << endl;
-            logger.warn() << "Subcommand '" << argv[1] << "' is deprecated and is no longer "
+            logger.warn() << "Subcommand '" << cmd_name << "' is deprecated and is no longer "
                           << "being actively maintained. Future releases may eliminate it entirely." 
                           << endl << endl;
         }
-        set_crash_context("Starting '" +  std::string(argv[1]) + "' subcommand");
+        set_crash_context("Starting '" +  cmd_name + "' subcommand");
         return (*subcommand)(argc, argv);
+    } else if (vg::subcommand::REMOVED_CMD_MESSAGES.count(cmd_name)) {
+        // We have a special message prepared!
+        logger.error() << cmd_name << " has been removed:\n"
+                       << vg::subcommand::REMOVED_CMD_MESSAGES.at(cmd_name) << endl;
+                       return 1;
     } else {
         // No subcommand found
         logger.error() << "command " << argv[1] << " not found" << endl;

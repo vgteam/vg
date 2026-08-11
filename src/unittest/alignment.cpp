@@ -779,6 +779,23 @@ TEST_CASE("Unaligned sequences survive round-trip to GAF", "[alignment][gaf]") {
     }
 }
 
+TEST_CASE("Tail annotations survive round-trip to GAF", "[alignment][gaf]") {
+    VG graph;
+    Alignment aln;
+    {
+        aln.set_sequence("TACACTTAC");
+        set_annotation<double>(aln, "left_tail_length", 3);
+        set_annotation<double>(aln, "right_tail_length", 2);
+    }
+
+    gafkluge::GafRecord gaf = alignment_to_gaf(graph, aln, nullptr, true, false, false);
+    Alignment roundtrip;
+    gaf_to_alignment(graph, gaf, roundtrip);
+
+    REQUIRE(get_annotation<double>(aln, "left_tail_length") == 3.0);
+    REQUIRE(get_annotation<double>(aln, "right_tail_length") == 2.0);
+}
+
 TEST_CASE("Alignments can be left/right-aligned", "[alignment]") {
 
     auto paths_equivalent = [](const Path& path1, const Path& path2) {

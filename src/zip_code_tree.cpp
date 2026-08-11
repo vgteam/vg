@@ -20,7 +20,8 @@ template void ZipCodeTree::print_self<MinimizerMapper::Minimizer>(const vector<S
 
 template<typename Minimizer>
 void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const {
-    for (const tree_item_t item : zip_code_tree) {
+    tree_item_type_t last_type = CHAIN_START;
+    for (const tree_item_t& item : zip_code_tree) {
         if (item.get_type() == SEED) {
             cerr << seeds->at(item.get_value()).pos << "/" 
                  << (minimizers->size() == 0 ? 0

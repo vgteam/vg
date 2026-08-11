@@ -7,19 +7,18 @@
 #include "nearest_offsets_in_paths.hpp"
 #include "../crash.hpp"
 
-//#define debug
-//#define debug_algorithms
+// #define debug
+// #define debug_algorithms
 
 namespace vg {
 namespace algorithms {
 
 using namespace std;
 
-path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
-                                                  const pos_t& pos,
-                                                  int64_t max_search,
+path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph* graph,  const pos_t& pos, int64_t max_search,
                                                   const std::unordered_set<PathSense>& desired_senses,
-                                                  const std::function<bool(const path_handle_t&)>* path_filter) {
+                                                  const std::function<bool(const path_handle_t&)>* path_filter,
+                                                  bool subtract_traversal_dist, pair<size_t, bool>* traversal_dist) {
     
     // init the return value
     // This is a map from path handle, to vector of offset and orientation pairs
@@ -75,10 +74,11 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
             int64_t path_offset = graph->get_position_of_step(step);
             
             if (rev_on_path != search_left) {
-                path_offset += graph->get_length(oriented) + dist;
+                path_offset += graph->get_length(oriented);
             }
-            else {
-                path_offset -= dist;
+
+            if (subtract_traversal_dist) {
+                path_offset += (rev_on_path != search_left ? dist : -dist);
             }
             
 #ifdef debug
@@ -94,6 +94,10 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
         
         if (!return_val.empty()) {
             // we found the closest, we're done
+            if (traversal_dist) {
+                traversal_dist->first = max<int64_t>(dist, 0);
+                traversal_dist->second = search_left;
+            }
             break;
         }
         

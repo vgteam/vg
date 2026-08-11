@@ -69,7 +69,7 @@ using namespace std;
                     case APPEND:
                         for (size_t k = 0; k < appends_per_op; k++) {
                             std_vec.push_back(next_val);
-                            dyn_vec.append(next_val);
+                            dyn_vec.push_back(next_val);
                             next_val++;
                         }
                         
@@ -79,7 +79,7 @@ using namespace std;
                         if (!std_vec.empty()) {
                             for (size_t k = 0; k < pops_per_op; k++) {
                                 std_vec.pop_back();
-                                dyn_vec.pop();
+                                dyn_vec.pop_back();
                             }
                         }
                         
@@ -161,7 +161,7 @@ using namespace std;
                     case APPEND:
                         for (size_t k = 0; k < appends_per_op; k++) {
                             std_vec.push_back(next_val);
-                            dyn_vec.append(next_val);
+                            dyn_vec.push_back(next_val);
                             next_val = val_distr(prng);
                         }
                         
@@ -171,7 +171,7 @@ using namespace std;
                         if (!std_vec.empty()) {
                             for (size_t k = 0; k < pops_per_op; k++) {
                                 std_vec.pop_back();
-                                dyn_vec.pop();
+                                dyn_vec.pop_back();
                             }
                         }
                         
@@ -252,7 +252,7 @@ using namespace std;
                     case APPEND_LEFT:
                         for (size_t k = 0; k < appends_per_op; k++) {
                             std_deq.push_front(next_val);
-                            suc_deq.append_front(next_val);
+                            suc_deq.push_front(next_val);
                             next_val++;
                         }
                         
@@ -269,7 +269,7 @@ using namespace std;
                     case APPEND_RIGHT:
                         for (size_t k = 0; k < appends_per_op; k++) {
                             std_deq.push_back(next_val);
-                            suc_deq.append_back(next_val);
+                            suc_deq.push_back(next_val);
                             next_val++;
                         }
                         

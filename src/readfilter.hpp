@@ -1597,6 +1597,8 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << is_perfect(read);
         } else if (field == "mapping_quality") {
             out << get_mapq(read); 
+        } else if (field == "quality") {
+            out << string_quality_short_to_char(read.quality());
         } else if (field == "sequence") {
             out << read.sequence();
         } else if (field == "length") {

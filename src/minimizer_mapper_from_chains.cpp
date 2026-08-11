@@ -258,7 +258,12 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
 
                     auto found = seed_positions.find(seed_num);
                     if (found == seed_positions.end()) {
-                        // If we don't know the seed's positions yet, get them
+                        // If we don't know the seed's positions yet, get them.
+                        // We are working with the *pin point* (seed pos in the
+                        // graph and minimizer pin_offset() in the read), not
+                        // anything to do with the anchor.
+                        
+                        // Find that in the graph, on paths.
                         found = seed_positions.emplace_hint(found, seed_num, algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100, wanted_senses));
                         for (auto& handle_and_positions : found->second) {
                             std::string path_name = path_graph->get_path_name(handle_and_positions.first);
@@ -266,7 +271,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                                 // Dump all the seed positions so we can select seeds we want to know about.
                                 // These are used with scripts/make-chain-viz.py to make interactive chaining problem visualizations.
                                 seedpos.line();
-                                seedpos.field(seed_anchors.at(seed_num).read_start());
+                                seedpos.field(minimizers[seed.source].pin_offset());
                                 seedpos.field(path_name);
                                 seedpos.field(position.first);
                                 seedpos.field(position.second ? "-" : "+");
@@ -280,7 +285,7 @@ void MinimizerMapper::dump_debug_chains(const ZipCodeForest& zip_code_forest,
                             // The seed doesn't have any linear positions, but might still participate in the winning chain traceback.
                             // Report it.
                             seedpos.line();
-                            seedpos.field(seed_anchors.at(seed_num).read_start());
+                            seedpos.field(minimizers[seed.source].pin_offset());
                             seedpos.field("");
                             seedpos.field("");
                             seedpos.field("");
@@ -1634,9 +1639,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             // we set one up as a member?
             algorithms::ChainScoringScheme scheme {
                 this->item_bonus,
-                this->item_scale,
                 this->gap_scale,
-                this->points_per_possible_match,
                 this->rec_penalty,
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
@@ -1647,9 +1650,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 gbwt_graph,
                 get_regular_aligner()->scorer->gap_open,
                 get_regular_aligner()->scorer->gap_extension,
+                for_each_transition,
                 scheme,
                 this->max_alignments,
-                for_each_transition,
                 indel_limit,
                 show_work
             );
@@ -2184,17 +2187,12 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
             };
             
-            if (!best_alignments.empty() && best_alignments[0].score() <= 0) {
-                if (show_work) {
-                    // Alignment won't be observed but log it anyway.
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Produced terrible best alignment from chain " << processed_num << ": " << log_alignment(best_alignments[0]) << endl;
-                    }
-                }
-            }
-            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+            for(auto aln_it = best_alignments.begin() ; 
+                aln_it != best_alignments.end() && aln_it->score() != 0 
+                    && (aln_it->score() >= best_alignments[0].score() * 0.8 || aln_it->score() == best_alignments[0].score()) ;
+                ++aln_it) {
                 //For each additional alignment with score at least 0.8 of the best score
+                //Guarantee that all alignments with top score (even if negative) are used
                 observe_alignment(*aln_it);
             }
            
@@ -2849,7 +2847,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     // If there was a big gap
                     next_it = skip_to_it;
                     next = skip_to;
-                }
+                } else {
 #ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
@@ -2859,6 +2857,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
+                }
                 // If there wasn't a gap then don't skip anything
                 break;
             }

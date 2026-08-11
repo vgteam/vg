@@ -4,7 +4,6 @@
 #include "annotation.hpp"
 #include "statistics.hpp"
 #include "path.hpp"
-#include "entropy.hpp"
 #include "alignment.hpp"
 #include "translator.hpp"
 #include "algorithms/subgraph.hpp"

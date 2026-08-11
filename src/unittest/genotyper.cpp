@@ -7,6 +7,7 @@
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../traversal_finder.hpp"
+#include "../io/json2graph.hpp"
 
 namespace vg {
 namespace unittest {
@@ -41,15 +42,6 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
             {"from": 6, "to": 8},
             {"from": 7, "to": 9},
             {"from": 8, "to": 9}
-            
-        ],
-        "path": [
-            {"name": "hint", "mapping": [
-                {"position": {"node_id": 1}, "rank" : 1 },
-                {"position": {"node_id": 6}, "rank" : 2 },
-                {"position": {"node_id": 8}, "rank" : 3 },
-                {"position": {"node_id": 9}, "rank" : 4 }
-            ]}
         ]
     }
     
@@ -57,9 +49,7 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
     
     // Make an actual graph
     VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    vg::io::json2graph(graph_json, &graph);
     
     // Find the snarls
     SnarlManager manager = CactusSnarlFinder(graph).find_snarls();

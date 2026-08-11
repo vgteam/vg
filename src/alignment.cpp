@@ -673,10 +673,23 @@ string alignment_to_sam_internal(const Alignment& alignment,
         sam << "*";
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
+    sam << "\tAS:i:" << alignment.score();
     if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
     if (has_annotation(alignment, "tags")) {
         sam << '\t' << get_annotation<string>(alignment, "tags");
     }
+
+    // emit annotations that come from surject
+    if (has_annotation(alignment, "all_scores")) {
+        sam << "\tSS:Z:" << get_annotation<string>(alignment, "all_scores");
+    }
+    if (has_annotation(alignment, "graph_cigar")) {
+        sam << "\tGR:Z:" << get_annotation<string>(alignment, "graph_cigar");
+    }
+    if (has_annotation(alignment, "nearest_ref_pos")) {
+        sam << "\tNR:Z:" << get_annotation<string>(alignment, "nearest_ref_pos");
+    }
+
     sam << "\n";
     return sam.str();
 }
@@ -1024,13 +1037,18 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         bam_aux_append(bam, "GR", 'Z', graph_cigar.size() + 1, (uint8_t*) graph_cigar.c_str());
     }
     
+    if (has_annotation(alignment, "nearest_ref_pos")) {
+        string pos = get_annotation<string>(alignment, "nearest_ref_pos");
+        bam_aux_append(bam, "NR", 'Z', pos.size() + 1, (uint8_t*) pos.c_str());
+    }
+    
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {
         // encode the alignments SAM tags
         auto parsed_tags = parse_sam_tags(get_annotation<string>(alignment, "tags"));
         for (const auto& tag : parsed_tags) {
             
-            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS" || get<0>(tag) == "GR") {
+            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS" || get<0>(tag) == "GR" || get<0>(tag) == "NR") {
                 // we handle these tags separately
                 continue;
             }

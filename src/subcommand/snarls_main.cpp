@@ -27,36 +27,40 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const size_t DEFAULT_SNARLS_MAX_NODES = 10;
+
 void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
-         << "options:" << endl
+         << "general options:" << endl
          << "  -A, --algorithm NAME      snarl algorithm {cactus/integrated} [integrated]" << endl
-         << "  -p, --pathnames           output variant paths as SnarlTraversals to stdout" << endl
-         << "  -r, --traversals FILE     output SnarlTraversals for ultrabubbles" << endl
-         << "  -e, --path-traversals     only consider traversals that correspond to paths in" << endl
-         << "                            the graph (-m ignored)" << endl
-         << "  -l, --leaf-only           restrict traversals to leaf ultrabubbles" << endl
-         << "  -o, --top-level           restrict traversals to top level ultrabubbles" << endl
-         << "  -a, --any-snarl-type      compute traversals for any snarl type" << endl
-         << "                            (not limiting to ultrabubbles)" << endl
-         << "  -m, --max-nodes N         only compute traversals for snarls with <= N nodes" << endl
-         << "                            (with degree > 1) [10]" << endl
          << "  -n, --named-coordinates   produce all outputs in named-segment (GFA) space" << endl
          << "  -T, --include-trivial     report snarls that consist of a single edge" << endl
          << "  -s, --sort-snarls         return snarls in sorted order by node ID" << endl
          << "                            (for topologically ordered graphs)" << endl
+         << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
+         << "                            of a top-level chain (may repeat)" << endl
+         << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient" << endl
+         << "                            snarl tree. often necessary when running vg" << endl
+         << "                            haplotypes downstream" << endl
+         << "  -t, --threads N           number of threads to use [all available]" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl
+         << "traversals output options (note that these have no effect on the " << endl
+         << "stdout .pb file):" << endl
+         << "  -r, --traversals OUTFILE  output SnarlTraversals for ultrabubbles" << endl
+         << "                            to OUTFILE (inspect with vg view -Ej)" << endl
+         << "  -e, --path-traversals     only consider traversals that correspond to paths in" << endl
+         << "                            the graph (-m ignored)" << endl
+         << "  -l, --leaf-only           limit --traversals output to leaf ultrabubbles" << endl
+         << "  -o, --top-level           limit --traversals output to top level ultrabubbles" << endl
+         << "  -a, --any-snarl-type      include any snarl type in --traversals output" << endl
+         << "                            (not limiting to ultrabubbles)" << endl
+         << "  -m, --max-nodes N         only compute traversals for snarls with <= N nodes" << endl
+         << "                            (with degree > 1) [" << DEFAULT_SNARLS_MAX_NODES << "]" << endl
          << "  -v, --vcf FILE            for -r, use VCF-based traversal finder instead of" << endl
          << "                            exhaustive traversal finder with -r" << endl
          << "  -f, --fasta FILE          reference as FASTA (required for SVs by -v)" << endl
-         << "  -i, --ins-fasta FILE      insertions as FASTA (required for SVs by -v)" << endl
-         << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
-         << "                            of a top-level chain (may repeat)" << endl
-         << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient"
-         << "                            snarl tree. often necessary when running vg"
-         << "                            haplotypes downstream" << endl
-         << "  -t, --threads N           number of threads to use [all available]" << endl
-         << "  -h, --help                print this help message to stderr and exit" << endl;
+         << "  -i, --ins-fasta FILE      insertions as FASTA (required for SVs by -v)" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -74,11 +78,10 @@ int main_snarl(int argc, char** argv) {
     bool leaf_only = false;
     bool top_level_only = false;
     bool ultrabubble_only = true;
-    int max_nodes = 10;
+    int max_nodes = DEFAULT_SNARLS_MAX_NODES;
     bool named_coordinates = false;
     bool filter_trivial_snarls = true;
     bool sort_snarls = false;
-    bool fill_path_names = false;
     string vcf_filename;
     string ref_fasta_filename;
     string ins_fasta_filename;
@@ -164,7 +167,7 @@ int main_snarl(int argc, char** argv) {
             sort_snarls = true;
             break;
         case 'p':
-            fill_path_names = true;
+            logger.error() << "vg snarls --pathnames has been removed" << endl;
             break;
         case 'v':
             vcf_filename = require_exists(logger, optarg);
@@ -201,15 +204,42 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
+    if (path_traversals) {
+        if (!vcf_filename.empty()) {
+            logger.error() << "--vcf (-v) cannot be used with --path-traversals (-e)" << endl;
+        }
+        if (max_nodes != DEFAULT_SNARLS_MAX_NODES) {
+            logger.warn() << "--max-nodes (-m) ignored due to --path-traversals (-e)" << endl;
+        }
+    }
+
+    if (vcf_filename.empty()) {
+        if (!ref_fasta_filename.empty()) {
+            logger.error() << "--fasta (-f) requires --vcf (-v) file" << endl;
+        }
+        if (!ins_fasta_filename.empty()) {
+            logger.error() << "--ins-fasta (-i) requires --vcf (-v) file" << endl;
+        }
+    }
+
     if (traversal_file.empty()) {
         if (!ultrabubble_only) {
-            cerr << "warning:[vg snarls] --any-snarl-type (-a) has no effect without --traversals file" << endl;
+            logger.error() << "--any-snarl-type (-a) requires --traversals (-r) file" << endl;
         }
         if (top_level_only) {
-            cerr << "warning:[vg snarls] --top-level (-o) has no effect without --traversals file" << endl;
+            logger.error() << "--top-level (-o) requires --traversals (-r) file" << endl;
         }
         if (leaf_only) {
-            cerr << "warning:[vg snarls] --leaf-only (-l) has no effect without --traversals file" << endl;
+            logger.error() << "--leaf-only (-l) requires --traversals (-r) file" << endl;
+        }
+        if (max_nodes != DEFAULT_SNARLS_MAX_NODES) {
+            logger.error() << "--max-nodes (-m) requires --traversals (-r) file" << endl;
+        }
+        if (path_traversals) {
+            logger.error() << "--path-traversals (-e) requires --traversals (-r) file" << endl;
+        }
+        if (!vcf_filename.empty()) {
+            logger.error() << "--vcf (-v) requires --traversals (-r) file" << endl;
         }
     }
 
@@ -237,7 +267,7 @@ int main_snarl(int argc, char** argv) {
     // non-path HandleGraph, but we don't really have any of those implemented
     // anymore, so we don't bother supporting them.
         
-    // Pick a SnalrFinder
+    // Pick a SnarlFinder
     unique_ptr<SnarlFinder> snarl_finder;
 
     if ((!extra_node_weight.empty() || !ref_prefix.empty()) && algorithm != "integrated") {
@@ -260,15 +290,6 @@ int main_snarl(int argc, char** argv) {
     } else {
         logger.error() << "Algorithm must be 'cactus' or 'integrated', not '"
                        << algorithm << "'" << endl;
-    }
-    if (!vcf_filename.empty() && path_traversals) {
-        logger.error() << "-v cannot be used with -e" << endl;
-    }
-    if (path_traversals && traversal_file.empty()) {
-        logger.error() << "-e requires -r" << endl;
-    }
-    if (!vcf_filename.empty() && traversal_file.empty()) {
-        logger.error() << "-v requires -r" << endl;
     }
 
     unique_ptr<TraversalFinder> trav_finder;
@@ -308,30 +329,6 @@ int main_snarl(int argc, char** argv) {
             snarl_roots.push_back(here->first);
         }
     });
-    
-    if (fill_path_names){
-        // This finder needs a vg::VG
-        trav_finder.reset(new PathBasedTraversalFinder(*graph, snarl_manager));
-        for (const Snarl* snarl : snarl_roots ){
-            if (filter_trivial_snarls) {
-                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
-                if (contents.first.empty()) {
-                    // Nothing but the boundary nodes in this snarl
-                    continue;
-                }
-            }
-            vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-            if (translation) {
-                for (auto& trav : travs) {
-                    // Bring all the output traversals into named segment space.
-                    vg::algorithms::back_translate_in_place(translation, trav);
-                }
-            }
-            vg::io::write_buffered(cout, travs, 0);
-        }
-
-        exit(0);
-    }
 
     if (path_traversals) {
         // Limit traversals to embedded paths

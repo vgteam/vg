@@ -1,6 +1,7 @@
 #include "catch.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
+#include "../io/json2graph.hpp"
 #include "xg.hpp"
 
 #include "bdsg/packed_graph.hpp"
@@ -53,14 +54,15 @@ namespace vg {
                          ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             VG vg;
             handlealgs::copy_handle_graph(&xg, &vg);
-            
+
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(vg.get_node_count() == 1);
         }
@@ -72,14 +74,15 @@ namespace vg {
                          ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::PackedGraph pg;
             handlealgs::copy_handle_graph(&xg, &pg);
-            
+
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(pg.get_node_count() == 1);
         }
@@ -91,14 +94,15 @@ namespace vg {
                          ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::HashGraph hg;
             handlealgs::copy_handle_graph(&xg, &hg);
-            
+
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(hg.get_node_count() == 1);
         }
@@ -120,19 +124,20 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             VG vg;
             handlealgs::copy_handle_graph(&xg, &vg);
-            
+
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(vg.get_node_count() == 4);
             REQUIRE(vg.edge_count() == 4);
             REQUIRE(vg.length() == 16);
-            
+
         }
         TEST_CASE( "copy_handle_graph converter works on graphs with one reversing edge, xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
@@ -151,14 +156,15 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::PackedGraph pg;
             handlealgs::copy_handle_graph(&xg, &pg);
-            
+
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
 
@@ -168,14 +174,14 @@ namespace vg {
                 return true;
             });
             REQUIRE(length == 16);
-            
+
             int edge_count = 0;
             pg.for_each_edge([&](const edge_t& edge) {
                 edge_count += 1;
                 return true;
             });
             REQUIRE(edge_count == 4);
-        
+
         }
         TEST_CASE( "copy_handle_graph converter works on graphs with one reversing edge, xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
@@ -194,14 +200,15 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::HashGraph hg;
             handlealgs::copy_handle_graph(&xg, &hg);
-            
+
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
             int length = 0;
@@ -210,14 +217,14 @@ namespace vg {
                 return true;
             });
             REQUIRE(length == 16);
-            
+
             int edge_count = 0;
             hg.for_each_edge([&](const edge_t& edge) {
                 edge_count += 1;
                 return true;
             });
             REQUIRE(edge_count == 4);
-            
+
         }
         TEST_CASE( "copy_handle_graph converter works on graphs with reversing edges and loops", "[handle][vg][xg]") {
             string graph_json = R"(
@@ -239,14 +246,15 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             VG vg;
             handlealgs::copy_handle_graph(&xg, &vg);
-            
+
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
@@ -274,26 +282,27 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::PackedGraph pg;
             handlealgs::copy_handle_graph(&xg, &pg);
-            
+
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
-            
+
             int length = 0;
             pg.for_each_handle([&](const handle_t& here) {
                 length += pg.get_length(here);
                 return true;
             });
             REQUIRE(length == 16);
-            
+
             int edge_count = 0;
             pg.for_each_edge([&](const edge_t& edge) {
                 edge_count += 1;
@@ -321,26 +330,27 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::HashGraph hg;
             handlealgs::copy_handle_graph(&xg, &hg);
-            
+
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
-            
+
             int length = 0;
             hg.for_each_handle([&](const handle_t& here) {
                 length += hg.get_length(here);
                 return true;
             });
             REQUIRE(length == 16);
-            
+
             int edge_count = 0;
             hg.for_each_edge([&](const edge_t& edge) {
                 edge_count += 1;
@@ -382,16 +392,17 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             VG vg;
             handlealgs::copy_path_handle_graph(&xg, &vg);
 
-            
-            
+
+
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
@@ -444,37 +455,38 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::PackedGraph pg;
             handlealgs::copy_path_handle_graph(&xg, &pg);
-            
-            
-            
+
+
+
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
 
-            
+
             int length = 0;
             pg.for_each_handle([&](const handle_t& here) {
                 length += pg.get_length(here);
                 return true;
             });
             REQUIRE(length == 16);
-            
+
             int edge_count = 0;
             pg.for_each_edge([&](const edge_t& edge) {
                 edge_count += 1;
                 return true;
             });
             REQUIRE(edge_count == 7);
-            
-            
+
+
             REQUIRE(pg.has_path("path1") == true);
             REQUIRE(pg.has_path("path2") == true);
             REQUIRE(pg.get_path_count() == 2);
@@ -521,37 +533,38 @@ namespace vg {
                         ]
             }
             )";
-            Graph proto_graph;
-            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-            
+
+            bdsg::HashGraph source;
+            vg::io::json2graph(graph_json, &source);
+
             xg::XG xg;
-            xg.from_path_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(source);
             bdsg::HashGraph hg;
             handlealgs::copy_path_handle_graph(&xg, &hg);
-            
-            
-            
+
+
+
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
-            
-            
+
+
             int length = 0;
             hg.for_each_handle([&](const handle_t& here) {
                 length += hg.get_length(here);
                 return true;
             });
             REQUIRE(length == 16);
-            
+
             int edge_count = 0;
             hg.for_each_edge([&](const edge_t& edge) {
                 edge_count += 1;
                 return true;
             });
             REQUIRE(edge_count == 7);
-            
-            
+
+
             REQUIRE(hg.has_path("path1") == true);
             REQUIRE(hg.has_path("path2") == true);
             REQUIRE(hg.get_path_count() == 2);
