@@ -88,11 +88,23 @@ public:
         /// Weight on the allele-frequency prior the state space implies, from the number of
         /// haplotype pairs spelling each genotype. One keeps it, zero removes it.
         ///
-        /// **Zero by default, and that is a correctness choice rather than caution.** When the
-        /// panel was produced by haplotype sampling against the reads being genotyped, panel
-        /// allele frequency is already conditioned on those reads, so using it as a prior and
-        /// then multiplying by the read likelihood counts the same evidence twice. It is
-        /// defensible over a full panel that was not selected using this sample.
+        /// **Zero by default because its size is unmeasured here, not because it is wrong.**
+        ///
+        /// When the panel comes from haplotype sampling against the reads being genotyped, panel
+        /// allele frequency is already conditioned on those reads, so there is some double
+        /// counting. But the two are not the same statistic: sampling works from k-mer counts
+        /// aggregated over ~10 kb subchains, while the genotyper works from per-read alignment
+        /// likelihoods at one site -- so at an undecided site inside a well-determined block the
+        /// sampler's choice carries information the site's own reads lack. That is information
+        /// transfer, and a coarse version of the linkage this class models. Measured offline it is
+        /// worth about half the total gain.
+        ///
+        /// The reason to leave it off is narrower: with a sampled panel the bias cannot be
+        /// bounded, and its failure mode is *correlated* -- where sampling chose wrong haplotypes
+        /// the prior compounds the error, and the site's own weak reads cannot overturn it,
+        /// concentrated exactly where this model is supposed to help. Separating the two needs a
+        /// panel chosen independently of these reads: a full pangenome, or sampling from a
+        /// held-out read set.
         double freq_prior = 0.0;
 
         /// Sites of exact inference per window, and the margin discarded at each end.
