@@ -40,11 +40,17 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     // go from traversals number (offset in travs) to allele number
     vector<int> trav_to_allele(travs.size());
 
+    // A star allele is a haplotype genotyped in the parent snarl that does not pass through this
+    // one.  It is an EMPTY traversal (sole producer: add_star_traversals in traversal_clusters.cpp)
+    // spelled "*" in VCF.  That spelling is a MARKER, not sequence -- every test below asks the
+    // traversal, never the string.
+    auto is_star_trav = [](const Traversal& trav) { return trav.empty(); };
+
     // compute the allele as a string
     auto trav_to_string = [&](const Traversal& trav) {
         string allele;
         // hack to support star alleles
-        if (trav.size() == 0) {
+        if (is_star_trav(trav)) {
             allele = "*";
         } else {
             // we skip the snarl endpoints
@@ -55,7 +61,10 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         return allele;
     };
 
-    // set the reference allele
+    // set the reference allele.  The reference traversal comes from PathTraversalFinder, which
+    // always emits both snarl endpoints, so it is never empty; stars are appended later by
+    // add_star_traversals.  Fail loudly rather than putting "*" -- or its revcomp -- in REF.
+    assert(!is_star_trav(travs.at(ref_path_idx)));
     string ref_allele = trav_to_string(travs.at(ref_path_idx));
     allele_idx[ref_allele] = make_pair(0, ref_path_idx);
     trav_to_allele[ref_path_idx] = 0;
@@ -64,16 +73,27 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     // set the other alleles (they can end up as 0 alleles too if their strings match the reference)
     // note that we have one (unique) allele per cluster, so we take advantage of that here
     for (const vector<int>& cluster : trav_clusters) {
-        string allele = trav_to_string(travs[cluster.front()]);
+        const Traversal& cluster_trav = travs[cluster.front()];
+        string allele = trav_to_string(cluster_trav);
+        bool allele_is_star = is_star_trav(cluster_trav);
         for (const int& i : cluster) {
             if (i != ref_path_idx) {
                 auto ai_it = allele_idx.find(allele);
                 if (ai_it == allele_idx.end()) {
+                    // star traversals are always singleton clusters (add_star_traversals in
+                    // traversal_clusters.cpp pushes {travs.size() - 1}), which is what lets the
+                    // emission loop below re-derive star-ness from the stored member index i
+                    // rather than from cluster.front()
+                    assert(!allele_is_star || cluster.size() == 1);
                     // make a new allele for this string
                     allele_idx[allele] = make_pair(cur_alt, i);
                     trav_to_allele.at(i) = cur_alt;
                     ++cur_alt;
-                    substitution = substitution && allele.size() == ref_allele.size();
+                    if (!allele_is_star) {
+                        // a star carries no sequence: it is neither the reference's length nor a
+                        // different one, so it must not decide whether this site needs an anchor base
+                        substitution = substitution && allele.size() == ref_allele.size();
+                    }
                 } else {
                     // allele string has been seen, map this traversal to it
                     trav_to_allele.at(i) = ai_it->second.first;
@@ -82,6 +102,15 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                 trav_to_allele.at(i) = -1; // HACK! negative allele indexes are ignored
             }
         }
+    }
+
+    // An empty reference allele has no anchor base of its own, so the record must be written in
+    // padded (indel) form.  Before stars were excluded from the fold above, a star's length-1 "*"
+    // happened to force that; without this guard a star-only site would leave REF empty and vcflib
+    // silently rewrites "" to ".".  This restores the pre-fix behaviour at such sites, so it adds
+    // no new exposure to the assert(v.position >= 2) below.
+    if (ref_allele.empty() && allele_idx.size() > 1) {
+        substitution = false;
     }
 
     // fill in the variant
@@ -120,11 +149,16 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         string allele_string = ai_pair.first;
         int allele_no = ai_pair.second.first;
         int allele_trav_no = ai_pair.second.second;
-        if (reversed) {
-            reverse_complement_in_place(allele_string);
-        }
-        if (!substitution) {
-            allele_string = string(1, prev_char) + allele_string;
+        // the star is a marker, not sequence: complement['*'] is 'N' (src/utility.cpp) and htslib
+        // only recognizes an overlapping-deletion ALT when the field is exactly "*", so both
+        // transforms below would corrupt it ("N", "AN", "A*")
+        if (!is_star_trav(travs.at(allele_trav_no))) {
+            if (reversed) {
+                reverse_complement_in_place(allele_string);
+            }
+            if (!substitution) {
+                allele_string = string(1, prev_char) + allele_string;
+            }
         }
         v.alleles[allele_no] = allele_string;
         if (allele_no > 0) {
@@ -884,31 +918,68 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // Sort the traversals for clustering
         vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, ref_trav_idx, use_trav);
 
-        // jaccard clustering (using handles for now) on traversals
+        // similarity clustering (over interior handles) on traversals
         vector<pair<double, int64_t>> trav_cluster_info;
         vector<int> unused_child_snarl_mapping;
         vector<vector<int>> trav_clusters;
 
-        // If a minimum-allele-length gate is set, skip clustering at sites
-        // where every used traversal's interior (non-boundary) sequence is
-        // shorter than the threshold.  This lets the clustering be SV-only
-        // (setting it to 50bp matches the standard SV size cutoff) while
-        // leaving small variants represented exactly as they are.
+        // If a minimum-allele-length gate is set, skip clustering at sites whose CORE LENGTH -- the
+        // longest allele once the prefix and suffix common to every allele are stripped -- is below
+        // the threshold.  This lets the clustering be SV-only (50bp matches the standard SV size
+        // cutoff) while leaving small variants represented exactly as they are.  Measuring the raw
+        // snarl interior instead would gate a 1bp SNP on the size of the snarl that happens to
+        // contain it, and would disagree with vg call, whose records are flattened.  See
+        // VCFOutputCaller::allele_core_length.
         bool do_clustering = true;
         if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
-            // We only need to know if some used traversal is long enough, so
-            // stop measuring as soon as we find one.
-            do_clustering = false;
-            for (size_t i = 0; i < travs.size() && !do_clustering; ++i) {
-                if (!use_trav[i]) {
-                    continue;
+            // The traversals that become alleles: everything get_traversal_order kept, plus the
+            // reference, which get_alleles() spells as allele 0 whether or not use_trav has it.
+            // Not every use_trav member -- get_traversal_order drops used traversals that are OTHER
+            // reference traversals, and those never become alleles.  No star can be here:
+            // add_star_traversals runs further down.
+            auto for_each_measured = [&](const function<bool(const Traversal&)>& fn) {
+                if (!fn(travs[ref_trav_idx])) {
+                    return;
                 }
-                const Traversal& t = travs[i];
+                for (int idx : sorted_travs) {
+                    if (idx != ref_trav_idx && !fn(travs[idx])) {
+                        return;
+                    }
+                }
+            };
+            // Conservative pre-filter: core length can never exceed the longest interior, so if no
+            // measured traversal reaches the threshold we are done without building a single
+            // string.  Sites that fail it therefore cost no more than before.  Sites that pass do
+            // cost more -- one interior string per traversal here, against one per cluster in
+            // get_alleles -- so 2x when nothing collapses, and more when many haplotypes share a
+            // cluster.
+            bool interior_reaches = false;
+            for_each_measured([&](const Traversal& t) {
                 int64_t len = 0;
-                for (size_t k = 1; k + 1 < t.size() && !do_clustering; ++k) {
+                for (size_t k = 1; k + 1 < t.size() && !interior_reaches; ++k) {
                     len += graph->get_length(t[k]);
-                    do_clustering = len >= cluster_min_allele_len;
+                    interior_reaches = len >= cluster_min_allele_len;
                 }
+                return !interior_reaches;
+            });
+            do_clustering = false;
+            if (interior_reaches) {
+                // The allele strings do not exist yet -- get_alleles() runs after clustering -- so
+                // rebuild the set this record would emit if we did NOT cluster, which is exactly
+                // what the gate is asking about.  This is exact rather than approximate: the only
+                // transforms get_alleles applies afterwards are reverse-complementing every allele
+                // and prepending a common anchor base, and core length is invariant to both.
+                vector<string> unclustered_alleles;
+                unclustered_alleles.reserve(sorted_travs.size() + 1);
+                for_each_measured([&](const Traversal& t) {
+                    string allele;
+                    for (size_t k = 1; k + 1 < t.size(); ++k) {
+                        allele += toUppercase(graph->get_sequence(t[k]));
+                    }
+                    unclustered_alleles.push_back(std::move(allele));
+                    return true;
+                });
+                do_clustering = allele_core_length(unclustered_alleles) >= cluster_min_allele_len;
             }
         }
 
@@ -917,7 +988,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                                                vector<pair<handle_t, handle_t>>(),
                                                cluster_threshold,
                                                trav_cluster_info,
-                                               unused_child_snarl_mapping);
+                                               unused_child_snarl_mapping,
+                                               &travs[ref_trav_idx]);
         } else {
             // Trivial clusters (one per used traversal) in sorted_travs order.
             // Mirrors what cluster_traversals would return when nothing collapses.
@@ -1048,8 +1120,15 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 cerr << "Warning [vg deconstruct]: Skipping variant at " << v.sequenceName << ":" << v.position
                      << " with ID=" << v.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
                      << VCFOutputCaller::max_vcf_line_length << endl;
-                return false;            
+                return false;
             }
+        } else if (include_nested) {
+            // No variant here, but a nested record may still need this site's reference interval
+            // for its RC/RS/RD: we are the only thing standing between it and the reference, and
+            // once we return there is nothing left that knows where this snarl sits.  Keeping the
+            // whole record would be far too expensive, so keep just the interval.
+            suppressed_ref_info[omp_get_thread_num()][v.id] =
+                {v.sequenceName, static_cast<size_t>(v.position), v.ref.length()};
         }
     }
     return true;
@@ -1249,12 +1328,7 @@ string Deconstructor::get_vcf_header() {
     stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
     stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
     if (include_nested) {
-        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        stream << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
-        stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-        stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
-        stream << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
-        stream << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
+        stream << nesting_info_headers();
     }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;

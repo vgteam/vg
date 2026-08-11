@@ -235,8 +235,15 @@ public:
     // 8-9 are the tight window -- median 55 bp genome-wide -- and are what a reference-region
     // query should filter on.
     //
-    // level (5) equals INFO/CH of every record on the contig.  NOT INFO/LV, which counts only
-    // ancestors on the same CHROM and is a different number.
+    // level (5) is a STRUCTURAL count: hops through the snarl tree to the top of the
+    // component.  The VCF's INFO/CH counts only those hops whose site produced a record, so
+    // the relation is level >= CH, with equality exactly when every enclosing site emitted.
+    // Measured: equal on 1295/1295 chr22 contigs and 25/25 chrOther, but 3 of 9,431 on the
+    // 6-haplotype GRCh38 graph have level 1 against CH 0, because their enclosing top-level
+    // snarl has no non-reference traversal and deconstruct suppresses it.  The cover cannot
+    // know what the caller will emit, so this gap is inherent rather than a defect to fix
+    // here.  Do not join level to CH expecting equality.  It is also NOT INFO/LV, which counts
+    // only ancestors on the same CHROM and is a different number again.
     //
     // strand (6) is '-' when apply() reverse-complemented the run, so the sequence at
     // source_path[source_start:source_end] is the reverse complement of the gref contig.  719
