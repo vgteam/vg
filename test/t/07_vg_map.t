@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 60
+plan tests 61
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -215,3 +215,5 @@ is "$(samtools view t1.sam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:sp
 
 rm tagged1.fq tagged2.fq t1.bam t2.bam t3.bam t1.sam
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
+
+is $(vg map --help 2>&1 | grep -c "promote-secondary") 1 "vg map advertises --promote-secondary"

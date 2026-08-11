@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 78
+plan tests 85
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -278,3 +278,33 @@ vg map -d g -f reads/ts.fq | vg surject -x g.xg -b --off-ref-position - > g.bam
 is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "1" "off reference reads can be annotated with the nearest reference position"
 
 rm g.xg g.gcsa g.gcsa.lcp g.bam
+
+# --promote-secondary is advertised and accepted
+is $(vg surject --help 2>&1 | grep -c "promote-secondary") 1 "vg surject advertises --promote-secondary"
+
+# --promote-secondary is a safe no-op on reads whose primaries surject fine:
+# every input read still yields a primary SAM record, and no reads are dropped.
+vg surject -p x -x x.xg -t 1 --promote-secondary -s j.gam > promote.sam
+is $(grep -v "^@" promote.sam | wc -l | sed 's/^[[:space:]]*//') 100 "surject with --promote-secondary keeps all reads when primaries surject"
+is $(grep -v "^@" promote.sam | awk '{if(and($2,256)==0) print}' | wc -l | sed 's/^[[:space:]]*//') 100 "surject with --promote-secondary emits one primary per read when primaries surject"
+
+rm promote.sam
+
+# --promote-secondary on interleaved paired input is a safe no-op when the
+# primary pair surjects fine: both mates are still emitted as mapped primaries
+# and the pairing relationship is preserved.
+echo '{"name": "read/2", "sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}{"name": "read/1", "sequence": "CTTATTT", "path": {"mapping": [{"position": {"node_id": 1, "is_reverse": true}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_next": {"name": "read/2"}}' | vg view -JGa - > pairpromote.gam
+vg surject -p x -x x.xg -i -t 1 --promote-secondary -s pairpromote.gam > pairpromote.sam
+is $(grep -v "^@" pairpromote.sam | wc -l | sed 's/^[[:space:]]*//') 2 "surject -i with --promote-secondary keeps both mates when the primary pair surjects"
+is $(grep -v "^@" pairpromote.sam | awk '{if(and($2,256)==0 && and($2,4)==0) print}' | wc -l | sed 's/^[[:space:]]*//') 2 "surject -i with --promote-secondary emits both mates as mapped primaries when the primary pair surjects"
+is $(grep -v "^@" pairpromote.sam | cut -f1 | sort -u | wc -l | sed 's/^[[:space:]]*//') 1 "surject -i with --promote-secondary preserves the shared QNAME across the pair"
+
+rm pairpromote.gam pairpromote.sam
+
+# --promote-secondary with interleaved GAF input is rejected with a clear message
+# (paired promotion needs GAM so pairs can be grouped by read name).
+echo '{"name": "read/2", "sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}{"name": "read/1", "sequence": "CTTATTT", "path": {"mapping": [{"position": {"node_id": 1, "is_reverse": true}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_next": {"name": "read/2"}}' | vg view -JGa - > pairgaf.gam
+vg convert x.xg -G pairgaf.gam -t 1 > pairgaf.gaf
+is $(vg surject -p x -x x.xg -i -G --promote-secondary -s pairgaf.gaf 2>&1 >/dev/null | grep -c "interleaved GAF input is not supported") 1 "surject -i -G with --promote-secondary reports that interleaved GAF is unsupported"
+
+rm -f pairgaf.gam pairgaf.gaf

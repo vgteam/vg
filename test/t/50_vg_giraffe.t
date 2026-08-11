@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 89
+plan tests 90
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -334,4 +334,6 @@ is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj long
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
 rm -f longread.gam 1mb1kgp.vg 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
+
+is $(vg giraffe --help 2>&1 | grep -c "promote-secondary") 1 "vg giraffe advertises --promote-secondary"
 

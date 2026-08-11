@@ -588,6 +588,8 @@ using namespace std;
                     
                     if (source_aln->is_secondary() || (i != 0 && !is_supplementary(alns_out->back()))) {
                         alns_out->back().set_is_secondary(true);
+                        // Secondaries get mapq 0 in surjected output.
+                        alns_out->back().set_mapping_quality(0);
                     }
                     
                     if (annotate_with_all_path_scores) {
@@ -5311,6 +5313,178 @@ using namespace std;
         }
     }
     
+    bool Surjector::rescue_secondary_if_primary_unmapped(vector<Alignment>& surjected_group) const {
+
+        if (!rescue_secondary_on_failed_surjection) {
+            return false;
+        }
+
+        if (surjected_group.empty()) {
+            return false;
+        }
+
+        // Find the primary: the unique non-secondary, non-supplementary member.
+        int64_t primary_idx = -1;
+        for (size_t i = 0; i < surjected_group.size(); ++i) {
+            if (!surjected_group[i].is_secondary() && !is_supplementary(surjected_group[i])) {
+                primary_idx = (int64_t) i;
+                break;
+            }
+        }
+
+        if (primary_idx < 0) {
+            // No primary to replace (shouldn't normally happen).
+            return false;
+        }
+
+        if (surjected_group[primary_idx].path().mapping_size() != 0) {
+            // The primary surjected successfully; nothing to do.
+            return false;
+        }
+
+        // The primary is unmapped: look for the best-scoring mapped secondary to
+        // rescue. Supplementary alignments are never eligible.
+        int64_t best_idx = -1;
+        int32_t best_score = numeric_limits<int32_t>::min();
+        for (size_t i = 0; i < surjected_group.size(); ++i) {
+            if ((int64_t) i == primary_idx) {
+                continue;
+            }
+            const Alignment& candidate = surjected_group[i];
+            if (candidate.path().mapping_size() == 0) {
+                // Still unmapped after surjection; not a usable candidate.
+                continue;
+            }
+            if (is_supplementary(candidate)) {
+                // Supplementaries can't stand in for a primary.
+                continue;
+            }
+            // Break ties toward higher mapping quality for determinism.
+            if (candidate.score() > best_score ||
+                (candidate.score() == best_score && best_idx >= 0 &&
+                 candidate.mapping_quality() > surjected_group[best_idx].mapping_quality())) {
+                best_score = candidate.score();
+                best_idx = (int64_t) i;
+            }
+        }
+
+        if (best_idx < 0) {
+            // No mapped secondary could be tagged. Warn once.
+            if (!warned_about_no_rescuable_secondary.test_and_set()) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning:[Surjector] --rescue-secondary: cannot find a surjectable "
+                         << "secondary alignment to tag for read \""
+                         << surjected_group[primary_idx].name()
+                         << "\" with an unsurjectable primary alignment.";
+                    if (warn_about_input_collation) {
+                        cerr << " Ensure the input is collated by read name so that secondary "
+                             << "alignments are grouped with their primary alignment.";
+                    }
+                    cerr << " Suppressing further warnings." << endl;
+                }
+            }
+            return false;
+        }
+
+        // Tag the best secondary so downstream tools can treat it as primary
+        // if they choose; the secondary flag itself is left unchanged.
+        set_annotation<bool>(surjected_group[best_idx], "rescued_secondary", true);
+
+        return true;
+    }
+
+    bool Surjector::rescue_secondary_pair_if_primary_unmapped(vector<Alignment>& surjected1,
+                                                              vector<Alignment>& surjected2) const {
+
+        if (!rescue_secondary_on_failed_surjection) {
+            return false;
+        }
+
+        // The two mate vectors must be index-aligned (mate 1 and mate 2 of the
+        // same alignment pair share an index). If they somehow aren't, do
+        // nothing rather than risk mispairing mates.
+        if (surjected1.size() != surjected2.size() || surjected1.empty()) {
+            return false;
+        }
+
+        auto is_mapped = [](const Alignment& aln) {
+            return aln.path().mapping_size() != 0;
+        };
+
+        // Only act when BOTH mates of the primary pair (index 0) failed to
+        // surject. A half-mapped primary pair is a valid SAM state and is left
+        // alone.
+        if (is_mapped(surjected1[0]) || is_mapped(surjected2[0])) {
+            return false;
+        }
+
+        // Find the best secondary pair to rescue. A candidate is eligible if at
+        // least one of its mates surjected. Rank by summed mapped-mate score;
+        // break ties toward fully-mapped pairs, then toward higher summed
+        // mapping quality, for determinism.
+        int64_t best_idx = -1;
+        int32_t best_score = numeric_limits<int32_t>::min();
+        bool best_fully_mapped = false;
+        int32_t best_mapq = numeric_limits<int32_t>::min();
+        for (size_t k = 1; k < surjected1.size(); ++k) {
+            bool m1 = is_mapped(surjected1[k]);
+            bool m2 = is_mapped(surjected2[k]);
+            if (!m1 && !m2) {
+                // Neither mate surjected; not a usable candidate.
+                continue;
+            }
+            int32_t score = (m1 ? surjected1[k].score() : 0) + (m2 ? surjected2[k].score() : 0);
+            bool fully_mapped = m1 && m2;
+            int32_t mapq = (m1 ? surjected1[k].mapping_quality() : 0)
+                         + (m2 ? surjected2[k].mapping_quality() : 0);
+            bool better = false;
+            if (score != best_score) {
+                better = score > best_score;
+            }
+            else if (fully_mapped != best_fully_mapped) {
+                // Same score: prefer the fully-mapped pair.
+                better = fully_mapped;
+            }
+            else {
+                better = mapq > best_mapq;
+            }
+            if (best_idx < 0 || better) {
+                best_idx = (int64_t) k;
+                best_score = score;
+                best_fully_mapped = fully_mapped;
+                best_mapq = mapq;
+            }
+        }
+
+        if (best_idx < 0) {
+            // No secondary pair could be tagged. Warn once (shared with the
+            // single-end path's flag).
+            if (!warned_about_no_rescuable_secondary.test_and_set()) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning:[Surjector] --rescue-secondary: cannot find a surjectable "
+                         << "secondary alignment to tag for read pair \""
+                         << surjected1[0].name()
+                         << "\" with an unsurjectable primary alignment.";
+                    if (warn_about_input_collation) {
+                        cerr << " Ensure the input is collated by read name so that secondary "
+                             << "alignments are grouped with their primary alignment.";
+                    }
+                    cerr << " Suppressing further warnings." << endl;
+                }
+            }
+            return false;
+        }
+
+        // Tag the best secondary pair so downstream tools can treat them as
+        // primary if they choose; secondary flags and ordering are unchanged.
+        set_annotation<bool>(surjected1[best_idx], "rescued_secondary", true);
+        set_annotation<bool>(surjected2[best_idx], "rescued_secondary", true);
+
+        return true;
+    }
+
     Alignment Surjector::make_null_alignment(const Alignment& source) {
         Alignment null;
         null.set_name(source.name());

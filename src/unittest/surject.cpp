@@ -7,6 +7,7 @@
 #include "catch.hpp"
 #include "surjector.hpp"
 #include "aligner.hpp"
+#include "annotation.hpp"
 
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/overlays/path_position_overlays.hpp"
@@ -969,6 +970,297 @@ TEST_CASE("Supplementary alignments can be generated", "[surject]") {
                 REQUIRE(surj.subpath(1).path().mapping(0).position().node_id() == pos_graph.get_id(h2));
             }
         }
+    }
+}
+
+TEST_CASE("Surjector rescues a mapped secondary when the primary fails to surject", "[surject][rescue]") {
+
+    // A minimal graph is enough; rescue_secondary_if_primary_unmapped only
+    // inspects the already-surjected alignments, it does not touch the graph.
+    bdsg::HashGraph graph;
+    handle_t h1 = graph.create_handle("ACGT");
+    path_handle_t p = graph.create_path_handle("ref");
+    graph.append_step(p, h1);
+    bdsg::PositionOverlay pos_graph(&graph);
+
+    Surjector surjector(&pos_graph);
+
+    // Helper to build a surjected alignment. If mapped, give it one mapping so
+    // path().mapping_size() > 0; if unmapped, leave the path empty.
+    auto make_aln = [&](const string& name, bool secondary, bool mapped, int32_t score,
+                        int32_t mapq, bool supplementary) {
+        Alignment aln;
+        aln.set_name(name);
+        aln.set_sequence("ACGT");
+        aln.set_is_secondary(secondary);
+        aln.set_score(score);
+        aln.set_mapping_quality(mapq);
+        if (mapped) {
+            auto* m = aln.mutable_path()->add_mapping();
+            m->mutable_position()->set_node_id(graph.get_id(h1));
+        }
+        if (supplementary) {
+            set_annotation<bool>(aln, "supplementary", true);
+        }
+        return aln;
+    };
+
+    SECTION("Disabled by default: no promotion even if primary is unmapped") {
+        vector<Alignment> group;
+        group.push_back(make_aln("r", false, false, 0, 0, false));   // unmapped primary
+        group.push_back(make_aln("r", true, true, 30, 40, false));   // mapped secondary
+        REQUIRE(surjector.rescue_secondary_on_failed_surjection == false);
+        bool rescued = surjector.rescue_secondary_if_primary_unmapped(group);
+        REQUIRE(rescued == false);
+        // Group is unchanged: primary still unmapped, secondary still present.
+        REQUIRE(group.size() == 2);
+        REQUIRE(group[0].path().mapping_size() == 0);
+        REQUIRE(group[0].is_secondary() == false);
+    }
+
+    surjector.rescue_secondary_on_failed_surjection = true;
+
+    SECTION("Rescues the single mapped secondary by tagging it") {
+        vector<Alignment> group;
+        group.push_back(make_aln("r", false, false, 0, 0, false));   // unmapped primary
+        group.push_back(make_aln("r", true, true, 30, 40, false));   // mapped secondary
+        bool rescued = surjector.rescue_secondary_if_primary_unmapped(group);
+        REQUIRE(rescued == true);
+        // Group is unchanged in size; primary stays unmapped, secondary stays secondary.
+        REQUIRE(group.size() == 2);
+        REQUIRE(group[0].is_secondary() == false);
+        REQUIRE(group[0].path().mapping_size() == 0);
+        REQUIRE(group[1].is_secondary() == true);
+        REQUIRE(group[1].path().mapping_size() > 0);
+        REQUIRE(group[1].score() == 30);
+        REQUIRE(get_annotation<bool>(group[1], "rescued_secondary") == true);
+    }
+
+    SECTION("Rescues the highest-scoring mapped secondary") {
+        vector<Alignment> group;
+        group.push_back(make_aln("r", false, false, 0, 0, false));   // unmapped primary
+        group.push_back(make_aln("r", true, true, 20, 30, false));   // lower-scoring secondary
+        group.push_back(make_aln("r", true, true, 45, 35, false));   // higher-scoring secondary
+        bool rescued = surjector.rescue_secondary_if_primary_unmapped(group);
+        REQUIRE(rescued == true);
+        // Group is unchanged in size and ordering.
+        REQUIRE(group.size() == 3);
+        REQUIRE(group[0].is_secondary() == false);
+        REQUIRE(group[0].path().mapping_size() == 0);
+        // The higher-scoring secondary (index 2) is tagged; the other is not.
+        REQUIRE(group[2].is_secondary() == true);
+        REQUIRE(group[2].score() == 45);
+        REQUIRE(get_annotation<bool>(group[2], "rescued_secondary") == true);
+        REQUIRE(group[1].is_secondary() == true);
+        REQUIRE(group[1].score() == 20);
+    }
+
+    SECTION("No-op when the primary surjected successfully") {
+        vector<Alignment> group;
+        group.push_back(make_aln("r", false, true, 50, 60, false));  // mapped primary
+        group.push_back(make_aln("r", true, true, 30, 40, false));   // mapped secondary
+        bool rescued = surjector.rescue_secondary_if_primary_unmapped(group);
+        REQUIRE(rescued == false);
+        REQUIRE(group.size() == 2);
+        REQUIRE(group[0].is_secondary() == false);
+        REQUIRE(group[0].score() == 50);
+    }
+
+    SECTION("No rescue when no secondary could be surjected") {
+        vector<Alignment> group;
+        group.push_back(make_aln("r", false, false, 0, 0, false));   // unmapped primary
+        group.push_back(make_aln("r", true, false, 0, 0, false));    // unmapped secondary
+        bool rescued = surjector.rescue_secondary_if_primary_unmapped(group);
+        REQUIRE(rescued == false);
+        REQUIRE(group.size() == 2);
+        REQUIRE(group[0].is_secondary() == false);
+        REQUIRE(group[0].path().mapping_size() == 0);
+    }
+
+    SECTION("Supplementary alignments are never rescued") {
+        vector<Alignment> group;
+        group.push_back(make_aln("r", false, false, 0, 0, false));   // unmapped primary
+        group.push_back(make_aln("r", true, true, 90, 60, true));    // mapped but supplementary
+        bool rescued = surjector.rescue_secondary_if_primary_unmapped(group);
+        REQUIRE(rescued == false);
+        REQUIRE(group.size() == 2);
+        REQUIRE(group[0].is_secondary() == false);
+        REQUIRE(group[0].path().mapping_size() == 0);
+    }
+}
+
+TEST_CASE("Surjector rescues a secondary pair when the primary pair fails to surject",
+          "[surject][rescue]") {
+
+    // As with the single-end rescue test, the graph is only needed to
+    // construct a Surjector; rescue_secondary_pair_if_primary_unmapped inspects
+    // the already-surjected alignments and never touches the graph.
+    bdsg::HashGraph graph;
+    handle_t h1 = graph.create_handle("ACGT");
+    path_handle_t p = graph.create_path_handle("ref");
+    graph.append_step(p, h1);
+    bdsg::PositionOverlay pos_graph(&graph);
+
+    Surjector surjector(&pos_graph);
+
+    // Build one mate of a surjected pair. Mapped mates get a single mapping so
+    // path().mapping_size() > 0; unmapped mates leave the path empty.
+    auto make_aln = [&](const string& name, bool secondary, bool mapped, int32_t score,
+                        int32_t mapq) {
+        Alignment aln;
+        aln.set_name(name);
+        aln.set_sequence("ACGT");
+        aln.set_is_secondary(secondary);
+        aln.set_score(score);
+        aln.set_mapping_quality(mapq);
+        if (mapped) {
+            auto* m = aln.mutable_path()->add_mapping();
+            m->mutable_position()->set_node_id(graph.get_id(h1));
+        }
+        return aln;
+    };
+
+    SECTION("Disabled by default: no rescue even if the primary pair is unmapped") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary mate 1
+        mate2.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary mate 2
+        mate1.push_back(make_aln("r", true, true, 30, 40));   // mapped secondary mate 1
+        mate2.push_back(make_aln("r", true, true, 30, 40));   // mapped secondary mate 2
+        REQUIRE(surjector.rescue_secondary_on_failed_surjection == false);
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == false);
+        REQUIRE(mate1.size() == 2);
+        REQUIRE(mate2.size() == 2);
+        REQUIRE(mate1[0].path().mapping_size() == 0);
+        REQUIRE(mate2[0].path().mapping_size() == 0);
+        REQUIRE(mate1[0].is_secondary() == false);
+        REQUIRE(mate2[0].is_secondary() == false);
+    }
+
+    surjector.rescue_secondary_on_failed_surjection = true;
+
+    SECTION("Rescues a fully-mapped secondary pair by tagging it") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary pair
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        mate1.push_back(make_aln("r", true, true, 30, 40));   // mapped secondary pair
+        mate2.push_back(make_aln("r", true, true, 25, 35));
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == true);
+        // Vectors stay the same length and index-aligned; no reordering.
+        REQUIRE(mate1.size() == 2);
+        REQUIRE(mate2.size() == 2);
+        // Primary pair (index 0) is unchanged: still unmapped, still primary.
+        REQUIRE(mate1[0].is_secondary() == false);
+        REQUIRE(mate2[0].is_secondary() == false);
+        REQUIRE(mate1[0].path().mapping_size() == 0);
+        REQUIRE(mate2[0].path().mapping_size() == 0);
+        // Secondary pair (index 1) is tagged but stays secondary.
+        REQUIRE(mate1[1].is_secondary() == true);
+        REQUIRE(mate2[1].is_secondary() == true);
+        REQUIRE(mate1[1].path().mapping_size() > 0);
+        REQUIRE(mate2[1].path().mapping_size() > 0);
+        REQUIRE(mate1[1].score() == 30);
+        REQUIRE(mate2[1].score() == 25);
+        REQUIRE(get_annotation<bool>(mate1[1], "rescued_secondary") == true);
+        REQUIRE(get_annotation<bool>(mate2[1], "rescued_secondary") == true);
+    }
+
+    SECTION("Rescues the secondary pair with the highest summed mapped-mate score") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary pair
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        mate1.push_back(make_aln("r", true, true, 20, 30));   // secondary pair, summed 40
+        mate2.push_back(make_aln("r", true, true, 20, 30));
+        mate1.push_back(make_aln("r", true, true, 45, 35));   // secondary pair, summed 80
+        mate2.push_back(make_aln("r", true, true, 35, 25));
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == true);
+        // The higher summed-score pair (45 + 35 = 80, index 2) is tagged; ordering unchanged.
+        REQUIRE(mate1[2].is_secondary() == true);
+        REQUIRE(mate2[2].is_secondary() == true);
+        REQUIRE(mate1[2].score() == 45);
+        REQUIRE(mate2[2].score() == 35);
+        REQUIRE(get_annotation<bool>(mate1[2], "rescued_secondary") == true);
+        REQUIRE(get_annotation<bool>(mate2[2], "rescued_secondary") == true);
+    }
+
+    SECTION("Prefers a fully-mapped pair over a half-mapped pair with equal summed score") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary pair
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        // Half-mapped secondary: only mate 1 mapped, summed score 50.
+        mate1.push_back(make_aln("r", true, true, 50, 40));
+        mate2.push_back(make_aln("r", true, false, 0, 0));
+        // Fully-mapped secondary: both mapped, summed score 50 (30 + 20).
+        mate1.push_back(make_aln("r", true, true, 30, 20));
+        mate2.push_back(make_aln("r", true, true, 20, 20));
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == true);
+        // The fully-mapped pair (index 2) is tagged; the half-mapped pair (index 1) is not.
+        REQUIRE(mate1[2].path().mapping_size() > 0);
+        REQUIRE(mate2[2].path().mapping_size() > 0);
+        REQUIRE(mate1[2].score() == 30);
+        REQUIRE(mate2[2].score() == 20);
+        REQUIRE(get_annotation<bool>(mate1[2], "rescued_secondary") == true);
+        REQUIRE(get_annotation<bool>(mate2[2], "rescued_secondary") == true);
+    }
+
+    SECTION("Rescues a half-mapped secondary pair when no fully-mapped pair exists") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary pair
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        // Only mate 2 of the secondary surjected.
+        mate1.push_back(make_aln("r", true, false, 0, 0));
+        mate2.push_back(make_aln("r", true, true, 40, 30));
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == true);
+        // Secondary pair (index 1) is tagged; both mates stay secondary and in place.
+        REQUIRE(mate1[1].is_secondary() == true);
+        REQUIRE(mate2[1].is_secondary() == true);
+        REQUIRE(mate1[1].path().mapping_size() == 0);
+        REQUIRE(mate2[1].path().mapping_size() > 0);
+        REQUIRE(mate2[1].score() == 40);
+        REQUIRE(get_annotation<bool>(mate1[1], "rescued_secondary") == true);
+        REQUIRE(get_annotation<bool>(mate2[1], "rescued_secondary") == true);
+    }
+
+    SECTION("No-op when either mate of the primary pair surjected") {
+        vector<Alignment> mate1, mate2;
+        // Primary pair is half-mapped: a valid SAM state, left untouched.
+        mate1.push_back(make_aln("r", false, true, 50, 60));
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        mate1.push_back(make_aln("r", true, true, 30, 40));
+        mate2.push_back(make_aln("r", true, true, 30, 40));
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == false);
+        REQUIRE(mate1[0].is_secondary() == false);
+        REQUIRE(mate1[0].score() == 50);
+    }
+
+    SECTION("No rescue when no secondary pair has a mapped mate") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary pair
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        mate1.push_back(make_aln("r", true, false, 0, 0));    // unmapped secondary pair
+        mate2.push_back(make_aln("r", true, false, 0, 0));
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == false);
+        REQUIRE(mate1[0].is_secondary() == false);
+        REQUIRE(mate2[0].is_secondary() == false);
+        REQUIRE(mate1[0].path().mapping_size() == 0);
+        REQUIRE(mate2[0].path().mapping_size() == 0);
+    }
+
+    SECTION("No-op when the mate vectors are not index-aligned") {
+        vector<Alignment> mate1, mate2;
+        mate1.push_back(make_aln("r", false, false, 0, 0));   // unmapped primary pair
+        mate2.push_back(make_aln("r", false, false, 0, 0));
+        mate1.push_back(make_aln("r", true, true, 30, 40));   // secondary only present for mate 1
+        bool rescued = surjector.rescue_secondary_pair_if_primary_unmapped(mate1, mate2);
+        REQUIRE(rescued == false);
+        REQUIRE(mate1.size() == 2);
+        REQUIRE(mate2.size() == 1);
     }
 }
 
