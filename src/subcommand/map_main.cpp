@@ -27,6 +27,7 @@ void help_map(char** argv) {
                                             << "[<graph>" << gcsa::GCSA::EXTENSION << "]" << endl
          << "  -1, --gbwt-name FILE             use this GBWT haplotype index "
                                             << "[<graph>"<< gbwt::GBWT::EXTENSION << "]" << endl
+         << "                                   (optional; turns on hap consistency scores)" << endl
          << "algorithm:" << endl
          << "  -t, --threads N                  number of compute threads to use" << endl
          << "  -k, --min-mem INT                minimum MEM length (if 0 estimate via -e) [0]" << endl
