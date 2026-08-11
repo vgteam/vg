@@ -351,6 +351,8 @@ public:
     /// Supported paths
     path_flags_t paths;
     size_t rec_num=0;
+    /// Does this require a supplementary edge?
+    bool is_supplementary = false;
 };
 
 }
@@ -434,6 +436,8 @@ struct ChainWithRec {
     // May be empty when forward and backward counts disagree, e.g. when
     // internally recombinant anchors break the symmetry.
     std::vector<std::pair<size_t, size_t>> rec_intervals;
+    // Which anchors are right before a supplementary break?
+    std::vector<size_t> supp_break_positions;
 };
 
 /// Result of finding best chains: a list of chains each paired with the

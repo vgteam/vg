@@ -882,7 +882,8 @@ protected:
      */
     void do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
+                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& supp_break_flags,
+                              std::vector<std::vector<bool>>& chain_rec_flags,
                               std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
                               std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                               std::vector<double>& multiplicity_by_chain,
@@ -895,6 +896,7 @@ protected:
     void get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
                                const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                const std::vector<std::vector<size_t>>& chains,
+                               const std::vector<std::vector<bool>>& supp_break_flags,
                                const std::vector<size_t>& chain_source_tree,
                                const vector<algorithms::Anchor>& seed_anchors,
                                const std::vector<int>& chain_score_estimates,
@@ -906,6 +908,7 @@ protected:
                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                const vector<algorithms::Anchor>& seed_anchors,
                                const std::vector<std::vector<size_t>>& chains, 
+                               const std::vector<std::vector<bool>>& supp_break_flags,
                                const std::vector<size_t>& chain_source_tree,
                                const std::vector<double>& multiplicity_by_chain,
                                const std::vector<int>& chain_score_estimates,
@@ -913,6 +916,14 @@ protected:
                                vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                vector<size_t>& alignments_to_source,
                                SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
+    
+    /**
+     * For supplementary alignment pieces in order, trim tails to be non-overlapping.
+     * 
+     * Try to maximize overall score. Highest-scoring piece gets to be the final Alignment.
+     * Others are saved as supplementary alignments.
+     */
+    Alignment compose_supplementaries(const vector<Alignment>& aln_pieces) const;
 
     /**
      * Select the max_multimaps best alignments from alignments into mappings.
@@ -936,10 +947,14 @@ protected:
      * Operating on the given input alignment, align the tails and intervening
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
+     * 
+     * Anchors have to be within the read_start and read_end boundaries.
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+    Alignment find_chain_alignment(const Alignment& aln, size_t read_start, size_t read_end,
+                                   const VectorView<algorithms::Anchor>& to_chain,
+                                   const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -1488,6 +1503,7 @@ protected:
                                    const VectorView<Minimizer>& minimizers,
                                    const vector<algorithms::Anchor>& seed_anchors,
                                    const std::vector<std::vector<size_t>>& chains,
+                                   const std::vector<std::vector<bool>>& supp_break_flags,
                                    const std::vector<std::vector<bool>>& chain_rec_flags,
                                    const std::vector<size_t>& chain_source_tree,
                                    const PathPositionHandleGraph* path_graph,

@@ -423,6 +423,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
     }
 
+    TracedScore best_prev_score = chain_scores[0];
+    best_prev_score.source = 0;
+
     // We will run this over every transition in a good DP order.
     auto iteratee = [&](const transition_info& transition) {
         if (show_work) {
@@ -434,6 +437,12 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         
         crash_unless(chain_scores.size() > transition.to_anchor);
         crash_unless(chain_scores.size() > transition.from_anchor);
+
+        if (transition.to_anchor > 0 && transition.to_anchor - 1 > best_prev_score.source
+            && chain_scores[transition.to_anchor - 1].score > best_prev_score.score) {
+            // We need to update the best previous anchor to be the immediatley previous
+            best_prev_score = chain_scores[transition.to_anchor - 1];
+        }
         
         // For each item
         auto& here = to_chain[transition.to_anchor];
@@ -459,6 +468,23 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             } else if (eval_nowhere == eval_current && from_nowhere > chain_scores[transition.to_anchor]) {
                 chain_scores[transition.to_anchor] = from_nowhere;
                 eval_bonuses[transition.to_anchor] = nowhere_bonus;
+            }
+        }
+
+        // If we use a supplementary edge, we get these points
+        // This also has full path conservation (we don't track recombination across supp. edges)
+        /// TODO: the penalty should be a param
+        {
+            TracedScore from_supp = {item_points + best_prev_score.score - 300, best_prev_score.source, here.anchor_end_paths(), 0, true};
+            int supp_bonus = scheme.consistency_bonus;
+            int eval_supp = from_supp.score + supp_bonus;
+            int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
+            if (eval_supp > eval_current) {
+                chain_scores[transition.to_anchor] = from_supp;
+                eval_bonuses[transition.to_anchor] = supp_bonus;
+            } else if (eval_supp == eval_current && from_supp > chain_scores[transition.to_anchor]) {
+                chain_scores[transition.to_anchor] = from_supp;
+                eval_bonuses[transition.to_anchor] = supp_bonus;
             }
         }
         
@@ -721,6 +747,10 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     // TODO: find the edge to nowhere???
                     break;
                 } else {
+                    // If this is supplementary, add our marker to the traceback
+                    if (chain_scores[here].is_supplementary) {
+                        traceback.push_back(std::numeric_limits<size_t>::max());
+                    }
                     // Add to the traceback
                     traceback.push_back(next);
                 }
@@ -806,7 +836,20 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
     for (auto& traceback : tracebacks) {
         // Move over the list of items and convert penalty to score
         int score = best_past_ending_score_ever.score - traceback.second;
-        std::vector<size_t> chain_indexes = std::move(traceback.first);
+        std::vector<size_t> chain_indexes;
+        std::vector<size_t> supp_breaks;
+        chain_indexes.reserve(traceback.first.size());
+        for (size_t i = 0; i < traceback.first.size(); i++) {
+            if (traceback.first[i] == std::numeric_limits<size_t>::max()) {
+                // Shouldn't have a supplementary break as the very first thing
+                assert(i > 0);
+                // Supplementary break marker
+                supp_breaks.push_back(chain_indexes.back());
+            } else {
+                cerr << traceback.first[i] << endl;
+                chain_indexes.push_back(traceback.first[i]);
+            }
+        }
 
         // Compute the anchor indices in this chain that introduce an
         // inter-anchor recombination event. We simulate the path-bit
@@ -889,6 +932,7 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
         entry.scored_chain = {score, std::move(chain_indexes)};
         entry.rec_positions = std::move(rec_positions);
         entry.rec_intervals = std::move(rec_intervals);
+        entry.supp_break_positions = std::move(supp_breaks);
         result.chains.emplace_back(std::move(entry));
     }
     return result;
