@@ -13,13 +13,6 @@ double LinkageModel::switch_probability(size_t gap) const {
     }
     double rho = params.rho_min
                  + (1.0 - params.rho_min) * (1.0 - exp(-(double)gap / params.scale));
-    if (params.block_switch > 0.0 && params.block_length > 0.0) {
-        // Expected boundaries crossed. Spreading the mass rather than placing it is the honest
-        // approximation when boundary positions are not supplied: only the product of the switch
-        // probability and the number of crossings is identifiable from aggregate data anyway.
-        double crossings = (double)gap / params.block_length;
-        rho = 1.0 - (1.0 - rho) * pow(1.0 - params.block_switch, crossings);
-    }
     rho = min(max(rho, 0.0), 1.0);
     if (params.weight == 1.0) {
         return rho;

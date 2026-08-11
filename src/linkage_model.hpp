@@ -55,23 +55,34 @@ public:
         /// scaling a log-transition keeps it a probability at every setting.
         double weight = 0.0;
 
-        /// Probability that a haplotype-sampling block boundary changes which source assembly a
-        /// panel haplotype continues from.
+        /// Distance scale, in bp.
         ///
-        /// **A per-graph property, not a constant, and zero by default.** In a haplotype-sampled
-        /// GBZ the panel members are recombinations of real assemblies chosen in blocks: inside a
-        /// block a haplotype is a contiguous piece of one assembly, so linkage there is genuine,
-        /// while at a boundary the sampler continues the same haplotype only some of the time.
-        /// A full pangenome has no such blocks and wants zero. Getting this wrong in the
-        /// permissive direction over-penalises switching inside blocks, where linkage is real.
-        double block_switch = 0.0;
-
-        /// Block length in bp for the above. Only the product of `block_switch` and the number of
-        /// boundaries crossed is identifiable from aggregate data, so these two are not
-        /// separately meaningful unless boundary positions are known.
-        double block_length = 10000.0;
-
-        /// Distance scale of the biological term, in bp.
+        /// There was once a second term beside this one -- a `block_switch` probability meant to
+        /// charge extra for crossing a haplotype-sampling block boundary, on the theory that a
+        /// sampled panel haplotype switches source assembly there. It is gone, for two reasons
+        /// worth recording so that it is not reinvented.
+        ///
+        /// It was never a second parameter. Without boundary positions the crossing count has to
+        /// be smeared as `gap / block_length`, and then
+        ///
+        ///     1 - rho' = (1-rho_min) exp(-g/scale) (1-block_switch)^(g/block_length)
+        ///              = (1-rho_min) exp(-g/scale_eff),
+        ///     1/scale_eff = 1/scale + -ln(1-block_switch)/block_length
+        ///
+        /// exactly. `block_switch = 0.57` over a 10 kb block was `scale = 5423` and nothing else,
+        /// so a grid over the two axes was measuring one axis twice.
+        ///
+        /// The premise does not hold either, which is why it was not given real boundaries
+        /// instead. Measured on the chr20 32-haplotype panel against its own subchain partition,
+        /// with gap-matched strata and a permutation control, linkage across a boundary is weaker
+        /// by 0.008 NMI at gaps under 5 kb (z = 1.1) -- and that range holds essentially every
+        /// adjacent call pair. At a boundary the sampler switches to another assembly *in the
+        /// same panel*, and human haplotypes agree at most sites, so switching source changes the
+        /// allele only where the two assemblies differ. It largely preserves linkage rather than
+        /// destroying it.
+        ///
+        /// The scale itself is nearly flat from 10 kb to 40 kb: about 0.001 of F1, 20 kb weakly
+        /// best. It is left at 10 kb because that is what every measurement to date used.
         double scale = 10000.0;
 
         /// Floor on the switch probability, so that a switch is never impossible.

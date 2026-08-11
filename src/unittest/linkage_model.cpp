@@ -154,16 +154,16 @@ TEST_CASE("A haplotype absent from a site carries no allele there", "[linkage_mo
     REQUIRE(with_link[1][hom_alt] > without[1][hom_alt]);
 }
 
-TEST_CASE("A certain block switch is equivalent to forgetting the previous site",
+TEST_CASE("A certain switch is equivalent to forgetting the previous site",
           "[linkage_model]") {
-    // block_switch = 1 means the panel certainly changed identity between the sites, so the
-    // transition must carry nothing across -- the same posterior as a fresh chain.
+    // A switch probability of 1 means the panel certainly changed identity between the sites, so
+    // the transition must carry nothing across -- the same posterior as a fresh chain. Reached
+    // here by making the sites effectively infinitely far apart, which is the only way to
+    // saturate rho now that the separate block-switch term is gone.
     LinkageModel::Params p;
     p.weight = 1.0;
-    p.scale = 1e9;              // suppress the distance term so the block term is what acts
+    p.scale = 1e-9;             // gap / scale enormous, so rho saturates at 1
     p.rho_min = 0.0;
-    p.block_switch = 1.0;
-    p.block_length = 1.0;       // guarantees a crossing
     LinkageModel model(p);
 
     vector<LinkageModel::Site> sites{

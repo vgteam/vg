@@ -76,10 +76,6 @@ void help_call(char** argv) {
          << "                            GBWT haplotypes, so consecutive calls are judged against" << endl
          << "                            combinations the panel carries. Needs -z. 0 is off, and" << endl
          << "                            reproduces the per-site caller exactly [0]" << endl
-         << "      --linkage-block-switch B" << endl
-         << "                            probability a haplotype-sampling block boundary changes" << endl
-         << "                            which assembly a panel haplotype continues from. A" << endl
-         << "                            per-graph property: 0 for a full pangenome [0]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
          << "      --linkage-freq-prior F" << endl
          << "                            weight on the panel allele-frequency prior. 0 by default:" << endl
@@ -249,7 +245,6 @@ int main_call(int argc, char** argv) {
     bool no_share_quality = false;
     double depth_quality = 0.0;
     double linkage_weight = 0.0;
-    double linkage_block_switch = 0.0;
     double linkage_scale = 10000.0;
     double linkage_freq_prior = 0.0;
     bool max_allele_likelihood = false;
@@ -298,7 +293,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
-    constexpr int OPT_LINKAGE_BLOCK_SWITCH = 1029;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
     int c;
@@ -351,7 +345,6 @@ int main_call(int argc, char** argv) {
             {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
             {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
             {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
-            {"linkage-block-switch", required_argument, 0, OPT_LINKAGE_BLOCK_SWITCH},
             {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
             {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
             {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
@@ -531,9 +524,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
-            break;
-        case OPT_LINKAGE_BLOCK_SWITCH:
-            linkage_block_switch = parse<double>(optarg);
             break;
         case OPT_LINKAGE_SCALE:
             linkage_scale = parse<double>(optarg);
@@ -1500,7 +1490,6 @@ int main_call(int argc, char** argv) {
             }
             LinkageModel::Params linkage_params;
             linkage_params.weight = linkage_weight;
-            linkage_params.block_switch = linkage_block_switch;
             linkage_params.scale = linkage_scale;
             linkage_params.freq_prior = linkage_freq_prior;
             linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
