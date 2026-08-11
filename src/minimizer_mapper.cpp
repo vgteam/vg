@@ -3683,7 +3683,7 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
                 // Translate back from vector indexes to alignment indexes
                 auto& read_supplementaries = supplementaries[r];
                 for (auto i : supplementary_idxs) {
-                    if (i <= paired_suppl_source.size()) {
+                    if (i <= paired_suppl_source[r].size()) {
                         const auto& source = paired_alignments[paired_suppl_source[r][i - 1]][r];
                         read_supplementaries.push_back({source.fragment, source.alignment});
                     }
