@@ -1164,9 +1164,9 @@ Functions</h2></td></tr>
 <tr class="separator:a083d5edb5192697a269a3e5b8815bccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6c59e7d46046fad0d349a3c747ffd6b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c59e7d46046fad0d349a3c747ffd6b3">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; &amp;base_offsets, const unordered_map&lt; string, string &gt; *translation=nullptr)</td></tr>
 <tr class="separator:a6c59e7d46046fad0d349a3c747ffd6b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9c3b7967f983d5fb3de726229a9cf055"><td class="memTemplParams" colspan="2">template&lt;class AlignmentVector &gt; </td></tr>
-<tr class="memitem:a9c3b7967f983d5fb3de726229a9cf055"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9c3b7967f983d5fb3de726229a9cf055">identify_supplementaries</a> (const AlignmentVector &amp;alignments, double min_read_coverage, size_t max_separation, double min_score_fraction, size_t min_size, size_t primary_idx=0)</td></tr>
-<tr class="separator:a9c3b7967f983d5fb3de726229a9cf055"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a097ac55bef9ad6c1223b92326aa88a"><td class="memTemplParams" colspan="2">template&lt;class AlignmentVector &gt; </td></tr>
+<tr class="memitem:a3a097ac55bef9ad6c1223b92326aa88a"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3a097ac55bef9ad6c1223b92326aa88a">identify_supplementaries</a> (const AlignmentVector &amp;alignments, double min_read_coverage, size_t max_separation, size_t max_overlap, size_t max_uncovered_end, double min_score_fraction, size_t min_size, size_t primary_idx=0)</td></tr>
+<tr class="separator:a3a097ac55bef9ad6c1223b92326aa88a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea0e7a0965b967bed3ff54e6ff630f91"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aea0e7a0965b967bed3ff54e6ff630f91">score_gap</a> (size_t gap_length, int32_t gap_open, int32_t gap_extension)</td></tr>
 <tr class="memdesc:aea0e7a0965b967bed3ff54e6ff630f91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Score a gap with the given open and extension scores.  <a href="namespacevg.html#aea0e7a0965b967bed3ff54e6ff630f91">More...</a><br /></td></tr>
 <tr class="separator:aea0e7a0965b967bed3ff54e6ff630f91"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -14210,8 +14210,8 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="a9c3b7967f983d5fb3de726229a9cf055"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9c3b7967f983d5fb3de726229a9cf055">&#9670;&nbsp;</a></span>identify_supplementaries()</h2>
+<a id="a3a097ac55bef9ad6c1223b92326aa88a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3a097ac55bef9ad6c1223b92326aa88a">&#9670;&nbsp;</a></span>identify_supplementaries()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -14239,6 +14239,18 @@ template&lt;class AlignmentVector &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_overlap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_uncovered_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">double&#160;</td>
           <td class="paramname"><em>min_score_fraction</em>, </td>
         </tr>
@@ -14261,7 +14273,7 @@ template&lt;class AlignmentVector &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns indexes into an vector-like container of Alignments that correspond to supplementary alignments to the primary min_read_coverage Require the supplementaries and primary to cover this fraction of the read max_separation Require the separation or overlap between supplementaries to be at most this many bases min_score_fraction Require each supplementary to have this fraction of the primary's score min_size Require each supplementary to align at least this many bases </p>
+<p>Returns indexes into an vector-like container of Alignments that correspond to supplementary alignments to the primary min_read_coverage Require the supplementaries and primary to cover this fraction of the read max_separation Require the separation between supplementaries to be at most this many bases max_overlap Require the overlap between supplementaries to be at most this many bases max_uncovered_end Require the collection of supplementaries to leave at most this many bases uncovered on each end min_score_fraction Require each supplementary to have this fraction of the primary's score min_size Require each supplementary to align at least this many bases </p>
 
 </div>
 </div>
