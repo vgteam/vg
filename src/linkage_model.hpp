@@ -224,6 +224,17 @@ private:
  * the gaps, so trusting it would silently use the wrong distances -- and reports the genotypes
  * that changed. Records are already buffered whole-genome as compressed strings until
  * `write_variants`, so patching between the two adds no new peak.
+ *
+ * Measured, chr20-34hap on 5 threads: 105251 sites, 7.87 MB retained -- so the 8 MB above was
+ * right -- and 1.8 s in phase two against a total feature cost of 20.2 s, or 16% of the run.
+ *
+ * **The cost is not where this comment spends its words.** Phase two, the serial pass this design
+ * is built around avoiding, is 9% of the overhead. The other 91% is phase one, and within it
+ * almost all of that is `VCFOutputCaller::panel_alleles` asking the GBWT which haplotypes take
+ * each allele -- three and a half times the cost of the per-read likelihood inner loop it exists
+ * to annotate. Caching GBWT records per thread took 28% off; what remains is `locate` itself.
+ * `record()`, the global mutex that looks like the obvious contention point, does not register in
+ * a profile at all: one sample before the cache, three after.
  */
 class LinkageCollector {
 public:
