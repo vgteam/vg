@@ -78,9 +78,12 @@ void help_call(char** argv) {
          << "                            reproduces the per-site caller exactly [0]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
          << "      --linkage-freq-prior F" << endl
-         << "                            weight on the panel allele-frequency prior. 0 by default:" << endl
-         << "                            over a panel picked by haplotype sampling against these" << endl
-         << "                            reads it is the same evidence twice [0]" << endl
+         << "                            exponent on the panel allele-frequency prior implied by" << endl
+         << "                            the state space. Only acts with --linkage-weight. 0" << endl
+         << "                            removes it, 1 keeps it as the states present it, and" << endl
+         << "                            above 1 amplifies it; measured best near 5 on a 34-" << endl
+         << "                            haplotype panel, inverting past 8. Mostly an indel" << endl
+         << "                            effect [5]" << endl
          << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose called" << endl
          << "                            alleles change length by 50 bp or more, so a call whose" << endl
          << "                            read count is implausible for the sequence it claims" << endl
@@ -246,7 +249,7 @@ int main_call(int argc, char** argv) {
     double depth_quality = 0.0;
     double linkage_weight = 0.0;
     double linkage_scale = 10000.0;
-    double linkage_freq_prior = 0.0;
+    double linkage_freq_prior = 5.0;
     bool max_allele_likelihood = false;
     bool flat_mixture = false;
     double depth_weight = 0.1;

@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "graph_caller.hpp"
 #include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
@@ -419,9 +421,21 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // having kept the record itself, and only the records that actually move are re-parsed.
     map<pair<string, size_t>, LinkageCollector::Change> changes;
     if (linkage_collector != nullptr) {
-        for (const LinkageCollector::Change& c : linkage_collector->resolve()) {
+        // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
+        // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
+        // that it can be an observation instead; it had never been called. The elapsed time
+        // answers the other question the design asserted without checking: this pass is serial,
+        // between calling and writing, in a caller that is otherwise parallel over snarls.
+        auto start = std::chrono::steady_clock::now();
+        vector<LinkageCollector::Change> resolved = linkage_collector->resolve();
+        double seconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - start).count();
+        for (const LinkageCollector::Change& c : resolved) {
             changes[make_pair(c.contig, c.position)] = c;
         }
+        cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
+             << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
+             << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
     }
 
     for (const auto& v : all_variants) {

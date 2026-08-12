@@ -238,7 +238,12 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
                         continue;
                     }
                     double share = g;
-                    if (params.freq_prior < 1.0 && k < carriers.size() && carriers[k] > 1) {
+                    if (k < carriers.size() && carriers[k] > 1) {
+                        // No `freq_prior < 1` guard. At exactly 1 the exponent is 0 and this is a
+                        // no-op, so the guard cost nothing and looked free -- but it also made
+                        // every value above 1 behave as 1, silently. Above 1 the exponent goes
+                        // negative and the prior is amplified past the state space's own
+                        // multiplicity, which is a real setting and was unreachable.
                         share /= pow((double)carriers[k], 1.0 - params.freq_prior);
                     }
                     for (size_t other = 0; other < n_alleles; ++other) {
@@ -271,7 +276,9 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         double total = 0.0;
         for (size_t idx = 0; idx < post.size(); ++idx) {
             double k = known[idx];
-            if (params.freq_prior < 1.0 && multiplicity[idx] > 1) {
+            if (multiplicity[idx] > 1) {
+                // See the note on the carriers guard above: `freq_prior < 1` here silently
+                // clamped every larger value to 1.
                 k /= pow((double)multiplicity[idx], 1.0 - params.freq_prior);
             }
             post[idx] = k + wild[idx];

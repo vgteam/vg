@@ -97,25 +97,48 @@ public:
         double escape = 1e-2;
 
         /// Weight on the allele-frequency prior the state space implies, from the number of
-        /// haplotype pairs spelling each genotype. One keeps it, zero removes it.
+        /// haplotype pairs spelling each genotype. Zero removes it, one keeps it as the state
+        /// space presents it, and above one amplifies it beyond that -- the mass on a genotype
+        /// is scaled by `multiplicity^freq_prior`, so this is an exponent, not a mixing weight,
+        /// and nothing about it stops at one.
         ///
-        /// **Zero by default because its size is unmeasured here, not because it is wrong.**
+        /// **This is the dominant parameter of the model, and it was defaulted to zero on an
+        /// argument that did not survive being measured.**
         ///
-        /// When the panel comes from haplotype sampling against the reads being genotyped, panel
-        /// allele frequency is already conditioned on those reads, so there is some double
-        /// counting. But the two are not the same statistic: sampling works from k-mer counts
-        /// aggregated over ~10 kb subchains, while the genotyper works from per-read alignment
-        /// likelihoods at one site -- so at an undecided site inside a well-determined block the
-        /// sampler's choice carries information the site's own reads lack. That is information
-        /// transfer, and a coarse version of the linkage this class models. Measured offline it is
-        /// worth about half the total gain.
+        /// The argument was that when the panel comes from haplotype sampling against the reads
+        /// being genotyped, panel allele frequency is already conditioned on those reads, so
+        /// using it as a prior counts the same evidence twice. That is true and it is not a
+        /// reason to switch it off. Nothing connects the panel to the *truth set*: sampling reads
+        /// k-mer counts, and the benchmark informed neither the graph nor the selection. Reusing
+        /// one's own reads is what mapping and calling already do. What double counting can do is
+        /// leave `GQ` overconfident while the genotype itself improves -- a claim about
+        /// calibration, checkable against observed error rates per `GQ` bin, and separate from
+        /// whether to turn this on.
         ///
-        /// The reason to leave it off is narrower: with a sampled panel the bias cannot be
-        /// bounded, and its failure mode is *correlated* -- where sampling chose wrong haplotypes
-        /// the prior compounds the error, and the site's own weak reads cannot overturn it,
-        /// concentrated exactly where this model is supposed to help. Separating the two needs a
-        /// panel chosen independently of these reads: a full pangenome, or sampling from a
-        /// held-out read set.
+        /// Measured on chr20 and chr6 against the 34-haplotype panels, crossed against the
+        /// transition weight: it improves every variant class at every weight, monotonically,
+        /// through 1 and well past it, peaking near 5-8. At the joint optimum (`weight` 2,
+        /// `freq_prior` 5) it is most of the total gain -- small-variant genotype F1 +0.0099 on
+        /// chr20 and +0.0074 on chr6 against no linkage at all, against +0.0047 and +0.0036 for
+        /// the transition model alone. Beyond 8 it inverts: by 12 the prior overwhelms the reads,
+        /// SNV F1 falls below the no-linkage baseline and structural-variant recall collapses.
+        ///
+        /// The effect is almost entirely small indels -- deletions most, insertions next, and
+        /// SNVs flat to within 0.0002 across the whole axis. That is where the emission is flat
+        /// and the panel has something to add; SNVs are already settled by the reads.
+        ///
+        /// One caveat that is not retired: every one of these numbers is from a 34-haplotype
+        /// panel. Multiplicity is a far coarser statistic over three haplotypes than over
+        /// thirty-three, and a large exponent over a count that barely varies is not the same
+        /// operation. Measured on the two 4-haplotype graphs it is neither harmful nor useful: at
+        /// `weight` 2 the difference between 0 and 5 is under 0.0004 on every class, in both
+        /// directions. That is what the mechanism predicts -- with three haplotypes a genotype is
+        /// spelled by at most a couple of pairs, so there is barely any multiplicity for an
+        /// exponent to act on. Safe there, not helpful there.
+        ///
+        /// The struct default stays 0, so that a `LinkageModel` built directly is the plain HMM
+        /// with no prior -- which is what the unit tests construct and compare against. `vg call`
+        /// defaults its flag to 5.
         double freq_prior = 0.0;
 
         /// Sites of exact inference per window, and the margin discarded at each end.
