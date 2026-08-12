@@ -388,14 +388,16 @@ struct transition_info {
     size_t from_anchor;
     // Index of the destination anchor
     size_t to_anchor;
-    // Distance between anchors in the graph
-    size_t graph_distance;
-    // Distance between anchors in the read
-    size_t read_distance;
+    // Forced indel size, i.e. abs(read - graph)
+    size_t indel_size;
     
+    /// Built transition info by calculating indel size
+    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist)
+        : from_anchor(from), to_anchor(to), indel_size(max(graph_dist, read_dist) - min(graph_dist, read_dist)) {}
+
     /// Build transition info from loose values
-    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
-        : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
+    inline transition_info(size_t from, size_t to, size_t indel_size)
+        : from_anchor(from), to_anchor(to), indel_size(indel_size) {}
 };
 
 
@@ -495,6 +497,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
+    size_t max_indel_bases,
     const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending);
@@ -504,8 +507,8 @@ std::vector<transition_info> generate_zip_tree_transitions(
  * 
  * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
-void add_transition_if_legal(vector<transition_info>& transitions, 
-                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
+                             size_t max_read_lookback_bases, size_t max_indel_bases,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
