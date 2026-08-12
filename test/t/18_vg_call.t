@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 208
+plan tests 211
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -271,14 +271,36 @@ vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 1 -t 1 2>/dev/
 vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 1 -t 4 2>/dev/null | grep -v "^#" > rl_link_t4.vcf
 is $(diff rl_link_t1.vcf rl_link_t4.vcf | wc -l | tr -d ' ') "0" "--linkage-weight output does not depend on thread count"
 
+# This block used to assert "--linkage-weight 0 is inert" against a run with no flag. That
+# reference *was* the default, and the default is now 2, so the same comparison would pit
+# linkage-on against linkage-off and pass only if the layer did nothing. The property is not
+# expressible against an independent reference any more -- weight 0 is the per-site caller, so
+# there is nothing else to compare it with -- and the assertion worth having is the converse: that
+# the default is not silently doing nothing.
 vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 0 2>/dev/null | grep -v "^#" > rl_link_off.vcf
-grep -v "^#" callrl_nopack_z.vcf > rl_noflag.vcf
-is $(diff rl_noflag.vcf rl_link_off.vcf | wc -l | tr -d ' ') "0" "--linkage-weight 0 is inert"
+grep -v "^#" callrl_nopack_z.vcf > rl_link_default.vcf
+is $(if [ $(diff rl_link_default.vcf rl_link_off.vcf | wc -l | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "the default --linkage-weight changes calls that --linkage-weight 0 leaves alone"
 
-vg call x.gbz --read-likelihood --gam sim.gam --linkage-weight 1 2>rl_link_err.txt >/dev/null
-is "$?" "1" "--linkage-weight without -z is refused rather than silently ignored"
+# Weight 0 never constructs the collector, so it is a different code path from a small weight and
+# earns its own determinism check.
+vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 0 -t 4 2>/dev/null | grep -v "^#" > rl_link_off_t4.vcf
+is $(diff rl_link_off.vcf rl_link_off_t4.vcf | wc -l | tr -d ' ') "0" "--linkage-weight 0 output does not depend on thread count"
 
-rm -f rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_noflag.vcf rl_link_err.txt
+# Without haplotype enumeration the default must decline in silence, or every support-enumeration
+# run would fail on a flag the user never typed.
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack 2>/dev/null | grep -v "^#" > rl_nolink_pack.vcf
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack --linkage-weight 0 2>/dev/null | grep -v "^#" > rl_nolink_pack0.vcf
+is $(diff rl_nolink_pack.vcf rl_nolink_pack0.vcf | wc -l | tr -d ' ') "0" "the default --linkage-weight declines without haplotype enumeration"
+
+# An explicit request that cannot be honoured is an error, though. Silence is right for a default
+# and wrong for something the user typed.
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack --linkage-weight 1 2>rl_link_err.txt >/dev/null
+is "$?" "1" "explicit --linkage-weight without haplotype enumeration is refused"
+
+vg call x.gbz --gam sim.gam -z -k x.pack --linkage-weight 1 2>rl_link_err2.txt >/dev/null
+is "$?" "1" "explicit --linkage-weight without --read-likelihood is refused"
+
+rm -f rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
 
 # The real assertion: since nothing on the GBWT path consults support, supplying a
 # pack file must make no difference whatsoever to the calls.

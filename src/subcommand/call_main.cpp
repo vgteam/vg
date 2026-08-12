@@ -74,8 +74,11 @@ void help_call(char** argv) {
          << "                            1 - e_r, the probability it came from this locus" << endl
          << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over the" << endl
          << "                            GBWT haplotypes, so consecutive calls are judged against" << endl
-         << "                            combinations the panel carries. Needs -z. 0 is off, and" << endl
-         << "                            reproduces the per-site caller exactly [0]" << endl
+         << "                            combinations the panel carries. Needs haplotype" << endl
+         << "                            enumeration (-z or -g) and --read-likelihood; declines" << endl
+         << "                            quietly without them unless asked for explicitly. 0 is" << endl
+         << "                            off and reproduces the per-site caller exactly. Tuned on" << endl
+         << "                            a 34-haplotype panel; roughly neutral on 4 [2]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
          << "      --linkage-freq-prior F" << endl
          << "                            exponent on the panel allele-frequency prior implied by" << endl
@@ -247,7 +250,11 @@ int main_call(int argc, char** argv) {
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
-    double linkage_weight = 0.0;
+    double linkage_weight = 2.0;
+    /// Whether a weight was asked for, as opposed to inherited from the default. The two must
+    /// behave differently where linkage is impossible: an explicit request has to fail loudly, and
+    /// the default has to decline quietly, or every run without -z would error.
+    bool linkage_weight_explicit = false;
     double linkage_scale = 10000.0;
     double linkage_freq_prior = 5.0;
     bool max_allele_likelihood = false;
@@ -527,6 +534,7 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
+            linkage_weight_explicit = true;
             break;
         case OPT_LINKAGE_SCALE:
             linkage_scale = parse<double>(optarg);
@@ -1458,14 +1466,26 @@ int main_call(int argc, char** argv) {
         vcf_caller->set_nested(all_snarls || top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
 
-        // Linkage pass. Only under -z: the panel matrix comes from asking which GBWT haplotypes
-        // traverse each allele, and without haplotype enumeration there is no panel to link
-        // against. Kept alive to the end of main because write_variants() consumes it.
-        if (linkage_weight > 0.0) {
-            if (gbwt_index == nullptr) {
-                cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z)" << endl;
+        // Linkage pass. Needs both -z and --read-likelihood: the panel matrix comes from asking
+        // which GBWT haplotypes traverse each allele, so without haplotype enumeration there is no
+        // panel, and the emission is the read-likelihood model's own ln P(reads | G), so without
+        // that there is nothing for the transition to reweight. Kept alive to the end of main
+        // because write_variants() consumes it.
+        //
+        // The --read-likelihood half is asserted here rather than left to the dynamic_cast in
+        // emit_variant. That cast already fails on the Poisson path, so the layer was inert there
+        // by accident: calls came out byte-identical, but the setup ran and the diagnostic reported
+        // "0 sites" on every -z run. Inert on purpose reads better than inert by luck, and it
+        // survives someone giving the Poisson path a richer CallInfo later.
+        if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
+            if (linkage_weight_explicit) {
+                cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
+                     << "and --read-likelihood" << endl;
                 return 1;
             }
+            linkage_weight = 0.0;   // the default declines; only an explicit request is an error
+        }
+        if (linkage_weight > 0.0) {
             // A haplotype is (sample, phase); a GBWT sequence is one orientation of one path, and
             // a haplotype in several fragments owns several paths. Collapse all of them onto one
             // index, or the panel would double-count a fragmented haplotype and treat its pieces
@@ -1491,13 +1511,33 @@ int main_call(int argc, char** argv) {
                     }
                 }
             }
-            LinkageModel::Params linkage_params;
-            linkage_params.weight = linkage_weight;
-            linkage_params.scale = linkage_scale;
-            linkage_params.freq_prior = linkage_freq_prior;
-            linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
-            vcf_caller->set_linkage(linkage_collector.get(), gbwt_index,
-                                    &linkage_sequence_to_haplotype);
+            // A pair of haplotypes is the state, so two is the minimum that can express anything:
+            // below that every state is the wildcard and the posterior collapses back to the
+            // per-site likelihood. Harmless, but running an HMM over an empty panel and reporting
+            // it as active is worse than declining and saying so.
+            if (hap_index.size() < 2) {
+                cerr << "warning [vg call]: linkage disabled -- the GBWT carries "
+                     << hap_index.size() << " haplotype(s) and the model needs at least 2" << endl;
+                linkage_weight = 0.0;
+            } else {
+                // Not an error, but worth saying: the default weight was tuned against panels of
+                // tens of haplotypes and measures as roughly neutral on four, where a genotype is
+                // spelled by too few haplotype pairs for the frequency prior to have anything to
+                // act on. On a thin panel it costs runtime and buys close to nothing.
+                if (hap_index.size() < 8) {
+                    cerr << "warning [vg call]: linkage on a " << hap_index.size()
+                         << "-haplotype panel; the default --linkage-weight 2 was tuned on 34 and"
+                         << " measures as roughly neutral on 4 (consider --linkage-weight 0)"
+                         << endl;
+                }
+                LinkageModel::Params linkage_params;
+                linkage_params.weight = linkage_weight;
+                linkage_params.scale = linkage_scale;
+                linkage_params.freq_prior = linkage_freq_prior;
+                linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
+                vcf_caller->set_linkage(linkage_collector.get(), gbwt_index,
+                                        &linkage_sequence_to_haplotype);
+            }
             if (show_progress) {
                 logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "
                               << gbwt_index->sequences() << " GBWT sequences" << endl;
