@@ -82,9 +82,12 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a6cdaf84c66597e38f226a627e573524a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#a6cdaf84c66597e38f226a627e573524a">transition_info</a> (size_t from, size_t to, size_t graph_dist, size_t read_dist=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
-<tr class="memdesc:a6cdaf84c66597e38f226a627e573524a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Build transition info from loose values.  <a href="structvg_1_1algorithms_1_1transition__info.html#a6cdaf84c66597e38f226a627e573524a">More...</a><br /></td></tr>
-<tr class="separator:a6cdaf84c66597e38f226a627e573524a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a62412d27def7b5d755b6e90a6e31e2a1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#a62412d27def7b5d755b6e90a6e31e2a1">transition_info</a> (size_t from, size_t to, size_t graph_dist, size_t read_dist)</td></tr>
+<tr class="memdesc:a62412d27def7b5d755b6e90a6e31e2a1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Built transition info by calculating indel size.  <a href="structvg_1_1algorithms_1_1transition__info.html#a62412d27def7b5d755b6e90a6e31e2a1">More...</a><br /></td></tr>
+<tr class="separator:a62412d27def7b5d755b6e90a6e31e2a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af045bf77555931e7def29bec230b5f68"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#af045bf77555931e7def29bec230b5f68">transition_info</a> (size_t from, size_t to, size_t <a class="el" href="structvg_1_1algorithms_1_1transition__info.html#aa5d9319026054224eb9086a817e106f9">indel_size</a>)</td></tr>
+<tr class="memdesc:af045bf77555931e7def29bec230b5f68"><td class="mdescLeft">&#160;</td><td class="mdescRight">Build transition info from loose values.  <a href="structvg_1_1algorithms_1_1transition__info.html#af045bf77555931e7def29bec230b5f68">More...</a><br /></td></tr>
+<tr class="separator:af045bf77555931e7def29bec230b5f68"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -92,16 +95,14 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a0e0f93e117abfdb67f90f70cd9320e38"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0af37e1f91061ebf90a8511f034d73e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#ad0af37e1f91061ebf90a8511f034d73e">to_anchor</a></td></tr>
 <tr class="separator:ad0af37e1f91061ebf90a8511f034d73e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae730e138c39016cfb65c7b68552578f8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#ae730e138c39016cfb65c7b68552578f8">graph_distance</a></td></tr>
-<tr class="separator:ae730e138c39016cfb65c7b68552578f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a28f5fdab84de605c87a406c09af6758a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#a28f5fdab84de605c87a406c09af6758a">read_distance</a></td></tr>
-<tr class="separator:a28f5fdab84de605c87a406c09af6758a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa5d9319026054224eb9086a817e106f9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1transition__info.html#aa5d9319026054224eb9086a817e106f9">indel_size</a></td></tr>
+<tr class="separator:aa5d9319026054224eb9086a817e106f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a possible transition between anchors. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a6cdaf84c66597e38f226a627e573524a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6cdaf84c66597e38f226a627e573524a">&#9670;&nbsp;</a></span>transition_info()</h2>
+<a id="a62412d27def7b5d755b6e90a6e31e2a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a62412d27def7b5d755b6e90a6e31e2a1">&#9670;&nbsp;</a></span>transition_info() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -131,7 +132,51 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>read_dist</em> = <code>std::numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
+          <td class="paramname"><em>read_dist</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Built transition info by calculating indel size. </p>
+
+</div>
+</div>
+<a id="af045bf77555931e7def29bec230b5f68"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af045bf77555931e7def29bec230b5f68">&#9670;&nbsp;</a></span>transition_info() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::algorithms::transition_info::transition_info </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>to</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>indel_size</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -165,28 +210,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae730e138c39016cfb65c7b68552578f8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae730e138c39016cfb65c7b68552578f8">&#9670;&nbsp;</a></span>graph_distance</h2>
+<a id="aa5d9319026054224eb9086a817e106f9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa5d9319026054224eb9086a817e106f9">&#9670;&nbsp;</a></span>indel_size</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::algorithms::transition_info::graph_distance</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a28f5fdab84de605c87a406c09af6758a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a28f5fdab84de605c87a406c09af6758a">&#9670;&nbsp;</a></span>read_distance</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::algorithms::transition_info::read_distance</td>
+          <td class="memname">size_t vg::algorithms::transition_info::indel_size</td>
         </tr>
       </table>
 </div><div class="memdoc">
