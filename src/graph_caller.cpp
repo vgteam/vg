@@ -1,5 +1,7 @@
 #include <chrono>
 
+#include <omp.h>
+
 #include "graph_caller.hpp"
 #include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
@@ -320,6 +322,14 @@ void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT*
     this->linkage_collector = collector;
     this->linkage_gbwt = gbwt;
     this->linkage_sequence_to_haplotype = sequence_to_haplotype;
+    this->linkage_gbwt_cache.clear();
+    if (gbwt != nullptr) {
+        // One per thread, built here so the parallel region never allocates one.
+        this->linkage_gbwt_cache.reserve(omp_get_max_threads());
+        for (int i = 0; i < omp_get_max_threads(); ++i) {
+            this->linkage_gbwt_cache.emplace_back(*gbwt);
+        }
+    }
 }
 
 vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
@@ -332,6 +342,11 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
     // reference: a haplotype whose path ends inside the site genuinely has nothing to say, and
     // recording it as reference would invent evidence.
     out.assign(linkage_sequence_to_haplotype->size(), -1);
+
+    // The cache, not the index: same results, but records stay decompressed between sites.
+    // Falls back to the index itself if set_linkage was never given one to size the vector.
+    int thread = omp_get_thread_num();
+    const bool cached = (size_t)thread < linkage_gbwt_cache.size();
 
     for (size_t a = 0; a < travs.size(); ++a) {
         const SnarlTraversal& trav = travs[a];
@@ -349,7 +364,12 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
                 break;
             }
             gbwt::node_type node = gbwt::Node::encode(visit.node_id(), visit.backward());
-            state = (i == 0) ? linkage_gbwt->find(node) : linkage_gbwt->extend(state, node);
+            if (cached) {
+                const gbwt::CachedGBWT& c = linkage_gbwt_cache[thread];
+                state = (i == 0) ? c.find(node) : c.extend(state, node);
+            } else {
+                state = (i == 0) ? linkage_gbwt->find(node) : linkage_gbwt->extend(state, node);
+            }
             if (state.empty()) {
                 ok = false;
                 break;
@@ -358,7 +378,9 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
         if (!ok || state.empty()) {
             continue;
         }
-        for (gbwt::size_type seq : linkage_gbwt->locate(state)) {
+        vector<gbwt::size_type> seqs = cached ? linkage_gbwt_cache[thread].locate(state)
+                                              : linkage_gbwt->locate(state);
+        for (gbwt::size_type seq : seqs) {
             if (seq < linkage_sequence_to_haplotype->size()) {
                 size_t hap = (*linkage_sequence_to_haplotype)[seq];
                 if (hap < out.size()) {

@@ -8,6 +8,7 @@
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
 #include "linkage_model.hpp"
 #include "snarls.hpp"
@@ -173,6 +174,19 @@ protected:
     LinkageCollector* linkage_collector = nullptr;
     const gbwt::GBWT* linkage_gbwt = nullptr;
     const vector<size_t>* linkage_sequence_to_haplotype = nullptr;
+
+    /// One decompressed-record cache per thread, for the panel lookups.
+    ///
+    /// Profiling put `panel_alleles` at roughly three and a half times the self cost of
+    /// `score_read_against_allele` -- the per-read likelihood inner loop it exists to annotate --
+    /// and three of its five heaviest frames were GBWT record lookup and decompression rather
+    /// than the DA sampling intrinsic to `locate`. Every site re-walks records from scratch, and
+    /// adjacent snarls share most of them.
+    ///
+    /// Per thread, not shared: `CachedGBWT` is a mutable cache with no internal locking and the
+    /// caller is parallel over snarls. Sized once in `set_linkage` so nothing allocates inside
+    /// the parallel region.
+    mutable vector<gbwt::CachedGBWT> linkage_gbwt_cache;
 
     /// Rewrite one emitted line's GT and GQ for a linkage change, leaving every other field --
     /// AD, DP, GL, GQI, AT -- alone, since those remain the per-site truth.
