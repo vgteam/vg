@@ -2899,8 +2899,9 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             ScoredPath link_aln = find_link_alignment(to_chain, aln, edge.begin(), edge.begin() + 1, wfa_extender, aligner, stats);
 
             if (link_aln.score == -std::numeric_limits<int32_t>::max()) {
-                // We gave up. This link isn't usable
-                break;
+                // We gave up on this link. It isn't usable, but other,
+                // unrelated connections in this group may still be fine.
+                continue;
             }
 
             // Remember the path
@@ -3034,24 +3035,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Penalize score according to the number of recombinations their chains required.
         // This allows alignments that required fewer recombinations in their chains to win.
         // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
-        size_t total_rec_count = subchain_group.subchains[subchains_used.front()].rec_count;
-        algorithms::path_flags_t cur_paths = subchain_group.subchains[subchains_used.front()].end_paths;
-        for (size_t i = 1; i < subchains_used.size(); i++) {
-            if (cur_paths & subchain_group.subchains[subchains_used[i]].start_paths == 0) {
-                // This inter-subchain connection requires a recombination
-                total_rec_count += 1;
-                // Paths reset to whatever this next subchain wants
-                cur_paths = subchain_group.subchains[subchains_used[i]].end_paths;
-            } else if (subchain_group.subchains[subchains_used[i]].rec_count > 0) {
-                // The subchain itself requires a recombination, so paths reset
-                cur_paths = subchain_group.subchains[subchains_used[i]].end_paths;
-            } else {
-                // No forced recombinations, so paths narrow down to what is OK with the end
-                cur_paths &= subchain_group.subchains[subchains_used[i]].end_paths;
-            }
-            // Add in recombinations required by the subchain itself
-            total_rec_count += subchain_group.subchains[subchains_used[i]].rec_count;
-        }
+        size_t total_rec_count = algorithms::count_total_recombinations(subchain_group, subchains_used);
         if (rec_penalty != 0) {
             logged_gaps_score -= (rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * total_rec_count;
         }
