@@ -1000,12 +1000,13 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
            
             // Have a function to process the best alignments we obtained
             auto observe_alignment = [&](Alignment& aln) {
-                alignments.emplace_back(std::move(aln));
                 
                 if (find_supplementaries) {
                     auto interval = aligned_interval(aln);
                     current_read_coverage.add(interval.first, interval.second);
                 }
+                
+                alignments.emplace_back(std::move(aln));
 
                 if (track_provenance) {
     
