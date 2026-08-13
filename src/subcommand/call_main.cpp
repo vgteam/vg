@@ -50,8 +50,11 @@ void help_call(char** argv) {
          << "                            and large (Y) variants [0.005,0.01]" << endl
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
+         << "read-likelihood calling options (all require --read-likelihood):" << endl
          << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
          << "                            instead of aggregate depth (needs one read source below)" << endl
+         << "" << endl
+         << "  reads in (one source required):" << endl
          << "      --gam FILE            read alignments for --read-likelihood" << endl
          << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
          << "      --gam-index FILE      .gai index for --gam, so reads are fetched per site" << endl
@@ -64,7 +67,8 @@ void help_call(char** argv) {
          << "      --read-window N       node-ID window for indexed read fetches" << endl
          << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
-         << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "" << endl
+         << "  model terms:" << endl
          << "      --depth-term W        add W * ln P(N reads | genotype) to the likelihood, so" << endl
          << "                            a genotype is also judged on whether it predicts the" << endl
          << "                            number of reads seen. The rate is measured over the read" << endl
@@ -72,11 +76,27 @@ void help_call(char** argv) {
          << "                            0 disables it; DR is emitted either way [0.1]" << endl
          << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
          << "                            1 - e_r, the probability it came from this locus" << endl
+         << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
+         << "                            probability. Governs how much a read's placement" << endl
+         << "                            ambiguity counts, so it matters most on graphs with" << endl
+         << "                            many similar haplotypes [0.7]" << endl
+         << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
+         << "                            capping one read's veto at ln(P). Covers local" << endl
+         << "                            misalignment, which MAPQ does not measure. Mainly" << endl
+         << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
+         << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
+         << "                            instead of by the reads it is expected to contribute." << endl
+         << "                            The flat weight is wrong wherever the alleles differ" << endl
+         << "                            in length: it loses large heterozygous deletions and" << endl
+         << "                            mis-genotypes large heterozygous insertions. Restores" << endl
+         << "                            the pre-correction model exactly" << endl
+         << "" << endl
+         << "  linkage between sites (also needs haplotype enumeration, -z or -g):" << endl
          << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over the" << endl
          << "                            GBWT haplotypes, so consecutive calls are judged against" << endl
-         << "                            combinations the panel carries. Needs haplotype" << endl
-         << "                            enumeration (-z or -g) and --read-likelihood; declines" << endl
-         << "                            quietly without them unless asked for explicitly. 0 is" << endl
+         << "                            combinations the panel carries. Declines quietly where" << endl
+         << "                            enumeration is absent, unless asked for explicitly. 0 is" << endl
          << "                            off and reproduces the per-site caller exactly. Tuned on" << endl
          << "                            a 34-haplotype panel; roughly neutral on 4 [2]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
@@ -87,28 +107,18 @@ void help_call(char** argv) {
          << "                            above 1 amplifies it; measured best near 5 on a 34-" << endl
          << "                            haplotype panel, inverting past 8. Mostly an indel" << endl
          << "                            effect [5]" << endl
+         << "" << endl
+         << "  quality reporting (ranking only; these never change a genotype):" << endl
+         << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
+         << "                            scaling it by the fraction of reads the called" << endl
+         << "                            genotype explains. GQI always carries the raw value" << endl
          << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose called" << endl
          << "                            alleles change length by 50 bp or more, so a call whose" << endl
          << "                            read count is implausible for the sequence it claims" << endl
          << "                            ranks lower. Ranking only; no genotype changes. 0 is" << endl
          << "                            off [0]" << endl
-         << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
-         << "                            instead of by the reads it is expected to contribute." << endl
-         << "                            The flat weight is wrong wherever the alleles differ" << endl
-         << "                            in length: it loses large heterozygous deletions and" << endl
-         << "                            mis-genotypes large heterozygous insertions. Restores" << endl
-         << "                            the pre-correction model exactly" << endl
-         << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
-         << "                            scaling it by the fraction of reads the called" << endl
-         << "                            genotype explains. GQI always carries the raw value" << endl
-         << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
-         << "                            probability. Governs how much a read's placement" << endl
-         << "                            ambiguity counts, so it matters most on graphs with" << endl
-         << "                            many similar haplotypes [0.7]" << endl
-         << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
-         << "                            capping one read's veto at ln(P). Covers local" << endl
-         << "                            misalignment, which MAPQ does not measure. Mainly" << endl
-         << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
+         << "" << endl
+         << "  debugging:" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
          << "                            more support than the next best allele [6,6]" << endl
@@ -827,6 +837,46 @@ int main_call(int argc, char** argv) {
         logger.error() << "--gam-index requires --gam" << endl;
     }
 
+    // Validation: every option below only means something under --read-likelihood, so passing
+    // one without it is a command line that does not do what it says. Silently ignoring them is
+    // how a run gets analysed under the wrong assumptions -- and the inconsistency was real
+    // before this check existed: an explicit --linkage-weight was refused while --depth-term,
+    // --flat-mixture and the rest were accepted and dropped.
+    //
+    // Read from argv rather than from an `explicit` bool per option. Most of these have non-zero
+    // defaults, so "was it set" is not recoverable from the parsed value, and eighteen more
+    // tracking bools would be worse than one scan. Tokens are matched whole, or up to an '=',
+    // so a filename containing one of these strings cannot trigger it.
+    if (!read_likelihood) {
+        static const vector<string> read_likelihood_only = {
+            "--gam", "--gaf-reads", "--gam-index", "--gaf-base", "--gbz-base",
+            "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
+            "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
+            "--linkage-freq-prior", "--depth-quality", "--flat-mixture", "--no-share-quality",
+            "--mismap-max", "--mismap-min", "--dump-likelihoods"};
+        vector<string> offenders;
+        for (int i = 1; i < argc; ++i) {
+            string arg(argv[i]);
+            size_t eq = arg.find('=');
+            string name = eq == string::npos ? arg : arg.substr(0, eq);
+            for (const string& flag : read_likelihood_only) {
+                if (name == flag) {
+                    offenders.push_back(flag);
+                    break;
+                }
+            }
+        }
+        if (!offenders.empty()) {
+            stringstream joined;
+            for (size_t i = 0; i < offenders.size(); ++i) {
+                joined << (i ? ", " : "") << offenders[i];
+            }
+            logger.error() << joined.str()
+                           << (offenders.size() == 1 ? " only applies" : " only apply")
+                           << " to --read-likelihood, which was not given" << endl;
+        }
+    }
+
     // Validation: --read-likelihood needs reads, and cannot be combined with the
     // support-based model selection flags. Failing here rather than later keeps a
     // read-free "read-level" genotyping run from silently happening.
@@ -846,9 +896,6 @@ int main_call(int argc, char** argv) {
         if (legacy) {
             logger.error() << "--read-likelihood cannot be used with --legacy" << endl;
         }
-    } else if (!gam_filename.empty() || !gaf_filename.empty() || !gaf_base_filename.empty()) {
-        logger.error() << "--gam/--gaf-reads/--gaf-base are only used with --read-likelihood"
-                       << endl;
     }
 
     if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {

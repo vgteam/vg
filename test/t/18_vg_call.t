@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 212
+plan tests 216
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -313,7 +313,24 @@ is "$?" "1" "explicit --linkage-weight without haplotype enumeration is refused"
 vg call x.gbz --gam sim.gam -z -k x.pack --linkage-weight 1 2>rl_link_err2.txt >/dev/null
 is "$?" "1" "explicit --linkage-weight without --read-likelihood is refused"
 
-rm -f rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
+# Every read-likelihood option is meaningless without --read-likelihood, and silently ignoring one
+# means the run did not do what the command line says. --linkage-weight was refused while
+# --depth-term and the rest were accepted and dropped; this pins the consistent behaviour.
+vg call x.vg -k x.pack --depth-term 0.5 2>/dev/null >/dev/null
+is "$?" "1" "--depth-term without --read-likelihood is refused"
+
+vg call x.vg -k x.pack --flat-mixture 2>/dev/null >/dev/null
+is "$?" "1" "--flat-mixture without --read-likelihood is refused"
+
+# The value-taking form too, since the check reads argv and has to handle --opt=value.
+vg call x.vg -k x.pack --mismap-min=0.4 2>/dev/null >/dev/null
+is "$?" "1" "--mismap-min=VALUE without --read-likelihood is refused"
+
+# And it must not fire when the mode *is* on: this run differs only in --read-likelihood.
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack --depth-term 0.5 2>/dev/null | grep -v "^#" > rl_dt.vcf
+is $(if [ $(wc -l < rl_dt.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "read-likelihood options are accepted with --read-likelihood"
+
+rm -f rl_dt.vcf rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
 
 # The real assertion: since nothing on the GBWT path consults support, supplying a
 # pack file must make no difference whatsoever to the calls.
@@ -351,7 +368,7 @@ vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gaf-base sim.gaf
 is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam together are refused"
 
 vg call x.vg -k x.pack --gaf-base sim.gaf.db -t 1 >/dev/null 2>gb_norl.txt
-is $(grep -c "only used with --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
+is $(grep -c "only applies to --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
 
 # A missing gbz-base is the user's setup, not a vg bug: it must be an error with a fix
 # in it, not a crash telling them to file an issue.
