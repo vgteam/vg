@@ -5,6 +5,11 @@
  *
  * A SnarlCaller that genotypes from an explicit P(reads | genotype) model rather
  * than from aggregate read depth.
+ *
+ * The model, its parameters, and the meaning of every field this writes to the VCF are
+ * specified in doc/read-likelihood-genotyping.md. The quality fields in particular are
+ * easy to misread -- GQ here is scaled and is a ranking score, not a calibrated
+ * posterior -- and that page is where the distinction is spelled out.
  */
 
 #include <map>

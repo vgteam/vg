@@ -72,6 +72,7 @@ void help_call(char** argv) {
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
          << "read-likelihood calling options (all require --read-likelihood):" << endl
+         << "  the model, every term and every parameter below: doc/read-likelihood-genotyping.md" << endl
          << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
          << "                            instead of aggregate depth (needs one read source below)" << endl
          << "" << endl

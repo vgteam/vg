@@ -4,6 +4,11 @@
 /** \file linkage_model.hpp
  * A Li-Stephens layer over per-site genotype likelihoods, so that consecutive calls are
  * judged against which combinations the haplotype panel actually carries.
+ *
+ * doc/read-likelihood-genotyping.md describes this layer as a user meets it, including how it
+ * relates to the per-site objective it consumes. The comments here are the record of *why* each
+ * default is what it is -- what was measured, on which panel, and what did not survive being
+ * measured. That record belongs with the code that implements it and is not duplicated there.
  */
 
 #include <cstddef>

@@ -1,3 +1,21 @@
+# vg documentation
+
+## Method write-ups
+
+Long-form descriptions of methods live here in the source tree, beside the code that implements
+them, so that a method and its description are reviewed in one diff and versioned together. A
+write-up covers what a user needs to understand and configure a method: the objective it
+optimises, every term and parameter, and what its outputs do and do not mean. Rationale that only
+matters to someone *editing* the code stays in the headers.
+
+- [read-likelihood-genotyping.md](read-likelihood-genotyping.md) — the `vg call --read-likelihood`
+  model: objective function, all terms, all parameters, the linkage layer, and the VCF fields.
+
+The [wiki](https://github.com/vgteam/vg/wiki) remains the home for tutorials and worked examples.
+It is a separate repository (mounted here as the `wiki` submodule), so anything published there
+cannot be reviewed alongside a code change; a page there should link to the write-up rather than
+restate it.
+
 # Automated markdown manpage
 
 Make a markdown document with the usage messages of (selected) `vg` subcommands. 

@@ -10,6 +10,10 @@
  * callers ask "how many reads cover this allele", this asks "how well does each
  * individual read fit each allele", which is what a proper P(reads | genotype)
  * needs.
+ *
+ * The model this feeds -- the objective, every term, every parameter and what the
+ * reported qualities mean -- is written up in doc/read-likelihood-genotyping.md.
+ * Read that first; the comments here assume it and cover only what is local.
  */
 
 #include <functional>
@@ -236,46 +240,32 @@ public:
      *   ln P(reads | G) =  sum_r ln [ (1 - e_r) * sum_{h in G} w_h * rel(r,h) + e_r ]
      *                    + w_d * ln Poisson( N_eff ; lambda_G )
      *
-     * Read term, over reads r overlapping the site:
+     * where r runs over reads overlapping the site, h over the haplotypes of G
+     * (twice over the same allele for a homozygote), rel(r,h) is the read's fit to
+     * allele h relative to its own best allele here, e_r its mismapping probability,
+     * w_h the mixture weight, and the second term a Poisson on read count.
      *
-     *   rel(r,h)  in [0,1], the read's fit to allele h relative to its own best
-     *             allele here. Exactly 0 means h cannot place the read at all,
-     *             which is evidence against h rather than missing data.
-     *   e_r       clamp( phred_to_prob(MAPQ_r), min_mismap_prob, max_mismap_prob ).
-     *             "This read is not from here", so it explains any genotype
-     *             equally. Genotype-independent, so a wrong e_r costs power
-     *             rather than creating bias -- but see the clamps, which is where
-     *             it stops being only about mismapping.
-     *   w_h       the mixture weight for haplotype h of G, summing to 1 over G.
-     *             Flat 1/|G| under --flat-mixture. By default proportional to
-     *             (U_h + R - 1), where U_h is sequence unique to h among G's
-     *             members and R is the mean read length: the number of read start
-     *             positions that can produce a read able to distinguish h. Flat
-     *             weights assert both haplotypes produced half the reads, which is
-     *             false over a heterozygous deletion and is why large het
-     *             deletions were lost. Equal-length alleles give exactly 1/2, so
-     *             SNVs are unchanged bit for bit.
+     * **Every symbol, every parameter and the reasoning behind each is specified in
+     * doc/read-likelihood-genotyping.md**, which is the canonical description of the
+     * model. Kept there rather than here because the model spans this header, the
+     * linkage layer and the VCF writer, and no one of them can hold all of it. What
+     * follows is only what a reader *modifying this function* needs.
      *
      * The bracket lies in [e_r, 1], so its log is finite and bounded below by
      * ln(e_r): no single read can penalise a genotype without limit. That bound is
      * the whole reason for the floor, and it is why min_mismap_prob reads as
      * "P(this read's evidence here is unreliable)" rather than as mismapping alone.
+     * Anything that removes the bound -- an e_r of zero, a mixture allowed outside
+     * [0,1] -- reintroduces the unbounded single-read veto that the floor exists to
+     * stop, and it will present as spurious heterozygosity rather than as an error.
      *
-     * Depth term, one per site rather than per read:
-     *
-     *   N_eff     sum_r (1 - e_r), the expected number of these reads genuinely
-     *             from this locus. Raw read count under --depth-count-raw.
-     *   lambda_G  rate * sum_{h in G} max(L_h + R - 1, 1), for allele length L_h.
-     *   rate      reads per haplotype per bp, measured over a window of the same
-     *             contig and weighted by the same (1 - e_r), so the correction is
-     *             *relative*: a site whose mapping quality matches its
-     *             neighbourhood's is unaffected.
-     *   w_d       --depth-term, default 0.1.
+     * rel(r,h) = 0 means h cannot place the read at all. That is evidence *against*
+     * h, not missing data, and must not be skipped or imputed.
      *
      * The read term has no opinion about reads that are *absent*, which is exactly
-     * the evidence a homozygous deletion presents; the depth term supplies it. Its
-     * weight is small because it is a much cruder statistic than the read term and
-     * is dominated by it wherever reads are informative.
+     * the evidence a homozygous deletion presents; the depth term supplies it, at a
+     * deliberately small weight because it is a much cruder statistic and is
+     * dominated by the read term wherever reads are informative.
      *
      * **Not in this expression:** the linkage layer. `--linkage-weight` re-decides
      * genotypes *after* calling, from forward-backward posteriors over pairs of
