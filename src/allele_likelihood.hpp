@@ -97,25 +97,6 @@ public:
     /// do not match.
     size_t num_unplaceable() const { return unplaceable; }
 
-    /// Replace the 1/|G| mixture over the genotype's haplotypes with a maximum:
-    /// score each read by the single haplotype in G that explains it best.
-    ///
-    /// Motivation. Under the mixture, a read lying inside a heterozygous deletion
-    /// scores 1 under the homozygous long genotype and 1/2 under the correct
-    /// heterozygote, so it argues for the wrong answer by ln 2 -- and there are as
-    /// many such reads as the deletion is long. A maximum makes those reads score
-    /// 1 under both, so they cancel, while junction-spanning reads still separate
-    /// the two.
-    ///
-    /// **Not a drop-in replacement for the mixture.** max_{h in G} is monotone in
-    /// the allele set, so ln P(reads | 0/1) >= ln P(reads | 0/0) and >= ln P(reads
-    /// | 1/1) for every read at every site: a heterozygote can never score below
-    /// either homozygote, and with any noise at all it strictly wins. There is no
-    /// cost to adding an allele, so this is a set-cover criterion rather than a
-    /// likelihood, and it is expected to over-call heterozygotes badly. Provided
-    /// to measure that trade, not as a shipping default.
-    void set_max_allele(bool on) { max_allele = on; }
-
     /// Weight the mixture by how many reads each haplotype is *expected* to
     /// contribute at this site, instead of a flat 1/|G|.
     ///
@@ -330,7 +311,6 @@ private:
     vector<double> read_mismap_prob;
     /// sum_r (1 - e_r), filled in by set_contents.
     double effective_read_total = 0.0;
-    bool max_allele = false;
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
     double mean_read_length = 0.0;
@@ -377,8 +357,6 @@ public:
     size_t num_reads_added() const { return rows.size(); }
     size_t num_unplaceable() const { return unplaceable; }
 
-    /// See AlleleReadLikelihoods::set_max_allele. Carried through build().
-    void set_max_allele(bool on) { max_allele = on; }
 
     /// Allele lengths for the length-weighted mixture, indexed by allele. The
     /// read length is accumulated from the reads themselves, so only this is
@@ -399,7 +377,6 @@ private:
     size_t n_alleles;
     double min_mismap;
     double max_mismap;
-    bool max_allele = false;
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
     double read_length_total = 0.0;
@@ -507,10 +484,6 @@ struct AlleleLikelihoodParams {
     /// which is as close to "trust every read fully" as the model can get while
     /// keeping the log finite.
     bool use_mismap_term = true;
-    /// Score each read by the best-explaining haplotype in the genotype instead
-    /// of marginalising over them. See AlleleReadLikelihoods::set_max_allele --
-    /// diagnostic only, and expected to over-call heterozygotes.
-    bool max_allele = false;
     /// Weight the mixture by each haplotype's expected read contribution at the
     /// site rather than a flat 1/|G|. See AlleleReadLikelihoods::set_length_weights.
     ///

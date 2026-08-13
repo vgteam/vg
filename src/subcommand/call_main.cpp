@@ -101,11 +101,6 @@ void help_call(char** argv) {
          << "      --length-weight-whole-traversal  weight by whole traversal length rather" << endl
          << "                            than by sequence unique to each allele. Coarser;" << endl
          << "                            kept so the sharper weight can be measured against it" << endl
-         << "      --max-allele-likelihood  score each read by the best-fitting haplotype in" << endl
-         << "                            the genotype instead of averaging over them. Removes" << endl
-         << "                            the ln 2 penalty that reads inside a heterozygous" << endl
-         << "                            deletion pay, but a heterozygote can then never score" << endl
-         << "                            below a homozygote, so it over-calls hets. Diagnostic" << endl
          << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
          << "                            scaling it by the fraction of reads the called" << endl
          << "                            genotype explains. GQI always carries the raw value" << endl
@@ -257,7 +252,6 @@ int main_call(int argc, char** argv) {
     bool linkage_weight_explicit = false;
     double linkage_scale = 10000.0;
     double linkage_freq_prior = 5.0;
-    bool max_allele_likelihood = false;
     bool flat_mixture = false;
     double depth_weight = 0.1;
     bool length_weight_whole_traversal = false;
@@ -296,7 +290,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
-    constexpr int OPT_MAX_ALLELE_LIKELIHOOD = 1022;
     constexpr int OPT_FLAT_MIXTURE = 1023;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
@@ -349,7 +342,6 @@ int main_call(int argc, char** argv) {
             {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
             {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
-            {"max-allele-likelihood", no_argument, 0, OPT_MAX_ALLELE_LIKELIHOOD},
             {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
             {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
             {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
@@ -516,9 +508,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_MISMAP_TERM:
             no_mismap_term = true;
-            break;
-        case OPT_MAX_ALLELE_LIKELIHOOD:
-            max_allele_likelihood = true;
             break;
         case OPT_FLAT_MIXTURE:
             flat_mixture = true;
@@ -1239,7 +1228,6 @@ int main_call(int argc, char** argv) {
 
             AlleleLikelihoodParams likelihood_params;
             likelihood_params.use_mismap_term = !no_mismap_term;
-            likelihood_params.max_allele = max_allele_likelihood;
             likelihood_params.length_weighted_mixture = !flat_mixture;
             likelihood_params.depth_weight = depth_weight;
             likelihood_params.length_weight_whole_traversal = length_weight_whole_traversal;

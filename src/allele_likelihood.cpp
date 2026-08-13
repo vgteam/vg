@@ -135,8 +135,7 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
     }
 
     for (size_t r = 0; r < n_reads; ++r) {
-        // Marginalise over which haplotype of the genotype produced this read --
-        // or, under max_allele, keep only the best-explaining haplotype.
+        // Marginalise over which haplotype of the genotype produced this read.
         double mixture = 0.0;
         for (size_t i = 0; i < genotype.size(); ++i) {
             int allele = genotype[i];
@@ -145,11 +144,7 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
             if (allele < 0 || (size_t)allele >= n_alleles) {
                 continue;
             }
-            if (max_allele) {
-                mixture = max(mixture, rel(r, (size_t)allele));
-            } else {
-                mixture += weights[i] * rel(r, (size_t)allele);
-            }
+            mixture += weights[i] * rel(r, (size_t)allele);
         }
 
         // Fold in "this read did not come from this site at all". Because the
@@ -284,7 +279,6 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     AlleleReadLikelihoods result;
     result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(mismap_probs),
                         std::move(best_lns), std::move(names), unplaceable);
-    result.set_max_allele(max_allele);
     if (!allele_lengths.empty() && read_length_count > 0) {
         result.set_length_weights(allele_lengths, read_length_total / (double)read_length_count);
         result.set_unique_lengths(std::move(unique_lengths));
@@ -683,7 +677,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
                                         params.max_mismap_prob);
-    builder.set_max_allele(params.max_allele);
     if (traversals.empty()) {
         return builder.build();
     }

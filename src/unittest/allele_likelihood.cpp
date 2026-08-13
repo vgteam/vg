@@ -126,35 +126,6 @@ TEST_CASE("Clear homozygous evidence calls the homozygote", "[allele_likelihood]
     }
 }
 
-TEST_CASE("set_max_allele removes the heterozygote's mixture penalty", "[allele_likelihood]") {
-    // The heterozygous-deletion failure in miniature. Allele 0 is a long allele,
-    // allele 1 a deletion. Twenty "interior" reads fit only the long allele --
-    // on a real heterozygous deletion they all come from the intact haplotype --
-    // and three "junction" reads fit only the deletion.
-    AlleleReadLikelihoodsBuilder builder(2);
-    for (int i = 0; i < 20; ++i) {
-        builder.add_read({0.0, -30.0}, 1e-6);   // interior: long only
-    }
-    for (int i = 0; i < 3; ++i) {
-        builder.add_read({-30.0, 0.0}, 1e-6);   // junction: deletion only
-    }
-
-    SECTION("under the mixture the interior reads outvote the junction reads") {
-        AlleleReadLikelihoods matrix = builder.build();
-        // Each interior read prefers hom-long by ln 2; each junction read prefers
-        // the het by ln(0.5/e_r), but there are far fewer of them.
-        REQUIRE(matrix.genotype_likelihood({0, 0}) > matrix.genotype_likelihood({0, 1}));
-        REQUIRE(best_genotype(matrix.score_genotypes(2)) == vector<int>({0, 0}));
-    }
-
-    SECTION("under a maximum the interior reads cancel and the het is recovered") {
-        builder.set_max_allele(true);
-        AlleleReadLikelihoods matrix = builder.build();
-        REQUIRE(matrix.genotype_likelihood({0, 1}) > matrix.genotype_likelihood({0, 0}));
-        REQUIRE(best_genotype(matrix.score_genotypes(2)) == vector<int>({0, 1}));
-    }
-}
-
 TEST_CASE("The depth term prefers the genotype that predicts the read count",
           "[allele_likelihood]") {
     // A heterozygous deletion the length-weighted mixture still gets wrong, which is
@@ -291,9 +262,14 @@ TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",
 
 TEST_CASE("A length-weighted mixture still prefers a clean homozygote",
           "[allele_likelihood]") {
-    // The property max_allele destroys. Weights sum to 1, so adding an allele still
-    // costs: overwhelming homozygous evidence plus one stray read must stay
-    // homozygous, even when the alleles differ wildly in length.
+    // The property that makes this a likelihood rather than a set-cover criterion.
+    // Weights sum to 1, so adding an allele still costs: overwhelming homozygous
+    // evidence plus one stray read must stay homozygous, even when the alleles differ
+    // wildly in length. A max over the genotype's haplotypes would not -- it is
+    // monotone in the allele set, so a heterozygote can never score below either
+    // homozygote. That was tried, as --max-allele-likelihood, and it doubled
+    // small-variant false positives; the flag is gone and this test is what stops the
+    // property coming back by accident.
     AlleleReadLikelihoodsBuilder builder(2);
     for (int i = 0; i < 30; ++i) {
         builder.add_read({0.0, -30.0}, 0.02, "", 151);
@@ -430,25 +406,6 @@ TEST_CASE("A length-weighted mixture fixes heterozygous insertions too",
     }
     weighted.set_allele_lengths({100, 2100});
     REQUIRE(best_genotype(weighted.build().score_genotypes(2)) == vector<int>({0, 1}));
-}
-
-TEST_CASE("set_max_allele cannot score a heterozygote below a homozygote",
-          "[allele_likelihood]") {
-    // Why this is a diagnostic and not a shipping default. max over the genotype
-    // is monotone in the allele set, so adding an allele never lowers any read's
-    // term: 0/1 dominates both 0/0 and 1/1 at every site. Evidence that should
-    // call a confident homozygote calls a heterozygote instead.
-    AlleleReadLikelihoodsBuilder builder(2);
-    for (int i = 0; i < 30; ++i) {
-        builder.add_read({0.0, -30.0}, 1e-6);   // overwhelming hom-ref evidence
-    }
-    builder.add_read({-30.0, 0.0}, 1e-6);       // one stray read, e.g. an error
-    builder.set_max_allele(true);
-    AlleleReadLikelihoods matrix = builder.build();
-
-    REQUIRE(matrix.genotype_likelihood({0, 1}) >= matrix.genotype_likelihood({0, 0}));
-    REQUIRE(matrix.genotype_likelihood({0, 1}) >= matrix.genotype_likelihood({1, 1}));
-    REQUIRE(best_genotype(matrix.score_genotypes(2)) == vector<int>({0, 1}));
 }
 
 TEST_CASE("A flat matrix yields flat genotype likelihoods", "[allele_likelihood]") {
