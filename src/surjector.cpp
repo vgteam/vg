@@ -15,6 +15,7 @@
 #include "reverse_graph.hpp"
 #include "subpath_overlay.hpp"
 #include "identity_overlay.hpp"
+#include "mapper.hpp"
 
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
@@ -295,6 +296,395 @@ using namespace std;
 
             alns[i].set_mapping_quality(global_mapq);
         }
+    }
+
+    double Surjector::score_alignment_pair(const Alignment& source,
+                                           const Alignment& first,
+                                           const Alignment& second,
+                                           int64_t template_length,
+                                           double fragment_mean,
+                                           double fragment_stddev,
+                                           bool use_fragment_length) const {
+        double score = first.score() + second.score();
+        if (use_fragment_length && template_length != numeric_limits<int64_t>::max()
+            && fragment_stddev > 0.0) {
+            double log_base = get_aligner(!source.quality().empty())->scorer->get_log_base();
+            if (log_base != 0.0) {
+                double deviation = template_length - fragment_mean;
+                score += (-deviation * deviation /
+                          (2.0 * fragment_stddev * fragment_stddev)) / log_base;
+                score = max(score, static_cast<double>(min(first.score(), second.score())));
+            }
+        }
+        return score;
+    }
+
+    PairedSurjector::PairedSurjector(Surjector& surjector,
+                                     const PathPositionHandleGraph* graph,
+                                     size_t maximum_sample_size,
+                                     size_t reestimation_frequency,
+                                     double robust_estimation_fraction,
+                                     size_t maximum_buffered_fragments)
+        : surjector(surjector), graph(graph),
+          fragment_length_distribution(make_unique<FragmentLengthDistribution>(
+              maximum_sample_size, reestimation_frequency, robust_estimation_fraction)),
+          maximum_buffered_fragments(maximum_buffered_fragments),
+          minimum_samples_for_estimate(reestimation_frequency) {
+    }
+
+    PairedSurjector::~PairedSurjector() = default;
+
+    bool PairedSurjector::ready_for_parallel() const {
+        return fragment_length_distribution->is_finalized() || learning_abandoned;
+    }
+
+    double PairedSurjector::fragment_length_mean() const {
+        return fragment_length_distribution->mean();
+    }
+
+    double PairedSurjector::fragment_length_stddev() const {
+        return fragment_length_distribution->std_dev();
+    }
+
+    size_t PairedSurjector::fragment_length_sample_size() const {
+        return fragment_length_distribution->curr_sample_size();
+    }
+
+    void PairedSurjector::finalize_learning() {
+        if (ready_for_parallel()) {
+            fragment_scoring_available = fragment_length_distribution->is_finalized();
+            return;
+        }
+        if (fragment_length_distribution->curr_sample_size() >= minimum_samples_for_estimate
+            && isfinite(fragment_length_distribution->mean())
+            && isfinite(fragment_length_distribution->std_dev())
+            && fragment_length_distribution->std_dev() > 0.0) {
+            fragment_length_distribution->force_parameters(
+                fragment_length_distribution->mean(), fragment_length_distribution->std_dev());
+            fragment_scoring_available = true;
+        }
+        else {
+            learning_abandoned = true;
+            fragment_scoring_available = false;
+        }
+    }
+
+    vector<PairedSurjector::fragment_group_t>
+    PairedSurjector::finalize_fragment_length_distribution() {
+        finalize_learning();
+        return std::move(ambiguous_fragment_buffer);
+    }
+
+    int64_t PairedSurjector::compute_template_length(const Alignment& first,
+                                                     const Alignment& second) const {
+        if (first.refpos_size() == 0 || second.refpos_size() == 0) {
+            return numeric_limits<int64_t>::max();
+        }
+        const auto& first_pos = first.refpos(0);
+        const auto& second_pos = second.refpos(0);
+        if (first_pos.name().empty() || first_pos.name() != second_pos.name()
+            || !graph->has_path(first_pos.name())) {
+            return numeric_limits<int64_t>::max();
+        }
+        size_t path_length = graph->get_path_length(graph->get_path_handle(first_pos.name()));
+        int64_t first_offset = first_pos.offset();
+        int64_t second_offset = second_pos.offset();
+        auto first_cigar = cigar_against_path(first, first_pos.is_reverse(),
+                                              first_offset, path_length, 0);
+        auto second_cigar = cigar_against_path(second, second_pos.is_reverse(),
+                                               second_offset, path_length, 0);
+        if (first_cigar.empty() || second_cigar.empty()) {
+            return numeric_limits<int64_t>::max();
+        }
+        auto lengths = compute_template_lengths(first_offset, first_cigar,
+                                                second_offset, second_cigar);
+        return llabs(static_cast<int64_t>(lengths.first));
+    }
+
+    size_t PairedSurjector::choose_best(const Alignment& first_source,
+                                        const Alignment& second_source,
+                                        const vector<double>& scores) const {
+        vector<size_t> order(scores.size());
+        iota(order.begin(), order.end(), 0);
+        LazyRNG rng([&]() { return first_source.sequence() + second_source.sequence(); });
+        sort_shuffling_ties(order.begin(), order.end(),
+                            [&](size_t a, size_t b) { return scores[a] > scores[b]; }, rng);
+        return order.front();
+    }
+
+    bool PairedSurjector::surject(fragment_group_t&& placements,
+                                  const unordered_set<path_handle_t>& paths,
+                                  bool allow_negative_scores,
+                                  bool preserve_deletions,
+                                  uint64_t maximum_fragment_length,
+                                  result_t& result) {
+        result = result_t();
+        if (placements.empty()) {
+            return true;
+        }
+
+        fragment_scoring_available = fragment_length_distribution->is_finalized();
+        vector<placement_t> work;
+        work.reserve(placements.size());
+
+        using path_strand_t = pair<string, bool>;
+        for (auto& source_pair : placements) {
+            placement_t placement;
+            // Keep the input group intact until we know it will not need to be
+            // buffered and replayed after fragment-length learning.
+            placement.source_first = source_pair.first;
+            placement.source_second = source_pair.second;
+            placement.first = surjector.surject(placement.source_first, paths,
+                                                allow_negative_scores, preserve_deletions);
+            placement.second = surjector.surject(placement.source_second, paths,
+                                                 allow_negative_scores, preserve_deletions);
+
+            unordered_map<path_strand_t, vector<size_t>> second_by_path;
+            for (size_t j = 0; j < placement.second.size(); ++j) {
+                if (!is_supplementary(placement.second[j]) && placement.second[j].refpos_size()) {
+                    const auto& pos = placement.second[j].refpos(0);
+                    second_by_path[make_pair(pos.name(), pos.is_reverse())].push_back(j);
+                }
+            }
+            for (size_t i = 0; i < placement.first.size(); ++i) {
+                if (is_supplementary(placement.first[i]) || !placement.first[i].refpos_size()) {
+                    continue;
+                }
+                const auto& pos = placement.first[i].refpos(0);
+                auto found = second_by_path.find(make_pair(pos.name(), !pos.is_reverse()));
+                if (found == second_by_path.end()) {
+                    continue;
+                }
+                for (size_t j : found->second) {
+                    pair_candidate_t candidate;
+                    candidate.first = i;
+                    candidate.second = j;
+                    candidate.template_length = compute_template_length(
+                        placement.first[i], placement.second[j]);
+                    candidate.score = surjector.score_alignment_pair(
+                        placement.source_first, placement.first[i], placement.second[j],
+                        candidate.template_length, fragment_length_distribution->mean(),
+                        fragment_length_distribution->std_dev(), fragment_scoring_available);
+                    placement.candidates.push_back(candidate);
+                }
+            }
+            work.emplace_back(std::move(placement));
+        }
+
+        vector<double> global_scores;
+        vector<pair<size_t, size_t>> global_index;
+        for (size_t p = 0; p < work.size(); ++p) {
+            for (size_t c = 0; c < work[p].candidates.size(); ++c) {
+                global_scores.push_back(work[p].candidates[c].score);
+                global_index.emplace_back(p, c);
+            }
+        }
+
+        if (global_scores.empty()) {
+            // None of the surjected alignments form a compatible pair. Fall
+            // back to emitting the two read ends as singles.
+            //
+            // Pool surjections across all input graph placements before
+            // selecting primaries. Otherwise, every input placement chooses
+            // its own primary, producing multiple primary BAM records for the
+            // same read end.
+            vector<Alignment> first_surjections;
+            vector<Alignment> second_surjections;
+
+            size_t first_count = 0;
+            size_t second_count = 0;
+            for (const auto& placement : work) {
+                first_count += placement.first.size();
+                second_count += placement.second.size();
+            }
+            first_surjections.reserve(first_count);
+            second_surjections.reserve(second_count);
+
+            for (auto& placement : work) {
+                // Haplotype competition remains local to one input graph
+                // placement.
+                surjector.annotate_hap_tags(placement.source_first, placement.first);
+                surjector.annotate_hap_tags(placement.source_second, placement.second);
+                for (auto& aln : placement.first) {
+                    first_surjections.emplace_back(std::move(aln));
+                }
+                for (auto& aln : placement.second) {
+                    second_surjections.emplace_back(std::move(aln));
+                }
+            }
+
+            // Choose exactly one primary across all graph placements for each
+            // read end.
+            surjector.annotate_global_mapq_and_primary(
+                work.front().source_first, first_surjections);
+            surjector.annotate_global_mapq_and_primary(
+                work.front().source_second, second_surjections);
+
+            for (auto& aln : first_surjections) {
+                if (aln.refpos_size()) {
+                    result.singles.emplace_back(std::move(aln));
+                }
+            }
+            for (auto& aln : second_surjections) {
+                if (aln.refpos_size()) {
+                    result.singles.emplace_back(std::move(aln));
+                }
+            }
+            return true;
+        }
+
+        size_t best_global = choose_best(work.front().source_first,
+                                         work.front().source_second, global_scores);
+        size_t best_placement = global_index[best_global].first;
+        size_t best_candidate = global_index[best_global].second;
+        auto& winning_placement = work[best_placement];
+        auto& winning_candidate = winning_placement.candidates[best_candidate];
+
+        if (!ready_for_parallel()) {
+            bool can_train = winning_placement.source_first.mapping_quality() == 60
+                && winning_placement.source_second.mapping_quality() == 60
+                && winning_candidate.template_length != numeric_limits<int64_t>::max()
+                && (maximum_fragment_length == 0
+                    || static_cast<uint64_t>(winning_candidate.template_length) <= maximum_fragment_length);
+            if (can_train) {
+                fragment_length_distribution->register_fragment_length(
+                    winning_candidate.template_length);
+                fragment_scoring_available = fragment_length_distribution->is_finalized();
+            }
+            else {
+                ambiguous_fragment_buffer.emplace_back(std::move(placements));
+                if (ambiguous_fragment_buffer.size() >= maximum_buffered_fragments) {
+                    finalize_learning();
+                }
+                return false;
+            }
+        }
+
+        int32_t global_mapq = surjector.compute_mapping_quality_from_scores(
+            winning_placement.source_first, global_scores, best_global);
+        global_mapq = max<int32_t>(0, min<int32_t>(60, global_mapq));
+        global_mapq = min(global_mapq,
+                          min(winning_placement.source_first.mapping_quality(),
+                              winning_placement.source_second.mapping_quality()));
+
+        for (auto& placement : work) {
+            for (auto& aln : placement.first) {
+                if (!is_supplementary(aln)) {
+                    aln.set_is_secondary(true);
+                    aln.set_mapping_quality(global_mapq);
+                    Surjector::set_sam_tag_annotation(aln, "aq", 'i',
+                        to_string(placement.source_first.mapping_quality()));
+                }
+            }
+            for (auto& aln : placement.second) {
+                if (!is_supplementary(aln)) {
+                    aln.set_is_secondary(true);
+                    aln.set_mapping_quality(global_mapq);
+                    Surjector::set_sam_tag_annotation(aln, "aq", 'i',
+                        to_string(placement.source_second.mapping_quality()));
+                }
+            }
+
+            if (!placement.candidates.empty()) {
+                vector<double> local_scores;
+                for (const auto& candidate : placement.candidates) {
+                    local_scores.push_back(candidate.score);
+                }
+                size_t local_best = choose_best(placement.source_first,
+                                                placement.source_second, local_scores);
+                int32_t hq = surjector.compute_mapping_quality_from_scores(
+                    placement.source_first, local_scores, local_best);
+                hq = max<int32_t>(0, min<int32_t>(60, hq));
+                size_t best_first = placement.candidates[local_best].first;
+                size_t best_second = placement.candidates[local_best].second;
+                for (size_t i = 0; i < placement.first.size(); ++i) {
+                    if (!is_supplementary(placement.first[i])) {
+                        Surjector::set_sam_tag_annotation(placement.first[i], "hp", 'Z',
+                            i == best_first ? "pri_hap" : "sec_hap");
+                        Surjector::set_sam_tag_annotation(placement.first[i], "hq", 'i', to_string(hq));
+                    }
+                }
+                for (size_t i = 0; i < placement.second.size(); ++i) {
+                    if (!is_supplementary(placement.second[i])) {
+                        Surjector::set_sam_tag_annotation(placement.second[i], "hp", 'Z',
+                            i == best_second ? "pri_hap" : "sec_hap");
+                        Surjector::set_sam_tag_annotation(placement.second[i], "hq", 'i', to_string(hq));
+                    }
+                }
+            }
+        }
+
+        winning_placement.first[winning_candidate.first].set_is_secondary(false);
+        winning_placement.second[winning_candidate.second].set_is_secondary(false);
+
+        for (auto& placement : work) {
+            map<string, size_t> best_per_path;
+            for (size_t c = 0; c < placement.candidates.size(); ++c) {
+                const auto& candidate = placement.candidates[c];
+                const string& path = placement.first[candidate.first].refpos(0).name();
+                auto found = best_per_path.find(path);
+                if (found == best_per_path.end()
+                    || candidate.score > placement.candidates[found->second].score
+                    || (&placement == &winning_placement && c == best_candidate)) {
+                    best_per_path[path] = c;
+                }
+            }
+
+            for (auto& aln : placement.first) {
+                if (is_supplementary(aln) && !has_annotation(aln, "mate_info")) {
+                    const Alignment* mate = nullptr;
+                    if (aln.refpos_size()) {
+                        auto found = best_per_path.find(aln.refpos(0).name());
+                        if (found != best_per_path.end()) {
+                            mate = &placement.second[placement.candidates[found->second].second];
+                        }
+                    }
+                    set_annotation(aln, "mate_info",
+                        mate
+                            ? mate_info(mate->refpos(0).name(), mate->refpos(0).offset(),
+                                        mate->refpos(0).is_reverse(), false)
+                            : mate_info("", -1, false, false));
+                }
+            }
+            for (auto& aln : placement.second) {
+                if (is_supplementary(aln) && !has_annotation(aln, "mate_info")) {
+                    const Alignment* mate = nullptr;
+                    if (aln.refpos_size()) {
+                        auto found = best_per_path.find(aln.refpos(0).name());
+                        if (found != best_per_path.end()) {
+                            mate = &placement.first[placement.candidates[found->second].first];
+                        }
+                    }
+                    set_annotation(aln, "mate_info",
+                        mate
+                            ? mate_info(mate->refpos(0).name(), mate->refpos(0).offset(),
+                                        mate->refpos(0).is_reverse(), true)
+                            : mate_info("", -1, false, true));
+                }
+            }
+            vector<bool> paired_first(placement.first.size(), false);
+            vector<bool> paired_second(placement.second.size(), false);
+            for (const auto& path_candidate : best_per_path) {
+                const auto& candidate = placement.candidates[path_candidate.second];
+                if (!paired_first[candidate.first] && !paired_second[candidate.second]) {
+                    paired_first[candidate.first] = true;
+                    paired_second[candidate.second] = true;
+                    result.pairs.emplace_back(std::move(placement.first[candidate.first]),
+                                              std::move(placement.second[candidate.second]));
+                }
+            }
+            for (size_t i = 0; i < placement.first.size(); ++i) {
+                if (!paired_first[i] && placement.first[i].refpos_size()) {
+                    result.singles.emplace_back(std::move(placement.first[i]));
+                }
+            }
+            for (size_t i = 0; i < placement.second.size(); ++i) {
+                if (!paired_second[i] && placement.second[i].refpos_size()) {
+                    result.singles.emplace_back(std::move(placement.second[i]));
+                }
+            }
+        }
+        return true;
     }
 
     vector<Alignment> Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,

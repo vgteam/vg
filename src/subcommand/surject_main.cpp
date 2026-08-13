@@ -563,6 +563,111 @@ int main_surject(int argc, char** argv) {
             ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
 
         if (interleaved) {
+            if (diploid_map) {
+                PairedSurjector paired_surjector(surjector, xgidx);
+
+                auto emit_result = [&](PairedSurjector::result_t&& result) {
+                    for (auto& pair : result.pairs) {
+                        alignment_emitter->emit_pair(std::move(pair.first),
+                                                     std::move(pair.second),
+                                                     max_frag_len);
+                    }
+                    if (!result.singles.empty()) {
+                        alignment_emitter->emit_singles(std::move(result.singles));
+                    }
+                    total_reads_surjected += 2;
+                };
+
+                auto process_fragment = [&](PairedSurjector::fragment_group_t& placements) {
+                    if (placements.empty()) {
+                        return;
+                    }
+                    try {
+                        set_crash_context(placements.front().first.name() + ", "
+                                          + placements.front().second.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, placements.front().first.name());
+                        }
+
+                        for (auto& placement : placements) {
+                            Alignment& first = placement.first;
+                            Alignment& second = placement.second;
+                            if (first.has_fragment_next()) {
+                                if (first.fragment_next().name() != second.name()
+                                    || !second.has_fragment_prev()
+                                    || second.fragment_prev().name() != first.name()) {
+                                    adjacent_but_not_paired_error(logger, first.name(), second.name());
+                                }
+                            }
+                            else if (second.has_fragment_next()) {
+                                if (second.fragment_next().name() != first.name()
+                                    || !first.has_fragment_prev()
+                                    || first.fragment_prev().name() != second.name()) {
+                                    adjacent_but_not_paired_error(logger, first.name(), second.name());
+                                }
+                            }
+                            else {
+                                adjacent_but_not_paired_error(logger, first.name(), second.name());
+                            }
+
+                            if (validate) {
+                                ensure_alignment_is_for_graph(logger, first, *xgidx);
+                                ensure_alignment_is_for_graph(logger, second, *xgidx);
+                            }
+                            if (input_format == "GAF") {
+                                check_gaf_aln(first);
+                                check_gaf_aln(second);
+                            }
+                            set_metadata(first);
+                            set_metadata(second);
+                        }
+
+                        PairedSurjector::result_t result;
+                        if (paired_surjector.surject(std::move(placements), paths,
+                                                     subpath_global, spliced,
+                                                     max_frag_len, result)) {
+                            emit_result(std::move(result));
+                        }
+
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        clear_crash_context();
+                    }
+                    catch (const std::exception& ex) {
+                        report_exception(ex);
+                    }
+                };
+
+                auto ready_for_parallel = [&]() {
+                    return paired_surjector.ready_for_parallel();
+                };
+
+                if (input_format == "GAM") {
+                    get_input_file(file_name, [&](istream& in) {
+                        vg::io::gam_paired_grouped_for_each_parallel_after_wait(
+                            in, process_fragment, ready_for_parallel);
+                    });
+                }
+                else {
+                    vg::io::gaf_paired_grouped_for_each_parallel_after_wait(
+                        *xgidx, file_name, process_fragment, ready_for_parallel);
+                }
+
+                auto buffered = paired_surjector.finalize_fragment_length_distribution();
+                if (show_progress) {
+                    logger.info() << "Fragment length estimate: "
+                                  << paired_surjector.fragment_length_mean() << " +/- "
+                                  << paired_surjector.fragment_length_stddev() << " from "
+                                  << paired_surjector.fragment_length_sample_size()
+                                  << " fragments" << endl;
+                }
+                for (auto& placements : buffered) {
+                    process_fragment(placements);
+                }
+            }
+            else {
             // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
             // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
             function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
@@ -700,6 +805,7 @@ int main_surject(int argc, char** argv) {
                     return lambda(src1, src2);
                 };
                 vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
+            }
             }
         } else {
             // We can just surject each Alignment by itself.

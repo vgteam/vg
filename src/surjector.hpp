@@ -26,6 +26,8 @@
 namespace vg {
 
 using namespace std;
+
+class FragmentLengthDistribution;
     
     /**
      * Widget to surject alignments down to linear paths in the graph.
@@ -114,6 +116,16 @@ using namespace std;
                                            const std::string& tag,
                                            char type,
                                            const std::string& value);
+
+        /// Score two surjections together, optionally including a Gaussian
+        /// fragment-length likelihood in the aligner's scoring units.
+        double score_alignment_pair(const Alignment& source,
+                                    const Alignment& first,
+                                    const Alignment& second,
+                                    int64_t template_length,
+                                    double fragment_mean,
+                                    double fragment_stddev,
+                                    bool use_fragment_length) const;
 
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
@@ -460,6 +472,72 @@ using namespace std;
         
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
+    };
+
+    /// Surject and classify all paired graph placements for one fragment while
+    /// learning the fragment-length distribution needed for paired scoring.
+    class PairedSurjector {
+    public:
+        using alignment_pair_t = pair<Alignment, Alignment>;
+        using fragment_group_t = vector<alignment_pair_t>;
+
+        struct result_t {
+            vector<alignment_pair_t> pairs;
+            vector<Alignment> singles;
+        };
+
+        PairedSurjector(Surjector& surjector,
+                        const PathPositionHandleGraph* graph,
+                        size_t maximum_sample_size = 1000,
+                        size_t reestimation_frequency = 100,
+                        double robust_estimation_fraction = 0.95,
+                        size_t maximum_buffered_fragments = 50000);
+        ~PairedSurjector();
+
+        bool surject(fragment_group_t&& placements,
+                     const unordered_set<path_handle_t>& paths,
+                     bool allow_negative_scores,
+                     bool preserve_deletions,
+                     uint64_t maximum_fragment_length,
+                     result_t& result);
+
+        bool ready_for_parallel() const;
+        vector<fragment_group_t> finalize_fragment_length_distribution();
+        double fragment_length_mean() const;
+        double fragment_length_stddev() const;
+        size_t fragment_length_sample_size() const;
+
+    private:
+        struct pair_candidate_t {
+            size_t first = 0;
+            size_t second = 0;
+            int64_t template_length = numeric_limits<int64_t>::max();
+            double score = 0.0;
+        };
+
+        struct placement_t {
+            Alignment source_first;
+            Alignment source_second;
+            vector<Alignment> first;
+            vector<Alignment> second;
+            vector<pair_candidate_t> candidates;
+        };
+
+        int64_t compute_template_length(const Alignment& first,
+                                        const Alignment& second) const;
+        size_t choose_best(const Alignment& first_source,
+                           const Alignment& second_source,
+                           const vector<double>& scores) const;
+        void finalize_learning();
+
+        Surjector& surjector;
+        const PathPositionHandleGraph* graph;
+        unique_ptr<FragmentLengthDistribution> fragment_length_distribution;
+        vector<fragment_group_t> ambiguous_fragment_buffer;
+        size_t maximum_buffered_fragments;
+        size_t minimum_samples_for_estimate;
+        bool fragment_scoring_available = false;
+        bool learning_abandoned = false;
     };
 
     template<class AlnType>
