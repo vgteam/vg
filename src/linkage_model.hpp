@@ -256,6 +256,11 @@ public:
         size_t allele_i = 0;
         size_t allele_j = 0;
         double posterior = 0.0;
+        /// The site's explained-read share, carried through so the rewritten GQ can be
+        /// discounted the same way the per-site GQ was. Without it a changed record
+        /// reports an undiscounted quality while every other record reports a discounted
+        /// one, and `GQ <= GQI` -- true everywhere else -- fails on about 5% of records.
+        double explained_share = 1.0;
     };
 
     /// Record one site. Safe to call from several threads. `haplotype_allele` must have one entry
@@ -264,7 +269,8 @@ public:
     void record(const string& contig, size_t position, size_t num_alleles,
                 const vector<double>& genotype_ln_likelihood,
                 const vector<int>& haplotype_allele,
-                size_t called_i, size_t called_j, size_t record_key);
+                size_t called_i, size_t called_j, size_t record_key,
+                double explained_share);
 
     /// Run the model per contig and return only the genotypes that changed.
     vector<Change> resolve() const;
@@ -285,6 +291,7 @@ private:
         uint16_t num_alleles = 0;
         uint16_t called_i = 0;
         uint16_t called_j = 0;
+        float explained_share = 1.0f;
         size_t record_key = 0;
     };
 

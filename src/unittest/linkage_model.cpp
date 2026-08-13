@@ -275,8 +275,8 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     LinkageCollector collector(p, 4);
 
     // Site 1 decisive for 1/1; site 2 flat, with the panel linking allele 1 to allele 1.
-    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, /*key*/ 11);
-    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22);
+    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, /*key*/ 11, /*share*/ 1.0);
+    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22, /*share*/ 1.0);
 
     REQUIRE(collector.num_sites() == 2);
     // Two entries, six floats, eight int8s. Anything near a vector-per-site layout would be
@@ -299,8 +299,8 @@ TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
     LinkageModel::Params p;
     p.weight = 0.0;
     LinkageCollector collector(p, 4);
-    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
-    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
     REQUIRE(collector.resolve().empty());
 }
 
@@ -313,12 +313,12 @@ TEST_CASE("The collector does not link across contigs", "[linkage_model]") {
     p.rho_min = 1e-4;
 
     LinkageCollector same(p, 4);
-    same.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
-    same.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+    same.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    same.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
     LinkageCollector split(p, 4);
-    split.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
-    split.record("chr2", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+    split.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    split.record("chr2", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
     REQUIRE(same.resolve().size() == 1);
     REQUIRE(split.resolve().empty());
@@ -335,12 +335,12 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
     p.rho_min = 1e-4;
 
     LinkageCollector ordered(p, 4);
-    ordered.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
-    ordered.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
+    ordered.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    ordered.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
     LinkageCollector shuffled(p, 4);
-    shuffled.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22);
-    shuffled.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11);
+    shuffled.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
+    shuffled.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
 
     auto a = ordered.resolve();
     auto b = shuffled.resolve();

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 211
+plan tests 212
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -280,6 +280,19 @@ is $(diff rl_link_t1.vcf rl_link_t4.vcf | wc -l | tr -d ' ') "0" "--linkage-weig
 vg call x.gbz --read-likelihood --gam sim.gam -z --linkage-weight 0 2>/dev/null | grep -v "^#" > rl_link_off.vcf
 grep -v "^#" callrl_nopack_z.vcf > rl_link_default.vcf
 is $(if [ $(diff rl_link_default.vcf rl_link_off.vcf | wc -l | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "the default --linkage-weight changes calls that --linkage-weight 0 leaves alone"
+
+# GQ = GQI * share, so GQ can never exceed GQI -- and that has to hold on records the linkage
+# pass rewrote too, or one file carries two definitions of the field. It did not: the rewritten
+# GQ was the phred complement of the posterior with no discount, and on real data 4.63% of
+# records came out with GQ > GQI. Asserted over the linkage-on run because that is the only
+# path that can break it.
+GQ_OVER_GQI=$(grep -v "^#" callrl_nopack_z.vcf | awk -F'\t' '{
+    split($9, k, ":"); split($10, v, ":");
+    gq = ""; gqi = "";
+    for (i = 1; i <= length(k); i++) { if (k[i] == "GQ") gq = v[i]; if (k[i] == "GQI") gqi = v[i]; }
+    if (gq != "" && gqi != "" && gq + 0 > gqi + 0 + 0.001) n++;
+} END { print n + 0 }')
+is "${GQ_OVER_GQI}" "0" "GQ never exceeds GQI, including on linkage-changed records"
 
 # Weight 0 never constructs the collector, so it is a different code path from a small weight and
 # earns its own determinism check.

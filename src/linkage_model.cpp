@@ -350,7 +350,8 @@ vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const
 void LinkageCollector::record(const string& contig, size_t position, size_t num_alleles,
                               const vector<double>& genotype_ln_likelihood,
                               const vector<int>& haplotype_allele,
-                              size_t called_i, size_t called_j, size_t record_key) {
+                              size_t called_i, size_t called_j, size_t record_key,
+                              double explained_share) {
     if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
         return;
     }
@@ -377,6 +378,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     e.called_i = (uint16_t)called_i;
     e.called_j = (uint16_t)called_j;
     e.record_key = record_key;
+    e.explained_share = (float)explained_share;
 
     e.gl_offset = (uint32_t)gl_arena.size();
     for (double v : genotype_ln_likelihood) {
@@ -482,6 +484,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve() const {
             c.allele_i = i;
             c.allele_j = j;
             c.posterior = post[best];
+            c.explained_share = (double)e.explained_share;
             changes.push_back(c);
         }
     }
