@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 216
+plan tests 227
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -259,6 +259,55 @@ is $(if [ $(grep -v "^#" callrl_nopack.vcf | wc -l) -gt 0 ]; then echo 1; else e
 vg call x.gbz --read-likelihood --gam sim.gam -z > callrl_nopack_z.vcf 2>/dev/null
 is "$?" "0" "--read-likelihood works with -z and no pack file"
 
+# Panel enumeration is the default under --read-likelihood on a GBZ that carries haplotypes,
+# so -z is redundant there and must be exactly redundant: the same command with and without it
+# has to produce the same calls, or the flag and the default disagree about what they select.
+vg call x.gbz --read-likelihood --gam sim.gam > rl_autoz_full.vcf 2>/dev/null
+is "$?" "0" "--read-likelihood defaults to panel enumeration, so it needs neither -z nor a pack"
+grep -v "^#" rl_autoz_full.vcf > rl_autoz.vcf
+grep -v "^#" callrl_nopack_z.vcf > rl_explicit_z.vcf
+is $(diff rl_explicit_z.vcf rl_autoz.vcf | wc -l | tr -d ' ') "0" \
+   "the default enumeration mode is identical to an explicit -z"
+
+# --enumerate-support opts back out. It has to actually change the enumeration, not just be
+# accepted: asserted by the pack requirement returning, since support enumeration is the only
+# mode that consults one.
+vg call x.gbz --read-likelihood --gam sim.gam --enumerate-support >/dev/null 2>es_nopack.txt
+is "$?" "1" "--enumerate-support returns the pack file requirement"
+vg call x.gbz --read-likelihood --gam sim.gam --enumerate-support -k x.pack > rl_support_full.vcf 2>/dev/null
+is "$?" "0" "--enumerate-support works with a pack file"
+grep -v "^#" rl_support_full.vcf > rl_support.vcf
+is $(if [ $(diff rl_autoz.vcf rl_support.vcf | wc -l | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "--enumerate-support enumerates different alleles from the panel default"
+
+# Two ways of asking for enumeration at once is a contradiction, not a preference order: a
+# silent winner would mean the run did not do what the command line says.
+vg call x.gbz --read-likelihood --gam sim.gam --enumerate-support -z >/dev/null 2>es_z.txt
+is "$?" "1" "--enumerate-support with -z is refused"
+vg call x.gbz --read-likelihood --gam sim.gam --enumerate-support -g x.gbwt >/dev/null 2>es_g.txt
+is "$?" "1" "--enumerate-support with -g is refused"
+
+# A GBZ always contains a GBWT, but it may hold nothing but reference paths. Enumerating from
+# that would offer the reference allele and nothing else -- near-zero alt recall, silently.
+# The default has to notice and decline rather than take the empty panel at its word.
+vg construct -r small/x.fa -v small/x.vcf.gz > nopanel.vg 2>/dev/null
+vg gbwt -E -o nopanel.gbwt -x nopanel.vg --gbz-format -g nopanel.gbz 2>/dev/null
+vg call nopanel.gbz --read-likelihood --gam sim.gam >/dev/null 2>nopanel_err.txt
+is "$?" "1" "the panel-enumeration default declines on a GBZ with no haplotypes"
+is $(grep -c "too few to enumerate alleles from" nopanel_err.txt) "1" \
+   "declining on an empty panel says so"
+vg pack -x nopanel.vg -o nopanel.pack -g sim.gam 2>/dev/null
+vg call nopanel.gbz --read-likelihood --gam sim.gam -k nopanel.pack >/dev/null 2>/dev/null
+is "$?" "0" "the empty-panel fallback runs once given the pack file it asked for"
+
+# The support caller keeps its own default. Haplotype enumeration measures worse for it on
+# structural variants, so -z must stay opt-in outside --read-likelihood: if the two modes ever
+# agreed here, the default had leaked across callers.
+vg call x.gbz -k x.pack 2>/dev/null | grep -v "^#" > poisson_default.vcf
+vg call x.gbz -k x.pack -z 2>/dev/null | grep -v "^#" > poisson_z.vcf
+is $(if [ $(diff poisson_default.vcf poisson_z.vcf | wc -l | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "the support caller does not default to panel enumeration"
+
 # Thread count must not change the output. This is asserted for its own sake and because the
 # linkage pass collects sites from parallel threads and re-decides them afterwards: an ordering
 # that depended on which thread finished first would make results irreproducible in a way no
@@ -418,7 +467,7 @@ is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-
 is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
 is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf
 
 
 # subpath test

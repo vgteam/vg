@@ -39,6 +39,27 @@ const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
 const size_t DEFAULT_GAF_BASE_WINDOW = 4096;
 
+/// Count the distinct haplotypes a GBZ's GBWT can offer GBWTTraversalFinder.
+///
+/// Counts (sample, haplotype) pairs over HAPLOTYPE-sense paths only. Reference and
+/// generic paths live in the same GBWT but are not panel members: a GBZ carrying only
+/// GRCh38 and CHM13 holds two paths and no panel at all, and enumerating from it would
+/// offer nothing but the reference allele at every site. A haplotype broken into
+/// fragments owns several paths, so collapse onto the (sample, haplotype) key rather
+/// than counting paths.
+///
+/// Deliberately not the same count as the linkage layer's, which collapses every path
+/// including the reference ones: there a reference assembly is a legitimate panel
+/// member to impute against. The question here is narrower, and is only whether there
+/// is any alternative to the reference to enumerate at all.
+static size_t count_panel_haplotypes(const PathHandleGraph& graph) {
+    set<pair<string, size_t>> haplotypes;
+    graph.for_each_path_of_sense(PathSense::HAPLOTYPE, [&](const path_handle_t& path) {
+        haplotypes.emplace(graph.get_sample_name(path), graph.get_haplotype(path));
+    });
+    return haplotypes.size();
+}
+
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
          << "Call variants or genotype known variants" << endl
@@ -68,6 +89,17 @@ void help_call(char** argv) {
          << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "" << endl
+         << "  allele enumeration:" << endl
+         << "      --enumerate-support   enumerate candidate alleles from read support rather" << endl
+         << "                            than from the GBZ haplotype panel. The panel is the" << endl
+         << "                            default here, as -z gives elsewhere: it measured better" << endl
+         << "                            on every small-variant class tested and needs no pack" << endl
+         << "                            file. This flag opts out, and then -k/--pack is needed" << endl
+         << "                            again. Worth it where the sample's variation is poorly" << endl
+         << "                            represented in the panel, since panel enumeration can" << endl
+         << "                            never spell an allele no haplotype carries. A panel of" << endl
+         << "                            under 2 haplotypes falls back to support on its own" << endl
+         << "" << endl
          << "  model terms:" << endl
          << "      --depth-term W        add W * ln P(N reads | genotype) to the likelihood, so" << endl
          << "                            a genotype is also judged on whether it predicts the" << endl
@@ -92,7 +124,7 @@ void help_call(char** argv) {
          << "                            mis-genotypes large heterozygous insertions. Restores" << endl
          << "                            the pre-correction model exactly" << endl
          << "" << endl
-         << "  linkage between sites (also needs haplotype enumeration, -z or -g):" << endl
+         << "  linkage between sites (needs panel enumeration, so off under --enumerate-support):" << endl
          << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over the" << endl
          << "                            GBWT haplotypes, so consecutive calls are judged against" << endl
          << "                            combinations the panel carries. Declines quietly where" << endl
@@ -145,7 +177,8 @@ void help_call(char** argv) {
          << "  -r, --snarls FILE         snarls (from vg snarls) to avoid recomputing." << endl
          << "  -g, --gbwt FILE           only call genotypes present in given GBWT index" << endl
          << "  -z, --gbz                 only call genotypes present in GBZ index" << endl
-         << "                            (applies only if input graph is GBZ)" << endl
+         << "                            (applies only if input graph is GBZ; already the" << endl
+         << "                            default under --read-likelihood)" << endl
          << "  -N, --translation FILE    node ID translation (from vg gbwt --translation)" << endl
          << "                            to apply to snarl names in output" << endl
          << "  -O, --gbz-translation     use the ID translation from the input GBZ to" << endl
@@ -191,6 +224,8 @@ int main_call(int argc, char** argv) {
     string snarl_filename;
     string gbwt_filename;
     bool   gbz_paths = false;
+    bool   gbz_paths_explicit = false;
+    bool   enumerate_support = false;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -303,6 +338,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
+    constexpr int OPT_ENUMERATE_SUPPORT = 1032;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -354,6 +390,7 @@ int main_call(int argc, char** argv) {
             {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
             {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
             {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
+            {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -432,6 +469,10 @@ int main_call(int argc, char** argv) {
             break;
         case 'z':
             gbz_paths = true;
+            gbz_paths_explicit = true;
+            break;
+        case OPT_ENUMERATE_SUPPORT:
+            enumerate_support = true;
             break;
         case 'N':
             translation_file_name = require_exists(logger, optarg);
@@ -737,7 +778,9 @@ int main_call(int argc, char** argv) {
         if (gbz_paths) {
             if (show_progress) logger.info() << "Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
-        } else {
+        } else if (!read_likelihood) {
+            // Under --read-likelihood this is decided below rather than suggested, so the
+            // hint would either be wrong or be immediately contradicted.
             logger.info() << "You can restrict the search to GBZ haplotypes, "
                           << "often to the benefict of speed and accuracy, with the -z option" << endl;
         }
@@ -853,7 +896,7 @@ int main_call(int argc, char** argv) {
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-freq-prior", "--depth-quality", "--flat-mixture", "--no-share-quality",
-            "--mismap-max", "--mismap-min", "--dump-likelihoods"};
+            "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);
@@ -896,6 +939,69 @@ int main_call(int argc, char** argv) {
         if (legacy) {
             logger.error() << "--read-likelihood cannot be used with --legacy" << endl;
         }
+    }
+
+    // Default allele enumeration for --read-likelihood on a GBZ that carries a haplotype
+    // panel: enumerate the traversals the panel actually spells, rather than every
+    // traversal the support flow permits.
+    //
+    // Measured on HG002 against HPRC graphs (chr20 and chr6, 4- and 34-haplotype), as
+    // haplotype enumeration against support enumeration under this caller: better small
+    // variant F1 in all four (0.9487 -> 0.9507, 0.9513 -> 0.9645, 0.9583 -> 0.9602,
+    // 0.9588 -> 0.9689), and better SV F1 in three of four (+0.0352, +0.0144, +0.0269),
+    // the exception being chr20 4-haplotype at -0.0018, which is under two events on a
+    // 765 event benchmark and below what it resolves. It also drops the pack file
+    // requirement, since nothing then consults support.
+    //
+    // Not made the default for the support caller, where the same comparison loses SV F1
+    // on all four datasets (0.4954 -> 0.4930, 0.4535 -> 0.4391, 0.5490 -> 0.5478,
+    // 0.4944 -> 0.4881); flipping it there would regress existing callers by as much as
+    // 0.0144, so -z stays opt-in outside this mode.
+    //
+    // Caveat worth knowing before trusting the default: enumeration from a panel cannot
+    // spell an allele no haplotype carries, so the ceiling is the panel's content. The
+    // numbers above are one sample against a panel that excludes it but represents its
+    // variation well, and a sample poorly represented in the panel would fare worse.
+    // --enumerate-support is the way out.
+    if (read_likelihood && !gbz_paths && !enumerate_support && gbz_graph &&
+        gbwt_filename.empty() && vcf_filename.empty()) {
+        // Only worth it if there is a panel to enumerate. A GBZ always has a GBWT, but it
+        // may hold nothing but reference paths, and enumerating from that would offer the
+        // reference allele and nothing else: silently near-zero alt recall, which is far
+        // worse than the support enumeration it replaced. One haplotype is not an error
+        // but is too thin to choose automatically; -z still forces it.
+        size_t panel = count_panel_haplotypes(*gbz_graph);
+        if (panel >= 2) {
+            gbz_paths = true;
+            gbwt_index = &gbz_graph->gbz.index;
+            if (show_progress) {
+                logger.info() << "Enumerating alleles from the " << panel
+                              << " GBZ panel haplotypes (default under --read-likelihood; "
+                              << "--enumerate-support to enumerate from read support instead)"
+                              << endl;
+            }
+            if (!pack_filename.empty()) {
+                // A pack is only ever consulted by support enumeration, so under this default
+                // it is dead weight. Passing one is a fair signal that support enumeration was
+                // what was wanted, and taking it without using it would leave the run quietly
+                // doing something other than what the command line asks for.
+                logger.warn() << "-k/--pack is unused when alleles come from the haplotype "
+                              << "panel; pass --enumerate-support to enumerate from read "
+                              << "support and use it" << endl;
+            }
+        } else {
+            logger.warn() << "GBZ carries " << panel << " panel haplotype(s), too few to "
+                             << "enumerate alleles from; falling back to support-based "
+                             << "enumeration, which needs -k/--pack" << endl;
+        }
+    }
+    if (enumerate_support && gbz_paths_explicit) {
+        logger.error() << "--enumerate-support and -z/--gbz select different allele "
+                       << "enumeration strategies: choose one or the other" << endl;
+    }
+    if (enumerate_support && !gbwt_filename.empty()) {
+        logger.error() << "--enumerate-support and -g/--gbwt select different allele "
+                       << "enumeration strategies: choose one or the other" << endl;
     }
 
     if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {
